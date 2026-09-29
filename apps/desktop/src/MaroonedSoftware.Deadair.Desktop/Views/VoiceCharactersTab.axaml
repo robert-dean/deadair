@@ -2,6 +2,7 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.VoiceCharactersTab"
     x:DataType="vm:CharactersViewModel">
 
@@ -16,6 +17,39 @@
                 <Button Classes="ghost" Content="Export all" Command="{Binding ExportAllCommand}" />
                 <Button Classes="ghost" Content="Restore built-ins" Command="{Binding RestoreCommand}" />
             </WrapPanel>
+
+            <!-- The two station settings that are about every character: what an unnamed host is
+                 called, and how long a story in parts rests. What stays on screen is who they
+                 reach, which is also the way in to changing them. -->
+            <Border Classes="card" Padding="12" MaxWidth="680" HorizontalAlignment="Left"
+                    IsVisible="{Binding SettingsForm, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <StackPanel Spacing="6">
+                            <StackPanel Spacing="2">
+                                <TextBlock Classes="eyebrow" Text="Presenter name" />
+                                <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap" Text="{Binding PresenterNameSummary}" />
+                            </StackPanel>
+                            <StackPanel Spacing="2">
+                                <TextBlock Classes="eyebrow" Text="Returning to a story" />
+                                <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap" Text="{Binding StoryWaitSummary}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <Button Grid.Column="1" Classes="ghost" FontSize="12" Padding="10,3" VerticalAlignment="Top"
+                                Content="{Binding SettingsToggleLabel}" Command="{Binding ToggleSettingsCommand}" />
+                    </Grid>
+                    <StackPanel Spacing="4" IsVisible="{Binding EditingSettings}">
+                        <ItemsControl ItemsSource="{Binding SettingsForm.Fields}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:FormFieldViewModel">
+                                    <views:FormFieldView />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Classes="primary" Content="Save" HorizontalAlignment="Right" Command="{Binding SaveSettingsCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
 
             <TextBox Text="{Binding Filter}" PlaceholderText="Find a character" MaxWidth="360"
                      HorizontalAlignment="Left" MinWidth="240" IsVisible="{Binding ShowsFilter}" />
@@ -33,7 +67,7 @@
                         <!-- A heading at each changeover rather than two lists. -->
                         <TextBlock Classes="eyebrow" Text="{Binding Heading}" Margin="22,4,0,6" IsVisible="{Binding HasHeading}" />
 
-                        <Grid ColumnDefinitions="14,*,170" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="14,*,236" ColumnSpacing="8">
                             <!-- The tally: one persona presents at a time. The column keeps its width
                                  whether the lamp is drawn or not, or the names do not line up. -->
                             <Ellipse Width="8" Height="8" VerticalAlignment="Top" Margin="0,6,0,0"
@@ -85,6 +119,9 @@
                                  card's text is the same width. Delete is last. -->
                             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Right"
                                         VerticalAlignment="Top">
+                                <Button Classes="reveal ghost" FontSize="11" Padding="8,3" Content="Rehearse"
+                                        Command="{Binding $parent[ListBox].((vm:CharactersViewModel)DataContext).RehearseCommand}"
+                                        CommandParameter="{Binding}" />
                                 <Button Classes="reveal ghost" FontSize="11" Padding="8,3" Content="Edit"
                                         Command="{Binding $parent[ListBox].((vm:CharactersViewModel)DataContext).EditCommand}"
                                         CommandParameter="{Binding}" />

@@ -1,0 +1,51 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PersonaRehearsalView"
+    x:DataType="vm:PersonaRehearsalViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <ScrollViewer>
+        <StackPanel Spacing="12" MaxWidth="680" HorizontalAlignment="Left" Margin="0,0,14,16">
+            <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap"
+                       Text="One break in this character's voice, between two invented records, that never airs. It speaks the character as it was last SAVED: save the sheet first to hear an edit." />
+
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Classes="primary" Content="Rehearse" Command="{Binding RehearseCommand}" IsEnabled="{Binding !Busy}" />
+                <!-- Only what won has anything to say out loud. -->
+                <Button Classes="ghost" Content="{Binding HearLabel}" Command="{Binding HearCommand}" IsVisible="{Binding CanHear}" />
+                <TextBlock Classes="dimmed" Text="Writing…" VerticalAlignment="Center" IsVisible="{Binding Busy}" />
+            </StackPanel>
+
+            <TextBlock Classes="dimmed" FontSize="12" Text="{Binding Between}" TextWrapping="Wrap"
+                       IsVisible="{Binding Between, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+            <ItemsControl ItemsSource="{Binding Attempts}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:RehearsalAttemptViewModel">
+                        <Border Classes="card" Padding="10" Margin="0,0,0,6">
+                            <StackPanel Spacing="4">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                             Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                                    <TextBlock Text="{Binding Writer}" FontSize="11" Classes="secondary" />
+                                    <TextBlock Text="{Binding Duration}" FontSize="11" Classes="mono dimmed" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Classes.dimmed="{Binding !Wrote}" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Classes="dimmed" FontSize="12" Text="{Binding Skipped}" TextWrapping="Wrap"
+                       IsVisible="{Binding Skipped, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

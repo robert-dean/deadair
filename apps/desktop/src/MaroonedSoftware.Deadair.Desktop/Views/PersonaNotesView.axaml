@@ -1,0 +1,93 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PersonaNotesView"
+    x:DataType="vm:PersonaNotesViewModel">
+
+    <UserControl.DataTemplates>
+        <!-- One note. The actions differ by section and are drawn by the section; editing is the
+             same everywhere a note is in use or proposed. -->
+        <DataTemplate DataType="vm:NoteRowViewModel">
+            <Border Classes="card" Padding="10" Margin="0,0,0,6">
+                <StackPanel Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="{Binding Kind}" FontSize="11" Classes="dimmed" VerticalAlignment="Center" />
+                            <TextBlock Text="the station's" FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource DaToneStandbyBrush}" IsVisible="{Binding ByStation}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+                            <Button Classes="ghost" FontSize="11" Padding="8,2" Content="Edit"
+                                    IsVisible="{Binding CanEdit}" Command="{Binding EditCommand}" />
+                            <Button Classes="ghost" FontSize="11" Padding="8,2" Content="Save" IsVisible="{Binding Editing}"
+                                    Command="{Binding $parent[UserControl].((vm:PersonaNotesViewModel)DataContext).SaveEditCommand}"
+                                    CommandParameter="{Binding}" />
+                            <Button Classes="ghost" FontSize="11" Padding="8,2" Content="Stop editing" IsVisible="{Binding Editing}"
+                                    Command="{Binding StopEditingCommand}" />
+                            <Button Classes="ghost" FontSize="11" Padding="8,2" Content="Accept" IsVisible="{Binding IsProposed}"
+                                    Command="{Binding $parent[UserControl].((vm:PersonaNotesViewModel)DataContext).AcceptCommand}"
+                                    CommandParameter="{Binding}" />
+                            <!-- Not a delete: a deleted proposal comes back on the next pass. -->
+                            <Button Classes="ghost" FontSize="11" Padding="8,2" Content="Reject" IsVisible="{Binding IsProposed}"
+                                    Command="{Binding $parent[UserControl].((vm:PersonaNotesViewModel)DataContext).RejectCommand}"
+                                    CommandParameter="{Binding}" />
+                            <Button Classes="ghost" FontSize="11" Padding="8,2" Content="Delete" IsVisible="{Binding IsActive}"
+                                    Command="{Binding $parent[UserControl].((vm:PersonaNotesViewModel)DataContext).DeleteCommand}"
+                                    CommandParameter="{Binding}" />
+                            <Button Classes="ghost" FontSize="11" Padding="8,2" Content="Use anyway" IsVisible="{Binding IsRejected}"
+                                    Command="{Binding $parent[UserControl].((vm:PersonaNotesViewModel)DataContext).AcceptCommand}"
+                                    CommandParameter="{Binding}" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" IsVisible="{Binding !Editing}" />
+                    <TextBox Text="{Binding Draft}" TextWrapping="Wrap" MaxLength="500" IsVisible="{Binding Editing}" />
+                    <!-- What a proposal is judged on: the words the station actually said. -->
+                    <TextBlock Text="{Binding Quote}" FontSize="11" FontStyle="Italic" TextWrapping="Wrap" Classes="dimmed"
+                               IsVisible="{Binding Quote, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <ScrollViewer>
+        <StackPanel Spacing="14" MaxWidth="680" HorizontalAlignment="Left" Margin="0,0,14,16">
+            <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap"
+                       Text="What this character has settled into, and what it has said before. Proposals first: they are the only thing here waiting on you." />
+            <TextBlock Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+            <StackPanel Spacing="6" IsVisible="{Binding HasProposed}">
+                <TextBlock Classes="eyebrow" Text="Proposed" />
+                <ItemsControl ItemsSource="{Binding Proposed}" />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Classes="eyebrow" Text="In use" />
+                <ItemsControl ItemsSource="{Binding InUse}" />
+                <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap" IsVisible="{Binding IsEmpty}"
+                           Text="This character has accumulated nothing yet, which is an ordinary state: its breaks are written from its sheet alone. Write a note, or let the station propose one from what it has already said." />
+            </StackPanel>
+
+            <StackPanel Spacing="6" IsVisible="{Binding HasTurnedDown}">
+                <TextBlock Classes="eyebrow" Text="Turned down" />
+                <ItemsControl ItemsSource="{Binding TurnedDown}" />
+                <TextBlock Classes="dimmed" FontSize="11" Text="Kept rather than deleted, so the station does not propose them again." />
+            </StackPanel>
+
+            <!-- Written by hand, a note is in use from the moment it exists; only the pass proposes. -->
+            <Grid ColumnDefinitions="150,*,Auto" ColumnSpacing="8">
+                <ComboBox ItemsSource="{x:Static vm:PersonaNotesViewModel.Kinds}" SelectedItem="{Binding NewKind}" HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:DialOption">
+                            <TextBlock Text="{Binding Label}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBox Grid.Column="1" Text="{Binding NewNote}" PlaceholderText="calls the listener a shipmate" MaxLength="500" />
+                <Button Grid.Column="2" Classes="ghost" Content="Add" Command="{Binding AddCommand}" />
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

@@ -71,8 +71,9 @@ public abstract record Destination
     /// <param name="Id">The persona's id, or null for one that has not been written yet.</param>
     /// <param name="Name">What the roster called it, shown while the page is drawn.</param>
     /// <param name="Caller">Whether it phones in rather than presents, which a new one cannot say for itself.</param>
+    /// <param name="Rehearse">Open on a rehearsal, already asked for: the roster's Rehearse lands here.</param>
     /// <remarks>A detail page of the Voice page, reached with <c>NavigationViewModel.Push</c>.</remarks>
-    public sealed record PersonaDetail(string? Id, string Name, bool Caller) : Destination;
+    public sealed record PersonaDetail(string? Id, string Name, bool Caller, bool Rehearse = false) : Destination;
 }
 
 /// <summary>

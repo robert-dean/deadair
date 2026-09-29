@@ -1171,6 +1171,24 @@ a generated draft. The key follows the name only on a NEW character and only unt
 their own: the key is what the script history stamps, and moving it under a rename detaches a
 character from everything it has said.
 
+**What a character has accumulated is a section of its page, not a panel under its card.** The
+console opens the notebook, the stories and the memory inline on the roster, one at a time because
+each is a read per character; here each is a section of `PersonaDetailViewModel` (its own view model
+and view) and is read when it is shown, so a roster costs one request however long it is. The
+roster's Rehearse opens the page on its rehearsal, already asked for: a rehearsal reads the SAVED
+row, so it belongs beside the sheet it speaks, and the page says to save first to hear an edit.
+Proposals are listed above what is in use and offer Reject, never Delete: a deleted proposal is
+written again by the next pass over the same scripts.
+
+**A rollback is chosen from the timeline and previewed before it can be pressed.** Pointing at a row
+sends that row's own moment back, so nothing is retyped or rounded, and the dialog opens only with
+the station's count of what would go (`PersonaMemoryText.Summary`), including the two costs nobody
+expects. Re-learning starts off: it is the testing answer, not the undoing one.
+
+**The presenter name and the story wait are drawn above the roster through the shared form**, filtered
+from `GET /settings` to their two keys and saved with only what changed. What stays on screen is who
+they reach, named, because every host with a name of its own overrides the first.
+
 **The phrasing and marker checks are advisory and never block a save.** `PersonaReadout` holds a
 copy of the station's placeholder vocabulary, and a desk that refused a save over its own copy would
 stop working the day the station learns a new one.

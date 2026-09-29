@@ -2,6 +2,7 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.PersonaDetailView"
     x:DataType="vm:PersonaDetailViewModel">
 
@@ -39,274 +40,307 @@
         <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
             <TextBlock Classes="h1" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
             <TextBlock Classes="dimmed" Text="{Binding Subtitle}" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left" />
+
+            <!-- What a character has accumulated exists only once it does, so a new one has a sheet alone. -->
+            <WrapPanel ItemSpacing="6" LineSpacing="6" Margin="0,8,0,0" IsVisible="{Binding !IsNew}">
+                <Button Classes="tab" Classes.active="{Binding IsSheet}" Content="Sheet"
+                        Command="{Binding ShowSectionCommand}" CommandParameter="Sheet" />
+                <Button Classes="tab" Classes.active="{Binding IsNotebook}" Content="Notebook"
+                        Command="{Binding ShowSectionCommand}" CommandParameter="Notebook" />
+                <Button Classes="tab" Classes.active="{Binding IsStories}" Content="Stories"
+                        Command="{Binding ShowSectionCommand}" CommandParameter="Stories" />
+                <Button Classes="tab" Classes.active="{Binding IsMemory}" Content="Memory"
+                        Command="{Binding ShowSectionCommand}" CommandParameter="Memory" />
+                <Button Classes="tab" Classes.active="{Binding IsRehearsal}" Content="Rehearsal"
+                        Command="{Binding ShowSectionCommand}" CommandParameter="Rehearsal" />
+            </WrapPanel>
         </StackPanel>
 
-        <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="0,1,0,0" Padding="0,12,0,0">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-                <StackPanel Spacing="4" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Problem}" FontSize="12" TextWrapping="Wrap"
-                               Foreground="{DynamicResource DaToneFaultBrush}"
-                               IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                    <TextBlock Classes="help" Text="{x:Static vm:PersonaDetailViewModel.Rules}" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Button Classes="ghost" Content="Cancel" Command="{Binding CancelCommand}" />
-                    <Button Classes="primary" Content="Save" Command="{Binding SaveCommand}" IsEnabled="{Binding !Busy}" />
-                </StackPanel>
-            </Grid>
-        </Border>
+        <Panel>
+            <Panel IsVisible="{Binding !IsNew}">
+                <Panel IsVisible="{Binding IsNotebook}">
+                    <views:PersonaNotesView DataContext="{Binding Notes}" />
+                </Panel>
+                <Panel IsVisible="{Binding IsStories}">
+                    <views:PersonaStoriesView DataContext="{Binding Stories}" />
+                </Panel>
+                <Panel IsVisible="{Binding IsMemory}">
+                    <views:PersonaMemoryView DataContext="{Binding Memory}" />
+                </Panel>
+                <Panel IsVisible="{Binding IsRehearsal}">
+                    <views:PersonaRehearsalView DataContext="{Binding Rehearsal}" />
+                </Panel>
+            </Panel>
 
-        <ScrollViewer>
-            <StackPanel Spacing="16" MaxWidth="640" HorizontalAlignment="Left" Margin="0,0,14,16">
-
-                <!-- Only on a new character: on one that exists the same button would overwrite
-                     somebody's own work with no way back. -->
-                <Border Classes="card" IsVisible="{Binding IsNew}">
-                    <StackPanel Spacing="8">
-                        <TextBlock Classes="eyebrow" Text="Start from a description" />
-                        <TextBox Classes="lines" Text="{Binding Description}" PlaceholderText="{Binding DescriptionPlaceholder}" MinHeight="48" />
-                        <TextBlock Classes="help" Text="Fills in the fields below. Nothing is saved until you press Save, and you can change any of it first." />
-                        <TextBlock Classes="help" Text="{Binding Dropped}" Foreground="{DynamicResource DaToneFaultBrush}"
-                                   IsVisible="{Binding Dropped, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                        <Button Classes="ghost" Content="Write me one" HorizontalAlignment="Right" Command="{Binding GenerateCommand}" />
-                    </StackPanel>
+            <DockPanel IsVisible="{Binding IsSheet}">
+                <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="0,1,0,0" Padding="0,12,0,0">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <StackPanel Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Problem}" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource DaToneFaultBrush}"
+                                       IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                            <TextBlock Classes="help" Text="{x:Static vm:PersonaDetailViewModel.Rules}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button Classes="ghost" Content="Cancel" Command="{Binding CancelCommand}" />
+                            <Button Classes="primary" Content="Save" Command="{Binding SaveCommand}" IsEnabled="{Binding !Busy}" />
+                        </StackPanel>
+                    </Grid>
                 </Border>
 
-                <StackPanel Spacing="2">
-                    <TextBlock Classes="eyebrow" Text="Who they are" />
-                    <TextBlock Classes="help" Text="The half of a character the model is told about. Everything here completes &quot;You are …&quot;." />
-                </StackPanel>
+                <ScrollViewer>
+                    <StackPanel Spacing="16" MaxWidth="640" HorizontalAlignment="Left" Margin="0,0,14,16">
 
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="Name" />
-                    <TextBox Text="{Binding Label}" PlaceholderText="Late-night companion" />
-                    <TextBlock Classes="help" Text="What the roster calls them." />
-                </StackPanel>
+                        <!-- Only on a new character: on one that exists the same button would overwrite
+                             somebody's own work with no way back. -->
+                        <Border Classes="card" IsVisible="{Binding IsNew}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="eyebrow" Text="Start from a description" />
+                                <TextBox Classes="lines" Text="{Binding Description}" PlaceholderText="{Binding DescriptionPlaceholder}" MinHeight="48" />
+                                <TextBlock Classes="help" Text="Fills in the fields below. Nothing is saved until you press Save, and you can change any of it first." />
+                                <TextBlock Classes="help" Text="{Binding Dropped}" Foreground="{DynamicResource DaToneFaultBrush}"
+                                           IsVisible="{Binding Dropped, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                <Button Classes="ghost" Content="Write me one" HorizontalAlignment="Right" Command="{Binding GenerateCommand}" />
+                            </StackPanel>
+                        </Border>
 
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="Key" />
-                    <TextBox Text="{Binding Key}" Classes="mono" />
-                    <TextBlock Classes="help" Text="{Binding KeyHelp}" />
-                </StackPanel>
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="eyebrow" Text="Who they are" />
+                            <TextBlock Classes="help" Text="The half of a character the model is told about. Everything here completes &quot;You are …&quot;." />
+                        </StackPanel>
 
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="Who they are" />
-                    <TextBox Classes="lines" Text="{Binding Style}" PlaceholderText="a quiet late-night host sitting close to the mic" />
-                    <TextBlock Classes="help" Text="Completes &quot;You are …&quot;. Who they ARE; how they talk is below." />
-                </StackPanel>
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="Name" />
+                            <TextBox Text="{Binding Label}" PlaceholderText="Late-night companion" />
+                            <TextBlock Classes="help" Text="What the roster calls them." />
+                        </StackPanel>
 
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="On-air name" />
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                        <TextBox Text="{Binding DjName}" />
-                        <Button Grid.Column="1" Classes="ghost" Content="Suggest" Command="{Binding SuggestDjNameCommand}" />
-                    </Grid>
-                    <TextBlock Classes="help" Text="Overrides the station's presenter name while this persona is on air. Leave empty to keep it." />
-                </StackPanel>
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="Key" />
+                            <TextBox Text="{Binding Key}" Classes="mono" />
+                            <TextBlock Classes="help" Text="{Binding KeyHelp}" />
+                        </StackPanel>
 
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="True about them" />
-                    <TextBox Classes="lines" Text="{Binding Background}" />
-                    <TextBlock Classes="help" Text="A couple of grounded facts they may mention about themselves." />
-                </StackPanel>
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="Who they are" />
+                            <TextBox Classes="lines" Text="{Binding Style}" PlaceholderText="a quiet late-night host sitting close to the mic" />
+                            <TextBlock Classes="help" Text="Completes &quot;You are …&quot;. Who they ARE; how they talk is below." />
+                        </StackPanel>
 
-                <!-- Callers only: a tie is a restriction, and one with none rings in to anybody. -->
-                <StackPanel Spacing="8" IsVisible="{Binding IsCaller}">
-                    <StackPanel Spacing="2">
-                        <TextBlock Classes="eyebrow" Text="Who they ring" />
-                        <TextBlock Classes="help" Text="A phone-in is cast from the callers who ring whoever is presenting it. Among them, whoever rang longest ago goes first." />
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="On-air name" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <TextBox Text="{Binding DjName}" />
+                                <Button Grid.Column="1" Classes="ghost" Content="Suggest" Command="{Binding SuggestDjNameCommand}" />
+                            </Grid>
+                            <TextBlock Classes="help" Text="Overrides the station's presenter name while this persona is on air. Leave empty to keep it." />
+                        </StackPanel>
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="True about them" />
+                            <TextBox Classes="lines" Text="{Binding Background}" />
+                            <TextBlock Classes="help" Text="A couple of grounded facts they may mention about themselves." />
+                        </StackPanel>
+
+                        <!-- Callers only: a tie is a restriction, and one with none rings in to anybody. -->
+                        <StackPanel Spacing="8" IsVisible="{Binding IsCaller}">
+                            <StackPanel Spacing="2">
+                                <TextBlock Classes="eyebrow" Text="Who they ring" />
+                                <TextBlock Classes="help" Text="A phone-in is cast from the callers who ring whoever is presenting it. Among them, whoever rang longest ago goes first." />
+                            </StackPanel>
+                            <TextBlock Classes="label" Text="Rings in to" />
+                            <ItemsControl ItemsSource="{Binding Hosts}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:HostChoiceViewModel">
+                                        <CheckBox IsChecked="{Binding IsChosen}" Content="{Binding Label}" Margin="0,0,14,0" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Classes="help" Text="Leave it empty and they ring in to whoever is presenting." />
+                        </StackPanel>
+
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="eyebrow" Text="How they talk" />
+                            <TextBlock Classes="help" Text="The dialect, and the words that prove a break came back in character. A break carrying none of them is rewritten from the phrasings below." />
+                        </StackPanel>
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="How they speak" />
+                            <TextBox Classes="lines" Text="{Binding Diction}" MinHeight="96" />
+                            <TextBlock Classes="help" Text="The dialect, one rule per line. This applies to EVERY sentence, including the ones stating a plain fact." />
+                        </StackPanel>
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="Words that prove it" />
+                            <TextBox Classes="lines" Text="{Binding DictionMarkers}" />
+                            <TextBlock Classes="help" Text="One per line. A break that comes back carrying none of these is treated as out of character and the phrasings below write it instead. An entry ending in an apostrophe matches as a suffix, so in' catches every dropped g. Leave empty to check nothing." />
+                        </StackPanel>
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="In character" />
+                            <TextBox Classes="lines" Text="{Binding Quirks}" />
+                            <TextBlock Classes="help" Text="What they always and never do on air, one per line." />
+                        </StackPanel>
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="Signature phrases" />
+                            <TextBox Classes="lines" Text="{Binding Catchphrases}" />
+                            <TextBlock Classes="help" Text="One per line. Asked for sparingly: at most one, and not every break." />
+                        </StackPanel>
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="Never say" />
+                            <TextBox Classes="lines" Text="{Binding Avoid}" />
+                            <TextBlock Classes="help" Text="One per line." />
+                        </StackPanel>
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="Never in the same break" />
+                            <TextBox Classes="lines" Text="{Binding ExclusiveSubjects}" PlaceholderText="bigfoot, sasquatch, yeti" />
+                            <TextBlock Classes="help" Text="One subject per line, written as the words that mean it, separated by commas. A break that brings up words from two lines is refused and written again; a word inside a record's title does not count." />
+                        </StackPanel>
+
+                        <!-- A caller has no floor and should not have one: phrasings are what the STATION says
+                             when the model declines, and a phone-in written by a template has nobody on it. -->
+                        <StackPanel Spacing="16" IsVisible="{Binding IsHost}">
+                            <StackPanel Spacing="2">
+                                <TextBlock Classes="eyebrow" Text="What they fall back on" />
+                                <TextBlock Classes="help" Text="Most breaks are not written by a model. These are the words the station uses when it declines; a character with none falls back to plain English." />
+                            </StackPanel>
+
+                            <StackPanel Classes="field">
+                                <TextBlock Classes="label" Text="Their own phrasings" />
+                                <TextBox Classes="lines" Text="{Binding Templates}" MinHeight="120"
+                                         PlaceholderText="That was {{previous.title}}, from {{previous.artist}}.[[ Next up, {{next.title}}.]]" />
+                                <TextBlock Classes="help" Text="One per line. Fill a record in with {{previous.title}}, {{next.artist}} and the like, wrap a part in [[double brackets]] to have it dropped when there is nothing to put in it, and start a line with # to turn it off." />
+                                <TextBlock Classes="help" Text="{Binding TemplateFaults}" Foreground="{DynamicResource DaToneFaultBrush}"
+                                           IsVisible="{Binding TemplateFaults, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="Lines in their voice" />
+                            <TextBox Classes="lines" Text="{Binding Samples}" />
+                            <TextBlock Classes="help" Text="One per line. Used as examples for the model, which is asked to reuse the grammar and never the sentences." />
+                            <TextBlock Classes="help" Text="{Binding UnusedMarkers}"
+                                       IsVisible="{Binding UnusedMarkers, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="eyebrow" Text="How far they go" />
+                            <TextBlock Classes="help" Text="Dials with real consequences on air. They change what the station ASKS its presenter for: how long a break is, how much room it gets, and how often one happens. None of them can loosen what the station always sends." />
+                        </StackPanel>
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="Voice" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <!-- Suggestions from what the engine has, and typeable when nothing answers:
+                                     configuring personas before the voice is an ordinary order to do it in. -->
+                                <AutoCompleteBox Text="{Binding Voice}" ItemsSource="{Binding VoiceChoices}"
+                                                 FilterMode="ContainsOrdinal" MinimumPrefixLength="0" />
+                                <Button Grid.Column="1" Classes="ghost" Content="{Binding VoicePlayLabel}" Command="{Binding PlayVoiceCommand}"
+                                        IsEnabled="{Binding HasVoiceChoices}" />
+                            </Grid>
+                            <TextBlock Classes="help" Text="{Binding VoiceHelp}" />
+                        </StackPanel>
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="Soundboard" />
+                            <AutoCompleteBox Text="{Binding Soundboard}" ItemsSource="{Binding SoundboardChoices}"
+                                             FilterMode="ContainsOrdinal" MinimumPrefixLength="0" />
+                            <TextBlock Classes="help" Text="The set of sounds this character can reach for. Leave empty for a presenter who works without one." />
+                        </StackPanel>
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="How much they say" />
+                            <ComboBox ItemsSource="{x:Static vm:PersonaDetailViewModel.BrevityOptions}" SelectedItem="{Binding Brevity}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:DialOption">
+                                        <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Classes="help" Text="Only shorter than the station's usual. It asks for less; nothing refuses a break for running past it." />
+                        </StackPanel>
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="How much rope they get" />
+                            <ComboBox ItemsSource="{x:Static vm:PersonaDetailViewModel.LatitudeOptions}" SelectedItem="{Binding Latitude}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:DialOption">
+                                        <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Classes="help" Text="Room to follow a thought instead of making one point, with a longer break to do it in. Links, welcomes and the character's own stories, never the news or the weather. The station's explicit-content setting still outranks it." />
+                        </StackPanel>
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="How much they lean on what the station knows" />
+                            <ComboBox ItemsSource="{x:Static vm:PersonaDetailViewModel.TriviaOptions}" SelectedItem="{Binding Trivia}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:DialOption">
+                                        <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Classes="help" Text="Keen presenters are handed more of what the station has learned about a record, and asked to build each link out of the story. They can still only say what a note says." />
+                        </StackPanel>
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="How often they bring up their own past" />
+                            <ComboBox ItemsSource="{x:Static vm:PersonaDetailViewModel.StorytellingOptions}" SelectedItem="{Binding Storytelling}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:DialOption">
+                                        <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Classes="help" Text="Only about ordinary talk breaks: a story band on your clock asks for one whatever this says." />
+                        </StackPanel>
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="Whether they develop on their own" />
+                            <ComboBox ItemsSource="{x:Static vm:PersonaDetailViewModel.GrowthOptions}" SelectedItem="{Binding Growth}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:DialOption">
+                                        <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Classes="help" Text="What the nightly passes do with material they write for this character: hold it for you to accept, or put it straight into use." />
+                        </StackPanel>
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="How often they talk" />
+                            <ComboBox ItemsSource="{x:Static vm:PersonaDetailViewModel.ChattinessOptions}" SelectedItem="{Binding Chattiness}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:DialOption">
+                                        <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Classes="help" Text="Scales the gap your station leaves between its own breaks. There is no silent setting: turning breaks off is a station setting." />
+                        </StackPanel>
+
+                        <!-- What the dials come to together, which none of them can say alone. -->
+                        <TextBlock Text="{Binding Readout}" FontSize="12" TextWrapping="Wrap" Classes="secondary" />
+
+                        <StackPanel Classes="field">
+                            <TextBlock Classes="label" Text="What they keep coming back to" />
+                            <TextBox Classes="lines" Text="{Binding Preoccupations}" />
+                            <TextBlock Classes="help" Text="One subject per line. Only ONE of these reaches any break, chosen in turn, so a longer list is more variety rather than more to say at once." />
+                        </StackPanel>
+
                     </StackPanel>
-                    <TextBlock Classes="label" Text="Rings in to" />
-                    <ItemsControl ItemsSource="{Binding Hosts}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:HostChoiceViewModel">
-                                <CheckBox IsChecked="{Binding IsChosen}" Content="{Binding Label}" Margin="0,0,14,0" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBlock Classes="help" Text="Leave it empty and they ring in to whoever is presenting." />
-                </StackPanel>
-
-                <StackPanel Spacing="2">
-                    <TextBlock Classes="eyebrow" Text="How they talk" />
-                    <TextBlock Classes="help" Text="The dialect, and the words that prove a break came back in character. A break carrying none of them is rewritten from the phrasings below." />
-                </StackPanel>
-
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="How they speak" />
-                    <TextBox Classes="lines" Text="{Binding Diction}" MinHeight="96" />
-                    <TextBlock Classes="help" Text="The dialect, one rule per line. This applies to EVERY sentence, including the ones stating a plain fact." />
-                </StackPanel>
-
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="Words that prove it" />
-                    <TextBox Classes="lines" Text="{Binding DictionMarkers}" />
-                    <TextBlock Classes="help" Text="One per line. A break that comes back carrying none of these is treated as out of character and the phrasings below write it instead. An entry ending in an apostrophe matches as a suffix, so in' catches every dropped g. Leave empty to check nothing." />
-                </StackPanel>
-
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="In character" />
-                    <TextBox Classes="lines" Text="{Binding Quirks}" />
-                    <TextBlock Classes="help" Text="What they always and never do on air, one per line." />
-                </StackPanel>
-
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="Signature phrases" />
-                    <TextBox Classes="lines" Text="{Binding Catchphrases}" />
-                    <TextBlock Classes="help" Text="One per line. Asked for sparingly: at most one, and not every break." />
-                </StackPanel>
-
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="Never say" />
-                    <TextBox Classes="lines" Text="{Binding Avoid}" />
-                    <TextBlock Classes="help" Text="One per line." />
-                </StackPanel>
-
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="Never in the same break" />
-                    <TextBox Classes="lines" Text="{Binding ExclusiveSubjects}" PlaceholderText="bigfoot, sasquatch, yeti" />
-                    <TextBlock Classes="help" Text="One subject per line, written as the words that mean it, separated by commas. A break that brings up words from two lines is refused and written again; a word inside a record's title does not count." />
-                </StackPanel>
-
-                <!-- A caller has no floor and should not have one: phrasings are what the STATION says
-                     when the model declines, and a phone-in written by a template has nobody on it. -->
-                <StackPanel Spacing="16" IsVisible="{Binding IsHost}">
-                    <StackPanel Spacing="2">
-                        <TextBlock Classes="eyebrow" Text="What they fall back on" />
-                        <TextBlock Classes="help" Text="Most breaks are not written by a model. These are the words the station uses when it declines; a character with none falls back to plain English." />
-                    </StackPanel>
-
-                    <StackPanel Classes="field">
-                        <TextBlock Classes="label" Text="Their own phrasings" />
-                        <TextBox Classes="lines" Text="{Binding Templates}" MinHeight="120"
-                                 PlaceholderText="That was {{previous.title}}, from {{previous.artist}}.[[ Next up, {{next.title}}.]]" />
-                        <TextBlock Classes="help" Text="One per line. Fill a record in with {{previous.title}}, {{next.artist}} and the like, wrap a part in [[double brackets]] to have it dropped when there is nothing to put in it, and start a line with # to turn it off." />
-                        <TextBlock Classes="help" Text="{Binding TemplateFaults}" Foreground="{DynamicResource DaToneFaultBrush}"
-                                   IsVisible="{Binding TemplateFaults, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                    </StackPanel>
-                </StackPanel>
-
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="Lines in their voice" />
-                    <TextBox Classes="lines" Text="{Binding Samples}" />
-                    <TextBlock Classes="help" Text="One per line. Used as examples for the model, which is asked to reuse the grammar and never the sentences." />
-                    <TextBlock Classes="help" Text="{Binding UnusedMarkers}"
-                               IsVisible="{Binding UnusedMarkers, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                </StackPanel>
-
-                <StackPanel Spacing="2">
-                    <TextBlock Classes="eyebrow" Text="How far they go" />
-                    <TextBlock Classes="help" Text="Dials with real consequences on air. They change what the station ASKS its presenter for: how long a break is, how much room it gets, and how often one happens. None of them can loosen what the station always sends." />
-                </StackPanel>
-
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="Voice" />
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                        <!-- Suggestions from what the engine has, and typeable when nothing answers:
-                             configuring personas before the voice is an ordinary order to do it in. -->
-                        <AutoCompleteBox Text="{Binding Voice}" ItemsSource="{Binding VoiceChoices}"
-                                         FilterMode="ContainsOrdinal" MinimumPrefixLength="0" />
-                        <Button Grid.Column="1" Classes="ghost" Content="{Binding VoicePlayLabel}" Command="{Binding PlayVoiceCommand}"
-                                IsEnabled="{Binding HasVoiceChoices}" />
-                    </Grid>
-                    <TextBlock Classes="help" Text="{Binding VoiceHelp}" />
-                </StackPanel>
-
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="Soundboard" />
-                    <AutoCompleteBox Text="{Binding Soundboard}" ItemsSource="{Binding SoundboardChoices}"
-                                     FilterMode="ContainsOrdinal" MinimumPrefixLength="0" />
-                    <TextBlock Classes="help" Text="The set of sounds this character can reach for. Leave empty for a presenter who works without one." />
-                </StackPanel>
-
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="How much they say" />
-                    <ComboBox ItemsSource="{x:Static vm:PersonaDetailViewModel.BrevityOptions}" SelectedItem="{Binding Brevity}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:DialOption">
-                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <TextBlock Classes="help" Text="Only shorter than the station's usual. It asks for less; nothing refuses a break for running past it." />
-                </StackPanel>
-
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="How much rope they get" />
-                    <ComboBox ItemsSource="{x:Static vm:PersonaDetailViewModel.LatitudeOptions}" SelectedItem="{Binding Latitude}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:DialOption">
-                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <TextBlock Classes="help" Text="Room to follow a thought instead of making one point, with a longer break to do it in. Links, welcomes and the character's own stories, never the news or the weather. The station's explicit-content setting still outranks it." />
-                </StackPanel>
-
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="How much they lean on what the station knows" />
-                    <ComboBox ItemsSource="{x:Static vm:PersonaDetailViewModel.TriviaOptions}" SelectedItem="{Binding Trivia}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:DialOption">
-                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <TextBlock Classes="help" Text="Keen presenters are handed more of what the station has learned about a record, and asked to build each link out of the story. They can still only say what a note says." />
-                </StackPanel>
-
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="How often they bring up their own past" />
-                    <ComboBox ItemsSource="{x:Static vm:PersonaDetailViewModel.StorytellingOptions}" SelectedItem="{Binding Storytelling}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:DialOption">
-                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <TextBlock Classes="help" Text="Only about ordinary talk breaks: a story band on your clock asks for one whatever this says." />
-                </StackPanel>
-
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="Whether they develop on their own" />
-                    <ComboBox ItemsSource="{x:Static vm:PersonaDetailViewModel.GrowthOptions}" SelectedItem="{Binding Growth}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:DialOption">
-                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <TextBlock Classes="help" Text="What the nightly passes do with material they write for this character: hold it for you to accept, or put it straight into use." />
-                </StackPanel>
-
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="How often they talk" />
-                    <ComboBox ItemsSource="{x:Static vm:PersonaDetailViewModel.ChattinessOptions}" SelectedItem="{Binding Chattiness}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:DialOption">
-                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <TextBlock Classes="help" Text="Scales the gap your station leaves between its own breaks. There is no silent setting: turning breaks off is a station setting." />
-                </StackPanel>
-
-                <!-- What the dials come to together, which none of them can say alone. -->
-                <TextBlock Text="{Binding Readout}" FontSize="12" TextWrapping="Wrap" Classes="secondary" />
-
-                <StackPanel Classes="field">
-                    <TextBlock Classes="label" Text="What they keep coming back to" />
-                    <TextBox Classes="lines" Text="{Binding Preoccupations}" />
-                    <TextBlock Classes="help" Text="One subject per line. Only ONE of these reaches any break, chosen in turn, so a longer list is more variety rather than more to say at once." />
-                </StackPanel>
-
-            </StackPanel>
-        </ScrollViewer>
+                </ScrollViewer>
+            </DockPanel>
+        </Panel>
 
     </DockPanel>
 

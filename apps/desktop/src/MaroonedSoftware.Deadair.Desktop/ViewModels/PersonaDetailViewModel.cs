@@ -9,6 +9,16 @@ using MaroonedSoftware.Deadair.Sdk.Models;
 
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
+/// <summary>Which part of a character's page is showing.</summary>
+public enum PersonaSection
+{
+    Sheet,
+    Notebook,
+    Stories,
+    Memory,
+    Rehearsal,
+}
+
 /// <summary>One rung of a dial: the station's word for it, and what the operator reads.</summary>
 public sealed record DialOption(string Value, string Label);
 
@@ -65,6 +75,7 @@ public sealed partial class PersonaDetailViewModel : ObservableObject
         OperatorActions actions,
         HttpClient http,
         StationUrl station,
+        IDialogs dialogs,
         PreviewsViewModel previews,
         NavigationViewModel navigation,
         CharactersViewModel owner,
@@ -83,6 +94,19 @@ public sealed partial class PersonaDetailViewModel : ObservableObject
         Persona = persona;
         Kind = kind;
         _ownKey = persona is not null;
+
+        // What a character has accumulated exists only once it does, so a new one has a sheet alone.
+        if (persona is not null)
+        {
+            Notes = new PersonaNotesViewModel(actions, http, persona.Id);
+            Stories = new PersonaStoriesViewModel(actions, http, persona.Id);
+            Memory = new PersonaMemoryViewModel(actions, http, dialogs, persona.Id, persona.Label);
+            Rehearsal = new PersonaRehearsalViewModel(actions, http, previews, persona.Id, persona.Voice);
+            foreach (var section in new VoiceTabViewModel[] { Notes, Stories, Memory, Rehearsal })
+            {
+                section.Attach(station);
+            }
+        }
         _saved = persona is null ? new PersonaSheet() : PersonaSheet.From(persona);
 
         foreach (var host in owner.Roster.Where(row => PersonaRoster.KindOf(row) == PersonaKind.Host))
@@ -100,6 +124,56 @@ public sealed partial class PersonaDetailViewModel : ObservableObject
         Fill(_saved);
 
         PropertyChanged += OnEdited;
+    }
+
+    public PersonaNotesViewModel? Notes { get; }
+
+    public PersonaStoriesViewModel? Stories { get; }
+
+    public PersonaMemoryViewModel? Memory { get; }
+
+    public PersonaRehearsalViewModel? Rehearsal { get; }
+
+    /// <summary>
+    /// The notebook, the stories, the memory and a rehearsal each have a section of this page rather
+    /// than a panel under a card: each is read per character, and a roster of open panels is a request
+    /// per card nobody asked for.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSheet), nameof(IsNotebook), nameof(IsStories), nameof(IsMemory), nameof(IsRehearsal))]
+    private PersonaSection _section = PersonaSection.Sheet;
+
+    public bool IsSheet => Section == PersonaSection.Sheet;
+
+    public bool IsNotebook => Section == PersonaSection.Notebook;
+
+    public bool IsStories => Section == PersonaSection.Stories;
+
+    public bool IsMemory => Section == PersonaSection.Memory;
+
+    public bool IsRehearsal => Section == PersonaSection.Rehearsal;
+
+    [RelayCommand]
+    private void ShowSection(string section)
+    {
+        if (!IsNew && Enum.TryParse<PersonaSection>(section, out var parsed))
+        {
+            Section = parsed;
+        }
+    }
+
+    /// <summary>Each section reads when it is shown, and the sheet was read with the roster.</summary>
+    partial void OnSectionChanged(PersonaSection value)
+    {
+        VoiceTabViewModel? shown = value switch
+        {
+            PersonaSection.Notebook => Notes,
+            PersonaSection.Stories => Stories,
+            PersonaSection.Memory => Memory,
+            _ => null,
+        };
+
+        shown?.LoadCommand.Execute(null);
     }
 
     /// <summary>The character being edited, or null for a new one.</summary>

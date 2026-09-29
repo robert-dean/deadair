@@ -1,0 +1,54 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PersonaMemoryView"
+    x:DataType="vm:PersonaMemoryViewModel">
+
+    <!-- The timeline is the control: a rollback is chosen by pointing at the row it goes back to. -->
+    <DockPanel MaxWidth="680" HorizontalAlignment="Left">
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,10">
+            <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap"
+                       Text="What this character has told, and how far back to undo it. A rollback takes only what the station wrote itself; anything you typed stays." />
+            <TextBlock Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <StackPanel Spacing="2" IsVisible="{Binding IsEmpty}">
+                <TextBlock Text="This character has not told anything yet" />
+                <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap"
+                           Text="A story goes on the timeline when a break carries it. Until then there is nothing to undo." />
+            </StackPanel>
+        </StackPanel>
+
+        <Button DockPanel.Dock="Bottom" Classes="ghost" Foreground="{DynamicResource DaSeverityFailureBrush}" Content="Clear all of it" HorizontalAlignment="Right" Margin="0,10,14,0"
+                ToolTip.Tip="Clears everything this character accumulated on its own. What you wrote by hand stays."
+                IsVisible="{Binding !IsEmpty}" Command="{Binding ClearAllCommand}" />
+
+        <ListBox Classes="rows" ItemsSource="{Binding Tellings}">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:TellingRowViewModel">
+                    <Grid ColumnDefinitions="*,130" ColumnSpacing="10">
+                        <StackPanel Spacing="3">
+                            <WrapPanel ItemSpacing="8">
+                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                                <TextBlock Text="passed over" FontSize="11" Classes="dimmed" VerticalAlignment="Center"
+                                           ToolTip.Tip="It was offered and the writer did not use it" IsVisible="{Binding PassedOver}" />
+                                <TextBlock Text="not aired" FontSize="11" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource DaToneFaultBrush}"
+                                           ToolTip.Tip="Written, but no listener has heard it yet" IsVisible="{Binding NotAired}" />
+                            </WrapPanel>
+                            <TextBlock Text="{Binding Said}" FontSize="12" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                                       Classes="secondary"
+                                       IsVisible="{Binding Said, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                            <TextBlock Text="{Binding When}" FontSize="11" Classes="mono dimmed" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Classes="reveal ghost" FontSize="11" Padding="8,3" Content="Roll back to here"
+                                HorizontalAlignment="Right" VerticalAlignment="Top" ToolTip.Tip="Undo everything after this"
+                                Command="{Binding $parent[ListBox].((vm:PersonaMemoryViewModel)DataContext).RollBackCommand}"
+                                CommandParameter="{Binding}" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+
+</UserControl>

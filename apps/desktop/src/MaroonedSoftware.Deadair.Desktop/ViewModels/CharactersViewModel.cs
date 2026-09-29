@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.Forms;
 using MaroonedSoftware.Deadair.Desktop.Core.Voicing;
 using MaroonedSoftware.Deadair.Desktop.Services;
 using MaroonedSoftware.Deadair.Sdk.Models;
@@ -161,6 +162,112 @@ public sealed partial class CharactersViewModel(
         Voices = voices?.Voices ?? Voices;
         _counts = summary?.Rows ?? _counts;
         Present(list);
+
+        var settings = await RunAsync((sdk, token) => sdk.Settings.GetSettingsAsync(token), cancellationToken: cancellationToken)
+            .ConfigureAwait(true);
+        if (settings is not null)
+        {
+            PresentSettings(settings);
+        }
+    }
+
+    /// <summary>
+    /// The two station settings that are about every character rather than one: what an unnamed host
+    /// is called, and how long a story in parts rests between tellings.
+    /// </summary>
+    /// <remarks>
+    /// They are drawn here rather than on Settings because the override is in view here: any host with
+    /// a name of its own wins while it is on air, so beside the station's name the presenter name read
+    /// as THE presenter's and was not. The same shared form draws them, from what the station declares.
+    /// </remarks>
+    public static IReadOnlySet<string> SettingKeys { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        PresenterNameKey,
+        StoryWaitKey,
+    };
+
+    public const string PresenterNameKey = "station.djName";
+
+    public const string StoryWaitKey = "personas.threadGapMinutes";
+
+    /// <summary>The two settings as a form, or null until the station has said what it holds.</summary>
+    [ObservableProperty]
+    private ConfigFormViewModel? _settingsForm;
+
+    /// <summary>Whether the form is open; what stays on screen is who the settings reach.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SettingsToggleLabel))]
+    private bool _editingSettings;
+
+    public string SettingsToggleLabel => EditingSettings ? "Done" : "Change";
+
+    [ObservableProperty]
+    private string? _presenterNameSummary;
+
+    [ObservableProperty]
+    private string? _storyWaitSummary;
+
+    public void PresentSettings(StationSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        SettingsForm = new ConfigFormViewModel(
+            settings.Descriptors.Where(descriptor => SettingKeys.Contains(descriptor.Key)).Select(FormField.From),
+            settings.Values,
+            settings.Configured,
+            FormEncoding.Strings,
+            settings.Derived);
+
+        var name = settings.Values.TryGetValue(PresenterNameKey, out var stored) ? FormValues.Read(stored)?.Trim() ?? string.Empty : string.Empty;
+        var unnamed = _roster
+            .Where(persona => PersonaRoster.KindOf(persona) == PersonaKind.Host && string.IsNullOrWhiteSpace(persona.DjName))
+            .Select(persona => persona.Label)
+            .ToList();
+        PresenterNameSummary = PersonaMemoryText.PresenterName(name, unnamed);
+
+        var gap = settings.Values.TryGetValue(StoryWaitKey, out var minutes)
+            && long.TryParse(FormValues.Read(minutes), System.Globalization.CultureInfo.InvariantCulture, out var read)
+                ? read
+                : DefaultStoryWait;
+        StoryWaitSummary = PersonaMemoryText.StoryWait(gap);
+    }
+
+    /// <summary>The station's own default for the story wait, restated for a station that holds none.</summary>
+    private const long DefaultStoryWait = 40;
+
+    [RelayCommand]
+    private void ToggleSettings() => EditingSettings = !EditingSettings;
+
+    /// <summary>Only what changed is sent, so a value somebody else edited meanwhile is left alone.</summary>
+    [RelayCommand]
+    private async Task SaveSettingsAsync()
+    {
+        if (SettingsForm is not { } form)
+        {
+            return;
+        }
+
+        if (form.Problem() is { } problem)
+        {
+            Notice = problem;
+            return;
+        }
+
+        var changed = form.Submission();
+        if (changed.Count == 0)
+        {
+            EditingSettings = false;
+            return;
+        }
+
+        var saved = await RunAsync((sdk, token) => sdk.Settings.UpdateSettingsAsync(new StationSettingsInput { Values = changed }, token))
+            .ConfigureAwait(true);
+        if (saved is not null)
+        {
+            Notice = "Saved.";
+            EditingSettings = false;
+            PresentSettings(saved);
+        }
     }
 
     /// <summary>Draws a roster the station answered with. Every write answers the whole list.</summary>
@@ -247,6 +354,17 @@ public sealed partial class CharactersViewModel(
         navigation.Push(new Nav.Destination.PersonaDetail(row.Id, row.Label, row.IsCaller));
     }
 
+    /// <summary>
+    /// Opens a character on a rehearsal. It spends a generation and changes nothing, so it is a plain
+    /// button; the answer is read on the character's own page, beside the sheet it came from.
+    /// </summary>
+    [RelayCommand]
+    private void Rehearse(PersonaRowViewModel row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        navigation.Push(new Nav.Destination.PersonaDetail(row.Id, row.Label, row.IsCaller, Rehearse: true));
+    }
+
     /// <summary>Builds the page for one character, or for a new one.</summary>
     public PersonaDetailViewModel Open(Nav.Destination.PersonaDetail destination)
     {
@@ -257,12 +375,20 @@ public sealed partial class CharactersViewModel(
             Actions,
             Http,
             Station,
+            dialogs,
             previews,
             navigation,
             this,
             persona,
             destination.Caller ? PersonaKind.Caller : PersonaKind.Host);
         page.LoadCommand.Execute(null);
+
+        if (destination.Rehearse && page.Rehearsal is { } rehearsal)
+        {
+            page.Section = PersonaSection.Rehearsal;
+            rehearsal.RehearseCommand.Execute(null);
+        }
+
         return page;
     }
 

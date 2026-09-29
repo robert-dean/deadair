@@ -447,6 +447,92 @@ internal static class Fakes
         },
     ];
 
+    /// <summary>
+    /// A character's notebook, shelf, timeline and a rehearsal, each with the states worth seeing: a
+    /// proposal with the words it was drawn from, a story in parts with a proposed next part, a
+    /// telling that was passed over and one not yet aired.
+    /// </summary>
+    public static void Accumulate(PersonaDetailViewModel page)
+    {
+        page.Notes!.Present(new PersonaNoteList
+        {
+            PersonaId = "1",
+            Notes =
+            [
+                new() { Id = "n1", Kind = PersonaNoteKind.Trait, Note = "Has taken to calling the listener a night-shift colleague, and never explains why.", State = PersonaNoteState2.Suggested, Origin = PersonaNoteOrigin.Model, SourceQuote = "Stay with me, colleague. The kettle is on and the records are long tonight.", CreatedAt = "2026-09-28T02:00:00Z" },
+                new() { Id = "n2", Kind = PersonaNoteKind.Said, Note = "Said she once worked the graveyard shift at a pressing plant in Hull.", State = PersonaNoteState2.Active, Origin = PersonaNoteOrigin.Model, CreatedAt = "2026-09-20T02:00:00Z" },
+                new() { Id = "n3", Kind = PersonaNoteKind.Trait, Note = "Never says good morning before four.", State = PersonaNoteState2.Active, Origin = PersonaNoteOrigin.Operator, CreatedAt = "2026-09-10T02:00:00Z" },
+                new() { Id = "n4", Kind = PersonaNoteKind.Trait, Note = "Hums along to the outro.", State = PersonaNoteState2.Rejected, Origin = PersonaNoteOrigin.Model, CreatedAt = "2026-09-12T02:00:00Z" },
+            ],
+        });
+
+        page.Stories!.Present(new PersonaStoryList
+        {
+            PersonaId = "1",
+            Stories =
+            [
+                new()
+                {
+                    Id = "s1", Title = "The Barstow lights", Kind = PersonaStoryKind.Arc, State = PersonaStoryState2.Active, Origin = PersonaStoryOrigin.Operator,
+                    Story = "She saw three lights over the desert outside Barstow in ninety-seven. No sound at all, and gone before the tape was running.",
+                    TimesTold = 2, CreatedAt = "2026-09-01T00:00:00Z",
+                    Beats =
+                    [
+                        new() { Id = "b1", StoryId = "s1", Ordinal = 10, Beat = "The drive out, and the radio losing the station one frequency at a time.", State = PersonaStoryBeatState.Active, Origin = PersonaStoryBeatOrigin.Operator, CreatedAt = "2026-09-01T00:00:00Z" },
+                        new() { Id = "b2", StoryId = "s1", Ordinal = 20, Beat = "The lights, and the tape that ran out a second too early.", State = PersonaStoryBeatState.Active, Origin = PersonaStoryBeatOrigin.Operator, CreatedAt = "2026-09-01T00:00:00Z" },
+                        new() { Id = "b3", StoryId = "s1", Ordinal = 30, Beat = "Years later a caller rings in from Barstow.", State = PersonaStoryBeatState.Suggested, Origin = PersonaStoryBeatOrigin.Model, CreatedAt = "2026-09-28T00:00:00Z" },
+                    ],
+                    Details = [new() { Id = "d1", Detail = "It was the night of the Hale-Bopp broadcast.", State = PersonaStoryDetailState.Active, Origin = PersonaStoryDetailOrigin.Operator, CreatedAt = "2026-09-01T00:00:00Z" }],
+                },
+                new()
+                {
+                    Id = "s2", Title = "The pressing plant", Kind = PersonaStoryKind.Anecdote, State = PersonaStoryState2.Suggested, Origin = PersonaStoryOrigin.Model,
+                    Story = "A whole run of a Northern Soul reissue pressed off-centre, and she kept one.", Source = "a break on 26 September",
+                    TimesTold = 0, CreatedAt = "2026-09-28T00:00:00Z", Beats = [], Details = [],
+                },
+            ],
+        });
+
+        page.Memory!.Present(
+        [
+            new() { Id = "t1", StoryId = "s1", Title = "The Barstow lights", Source = PersonaTellingSource.Break, Mode = PersonaTellingMode.Told, Told = true, Said = "Ninety-seven, the desert outside Barstow, and the radio losing us one frequency at a time. Stay with me.", AiredAt = "2026-09-28T23:41:00Z", At = "2026-09-28T23:40:00Z" },
+            new() { Id = "t2", StoryId = "s2", Title = "The pressing plant", Source = PersonaTellingSource.Break, Mode = PersonaTellingMode.Offered, Told = false, At = "2026-09-28T22:10:00Z" },
+            new() { Id = "t3", StoryId = "s1", Title = "The Barstow lights", Source = PersonaTellingSource.Break, Mode = PersonaTellingMode.Told, Told = true, Said = "The tape ran out a second too early. It always does.", At = "2026-09-29T00:05:00Z" },
+        ]);
+
+        page.Rehearsal!.Present(new PersonaRehearsal
+        {
+            PersonaId = "1",
+            Previous = "Alive by Pearl Jam",
+            Next = "Would? by Alice In Chains",
+            Script = "That was Pearl Jam, and it is later than any of us meant it to be. Alice In Chains next, and then I will tell you about the kettle.",
+            Writer = "model",
+            Attempts =
+            [
+                new() { Writer = "model", Outcome = "declined", DurationMs = 2140, Reason = "out of character: none of the words that prove it" },
+                new() { Writer = "model", Outcome = "written", DurationMs = 1870, Script = "That was Pearl Jam, and it is later than any of us meant it to be. Alice In Chains next, and then I will tell you about the kettle." },
+            ],
+        });
+    }
+
+    /// <summary>The presenter name and the story wait, as the station declares and holds them.</summary>
+    public static void CharacterSettings(CharactersViewModel characters) =>
+        characters.PresentSettings(new StationSettings
+        {
+            Descriptors =
+            [
+                new() { Key = "station.djName", Label = "Presenter name", Help = "Used by any host without a name of its own, and while nobody is on air.", Type = ConfigFieldType.String, Group = SettingGroup.Personas },
+                new() { Key = "personas.threadGapMinutes", Label = "Wait before returning to a story (minutes)", Help = "How long a presenter leaves a story in parts, or a running joke, before coming back to it.", Type = ConfigFieldType.Number, Group = SettingGroup.Personas },
+            ],
+            Values = new Dictionary<string, JsonElement>
+            {
+                ["station.djName"] = JsonSerializer.SerializeToElement("Night Desk"),
+                ["personas.threadGapMinutes"] = JsonSerializer.SerializeToElement("90"),
+            },
+            Configured = [],
+            Derived = [],
+        });
+
     public static IReadOnlyList<MaroonedSoftware.Deadair.Sdk.Models.Voice> Voices() =>
     [
         new() { Id = "marla", Label = "Marla", Description = "a low, close alto with a smoker's rasp" },

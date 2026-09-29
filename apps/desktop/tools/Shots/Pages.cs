@@ -148,6 +148,15 @@ internal static class Pages
         yield return ("shell-voice-persona-caller", Persona(caller: true), 1180, 1400);
         yield return ("shell-voice-persona-min", Persona(caller: false), 820, 520);
         yield return ("dialog-persona-import", PersonaImport(), 1180, 720);
+
+        // What a character has accumulated, each section of its page, and the question a rollback asks.
+        yield return ("shell-voice-persona-notebook", Section(PersonaSection.Notebook), 1180, 900);
+        yield return ("shell-voice-persona-stories", Section(PersonaSection.Stories), 1180, 1100);
+        yield return ("shell-voice-persona-memory", Section(PersonaSection.Memory), 1180, 720);
+        yield return ("shell-voice-persona-rehearsal", Section(PersonaSection.Rehearsal), 1180, 720);
+        yield return ("shell-voice-persona-stories-min", Section(PersonaSection.Stories), 820, 520);
+        yield return ("dialog-persona-rollback", Rollback(), 1180, 720);
+        yield return ("shell-voice-settings", CharacterSettings(), 1180, 900);
         yield return ("player-bar", Bar(), 1180, 720);
         yield return ("player-bar-on-device", Bar(Fakes.OnASpeaker), 1180, 720);
 
@@ -406,6 +415,59 @@ internal static class Pages
             shell.Voice.Characters.EditCommand.Execute(shell.Voice.Characters.Rows[0]);
         }
 
+        shell.Dialogs.Notice = null;
+
+        return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>One section of an existing character's page, posed with what a real one holds.</summary>
+    private static MainWindowContent Section(PersonaSection section)
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.Fill(shell, new Destination.Voice());
+        shell.Navigation.Show(new Destination.Voice());
+        shell.Voice.Characters.EditCommand.Execute(shell.Voice.Characters.Rows[0]);
+
+        var page = (PersonaDetailViewModel)shell.Details.Current!;
+        page.Section = section;
+        Fakes.Accumulate(page);
+        shell.Dialogs.Notice = null;
+
+        return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>A rollback with both of the costs nobody expects in its counts.</summary>
+    private static MainWindowContent Rollback()
+    {
+        var content = Section(PersonaSection.Memory);
+        var shell = content.Shell!;
+
+        if (StationUrl.TryParse("https://radio.example.com", out var station))
+        {
+            _ = shell.Dialogs.ShowAsync(new PersonaRollbackDialogViewModel(
+                new OperatorActions(new SessionManager(new InMemorySecretStore(), Fakes.Http())),
+                Fakes.Http(),
+                station,
+                "1",
+                "2026-09-27T21:14:00Z",
+                "Roll Marla Vance back to before this?",
+                "Everything after 27 Sep 2026, 22:14 goes. That telling itself stays.",
+                new PersonaMemoryChange { Tellings = 3, Notes = 2, Stories = 1, Details = 4, Rejected = 1, Touched = 2 }));
+        }
+
+        return content;
+    }
+
+    /// <summary>The Characters tab with its two settings open, drawn by the shared form.</summary>
+    private static MainWindowContent CharacterSettings()
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.Fill(shell, new Destination.Voice());
+        shell.Navigation.Show(new Destination.Voice());
+        Fakes.CharacterSettings(shell.Voice.Characters);
+        shell.Voice.Characters.ToggleSettingsCommand.Execute(null);
         shell.Dialogs.Notice = null;
 
         return new MainWindowContent { Shell = shell };

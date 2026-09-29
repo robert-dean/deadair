@@ -75,6 +75,21 @@
                          NavigateUri="{Binding UpdateNotice.Page, FallbackValue={x:Null}}"
                          Content="{Binding UpdateNoticeText}" />
 
+        <!-- The jump-to palette, said where it can be found as well as by its shortcut, and only for
+             the operator whose pages it reaches. -->
+        <Button DockPanel.Dock="Top" Classes="nav" Margin="8,8,8,0" Height="32" Padding="8,0"
+                IsVisible="{Binding IsOperator}" Command="{Binding JumpToCommand}"
+                ToolTip.Tip="Jump to a page, a record, an act or a character">
+            <Grid ColumnDefinitions="16,*,Auto" ColumnSpacing="10">
+                <PathIcon Data="{DynamicResource DaIconSearch}" Width="14" Height="14"
+                          Foreground="{DynamicResource DaTextDimmedBrush}" />
+                <TextBlock Grid.Column="1" Text="Jump to…" VerticalAlignment="Center"
+                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                <TextBlock Grid.Column="2" Classes="mono" Text="⌘K" FontSize="10" VerticalAlignment="Center"
+                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+            </Grid>
+        </Button>
+
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <ItemsControl ItemsSource="{Binding Navigation.Sections}" Margin="0,6,0,0">
                 <ItemsControl.ItemTemplate>

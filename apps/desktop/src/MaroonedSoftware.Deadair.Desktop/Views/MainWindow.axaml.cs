@@ -266,6 +266,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Command-K is the jump-to palette, as it is in the web console and most things with one.
+        if (e.Key == Key.K && e.KeyModifiers == KeyModifiers.Meta)
+        {
+            shell.JumpToCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
         // Command-[ is the Mac's Back, as it is in Finder and every browser. Checked before the
         // modifier rule below, which is about letters and would otherwise swallow it.
         if (e.Key == Key.OemOpenBrackets && e.KeyModifiers == KeyModifiers.Meta && shell.Navigation.CanGoBack)

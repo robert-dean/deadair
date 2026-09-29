@@ -80,6 +80,7 @@ internal static class Fakes
         {
             NeedsStation = false,
             SignedOut = !operatorSignedIn,
+            IsOperator = operatorSignedIn,
             Account = operatorSignedIn ? "operator@example.com" : null,
         };
 

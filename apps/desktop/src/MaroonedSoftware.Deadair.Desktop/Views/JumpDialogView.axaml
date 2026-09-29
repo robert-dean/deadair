@@ -1,0 +1,30 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.JumpDialogView"
+    x:DataType="vm:JumpDialogViewModel">
+
+    <!-- The box has the keyboard from the moment the palette opens (see the code-behind), and Return
+         is the host's Open, which takes the chosen row or the first. -->
+    <StackPanel Spacing="10" Width="520">
+        <TextBox x:Name="Box" Text="{Binding Query}" PlaceholderText="A page, a record, an act or a character" />
+        <TextBlock Text="{Binding Status}" Classes="dimmed" FontSize="11"
+                   IsVisible="{Binding Status, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        <ListBox Classes="rows" ItemsSource="{Binding Results}" SelectedItem="{Binding Chosen}"
+                 MaxHeight="360">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:JumpTarget">
+                    <Grid ColumnDefinitions="*,160" ColumnSpacing="12">
+                        <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource DaTextBrush}" />
+                        <TextBlock Grid.Column="1" Text="{Binding Detail}" Classes="dimmed" FontSize="11"
+                                   TextTrimming="CharacterEllipsis" HorizontalAlignment="Right"
+                                   VerticalAlignment="Center" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </StackPanel>
+
+</UserControl>

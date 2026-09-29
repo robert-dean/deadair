@@ -273,6 +273,15 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
+    /// <summary>Shows one section by name, for the jump-to palette. A section this account cannot see is not shown.</summary>
+    public void Show(SettingsSectionId id)
+    {
+        if (Sections.FirstOrDefault(section => section.Section.Id == id) is { } section)
+        {
+            ShowSection(section);
+        }
+    }
+
     [RelayCommand]
     private void ShowSection(SettingsSectionViewModel section)
     {

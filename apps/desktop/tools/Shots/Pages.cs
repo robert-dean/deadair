@@ -73,6 +73,8 @@ internal static class Pages
         // A question over the whole window, bar included, with the longest thing it is ever asked
         // about in its title.
         yield return ("dialog-confirm", Confirm(), 1180, 720);
+        yield return ("dialog-jump", Jump(), 1180, 720);
+        yield return ("dialog-jump-min", Jump(), 820, 520);
 
         // Planning the station, both halves: keeping the show (a brief and nothing else) and a new
         // one (every field), the second at the minimum window where it has to scroll. Then the host.
@@ -589,6 +591,31 @@ internal static class Pages
                 file,
                 plan));
         }
+
+        return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>
+    /// The jump-to palette with a query typed: what the station found first, then the places that
+    /// match, as the palette lists them.
+    /// </summary>
+    private static MainWindowContent Jump()
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        shell.Navigation.Show(new Destination.Desk());
+
+        var pages = MaroonedSoftware.Deadair.Desktop.Core.Ui.JumpTo.Pages
+            .Select(page => (page, new JumpTarget(page.Label, page.Group, () => { })))
+            .ToList();
+        var jump = new JumpDialogViewModel(pages, (_, _) => Task.FromResult<IReadOnlyList<JumpTarget>>([]));
+        jump.Query = "re";
+
+        // Posed rather than searched: the fake station refuses, and the frame is of the rows.
+        jump.Results.Insert(0, new JumpTarget("Regulate (feat. Nate Dogg) - Original Version", "Warren G, Nate Dogg", () => { }));
+        jump.Results.Insert(1, new JumpTarget("R.E.M.", "Act", () => { }));
+        jump.Status = null;
+        _ = shell.Dialogs.ShowAsync(jump);
 
         return new MainWindowContent { Shell = shell };
     }

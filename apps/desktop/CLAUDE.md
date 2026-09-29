@@ -925,6 +925,26 @@ right, compiles, and fails at XAML load with a message naming the CHILD's type.
 `Notice` have both bitten this tree; the fix each time is a `using` alias rather than a rename, since
 the property names are the ones the views read.
 
+## Jump to (Command-K)
+
+**Every page and tab behind one box, and the records, acts and characters once somebody types.**
+The web console's jump-to, for its reason: the rail is four destinations, the right shape for
+arriving and the wrong one for going somewhere specific. It is the operator's alone, like the pages
+it reaches, and it is a dialog so it opens over wherever somebody is and closes there. The sidebar's
+"Jump to…" says where it is as well as the shortcut.
+
+**The places are a table in Core (`Ui/JumpTo`), held to the pages by a test.** A tab is named by
+the member name of its page's own enum (`LibraryTab`, `VoiceTab`, `SettingsSectionId`…), and
+`JumpToTests` checks both directions: every name is a real tab, and every tab is offered. The desktop's
+tab labels live in XAML rather than in a list the palette could import, which is why the table exists;
+Settings' sections ARE a list, and the palette reads it.
+
+**The station is asked only for a settled query of two characters or more** (250 ms, six of each),
+as the web does: a single letter matches most of a library, and the station rate-limits. Records and
+acts come from the catalog's own search; characters are narrowed from the roster, which has no search
+of its own. A record, act or character opens on its detail page OVER its rail page, so Back goes to
+the Library or Voice rather than to wherever the palette was opened.
+
 ## Dialogs, and where a refusal is said
 
 **A dialog is a layer over the shell, not a window.** `DialogsViewModel` holds at most one

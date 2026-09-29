@@ -1,0 +1,78 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.LogsTab"
+    x:DataType="vm:LogsViewModel">
+
+    <DockPanel LastChildFill="True">
+
+        <TextBlock DockPanel.Dock="Top" Text="{Binding Problem}" FontSize="12" TextWrapping="Wrap"
+                   Margin="0,0,0,10"
+                   IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                   Foreground="{DynamicResource DaSeverityFailureBrush}" />
+
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,10" IsVisible="{Binding HasSources}">
+            <!-- The picker takes the room and the buttons keep theirs, so neither is squeezed at the
+                 window's minimum. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding Source}" MinWidth="220"
+                              MaxWidth="320" />
+                    <!-- Only a source that grades its lines is offered a level: over the others a
+                         level would be a control that appeared to work. -->
+                    <ComboBox ItemsSource="{Binding Levels}" SelectedItem="{Binding Level}" MinWidth="120"
+                              IsVisible="{Binding Grades}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                    <Button Classes="ghost" Content="Refresh" Command="{Binding RefreshCommand}" />
+                    <Button Classes="ghost" Content="Download" Command="{Binding DownloadCommand}" />
+                </StackPanel>
+            </Grid>
+            <TextBlock Classes="dimmed" Text="{Binding Description}" TextWrapping="Wrap" />
+            <WrapPanel Orientation="Horizontal">
+                <TextBlock Classes="dimmed" Text="{Binding LastWritten}" FontSize="11" Margin="0,0,14,0"
+                           IsVisible="{Binding LastWritten, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                <!-- The stream logs are bounded by bytes: the oldest line here is not the file's first. -->
+                <TextBlock Classes="dimmed" FontSize="11" IsVisible="{Binding Truncated}"
+                           Text="Showing the end of a longer file. Older lines are on disk but not here." />
+            </WrapPanel>
+            <TextBlock Text="{Binding TailProblem}" FontSize="12" TextWrapping="Wrap"
+                       IsVisible="{Binding TailProblem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       Foreground="{DynamicResource DaSeverityFailureBrush}" />
+        </StackPanel>
+
+        <!-- The tail on a sunken sheet, set in mono and wrapped anywhere: a log line is one long word
+             as often as it is a sentence. -->
+        <Border CornerRadius="{DynamicResource DaCorner}" Padding="10,8" IsVisible="{Binding HasSources}"
+                Background="{DynamicResource DaRaisedBrush}">
+            <Panel>
+                <TextBlock Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap"
+                           IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Lines}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:LogLineViewModel">
+                                <Grid ColumnDefinitions="64,*" ColumnSpacing="8" Margin="0,1">
+                                    <TextBlock Classes="mono" Text="{Binding Stamp}" FontSize="11"
+                                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Text}" FontSize="11"
+                                                         FontFamily="{DynamicResource DaFontMono}"
+                                                         TextWrapping="Wrap" IsVisible="{Binding !Painted}"
+                                                         Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Text}" FontSize="11"
+                                                         FontFamily="{DynamicResource DaFontMono}"
+                                                         TextWrapping="Wrap" IsVisible="{Binding Painted}"
+                                                         Foreground="{Binding Severity, Converter={x:Static conv:SeverityBrushConverter.Instance}}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Panel>
+        </Border>
+
+    </DockPanel>
+
+</UserControl>

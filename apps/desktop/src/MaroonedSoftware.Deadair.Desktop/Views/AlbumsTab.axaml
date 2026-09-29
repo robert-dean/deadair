@@ -1,0 +1,64 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.AlbumsTab"
+    x:DataType="vm:AlbumsViewModel">
+
+    <DockPanel LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <views:SearchBar Placeholder="Search releases" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                    <ComboBox ItemsSource="{Binding Sorts}" SelectedItem="{Binding Sort}" MinWidth="110"
+                              ToolTip.Tip="Sort by" VerticalAlignment="Center" />
+                    <Button Classes="icon small" Command="{Binding TurnSortCommand}"
+                            ToolTip.Tip="Turn the order around" VerticalAlignment="Center">
+                        <Panel>
+                            <PathIcon Data="{DynamicResource DaIconChevronUp}" Width="12" Height="12"
+                                      IsVisible="{Binding !Descending}" />
+                            <PathIcon Data="{DynamicResource DaIconChevronDown}" Width="12" Height="12"
+                                      IsVisible="{Binding Descending}" />
+                        </Panel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+
+        <views:PagerBar DockPanel.Dock="Bottom" Margin="0,10,0,0" />
+
+        <Panel>
+            <TextBlock Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap" MaxWidth="520"
+                       HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8,4"
+                       IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+            <ListBox Classes="rows" ItemsSource="{Binding Albums}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:AlbumRowViewModel">
+                        <Grid ColumnDefinitions="36,*,180,44,82" ColumnSpacing="12">
+                            <controls:Artwork Size="36" Source="{Binding ArtworkUrl}"
+                                              Initial="{Binding Initial}" />
+                            <Button Grid.Column="1" Classes="link" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                    Command="{Binding $parent[ListBox].((vm:AlbumsViewModel)DataContext).OpenCommand}"
+                                    CommandParameter="{Binding}">
+                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                            </Button>
+                            <TextBlock Grid.Column="2" Text="{Binding ArtistName}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" Classes="secondary" />
+                            <TextBlock Classes="mono" Grid.Column="3" Text="{Binding Year}" FontSize="11"
+                                       VerticalAlignment="Center" HorizontalAlignment="Right"
+                                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+                            <views:RatingStrip Grid.Column="4" DataContext="{Binding Rating}"
+                                               VerticalAlignment="Center" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Panel>
+
+    </DockPanel>
+
+</UserControl>

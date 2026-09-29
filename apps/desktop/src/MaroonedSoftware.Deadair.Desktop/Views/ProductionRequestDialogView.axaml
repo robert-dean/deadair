@@ -1,0 +1,56 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.ProductionRequestDialogView"
+    x:DataType="vm:ProductionRequestDialogViewModel">
+
+    <StackPanel Spacing="10" Width="500">
+        <StackPanel Spacing="3">
+            <TextBlock Text="Called" FontSize="12" Classes="secondary" />
+            <TextBox Text="{Binding Name}" PlaceholderText="The machine nobody wanted" />
+        </StackPanel>
+        <StackPanel Spacing="3">
+            <TextBlock Text="What it should be about" FontSize="12" Classes="secondary" />
+            <TextBox Text="{Binding Brief}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" MaxHeight="180"
+                     PlaceholderText="The history of the TR-808: why it flopped, who rescued it, and what it did to pop music." />
+            <TextBlock Text="In your own words. This is what the planning pass works from, and it matters far more than the title does."
+                       FontSize="11" Classes="dimmed" TextWrapping="Wrap" />
+        </StackPanel>
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+            <StackPanel Spacing="3">
+                <TextBlock Text="Kind" FontSize="12" Classes="secondary" />
+                <TextBox Text="{Binding Kind}" />
+                <TextBlock Text="Free text, and what a clock band names." FontSize="11" Classes="dimmed" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="3">
+                <TextBlock Text="Minutes" FontSize="12" Classes="secondary" />
+                <TextBox Text="{Binding Minutes}" PlaceholderText="the station's default" />
+                <TextBlock Text="This decides how many beats it has." FontSize="11" Classes="dimmed" TextWrapping="Wrap" />
+            </StackPanel>
+        </Grid>
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+            <StackPanel Spacing="3">
+                <TextBlock Text="How much to write it" FontSize="12" Classes="secondary" />
+                <ComboBox ItemsSource="{x:Static vm:ProductionRequestDialogViewModel.Modes}" SelectedItem="{Binding Mode}" HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ChoiceViewModel">
+                            <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="3">
+                <TextBlock Text="Presenter" FontSize="12" Classes="secondary" />
+                <ComboBox ItemsSource="{Binding Presenters}" SelectedItem="{Binding Presenter}" HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ChoiceViewModel">
+                            <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+        </Grid>
+    </StackPanel>
+
+</UserControl>

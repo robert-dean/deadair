@@ -1,0 +1,143 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.CostTab"
+    x:DataType="vm:CostViewModel">
+
+    <DockPanel LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,12">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                <TextBlock Classes="dimmed" TextWrapping="Wrap" VerticalAlignment="Center"
+                           Text="Every call the station made, filed under the decision that made it. Choose one to see its calls." />
+                <Border Grid.Column="1" CornerRadius="{DynamicResource DaCorner}" Padding="3"
+                        VerticalAlignment="Center" Background="{DynamicResource DaRaisedBrush}">
+                    <ItemsControl ItemsSource="{Binding Filters}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="2" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FilterChoiceViewModel">
+                                <RadioButton Classes="segment" GroupName="cost-filter"
+                                             Content="{Binding Label}" IsChecked="{Binding IsSelected}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+            </Grid>
+
+            <TextBlock Text="{Binding Problem}" FontSize="12" TextWrapping="Wrap"
+                       IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       Foreground="{DynamicResource DaSeverityFailureBrush}" />
+            <TextBlock Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap"
+                       IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+            <!-- Column heads over the same fixed widths the rows use, so a figure sits under its name. -->
+            <Grid ColumnDefinitions="92,*,72,52,52" ColumnSpacing="10" Margin="12,0"
+                  IsVisible="{Binding Showing, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <TextBlock Classes="dimmed" Text="When" FontSize="11" />
+                <TextBlock Grid.Column="1" Classes="dimmed" Text="Decision" FontSize="11" />
+                <TextBlock Grid.Column="2" Classes="dimmed" Text="Spent" FontSize="11" HorizontalAlignment="Right" />
+                <TextBlock Grid.Column="3" Classes="dimmed" Text="Calls" FontSize="11" HorizontalAlignment="Right" />
+                <TextBlock Grid.Column="4" Classes="dimmed" Text="Failed" FontSize="11" HorizontalAlignment="Right" />
+            </Grid>
+        </StackPanel>
+
+        <TextBlock DockPanel.Dock="Bottom" Classes="dimmed" Text="{Binding Showing}" FontSize="11" Margin="0,10,0,0"
+                   IsVisible="{Binding Showing, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+        <!-- One open at a time, opened in place under its row; choosing it again closes it. -->
+        <ListBox Classes="rows" ItemsSource="{Binding Decisions}" SelectedItem="{Binding Selected}"
+                 SelectionMode="Single,Toggle">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:DecisionRowViewModel">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnDefinitions="92,*,72,52,52" ColumnSpacing="10">
+                            <TextBlock Classes="mono" Text="{Binding When}" FontSize="11" VerticalAlignment="Top"
+                                       Margin="0,2,0,0" Foreground="{DynamicResource DaTextDimmedBrush}" />
+
+                            <!-- The indent is the causal edge, and a caused decision also says so with
+                                 a mark, so nobody has to measure whitespace. -->
+                            <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="6" Margin="{Binding Indent}">
+                                <PathIcon Data="{DynamicResource DaIconChevronRight}" Width="10" Height="10"
+                                          VerticalAlignment="Top" Margin="0,4,0,0" IsVisible="{Binding IsCaused}"
+                                          ToolTip.Tip="Enqueued by the decision above it"
+                                          Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                <StackPanel Grid.Column="1" Spacing="1">
+                                    <TextBlock Text="{Binding Sentence}" FontSize="13" TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource DaTextBrush}" />
+                                    <TextBlock Classes="mono dimmed" Text="{Binding Kind}" FontSize="11"
+                                               TextTrimming="CharacterEllipsis"
+                                               IsVisible="{Binding Kind, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Grid.Column="2" Classes="mono" Text="{Binding Spent}" FontSize="12"
+                                       HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,1,0,0"
+                                       Foreground="{DynamicResource DaTextBrush}" />
+                            <TextBlock Grid.Column="3" Classes="mono" Text="{Binding Calls}" FontSize="12"
+                                       HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,1,0,0"
+                                       Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                            <TextBlock Grid.Column="4" Classes="mono" Text="{Binding Failed}" FontSize="12"
+                                       HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,1,0,0"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource DaSeverityFailureBrush}" />
+                        </Grid>
+
+                        <!-- The decision, opened: its lineage and its calls in the order they happened. -->
+                        <Border IsVisible="{Binding IsOpen}" Margin="102,0,0,4" Padding="12,10"
+                                CornerRadius="{DynamicResource DaCorner}"
+                                Background="{DynamicResource DaRaisedBrush}">
+                            <StackPanel Spacing="8">
+                                <SelectableTextBlock Classes="mono" Text="{Binding Id}" FontSize="11"
+                                                     Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                <TextBlock Text="{Binding Lineage}" FontSize="12" TextWrapping="Wrap"
+                                           IsVisible="{Binding Lineage, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                           Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                <TextBlock Text="{Binding Problem}" FontSize="12" TextWrapping="Wrap"
+                                           IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                           Foreground="{DynamicResource DaSeverityFailureBrush}" />
+                                <ItemsControl ItemsSource="{Binding Spans}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:SpanViewModel">
+                                            <Grid ColumnDefinitions="64,*" ColumnSpacing="10" Margin="0,2">
+                                                <TextBlock Classes="mono" Text="{Binding Spent}" FontSize="12"
+                                                           HorizontalAlignment="Right" IsVisible="{Binding !Failed}"
+                                                           Foreground="{DynamicResource DaTextBrush}" />
+                                                <TextBlock Classes="mono" Text="{Binding Spent}" FontSize="12"
+                                                           HorizontalAlignment="Right" IsVisible="{Binding Failed}"
+                                                           Foreground="{DynamicResource DaSeverityFailureBrush}" />
+                                                <StackPanel Grid.Column="1" Spacing="2">
+                                                    <WrapPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding Op}" FontSize="12" Margin="0,0,8,0"
+                                                                   Foreground="{DynamicResource DaTextBrush}" />
+                                                        <TextBlock Text="{Binding Target}" FontSize="12"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                                    </WrapPanel>
+                                                    <TextBlock Text="{Binding Error}" FontSize="11" TextWrapping="Wrap"
+                                                               IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                               Foreground="{DynamicResource DaSeverityFailureBrush}" />
+                                                    <!-- The op's own half (tokens, a finish reason, a
+                                                         timeout) as recorded, counts grouped. -->
+                                                    <TextBlock Classes="mono dimmed" Text="{Binding Detail}" FontSize="11"
+                                                               TextWrapping="Wrap"
+                                                               IsVisible="{Binding Detail, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+    </DockPanel>
+
+</UserControl>

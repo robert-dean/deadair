@@ -408,6 +408,34 @@ drop it".** Two things here are unmeasured: whether macOS keeps a Now Playing en
 is producing no audio itself, and whether Avalonia's headless renderer can capture a flyout at all
 (the picker is rendered as a control on its own on the assumption that it cannot).
 
+## Previews
+
+**A preview is a second platform player over a temporary file.** `ClipPlayer` (Core) writes the
+bytes to a file and plays `file://` through the same `IStationPlayer` the station uses, so there is
+no second kind of player and the class is tested with a fake one. The bytes are fetched through the
+ONE station client first, because the preview endpoints want the operator's bearer token, which only
+that client carries; AVFoundation fetching a station URL itself would go out without it.
+
+**Measured, 2026-09-29:** a local WAV through `MacStationPlayer` reports Opening, Buffering, Playing,
+Ended, Stopped, and `ClipPlayer` takes Ended as its cue to stop and delete the file. The check first
+looked broken (stuck in Buffering) only because a console app's `await` resumed on a pool thread
+and the run loop was then pumped from somewhere the player's notifications never arrive. The app's
+UI context keeps the two together; a scratch check has to as well.
+
+**One preview at a time, app-wide** (`PreviewsViewModel`), and the station is left playing: a
+preview is heard OVER the broadcast, and one that stopped the station in the operator's ears would be
+a preview they could not judge against it. Every audio endpoint answers a family of records per
+content type holding `Data`; `Services/Clips.From` reads that shape once instead of a switch per
+endpoint. AVFoundation plays WAV, MP3, AAC and FLAC; an Ogg answer will fail to open, and says so.
+
+## Files in and out
+
+**`IFilePicker` is the one way a view model reaches the system's open and save panels.** A view
+model has no window, and Avalonia's `IStorageProvider` hangs off one; `FilePicker` asks the main
+window's. A cancelled panel answers null or false, which is an answer rather than a failure, and a
+file is read whole, because everything the station takes (a clip, a pack, a playlist, a persona) is
+small enough to be.
+
 ## Closing is not quitting
 
 **Closing the window hides it and the station plays on; only a quit ends the app.** It used to quit,
@@ -604,7 +632,8 @@ green, and **covers stay square**, the rule under `DaCornerNone` in `Tokens.axam
   because lightness is not brightness and a yellow at a third lightness still wanted black text. The
   rules were ported from the Android app's `CoverAccent.kt` with its tests.
 - **The desk is a page header**: the cover at up to 232 and the title at `DaFontSizeHero`, top-aligned
-  on the wash. The running order it used to carry as a card is in the Now playing panel.
+  on the wash. The running order it used to carry as a card is in the Now playing panel; what an
+  operator does to the station's air is below the header (`The station's air, on the desk`).
 
 **`Themes/Styles.axaml` is where a control's look lives, and `Themes/Tokens.axaml` is where a value
 does.** Before them every size and weight was a literal in whichever view needed it, and the only
@@ -838,7 +867,21 @@ Measured on a 1x display only; a Retina Mac has not been tried.
 ## Navigation
 
 **The rail replaces rather than pushes.** A rail is not history, so pressing Desk after Library does
-not leave Library on a stack. Detail pages, when they arrive, will push onto one.
+not leave Library on a stack.
+
+**A detail page pushes.** A chart, an artist, a plugin: somewhere a page LEADS rather than somewhere
+the rail goes, so it is a `Destination` record with parameters that is not in `Destinations.All`, and
+`NavigationViewModel.Push` reaches it. Back (the shell's button, or Command-[) returns to the page it
+was opened from as that page was left. Pressing the rail clears the stack, since that is starting
+somewhere new, and the rail stays lit on the section the detail page belongs to. Signing out on one
+goes to the desk, the same as signing out on its section.
+
+**A detail page's view model is built per visit, by `DetailPages`.** The rail's pages are singletons
+because there is one of each; there are many charts. The shell opens it on `Navigated` and the page
+host draws it on the same event, AFTER the shell (delegates run in subscription order, and the shell
+subscribes first). A host that drew on the `Current` property change, as it used to, runs before the
+shell has opened anything and finds nothing to draw. Opening one also reads it: a detail page is
+somewhere somebody went to look at a thing.
 
 **A destination says whether it needs an account, and the rail hides what an account cannot reach.**
 Desk and History need none, because listening is accountless and somebody who heard a record twenty
@@ -881,6 +924,56 @@ right, compiles, and fails at XAML load with a message naming the CHILD's type.
 **A name that is both a property and a namespace resolves to the property.** `Navigation` and
 `Notice` have both bitten this tree; the fix each time is a `using` alias rather than a rename, since
 the property names are the ones the views read.
+
+## Jump to (Command-K)
+
+**Every page and tab behind one box, and the records, acts and characters once somebody types.**
+The web console's jump-to, for its reason: the rail is four destinations, the right shape for
+arriving and the wrong one for going somewhere specific. It is the operator's alone, like the pages
+it reaches, and it is a dialog so it opens over wherever somebody is and closes there. The sidebar's
+"Jump to…" says where it is as well as the shortcut.
+
+**The places are a table in Core (`Ui/JumpTo`), held to the pages by a test.** A tab is named by
+the member name of its page's own enum (`LibraryTab`, `VoiceTab`, `SettingsSectionId`…), and
+`JumpToTests` checks both directions: every name is a real tab, and every tab is offered. The desktop's
+tab labels live in XAML rather than in a list the palette could import, which is why the table exists;
+Settings' sections ARE a list, and the palette reads it.
+
+**The station is asked only for a settled query of two characters or more** (250 ms, six of each),
+as the web does: a single letter matches most of a library, and the station rate-limits. Records and
+acts come from the catalog's own search; characters are narrowed from the roster, which has no search
+of its own. A record, act or character opens on its detail page OVER its rail page, so Back goes to
+the Library or Voice rather than to wherever the palette was opened.
+
+## Dialogs, and where a refusal is said
+
+**A dialog is a layer over the shell, not a window.** `DialogsViewModel` holds at most one
+`DialogViewModel`; `DialogHost` draws it over everything, the player bar included, with a scrim that
+takes every click. A second macOS window can end up behind the first or on another Space; a layer is
+always where the question was asked. A second question arriving answers the first "no" rather than
+stacking.
+
+**A dialog is a view model and a view named after it, and nothing else.** `FooDialogViewModel` in
+ViewModels draws as `FooDialogView` in Views, found by `DialogLocator` by name, so adding one never
+touches the host. The host draws the title, the problem line and the two buttons; the view draws
+only the fields. Return presses the accept button (`IsDefault`), Escape the other (`IsCancel`), and the
+window's letter shortcuts stand down while one is open.
+
+**Accepting runs `AcceptAsync`, and a dialog that fails stays open.** Closing on a failed save would
+be the dialog reporting success. While it runs, anything `OperatorActions` reports is written on the
+dialog's own problem line rather than behind it.
+
+**Anything that removes something or changes what airs asks first** through `IDialogs.ConfirmAsync`,
+worded as what will happen rather than "are you sure", with the button as the verb.
+
+**A refusal is said at the foot of the page, by the shell.** It used to be a line in the transport
+card, which lives in the Now playing panel. That panel can be closed and hides itself below 1060,
+so a refused write on the Library said nothing at all with the panel away. The line goes on
+its own after eight seconds or when dismissed. `Notice.Describe` is the one wording of a notice.
+
+**`OperatorActions.DoAsync` is `RunAsync` for a call that answers with nothing** (a delete, a hide, a
+refresh), and says whether it worked. It is named apart rather than overloaded because a lambda
+returning `Task<T>` converts to both, and which one the compiler picked would be a thing to look up.
 
 ## Looking at a page without a screen
 
@@ -946,20 +1039,120 @@ only clue. `Classes.active` bound to the same boolean the page switches on.
 
 ## The library and the voice
 
-**Each tab fetches once, when it is first opened.** None of a catalog, a playlist list or a chart list
-changes while somebody is looking at it, and the station rate-limits at a hundred requests per five
-seconds — so these are reads on demand rather than polls. Only the records tab pages, because only it
-can be long.
+**One view model and one view per tab, owned by `LibraryViewModel`.** The page was one view model
+holding six lists; it is now `RecordsViewModel`, `ActsViewModel` and so on (`LibraryTabViewModel`,
+and `PagedTabViewModel` for the three the station pages), each drawn by its own `*Tab` view. The owner
+is still the only one the shell and the container know about: it attaches, resets and opens them, so
+a tab's constructor parameters never reach `ShellViewModel`. A tab view sits inside a `Panel` that
+carries its `IsVisible`, for the DataContext re-scoping rule under Navigation.
+
+**Each tab reads once, when it is first opened, and "read" is a flag.** None of a catalog, a playlist
+list or a chart list changes while somebody is looking at it, and the station rate-limits at a
+hundred requests per five seconds, so these are reads on demand rather than polls. It used to be "the
+list is empty", which re-read a station that genuinely HAS nothing on every visit and never retried
+one whose read failed; the flag is set only by a read that answered. Records, Acts and Releases page,
+search and sort (a choice and a direction button, since a list here has no heading row to click); a
+new search, sort or filter starts at the first page.
+
+**A rating is three answers, and the middle is never lit** (`RatingViewModel`, drawn by
+`RatingStrip`). Withdrawing an opinion is its own button rather than a second press on the lit side,
+and an unrated row shows nothing pressed, because hundreds of rows each showing "no opinion" read as
+hundreds of decisions. The answer changes when the STATION answers, never on the press, so a refused
+write leaves what the station holds. Records and acts are rated from the list: most opinions are
+formed while browsing.
+
+**The state filter counts two complements.** The station sends what is cached and measured; the
+chips worth offering are "not fetched" and "unmeasured", so those two are `total -` the sent figure
+(`Core/Catalog/TrackStates`). A chip with nothing behind it is drawn disabled rather than hidden. An
+empty list says which of three things it is, asking about the SEARCH first, because the counts honour
+the search and a term nothing matches answers a total of zero over a full library. The console's
+"On this machine" is "Held" here: this machine is the operator's Mac.
+
+**A record's repairs are a menu, and each one asks.** Five (`Core/Catalog/TrackRepair`): throw away
+the local copies, forget the measurement, forget the providers, retry, and offer refused copies
+again, which is the one that OVERRIDES a provider's answer and says so. `TrackRepairer` asks, calls,
+and keeps the station's own sentence ("Dropped 2 copies") as the tab's notice, because that is the
+interesting half. The two fault states (benched, failing) also get a page-wide button over exactly
+the rows on screen, run one record at a time (a hundred fetches at one provider at once is the storm
+the backoff exists to prevent), and its outcome outlives the rows it emptied.
+
+**An act, a release and a record each have a page, pushed from a name** (`ArtistDetail`,
+`AlbumDetail`, `TrackDetail`; a name that leads somewhere is `Button.link`). Each is three reads, the
+thing, its list and what the providers said, so a provider answering late never keeps the page
+blank, and a thing that could not be read says so once rather than once per read. `DetailPages` builds
+them from a `CatalogPageContext` whose navigation and dialogs it takes off `LibraryViewModel`, so its
+own constructor did not grow. The record's page leads with its copies, because a record with none can
+never play and that is usually why the page was opened; a copy's state is asked in the console's order
+(`TrackFacts.Status`), benched before anything else, because a benched copy can still carry bytes and
+an error. The enrichment card is one reading for all three kinds (`EnrichmentReading`), with the
+sources at its foot: everything above them is somebody else's claim, and a source that could not be
+asked is a different state from one that had nothing. A time is formatted as a date and a time
+separately, because "t" inside a custom format is the AM or PM letter and printed "29 Sep 2026, A".
 
 **Putting a playlist or a chart on air REPLACES the running order**, and what is on air finishes
 first. It is the most consequential thing on either page, which is why the notice says what happened
 rather than only that it worked. A chart answers with the status BEFORE its changeover and does the
-work as a job, so the notice for one says it takes a moment.
+work as a job, so the notice for one says it takes a moment. The playlist pages (a station playlist's,
+a source playlist's tracks) put it on air through `PlaylistsViewModel` itself, so the three places it
+is offered ask and answer the same way. The web console's "mix in similar" and "with calls" variants
+are not here yet.
 
-**The voice page is four readings, not the console's eight tabs.** The four are the ones that answer a
-question somebody asks of a RUNNING station: who is presenting, what did it say, what audio does it
-hold, and what is being made. Voices, pronunciations, pads and topics are configuration rather than
-observation and are left for later.
+**Playlists are the station's own first, then the sources', split three ways** (`PlaylistRules`):
+the ones somebody put in a source are shown, and the ones the source made itself and the ones an
+operator hid are folded away, because on a source like YouTube Music the mixes bury the chosen ones.
+Hiding deletes nothing. One permission, `read`, gates a source playlist's tracks, Put on air and
+refresh together, and an absent permission list means readable. Put on air on a station playlist is
+offered only while it holds something, and Look up missing records only while something is missing,
+because the station refuses each otherwise. A source that could not be listed is named with why.
+
+**An import is previewed before it is written** (`PlaylistImportDialogViewModel`): a file, a pasted
+list or a link is read and the dialog says which records the library holds and which it will look up,
+and only then offers "Import N records". The preview marks the dialog busy so a refusal lands on the
+dialog rather than behind it. A `.json` file is a station's own export and goes as the structured file;
+anything else goes as text with its name, and a JSON file that does not parse is said here rather than
+sent to be refused. Saving a source's playlist as the station's own is the same dialog, opened already
+reading that playlist. An import, a rename or a delete re-reads the tab behind the page (`Reread`),
+because going back to the Library does not re-open a tab. Export writes the station's file through
+`IFilePicker.SaveAsync`, named from its `Content-Disposition`.
+
+**A chart is named with its country and genre, and its page offers Put on air only once the edition
+has records.** Two plugins can each offer a "Top 40", and an empty edition (one not published yet
+today) is an ordinary answer, not an error, that must not replace the running order with nothing.
+Each place's Find goes to the records tab searched for its title (`LibraryViewModel.FindRecords`): a
+search, not a claim that the station holds it, because a chart carries no catalog id. The contract
+takes an edition date; the web console offers none, so neither does this.
+
+**News lists the feeds beside the stories, and choosing a feed READS that feed** rather than filtering
+the last answer, since a quiet feed can have nothing among every feed's newest stories. A category is
+what the operator filed a feed under, so it filters what is already here, and its choice is drawn
+only when there is more than one. Stories are read headlines-only, as the console does: the story
+behind each is fetched from the publisher's page, which is the slowest thing that route does.
+
+**Subscribing to a podcast writes the podcast plugin's configuration, and it must not lose a row.**
+It is the web console's write (`PodcastRules.With`): the plugin's first list field with a URL column is
+its feed list, the show is added as a row, the list is saved as the JSON array in a string a list
+field stores, and the feeds are read again. Every row already there is carried over as the JSON it
+was, so a row's `$id` and any column this app does not know survive. Two things this does that the
+console does not, both because the alternative deletes subscriptions: a list stored as a real array
+is read rather than taken as empty, and a list that does not parse refuses the write with a sentence
+rather than being replaced by one row. An episode's state is asked in order (aired, held, asked for in
+the last twenty minutes, failed, not fetched), so one asked for again after a failure reads as
+fetching; Fetch now is offered only for the last two. The directory search is `platform.manage`,
+because the words go to somebody else's directory, so its 403 is worded rather than treated as the
+operator having gone.
+
+**Readings (the console's narrations) follow the same shape as podcasts**, one series choice over the
+pieces, with its own order of states (`NarrationRules.State`): read, then withdrawn, then spoken, then
+being spoken (or asked for within the hour, since speaking a chapter is slow), then failed. A
+withdrawn piece is never offered Read it now even if it was spoken, because its source no longer
+lists it and the station will not air it. A failure is shown in full, since it is the only place an
+operator learns the station has no mixer or could not open the source. A chapter's place is counted
+from one where the station counts from zero. Eight tabs fit one row at the default window only with
+the strip's padding tightened in `LibraryView`, which is why it is.
+
+**The voice page is the console's tabs now, not four readings**, and its rules are in "The voice"
+below. The two paragraphs that follow are about two of its tabs and stay here because they were
+written with this section.
 
 **A script row is one ATTEMPT rather than one segment**, which is the whole point of that endpoint: a
 model that declined and the floor that covered for it are two facts, and collapsing them into one row
@@ -969,11 +1162,192 @@ would hide the more interesting of the two.
 states that CAN be cancelled rather than the ones that cannot means a stage added upstream is not
 silently cancellable by omission.
 
+## The voice
+
+**The console's tabs, in its order, one view model and one view each.** `VoiceViewModel` owns the
+tabs (`CharactersViewModel` and the rest, each a `VoiceTabViewModel`), attaches them with the station
+and reads the one showing, on every visit: what the station says moves while nobody is looking, so
+this page is read on arrival rather than kept. A tab is drawn by its own `Views/Voice*Tab.axaml`
+inside a wrapper `Panel` that carries the visibility, because the tab's own `DataContext` would
+re-scope an `IsVisible` on it. The strip is a `WrapPanel`: at the window's minimum a row of tabs
+that ran off the page would hide the one somebody came for. A tab's good news is its own `Notice`;
+a refusal is still said at the foot of the page by `OperatorActions`.
+
+**A character is edited on a page, not in a dialog** (`Destination.PersonaDetail`,
+`PersonaDetailViewModel`). A sheet is nineteen fields read whole, and a dialog made it a tall column
+in the middle of a dimmed window; the fields scroll and Save does not, so the way out is never
+fourteen boxes away. A new one carries whether it is a caller, because what a character is FOR is
+fixed for the life of the page. Back from it reads the roster again, which is how a save reaches
+its card. It does not ask before throwing away unsaved edits, as the console's drawer does: the
+shell's Back cannot be stopped from a page, and a question on Cancel alone would be a promise Back
+breaks.
+
+**Every list on the sheet is one entry per line, and `Core/Voicing/PersonaSheet` is where that
+becomes the arrays the station takes.** An empty field is left OUT rather than sent as "", which is
+what makes clearing the on-air name mean "use the station's". The middle rung of each dial
+(`ordinary`, `occasionally`, `proposes`) is absent too. A dial is held as the station's own word and
+converted through `Wire`, because the SDK makes a separate enum for the same words on a sheet and on
+a generated draft. The key follows the name only on a NEW character and only until somebody types
+their own: the key is what the script history stamps, and moving it under a rename detaches a
+character from everything it has said.
+
+**What a character has accumulated is a section of its page, not a panel under its card.** The
+console opens the notebook, the stories and the memory inline on the roster, one at a time because
+each is a read per character; here each is a section of `PersonaDetailViewModel` (its own view model
+and view) and is read when it is shown, so a roster costs one request however long it is. The
+roster's Rehearse opens the page on its rehearsal, already asked for: a rehearsal reads the SAVED
+row, so it belongs beside the sheet it speaks, and the page says to save first to hear an edit.
+Proposals are listed above what is in use and offer Reject, never Delete: a deleted proposal is
+written again by the next pass over the same scripts.
+
+**A rollback is chosen from the timeline and previewed before it can be pressed.** Pointing at a row
+sends that row's own moment back, so nothing is retyped or rounded, and the dialog opens only with
+the station's count of what would go (`PersonaMemoryText.Summary`), including the two costs nobody
+expects. Re-learning starts off: it is the testing answer, not the undoing one.
+
+**The presenter name and the story wait are drawn above the roster through the shared form**, filtered
+from `GET /settings` to their two keys and saved with only what changed. What stays on screen is who
+they reach, named, because every host with a name of its own overrides the first.
+
+**Auditions is the one tab that polls, and only while a run can still change.** A run fills in over
+minutes, each break waiting for the model behind the station's own work, so the tab asks again every
+five seconds while any run is queued or running (`AuditionText.Unsettled`) and stops when none is,
+when the tab changes and when the page is left. The poll is a generation number rather than a
+cancellation source, so there is nothing to dispose: leaving moves the number on, and a wait already
+under way wakes to find itself stale. A run's breaks are read only when it is opened, since the list
+carries none by design. Only hosts are offered, because a caller can never be put on air.
+
+**Every sound on this page is a preview through `PreviewsViewModel`**: a voice's sample, the plugin's
+default voice, typed words spoken in any voice, a rehearsed or auditioned break. None of it has a
+segment row, so none of it can air. A voice's row says who speaks in it (a station voice id is a
+persona key), and the mapping itself is left to the speech plugin's settings, which is the only
+thing that knows its engine's words.
+
+**A recording is chosen first and described second.** Upload opens the system's panel through
+`IFilePicker`, offering only the formats the station takes (`AudioFiles.Patterns`), and then a dialog
+asks the kind and the label, the label read off the file's name. It goes up as multipart through
+`SdkPart` with the content type its extension says, because the station refuses by type. Only a
+recording the station was GIVEN (`source` of `library`) offers Delete: anything it wrote and spoke
+itself is named by the running order and its history, and is had again by rendering, so there is
+nothing to take back. There is no re-render of a failed segment, because there is no route for one.
+
+**A pronunciation turned down is kept, and Delete is only for one in use.** Proposals arrive from
+articles the station already holds and none is said until accepted; turning one down is a state,
+because a deleted proposal is proposed again by the same article forever. What is said this way is
+added and edited in a dialog, and deleting one asks, since the station starts saying the name however
+the engine does.
+
+**A sound's name goes up in the token's shape, whatever was typed.** `[sfx:name]` is the only
+spelling the station's parser finds, so the upload dialog shows the token the name will make and
+sends `PadText.Shape` of it: a sound uploaded as "Air Horn" would be one no script could reach. Set
+membership is a checkbox per set under each sound, sent the moment it is ticked and put back if the
+station refuses. Taking a sound out of use is Turn down, never Delete, for a file somebody dropped
+into the library on disk: the scan re-reads the library, and a deleted row would be back on the next
+pass. Delete is offered only for a file this station wrote from an upload or a fetch. Renaming a set
+says who it unpoints first, because a persona names a set by its name.
+
+**Phrasings is a settings group drawn here and nowhere else.** The station's `phrasings` group
+belongs to no section of Settings, so this tab filters `GET /settings` to it and draws it with the
+shared form, saving only what changed. A talk break's phrasings are not in it: they are on each
+character's sheet.
+
+**A subject's save replaces its configuration, and the form reports only what changed.** So
+`TopicConfig.Merge` sends the stored configuration with the changes laid over it; sending the
+submission alone would wipe every field nobody touched. A stored list is drawn one entry per line
+when its placeholder is written that way and comma-separated otherwise, the console's rule, and a
+subject's fields are whatever its kind declares, through the same form as everything else. Deleting
+one says how many clock bands name it.
+
+**What it said is narrowed from where somebody was looking.** A character's card and a segment's row
+each raise `SaidRequested`, and the owner narrows the Scripts tab (by persona KEY, which the history
+stamps and which outlives the sheet, or by segment id) and shows it. The tab says what it is narrowed
+to and offers the way back rather than only a clear button. A rating is offered only on an attempt
+that has words, and the detail under a row is built only when it is opened, since a kept prompt runs
+to thousands of words.
+
+**The phrasing and marker checks are advisory and never block a save.** `PersonaReadout` holds a
+copy of the station's placeholder vocabulary, and a desk that refused a save over its own copy would
+stop working the day the station learns a new one.
+
+**An import is read here, previewed there, and only then written.** The file is parsed before
+anything is sent, so the wrong download gets a sentence rather than a refusal from a schema that
+never ran; the plan the dialog shows is the station's own decision (the import runs the same
+function), and it is the document read at choosing time that is sent, not the file again. An export
+takes the station's file name from `Content-Disposition` but only its last segment, so a header
+cannot choose where the file goes.
+
 ## Settings
 
 **The station's half is drawn from what it declares**, so a setting added there appears here with no
 code: key, label, type, bounds and help all come off `GET /settings`. Nothing in this app knows what
 any particular setting means.
+
+**The page is a list of sections, the web console's `SETTINGS_SECTIONS`, and that list is the only
+one** (`Core/Configuration/SettingsSections`). This app's own card is first and is the only section
+listed with no account; the station's sections (one per declared group, Languages among them, then
+Artwork, Storage, Providers, Waiting on you and Plugins) are listed only while the account is the operator's, and losing the role
+on one of them goes back to this app's card rather than leaving a page whose every call is refused. A
+group the list does not name is drawn nowhere here, deliberately: `schedule`, `personas` and
+`phrasings` belong to the pages that make sense of them, and `providers` is the Providers section's
+choice between plugins rather than text fields holding plugin ids. A test says none of the four is
+listed, because naming one would draw its settings twice.
+
+**Every section saves on its own, and an edit left in one survives a visit to another.** Each group is
+its own `ConfigFormViewModel` in a `SettingsGroupViewModel` that lives as long as the page, with a
+Save naming the group. The settings are read ONCE, when the page is first opened by an operator,
+because a re-read rebuilds the forms and throws away what was typed; a save answers with everything,
+and every other group takes that answer unless it holds an edit. The list marks a section with an
+unsaved edit. The standalone sections (Artwork, Storage, Providers, grants) are cheap reads and are
+read each time they are shown, Providers only while no order is half moved.
+
+**The list needs 200 units and the page does not always have them.** At the app's own 1180 with Now
+playing open the page is 552 wide, and a list beside a form left the form 354: a storage table with
+no room for the store's name, an artwork row wrapping its kind a letter at a time. So below 760 (a
+container query on the page) the list becomes one box above the section. `shell-settings-list` in
+`tools/Shots` is the list; every other settings frame is the box.
+
+**Languages are the WEB CONSOLE's, and the section says so.** This app has no localization (its words
+are English, in its view models; see Conventions), so installing a pack changes nothing on this
+screen, and a page that did not say that would read as a failed install. A pack is JSON, sent as a
+body rather than a file part, and read first by `LanguagePacks.Read` with the console's header
+checks in the console's order and words, so one file is refused for one stated reason in both. The
+console's string-by-string comparison with English is NOT done here: it needs the console's English
+catalog, and a copy in this app would be out of date within a release.
+
+**Providers are saved through SETTINGS**, under the key the station names for each job, as the
+console does: a pick is the plugin id as text (empty for Automatic) and is saved the moment it is
+chosen; an order is TEXT holding a JSON array of `{ source }` rows, moved with buttons and saved with
+its own button; going back to the default clears the row with JSON null. A plugin that is named and
+cannot answer stays among the choices, marked, or the box would read as Automatic while nothing is
+doing the job.
+
+**One form draws every declared field in the app**: `ConfigFormViewModel` over `FormField`, drawn by
+`FormFieldView`, for the station's settings, a station plugin's configuration and every settings
+subset a page shows. The station's settings and a plugin's config are two SDK records of one shape
+(`StationSettingDescriptor`, `ConfigFieldDescriptor`) and both become a `FormField`. Its rules are
+the web console's `config.fields.form.tsx`, ported rather than reinvented, and the pure half is in
+Core (`Forms/FormValues`, `Forms/FormRows`) with the tests:
+- A multiselect is a JSON array in a string; a `tags` field is a comma-separated line. They are not
+  the same encoding, and changing either would be changing the setting.
+- A `list` is a JSON array of row objects in a string. A list holding a credential numbers its rows
+  (`$id`) HERE, before the first save: the web console once left that to the station, the id never
+  reached a form that is not rebuilt after saving, and the next save deleted the key just typed.
+- A secret, a secret cell, and a number that had a value are three-way: typed sets it, absent keeps
+  it, JSON `null` clears it. Never `""`.
+- A field hidden by `dependsOn` is neither drawn nor sent. A target not in this form counts as
+  answered. A list column's `dependsOn` also stops the CELL being sent.
+- Suggestions are the VALUES, never their labels: the web console once stored a voice's display name
+  in a field the engine answered 404 for.
+- `FormEncoding.Strings` for the station's settings (every layer holds text) and `Typed` for a plugin's
+  config, which the station stores exactly as sent and the plugin reads as a boolean or a number.
+- `optionsFrom` sources are resolved by `DeclaredOptions`, one read per source named.
+
+**A hidden control still binds.** The number template carries a slider for the fields that ask for
+one, and a hidden slider still coerced its value into its default 0–100 range and wrote it back: a
+linger of 300000 read as 100. The field takes a value from the slider only when it IS a slider.
+
+`SettingFieldViewModel` is now only THIS app's plugins' smaller `FieldSpec` form, which has no
+secrets, lists or choices.
 
 **A setting is a STRING, and the client has to honour that.** Every layer of the station's
 configuration holds text, so a switch travels as the word `true` and a number as its digits. Sending
@@ -1008,12 +1382,105 @@ measured against a light ground.
 absent key already means the system's choice, which is what somebody who never went looking for the
 setting wants. A test says so.
 
+## The station's plugins, which are not this app's
+
+**Two things share the word and must never share a list.** This app's own plugins (`Plugins` above:
+somewhere else to play the station, loaded into this process) are Extensions, on this app's card, and
+reachable with no account. The STATION's plugins run in the station, need the operator, and are the
+Settings section called Plugins, whose view model is `SettingsViewModel.StationPlugins` for exactly
+this reason: `Plugins` was already taken by the first kind, and a property that could mean either is
+how the two end up in one list.
+
+**The section is the console's Plugins page: the list by role, the switch, Rescan and Import.**
+Roles and capability words are `Core/Configuration/PluginRoles`, the console's `plugin.roles.ts`: a
+plugin is listed once, under the first role any of its capabilities names, and a plugin none of
+whose capabilities any role names is listed under Other rather than dropped. The first enable of a
+plugin asks first (`StationPluginSwitch`), because a plugin is trusted code running with the station's
+privileges and that enable is the one that extends the trust; later enables do not ask again. A
+switch the station refused, or whose question was declined, is put back rather than left lying.
+
+**A plugin's own page is a detail page** (`Destination.PluginDetail`, `StationPluginViewModel`),
+built by `SettingsViewModel.OpenPlugin` so it gets the section's calls, and `DetailPages` now
+disposes the page it is leaving. Its form is `ConfigFormViewModel` with `FormEncoding.Typed`, offered
+the plugin's own suggestions and the sources its fields name. A reading taken while waiting redraws
+the header only: rebuilding the form would throw away what somebody was typing while they waited.
+Signing out while on one goes back to Settings, because the rail's entry for Settings needs no
+account and would otherwise leave the page up.
+
+**Connecting a plugin to its provider is done in the person's browser, and nothing comes back to this
+app.** The provider returns the browser to the CONSOLE's callback page on the station
+(`PluginLinks.OAuthCallback`, the same address the console shows, so a plugin registered from either
+works from both), and that page finishes the exchange. So Connect opens the provider's page through
+`ISystemShell` and then asks the plugin every three seconds whether it is connected: until it says
+so, for at most five minutes, until Stop, or until the page is left. That is the only poll on these
+pages and it asks through the SDK directly rather than through `OperatorActions`, since a station that
+missed one of them is not worth a notice every three seconds. A reconnect is not waited for, because
+the plugin says connected before and after and there is nothing to see change. NOT measured against a
+real provider.
+
+**The track fetcher's authorization is a second credential after that one**, drawn below it: start
+opens the approval page, the browser lands on an address only the station can reach (an error page,
+expected), and the address is pasted back to finish. Read only while the plugin is on.
+
+**`ISystemShell` is the one way a view model opens a link or copies text**, for the reason
+`IFilePicker` exists. It opens http and https only: an authorization link comes from the station,
+and `open` would as happily run a `file://` or another app's scheme.
+
 ## The check-up
 
-**Three readings, not one.** The check-up endpoint carries only the two signals nothing else exposes
-— the loops and the catalog backlog — because everything else a health page shows is already on a
-reading somebody is polling. So the page reads the check-up, the attention list and the activity feed
-separately rather than asking the station to compose a verdict it has no business composing.
+**Tabs, as the web console has them, and a view model per tab.** Machinery, History, Cost, Logs and
+What's new, each a view model (`MachineryViewModel`, `ActivityFeedViewModel`, `CostViewModel`,
+`LogsViewModel`, `ReleasesViewModel`) owned by `CheckupViewModel`, which owns only which tab is
+open. The open tab is read on every visit and when
+it is pressed, never on a timer. `LoadCommand` allows concurrent runs, because a tab pressed while
+the visit's first read is still out is a read of a DIFFERENT tab, and a command that refused it
+left that tab empty.
+
+**Machinery is five readings, not one.** The check-up endpoint carries only the two signals nothing
+else exposes (the loops and the catalog backlog), because everything else a health page shows is
+already on a reading of its own. So the tab reads playout, the attention list, the check-up, the disk
+and the releases separately, one after another, rather than asking the station to compose a verdict
+it has no business composing. **Each section fails on its own**: one that has never been read says
+so in its own box and the rest still answer, and one read before keeps its last reading. That is
+also what lets `tools/Shots` pose a tab and have the refusing client leave the pose alone. The
+release line under the build reads quietly (no notice on failure), since the plain link it falls
+back to is true either way.
+
+**History is a page at a time, and more only when asked.** First page on opening, "Load more"
+through the feed's keyset cursor (`nextBefore`), and no polling: the web console refetches its feed,
+the desktop does not, because nobody reads a feed moving under them and the station rate-limits. A
+filter starts again from the top, since a cursor is a place in one filtered list, and a generation
+counter drops a page that lands after the filter changed. A line's time carries its day once it is
+not today (`CheckupWords.Moment`), because "load more" reaches yesterday within a page or two.
+
+**What's new draws release notes as plain text.** They are changelog Markdown and the app has no
+renderer; `ReleaseCheck.PlainNotes` takes the marks off and keeps every word. Check now is
+`platform.manage` where the read is `platform.view`, so its 403 is caught by `ManageOnly` and said
+beside the button, rather than reported as "no longer an operator" and refreshing the roles: an
+account that can read releases but not ask for them is still an operator. `ManageOnly` is for any
+manage-only call on a page an operator can open.
+
+**Cost and Logs are manage-only through and through**, so both read through `ManageOnly` and say a
+refusal as a sentence on the tab. Neither polls: a decision's spans were written when the work
+happened and cannot change, and a log is refreshed when somebody presses Refresh.
+
+**A decision opens in place, under its row, rather than on a detail page.** What somebody wants from
+one is its calls read against the decisions around it, and a page of its own would take those away.
+One is open at a time (the list's selection, with toggle), and its calls are read the first time it
+opens. The rows are a forest (`TraceWords.Forest`): a caused decision sits indented under its cause,
+and one whose cause rotated out of the kept window is a root rather than dropped. Durations keep
+their magnitude across four orders (`3ms`, `19.2s`, `2m 6s`), nought is a dash because it is a
+decision recorded before its own span rather than one that took no time, and a span's detail is
+drawn as recorded with whole numbers grouped, since a token count is what is usually there.
+
+**A log source that is absent is still offered**, and says what would fill it: hiding it would answer
+"where is the audio chain's log?" by pretending nobody asked. Only a source whose lines carry a
+level is offered a level filter, and none is sent for the others. Download goes through
+`IFilePicker.SaveAsync` under the name the station's `Content-Disposition` gives, cut to its last
+part so a header can never choose a directory on this machine.
+
+**Ages round half away from zero**, as the web console's `Math.round` does. .NET's default is to the
+even neighbour, which put 150 seconds at "2m ago" here and "3m ago" there.
 
 **A loop reports two timestamps and no verdict**, and the client must not invent one: a five-second
 reconcile and a nightly sweep are both healthy, and no single threshold describes both.
@@ -1027,14 +1494,94 @@ tree and a hand-built image both are.
 
 ## The programme
 
-**A slot's times are minutes from midnight and its days are a list**, because a slot recurs. Two
-things follow that are easy to draw wrong. An end of 1440 is midnight at the FAR end of the day, and
-formatting it as `00:00` produces a slot that appears to end before it starts. And the slot the
-station is actually airing is not always the one the clock says: a hold keeps a broadcast past its
-slot deliberately, which is why the ON AIR marker follows `airingSlotId` rather than the time.
+**The page is the web console's four tabs, one view model per tab**: Today, Timetable, Sustaining
+and Requests. `ProgrammeViewModel` owns the tab and builds each tab's view model (`TodayViewModel`,
+`TimetableViewModel`, `SustainingViewModel`, `RequestsViewModel`) itself from what it was given, so a
+tab is added without touching the shell or the container. A tab is read when it is opened and after
+a write, never on a timer.
 
-The timetable is read-only for now. Editing wants dragging and resizing, and a wrong drop reschedules
-a broadcast — the same order the running order's own edits arrived in.
+**A slot's times are minutes from midnight and its days are a list**, because a slot recurs. Two
+things follow that are easy to draw wrong. An end of midnight is the FAR end of the day, and
+formatting it as `00:00` produces a slot that appears to end before it starts: the contract's range
+stops at 1439, so the station stores it as 0 (older rows may hold 1440), and both draw and edit as
+`24:00`, which the editor sends back as 0. And the slot the station is actually airing is not always
+the one the clock says: a hold keeps a broadcast past its slot deliberately, which is why the ON AIR
+marker follows `airingSlotId` rather than the time.
+
+**The timetable is edited through a dialog, never by dragging.** The web console drags and resizes
+blocks on a week grid; a wrong drop there reschedules a broadcast, and this app keeps drag and drop
+out everywhere for that reason. So the Timetable tab is the list of slots it always was, with Add
+slot, and Edit and Delete on each row (Delete asks first, and says so when the slot is on air). The
+same editor opens from a block on Today's strip. `SlotDraft` (Core) is the web console's slot editor:
+an end BEFORE the start runs past midnight and the same time at both ends is a full day, so there is
+no "end after start" rule to break them; a name is required although the station permits none,
+because "Untitled" tells an operator nothing. **Overlaps are the station's to refuse**, as they are
+on the web console: it answers 409 with a sentence naming the other block, shown on the dialog, and
+it expands empty days and a wrapping block's tail onto the next weekday in ways a second copy here
+would one day disagree with. `PUT` replaces the row, so the editor sends every field; calls and
+mixing in go only when ON (absent is no calls, and absent leaves the station's own mixing setting
+standing), mixing in only beside a playlist, the chart order only beside a chart.
+
+**The pickers are the web console's.** "Playing from" is one list over the station's own playlists,
+the providers' and the charts (`SourceChoices`), because they are alternatives and two controls would
+let somebody fill in both. A playlist that is hidden or whose source refuses its tracks is not
+offered, but what a slot ALREADY plays from always is, under its id if nothing names it now: a picker
+whose value is missing draws as empty, which reads as a slot that plays nothing. "Hosted by" never
+offers a caller, who phones in and cannot present. The choices are read when the dialog opens.
+
+**The boundary rule sits under the list**, as the web console's sits under its grid: two station
+settings (`schedule.capOverrun`, `schedule.overrunMinutes`) drawn by `SettingsSubsetViewModel`, which
+reads the whole declaration, keeps the named keys and draws them through the shared form with its own
+Save. Nothing there is known to this app beyond the two keys.
+
+**Sustaining is a slot with the when-half taken off**, stored as station settings (the station's own
+`SUSTAINING_KEYS`) and drawn as the web console draws it: the sentence saying what plays between
+blocks, and behind Change, a source picker above the shared form. The words, the period and the calls
+are declared fields and go through `SettingsSubsetViewModel`; the source is NOT, because a plugin and
+a playlist are one choice, and two hand-typed id boxes is how an id gets written in a form nothing can
+read. The picker's values ride in the SAME write as the form's (`SettingsSubsetViewModel.Extra`), and
+only when it changed, so saving the brief alone leaves a source somebody else set. A change of source
+writes all four source keys (`Core/Programme/Sustaining.Writes`) and clears the arm not chosen with
+JSON null: a stale chart id beside a fresh playlist is a source that wins over it. A chart is read
+first, as the station reads it. Nothing set is said as a working station ("a gap keeps whatever the
+last block left on"), never as a fault.
+
+**Requests are manage-only even to read, and a refusal to read them is not a failure.** Every other
+403 in this app refreshes the roles and says "no longer an operator"; said here, that tells somebody
+who never had the role that they lost it. So `RequestsViewModel` catches the 403 inside its call,
+before `OperatorActions` sees it, and shows the web console's sentence in place of the list
+(`RequestsAccessTests`). Grant is offered while a request is waiting and Decline while it is waiting
+or on its way, named positively (`Core/Programme/Requests`); a queued one is taken out from the desk.
+Decline is a dialog with one field, what to tell them, because the listener is told and the reason is
+the only part the operator writes. The list is fetched whole and filtered here (Open or Recent), as
+the web console does.
+
+**Today is two halves of one question**: what the station PLAYS now (the on-now strip) and what it
+SAYS inside the hour (the format clock). Every fact on the strip comes from `GET /schedule/current`,
+whose blocks and `now` are read by the station in one frame, so what is left is a subtraction of two
+readings (`Core/Programme/StationTime`) and never this Mac's clock or zone. There is no countdown
+between fetches: that would be a second clock, wrong in exactly the way the strip exists to prevent.
+The block the clock says is on reads **Due now** rather than On air when `slotId` and `airingSlotId`
+differ, with the sentence saying why, because badging it On air while the station plays something
+else misreports the station to the one person who can change it.
+
+**A band is a rule about every hour, so it is a list and not something on the timetable.** Its rules
+are `Core/Programme/FormatClock` and `BandDraft`, ported from the web console's clock panel and band
+editor: the kind is free text with the station's producible kinds as suggestions (never `welcome`, a
+greeting is asked for when somebody tunes in), a subject kept off the air is not offered, an hourly
+band sends a minute and no hour, and an empty subject is ABSENT rather than an empty string. `PUT`
+replaces a band, so every write sends the whole band back, the subject included: a reorder that sent
+only the position turned a technology bulletin into a general one on the web console. Order is
+preference (the higher band wins a boundary two want) and is changed with the arrows, which swap the
+two rows' POSITIONS in two writes rather than renumbering the list. There is no overlap rule to check;
+the station refuses none. Delete is on the row and asks first.
+
+**The dial is `Controls/FormatClockDial`, one `Render` override**, drawn beside the list for the one
+thing rows cannot show: the shape of the hour. Only enabled clock bands are marked; an interval band
+has no place on a dial and is left off rather than drawn at an invented angle. Labels step inward
+when they would land on one already drawn, because centred on their points ":55" and ":00" overlapped.
+Below a 680-wide card (which is the default window with the Now playing panel open) a container
+query moves the dial above the list rather than hiding it.
 
 ## The running order
 
@@ -1044,6 +1591,23 @@ is worse than refusing — and it means the client has to know where the movable
 every "send to the top" on a busy order comes back rejected. `MoveTarget` works out that floor: the
 first item still `planned`. The move buttons answer null rather than an index when there is nowhere
 to go, so nothing is sent.
+
+**Skip-to is offered on a RECORD still to come, including one the player already holds**
+(`Core/Director/SkipTo`), unlike a move or a drop: reaching past the player's queue is the point, and
+the station refuses a break with a 422 because its words are about the records either side. It cuts
+what is on air, so it asks first. It shares the length's column and replaces it on hover rather than
+being a fourth button: the panel is 320 wide, and another column would leave a title about sixty units.
+
+**The record on air is rated on the desk, beside Plan**, the web console's three answers (thumbs
+down, no opinion, thumbs up) rather than two switches, because withdrawing an opinion is the middle.
+It asks nothing first: a rating changes what the rotation draws later, not what is airing. It is
+written to the catalog and the order is read again, since the order carries each record's rating.
+The thumbs are Tabler's, the web console's own set, with the notice beside Microsoft's.
+
+**Take a call asks the station for a production, not a break**, because a phone-in is two voices
+and only a production airs several turns together; the dialog says it lands in minutes. It is taken
+by this show's host unless another is chosen (the web console always inherits it), and the broadcast's
+brief is never passed: a brief is what the show plays, not what its callers talk about.
 
 **Undo is offered for a record and not for a segment**, because a dropped record is spliced out and
 can be added back while a dropped segment is marked `removed` and stays that way. Offering it for
@@ -1057,6 +1621,74 @@ with no duration contributes NOTHING rather than a guess: an order that runs out
 than predicted costs an operator an extra extend, and one that runs out earlier than promised is the
 station going quiet. The twenty-minute warning threshold caught its own test fixture, which was
 fifteen minutes long and therefore already short.
+
+## The station's air, on the desk
+
+**The air is read on the running order's own tick, and has no timer.** `OrderRepository` reads
+`GET /director/air` straight after the order, every five seconds, which is the web console's own
+cadence for both. A second poller would be a second lease, a second backoff and a second thing
+`SwitchAsync` has to detach, for a reading that moves at the same boundaries the order does; riding
+the order's also means it runs exactly while an operator is signed in and stops when they are not.
+A failed air read keeps the last one and never fails the order's tick. Every air verb answers with
+the new air, which is written in at once, as a skip's answer is.
+
+**It is drawn under the record on the desk (`StationAirView`), for an operator, and nothing is
+drawn before the first reading.** An air mode shown before the station has said which it is would be
+a value nobody chose. The desk page's own context is the listener, so the view reaches the running
+order's `Air` through the window, as the bar reaches the transport. The page scrolls: at the window's
+minimum the hero and the card do not both fit.
+
+**Who is driving is a sentence with a subject** ("You put this on", "Between blocks", "The schedule
+put this on"), the web console's words, with what it means a hover away (`Core/Director/AirWords`).
+The one worth the tooltip is the operator's: a takeover holds until the NEXT block begins and is then
+replaced, correctly and without warning. **The hold is offered only while a person is driving**, and
+its release whenever a hold is on, whatever the source says, because a hold nobody can see or undo is
+worse than none.
+
+**Every one of these changes what airs, so every one asks first.** The air mode, a hold and a release
+through `ConfirmAsync`, worded as what will happen; the host and the plan through dialogs that are the
+question themselves. The air mode is two tab buttons rather than radio buttons, because a radio flips
+the moment it is pressed and the question comes after.
+
+**Planning is one dialog with a scope, the web console's** (`PlanDialogViewModel`, the pure half in
+`Core/Director/PlanRequest`). Keeping the show sends a replan carrying a brief and nothing else, and
+the other fields are ABSENT rather than disabled, because the host, the period and the shape belong to
+the broadcast. The brief is sent only when it changed (absent keeps it, empty clears it), a new show is
+named after its brief, and a phone-in is sent only when ticked, since nothing station-wide stands
+behind an absent one. A new show over one that is playing draws its button in the tally colour.
+
+**The host is changed from a list of HOSTS** (`Presenters`): the roster holds callers too, and a
+caller put on air presents a show in a character whose premise is ringing somebody else's. "The
+station's host" is an entry, not an absence, because handing the show back is something an operator
+means. The hosts are read each time a dialog opens, not kept, so a character added a minute ago on
+Voice is offered.
+
+## What needs you, and the sidebar's badges
+
+**The attention list is read on every third tick of the running order, which is fifteen seconds,
+and has no timer of its own.** That is the web console's cadence, and it keeps polling in the
+background there because the badges are on every page. The order's poll already runs on every page
+for an operator and on none for anybody else, so riding it gives exactly that; the first reading of a
+session asks at once, so the badges are up as the operator arrives. A failed read keeps the last list
+and says it could not ask, on the desk and never on the notice line, which would otherwise repeat
+itself every fifteen seconds; the list failing is not the station failing, and the words say which.
+
+**One table routes a row and counts its badge** (`Core/Station/AttentionRoutes`, the web console's
+`attention.destination.ts` ported), so a badge on one page and its row linking to another is not a
+state this app can reach. The station names web console pages (`/onair`, `/personas`, `/plugins/x`);
+the translation lives here so the API never learns this app's navigation. **An unknown route has no
+page rather than the nearest one**: its row keeps its sentence, says this app has no page for it, and
+badges nothing. A row about the broadcast has no link on the desk, because the desk is where it points.
+A link is labelled with where it goes, never with a remedy the station did not send.
+
+**The badge's column is reserved on every sidebar row**, so the shortcut letters stay in one line;
+its colour is the worst severity on that page, through `SeverityBrushConverter`, because a failure's
+red and a lamp's red mean opposite things. The evidence a row can carry (the records behind a count)
+is not drawn yet; the web console folds it away behind a disclosure, and Check-up is where it belongs.
+
+**The poll outlives a sign-out by its five-second grace**, so a reading can land after the operator
+has gone. The order, the air and the attention all drop a reading that arrives once `IsOperator` is
+false, or it would put the operator's desk back on a listener's screen.
 
 ## The second factor, and the bug that taught it
 
@@ -1075,6 +1707,44 @@ one that ruled out the actual cause, and it invited them to keep retyping a code
 sentence cost the diagnosis. A client that cannot distinguish its own failure modes hands the person
 in front of it a false lead.
 
+## Sign-in and security, and the step-up
+
+**The section is the console's two halves on one page**: this account's own (its factors, API keys,
+chat accounts and the apps it approved) under YOUR ACCOUNT, then the station's (the `signin` group
+through the one form, whether its providers answer, the registered apps) under THE STATION. The group
+is still one of `SettingsViewModel`'s groups, saved and kept like the others; its button says "Save
+sign-in for everyone" because it saves that half only. A card the station refuses this account the
+read for is not drawn at all (`SettingsCalls.ReadAsync` answers Forbidden instead of a notice), as
+the console's are not; a line saying "no longer an operator" would be wrong about somebody who is.
+
+**A secret is shown once, inline, and stays until Done**: a new or rotated API key, an app registered
+by hand. Inline rather than in a dialog, because issuing one sits behind the step-up, and a step-up
+dialog arriving over another dialog answers that one "no" (Dialogs, above).
+
+**The authenticator's QR code is the STATION's picture, so there is no QR library here.** The
+registration answers with a PNG `data:` URI (ServerKit draws it), which `AccountWords.DataUri`
+decodes and the card shows, with the key beside it as text and a Copy button. Adding a package to
+draw what the station already drew would be a dependency and a licence for nothing. An enrolment
+starts with the SHA-256 of a secret only this app holds (`Pkce`, the console's `pkce.ts`, tested
+against RFC 7636's own example) and finishes with the secret. Finishing answers with a token for THIS
+session that now carries the factor, and `SessionManager.AdoptAsync` takes it, which is what lets the
+next change pass the station's recent-factor gate without asking again. Email factors and linked
+sign-ins (an identity provider linked through the browser) are the console's and are not here yet.
+
+**A step-up answers `Notice.StepUpNeeded` by asking, and then tries the call again, once.**
+`OperatorActions.StepUp` is the seam (Core cannot draw), installed by `StepUpDialogViewModel.Install`
+from the Settings page's construction and posted to the UI thread, because the refusal arrives on
+whatever thread the call continued on. `DoAsync` goes through `RunAsync` so both kinds of call get
+it. A second refusal after a good code is reported rather than asked about again, and declining says
+nothing at the foot of the page. With no hook installed the notice is said as before.
+
+**The step-up's token request carries the current bearer, deliberately.** `/auth/token` is exempt
+from `SessionHandler`, which is right for a sign-in and a refresh; but the station ROTATES the
+current session only when the request presents it, and without it the same code mints a second
+session beside the first. So `SessionManager.StepUpAsync` puts the header on itself, and a test reads
+it off the wire. The three named rejections are told apart as at sign-in. NOT measured against a real
+station: signing in needs the operator's own credentials.
+
 ## What is verified against a real station, and what is not
 
 The listener half is measured against the live station: it plays, it polls, and the phases are in
@@ -1084,6 +1754,22 @@ exempt token endpoints, a 4xx ending a session where a 5xx does not — are prov
 station in `SessionHandlerTests` and `SessionManagerTests` rather than against the real one. That is
 a deliberate limit rather than an oversight: the tests can produce two simultaneous 401s and a
 rotation that answers without a new refresh token, and a live station cannot be asked to.
+
+**The operator pages that reached parity with the web console (2026-09-29) are verified against
+fakes and pictures, not against the station.** Every page, tab, detail page and dialog was built
+with `-warnaserror`, its rules tested in Core, and drawn by `tools/Shots` in both appearances at 1180
+and at the 820x520 minimum, and looked at. None of their calls has been made to a real station. The
+ones most worth measuring there first, because a fake cannot answer them the way a station does:
+- a plugin's OAuth connect (the browser round trip and the three-second check until it reports
+  connected) and the stream fetcher's authorization;
+- the step-up: a code asked for, the session rotated rather than a second one made, the call retried;
+- a playlist import's preview and import, and a chart put on air (which answers before its job runs);
+- previews of each audio endpoint through AVFoundation (only a local WAV has been played: see
+  Previews), and an Ogg answer failing to open with a sentence;
+- the station's refusals worded through `expected` (409 and 422 especially), which fakes only guess at.
+
+Anything that changes what airs (air mode, a hold, a plan, a recast, a skip, a playlist or chart put
+on air, a timetable edit) is to be tried only with the operator watching, never blind.
 
 ## Conventions
 

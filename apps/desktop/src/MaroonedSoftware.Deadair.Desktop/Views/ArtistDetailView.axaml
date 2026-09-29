@@ -1,0 +1,60 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.ArtistDetailView"
+    x:DataType="vm:ArtistDetailViewModel">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="{DynamicResource DaPageGutter}" Spacing="18">
+
+            <views:DetailHeader />
+
+            <views:EnrichmentPanel DataContext="{Binding Enrichment}" />
+
+            <StackPanel Spacing="8">
+                <TextBlock Classes="eyebrow" Text="Releases" />
+                <TextBlock Classes="dimmed" Text="{Binding NoAlbums}" TextWrapping="Wrap"
+                           IsVisible="{Binding NoAlbums, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+                <ItemsControl ItemsSource="{Binding Albums}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AlbumRowViewModel">
+                            <Grid ColumnDefinitions="36,*,44,90,82" ColumnSpacing="12" Margin="8,5">
+                                <controls:Artwork Size="36" Source="{Binding ArtworkUrl}"
+                                                  Initial="{Binding Initial}" />
+                                <Button Grid.Column="1" Classes="link" HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding $parent[ItemsControl].((vm:ArtistDetailViewModel)DataContext).OpenAlbumCommand}"
+                                        CommandParameter="{Binding}">
+                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                </Button>
+                                <TextBlock Classes="mono" Grid.Column="2" Text="{Binding Year}" FontSize="11"
+                                           VerticalAlignment="Center" HorizontalAlignment="Right"
+                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                <TextBlock Grid.Column="3" Text="{Binding Holding}" FontSize="12"
+                                           VerticalAlignment="Center" HorizontalAlignment="Right"
+                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                <views:RatingStrip Grid.Column="4" DataContext="{Binding Rating}"
+                                                   VerticalAlignment="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8" IsVisible="{Binding Pager.IsPaged}">
+                    <Button Classes="ghost" Content="Previous" Command="{Binding Pager.PreviousCommand}"
+                            IsEnabled="{Binding Pager.CanGoBack}" />
+                    <Button Grid.Column="1" Classes="ghost" Content="Next" Command="{Binding Pager.NextCommand}"
+                            IsEnabled="{Binding Pager.CanGoForward}" />
+                    <TextBlock Grid.Column="2" Classes="dimmed mono" FontSize="11" Text="{Binding Pager.Summary}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                </Grid>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

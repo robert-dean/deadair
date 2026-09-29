@@ -1,0 +1,55 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.ChartDetailView"
+    x:DataType="vm:ChartDetailViewModel">
+
+    <DockPanel Margin="{DynamicResource DaPageGutter}" LastChildFill="True">
+
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16" Margin="0,0,0,14">
+            <controls:Artwork Size="72" Initial="{Binding Chart.Initial}" />
+            <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                <TextBlock Classes="h1" Text="{Binding Name}" TextWrapping="Wrap" MaxLines="2"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="dimmed" Text="{Binding Source}" />
+                <TextBlock Classes="secondary" FontSize="12" Text="{Binding Description}" TextWrapping="Wrap"
+                           MaxWidth="560" HorizontalAlignment="Left" IsVisible="{Binding HasDescription}" />
+                <TextBlock Classes="dimmed" Text="{Binding Summary}"
+                           IsVisible="{Binding Summary, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            </StackPanel>
+            <!-- The same command the library's row offers, so the two cannot behave differently. -->
+            <Button Grid.Column="2" Classes="ghost" Content="Put on air" VerticalAlignment="Center"
+                    Command="{Binding PlayCommand}" CommandParameter="{Binding Chart}" IsEnabled="{Binding CanAir}" />
+        </Grid>
+
+        <ListBox Classes="rows" ItemsSource="{Binding Places}">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:ChartPlaceViewModel">
+                    <Grid ColumnDefinitions="28,2*,1.4*,*,104,58" ColumnSpacing="12">
+                        <TextBlock Classes="mono" Text="{Binding Rank}" FontSize="13"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <TextBlock Grid.Column="1" Text="{Binding Title}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource DaTextBrush}" />
+                        <TextBlock Grid.Column="2" Text="{Binding Artist}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" Classes="secondary" />
+                        <TextBlock Grid.Column="3" Text="{Binding Album}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" Classes="dimmed" />
+                        <TextBlock Classes="mono" Grid.Column="4" Text="{Binding Run}" FontSize="11"
+                                   VerticalAlignment="Center" HorizontalAlignment="Right"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <Button Grid.Column="5" Classes="reveal ghost" Content="Find" FontSize="11" Padding="8,3"
+                                HorizontalAlignment="Right" VerticalAlignment="Center"
+                                ToolTip.Tip="Search the records for this title"
+                                Command="{Binding $parent[ListBox].((vm:ChartDetailViewModel)DataContext).FindCommand}"
+                                CommandParameter="{Binding}" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+
+</UserControl>

@@ -60,6 +60,9 @@
             <Color x:Key="DaSeverityWarning">#ffb224</Color>
             <Color x:Key="DaSeverityNotice">#4c8dff</Color>
 
+            <!-- What a dialog dims the app behind it with. -->
+            <Color x:Key="DaScrim">#A6000000</Color>
+
 
             <BoxShadows x:Key="DaHeroShadow">0 16 48 0 #8C000000</BoxShadows>
             <!-- The accent at under half strength, three units outside the border: what a Mac draws
@@ -95,6 +98,8 @@
             <Color x:Key="DaSeverityWarning">#97640a</Color>
             <Color x:Key="DaSeverityNotice">#1a5cba</Color>
 
+            <Color x:Key="DaScrim">#59000000</Color>
+
 
             <BoxShadows x:Key="DaHeroShadow">0 12 32 0 #2E000000</BoxShadows>
             <BoxShadows x:Key="DaFocusRing">0 0 0 3 #660e7247</BoxShadows>
@@ -129,6 +134,7 @@
     <SolidColorBrush x:Key="DaSeverityFailureBrush" Color="{DynamicResource DaSeverityFailure}" />
     <SolidColorBrush x:Key="DaSeverityWarningBrush" Color="{DynamicResource DaSeverityWarning}" />
     <SolidColorBrush x:Key="DaSeverityNoticeBrush" Color="{DynamicResource DaSeverityNotice}" />
+    <SolidColorBrush x:Key="DaScrimBrush" Color="{DynamicResource DaScrim}" />
 
     <!--
         Everything below is the same in both appearances. Type, space and corners are a shape rather

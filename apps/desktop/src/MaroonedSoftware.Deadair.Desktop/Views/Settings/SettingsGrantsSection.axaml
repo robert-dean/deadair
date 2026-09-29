@@ -1,0 +1,33 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SettingsGrantsSection"
+    x:DataType="vm:GrantsSectionViewModel">
+
+    <DockPanel LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14" MaxWidth="760" HorizontalAlignment="Left">
+            <TextBlock Classes="h2" Text="What plugins have asked for" />
+            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                       Text="A plugin reaches only what its manifest names and what you gave it. These are the things one has asked for on top of that. Nothing here is allowed until you say so, and a decision takes effect on the plugin's next request." />
+        </StackPanel>
+
+        <Panel>
+            <TextBlock Classes="dimmed" TextWrapping="Wrap" MaxWidth="560" HorizontalAlignment="Left" IsVisible="{Binding IsEmpty}"
+                       Text="Nothing is waiting on you. Almost every plugin does its whole job inside what it declares, so this is the ordinary state of a station." />
+
+            <ScrollViewer>
+                <ItemsControl ItemsSource="{Binding Grants}" MaxWidth="760" HorizontalAlignment="Stretch">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:PluginGrantRowViewModel">
+                            <views:PluginGrantRow Margin="0,0,0,10" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Panel>
+    </DockPanel>
+
+</UserControl>

@@ -1,0 +1,78 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.VoiceVoicesTab"
+    x:DataType="vm:VoicesViewModel">
+
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,12" MaxWidth="760" HorizontalAlignment="Left">
+            <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap" Text="{Binding SpokenBy}"
+                       IsVisible="{Binding SpokenBy, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <StackPanel Spacing="2" IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <TextBlock Text="The station has no voice yet" />
+                <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap" Text="{Binding Empty}" />
+            </StackPanel>
+
+            <!-- Typed words in any voice: how a name is checked before a break says it wrong on air. -->
+            <Border Classes="card" Padding="12">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="eyebrow" Text="Say something" />
+                    <TextBox Text="{Binding Words}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="48"
+                             PlaceholderText="Type a line, a name the station keeps getting wrong, anything" />
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                        <ComboBox ItemsSource="{Binding SpeakIn}" SelectedItem="{Binding SpeakWith}" HorizontalAlignment="Left" Width="320"
+                                  HorizontalContentAlignment="Left">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ChoiceViewModel">
+                                    <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button Grid.Column="2" Classes="primary" Content="{Binding SpeakLabel}" Command="{Binding SpeakCommand}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <ScrollViewer>
+            <StackPanel Spacing="0" MaxWidth="760" HorizontalAlignment="Left" Margin="0,0,14,12">
+                <!-- Whatever a character with no voice of its own speaks in. -->
+                <Grid ColumnDefinitions="*,72" ColumnSpacing="10" Margin="8,6">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="The plugin's default voice" FontWeight="SemiBold" />
+                        <TextBlock Text="Heard from any character with no voice of its own." FontSize="11" Classes="dimmed" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="ghost" FontSize="11" Padding="8,3" Content="{Binding DefaultLabel}"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Command="{Binding PlayDefaultCommand}" />
+                </Grid>
+
+                <ListBox Classes="rows" ItemsSource="{Binding Voices}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:VoiceRowViewModel">
+                            <Grid ColumnDefinitions="*,72" ColumnSpacing="10">
+                                <StackPanel Spacing="2">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding Label}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding SpokenBy}" FontSize="11" Classes="dimmed" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="420" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Description}" FontSize="11" Classes="dimmed" TextWrapping="Wrap"
+                                               IsVisible="{Binding Description, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Classes="ghost" FontSize="11" Padding="8,3" Content="{Binding PlayLabel}"
+                                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                                        Command="{Binding $parent[ListBox].((vm:VoicesViewModel)DataContext).PlayCommand}"
+                                        CommandParameter="{Binding}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+
+</UserControl>

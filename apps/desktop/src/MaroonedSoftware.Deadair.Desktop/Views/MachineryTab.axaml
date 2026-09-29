@@ -1,0 +1,281 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.MachineryTab"
+    x:DataType="vm:MachineryViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <!-- A section's own failure, said where its content would have been. -->
+        <Style Selector="TextBlock.unread">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{DynamicResource DaSeverityFailureBrush}" />
+        </Style>
+        <Style Selector="TextBlock.fact">
+            <Setter Property="FontFamily" Value="{DynamicResource DaFontMono}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <!-- One column, in the web console's order: what is on air and what needs somebody first,
+         because those are the two things a check-up is opened to find out. -->
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="18" MaxWidth="820" HorizontalAlignment="Left" Margin="0,0,12,0">
+
+            <StackPanel Spacing="8">
+                <TextBlock Classes="eyebrow" Text="ON AIR" />
+                <Border Classes="card">
+                    <StackPanel Spacing="10">
+                        <TextBlock Classes="unread" Text="{Binding PlayoutProblem}"
+                                   IsVisible="{Binding PlayoutProblem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        <StackPanel Spacing="10" IsVisible="{Binding HasPlayout}">
+                            <!-- The station's own verdict and words. The lamp sits on the first line
+                                 rather than the middle of a long paragraph. -->
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                <Ellipse Width="8" Height="8" VerticalAlignment="Top" Margin="0,5,0,0"
+                                         Fill="{Binding SilenceTone, Converter={StaticResource ToneBrush}}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Silence}" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource DaTextBrush}" />
+                            </Grid>
+                            <TextBlock Text="{Binding Remedy}" TextWrapping="Wrap" FontSize="12" Margin="16,0,0,0"
+                                       IsVisible="{Binding Remedy, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                       Foreground="{DynamicResource DaTextSecondaryBrush}" />
+
+                            <StackPanel Orientation="Horizontal" Spacing="28">
+                                <StackPanel>
+                                    <TextBlock Classes="dimmed" Text="Listeners" FontSize="11" />
+                                    <TextBlock Classes="fact" Text="{Binding Listeners}" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Classes="dimmed" Text="Stream" FontSize="11" />
+                                    <TextBlock Classes="fact" Text="{Binding Stream}" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Classes="dimmed" Text="Queued" FontSize="11" />
+                                    <TextBlock Classes="fact" Text="{Binding Queued}" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Whole addresses, selectable, because a path is not something anybody
+                                 can paste into a speaker. -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Classes="dimmed" Text="Listen" FontSize="11" />
+                                <ItemsControl ItemsSource="{Binding Mounts}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:MountViewModel">
+                                            <Grid ColumnDefinitions="48,*,80" ColumnSpacing="8" Margin="0,2">
+                                                <TextBlock Classes="mono" Text="{Binding Format}" FontSize="11"
+                                                           FontWeight="SemiBold" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                                <SelectableTextBlock Grid.Column="1" Text="{Binding Url}"
+                                                                     FontFamily="{DynamicResource DaFontMono}"
+                                                                     FontSize="12" VerticalAlignment="Center"
+                                                                     TextTrimming="CharacterEllipsis"
+                                                                     Foreground="{DynamicResource DaTextBrush}" />
+                                                <TextBlock Grid.Column="2" Classes="dimmed" Text="{Binding Rate}"
+                                                           FontSize="11" VerticalAlignment="Center"
+                                                           HorizontalAlignment="Right" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+
+                            <!-- A container running config that was replaced: never the cause of a
+                                 silence, and the reason the next attempt to go on air will fail. -->
+                            <ItemsControl ItemsSource="{Binding StaleConfig}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <TextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource DaSeverityWarningBrush}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock Classes="eyebrow" Text="NEEDS YOU" />
+                <TextBlock Classes="unread" Text="{Binding AttentionProblem}"
+                           IsVisible="{Binding AttentionProblem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                <TextBlock Classes="dimmed" Text="Nothing is waiting on anybody." IsVisible="{Binding NothingNeedsYou}" />
+                <ItemsControl ItemsSource="{Binding Attention}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AttentionViewModel">
+                            <!-- A card with a spine rather than a dot, which is the web console's
+                                 Alert: a page of these is read by severity first, and a 2px edge
+                                 carries that further down a column than a 7px dot. -->
+                            <Border Classes="card" Padding="0" Margin="0,0,0,8" ClipToBounds="True">
+                                <Grid ColumnDefinitions="2,*,Auto">
+                                    <Rectangle Fill="{Binding Severity, Converter={x:Static conv:SeverityBrushConverter.Instance}}" />
+                                    <StackPanel Grid.Column="1" Spacing="3" Margin="14,10">
+                                        <!-- The station writes both lines; this draws them. -->
+                                        <TextBlock Text="{Binding Title}" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource DaTextBrush}" />
+                                        <TextBlock Text="{Binding Detail}" Classes="dimmed" FontSize="11"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2" Classes="mono" Text="{Binding Count}" FontSize="12"
+                                               Margin="0,10,14,0" VerticalAlignment="Top"
+                                               IsVisible="{Binding ShowsCount}"
+                                               Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="eyebrow" Text="LOOPS" />
+                    <!-- Stamped, so a page left open overnight cannot pass itself off as now. -->
+                    <TextBlock Grid.Column="1" Classes="dimmed" Text="{Binding ReadAt}" FontSize="11" />
+                </Grid>
+                <Border Classes="card">
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="unread" Text="{Binding CheckupProblem}"
+                                   IsVisible="{Binding CheckupProblem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        <TextBlock Classes="dimmed" Text="{Binding LoopsNote}" TextWrapping="Wrap"
+                                   IsVisible="{Binding LoopsNote, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        <!-- Two ages and no verdict: a five-second reconcile and a nightly sweep are
+                             both healthy, and no single threshold describes both. -->
+                        <Grid ColumnDefinitions="*,110,110" ColumnSpacing="8"
+                              IsVisible="{Binding HasLoops}">
+                            <TextBlock Classes="dimmed" Text="Loop" FontSize="11" />
+                            <TextBlock Grid.Column="1" Classes="dimmed" Text="Last pass" FontSize="11" />
+                            <TextBlock Grid.Column="2" Classes="dimmed" Text="Started" FontSize="11" />
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding Loops}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:LoopViewModel">
+                                    <Grid ColumnDefinitions="*,110,110" ColumnSpacing="8" Margin="0,3">
+                                        <TextBlock Classes="mono secondary" Text="{Binding Name}" FontSize="12"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Classes="mono" Text="{Binding LastBeat}" FontSize="12"
+                                                   Foreground="{DynamicResource DaTextBrush}" />
+                                        <TextBlock Grid.Column="2" Classes="mono dimmed" Text="{Binding Started}"
+                                                   FontSize="11" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock Classes="eyebrow" Text="LIBRARY" />
+                <Border Classes="card">
+                    <StackPanel Spacing="10">
+                        <TextBlock Classes="unread" Text="{Binding CheckupProblem}"
+                                   IsVisible="{Binding CheckupProblem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        <TextBlock Classes="dimmed" Text="{Binding BacklogNote}"
+                                   IsVisible="{Binding BacklogNote, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        <StackPanel Spacing="10" IsVisible="{Binding HasBacklog}">
+                            <StackPanel Orientation="Horizontal" Spacing="28">
+                                <StackPanel>
+                                    <TextBlock Classes="dimmed" Text="Records" FontSize="11" />
+                                    <TextBlock Classes="fact" Text="{Binding Records}" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Classes="dimmed" Text="On this machine" FontSize="11" />
+                                    <TextBlock Classes="fact" Text="{Binding Cached}" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Classes="dimmed" Text="Measured" FontSize="11" />
+                                    <TextBlock Classes="fact" Text="{Binding Measured}" />
+                                </StackPanel>
+                            </StackPanel>
+                            <!-- A bar rather than a percentage, because what an operator reads off it
+                                 is how far along it is. -->
+                            <ProgressBar Value="{Binding MeasuredPercent}" Maximum="100" MinWidth="0" Height="4"
+                                         Foreground="{DynamicResource DaAccentBrush}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="eyebrow" Text="DISK" />
+                    <!-- The store's own reading time: a disk walk is cached, so it is never live. -->
+                    <TextBlock Grid.Column="1" Classes="dimmed" Text="{Binding StorageReadAt}" FontSize="11" />
+                </Grid>
+                <Border Classes="card">
+                    <StackPanel Spacing="4">
+                        <TextBlock Classes="unread" Text="{Binding StorageProblem}"
+                                   IsVisible="{Binding StorageProblem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        <ItemsControl ItemsSource="{Binding Stores}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:StoreViewModel">
+                                    <Grid ColumnDefinitions="160,80,*" ColumnSpacing="12" Margin="0,3">
+                                        <TextBlock Text="{Binding Label}" FontSize="13" TextTrimming="CharacterEllipsis"
+                                                   Foreground="{DynamicResource DaTextBrush}" />
+                                        <TextBlock Grid.Column="1" Classes="mono" Text="{Binding Size}" FontSize="12"
+                                                   HorizontalAlignment="Right"
+                                                   Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                        <!-- Files no row claims and claims whose file is gone, reported
+                                             rather than reconciled: they disagree in different
+                                             directions and each means something different. -->
+                                        <WrapPanel Grid.Column="2" Orientation="Horizontal">
+                                            <TextBlock Classes="mono dimmed" Text="{Binding Files}" FontSize="11"
+                                                       Margin="0,0,12,0" VerticalAlignment="Center" />
+                                            <TextBlock Classes="mono" Text="{Binding Unclaimed}" FontSize="11"
+                                                       Margin="0,0,12,0" VerticalAlignment="Center"
+                                                       IsVisible="{Binding Unclaimed, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                       Foreground="{DynamicResource DaSeverityWarningBrush}" />
+                                            <TextBlock Classes="mono" Text="{Binding Missing}" FontSize="11"
+                                                       VerticalAlignment="Center"
+                                                       IsVisible="{Binding Missing, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                       Foreground="{DynamicResource DaSeverityWarningBrush}" />
+                                        </WrapPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <StackPanel Spacing="8" Margin="0,0,0,8">
+                <TextBlock Classes="eyebrow" Text="BUILD" />
+                <Border Classes="card">
+                    <StackPanel Spacing="8">
+                        <TextBlock Classes="unread" Text="{Binding CheckupProblem}"
+                                   IsVisible="{Binding CheckupProblem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        <WrapPanel Orientation="Horizontal">
+                            <Border Classes="pill" Height="22" Margin="0,0,10,0"
+                                    IsVisible="{Binding Version, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                <TextBlock Classes="mono" Text="{Binding Version}" FontSize="11"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource DaTextBrush}" />
+                            </Border>
+                            <!-- Selectable, so the commit can be pasted back into git. -->
+                            <SelectableTextBlock Text="{Binding Build}" TextWrapping="Wrap" VerticalAlignment="Center"
+                                                 Foreground="{DynamicResource DaTextBrush}" />
+                        </WrapPanel>
+                        <WrapPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding NewerRelease}" VerticalAlignment="Center" Margin="0,0,10,0"
+                                       IsVisible="{Binding NewerRelease, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                       Foreground="{DynamicResource DaTextBrush}" />
+                            <Button Classes="ghost" Content="{Binding ReleaseLink}" FontSize="12" Padding="8,3"
+                                    Command="{Binding SeeReleasesCommand}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

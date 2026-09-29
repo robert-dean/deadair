@@ -1,0 +1,29 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.DetailHeader"
+    x:DataType="vm:CatalogDetailViewModel">
+
+    <!-- The head of an act's, a release's or a record's page: the cover, the name, the line under it
+         and the station's opinion. Whatever else a page carries up here (a link to the act, the
+         repairs) is the header's Content, drawn under the rating. -->
+    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="18">
+        <controls:Artwork Size="120" Source="{Binding ArtworkUrl}" Initial="{Binding Initial}"
+                          VerticalAlignment="Top" />
+        <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+            <TextBlock Classes="h1" Text="{Binding Name}" TextWrapping="Wrap" MaxLines="2"
+                       TextTrimming="CharacterEllipsis" />
+            <TextBlock Classes="secondary" Text="{Binding Credit}" TextWrapping="Wrap"
+                       IsVisible="{Binding Credit, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <views:RatingStrip DataContext="{Binding Rating}" HorizontalAlignment="Left"
+                               IsVisible="{Binding $self.DataContext, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <ContentPresenter Content="{Binding $parent[views:DetailHeader].Extra}" />
+            <TextBlock Classes="dimmed" Text="{Binding Problem}" TextWrapping="Wrap"
+                       IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+    </Grid>
+
+</UserControl>

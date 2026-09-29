@@ -1,88 +1,182 @@
-using System.Collections.ObjectModel;
-using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
-using MaroonedSoftware.Deadair.Desktop.Core.Text;
-using MaroonedSoftware.Deadair.Sdk;
-using MaroonedSoftware.Deadair.Sdk.Models;
-using MaroonedSoftware.Deadair.Sdk.Runtime;
+using MaroonedSoftware.Deadair.Desktop.Services;
+using Nav = MaroonedSoftware.Deadair.Desktop.Navigation;
 
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
-/// <summary>One of the station's presenters.</summary>
-/// <summary>One persona on the Voice page. <paramref name="Presenting"/> is who is writing breaks right
-/// now; <paramref name="IsStationHost"/> is who presents when the broadcast on air names nobody. They are
-/// the same character until a show names its own host, and the lamp belongs to the first.</summary>
-public sealed record PersonaRowViewModel(string Id, string Label, string Style, bool IsStationHost, bool Presenting);
-
-/// <summary>One thing the station tried to say.</summary>
-public sealed record ScriptRowViewModel(string When, string Kind, string Writer, string Text, StatusTone Tone);
-
-/// <summary>One piece of audio the station holds.</summary>
-public sealed record SegmentRowViewModel(string Label, string Kind, string State, StatusTone Tone);
-
-/// <summary>One programme being made.</summary>
-public sealed record ProductionRowViewModel(string Id, string Title, string Kind, string State, bool CanCancel);
-
-/// <summary>Which part of the voice page is showing.</summary>
+/// <summary>Which part of the voice page is showing, in the order the strip draws them.</summary>
 public enum VoiceTab
 {
     Characters,
-    Said,
+    Auditions,
+    Voices,
     Segments,
+    Pronunciations,
+    Soundboard,
+    Phrasings,
+    Subjects,
     Productions,
+    Said,
 }
 
 /// <summary>
-/// Who the station is, and what it has said.
+/// Who the station is when it talks, and everything it needs to say it.
 /// </summary>
 /// <remarks>
-/// Four readings rather than the console's eight tabs. The four here are the ones that answer a
-/// question somebody actually asks of a running station: who is presenting, what did it say, what
-/// audio does it hold, and what is being made right now. Voices, pronunciations, pads and topics are
-/// configuration rather than observation, and are left for later.
+/// <para>
+/// The web console's tabs, in its order: who is talking, then everything they need to talk. An operator
+/// does not arrive wanting "the pronunciations page"; they arrive because the station said a name
+/// wrong, and every answer to "why did it sound like that" is on this one destination.
+/// </para>
+/// <para>
+/// Each tab is its own view model, owned here, attached with the station and read when it is shown.
+/// This one only knows which is showing.
+/// </para>
 /// </remarks>
-public sealed partial class VoiceViewModel(OperatorActions actions, HttpClient http) : ObservableObject
+public sealed partial class VoiceViewModel : ObservableObject
 {
-    private StationUrl _station;
+    private readonly Dictionary<VoiceTab, VoiceTabViewModel> _tabs;
 
-    public ObservableCollection<PersonaRowViewModel> Personas { get; } = [];
+    public VoiceViewModel(
+        OperatorActions actions,
+        HttpClient http,
+        IDialogs dialogs,
+        PreviewsViewModel previews,
+        IFilePicker files,
+        NavigationViewModel navigation)
+    {
+        ArgumentNullException.ThrowIfNull(navigation);
 
-    public ObservableCollection<ScriptRowViewModel> Scripts { get; } = [];
+        Characters = new CharactersViewModel(actions, http, dialogs, previews, files, navigation);
+        Auditions = new AuditionsViewModel(actions, http, previews);
+        Voices = new VoicesViewModel(actions, http, previews);
+        Segments = new SegmentsViewModel(actions, http, previews, dialogs, files);
+        Pronunciations = new PronunciationsViewModel(actions, http, dialogs);
+        Soundboard = new SoundboardViewModel(actions, http, previews, dialogs, files);
+        Phrasings = new PhrasingsViewModel(actions, http);
+        Subjects = new SubjectsViewModel(actions, http, dialogs);
+        Productions = new ProductionsViewModel(actions, http, dialogs);
+        Scripts = new ScriptsViewModel(actions, http);
 
-    public ObservableCollection<SegmentRowViewModel> Segments { get; } = [];
+        _tabs = new Dictionary<VoiceTab, VoiceTabViewModel>
+        {
+            [VoiceTab.Characters] = Characters,
+            [VoiceTab.Auditions] = Auditions,
+            [VoiceTab.Voices] = Voices,
+            [VoiceTab.Segments] = Segments,
+            [VoiceTab.Pronunciations] = Pronunciations,
+            [VoiceTab.Soundboard] = Soundboard,
+            [VoiceTab.Phrasings] = Phrasings,
+            [VoiceTab.Subjects] = Subjects,
+            [VoiceTab.Productions] = Productions,
+            [VoiceTab.Said] = Scripts,
+        };
 
-    public ObservableCollection<ProductionRowViewModel> Productions { get; } = [];
+        // A character's card and a segment's row lead to what was said about them, on the tab that
+        // reads it, narrowed.
+        Characters.SaidRequested += key =>
+        {
+            Scripts.NarrowToPersona(key);
+            ShowSaid();
+        };
+        Segments.SaidRequested += id =>
+        {
+            Scripts.NarrowToSegment(id);
+            ShowSaid();
+        };
+
+        // Anything a tab keeps running (a poll while something is being made) stops when the page is
+        // left. A character's own page counts as staying: it is somewhere this page led.
+        navigation.Navigated += destination =>
+        {
+            if (destination is not (Nav.Destination.Voice or Nav.Destination.PersonaDetail))
+            {
+                foreach (var tab in _tabs.Values)
+                {
+                    tab.Leave();
+                }
+            }
+        };
+    }
+
+    public CharactersViewModel Characters { get; }
+
+    public AuditionsViewModel Auditions { get; }
+
+    public VoicesViewModel Voices { get; }
+
+    public SegmentsViewModel Segments { get; }
+
+    public PronunciationsViewModel Pronunciations { get; }
+
+    public SoundboardViewModel Soundboard { get; }
+
+    public PhrasingsViewModel Phrasings { get; }
+
+    /// <summary>What the station has to talk about, which the station's API calls topics.</summary>
+    public SubjectsViewModel Subjects { get; }
+
+    public ProductionsViewModel Productions { get; }
+
+    /// <summary>What it said.</summary>
+    public ScriptsViewModel Scripts { get; }
 
     [ObservableProperty]
     private VoiceTab _tab = VoiceTab.Characters;
 
-    [ObservableProperty]
-    private bool _busy;
-
-    [ObservableProperty]
-    private string? _notice;
-
     public bool IsCharacters => Tab == VoiceTab.Characters;
 
-    public bool IsSaid => Tab == VoiceTab.Said;
+    public bool IsAuditions => Tab == VoiceTab.Auditions;
+
+    public bool IsVoices => Tab == VoiceTab.Voices;
 
     public bool IsSegments => Tab == VoiceTab.Segments;
 
+    public bool IsPronunciations => Tab == VoiceTab.Pronunciations;
+
+    public bool IsSoundboard => Tab == VoiceTab.Soundboard;
+
+    public bool IsPhrasings => Tab == VoiceTab.Phrasings;
+
+    public bool IsSubjects => Tab == VoiceTab.Subjects;
+
     public bool IsProductions => Tab == VoiceTab.Productions;
 
-    public void Attach(StationUrl station) => _station = station;
+    public bool IsSaid => Tab == VoiceTab.Said;
 
-    partial void OnTabChanged(VoiceTab value)
+    /// <summary>The tab showing.</summary>
+    public VoiceTabViewModel Current => _tabs[Tab];
+
+    public void Attach(StationUrl station)
     {
-        OnPropertyChanged(nameof(IsCharacters));
-        OnPropertyChanged(nameof(IsSaid));
-        OnPropertyChanged(nameof(IsSegments));
-        OnPropertyChanged(nameof(IsProductions));
+        foreach (var tab in _tabs.Values)
+        {
+            tab.Attach(station);
+        }
+    }
 
-        _ = LoadAsync(CancellationToken.None);
+    partial void OnTabChanged(VoiceTab oldValue, VoiceTab newValue)
+    {
+        // Every Is* at once: an empty name is "everything on this object changed".
+        OnPropertyChanged(string.Empty);
+
+        _tabs[oldValue].Leave();
+        _ = Current.LoadAsync(CancellationToken.None);
+    }
+
+    private void ShowSaid()
+    {
+        if (Tab == VoiceTab.Said)
+        {
+            _ = Scripts.LoadAsync(CancellationToken.None);
+        }
+        else
+        {
+            Tab = VoiceTab.Said;
+        }
     }
 
     [RelayCommand]
@@ -94,203 +188,7 @@ public sealed partial class VoiceViewModel(OperatorActions actions, HttpClient h
         }
     }
 
+    /// <summary>Reads the tab showing. Every visit reads it again, since what the station says moves.</summary>
     [RelayCommand]
-    private async Task LoadAsync(CancellationToken cancellationToken)
-    {
-        Busy = true;
-        try
-        {
-            switch (Tab)
-            {
-                case VoiceTab.Characters:
-                    await LoadPersonasAsync(cancellationToken).ConfigureAwait(true);
-                    break;
-                case VoiceTab.Said:
-                    await LoadScriptsAsync(cancellationToken).ConfigureAwait(true);
-                    break;
-                case VoiceTab.Segments:
-                    await LoadSegmentsAsync(cancellationToken).ConfigureAwait(true);
-                    break;
-                case VoiceTab.Productions:
-                    await LoadProductionsAsync(cancellationToken).ConfigureAwait(true);
-                    break;
-            }
-        }
-        finally
-        {
-            Busy = false;
-        }
-    }
-
-    private async Task LoadPersonasAsync(CancellationToken cancellationToken)
-    {
-        var list = await actions.RunAsync(
-            async token =>
-            {
-                using var sdk = Sdk();
-                return await sdk.Personas.ListPersonasAsync(token).ConfigureAwait(false);
-            },
-            cancellationToken: cancellationToken).ConfigureAwait(true);
-
-        if (list is null)
-        {
-            return;
-        }
-
-        Personas.Clear();
-        foreach (var persona in list.Personas)
-        {
-            Personas.Add(new PersonaRowViewModel(persona.Id, persona.Label, persona.Style, persona.DefaultHost, persona.Presenting));
-        }
-    }
-
-    private async Task LoadScriptsAsync(CancellationToken cancellationToken)
-    {
-        var page = await actions.RunAsync(
-            async token =>
-            {
-                using var sdk = Sdk();
-                return await sdk.Render.ReadScriptHistoryAsync(new ScriptHistoryQuery { Limit = 60 }, token)
-                    .ConfigureAwait(false);
-            },
-            cancellationToken: cancellationToken).ConfigureAwait(true);
-
-        if (page is null)
-        {
-            return;
-        }
-
-        Scripts.Clear();
-        foreach (var attempt in page.Attempts)
-        {
-            // One row per ATTEMPT rather than per segment, which is the point of the endpoint: a
-            // model that declined and the floor that covered for it are two facts, not one
-            // misleading one.
-            Scripts.Add(new ScriptRowViewModel(
-                attempt.At.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture),
-                attempt.Kind,
-                attempt.Writer,
-                attempt.Script ?? attempt.Reason ?? "(nothing was written)",
-                attempt.Outcome switch
-                {
-                    ScriptOutcome.Written => StatusTone.Ok,
-                    ScriptOutcome.Declined => StatusTone.Standby,
-                    _ => StatusTone.Fault,
-                }));
-        }
-    }
-
-    private async Task LoadSegmentsAsync(CancellationToken cancellationToken)
-    {
-        var list = await actions.RunAsync(
-            async token =>
-            {
-                using var sdk = Sdk();
-                return await sdk.Render.ListSegmentsAsync(token).ConfigureAwait(false);
-            },
-            cancellationToken: cancellationToken).ConfigureAwait(true);
-
-        if (list is null)
-        {
-            return;
-        }
-
-        Segments.Clear();
-        foreach (var segment in list.Segments)
-        {
-            // `ready` alone can air. Everything before it is a stage of being made, and drawing those
-            // as faults would make an ordinary pipeline look broken.
-            Segments.Add(new SegmentRowViewModel(
-                segment.Label,
-                segment.Kind,
-                segment.State.ToString().ToLowerInvariant(),
-                segment.State switch
-                {
-                    SegmentState.Ready => StatusTone.Ok,
-                    SegmentState.Failed => StatusTone.Fault,
-                    _ => StatusTone.Standby,
-                }));
-        }
-    }
-
-    private async Task LoadProductionsAsync(CancellationToken cancellationToken)
-    {
-        var list = await actions.RunAsync(
-            async token =>
-            {
-                using var sdk = Sdk();
-                return await sdk.Productions.ListProductionsAsync(token).ConfigureAwait(false);
-            },
-            cancellationToken: cancellationToken).ConfigureAwait(true);
-
-        if (list is null)
-        {
-            return;
-        }
-
-        Productions.Clear();
-        foreach (var production in list.Productions)
-        {
-            var state = production.State.ToString().ToLowerInvariant();
-
-            Productions.Add(new ProductionRowViewModel(
-                production.Id,
-                production.Title,
-                production.Kind,
-                state,
-                // Anything short of ready or finished is still being made, and only that can be
-                // called off. Listing the states that CAN be cancelled rather than the ones that
-                // cannot means a new stage added upstream is not silently cancellable.
-                production.State is ProductionState.Planned
-                    or ProductionState.Outlining
-                    or ProductionState.Drafting
-                    or ProductionState.Checking
-                    or ProductionState.Rendering
-                    or ProductionState.Stitching));
-        }
-    }
-
-    [RelayCommand]
-    private async Task MakeStationHostAsync(PersonaRowViewModel persona)
-    {
-        ArgumentNullException.ThrowIfNull(persona);
-
-        var list = await actions.RunAsync(
-            async token =>
-            {
-                using var sdk = Sdk();
-                return await sdk.Personas.SetTheStationHostAsync(persona.Id, token).ConfigureAwait(false);
-            }).ConfigureAwait(true);
-
-        if (list is not null)
-        {
-            Notice = $"{persona.Label} is presenting.";
-            await LoadPersonasAsync(CancellationToken.None).ConfigureAwait(true);
-        }
-    }
-
-    [RelayCommand]
-    private async Task CancelProductionAsync(ProductionRowViewModel production)
-    {
-        ArgumentNullException.ThrowIfNull(production);
-
-        var cancelled = await actions.RunAsync(
-            async token =>
-            {
-                using var sdk = Sdk();
-                return await sdk.Productions.CancelProductionAsync(production.Id, token).ConfigureAwait(false);
-            }).ConfigureAwait(true);
-
-        if (cancelled is not null)
-        {
-            Notice = $"Cancelled {production.Title}.";
-            await LoadProductionsAsync(CancellationToken.None).ConfigureAwait(true);
-        }
-    }
-
-    private DeadairSdk Sdk() => new(new SdkOptions
-    {
-        BaseUrl = _station.ApiBase,
-        HttpClient = http,
-    });
+    private Task LoadAsync(CancellationToken cancellationToken) => Current.LoadAsync(cancellationToken);
 }

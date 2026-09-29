@@ -1,0 +1,96 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.VoiceScriptsTab"
+    x:DataType="vm:ScriptsViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <!-- The rating given, in the accent: a choice made, not a warning. -->
+        <Style Selector="Button.ghost.chosen">
+            <Setter Property="Foreground" Value="{DynamicResource DaAccentBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Button.ghost.chosen /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource DaAccentBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,10">
+            <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap" Text="{Binding Narrowed}" MaxWidth="720" HorizontalAlignment="Left" />
+            <!-- Says what it is narrowed to and offers the way out, rather than only offering to clear it. -->
+            <Button Classes="ghost" FontSize="12" Padding="10,3" Content="Read everything the station has written"
+                    HorizontalAlignment="Left" IsVisible="{Binding IsNarrowed}" Command="{Binding WidenCommand}" />
+            <WrapPanel ItemSpacing="8" LineSpacing="6">
+                <ComboBox ItemsSource="{x:Static vm:ScriptsViewModel.Outcomes}" SelectedItem="{Binding Outcome}" Width="150">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ChoiceViewModel">
+                            <TextBlock Text="{Binding Label}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <ComboBox ItemsSource="{x:Static vm:ScriptsViewModel.Writers}" SelectedItem="{Binding Writer}" Width="150">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ChoiceViewModel">
+                            <TextBlock Text="{Binding Label}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </WrapPanel>
+            <TextBlock Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap"
+                       IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <Button DockPanel.Dock="Bottom" Classes="ghost" Content="Older" HorizontalAlignment="Center" Margin="0,8,0,0"
+                IsVisible="{Binding HasMore}" Command="{Binding OlderCommand}" />
+
+        <!-- One row per ATTEMPT rather than per segment: a model that declined and the floor that
+             covered for it are two facts, not one misleading one. -->
+        <ListBox Classes="rows" ItemsSource="{Binding Scripts}">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:ScriptRowViewModel">
+                    <StackPanel Spacing="6">
+                        <Grid ColumnDefinitions="10,86,80,*,126" ColumnSpacing="10" Margin="0,4">
+                            <Ellipse Width="6" Height="6" VerticalAlignment="Top" Margin="0,6,0,0"
+                                     Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                            <TextBlock Classes="mono" Grid.Column="1" Text="{Binding When}" FontSize="11"
+                                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+                            <StackPanel Grid.Column="2" Spacing="1">
+                                <TextBlock Text="{Binding Kind}" FontSize="11" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                <TextBlock Text="{Binding Writer}" FontSize="11" TextTrimming="CharacterEllipsis" Classes="secondary" />
+                            </StackPanel>
+                            <!-- Two lines here; the whole of it is a click away, under the row. -->
+                            <Button Grid.Column="3" Classes="ghost" Padding="0" BorderThickness="0" Background="Transparent"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Command="{Binding ToggleCommand}">
+                                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="12" MaxLines="2" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                            </Button>
+                            <!-- Only where there are words to have an opinion about. -->
+                            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" VerticalAlignment="Top" HorizontalAlignment="Right" IsVisible="{Binding CanRate}">
+                                <Button Classes="ghost" Classes.chosen="{Binding IsLiked}" FontSize="11" Padding="6,2" Content="More"
+                                        ToolTip.Tip="More like this"
+                                        Command="{Binding $parent[ListBox].((vm:ScriptsViewModel)DataContext).LikeCommand}" CommandParameter="{Binding}" />
+                                <Button Classes="ghost" Classes.chosen="{Binding IsNeutral}" FontSize="11" Padding="6,2" Content="Fine"
+                                        ToolTip.Tip="Heard it, no opinion"
+                                        Command="{Binding $parent[ListBox].((vm:ScriptsViewModel)DataContext).NeutralCommand}" CommandParameter="{Binding}" />
+                                <Button Classes="ghost" Classes.chosen="{Binding IsDisliked}" FontSize="11" Padding="6,2" Content="Less"
+                                        ToolTip.Tip="The station should not say things like this"
+                                        Command="{Binding $parent[ListBox].((vm:ScriptsViewModel)DataContext).DislikeCommand}" CommandParameter="{Binding}" />
+                            </StackPanel>
+                        </Grid>
+                        <SelectableTextBlock Text="{Binding Detail}" FontSize="11" TextWrapping="Wrap" Margin="20,0,0,8"
+                                             Foreground="{DynamicResource DaTextSecondaryBrush}" IsVisible="{Binding IsOpen}" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+
+</UserControl>

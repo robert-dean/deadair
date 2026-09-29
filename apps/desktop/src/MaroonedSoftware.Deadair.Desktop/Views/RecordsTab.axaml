@@ -1,0 +1,136 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.RecordsTab"
+    x:DataType="vm:RecordsViewModel">
+
+    <DockPanel LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <views:SearchBar Placeholder="Search records" />
+
+                <!-- The ordering is a choice rather than clickable headings, since these lists have
+                     no heading row. The direction is its own button: the same column turned around
+                     is one thought, and twelve entries is a list to re-read. -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                    <ComboBox ItemsSource="{Binding Sorts}" SelectedItem="{Binding Sort}" MinWidth="110"
+                              ToolTip.Tip="Sort by" VerticalAlignment="Center" />
+                    <Button Classes="icon small" Command="{Binding TurnSortCommand}"
+                            ToolTip.Tip="Turn the order around" VerticalAlignment="Center">
+                        <Panel>
+                            <PathIcon Data="{DynamicResource DaIconChevronUp}" Width="12" Height="12"
+                                      IsVisible="{Binding !Descending}" />
+                            <PathIcon Data="{DynamicResource DaIconChevronDown}" Width="12" Height="12"
+                                      IsVisible="{Binding Descending}" />
+                        </Panel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- How much of the library can air, and the states as filters. Under the search rather
+                 than over it: the counts describe whatever the search has narrowed to. -->
+            <Border Classes="card" Padding="12,10"
+                    IsVisible="{Binding Ready, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{Binding Ready}" TextWrapping="Wrap"
+                               Foreground="{DynamicResource DaTextBrush}" />
+                    <ItemsControl ItemsSource="{Binding Chips}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel ItemSpacing="6" LineSpacing="6" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:StateChipViewModel">
+                                <Button Classes="tab" Classes.active="{Binding IsChosen}"
+                                        FontSize="12" Padding="10,3"
+                                        Content="{Binding Text}" ToolTip.Tip="{Binding Help}"
+                                        IsEnabled="{Binding IsEnabled}"
+                                        Command="{Binding $parent[ItemsControl].((vm:RecordsViewModel)DataContext).FilterCommand}"
+                                        CommandParameter="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- The two fault states' remedy, over the rows below it. Its outcome stays after the rows
+                 it emptied have gone, so a press that worked does not leave an empty page saying
+                 nothing. -->
+            <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding ShowsBulk}">
+                <Button Classes="ghost" Content="{Binding BulkLabel}" Command="{Binding RepairPageCommand}"
+                        IsVisible="{Binding BulkLabel, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                <TextBlock Classes="dimmed" Text="{Binding BulkOutcome}" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <TextBlock Text="{Binding Notice}" Classes="dimmed" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <views:PagerBar DockPanel.Dock="Bottom" Margin="0,10,0,0" />
+
+        <Panel>
+            <TextBlock Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap" MaxWidth="520"
+                       HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8,4"
+                       IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+            <ListBox Classes="rows" ItemsSource="{Binding Tracks}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:TrackRowViewModel">
+                        <!-- Fixed widths for everything but the title, so the rating and the repair
+                             line up down the page whatever a row holds. -->
+                        <Grid ColumnDefinitions="36,*,44,82,68" ColumnSpacing="12">
+                            <controls:Artwork Size="36" Source="{Binding ArtworkUrl}"
+                                              Initial="{Binding Initial}" />
+                            <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+                                <!-- The title is the way into everything a record has
+                                     accumulated, so it leads to the record's page. -->
+                                <Button Classes="link" HorizontalAlignment="Left"
+                                        Command="{Binding $parent[ListBox].((vm:RecordsViewModel)DataContext).OpenCommand}"
+                                        CommandParameter="{Binding}">
+                                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                </Button>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <TextBlock Text="{Binding Credit}" FontSize="12"
+                                               TextTrimming="CharacterEllipsis" Classes="secondary" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Marks}" FontSize="11"
+                                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                </Grid>
+                            </StackPanel>
+                            <TextBlock Classes="mono" Grid.Column="2" Text="{Binding Length}" FontSize="11"
+                                       VerticalAlignment="Center" HorizontalAlignment="Right"
+                                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+                            <views:RatingStrip Grid.Column="3" DataContext="{Binding Rating}"
+                                               VerticalAlignment="Center" />
+                            <!-- A menu rather than five buttons: nobody arrives wanting any of these,
+                                 they come to find out why a record will not play and reach for this
+                                 once they know. Each entry asks first. -->
+                            <Button Grid.Column="4" Classes="reveal ghost" Content="Repair"
+                                    FontSize="11" Padding="8,3" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center">
+                                <Button.Flyout>
+                                    <MenuFlyout Placement="BottomEdgeAlignedRight" ItemsSource="{Binding Repairs}">
+                                        <MenuFlyout.ItemContainerTheme>
+                                            <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}"
+                                                          x:DataType="vm:MenuChoiceViewModel">
+                                                <Setter Property="Header" Value="{Binding Label}" />
+                                                <Setter Property="Command" Value="{Binding RunCommand}" />
+                                            </ControlTheme>
+                                        </MenuFlyout.ItemContainerTheme>
+                                    </MenuFlyout>
+                                </Button.Flyout>
+                            </Button>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Panel>
+
+    </DockPanel>
+
+</UserControl>

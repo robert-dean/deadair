@@ -2,124 +2,75 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
-    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.VoiceView"
     x:DataType="vm:VoiceViewModel">
 
-    <UserControl.Resources>
-        <conv:ToneBrushConverter x:Key="ToneBrush" />
-    </UserControl.Resources>
-
-    <DockPanel Margin="{DynamicResource DaPageGutter}" LastChildFill="True" MaxWidth="980"
-               HorizontalAlignment="Left">
+    <DockPanel Margin="{DynamicResource DaPageGutter}" LastChildFill="True">
 
         <StackPanel DockPanel.Dock="Top" Spacing="12" Margin="0,0,0,14">
             <TextBlock Classes="h1" Text="Voice" />
 
-            <StackPanel Orientation="Horizontal" Spacing="6">
+            <!-- Wraps rather than scrolling sideways: the strip is ten tabs long, and at the window's
+                 minimum a row that ran off the page would hide the tabs somebody came for. -->
+            <WrapPanel ItemSpacing="6" LineSpacing="6">
                 <Button Classes="tab" Classes.active="{Binding IsCharacters}" Content="Characters"
                         Command="{Binding ShowTabCommand}" CommandParameter="Characters" />
-                <Button Classes="tab" Classes.active="{Binding IsSaid}" Content="What it said"
-                        Command="{Binding ShowTabCommand}" CommandParameter="Said" />
+                <Button Classes="tab" Classes.active="{Binding IsAuditions}" Content="Auditions"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Auditions" />
+                <Button Classes="tab" Classes.active="{Binding IsVoices}" Content="Voices"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Voices" />
                 <Button Classes="tab" Classes.active="{Binding IsSegments}" Content="Segments"
                         Command="{Binding ShowTabCommand}" CommandParameter="Segments" />
+                <Button Classes="tab" Classes.active="{Binding IsPronunciations}" Content="Pronunciations"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Pronunciations" />
+                <Button Classes="tab" Classes.active="{Binding IsSoundboard}" Content="Soundboard"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Soundboard" />
+                <Button Classes="tab" Classes.active="{Binding IsPhrasings}" Content="Phrasings"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Phrasings" />
+                <Button Classes="tab" Classes.active="{Binding IsSubjects}" Content="Subjects"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Subjects" />
                 <Button Classes="tab" Classes.active="{Binding IsProductions}" Content="Productions"
                         Command="{Binding ShowTabCommand}" CommandParameter="Productions" />
-            </StackPanel>
-
-            <TextBlock Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap"
-                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                <Button Classes="tab" Classes.active="{Binding IsSaid}" Content="What it said"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Said" />
+            </WrapPanel>
         </StackPanel>
 
+        <!-- One view per tab over its own view model. The visibility is on a wrapper rather than on
+             the tab itself, because setting DataContext on an element re-scopes every binding on it,
+             IsVisible included. -->
         <Panel>
-
-            <ListBox Classes="rows" ItemsSource="{Binding Personas}" IsVisible="{Binding IsCharacters}">
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:PersonaRowViewModel">
-                        <Grid ColumnDefinitions="14,*,Auto" ColumnSpacing="10" Margin="0,7">
-                            <!-- The tally: one persona presents at a time. The column keeps its width
-                                 whether the lamp is drawn or not, or the names do not line up. -->
-                            <Ellipse Width="8" Height="8" VerticalAlignment="Top" Margin="0,6,0,0"
-                                     HorizontalAlignment="Left"
-                                     Fill="{DynamicResource DaToneLiveBrush}" IsVisible="{Binding Presenting}" />
-                            <StackPanel Grid.Column="1" Spacing="2">
-                                <TextBlock Text="{Binding Label}" Foreground="{DynamicResource DaTextBrush}" />
-                                <TextBlock Text="{Binding Style}" FontSize="12" TextWrapping="Wrap"
-                                           MaxWidth="620" HorizontalAlignment="Left"
-                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
-                            </StackPanel>
-                            <Button Grid.Column="2" Classes="reveal ghost" Content="Make station host"
-                                    FontSize="11" Padding="8,3"
-                                    VerticalAlignment="Top" IsVisible="{Binding !IsStationHost}"
-                                    Command="{Binding $parent[ListBox].((vm:VoiceViewModel)DataContext).MakeStationHostCommand}"
-                                    CommandParameter="{Binding}" />
-                        </Grid>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-
-            <!-- One row per ATTEMPT rather than per segment: a model that declined and the floor that
-                 covered for it are two facts, not one misleading one. -->
-            <ListBox Classes="rows" ItemsSource="{Binding Scripts}" IsVisible="{Binding IsSaid}">
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:ScriptRowViewModel">
-                        <Grid ColumnDefinitions="Auto,54,90,*" ColumnSpacing="10" Margin="0,4">
-                            <Ellipse Width="6" Height="6" VerticalAlignment="Top" Margin="0,6,0,0"
-                                     Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
-                            <TextBlock Classes="mono" Grid.Column="1" Text="{Binding When}" FontSize="11"
-                                       Foreground="{DynamicResource DaTextDimmedBrush}" />
-                            <TextBlock Grid.Column="2" Text="{Binding Kind}" FontSize="11"
-                                       TextTrimming="CharacterEllipsis"
-                                       Foreground="{DynamicResource DaTextDimmedBrush}" />
-                            <TextBlock Grid.Column="3" Text="{Binding Text}" TextWrapping="Wrap" FontSize="12"
-                                       Foreground="{DynamicResource DaTextSecondaryBrush}" />
-                        </Grid>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-
-            <ListBox Classes="rows" ItemsSource="{Binding Segments}" IsVisible="{Binding IsSegments}">
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:SegmentRowViewModel">
-                        <Grid ColumnDefinitions="Auto,*,110,90" ColumnSpacing="10" Margin="0,4">
-                            <Ellipse Width="6" Height="6" VerticalAlignment="Center"
-                                     Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
-                            <TextBlock Grid.Column="1" Text="{Binding Label}" TextTrimming="CharacterEllipsis"
-                                       Foreground="{DynamicResource DaTextBrush}" />
-                            <TextBlock Grid.Column="2" Text="{Binding Kind}" FontSize="11"
-                                       Foreground="{DynamicResource DaTextDimmedBrush}" />
-                            <!-- `ready` alone can air; everything before it is a stage of being made. -->
-                            <TextBlock Grid.Column="3" Text="{Binding State}" FontSize="11"
-                                       Foreground="{DynamicResource DaTextDimmedBrush}" />
-                        </Grid>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-
-            <ListBox Classes="rows" ItemsSource="{Binding Productions}" IsVisible="{Binding IsProductions}">
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:ProductionRowViewModel">
-                        <!-- Fixed widths, not `Auto`. Every row is its own Grid, so an `Auto` column
-                             sizes to that row alone and the columns do not line up down the list —
-                             which is exactly how this looked before. -->
-                        <Grid ColumnDefinitions="380,90,110,96" ColumnSpacing="14">
-                            <TextBlock Text="{Binding Title}" VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"
-                                       Foreground="{DynamicResource DaTextBrush}" />
-                            <TextBlock Grid.Column="1" Text="{Binding Kind}" VerticalAlignment="Center" FontSize="11"
-                                       Foreground="{DynamicResource DaTextDimmedBrush}" />
-                            <TextBlock Grid.Column="2" Text="{Binding State}" VerticalAlignment="Center" FontSize="11"
-                                       Foreground="{DynamicResource DaTextSecondaryBrush}" />
-                            <Button Grid.Column="3" Classes="reveal ghost" Content="Cancel"
-                                    FontSize="11" Padding="8,3"
-                                    HorizontalAlignment="Left" IsVisible="{Binding CanCancel}"
-                                    Command="{Binding $parent[ListBox].((vm:VoiceViewModel)DataContext).CancelProductionCommand}"
-                                    CommandParameter="{Binding}" />
-                        </Grid>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-
+            <Panel IsVisible="{Binding IsCharacters}">
+                <views:VoiceCharactersTab DataContext="{Binding Characters}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsAuditions}">
+                <views:VoiceAuditionsTab DataContext="{Binding Auditions}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsVoices}">
+                <views:VoiceVoicesTab DataContext="{Binding Voices}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsSegments}">
+                <views:VoiceSegmentsTab DataContext="{Binding Segments}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsPronunciations}">
+                <views:VoicePronunciationsTab DataContext="{Binding Pronunciations}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsSoundboard}">
+                <views:VoiceSoundboardTab DataContext="{Binding Soundboard}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsPhrasings}">
+                <views:VoicePhrasingsTab DataContext="{Binding Phrasings}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsSubjects}">
+                <views:VoiceSubjectsTab DataContext="{Binding Subjects}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsProductions}">
+                <views:VoiceProductionsTab DataContext="{Binding Productions}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsSaid}">
+                <views:VoiceScriptsTab DataContext="{Binding Scripts}" />
+            </Panel>
         </Panel>
 
     </DockPanel>

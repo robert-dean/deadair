@@ -48,6 +48,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// <summary>Optional for the same reason: a shot must not ask GitHub anything.</summary>
     private readonly UpdateChecker? _updates;
 
+    /// <summary>What the jump-to palette searches with. Optional so a shot can build a shell without one.</summary>
+    private readonly JumpSearch? _jump;
+
     public ShellViewModel(
         ISettingsStore settings,
         SessionManager session,
@@ -63,11 +66,15 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         CheckupViewModel checkup,
         SettingsViewModel stationSettings,
         VoiceViewModel voice,
+        DetailPages details,
+        DialogsViewModel dialogs,
         ThemeManager themes,
         IUiDispatcher dispatcher,
         PluginManager? plugins = null,
-        UpdateChecker? updates = null)
+        UpdateChecker? updates = null,
+        JumpSearch? jump = null)
     {
+        _jump = jump;
         _settings = settings;
         _session = session;
         _dispatcher = dispatcher;
@@ -84,6 +91,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Checkup = checkup;
         StationSettings = stationSettings;
         Voice = voice;
+        Details = details;
+        Dialogs = dialogs;
         _themes = themes;
         _plugins = plugins;
 
@@ -143,6 +152,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // somebody is looking at it, and the station rate-limits.
         Navigation.Navigated += destination =>
         {
+            // Every visit to a detail page is a new one, so its view model is opened here, before
+            // the page host (which heard about the move after this did) draws it.
+            Details.Open(destination);
+
             switch (destination)
             {
                 case Nav.Destination.Programme:
@@ -157,8 +170,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                 case Nav.Destination.Checkup:
                     Checkup.LoadCommand.Execute(null);
                     break;
-                case Nav.Destination.Settings when StationSettings.Groups.Count == 0:
-                    StationSettings.LoadCommand.Execute(null);
+                case Nav.Destination.Settings:
+                    StationSettings.Open();
                     break;
                 case Nav.Destination.Voice:
                     Voice.LoadCommand.Execute(null);
@@ -190,6 +203,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public SettingsViewModel StationSettings { get; }
 
     public VoiceViewModel Voice { get; }
+
+    /// <summary>The page a detail destination is showing, built when it is opened.</summary>
+    public DetailPages Details { get; }
+
+    /// <summary>The dialog over the app, and the line that says what the station refused.</summary>
+    public DialogsViewModel Dialogs { get; }
+
+    /// <summary>Whether the account is the operator's, which is what the jump-to palette is for.</summary>
+    [ObservableProperty]
+    private bool _isOperator;
 
     /// <summary>Whether to draw the sign-in panel rather than the account it produced.</summary>
     [ObservableProperty]
@@ -446,6 +469,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     {
         Trace.WriteLine($"station: {_current} detached");
 
+        // A question about the old station is not one to answer about the new one.
+        Dialogs.Cancel();
+
         // The listener first: its Stop is what tells the old station its audience has gone.
         await Listener.DetachAsync().ConfigureAwait(true);
         await Transport.DetachAsync().ConfigureAwait(true);
@@ -495,6 +521,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Checkup.Attach(station);
         StationSettings.Attach(station);
         Voice.Attach(station);
+        Details.Attach(station);
+        _jump?.Attach(station);
 
         if (!keepSetup)
         {
@@ -519,11 +547,105 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // every listener, with no second press to reconsider, so it stays off until NextSkips says
         // the operator has turned it on.
         var isOperator = _session.State is SessionState.SignedIn { IsOperator: true };
+        IsOperator = isOperator;
         Listener.SetCanSkip(isOperator && _settings.Current.NextSkips);
 
         // The rail hides what this account cannot reach, and sends somebody back to the desk rather
         // than leaving them on a page that has just become empty.
         Navigation.ApplyRole(isOperator);
+    }
+
+    /// <summary>
+    /// Opens the jump-to palette (Command-K): every page and tab, and the records, acts and characters
+    /// that match what is typed.
+    /// </summary>
+    /// <remarks>
+    /// The operator's alone, like the pages it reaches. A result on a detail page is opened over its
+    /// rail page, so Back from a record found this way goes to the Library rather than to wherever
+    /// somebody happened to be.
+    /// </remarks>
+    [RelayCommand]
+    private void JumpTo()
+    {
+        if (_session.State is not SessionState.SignedIn { IsOperator: true } || Dialogs.IsOpen)
+        {
+            return;
+        }
+
+        var pages = Core.Ui.JumpTo.Pages
+            .Select(page => (page, new JumpTarget(page.Label, page.Group, () => Go(page))))
+            .ToList();
+
+        _ = Dialogs.ShowAsync(new JumpDialogViewModel(pages, async (query, token) =>
+        {
+            if (_jump is null)
+            {
+                return [];
+            }
+
+            var found = await _jump.FindAsync(query, token).ConfigureAwait(true);
+            return [.. found.Select(thing => new JumpTarget(thing.Label, thing.Detail, () => Open(thing)))];
+        }));
+    }
+
+    private void Go(Core.Ui.JumpPage page)
+    {
+        switch (page.Place)
+        {
+            case Core.Ui.JumpPlace.Desk:
+                Navigation.Show(new Nav.Destination.Desk());
+                break;
+            case Core.Ui.JumpPlace.History:
+                Navigation.Show(new Nav.Destination.History());
+                break;
+            case Core.Ui.JumpPlace.Programme:
+                Navigation.Show(new Nav.Destination.Programme());
+                if (Enum.TryParse<ProgrammeTab>(page.Tab, out var programme))
+                {
+                    Programme.Tab = programme;
+                }
+
+                break;
+            case Core.Ui.JumpPlace.Library:
+                Navigation.Show(new Nav.Destination.Library());
+                Library.ShowTabCommand.Execute(page.Tab);
+                break;
+            case Core.Ui.JumpPlace.Voice:
+                Navigation.Show(new Nav.Destination.Voice());
+                Voice.ShowTabCommand.Execute(page.Tab);
+                break;
+            case Core.Ui.JumpPlace.Checkup:
+                Navigation.Show(new Nav.Destination.Checkup());
+                Checkup.ShowTabCommand.Execute(page.Tab);
+                break;
+            case Core.Ui.JumpPlace.Settings:
+                Navigation.Show(new Nav.Destination.Settings());
+                if (Enum.TryParse<Core.Configuration.SettingsSectionId>(page.Tab, out var section))
+                {
+                    StationSettings.Show(section);
+                }
+
+                break;
+        }
+    }
+
+    private void Open(JumpFound thing)
+    {
+        switch (thing)
+        {
+            case JumpFound.Record record:
+                Navigation.Show(new Nav.Destination.Library());
+                Navigation.Push(new Nav.Destination.TrackDetail(record.Id, record.Title));
+                break;
+            case JumpFound.Act act:
+                Navigation.Show(new Nav.Destination.Library());
+                Navigation.Push(new Nav.Destination.ArtistDetail(act.Id, act.Name));
+                break;
+            case JumpFound.Character character:
+                Navigation.Show(new Nav.Destination.Voice());
+                Navigation.Push(new Nav.Destination.PersonaDetail(character.Id, character.Name, character.Caller));
+                break;
+        }
     }
 
     /// <summary>Back to what is on air, from the player bar on any other page.</summary>

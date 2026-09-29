@@ -1,0 +1,245 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.StationPluginView"
+    x:DataType="vm:StationPluginViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <!-- One of the STATION's plugins. In the order the console draws its page: what it is, whether it
+         reaches its provider, what it has asked for (before its settings, because a refused request
+         looks exactly like a setting that is wrong), its settings, its sign-in, the fetcher's
+         authorization after that sign-in since the two are a sequence, what it wrote, and removing it. -->
+    <ScrollViewer Margin="{DynamicResource DaPageGutter}">
+        <StackPanel Spacing="14" MaxWidth="760" HorizontalAlignment="Stretch" Margin="0,0,14,0">
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                <StackPanel Spacing="4">
+                    <TextBlock Classes="h1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="mono dimmed" FontSize="11" Text="{Binding Heading}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="secondary" TextWrapping="Wrap" Text="{Binding Description}"
+                               IsVisible="{Binding Description, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top" IsVisible="{Binding IsRead}">
+                    <TextBlock Classes="dimmed" VerticalAlignment="Center" Text="On in the station" />
+                    <ToggleSwitch IsChecked="{Binding Enabled}" OnContent="" OffContent="" />
+                </StackPanel>
+            </Grid>
+
+            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsRead}">
+                <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding Status}" />
+                <TextBlock Classes="dimmed" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding StatusDescription}" />
+            </StackPanel>
+
+            <ItemsControl ItemsSource="{Binding Capabilities}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel ItemSpacing="6" LineSpacing="6" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                        <Border Classes="pill">
+                            <TextBlock FontSize="11" VerticalAlignment="Center" Text="{Binding}" />
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- What went wrong last, in the plugin's own words, and where the station looked for a
+                 plugin that never loaded. -->
+            <Border Classes="card" IsVisible="{Binding LastError, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    BorderBrush="{DynamicResource DaToneFaultBrush}">
+                <StackPanel Spacing="4">
+                    <TextBlock FontWeight="SemiBold" Text="Last error" Foreground="{DynamicResource DaToneFaultBrush}" />
+                    <TextBlock Classes="mono" FontSize="12" TextWrapping="Wrap" Text="{Binding LastError}" />
+                    <TextBlock Classes="mono dimmed" FontSize="11" TextWrapping="Wrap" Text="{Binding LoadedFrom}"
+                               IsVisible="{Binding LoadedFrom, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="h3" Text="Connection test" />
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap" Text="Asks the plugin whether it can reach its provider right now." />
+                        </StackPanel>
+                        <Button Grid.Column="1" Classes="ghost" Content="Test connection" VerticalAlignment="Center" Command="{Binding TestCommand}" />
+                    </Grid>
+                    <TextBlock TextWrapping="Wrap" Text="{Binding TestResult}"
+                               Foreground="{Binding TestTone, Converter={StaticResource ToneBrush}}"
+                               IsVisible="{Binding TestResult, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </StackPanel>
+            </Border>
+
+            <StackPanel Spacing="8" IsVisible="{Binding HasGrants}">
+                <TextBlock Classes="h3" Text="What this plugin has asked for" />
+                <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                           Text="It reaches only the addresses its manifest names and the ones you gave it. These are the things it has asked for on top of that, and none of them apply until you say so." />
+                <ItemsControl ItemsSource="{Binding Grants}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:PluginGrantRowViewModel">
+                            <views:PluginGrantRow Margin="0,0,0,8" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <Border Classes="card">
+                <StackPanel Spacing="10">
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="h3" Text="Settings" />
+                        <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                   Text="Saving starts the plugin again with them, so a change takes effect without restarting the station." />
+                    </StackPanel>
+                    <TextBlock Classes="dimmed" Text="This plugin exposes no settings." IsVisible="{Binding HasNoSettings}" />
+                    <ItemsControl ItemsSource="{Binding Form.Fields}" IsVisible="{Binding HasSettings}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FormFieldViewModel">
+                                <views:FormFieldView />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <StackPanel Orientation="Horizontal" Spacing="12" IsVisible="{Binding HasSettings}">
+                        <Button Classes="primary" Content="Save settings" Command="{Binding SaveCommand}" />
+                        <TextBlock Classes="dimmed" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding SettingsNotice}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Its sign-in with its provider. The provider sends the browser back to the console's own
+                 page on the station, which finishes it; this page waits for the plugin to say so. -->
+            <Border Classes="card" IsVisible="{Binding HasOAuth}">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="h3" Text="Connection" />
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                       Text="This plugin signs in to its provider on your behalf. The tokens it receives are stored encrypted and never shown here." />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top" IsVisible="{Binding IsConnected}">
+                            <Ellipse Width="7" Height="7" VerticalAlignment="Center" Fill="{DynamicResource DaToneOkBrush}" />
+                            <TextBlock Text="Connected" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel Spacing="4">
+                        <TextBlock FontSize="12" Classes="secondary" Text="Callback address" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <TextBox Classes="mono" IsReadOnly="True" Text="{Binding CallbackUrl, Mode=OneWay}" FontSize="12" />
+                            <Button Grid.Column="1" Classes="ghost" Content="Copy" Command="{Binding CopyCallbackCommand}" />
+                        </Grid>
+                        <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                                   Text="Register this with the provider, character for character, and enter it in the plugin's redirect address setting above. It is the console's page on the station, which finishes the sign-in for this app as well." />
+                    </StackPanel>
+                    <TextBlock TextWrapping="Wrap" Text="{Binding SignInNotice}"
+                               IsVisible="{Binding SignInNotice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Classes="primary" Content="{Binding ConnectLabel}" Command="{Binding ConnectCommand}"
+                                IsEnabled="{Binding !WaitingForSignIn}" />
+                        <Button Classes="ghost" Content="Stop waiting" Command="{Binding StopWaitingCommand}"
+                                IsVisible="{Binding WaitingForSignIn}" />
+                        <Button Classes="danger" Content="Disconnect" Command="{Binding DisconnectCommand}"
+                                IsVisible="{Binding IsConnected}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- The station's own authorization to fetch audio, separate from the sign-in above and
+                 needed as well as it. -->
+            <Border Classes="card" IsVisible="{Binding HasFetcher}">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="h3" Text="Playback authorization" />
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                       Text="Separate from the connection above, and needed as well as it. That one lets the plugin read your library; this one lets the station fetch the audio. You do this once." />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top"
+                                    IsVisible="{Binding Fetcher, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Ellipse Width="7" Height="7" VerticalAlignment="Center" Fill="{Binding FetcherTone, Converter={StaticResource ToneBrush}}" />
+                            <TextBlock Text="{Binding FetcherLabel}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock TextWrapping="Wrap" Text="{Binding FetcherSays}" />
+                    <StackPanel Spacing="2" IsVisible="{Binding FetcherLoginError, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <TextBlock FontSize="12" Classes="secondary" Text="Last login failure" />
+                        <TextBlock Classes="mono" FontSize="12" TextWrapping="Wrap" Text="{Binding FetcherLoginError}" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="8" IsVisible="{Binding IsAuthorizing}">
+                        <TextBlock TextWrapping="Wrap"
+                                   Text="1. Approve on the Spotify page that opened in your browser. 2. Your browser is then sent to an address on the station that only the station can reach, so expect an error page. That is expected. 3. Copy that whole address out of the address bar and paste it here." />
+                        <Button Classes="ghost" Content="Open the approval page again" Command="{Binding OpenApprovalCommand}" />
+                        <TextBlock FontSize="12" Classes="secondary" Text="The address you were sent to" />
+                        <TextBox Text="{Binding Pasted}" PlaceholderText="http://127.0.0.1:3679/login?code=…&amp;state=…" />
+                        <Button Classes="primary" Content="Finish" Command="{Binding FinishAuthorizingCommand}" />
+                    </StackPanel>
+                    <TextBlock TextWrapping="Wrap" Text="{Binding FetcherNotice}"
+                               IsVisible="{Binding FetcherNotice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    <Button Classes="ghost" Content="{Binding FetcherAction}" Command="{Binding AuthorizeCommand}"
+                            IsEnabled="{Binding CanAuthorize}" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="h3" Text="Logs" />
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap" Text="What this plugin has written recently." />
+                        </StackPanel>
+                        <CheckBox Grid.Column="1" Content="Verbose logging" IsChecked="{Binding Verbose}" VerticalAlignment="Top" />
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ComboBox ItemsSource="{Binding LogFilters}" SelectedItem="{Binding LogFilter}" Width="150"
+                                  ToolTip.Tip="Filters this tail. Does not change what the plugin writes.">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PluginLogFilter">
+                                    <TextBlock Text="{Binding Label}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button Classes="ghost" Content="Refresh" Command="{Binding RefreshLogCommand}" />
+                        <Button Classes="ghost" Content="Download…" Command="{Binding DownloadLogCommand}" />
+                    </StackPanel>
+                    <TextBlock Classes="dimmed" Text="This plugin has not written anything yet." IsVisible="{Binding LogEmpty}" />
+                    <Border Background="{DynamicResource DaRaisedBrush}" CornerRadius="{DynamicResource DaCorner}" Padding="10,8"
+                            MaxHeight="320" IsVisible="{Binding !LogEmpty}">
+                        <ScrollViewer>
+                            <ItemsControl ItemsSource="{Binding Log}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:PluginLogLineViewModel">
+                                        <Grid ColumnDefinitions="64,48,*" ColumnSpacing="8" Margin="0,1">
+                                            <TextBlock Classes="mono dimmed" FontSize="11" Text="{Binding At}" />
+                                            <TextBlock Grid.Column="1" Classes="mono" FontSize="11" Text="{Binding Level}"
+                                                       Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                                            <TextBlock Grid.Column="2" Classes="mono" FontSize="11" TextWrapping="Wrap" Text="{Binding Text}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card" IsVisible="{Binding IsInstalled}" Margin="0,0,0,8">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="h3" Text="Remove" />
+                        <TextBlock Classes="dimmed" TextWrapping="Wrap" Text="Deletes this plugin's folder from the station. Its settings are kept." />
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="danger" Content="Remove" VerticalAlignment="Center" Command="{Binding RemoveCommand}" />
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

@@ -75,6 +75,21 @@
                          NavigateUri="{Binding UpdateNotice.Page, FallbackValue={x:Null}}"
                          Content="{Binding UpdateNoticeText}" />
 
+        <!-- The jump-to palette, said where it can be found as well as by its shortcut, and only for
+             the operator whose pages it reaches. -->
+        <Button DockPanel.Dock="Top" Classes="nav" Margin="8,8,8,0" Height="32" Padding="8,0"
+                IsVisible="{Binding IsOperator}" Command="{Binding JumpToCommand}"
+                ToolTip.Tip="Jump to a page, a record, an act or a character">
+            <Grid ColumnDefinitions="16,*,Auto" ColumnSpacing="10">
+                <PathIcon Data="{DynamicResource DaIconSearch}" Width="14" Height="14"
+                          Foreground="{DynamicResource DaTextDimmedBrush}" />
+                <TextBlock Grid.Column="1" Text="Jump to…" VerticalAlignment="Center"
+                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                <TextBlock Grid.Column="2" Classes="mono" Text="⌘K" FontSize="10" VerticalAlignment="Center"
+                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+            </Grid>
+        </Button>
+
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <ItemsControl ItemsSource="{Binding Navigation.Sections}" Margin="0,6,0,0">
                 <ItemsControl.ItemTemplate>
@@ -95,12 +110,29 @@
                                                  The current page is said by the row's background and
                                                  its weight, as a player's library says it, rather
                                                  than by an accent bar beside it. -->
-                                            <Grid ColumnDefinitions="16,*,14" ColumnSpacing="14">
+                                            <!-- The badge's column is reserved on every row, so
+                                                 the shortcut letters stay in one line whether or not
+                                                 a page has something waiting. -->
+                                            <Grid ColumnDefinitions="16,*,24,14" ColumnSpacing="10">
                                                 <PathIcon Grid.Column="0"
                                                           Data="{Binding Icon, Converter={x:Static conv:IconConverter.Instance}}" />
                                                 <TextBlock Grid.Column="1" Text="{Binding Label}"
                                                            VerticalAlignment="Center" />
-                                                <TextBlock Grid.Column="2" Classes="mono" Text="{Binding Key}"
+                                                <!-- How many things the station says need somebody on
+                                                     this page, in the colour of the worst: the same
+                                                     table the desk's list links with, so a badge and
+                                                     the row behind it agree about where it belongs. -->
+                                                <Border Grid.Column="2" IsVisible="{Binding HasAttention}"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                        MinWidth="18" Height="16" CornerRadius="8" Padding="5,0"
+                                                        Background="{Binding AttentionSeverity, Converter={x:Static conv:SeverityBrushConverter.Instance}}"
+                                                        ToolTip.Tip="Things the station says need you here">
+                                                    <TextBlock Classes="mono" Text="{Binding AttentionCount}" FontSize="10"
+                                                               FontWeight="Bold" HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource DaPanelBrush}" />
+                                                </Border>
+                                                <TextBlock Grid.Column="3" Classes="mono" Text="{Binding Key}"
                                                            FontSize="10" VerticalAlignment="Center"
                                                            Foreground="{DynamicResource DaTextDimmedBrush}" />
                                             </Grid>

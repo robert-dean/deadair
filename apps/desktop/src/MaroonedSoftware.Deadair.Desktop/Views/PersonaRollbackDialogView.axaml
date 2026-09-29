@@ -1,0 +1,20 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PersonaRollbackDialogView"
+    x:DataType="vm:PersonaRollbackDialogViewModel">
+
+    <!-- The counts come before the button that acts on them, with the two costs nobody would expect
+         said in words. Re-learning starts clear because it is the testing answer, not the undoing one. -->
+    <StackPanel Spacing="12" MaxWidth="520">
+        <TextBlock Text="{Binding After}" TextWrapping="Wrap" Classes="secondary" IsVisible="{Binding HasAfter}" />
+        <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" FontSize="12" />
+        <StackPanel Spacing="3">
+            <CheckBox IsChecked="{Binding Relearn}" Content="Read those broadcasts again tonight" />
+            <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap" Margin="28,0,0,0"
+                       Text="Leave this off to undo what the station concluded. Turn it on to have it work through the same scripts from scratch, which is what you want when you are testing." />
+        </StackPanel>
+    </StackPanel>
+
+</UserControl>

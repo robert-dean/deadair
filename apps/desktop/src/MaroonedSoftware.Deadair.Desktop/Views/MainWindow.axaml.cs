@@ -259,6 +259,30 @@ public partial class MainWindow : Window
             return;
         }
 
+        // A dialog is a question, and a letter typed while one is open is not a request to leave the
+        // page it was asked about. Its own buttons take Return and Escape.
+        if (shell.Dialogs.IsOpen)
+        {
+            return;
+        }
+
+        // Command-K is the jump-to palette, as it is in the web console and most things with one.
+        if (e.Key == Key.K && e.KeyModifiers == KeyModifiers.Meta)
+        {
+            shell.JumpToCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        // Command-[ is the Mac's Back, as it is in Finder and every browser. Checked before the
+        // modifier rule below, which is about letters and would otherwise swallow it.
+        if (e.Key == Key.OemOpenBrackets && e.KeyModifiers == KeyModifiers.Meta && shell.Navigation.CanGoBack)
+        {
+            shell.Navigation.Back();
+            e.Handled = true;
+            return;
+        }
+
         // A Slider is not a TextBox and takes no letters, but it does take focus — so with the
         // volume slider focused, pressing "d" would navigate to the desk mid-drag.
         if (e.KeyModifiers != KeyModifiers.None || FocusManager?.GetFocusedElement() is TextBox or Slider)

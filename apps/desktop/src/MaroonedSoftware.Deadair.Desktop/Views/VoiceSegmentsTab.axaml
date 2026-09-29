@@ -1,0 +1,84 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.VoiceSegmentsTab"
+    x:DataType="vm:SegmentsViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
+            <WrapPanel ItemSpacing="6" LineSpacing="6">
+                <Button Classes="primary" Content="Write one" Command="{Binding ComposeCommand}" />
+                <Button Classes="ghost" Content="Upload" Command="{Binding UploadCommand}" />
+                <Button Classes="ghost" Content="Scan the inbox" Command="{Binding ScanCommand}"
+                        ToolTip.Tip="Reads the inbox folder and imports any audio it does not already hold" />
+            </WrapPanel>
+            <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left"
+                       Text="Everything the station can play that is not a record. A segment is only playable once it is ready; the station skips anything else rather than waiting for it." />
+            <TextBlock Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <TextBlock Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left"
+                       IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <ListBox Classes="rows" ItemsSource="{Binding Segments}">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:SegmentRowViewModel">
+                    <StackPanel Spacing="4">
+                        <!-- Grouped by kind: an ident and a talk break are different jobs. -->
+                        <TextBlock Classes="eyebrow" Text="{Binding Heading}" Margin="0,6,0,4" IsVisible="{Binding HasHeading}" />
+
+                        <!-- Fixed widths for the columns that must line up; what it is and what it says share the rest. -->
+                        <Grid ColumnDefinitions="56,*,110,48,64" ColumnSpacing="10">
+                            <!-- Heard over the station rather than instead of it, and only with audio behind it. -->
+                            <Button Classes="ghost" FontSize="11" Padding="8,2" VerticalAlignment="Top"
+                                    Content="{Binding PlayLabel}" IsVisible="{Binding CanPlay}"
+                                    Command="{Binding $parent[ListBox].((vm:SegmentsViewModel)DataContext).PlaySegmentCommand}"
+                                    CommandParameter="{Binding}" />
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource DaTextBrush}" />
+                                <TextBlock FontSize="11" Classes="dimmed" TextTrimming="CharacterEllipsis">
+                                    <Run Text="{Binding Source}" />
+                                    <Run Text=" · " />
+                                    <Run Text="{Binding Voice}" />
+                                </TextBlock>
+                                <TextBlock Text="{Binding Script}" FontSize="12" TextWrapping="Wrap" MaxLines="2"
+                                           TextTrimming="CharacterEllipsis" Classes="secondary"
+                                           IsVisible="{Binding Script, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="2">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                             Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                                    <TextBlock Text="{Binding State}" FontSize="11" Classes="secondary" />
+                                </StackPanel>
+                                <!-- Why it failed: there is no retry, so what is left is knowing what to fix. -->
+                                <TextBlock Text="{Binding Error}" FontSize="11" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource DaSeverityFailureBrush}"
+                                           IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="3" Text="{Binding Length}" FontSize="11" Classes="mono dimmed" HorizontalAlignment="Right" />
+                            <!-- Every attempt at writing it; a recording the station was given was never written. -->
+                            <Button Grid.Column="4" Classes="reveal ghost" FontSize="11" Padding="8,2" Content="Said"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top" IsVisible="{Binding !CanDelete}"
+                                    ToolTip.Tip="Every attempt at writing this one break"
+                                    Command="{Binding $parent[ListBox].((vm:SegmentsViewModel)DataContext).ShowSaidCommand}"
+                                    CommandParameter="{Binding}" />
+                            <Button Grid.Column="4" Classes="reveal ghost" FontSize="11" Padding="8,2" Content="Delete"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top" IsVisible="{Binding CanDelete}"
+                                    ToolTip.Tip="Remove it, and the inbox file behind it"
+                                    Command="{Binding $parent[ListBox].((vm:SegmentsViewModel)DataContext).DeleteCommand}"
+                                    CommandParameter="{Binding}" />
+                        </Grid>
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+
+</UserControl>

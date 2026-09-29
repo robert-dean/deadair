@@ -1,0 +1,45 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PersonaImportDialogView"
+    x:DataType="vm:PersonaImportDialogViewModel">
+
+    <!-- The plan, which is the decision rather than a guess at it: the import runs the same function
+         to make it. The notices are dimmed rather than coloured because none of them refuses an
+         import, and most describe a state the station can be in perfectly well. -->
+    <StackPanel Spacing="12" MaxWidth="560">
+        <TextBlock Text="{x:Static vm:PersonaImportDialogViewModel.Intro}" TextWrapping="Wrap" Classes="secondary" FontSize="12" />
+        <TextBlock Text="{Binding Name}" Classes="mono" FontSize="11" TextTrimming="CharacterEllipsis" />
+        <TextBlock Text="{Binding Notices}" TextWrapping="Wrap" Classes="dimmed" FontSize="12"
+                   IsVisible="{Binding HasNotices}" />
+
+        <Grid ColumnDefinitions="*,70,150" ColumnSpacing="12">
+            <TextBlock Classes="eyebrow" Text="Character" />
+            <TextBlock Grid.Column="1" Classes="eyebrow" Text="Lands as" />
+            <TextBlock Grid.Column="2" Classes="eyebrow" Text="Stories" />
+        </Grid>
+
+        <ScrollViewer MaxHeight="280">
+            <ItemsControl ItemsSource="{Binding Rows}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:PersonaImportRowViewModel">
+                        <Grid ColumnDefinitions="*,70,150" ColumnSpacing="12" Margin="0,0,0,8">
+                            <StackPanel Spacing="2">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="caller" FontSize="11" Classes="dimmed" IsVisible="{Binding IsCaller}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding Notices}" TextWrapping="Wrap" FontSize="11" Classes="dimmed"
+                                           IsVisible="{Binding HasNotices}" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="1" Text="{Binding LandsAs}" FontSize="12" Classes="secondary" />
+                            <TextBlock Grid.Column="2" Text="{Binding Stories}" FontSize="12" TextWrapping="Wrap" Classes="secondary" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </StackPanel>
+
+</UserControl>

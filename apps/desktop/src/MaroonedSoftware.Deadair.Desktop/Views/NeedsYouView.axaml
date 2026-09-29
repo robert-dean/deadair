@@ -1,0 +1,67 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.NeedsYouView"
+    x:DataType="vm:NeedsYouViewModel">
+
+    <!--
+        What the station says needs somebody, worst first, on the desk.
+
+        Nothing here is derived: the station composes the list, orders it and writes the sentences, and
+        this draws a severity and a link. Each link is labelled with where it goes rather than with a
+        remedy the station never sent. A row about the broadcast has none, because the desk is where
+        it points and this is the desk.
+    -->
+    <StackPanel Spacing="10" IsVisible="{Binding HasReading}">
+        <WrapPanel ItemSpacing="10" LineSpacing="2">
+            <TextBlock Classes="h3" Text="Needs you" VerticalAlignment="Center" />
+            <TextBlock Classes="dimmed" Text="{Binding Summary}" FontSize="12" VerticalAlignment="Center"
+                       TextWrapping="Wrap" />
+        </WrapPanel>
+
+        <!-- The list failing is not the station failing, and the words say which. -->
+        <TextBlock Text="{Binding Problem}" TextWrapping="Wrap" FontSize="12"
+                   IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                   Foreground="{DynamicResource DaToneFaultBrush}" />
+
+        <Border Classes="card" Padding="4" IsVisible="{Binding HasRows}">
+            <ItemsControl ItemsSource="{Binding Rows}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:NeedsYouRowViewModel">
+                        <!-- Fixed widths either side, so every title starts at the same x and every
+                             link ends at the same one, whichever rows carry a link. -->
+                        <Grid ColumnDefinitions="8,*,110" ColumnSpacing="12" Margin="10,8">
+                            <!-- A severity, not a status: its red is a failure, never ON AIR. -->
+                            <Ellipse Width="8" Height="8" VerticalAlignment="Top" Margin="0,5,0,0"
+                                     Fill="{Binding Severity, Converter={x:Static conv:SeverityBrushConverter.Instance}}" />
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource DaTextBrush}" />
+                                    <TextBlock Grid.Column="1" Classes="mono" Text="{Binding Count}" FontSize="11"
+                                               VerticalAlignment="Top" Margin="0,2,0,0" IsVisible="{Binding ShowsCount}"
+                                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                </Grid>
+                                <TextBlock Text="{Binding Detail}" FontSize="12" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                <!-- Said rather than left as a missing button: a station newer than
+                                     this app can name a page it does not have. -->
+                                <TextBlock Text="This app has no page for this yet." FontSize="11"
+                                           IsVisible="{Binding CannotLink}"
+                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                            </StackPanel>
+                            <Button Grid.Column="2" Classes="ghost" FontSize="12" Padding="8,3"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                    Content="{Binding LinkLabel}" IsVisible="{Binding HasLink}"
+                                    Command="{Binding $parent[ItemsControl].((vm:NeedsYouViewModel)DataContext).OpenCommand}"
+                                    CommandParameter="{Binding}" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+    </StackPanel>
+
+</UserControl>

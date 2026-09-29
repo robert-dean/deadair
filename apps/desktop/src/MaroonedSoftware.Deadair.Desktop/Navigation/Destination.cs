@@ -34,6 +34,46 @@ public abstract record Destination
 
     /// <summary>The station's configuration, and this app's own.</summary>
     public sealed record Settings : Destination;
+
+    /// <summary>One chart, read before it is put on air.</summary>
+    /// <param name="Id">The chart's station id.</param>
+    /// <param name="Name">What the list called it, shown while the chart is still being read.</param>
+    /// <remarks>
+    /// A detail page. It is not in <see cref="Destinations.All"/>, because it is somewhere a page
+    /// leads rather than somewhere the rail goes, and <c>NavigationViewModel.Push</c> is how it is
+    /// reached.
+    /// </remarks>
+    public sealed record ChartDetail(string Id, string Name) : Destination;
+
+    /// <summary>One of the STATION's plugins: its settings, its sign-in, what it wrote.</summary>
+    /// <param name="Id">The plugin's id.</param>
+    /// <param name="Name">What the list called it, shown while the plugin is still being read.</param>
+    /// <remarks>A detail page, opened from the Plugins section of Settings, for the reason a chart is one.</remarks>
+    public sealed record PluginDetail(string Id, string Name) : Destination;
+
+    /// <summary>One act: what the providers say, their releases, and the station's opinion of them.</summary>
+    /// <param name="Name">What the list called them, shown while the act is still being read.</param>
+    public sealed record ArtistDetail(Guid Id, string Name) : Destination;
+
+    /// <summary>One release: what the providers say, its records, and the station's opinion of it.</summary>
+    public sealed record AlbumDetail(Guid Id, string Name) : Destination;
+
+    /// <summary>One record: its copies, its measurement, when it aired, and what can be done about it.</summary>
+    public sealed record TrackDetail(Guid Id, string Title) : Destination;
+
+    /// <summary>One of the station's own playlists: its records, and renaming, filling, exporting or deleting it.</summary>
+    public sealed record StationPlaylistDetail(Guid Id, string Name) : Destination;
+
+    /// <summary>One music source's playlist, read before it is aired or kept as the station's own.</summary>
+    public sealed record PlaylistTracks(string PluginId, string PlaylistId, string Name, string Source) : Destination;
+
+    /// <summary>One character's sheet, or a new one's.</summary>
+    /// <param name="Id">The persona's id, or null for one that has not been written yet.</param>
+    /// <param name="Name">What the roster called it, shown while the page is drawn.</param>
+    /// <param name="Caller">Whether it phones in rather than presents, which a new one cannot say for itself.</param>
+    /// <param name="Rehearse">Open on a rehearsal, already asked for: the roster's Rehearse lands here.</param>
+    /// <remarks>A detail page of the Voice page, reached with <c>NavigationViewModel.Push</c>.</remarks>
+    public sealed record PersonaDetail(string? Id, string Name, bool Caller, bool Rehearse = false) : Destination;
 }
 
 /// <summary>

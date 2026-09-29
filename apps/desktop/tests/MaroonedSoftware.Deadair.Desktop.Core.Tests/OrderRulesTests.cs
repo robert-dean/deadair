@@ -30,6 +30,26 @@ public class OrderRulesTests
     ];
 
     [Fact]
+    public void TheStationCanBeSkippedToARecordStillToCome_IncludingOneThePlayerHolds()
+    {
+        // Unlike a move, a skip reaches past the player's queue: that is what it is for.
+        Assert.True(SkipTo.Allowed(Item("a", StationItemState.Planned)));
+        Assert.True(SkipTo.Allowed(Item("cued", StationItemState.Handed)));
+        Assert.False(SkipTo.Allowed(Item("airing", StationItemState.Airing)));
+        Assert.False(SkipTo.Allowed(Item("played", StationItemState.Played)));
+    }
+
+    [Fact]
+    public void TheStationIsNeverSkippedIntoABreak()
+    {
+        // A break's words are about the records either side of it; landing on one airs a
+        // back-announce for a record that was just skipped. The station refuses it with a 422.
+        var segment = Item("break", StationItemState.Planned) with { Kind = StationOrderItemKind.Segment };
+
+        Assert.False(SkipTo.Allowed(segment));
+    }
+
+    [Fact]
     public void TheFloorIsTheFirstItemTheStationHasNotHandedOver()
     {
         // Everything above it is airing, has aired, or is already in the player's hands. The station

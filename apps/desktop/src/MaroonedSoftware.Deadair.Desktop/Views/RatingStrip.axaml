@@ -1,0 +1,35 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.RatingStrip"
+    x:DataType="vm:RatingViewModel">
+
+    <!-- The strip's own look, here rather than in Styles because nothing else is a rating: never is
+         the fault tone and more often the accent, and the middle is never lit (see RatingViewModel). -->
+    <UserControl.Styles>
+        <Style Selector="Button.icon.never">
+            <Setter Property="Foreground" Value="{DynamicResource DaToneFaultBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <!-- Disabled rather than blanked while a write is in flight: the answer on screen is still the one
+         the station holds. -->
+    <StackPanel Orientation="Horizontal" Spacing="2" IsEnabled="{Binding !Busy}">
+        <Button Classes="icon small" Classes.never="{Binding IsDisliked}"
+                ToolTip.Tip="{Binding DislikeHint}"
+                Command="{Binding SetCommand}" CommandParameter="disliked">
+            <PathIcon Data="{DynamicResource DaIconThumbDown}" Width="12" Height="12" />
+        </Button>
+        <Button Classes="icon small" ToolTip.Tip="{Binding NeutralHint}"
+                Command="{Binding SetCommand}" CommandParameter="neutral">
+            <PathIcon Data="{DynamicResource DaIconMinus}" Width="12" Height="12" />
+        </Button>
+        <Button Classes="icon small" Classes.active="{Binding IsLiked}"
+                ToolTip.Tip="{Binding LikeHint}"
+                Command="{Binding SetCommand}" CommandParameter="liked">
+            <PathIcon Data="{DynamicResource DaIconThumbUp}" Width="12" Height="12" />
+        </Button>
+    </StackPanel>
+
+</UserControl>

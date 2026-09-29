@@ -1,0 +1,186 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.TrackDetailView"
+    x:DataType="vm:TrackDetailViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="{DynamicResource DaPageGutter}" Spacing="18">
+
+            <views:DetailHeader>
+                <views:DetailHeader.Extra>
+                    <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="16">
+                            <Button Classes="link" FontSize="12" Command="{Binding OpenArtistCommand}"
+                                    Content="{Binding ArtistName, StringFormat='More by {0}'}" />
+                            <Button Classes="link" FontSize="12" Command="{Binding OpenAlbumCommand}"
+                                    IsVisible="{Binding HasAlbum}"
+                                    Content="{Binding AlbumName, StringFormat='The rest of {0}'}" />
+                        </StackPanel>
+                        <!-- Named for the reason anybody opens it: every entry is about getting a
+                             record that will not play to play. -->
+                        <Button Classes="ghost" Content="Repair…" HorizontalAlignment="Left" FontSize="12"
+                                Padding="10,4">
+                            <Button.Flyout>
+                                <MenuFlyout Placement="BottomEdgeAlignedLeft" ItemsSource="{Binding Repairs}">
+                                    <MenuFlyout.ItemContainerTheme>
+                                        <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}"
+                                                      x:DataType="vm:MenuChoiceViewModel">
+                                            <Setter Property="Header" Value="{Binding Label}" />
+                                            <Setter Property="Command" Value="{Binding RunCommand}" />
+                                        </ControlTheme>
+                                    </MenuFlyout.ItemContainerTheme>
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+                        <TextBlock Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap" MaxWidth="460"
+                                   HorizontalAlignment="Left"
+                                   IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    </StackPanel>
+                </views:DetailHeader.Extra>
+            </views:DetailHeader>
+
+            <!-- Where the record comes from, first: a record with no copy can never play, and that is
+                 usually why somebody opened this page. -->
+            <Border Classes="card">
+                <StackPanel Spacing="10">
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="eyebrow" Text="Copies" />
+                        <TextBlock Classes="h3" Text="Where this record comes from" />
+                    </StackPanel>
+                    <TextBlock Classes="dimmed" Text="{Binding NoCopies}" TextWrapping="Wrap"
+                               IsVisible="{Binding NoCopies, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    <ItemsControl ItemsSource="{Binding Copies}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Spacing="10" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CopyRowViewModel">
+                                <!-- Two lines of three columns: who and which copy, what state it is in
+                                     and its format, and what it holds and when it last played. -->
+                                <Grid ColumnDefinitions="*,150,150" ColumnSpacing="12">
+                                    <StackPanel Spacing="2">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="{Binding Provider}" Foreground="{DynamicResource DaTextBrush}" />
+                                            <!-- A discovered copy is in no playlist, which is why the
+                                                 sync's sweep may not judge it. -->
+                                            <Border Classes="pill" Height="18" Padding="6,0" IsVisible="{Binding Found}"
+                                                    ToolTip.Tip="Looked up by name when something chose this record, rather than seen in a playlist.">
+                                                <TextBlock Text="found" FontSize="10" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding ExternalId}" FontSize="11" Classes="dimmed"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Spacing="2" ToolTip.Tip="{Binding Detail}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                                     Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                                            <TextBlock Text="{Binding State}" TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding Format}" FontSize="11" Classes="dimmed"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="2" HorizontalAlignment="Right">
+                                        <TextBlock Classes="mono" Text="{Binding Held}" FontSize="11"
+                                                   HorizontalAlignment="Right" ToolTip.Tip="Held on the station's disk"
+                                                   Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                        <TextBlock Classes="mono" Text="{Binding LastPlayed}" FontSize="11"
+                                                   HorizontalAlignment="Right" ToolTip.Tip="Last played from this copy"
+                                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- Complete decides the lamp rather than the date: a measurement of a truncated download
+                 carries a date and is wrong. -->
+            <Border Classes="card">
+                <StackPanel Spacing="10">
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="eyebrow" Text="Measurement" />
+                        <TextBlock Classes="h3" Text="Cue points and loudness" />
+                    </StackPanel>
+                    <TextBlock Classes="dimmed" Text="{Binding Unmeasured}" TextWrapping="Wrap"
+                               IsVisible="{Binding Unmeasured, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    <WrapPanel ItemSpacing="28" LineSpacing="8"
+                               IsVisible="{Binding MeasurementState, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="State" FontSize="11" Classes="dimmed" />
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                         Fill="{Binding MeasurementTone, Converter={StaticResource ToneBrush}}" />
+                                <TextBlock Text="{Binding MeasurementState}" Foreground="{DynamicResource DaTextBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <ItemsControl ItemsSource="{Binding Measurement}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel ItemSpacing="28" LineSpacing="8" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:FigureViewModel">
+                                    <StackPanel Spacing="2" MaxWidth="420">
+                                        <TextBlock Text="{Binding Label}" FontSize="11" Classes="dimmed" />
+                                        <TextBlock Text="{Binding Value}" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource DaTextBrush}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="eyebrow" Text="On air" />
+                            <TextBlock Classes="h3" Text="When this has played" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Classes="dimmed mono" FontSize="11" Text="{Binding PlayCount}"
+                                   VerticalAlignment="Bottom" />
+                    </Grid>
+                    <TextBlock Classes="dimmed" Text="{Binding NeverAired}" TextWrapping="Wrap"
+                               IsVisible="{Binding NeverAired, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    <ItemsControl ItemsSource="{Binding Airings}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Spacing="4" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AiringRowViewModel">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Classes="mono" Text="{Binding When}" FontSize="12"
+                                               Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Source}" FontSize="11" Classes="dimmed" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <views:EnrichmentPanel DataContext="{Binding Enrichment}" />
+
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

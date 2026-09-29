@@ -1,0 +1,59 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SettingsLanguagesSection"
+    x:DataType="vm:LanguagesSectionViewModel">
+
+    <DockPanel LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14" MaxWidth="760" HorizontalAlignment="Left">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <TextBlock Classes="h2" Text="Languages" />
+                <Button Grid.Column="1" Classes="ghost" Content="Import a language pack…" VerticalAlignment="Center"
+                        Command="{Binding ImportCommand}" IsEnabled="{Binding !Busy}" />
+            </Grid>
+            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                       Text="The languages the web console can be shown in. A language pack is a file holding every word the console says, translated; the console exports the English one to start from." />
+            <!-- Said, because otherwise installing one here and seeing nothing change reads as a failure. -->
+            <TextBlock Classes="secondary" TextWrapping="Wrap"
+                       Text="This app has no translations of its own and stays in English whatever is installed here. Nor is this what the station broadcasts in, which is under Stream." />
+            <TextBlock TextWrapping="Wrap" Text="{Binding Notice}"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <ScrollViewer>
+            <Border Classes="card" MaxWidth="760" HorizontalAlignment="Stretch" VerticalAlignment="Top" IsVisible="{Binding Loaded}">
+                <StackPanel Spacing="6">
+                    <!-- English is always there, and cannot be removed: every other language falls back to it. -->
+                    <Grid ColumnDefinitions="*,48,96" ColumnSpacing="12" MinHeight="40">
+                        <StackPanel Spacing="1" VerticalAlignment="Center">
+                            <TextBlock Text="English" />
+                            <TextBlock Classes="dimmed" FontSize="11" Text="Built in, and what every other language falls back to" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Classes="mono dimmed" FontSize="11" Text="en" VerticalAlignment="Center" />
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding Languages}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ConsoleLanguageRowViewModel">
+                                <Grid ColumnDefinitions="*,48,96" ColumnSpacing="12" MinHeight="40">
+                                    <StackPanel Spacing="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Classes="dimmed" FontSize="11" Text="{Binding Detail}" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Classes="mono dimmed" FontSize="11" Text="{Binding Locale}" VerticalAlignment="Center" />
+                                    <Button Grid.Column="2" Classes="ghost" Content="Remove" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                            Command="{Binding $parent[ItemsControl].((vm:LanguagesSectionViewModel)DataContext).RemoveCommand}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap" IsVisible="{Binding IsEmpty}"
+                               Text="Nothing installed beyond English." />
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+    </DockPanel>
+
+</UserControl>

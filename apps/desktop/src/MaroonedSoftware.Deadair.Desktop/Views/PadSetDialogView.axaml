@@ -1,0 +1,18 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PadSetDialogView"
+    x:DataType="vm:PadSetDialogViewModel">
+
+    <StackPanel Spacing="10" Width="400">
+        <StackPanel Spacing="3">
+            <TextBlock Text="Name" FontSize="12" Classes="secondary" />
+            <TextBox Text="{Binding Key}" PlaceholderText="a name a persona can point at" />
+        </StackPanel>
+        <TextBlock Text="{Binding Warning}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource DaToneFaultBrush}"
+                   IsVisible="{Binding Warning, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        <TextBlock Text="{x:Static vm:PadSetDialogViewModel.Help}" FontSize="11" Classes="dimmed" TextWrapping="Wrap" />
+    </StackPanel>
+
+</UserControl>

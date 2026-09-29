@@ -1,0 +1,22 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PronunciationDialogView"
+    x:DataType="vm:PronunciationDialogViewModel">
+
+    <StackPanel Spacing="10" Width="420">
+        <StackPanel Spacing="3">
+            <TextBlock Text="Written" FontSize="12" Classes="secondary" />
+            <TextBox Text="{Binding Written}" PlaceholderText="Röyksopp" />
+            <TextBlock Text="Matched in a script whole words only, ignoring case." FontSize="11" Classes="dimmed" />
+        </StackPanel>
+        <StackPanel Spacing="3">
+            <TextBlock Text="Said" FontSize="12" Classes="secondary" />
+            <TextBox Text="{Binding Spoken}" PlaceholderText="royk-sop" />
+            <TextBlock Text="Handed to the speech engine untouched. Leave it empty to drop the words, which is the honest answer for a marker that got into a title and is not a word."
+                       FontSize="11" Classes="dimmed" TextWrapping="Wrap" />
+        </StackPanel>
+    </StackPanel>
+
+</UserControl>

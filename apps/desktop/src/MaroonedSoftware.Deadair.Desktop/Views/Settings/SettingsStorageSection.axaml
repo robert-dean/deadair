@@ -1,0 +1,69 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SettingsStorageSection"
+    x:DataType="vm:StorageSectionViewModel">
+
+    <DockPanel LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14" MaxWidth="760" HorizontalAlignment="Left">
+            <TextBlock Classes="h2" Text="Disk" />
+            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                       Text="What the station is keeping, and where. Records are the only one with a limit; the rest grow with the library and with how much the station has said." />
+        </StackPanel>
+
+        <ScrollViewer>
+            <Border Classes="card" MaxWidth="760" HorizontalAlignment="Stretch" VerticalAlignment="Top" IsVisible="{Binding Loaded}">
+                <StackPanel Spacing="10">
+                    <!-- Fixed figure columns so the numbers line up down the table; the store's
+                         name and path take what is left. -->
+                    <Grid ColumnDefinitions="*,84,112,92" ColumnSpacing="12">
+                        <TextBlock Classes="eyebrow" Text="STORE" />
+                        <TextBlock Grid.Column="1" Classes="eyebrow" Text="ON DISK" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="2" Classes="eyebrow" Text="FILES" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="3" Classes="eyebrow" Text="UNCLAIMED" HorizontalAlignment="Right" />
+                    </Grid>
+
+                    <ItemsControl ItemsSource="{Binding Stores}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:StorageRowViewModel">
+                                <Grid ColumnDefinitions="*,84,112,92" ColumnSpacing="12" Margin="0,0,0,12">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Classes="mono dimmed" FontSize="11" Text="{Binding Path}" TextTrimming="CharacterEllipsis" />
+                                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0" IsVisible="{Binding HasShare}"
+                                                    ToolTip.Tip="Share of the limit in use">
+                                            <ProgressBar Width="120" MinWidth="0" Height="4" Minimum="0" Maximum="100"
+                                                         Value="{Binding Share}" VerticalAlignment="Center" />
+                                            <TextBlock Classes="mono dimmed" FontSize="11" Text="{Binding ShareNote}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Classes="mono" Text="{Binding OnDisk}" HorizontalAlignment="Right" />
+                                    <StackPanel Grid.Column="2" HorizontalAlignment="Right">
+                                        <TextBlock Classes="mono" Text="{Binding Files}" HorizontalAlignment="Right" />
+                                        <TextBlock Classes="mono" FontSize="11" Text="{Binding Missing}" HorizontalAlignment="Right"
+                                                   Foreground="{DynamicResource DaToneFaultBrush}" IsVisible="{Binding HasMissing}"
+                                                   ToolTip.Tip="Rows pointing at a file that is not there. The station fetches or renders these again when it needs them." />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="3" Classes="mono dimmed" Text="{Binding Unclaimed}" HorizontalAlignment="Right"
+                                               ToolTip.Tip="Files no row claims, usually left by a write that was interrupted. Nothing deletes them." />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Border Height="1" Background="{DynamicResource DaBorderBrush}" />
+                    <Grid ColumnDefinitions="*,84,112,92" ColumnSpacing="12">
+                        <TextBlock Text="Everything" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1" Classes="mono" Text="{Binding Total}" HorizontalAlignment="Right" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="2" Classes="mono" Text="{Binding TotalFiles}" HorizontalAlignment="Right" FontWeight="SemiBold" />
+                    </Grid>
+
+                    <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap" Text="{Binding Footnote}" Margin="0,6,0,0" />
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+    </DockPanel>
+
+</UserControl>

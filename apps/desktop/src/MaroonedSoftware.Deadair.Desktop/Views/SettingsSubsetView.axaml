@@ -1,0 +1,27 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SettingsSubsetView"
+    x:DataType="vm:SettingsSubsetViewModel">
+
+    <!-- A few of the station's settings on the page they are about, drawn by the one shared form,
+         with their own Save: the page is not the Settings page, and has no other button to press. -->
+    <StackPanel Spacing="4" IsVisible="{Binding HasForm}">
+        <ItemsControl ItemsSource="{Binding Form.Fields, FallbackValue={x:Null}}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:FormFieldViewModel">
+                    <views:FormFieldView />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <StackPanel Orientation="Horizontal" Spacing="12">
+            <Button Classes="primary" Content="Save" Command="{Binding SaveCommand}" IsEnabled="{Binding !Busy}" />
+            <TextBlock Classes="dimmed" Text="{Binding Status}" VerticalAlignment="Center" TextWrapping="Wrap"
+                       IsVisible="{Binding Status, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+    </StackPanel>
+
+</UserControl>

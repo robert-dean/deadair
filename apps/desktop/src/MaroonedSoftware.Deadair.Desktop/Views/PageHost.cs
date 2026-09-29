@@ -55,19 +55,22 @@ public sealed class PageHost : TransitioningContentControl
 
         if (change.GetOldValue<ShellViewModel?>() is { } old)
         {
-            old.Navigation.PropertyChanged -= OnNavigated;
+            old.Navigation.Navigated -= OnNavigated;
         }
 
         if (change.GetNewValue<ShellViewModel?>() is { } shell)
         {
-            shell.Navigation.PropertyChanged += OnNavigated;
+            // Navigated rather than a property change, because it is raised after the shell has
+            // heard it: the shell opens a detail page's view model on that event, and a host that
+            // looked sooner would find none.
+            shell.Navigation.Navigated += OnNavigated;
             Show(shell);
         }
     }
 
-    private void OnNavigated(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    private void OnNavigated(Nav.Destination destination)
     {
-        if (e.PropertyName is nameof(NavigationViewModel.Current) && Shell is { } shell)
+        if (Shell is { } shell)
         {
             Show(shell);
         }
@@ -77,6 +80,17 @@ public sealed class PageHost : TransitioningContentControl
     {
         var page = shell.Navigation.Current switch
         {
+            // A detail page is built per visit, over the view model opened for it: there are many
+            // charts and one of each rail page, so only the second are worth keeping.
+            Nav.Destination.ChartDetail => Detail(new ChartDetailView(), shell.Details.Current),
+            Nav.Destination.PluginDetail => Detail(new StationPluginView(), shell.Details.Current),
+            Nav.Destination.ArtistDetail => Detail(new ArtistDetailView(), shell.Details.Current),
+            Nav.Destination.AlbumDetail => Detail(new AlbumDetailView(), shell.Details.Current),
+            Nav.Destination.TrackDetail => Detail(new TrackDetailView(), shell.Details.Current),
+            Nav.Destination.StationPlaylistDetail => Detail(new StationPlaylistDetailView(), shell.Details.Current),
+            Nav.Destination.PlaylistTracks => Detail(new PlaylistTracksView(), shell.Details.Current),
+            Nav.Destination.PersonaDetail => Detail(new PersonaDetailView(), shell.Details.Current),
+
             Nav.Destination.Programme => Page(() => new ProgrammeView(), shell.Programme),
             Nav.Destination.Library => Page(() => new LibraryView(), shell.Library),
             Nav.Destination.History => Page(() => new HistoryView(), shell.History),
@@ -92,6 +106,12 @@ public sealed class PageHost : TransitioningContentControl
         {
             Content = page;
         }
+    }
+
+    private static Control Detail(Control view, object? dataContext)
+    {
+        view.DataContext = dataContext;
+        return view;
     }
 
     private Control Page<T>(Func<T> build, object dataContext)

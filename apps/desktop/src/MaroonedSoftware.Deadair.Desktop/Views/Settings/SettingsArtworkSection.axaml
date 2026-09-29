@@ -1,0 +1,59 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SettingsArtworkSection"
+    x:DataType="vm:ArtworkSectionViewModel">
+
+    <DockPanel LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14" MaxWidth="760" HorizontalAlignment="Left">
+            <TextBlock Classes="h2" Text="Break artwork" />
+            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                       Text="What a listener's player shows while the station is talking. A kind with no picture of its own shows the station's logo, as the bed and off air do. A picture is a jpeg, png, webp or gif of up to 4 MB, and square, since that is how a player draws it." />
+            <TextBlock TextWrapping="Wrap" Text="{Binding Notice}" Foreground="{DynamicResource DaToneFaultBrush}"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <Panel>
+            <TextBlock Classes="dimmed" TextWrapping="Wrap" MaxWidth="560" HorizontalAlignment="Left" IsVisible="{Binding IsEmpty}"
+                       Text="The station holds no picture for any kind of break, so every break shows the station's logo. This is what a first boot looks like before the shipped pictures have been taken in." />
+
+            <ScrollViewer>
+                <ItemsControl ItemsSource="{Binding Breaks}" MaxWidth="760" HorizontalAlignment="Stretch">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:BreakArtRowViewModel">
+                            <Border Classes="card" Margin="0,0,0,10">
+                                <!-- The buttons in fixed columns, so they line up down the list
+                                     whatever each kind is called. -->
+                                <Grid ColumnDefinitions="72,*,Auto" ColumnSpacing="16">
+                                    <controls:Artwork Size="72" Source="{Binding Picture}" Initial="{Binding Initial}" />
+                                    <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                                        <TextBlock Classes="eyebrow" Text="{Binding Kind}" HorizontalAlignment="Left" TextWrapping="Wrap" />
+                                        <Border Classes="pill" HorizontalAlignment="Left">
+                                            <TextBlock FontSize="11" VerticalAlignment="Center" Text="{Binding Source}" />
+                                        </Border>
+                                        <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap" Text="{Binding RevertNote}"
+                                                   IsVisible="{Binding RevertNote, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="8" VerticalAlignment="Center" Width="180">
+                                        <Button Classes="ghost" Content="Replace…" HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                Command="{Binding $parent[ItemsControl].((vm:ArtworkSectionViewModel)DataContext).ReplaceCommand}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Classes="ghost" Content="Put the original back" HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center" IsEnabled="{Binding CanRevert}"
+                                                Command="{Binding $parent[ItemsControl].((vm:ArtworkSectionViewModel)DataContext).RevertCommand}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Panel>
+    </DockPanel>
+
+</UserControl>

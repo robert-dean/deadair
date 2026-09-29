@@ -1,0 +1,134 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PlaylistsTab"
+    x:DataType="vm:PlaylistsViewModel">
+
+    <UserControl.Resources>
+        <!-- One source playlist as a row. Its buttons sit in columns that are there whether or not
+             they are drawn, so the rows line up; a playlist the source will not share says so in
+             place of them rather than offering buttons that fail. -->
+        <DataTemplate x:Key="SourceRow" x:DataType="vm:PlaylistRowViewModel">
+            <Grid ColumnDefinitions="36,*,64,96,32" ColumnSpacing="10">
+                <controls:Artwork Size="36" Source="{Binding ArtworkUrl}" Initial="{Binding Initial}" />
+                <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center" ToolTip.Tip="{Binding Description}">
+                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource DaTextBrush}" />
+                    <TextBlock Text="{Binding Line}" FontSize="12" TextTrimming="CharacterEllipsis" Classes="dimmed" />
+                </StackPanel>
+                <Button Grid.Column="2" Classes="reveal ghost" Content="Tracks" FontSize="11" Padding="8,3"
+                        HorizontalAlignment="Right" VerticalAlignment="Center" IsVisible="{Binding CanRead}"
+                        Command="{Binding $parent[UserControl].((vm:PlaylistsViewModel)DataContext).OpenTracksCommand}"
+                        CommandParameter="{Binding}" />
+                <Button Grid.Column="3" Classes="reveal ghost" Content="Put on air" FontSize="11" Padding="8,3"
+                        HorizontalAlignment="Right" VerticalAlignment="Center" IsVisible="{Binding CanRead}"
+                        Command="{Binding $parent[UserControl].((vm:PlaylistsViewModel)DataContext).PlayCommand}"
+                        CommandParameter="{Binding}" />
+                <Button Grid.Column="4" Classes="icon small reveal" VerticalAlignment="Center"
+                        ToolTip.Tip="{Binding Name, StringFormat='More about {0}'}">
+                    <PathIcon Data="{DynamicResource DaIconChevronDown}" Width="12" Height="12" />
+                    <Button.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedRight" ItemsSource="{Binding Menu}">
+                            <MenuFlyout.ItemContainerTheme>
+                                <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}"
+                                              x:DataType="vm:MenuChoiceViewModel">
+                                    <Setter Property="Header" Value="{Binding Label}" />
+                                    <Setter Property="Command" Value="{Binding RunCommand}" />
+                                </ControlTheme>
+                            </MenuFlyout.ItemContainerTheme>
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <DockPanel LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,10">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <TextBlock Classes="dimmed" Text="{Binding Summary}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                    <Button Classes="ghost" Content="Import…" Command="{Binding ImportCommand}" />
+                    <Button Classes="ghost" Content="Refresh now" Command="{Binding RefreshAllCommand}" />
+                </StackPanel>
+            </Grid>
+            <TextBlock Text="{Binding Notice}" Classes="dimmed" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="14">
+
+                <!-- The station's own first: the ones it holds rather than borrows. The heading exists
+                     only when there is something under it. -->
+                <StackPanel Spacing="4" IsVisible="{Binding HasOwn}">
+                    <TextBlock Classes="eyebrow" Text="The station's own" />
+                    <ItemsControl ItemsSource="{Binding Own}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:StationPlaylistRowViewModel">
+                                <Grid ColumnDefinitions="36,*,64,96,32" ColumnSpacing="10" Margin="8,5">
+                                    <controls:Artwork Size="36" Initial="{Binding Initial}" />
+                                    <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center"
+                                                ToolTip.Tip="{Binding Prompt}">
+                                        <Button Classes="link" HorizontalAlignment="Left"
+                                                Command="{Binding $parent[UserControl].((vm:PlaylistsViewModel)DataContext).OpenOwnCommand}"
+                                                CommandParameter="{Binding}">
+                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        </Button>
+                                        <TextBlock Text="{Binding Line}" FontSize="12" TextTrimming="CharacterEllipsis"
+                                                   Classes="dimmed" />
+                                    </StackPanel>
+                                    <Button Grid.Column="3" Classes="ghost" Content="Put on air" FontSize="11"
+                                            Padding="8,3" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                            IsVisible="{Binding CanAir}"
+                                            Command="{Binding $parent[UserControl].((vm:PlaylistsViewModel)DataContext).PlayOwnCommand}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <StackPanel Spacing="4">
+                    <TextBlock Classes="eyebrow" Text="From the music sources" IsVisible="{Binding HasOwn}" />
+
+                    <!-- A source that could not be listed is named with its reason, rather than the
+                         list being quietly short. -->
+                    <ItemsControl ItemsSource="{Binding SourceErrors}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <TextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap" Margin="0,2"
+                                           Foreground="{DynamicResource DaSeverityWarningBrush}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap"
+                               IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+                    <ListBox Classes="rows" ItemsSource="{Binding Playlists}" ItemTemplate="{StaticResource SourceRow}" />
+
+                    <!-- Folded away: the ones the source made on its own, and the ones somebody hid. -->
+                    <Button Classes="link" FontSize="12" Margin="8,4,0,0" Content="{Binding MadeByToggle}"
+                            IsVisible="{Binding HasMadeBy}" Command="{Binding ToggleMadeByCommand}"
+                            Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                    <ListBox Classes="rows" ItemsSource="{Binding MadeByProvider}" ItemTemplate="{StaticResource SourceRow}"
+                             IsVisible="{Binding ShowMadeBy}" />
+
+                    <Button Classes="link" FontSize="12" Margin="8,4,0,0" Content="{Binding HiddenToggle}"
+                            IsVisible="{Binding HasHidden}" Command="{Binding ToggleHiddenCommand}"
+                            Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                    <ListBox Classes="rows" ItemsSource="{Binding Hidden}" ItemTemplate="{StaticResource SourceRow}"
+                             IsVisible="{Binding ShowHidden}" />
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+
+    </DockPanel>
+
+</UserControl>

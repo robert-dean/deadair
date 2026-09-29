@@ -1,0 +1,48 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.StationPlaylistDetailView"
+    x:DataType="vm:StationPlaylistDetailViewModel">
+
+    <DockPanel Margin="{DynamicResource DaPageGutter}" LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="12" Margin="0,0,0,12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                <controls:Artwork Size="72" Initial="{Binding Initial}" VerticalAlignment="Top" />
+                <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                    <TextBlock Classes="h1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="secondary" Text="{Binding Line}" TextWrapping="Wrap" />
+                    <TextBlock Classes="dimmed" Text="{Binding Problem}" TextWrapping="Wrap"
+                               IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Put on air only while something on it can air, and looking up missing records only
+                 while some are missing: each is refused otherwise, so each is not offered. -->
+            <WrapPanel ItemSpacing="6" LineSpacing="6" IsVisible="{Binding Read}">
+                <Button Classes="primary" Content="Put on air" Command="{Binding PlayCommand}"
+                        IsVisible="{Binding CanAir}" />
+                <Button Classes="ghost" Content="Look up missing records" Command="{Binding FillCommand}"
+                        IsVisible="{Binding CanFill}" />
+                <Button Classes="ghost" Content="Export" Command="{Binding ExportCommand}" />
+                <Button Classes="ghost" Content="Rename" Command="{Binding RenameCommand}" />
+                <Button Classes="ghost" Content="Delete" Command="{Binding DeleteCommand}"
+                        Foreground="{DynamicResource DaToneFaultBrush}" />
+            </WrapPanel>
+
+            <TextBlock Classes="secondary" Text="{Binding Prompt}" TextWrapping="Wrap"
+                       IsVisible="{Binding Prompt, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <TextBlock Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <TextBlock Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap"
+                       IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <views:PlaylistEntries />
+
+    </DockPanel>
+
+</UserControl>

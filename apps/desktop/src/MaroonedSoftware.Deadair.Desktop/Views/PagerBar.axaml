@@ -1,0 +1,18 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PagerBar"
+    x:DataType="vm:PagedTabViewModel">
+
+    <!-- Every paged Library tab's foot: back, on, and where the list is. -->
+    <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+        <Button Classes="ghost" Content="Previous" Command="{Binding PreviousPageCommand}"
+                IsEnabled="{Binding CanGoBack}" />
+        <Button Grid.Column="1" Classes="ghost" Content="Next" Command="{Binding NextPageCommand}"
+                IsEnabled="{Binding CanGoForward}" />
+        <TextBlock Grid.Column="2" Classes="dimmed mono" FontSize="11" Text="{Binding Summary}"
+                   HorizontalAlignment="Right" VerticalAlignment="Center" />
+    </Grid>
+
+</UserControl>

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Navigation;
 
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
@@ -22,6 +23,17 @@ public sealed partial class NavigationItemViewModel(NavigationEntry entry) : Obs
 
     [ObservableProperty]
     private bool _isVisible = true;
+
+    /// <summary>How many things the station says need somebody on this page. Zero draws no badge.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAttention))]
+    private int _attentionCount;
+
+    /// <summary>How bad the worst of them is, which is the badge's colour.</summary>
+    [ObservableProperty]
+    private Severity _attentionSeverity = Severity.Notice;
+
+    public bool HasAttention => AttentionCount > 0;
 }
 
 /// <summary>One heading in the sidebar, and what sits under it.</summary>
@@ -41,7 +53,9 @@ public sealed partial class NavigationSectionViewModel(string label, IReadOnlyLi
 /// </summary>
 /// <remarks>
 /// The rail REPLACES rather than pushes: a rail is not history, so pressing Desk after Library does
-/// not leave Library on a stack to come back to. Detail pages, when they exist, will push.
+/// not leave Library on a stack to come back to. A detail page PUSHES, because it is somewhere a page
+/// led and Back should return to that page as it was left; the rail clears the stack, since pressing
+/// it is starting somewhere new.
 /// </remarks>
 public sealed partial class NavigationViewModel : ObservableObject
 {
@@ -98,6 +112,12 @@ public sealed partial class NavigationViewModel : ObservableObject
 
     public event Action<Destination>? Navigated;
 
+    /// <summary>Where Back goes, newest last.</summary>
+    private readonly Stack<Destination> _back = new();
+
+    /// <summary>Whether there is a page to go back to, which is only ever true on a detail page.</summary>
+    public bool CanGoBack => _back.Count > 0;
+
     [RelayCommand]
     public void GoTo(NavigationItemViewModel item)
     {
@@ -111,14 +131,50 @@ public sealed partial class NavigationViewModel : ObservableObject
     [RelayCommand]
     public void ShowSettings() => Show(new Destination.Settings());
 
+    /// <summary>Goes somewhere from the rail, forgetting any trail of detail pages.</summary>
     public void Show(Destination destination)
     {
-        Current = destination;
+        _back.Clear();
+        Arrive(destination);
 
         foreach (var item in Items)
         {
             item.IsCurrent = item.Entry.Destination == destination;
         }
+
+        Navigated?.Invoke(destination);
+    }
+
+    /// <summary>Opens a detail page over the current one, which Back returns to.</summary>
+    /// <remarks>
+    /// The rail keeps pointing where it was: a chart is still somewhere in the Library, and a rail
+    /// with nothing lit would be a rail that has lost track of where you are.
+    /// </remarks>
+    public void Push(Destination destination)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        _back.Push(Current);
+        Arrive(destination);
+        Navigated?.Invoke(destination);
+    }
+
+    /// <summary>Back to the page a detail page was opened from.</summary>
+    [RelayCommand]
+    public void Back()
+    {
+        if (!_back.TryPop(out var previous))
+        {
+            return;
+        }
+
+        Arrive(previous);
+        Navigated?.Invoke(previous);
+    }
+
+    private void Arrive(Destination destination)
+    {
+        Current = destination;
+        OnPropertyChanged(nameof(CanGoBack));
 
         OnPropertyChanged(nameof(IsDesk));
         OnPropertyChanged(nameof(IsProgramme));
@@ -127,8 +183,6 @@ public sealed partial class NavigationViewModel : ObservableObject
         OnPropertyChanged(nameof(IsCheckup));
         OnPropertyChanged(nameof(IsSettings));
         OnPropertyChanged(nameof(IsVoice));
-
-        Navigated?.Invoke(destination);
     }
 
     /// <summary>

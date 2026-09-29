@@ -134,6 +134,105 @@ public sealed class SessionManager : IDisposable
         }
     }
 
+    /// <summary>
+    /// Proves, with an authenticator code, that the person signed in is still the account holder,
+    /// for a change the station will not make on an older proof.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The request carries the CURRENT session's bearer, which the token endpoint is otherwise exempt
+    /// from (<see cref="SessionHandler"/>): with it the station ROTATES this session onto a new token
+    /// and revokes the one before, and without it the same code would mint a second session beside
+    /// the first. So the header is put on here, on purpose, rather than by the handler.
+    /// </para>
+    /// <para>
+    /// The same three named rejections as a sign-in, for the same reason: a wrong method id that
+    /// reads as a mistyped code sends somebody to type a correct code again forever.
+    /// </para>
+    /// </remarks>
+    public async Task<SignInResult> StepUpAsync(
+        string challengeId,
+        string methodId,
+        string code,
+        CancellationToken cancellationToken = default)
+    {
+        if (_session?.AccessToken is not { } bearer)
+        {
+            return new SignInResult.Failed("Nobody is signed in.");
+        }
+
+        try
+        {
+            using var sdk = new DeadairSdk(new SdkOptions
+            {
+                BaseUrl = _station.ApiBase,
+                HttpClient = _http,
+                Headers = _ => ValueTask.FromResult<IReadOnlyDictionary<string, string>>(
+                    new Dictionary<string, string>(StringComparer.Ordinal) { ["Authorization"] = $"Bearer {bearer}" }),
+            });
+
+            var answer = await sdk.Authentication.RequestTokenAsync(
+                new AuthenticatorAuthenticationRequest { Code = code, MfaChallengeId = challengeId, MethodId = methodId },
+                cancellationToken).ConfigureAwait(false);
+
+            if (answer is not AuthenticationTokenIssued issued)
+            {
+                return new SignInResult.Unsupported("The station asked for something other than an authenticator code.");
+            }
+
+            await AdoptAsync(issued.AccessToken, issued.RefreshToken, cancellationToken).ConfigureAwait(false);
+            return new SignInResult.Ok();
+        }
+        catch (SdkException failure) when (failure.Status is 400 or 401)
+        {
+            return ApiError.AuthError(failure) switch
+            {
+                "invalid_challenge" => new SignInResult.ChallengeExpired(),
+                "invalid_factor" => new SignInResult.FactorRefused(),
+                _ => new SignInResult.BadCredentials(),
+            };
+        }
+        catch (SdkException failure)
+        {
+            return new SignInResult.Failed(ApiError.Message(failure));
+        }
+    }
+
+    /// <summary>
+    /// Takes a token the station issued to THIS session in exchange for a proof (a step-up, or an
+    /// enrolment finished), in place of the one it retired.
+    /// </summary>
+    /// <remarks>
+    /// Under the refresh lock, so a refresh already in flight with the old token cannot land after
+    /// this and put the retired token back. A token issued without a refresh token leaves the
+    /// current one in force, as a rotation does.
+    /// </remarks>
+    public async Task AdoptAsync(string accessToken, string? refreshToken, CancellationToken cancellationToken = default)
+    {
+        await _refreshing.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (_session is not { } current)
+            {
+                return;
+            }
+
+            _session = current with
+            {
+                AccessToken = accessToken,
+                RefreshToken = refreshToken is { Length: > 0 } rotated ? rotated : current.RefreshToken,
+            };
+
+            await _store.WriteAsync(_session, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _refreshing.Release();
+        }
+
+        Publish();
+    }
+
     private async Task<SignInResult> AcceptAsync(
         string email,
         AuthenticationTokenResponse answer,

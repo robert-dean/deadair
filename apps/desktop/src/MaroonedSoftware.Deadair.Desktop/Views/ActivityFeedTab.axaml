@@ -1,0 +1,85 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.ActivityFeedTab"
+    x:DataType="vm:ActivityFeedViewModel">
+
+    <DockPanel LastChildFill="True">
+
+        <!-- Two rows of segments rather than one: seven modules and three floors do not fit beside
+             each other at the window's minimum, and a WrapPanel that broke mid-group would read as
+             one long filter. -->
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
+            <Border CornerRadius="{DynamicResource DaCorner}" Padding="3" HorizontalAlignment="Left"
+                    Background="{DynamicResource DaRaisedBrush}">
+                <ItemsControl ItemsSource="{Binding ModuleChoices}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:FilterChoiceViewModel">
+                            <RadioButton Classes="segment" GroupName="activity-module" Margin="0,0,2,0"
+                                         Content="{Binding Label}" IsChecked="{Binding IsSelected}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+            <Border CornerRadius="{DynamicResource DaCorner}" Padding="3" HorizontalAlignment="Left"
+                    Background="{DynamicResource DaRaisedBrush}">
+                <ItemsControl ItemsSource="{Binding SeverityChoices}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="2" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:FilterChoiceViewModel">
+                            <RadioButton Classes="segment" GroupName="activity-severity"
+                                         Content="{Binding Label}" IsChecked="{Binding IsSelected}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+        </StackPanel>
+
+        <!-- More only when asked: the feed does not poll, and the next page is a keyset read. -->
+        <Button DockPanel.Dock="Bottom" Classes="ghost" Content="Load more" Margin="0,12,0,0"
+                HorizontalAlignment="Left" Command="{Binding LoadMoreCommand}"
+                IsVisible="{Binding CanLoadMore}" />
+
+        <TextBlock DockPanel.Dock="Top" Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap"
+                   IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+        <ListBox Classes="rows" ItemsSource="{Binding Entries}">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:ActivityViewModel">
+                    <!-- Fixed columns so the sentences start at one x all the way down. -->
+                    <Grid ColumnDefinitions="8,92,84,*" ColumnSpacing="8">
+                        <Ellipse Width="6" Height="6" VerticalAlignment="Top" Margin="0,6,0,0"
+                                 Fill="{Binding Severity, Converter={x:Static conv:SeverityBrushConverter.Instance}}" />
+                        <TextBlock Classes="mono" Grid.Column="1" Text="{Binding When}" FontSize="11"
+                                   VerticalAlignment="Top" Margin="0,2,0,0"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <TextBlock Classes="mono" Grid.Column="2" Text="{Binding Module}" FontSize="11"
+                                   VerticalAlignment="Top" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <!-- Only a warning or a fault is painted, which is what makes them worth
+                             looking for. The sentence is the station's, whole. -->
+                        <TextBlock Grid.Column="3" Text="{Binding Detail}" FontSize="12" TextWrapping="Wrap"
+                                   IsVisible="{Binding !Painted}"
+                                   Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                        <TextBlock Grid.Column="3" Text="{Binding Detail}" FontSize="12" TextWrapping="Wrap"
+                                   IsVisible="{Binding Painted}"
+                                   Foreground="{Binding Severity, Converter={x:Static conv:SeverityBrushConverter.Instance}}" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+    </DockPanel>
+
+</UserControl>

@@ -1,0 +1,65 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.NewsTab"
+    x:DataType="vm:NewsViewModel">
+
+    <!-- The feeds down the side and the stories beside them: choosing a feed reads that feed. -->
+    <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
+
+        <ListBox Classes="rows feeds" ItemsSource="{Binding Feeds}" SelectedItem="{Binding Feed}">
+            <ListBox.Styles>
+                <!-- The chosen feed is a choice, unlike the rows elsewhere in this app, so it keeps a
+                     highlight. -->
+                <Style Selector="ListBox.feeds ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
+                </Style>
+            </ListBox.Styles>
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:FeedRowViewModel">
+                    <StackPanel Spacing="1">
+                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource DaTextBrush}" />
+                        <TextBlock Text="{Binding Line}" FontSize="11" TextTrimming="CharacterEllipsis"
+                                   Classes="dimmed" IsVisible="{Binding HasLine}" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <DockPanel Grid.Column="1" LastChildFill="True">
+            <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,8">
+                <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding Category}" MinWidth="180"
+                          ToolTip.Tip="What the operator called the feed" IsVisible="{Binding HasCategories}" />
+                <TextBlock Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap"
+                           IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            </StackPanel>
+
+            <ListBox Classes="rows" ItemsSource="{Binding Stories}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:StoryRowViewModel">
+                        <StackPanel Spacing="3" Margin="0,4">
+                            <WrapPanel ItemSpacing="10">
+                                <TextBlock Text="{Binding Feed}" FontSize="11"
+                                           Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                <TextBlock Text="{Binding Tags}" FontSize="11" Classes="dimmed"
+                                           IsVisible="{Binding Tags, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                <TextBlock Classes="mono" Text="{Binding When}" FontSize="11"
+                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                            </WrapPanel>
+                            <TextBlock Text="{Binding Title}" TextWrapping="Wrap" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource DaTextBrush}" />
+                            <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" FontSize="12" MaxLines="3"
+                                       TextTrimming="CharacterEllipsis" Classes="dimmed" IsVisible="{Binding HasSummary}" />
+                            <HyperlinkButton NavigateUri="{Binding Url}" Content="Read it at the source" Padding="0"
+                                             FontSize="11" IsVisible="{Binding HasUrl}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+
+    </Grid>
+
+</UserControl>

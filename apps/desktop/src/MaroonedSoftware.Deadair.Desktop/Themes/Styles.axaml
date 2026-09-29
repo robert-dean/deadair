@@ -133,6 +133,24 @@
         <Setter Property="BorderBrush" Value="{DynamicResource DaToneLiveBrush}" />
     </Style>
 
+    <!-- A button that removes something or changes what airs. The word says what it does; the
+         colour says it does not come back. -->
+    <Style Selector="Button.danger">
+        <Setter Property="Background" Value="{DynamicResource DaToneLiveBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaOnAccentBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="16,7" />
+    </Style>
+    <Style Selector="Button.danger /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DaToneLiveBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaOnAccentBrush}" />
+    </Style>
+    <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DaToneLiveBrush}" />
+        <Setter Property="Opacity" Value="0.85" />
+    </Style>
+
     <!-- `:is(Button)` rather than `Button`, because an Avalonia type selector matches the exact
          type and the reveal toggle in the password box is a ToggleButton. -->
     <Style Selector=":is(Button).icon">
@@ -205,6 +223,25 @@
     <Style Selector="Button.play:pointerover /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource DaTextBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource DaBgBrush}" />
+    </Style>
+
+    <!-- A name that leads somewhere: a record's title to its page, an act's name to theirs. Drawn as
+         the text it is, taking the accent on hover, because a row whose every title was a bordered
+         button would be a column of buttons and no longer a list. -->
+    <Style Selector="Button.link">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.link /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.link:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource DaAccentBrush}" />
     </Style>
 
     <!-- Which tab you are on. Without this every tab looks the same and the page is a list with no
@@ -310,6 +347,20 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{DynamicResource DaCorner}" />
         <Setter Property="Padding" Value="{DynamicResource DaCardPadding}" />
+    </Style>
+
+    <!-- A dialog's sheet: a card raised over the scrim, and never wider than a sentence is readable. -->
+    <Style Selector="Border.dialog">
+        <Setter Property="Background" Value="{DynamicResource DaPanelBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DaBorderStrongBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource DaPanelCorner}" />
+        <Setter Property="Padding" Value="22" />
+        <Setter Property="BoxShadow" Value="{DynamicResource DaHeroShadow}" />
+        <Setter Property="MinWidth" Value="380" />
+        <Setter Property="MaxWidth" Value="640" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
     <Style Selector="Border.pill">

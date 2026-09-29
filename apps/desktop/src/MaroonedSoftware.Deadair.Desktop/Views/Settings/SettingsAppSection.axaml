@@ -1,0 +1,262 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SettingsAppSection"
+    x:DataType="vm:SettingsViewModel">
+
+    <UserControl.Resources>
+        <!-- One field a desktop plugin declared. The station's own settings, and a station plugin's,
+             are drawn by FormFieldView; this is the smaller shape this app's plugins declare. -->
+        <DataTemplate x:Key="SettingField" x:DataType="vm:SettingFieldViewModel">
+            <StackPanel Spacing="3" Margin="0,0,0,10">
+                <TextBlock Text="{Binding Label}" FontSize="12" Classes="secondary" />
+
+                <CheckBox IsChecked="{Binding Switch}" IsVisible="{Binding IsBoolean}" Content="On" />
+
+                <!-- A minimum as well as a maximum. Left to size itself, an empty box is the width
+                     of nothing, which is what an unset setting looks like and is impossible to aim
+                     at; stretched, it centres itself in the card and stops lining up with its own
+                     label. -->
+                <TextBox Text="{Binding Text}" IsVisible="{Binding IsText}"
+                         AcceptsReturn="{Binding IsMultiline}"
+                         MinHeight="{Binding IsMultiline, Converter={x:Static conv:BoolToLines.Instance}}"
+                         MinWidth="320" MaxWidth="480" HorizontalAlignment="Left" />
+
+                <!-- A secret is reported as a configured-boolean and never as a value, so an empty
+                     box means leave it alone rather than clear it. -->
+                <TextBlock Text="{Binding SecretState}" Classes="dimmed" FontSize="11"
+                           IsVisible="{Binding IsSecret}" />
+
+                <TextBlock Text="{Binding Help}" Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                           MaxWidth="560" HorizontalAlignment="Left"
+                           IsVisible="{Binding Help, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <!-- This install's own, and never sent anywhere: which is why it is its own section, reachable
+         with no account, and why nothing on it has a Save. Every choice is kept the moment it is made. -->
+    <ScrollViewer>
+        <StackPanel Spacing="22">
+            <!-- This install's own, and never sent anywhere: which is why it sits above the
+                 station's settings rather than among them, and why neither of these has a Save. -->
+            <Border Classes="card" MaxWidth="900" HorizontalAlignment="Stretch">
+                <StackPanel Spacing="18">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <TextBlock Classes="h3" Text="This app" VerticalAlignment="Center" />
+                        <TextBlock Classes="eyebrow" VerticalAlignment="Center"
+                                   Text="{x:Static vm:SettingsViewModel.Version}" />
+                    </StackPanel>
+
+                    <!-- Everything below still changes when pressed; this says it will not last. -->
+                    <TextBlock Text="{Binding SettingsProblem}"
+                               IsVisible="{Binding SettingsProblem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource DaToneFaultBrush}" />
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="dimmed" Text="Appearance" />
+                        <Border CornerRadius="{DynamicResource DaCorner}" Padding="3"
+                                HorizontalAlignment="Left"
+                                Background="{DynamicResource DaRaisedBrush}">
+                            <StackPanel Orientation="Horizontal" Spacing="2">
+                                <RadioButton Classes="segment" GroupName="appearance"
+                                             IsChecked="{Binding Appearance, Converter={x:Static conv:AppearanceConverter.System}}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <PathIcon Width="14" Height="14" Data="{DynamicResource DaIconLaptop}" />
+                                        <TextBlock Text="System" />
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton Classes="segment" GroupName="appearance"
+                                             IsChecked="{Binding Appearance, Converter={x:Static conv:AppearanceConverter.Light}}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <PathIcon Width="14" Height="14" Data="{DynamicResource DaIconSun}" />
+                                        <TextBlock Text="Light" />
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton Classes="segment" GroupName="appearance"
+                                             IsChecked="{Binding Appearance, Converter={x:Static conv:AppearanceConverter.Dark}}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <PathIcon Width="14" Height="14" Data="{DynamicResource DaIconMoon}" />
+                                        <TextBlock Text="Dark" />
+                                    </StackPanel>
+                                </RadioButton>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                   Text="Follows macOS unless you choose one." />
+                    </StackPanel>
+
+                    <!-- The station itself, and the way to point the app at another without
+                         starting again. The button is the shell's: changing station is the whole
+                         app's business, not this page's. -->
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="dimmed" Text="Station" />
+                        <StackPanel Orientation="Horizontal" Spacing="16">
+                            <StackPanel Spacing="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding StationName}" />
+                                <TextBlock Classes="mono dimmed" FontSize="11" Text="{Binding StationAddress}" />
+                            </StackPanel>
+                            <Button Classes="ghost" Content="Change station…" VerticalAlignment="Center"
+                                    Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).ChangeStationCommand}" />
+                        </StackPanel>
+                        <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                   Text="Asks for the new address. Listening here stops only once the new station answers and you connect. A sign-in is kept for each station, so coming back finds you still signed in." />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="dimmed" Text="System Next control" />
+                        <CheckBox IsChecked="{Binding NextSkips}" Content="Let the Next key or Control Centre skip the record" />
+                        <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                   Text="Only offered while you are signed in as the operator. It skips the record for every listener, so it stays off until you turn it on here." />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="dimmed" Text="Listen in" />
+                        <!-- What the station PUBLISHES, read off the last reading. A format it
+                             is not publishing is drawn and disabled rather than hidden: a FLAC
+                             row that vanishes tells somebody who wants FLAC nothing, and finding
+                             out by connecting to each mount would put a silent station on air. -->
+                        <ItemsControl ItemsSource="{Binding Formats}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="8" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:FormatChoiceViewModel">
+                                    <RadioButton Classes="segment" GroupName="format"
+                                                 IsEnabled="{Binding IsAvailable}"
+                                                 IsChecked="{Binding IsChosen, Mode=OneWay}"
+                                                 Command="{Binding $parent[ItemsControl].((vm:SettingsViewModel)DataContext).ChooseFormatCommand}"
+                                                 CommandParameter="{Binding}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding Label}" />
+                                            <TextBlock Classes="mono dimmed" Text="{Binding Detail}"
+                                                       FontSize="11" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </RadioButton>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                   Text="What the station is publishing. Takes effect the next time you press Listen." />
+                    </StackPanel>
+
+                    <!-- Chosen here, kept by the listener, saved nowhere. -->
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="dimmed" Text="Sleep timer" />
+                        <Border CornerRadius="{DynamicResource DaCorner}" Padding="3"
+                                HorizontalAlignment="Left"
+                                Background="{DynamicResource DaRaisedBrush}">
+                            <StackPanel Orientation="Horizontal" Spacing="2">
+                                <RadioButton Classes="segment" GroupName="sleep" Content="Off"
+                                             IsChecked="{Binding SleepMinutes, Converter={x:Static conv:SleepMinutesConverter.Off}}" />
+                                <RadioButton Classes="segment" GroupName="sleep" Content="15 min"
+                                             IsChecked="{Binding SleepMinutes, Converter={x:Static conv:SleepMinutesConverter.Fifteen}}" />
+                                <RadioButton Classes="segment" GroupName="sleep" Content="30 min"
+                                             IsChecked="{Binding SleepMinutes, Converter={x:Static conv:SleepMinutesConverter.Thirty}}" />
+                                <RadioButton Classes="segment" GroupName="sleep" Content="45 min"
+                                             IsChecked="{Binding SleepMinutes, Converter={x:Static conv:SleepMinutesConverter.FortyFive}}" />
+                                <RadioButton Classes="segment" GroupName="sleep" Content="1 h"
+                                             IsChecked="{Binding SleepMinutes, Converter={x:Static conv:SleepMinutesConverter.Sixty}}" />
+                                <RadioButton Classes="segment" GroupName="sleep" Content="90 min"
+                                             IsChecked="{Binding SleepMinutes, Converter={x:Static conv:SleepMinutesConverter.Ninety}}" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Classes="dimmed" TextWrapping="Wrap" Text="{Binding SleepNote}" />
+                    </StackPanel>
+
+                    <!-- The one request this app makes to anybody but the station, said in full. -->
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="dimmed" Text="Updates" />
+                        <CheckBox IsChecked="{Binding CheckForUpdates}" Content="Check for a new version when the app starts" />
+                        <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                   Text="One request to api.github.com at launch, for the list of desktop releases. It carries nothing about you or your station beyond this app's name and version. A newer one is offered as a link, never installed." />
+                    </StackPanel>
+
+                    <!-- Here rather than on the check-up: that page needs an operator, and a
+                         listener with a problem has no account. -->
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="dimmed" Text="Log" />
+                        <Button Classes="ghost" Content="Reveal in Finder" HorizontalAlignment="Left"
+                                IsVisible="{Binding CanRevealLog}"
+                                Command="{Binding RevealLogCommand}" />
+                        <TextBlock Classes="dimmed" TextWrapping="Wrap" Text="{Binding LogNote}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- What this install has been given beyond what it shipped with. Above the
+                 station's settings for the same reason the appearance is: it is this machine's
+                 own, it never leaves it, and it is the half somebody who only listens can
+                 change. -->
+            <Border Classes="card" MaxWidth="900" HorizontalAlignment="Stretch" Margin="0,0,0,16">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="h3" Text="Extensions" />
+
+                    <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                               IsVisible="{Binding !HasPlugins}"
+                               Text="{x:Static vm:SettingsViewModel.PluginsFolder}" />
+
+                    <ItemsControl ItemsSource="{Binding Plugins}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PluginRowViewModel">
+                                <StackPanel Spacing="6" Margin="0,0,0,18">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                                        <StackPanel Spacing="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                            <TextBlock Classes="dimmed" FontSize="11" Text="{Binding Origin}" />
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="1" Classes="mono dimmed" FontSize="11"
+                                                   VerticalAlignment="Center" Text="{Binding Version}" />
+
+                                        <ToggleSwitch Grid.Column="2" IsChecked="{Binding Enabled}"
+                                                      OnContent="" OffContent="" VerticalAlignment="Center" />
+                                    </Grid>
+
+                                    <!-- Why it is not working: the plugin's own words, or the
+                                         loader's about it, and the only thing anybody has to go
+                                         on. -->
+                                    <TextBlock TextWrapping="Wrap" FontSize="11" MaxWidth="560"
+                                               HorizontalAlignment="Left"
+                                               IsVisible="{Binding HasProblem}"
+                                               Text="{Binding Problem}"
+                                               Foreground="{DynamicResource DaToneFaultBrush}" />
+
+                                    <ItemsControl ItemsSource="{Binding Fields}"
+                                                  ItemTemplate="{StaticResource SettingField}"
+                                                  IsVisible="{Binding HasFields}" />
+
+                                    <!-- The last few things it said. "Why can it not see my
+                                         speaker" is the whole diagnosis story for a device
+                                         plugin, and no status word answers it. -->
+                                    <ItemsControl ItemsSource="{Binding Log}" IsVisible="{Binding HasLog}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="x:String">
+                                                <TextBlock Classes="mono dimmed" FontSize="10"
+                                                           TextWrapping="Wrap" Text="{Binding}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <StackPanel Orientation="Horizontal" Spacing="10"
+                                                IsVisible="{Binding HasFields}">
+                                        <Button Classes="ghost" Content="Save"
+                                                Command="{Binding SaveCommand}" />
+                                        <TextBlock Classes="dimmed" FontSize="11" VerticalAlignment="Center"
+                                                   Text="{Binding Notice}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

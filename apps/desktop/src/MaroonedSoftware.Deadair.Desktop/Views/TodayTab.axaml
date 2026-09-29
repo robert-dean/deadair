@@ -1,0 +1,162 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:programme="using:MaroonedSoftware.Deadair.Desktop.Core.Programme"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.TodayTab"
+    x:DataType="vm:TodayViewModel">
+
+    <!-- On a narrow page the dial moves above the list rather than beside it, as the web console's
+         drops below: a 220 circle beside a table is two cramped columns, and the list is the part
+         that edits, so it is the one given the width. -->
+    <UserControl.Styles>
+        <ContainerQuery Name="Clock" Query="max-width:680">
+            <Style Selector="controls|FormatClockDial">
+                <Setter Property="Margin" Value="0,0,0,14" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
+                <Setter Property="Grid.ColumnSpan" Value="2" />
+            </Style>
+            <Style Selector="ListBox.bands">
+                <Setter Property="Grid.Row" Value="1" />
+                <Setter Property="Grid.Column" Value="0" />
+                <Setter Property="Grid.ColumnSpan" Value="2" />
+            </Style>
+        </ContainerQuery>
+    </UserControl.Styles>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" Padding="0,0,14,0">
+        <StackPanel Spacing="14">
+
+            <!-- What is on, what is next, and what is after that, in words: the question somebody
+                 arrives with, which a week of rows makes them work out. -->
+            <Border Classes="card" IsVisible="{Binding HasOnNow}">
+                <ItemsControl ItemsSource="{Binding OnNow}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Columns="3" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="programme:OnNowCell">
+                            <StackPanel Spacing="3" Margin="0,0,20,0">
+                                <!-- The eyebrow on a line of its own: three cells share a card that
+                                     is 500 wide at the minimum window, and beside it the time left
+                                     cut "Due now" to "Due no". -->
+                                <TextBlock Classes="eyebrow" Text="{Binding Eyebrow}" TextTrimming="CharacterEllipsis" />
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource DaTextBrush}" />
+                                    <!-- The same editor the Timetable opens: the change somebody
+                                         wants after reading what is on is usually to the answer. -->
+                                    <Button Grid.Column="1" Classes="ghost" Content="Edit" Padding="6,1"
+                                            FontSize="11" IsVisible="{Binding CanEdit}"
+                                            ToolTip.Tip="Edit this block"
+                                            Command="{Binding $parent[ItemsControl].((vm:TodayViewModel)DataContext).EditSlotCommand}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                                <TextBlock Text="{Binding When}" Classes="dimmed" FontSize="11"
+                                           TextTrimming="CharacterEllipsis" />
+                                <ProgressBar Minimum="0" Maximum="1" Value="{Binding ProgressValue}"
+                                             MinWidth="0" Height="3" Margin="0,3"
+                                             IsVisible="{Binding HasProgress}" />
+                                <TextBlock Classes="mono" FontSize="11" Text="{Binding Aside}"
+                                           Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                <TextBlock Text="{Binding Brief}" Classes="dimmed" FontSize="11"
+                                           TextTrimming="CharacterEllipsis" IsVisible="{Binding HasBrief}" />
+                                <TextBlock Text="{Binding Note}" Classes="dimmed" FontSize="11"
+                                           TextWrapping="Wrap" IsVisible="{Binding HasNote}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+
+            <Border Classes="card" Container.Name="Clock" Container.Sizing="Width">
+                <StackPanel Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <StackPanel Spacing="3">
+                            <TextBlock Classes="eyebrow" Text="FORMAT CLOCK" />
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap" MaxWidth="620" HorizontalAlignment="Left"
+                                       Text="What the station says inside an hour, whatever it is playing. A band takes the first boundary at or after its time, so nothing is cut off mid-record. Where two rules want one boundary, the higher one takes it, and every show follows the clock." />
+                        </StackPanel>
+                        <Button Grid.Column="1" Classes="ghost" Content="Add band" VerticalAlignment="Top"
+                                Command="{Binding AddBandCommand}" />
+                    </Grid>
+
+                    <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                               Text="No bands, which is a working clock: the station keeps its ordinary spacing and nothing else.">
+                        <TextBlock.IsVisible>
+                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                <Binding Path="ClockRead" />
+                                <Binding Path="!HasBands" />
+                            </MultiBinding>
+                        </TextBlock.IsVisible>
+                    </TextBlock>
+
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" IsVisible="{Binding HasBands}">
+                        <controls:FormatClockDial Marks="{Binding Marks}" VerticalAlignment="Top" Margin="0,0,24,0"
+                                                  FontFamily="{DynamicResource DaFontBody}"
+                                                  Rim="{DynamicResource DaBorderStrongBrush}"
+                                                  Face="{DynamicResource DaRaisedBrush}"
+                                                  Mark="{DynamicResource DaAccentBrush}"
+                                                  Warning="{DynamicResource DaToneFaultBrush}"
+                                                  Text="{DynamicResource DaTextDimmedBrush}" />
+
+                        <!-- Order is preference, so it is the one thing moved rather than edited, and
+                             with buttons: a wrong drop would change which rule wins a boundary. -->
+                        <ListBox Grid.Column="1" Classes="rows bands" ItemsSource="{Binding Bands}" VerticalAlignment="Top">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:BandRowViewModel">
+                                    <Grid ColumnDefinitions="80,*,150,58,104" ColumnSpacing="8">
+                                        <TextBlock Classes="mono" Text="{Binding When}" FontSize="12"
+                                                   VerticalAlignment="Center"
+                                                   Classes.dimmed="{Binding IsOff}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding What}" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Classes.dimmed="{Binding IsOff}" />
+                                        <Border Grid.Column="2" Classes="pill" HorizontalAlignment="Left"
+                                                VerticalAlignment="Center" Padding="8,1"
+                                                ToolTip.Tip="{Binding BadgeHint}"
+                                                IsVisible="{Binding Badge, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                            <TextBlock Text="{Binding Badge}" FontSize="11"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Classes.dimmed="{Binding IsOff}" />
+                                        </Border>
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2"
+                                                    HorizontalAlignment="Right">
+                                            <Button Classes="icon small" ToolTip.Tip="Move up"
+                                                    IsEnabled="{Binding CanMoveUp}"
+                                                    Command="{Binding $parent[ListBox].((vm:TodayViewModel)DataContext).MoveUpCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconChevronUp}" />
+                                            </Button>
+                                            <Button Classes="icon small" ToolTip.Tip="Move down"
+                                                    IsEnabled="{Binding CanMoveDown}"
+                                                    Command="{Binding $parent[ListBox].((vm:TodayViewModel)DataContext).MoveDownCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconChevronDown}" />
+                                            </Button>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2"
+                                                    HorizontalAlignment="Right">
+                                            <Button Classes="ghost reveal" Content="Edit" Padding="8,3"
+                                                    Command="{Binding $parent[ListBox].((vm:TodayViewModel)DataContext).EditBandCommand}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Classes="ghost reveal" Content="Delete" Padding="8,3"
+                                                    Command="{Binding $parent[ListBox].((vm:TodayViewModel)DataContext).DeleteBandCommand}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

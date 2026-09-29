@@ -130,6 +130,29 @@ internal static class Composition
         services.AddSingleton<CheckupViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddSingleton<VoiceViewModel>();
+        services.AddSingleton<DetailPages>();
+        services.AddSingleton<IFilePicker, FilePicker>();
+        services.AddSingleton(provider => new JumpSearch(
+            provider.GetRequiredService<OperatorActions>(),
+            provider.GetRequiredService<HttpClient>()));
+        services.AddSingleton<ISystemShell, SystemShell>();
+
+        // Previews: a second platform player, over a file, beside the station's own. Its bytes are
+        // fetched through the one client (the endpoints want the operator's token) and only then
+        // handed over as a file.
+        services.AddSingleton(_ => new ClipPlayer(() => OperatingSystem.IsMacOS()
+            ? new MacStationPlayer(UserAgent.Value)
+            : new NullStationPlayer()));
+        services.AddSingleton(provider => new PreviewsViewModel(
+            provider.GetRequiredService<ClipPlayer>(),
+            provider.GetRequiredService<IUiDispatcher>()));
+        services.AddSingleton(provider => new DeclaredOptions(
+            provider.GetRequiredService<OperatorActions>(),
+            provider.GetRequiredService<HttpClient>()));
+        services.AddSingleton(provider => new DialogsViewModel(
+            provider.GetRequiredService<OperatorActions>(),
+            provider.GetRequiredService<IUiDispatcher>()));
+        services.AddSingleton<IDialogs>(provider => provider.GetRequiredService<DialogsViewModel>());
         services.AddSingleton<ThemeManager>();
         services.AddSingleton<ListenerViewModel>();
         services.AddSingleton<OutputsViewModel>();

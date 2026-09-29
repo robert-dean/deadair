@@ -1,0 +1,60 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.VoiceSubjectsTab"
+    x:DataType="vm:SubjectsViewModel">
+
+    <ScrollViewer>
+        <StackPanel Spacing="14" MaxWidth="820" HorizontalAlignment="Left" Margin="0,0,14,16">
+            <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap"
+                       Text="What the station has to talk about: the categories a bulletin can cover, the places a weather break can be about. Each kind says what it needs, and a band on the clock can name one." />
+            <TextBlock Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap" IsVisible="{Binding HasNoKinds}"
+                       Text="The station declares no kinds of subject, so there is nothing to add here." />
+
+            <ItemsControl ItemsSource="{Binding Kinds}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:SubjectKindViewModel">
+                        <Border Classes="card" Margin="0,0,0,12">
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Classes="eyebrow" Text="{Binding Heading}" />
+                                        <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap" Text="{Binding Description}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Classes="ghost" FontSize="12" Padding="10,3" VerticalAlignment="Top"
+                                            Content="{Binding NewLabel}"
+                                            Command="{Binding $parent[UserControl].((vm:SubjectsViewModel)DataContext).NewCommand}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                                <TextBlock Classes="dimmed" FontSize="12" Text="{Binding Empty}" IsVisible="{Binding IsEmpty}" />
+                                <ItemsControl ItemsSource="{Binding Subjects}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:SubjectRowViewModel">
+                                            <Grid ColumnDefinitions="200,*,120" ColumnSpacing="10" Margin="0,3">
+                                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Summary}" FontSize="11" Classes="dimmed"
+                                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Right">
+                                                    <Button Classes="ghost" FontSize="11" Padding="8,2" Content="Edit"
+                                                            Command="{Binding $parent[UserControl].((vm:SubjectsViewModel)DataContext).EditCommand}"
+                                                            CommandParameter="{Binding}" />
+                                                    <Button Classes="ghost" FontSize="11" Padding="8,2" Content="Delete"
+                                                            Command="{Binding $parent[UserControl].((vm:SubjectsViewModel)DataContext).DeleteCommand}"
+                                                            CommandParameter="{Binding}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

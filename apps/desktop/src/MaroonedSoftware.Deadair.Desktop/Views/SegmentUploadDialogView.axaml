@@ -1,0 +1,26 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SegmentUploadDialogView"
+    x:DataType="vm:SegmentUploadDialogViewModel">
+
+    <StackPanel Spacing="10" Width="440">
+        <TextBlock Text="{Binding FileName}" Classes="mono" FontSize="11" TextTrimming="CharacterEllipsis" />
+        <StackPanel Spacing="3">
+            <TextBlock Text="What it is called on air" FontSize="12" Classes="secondary" />
+            <TextBox Text="{Binding Label}" />
+        </StackPanel>
+        <StackPanel Spacing="3">
+            <TextBlock Text="Kind" FontSize="12" Classes="secondary" />
+            <!-- Suggestions from what the station holds, and typeable, since a new kind is how one starts. -->
+            <AutoCompleteBox Text="{Binding Kind}" ItemsSource="{Binding Kinds}" FilterMode="ContainsOrdinal" MinimumPrefixLength="0" />
+            <TextBlock Text="What sort of element it is. It is also the folder the file is filed under." FontSize="11" Classes="dimmed" />
+            <TextBlock Text="{Binding Unfamiliar}" FontSize="11" TextWrapping="Wrap" Classes="secondary"
+                       IsVisible="{Binding Unfamiliar, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+        <TextBlock FontSize="11" Classes="dimmed" TextWrapping="Wrap"
+                   Text="The file is written into the inbox folder, so a backup carries it and a re-scan leaves it alone." />
+    </StackPanel>
+
+</UserControl>

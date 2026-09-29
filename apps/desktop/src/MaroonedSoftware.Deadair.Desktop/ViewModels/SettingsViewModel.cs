@@ -1,24 +1,23 @@
 using System.Collections.ObjectModel;
-using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.Configuration;
 using MaroonedSoftware.Deadair.Desktop.Core.NowPlaying;
 using MaroonedSoftware.Deadair.Desktop.Core.Playback;
 using MaroonedSoftware.Deadair.Desktop.Core.Plugins;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
+using MaroonedSoftware.Deadair.Desktop.Core.Ui;
 using MaroonedSoftware.Deadair.Desktop.Services;
 using MaroonedSoftware.Deadair.Desktop.Themes;
-using MaroonedSoftware.Deadair.Sdk;
 using MaroonedSoftware.Deadair.Sdk.Models;
-using MaroonedSoftware.Deadair.Sdk.Runtime;
+
+// The destination types live in a namespace that shares its name with a property elsewhere.
+using Nav = MaroonedSoftware.Deadair.Desktop.Navigation;
 
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
-
-/// <summary>One group of the station's settings, as the station groups them.</summary>
-public sealed record SettingGroupViewModel(string Name, IReadOnlyList<SettingFieldViewModel> Fields);
 
 /// <summary>
 /// One way to listen, and whether the station is publishing it.
@@ -48,26 +47,282 @@ public sealed partial class FormatChoiceViewModel(NowPlayingMountFormat format, 
 }
 
 /// <summary>
-/// The station's settings, and this app's own.
+/// The Settings page: a list of sections, this app's own card first and the station's after it.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The station's half is drawn entirely from what it declares, so a setting added there appears here
-/// with no code. The app's half is Appearance, which is local to this install and never leaves it.
+/// The web console's <c>SETTINGS_SECTIONS</c>, drawn as a list inside the page. The station's sections
+/// appear only for an operator; this app's own card is reachable with no account at all, because
+/// somebody who only listens should still be able to say whether they are looking at a light app or a
+/// dark one.
 /// </para>
 /// <para>
-/// Only what CHANGED is sent. A partial write is what the endpoint takes, and sending everything back
-/// would overwrite a value somebody else edited while this page was open.
+/// Every section saves on its own. The write is partial, so a section cannot clear another, and an
+/// edit left unsaved in one is kept while somebody looks at the next: the section view models are
+/// built once and live as long as the page.
 /// </para>
 /// </remarks>
-public sealed partial class SettingsViewModel(
-    OperatorActions actions,
-    HttpClient http,
-    ISettingsStore settings,
-    ThemeManager themes,
-    IPluginCatalog? plugins = null,
-    AppLog? log = null) : ObservableObject
+public sealed partial class SettingsViewModel : ObservableObject
 {
+    private readonly ISettingsStore settings;
+    private readonly ThemeManager themes;
+    private readonly IPluginCatalog? plugins;
+    private readonly AppLog? log;
+    private readonly DeclaredOptions? declared;
+    private readonly SettingsCalls _calls;
+    private readonly List<SettingsSectionViewModel> _stationSections = [];
+    private bool _groupsLoaded;
+
+    public SettingsViewModel(
+        OperatorActions actions,
+        HttpClient http,
+        ISettingsStore settings,
+        ThemeManager themes,
+        IDialogs dialogs,
+        SessionManager session,
+        IUiDispatcher dispatcher,
+        IFilePicker? files = null,
+        IPluginCatalog? plugins = null,
+        AppLog? log = null,
+        DeclaredOptions? declared = null,
+        ISystemShell? system = null,
+        NavigationViewModel? navigation = null)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(dispatcher);
+
+        this.settings = settings;
+        this.themes = themes;
+        this.plugins = plugins;
+        this.log = log;
+        this.declared = declared;
+        _calls = new SettingsCalls(actions, http, dialogs, files, system);
+        _navigation = navigation;
+
+        Artwork = new ArtworkSectionViewModel(_calls);
+        Storage = new StorageSectionViewModel(_calls);
+        Providers = new ProvidersSectionViewModel(_calls);
+        Grants = new GrantsSectionViewModel(_calls);
+        Languages = new LanguagesSectionViewModel(_calls);
+        StationPlugins = new PluginsSectionViewModel(_calls, plugin => _navigation?.Push(new Nav.Destination.PluginDetail(plugin.Id, plugin.Name)));
+
+        SettingsSectionViewModel? app = null;
+        foreach (var section in SettingsSections.All)
+        {
+            object content = section switch
+            {
+                { Id: SettingsSectionId.App } => this,
+                { Id: SettingsSectionId.Artwork } => Artwork,
+                { Id: SettingsSectionId.Storage } => Storage,
+                { Id: SettingsSectionId.Providers } => Providers,
+                { Id: SettingsSectionId.Grants } => Grants,
+                { Id: SettingsSectionId.Plugins } => StationPlugins,
+                { Id: SettingsSectionId.Languages } => Languages,
+                { Id: SettingsSectionId.Security } => Security = new SecuritySectionViewModel(AddGroup(section), _calls, session),
+                { Group: not null } => AddGroup(section),
+                _ => throw new InvalidOperationException($"No contents for the {section.Label} section."),
+            };
+
+            var entry = new SettingsSectionViewModel(section, content);
+            if (section.NeedsOperator)
+            {
+                _stationSections.Add(entry);
+            }
+            else
+            {
+                app = entry;
+            }
+        }
+
+        AppSection = app ?? throw new InvalidOperationException("The section list has no card for this app.");
+        _current = AppSection;
+        _current.IsActive = true;
+        Sections.Add(AppSection);
+
+        // Every page's calls, not only this one's: a change the station will not make without a fresh
+        // second factor asks for one and is tried again, wherever it was pressed.
+        StepUpDialogViewModel.Install(actions, session, _calls, dispatcher);
+
+        session.Changed += state => dispatcher.Post(() => ApplyRole(state is SessionState.SignedIn { IsOperator: true }));
+        _session = session;
+    }
+
+    private readonly SessionManager _session;
+    private readonly NavigationViewModel? _navigation;
+
+    /// <summary>This install's own card, always in the list.</summary>
+    public SettingsSectionViewModel AppSection { get; }
+
+    /// <summary>The station's sections, listed only while the account is the operator's.</summary>
+    public ObservableCollection<SettingsSectionViewModel> StationSections { get; } = [];
+
+    /// <summary>Every section this account can open, in order, for the box that stands in for the list on a narrow page.</summary>
+    public ObservableCollection<SettingsSectionViewModel> Sections { get; } = [];
+
+    /// <summary>The section being shown.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Picked))]
+    private SettingsSectionViewModel _current;
+
+    /// <summary>
+    /// The box's choice. A separate property from <see cref="Current"/> because the box answers null
+    /// while its list is being refilled, and a page must always be showing something.
+    /// </summary>
+    public SettingsSectionViewModel? Picked
+    {
+        get => Current;
+        set
+        {
+            if (value is not null && !ReferenceEquals(value, Current))
+            {
+                ShowSection(value);
+            }
+        }
+    }
+
+    /// <summary>Whether the station's sections are listed.</summary>
+    [ObservableProperty]
+    private bool _isOperator;
+
+    public IReadOnlyList<SettingsGroupViewModel> Groups => _groups;
+
+    private readonly List<SettingsGroupViewModel> _groups = [];
+
+    public ArtworkSectionViewModel Artwork { get; }
+
+    public StorageSectionViewModel Storage { get; }
+
+    public ProvidersSectionViewModel Providers { get; }
+
+    public GrantsSectionViewModel Grants { get; }
+
+    /// <summary>The web console's language packs, which this app does not use itself.</summary>
+    public LanguagesSectionViewModel Languages { get; }
+
+    /// <summary>What every section reaches the station with, for a dialog built outside the page.</summary>
+    public SettingsCalls Calls => _calls;
+
+    /// <summary>Sign-in and security: this account's own half, and the station's.</summary>
+    public SecuritySectionViewModel? Security { get; private set; }
+
+    /// <summary>
+    /// The STATION's plugins, which run in the station. This app's own (somewhere else to play the
+    /// station) are <see cref="Plugins"/>, drawn as Extensions on this app's card, and the two are
+    /// never listed together.
+    /// </summary>
+    public PluginsSectionViewModel StationPlugins { get; }
+
+    /// <summary>Builds and reads one station plugin's page, for a detail destination.</summary>
+    public StationPluginViewModel OpenPlugin(string id, string name)
+    {
+        var page = new StationPluginViewModel(id, name, _calls, declared, () => _navigation?.Back());
+        page.LoadCommand.Execute(null);
+        return page;
+    }
+
+    private SettingsGroupViewModel AddGroup(SettingsSection section)
+    {
+        var group = new SettingsGroupViewModel(section, _calls, (saver, answer) =>
+        {
+            // A save answers with everything the station holds. The other groups take it unless one
+            // of them holds an edit, which the fresh values would overwrite.
+            foreach (var other in _groups.Where(other => !ReferenceEquals(other, saver)))
+            {
+                other.Present(answer, force: false);
+            }
+        });
+
+        _groups.Add(group);
+        return group;
+    }
+
+    /// <summary>Lists the station's sections for an operator and takes them away from anybody else.</summary>
+    /// <remarks>
+    /// Public so a headless render can pose the role without a session. Somebody who stops being the
+    /// operator while looking at a station section is sent back to this app's card, rather than left
+    /// on a page whose every call would now be refused.
+    /// </remarks>
+    public void ApplyRole(bool isOperator)
+    {
+        IsOperator = isOperator;
+        StationSections.Clear();
+        Sections.Clear();
+        Sections.Add(AppSection);
+
+        if (isOperator)
+        {
+            foreach (var section in _stationSections)
+            {
+                StationSections.Add(section);
+                Sections.Add(section);
+            }
+        }
+        else
+        {
+            if (Current.Section.NeedsOperator)
+            {
+                ShowSection(AppSection);
+            }
+
+            // A station plugin's page is under Settings, which anybody may open, so the rail would
+            // leave somebody who has just signed out looking at it.
+            if (_navigation?.Current is Nav.Destination.PluginDetail)
+            {
+                _navigation.Show(new Nav.Destination.Settings());
+            }
+        }
+    }
+
+    /// <summary>Shows one section by name, for the jump-to palette. A section this account cannot see is not shown.</summary>
+    public void Show(SettingsSectionId id)
+    {
+        if (Sections.FirstOrDefault(section => section.Section.Id == id) is { } section)
+        {
+            ShowSection(section);
+        }
+    }
+
+    [RelayCommand]
+    private void ShowSection(SettingsSectionViewModel section)
+    {
+        ArgumentNullException.ThrowIfNull(section);
+
+        Current.IsActive = false;
+        Current = section;
+        section.IsActive = true;
+
+        if (IsOperator && section.Content is ISettingsSectionContent content)
+        {
+            content.Shown();
+        }
+    }
+
+    /// <summary>
+    /// The page was opened: read the station's settings the first time, and freshen the section on screen.
+    /// </summary>
+    /// <remarks>
+    /// The settings are read once and kept rather than on every visit, because a re-read rebuilds the
+    /// forms and would throw away whatever somebody typed and has not yet saved. Nothing is read for
+    /// somebody who is not the operator: every one of these calls would be refused.
+    /// </remarks>
+    public void Open()
+    {
+        if (!IsOperator)
+        {
+            return;
+        }
+
+        if (!_groupsLoaded)
+        {
+            LoadCommand.Execute(null);
+        }
+
+        if (Current.Content is ISettingsSectionContent content)
+        {
+            content.Shown();
+        }
+    }
+
     private StationUrl _station;
 
     /// <summary>Whether there is a log file to show, which there is not in a headless render.</summary>
@@ -84,8 +339,6 @@ public sealed partial class SettingsViewModel(
     /// </remarks>
     [RelayCommand]
     private void RevealLog() => log?.Reveal();
-
-    public ObservableCollection<SettingGroupViewModel> Groups { get; } = [];
 
     /// <summary>What this install has been given beyond what it shipped with.</summary>
     public ObservableCollection<PluginRowViewModel> Plugins { get; } = [];
@@ -129,9 +382,6 @@ public sealed partial class SettingsViewModel(
 
     [ObservableProperty]
     private bool _busy;
-
-    [ObservableProperty]
-    private string? _notice;
 
     private const string SleepOff =
         "Stops listening after a while, which also tells the station you have gone. Nothing is set.";
@@ -254,19 +504,33 @@ public sealed partial class SettingsViewModel(
 
     /// <summary>Forgets the old station's settings, so the next visit fetches the new one's.</summary>
     /// <remarks>
-    /// The page fetches only while it has no groups, and the formats come from the listener's
-    /// readings, so both would go on describing the old station without this.
+    /// The page reads the station's settings only once, and the formats come from the listener's
+    /// readings, so both would go on describing the old station without this. An edit left unsaved
+    /// for the old station goes with it: it was never going to be the new one's.
     /// </remarks>
     public void Reset()
     {
-        Groups.Clear();
+        _groupsLoaded = false;
+        foreach (var group in _groups)
+        {
+            group.Reset();
+        }
+
+        Artwork.Reset();
+        Storage.Reset();
+        Providers.Reset();
+        Grants.Reset();
+        StationPlugins.Reset();
+        Security?.Reset();
+        Languages.Reset();
         ApplyMounts([]);
-        Notice = null;
     }
 
     public void Attach(StationUrl station)
     {
         _station = station;
+        _calls.Station = station;
+        ApplyRole(_session.State is SessionState.SignedIn { IsOperator: true });
         StationAddress = station.ToString();
         StationName = settings.Current.StationName ?? station.Origin.Host;
         Appearance = settings.Current.Appearance;
@@ -330,18 +594,18 @@ public sealed partial class SettingsViewModel(
 
     partial void OnCheckForUpdatesChanged(bool value) => _ = settings.UpdateAsync(current => current with { CheckForUpdates = value });
 
+    /// <summary>Reads every setting the station declares and hands each group its own.</summary>
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
         Busy = true;
-        Notice = null;
 
         try
         {
-            var station = await actions.RunAsync(
+            var station = await _calls.Actions.RunAsync(
                 async token =>
                 {
-                    using var sdk = Sdk();
+                    using var sdk = _calls.Sdk();
                     return await sdk.Settings.GetSettingsAsync(token).ConfigureAwait(false);
                 },
                 cancellationToken: cancellationToken).ConfigureAwait(true);
@@ -351,67 +615,18 @@ public sealed partial class SettingsViewModel(
                 return;
             }
 
-            Groups.Clear();
-            foreach (var group in station.Descriptors.GroupBy(descriptor => descriptor.Group))
+            Present(station);
+
+            // One read per source across every group, rather than one per group that names it.
+            var sources = _groups.Where(group => group.Form is not null).SelectMany(group => group.Form!.Sources()).ToHashSet();
+            if (declared is not null && sources.Count > 0)
             {
-                var fields = group
-                    .Select(descriptor => new SettingFieldViewModel(
-                        descriptor,
-                        station.Values.TryGetValue(descriptor.Key, out var value) ? value : null,
-                        station.Configured.TryGetValue(descriptor.Key, out var configured) && configured))
-                    .ToList();
-
-                Groups.Add(new SettingGroupViewModel(Title(group.Key.ToString()), fields));
-            }
-        }
-        finally
-        {
-            Busy = false;
-        }
-    }
-
-    [RelayCommand]
-    private async Task SaveAsync(CancellationToken cancellationToken)
-    {
-        var changed = Groups
-            .SelectMany(group => group.Fields)
-            .Where(field => field.IsDirty)
-            .ToDictionary(
-                field => field.Key,
-
-                // Every value travels as a string: every layer of the station's configuration holds
-                // text, so a JSON boolean would be a shape it does not store.
-                field => JsonSerializer.SerializeToElement(field.Current));
-
-        if (changed.Count == 0)
-        {
-            Notice = "Nothing has changed.";
-            return;
-        }
-
-        Busy = true;
-        try
-        {
-            var saved = await actions.RunAsync(
-                async token =>
+                var resolved = await declared.ResolveAsync(_station, sources, cancellationToken).ConfigureAwait(true);
+                foreach (var group in _groups)
                 {
-                    using var sdk = Sdk();
-
-                    // Partial: sending everything back would overwrite a value somebody else changed
-                    // while this page was open.
-                    return await sdk.Settings.UpdateSettingsAsync(
-                        new StationSettingsInput { Values = changed },
-                        token).ConfigureAwait(false);
-                },
-                cancellationToken: cancellationToken).ConfigureAwait(true);
-
-            if (saved is null)
-            {
-                return;
+                    group.Offer(resolved);
+                }
             }
-
-            Notice = changed.Count == 1 ? "Saved one setting." : $"Saved {changed.Count} settings.";
-            await LoadAsync(cancellationToken).ConfigureAwait(true);
         }
         finally
         {
@@ -419,16 +634,16 @@ public sealed partial class SettingsViewModel(
         }
     }
 
-    /// <summary>A group's key as a heading: `llm` and `housekeeping` are not titles.</summary>
-    private static string Title(string key) => key.Length switch
+    /// <summary>Draws what the station declared and holds, each group as its own form.</summary>
+    public void Present(StationSettings station)
     {
-        0 => key,
-        _ => char.ToUpperInvariant(key[0]) + key[1..],
-    };
+        ArgumentNullException.ThrowIfNull(station);
 
-    private DeadairSdk Sdk() => new(new SdkOptions
-    {
-        BaseUrl = _station.ApiBase,
-        HttpClient = http,
-    });
+        foreach (var group in _groups)
+        {
+            group.Present(station, force: true);
+        }
+
+        _groupsLoaded = true;
+    }
 }

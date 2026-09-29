@@ -52,8 +52,11 @@
                                     <Border Classes="pill" IsVisible="{Binding IsAiring}" Height="18"
                                             Padding="7,0" BorderThickness="0"
                                             Background="{DynamicResource DaToneLiveBrush}">
+                                        <!-- White in both appearances, as a studio's tally is: the
+                                             window's own background was black on the dark red and
+                                             could not be read. -->
                                         <TextBlock Classes="eyebrow" Text="ON AIR" FontSize="10"
-                                                   Foreground="{DynamicResource DaBgBrush}" />
+                                                   Foreground="White" />
                                     </Border>
                                 </StackPanel>
                                 <TextBlock Text="{Binding Brief}" Classes="dimmed" FontSize="11"

@@ -37,7 +37,10 @@ internal static class Fakes
         var actions = new OperatorActions(session);
         var dispatcher = ImmediateUiDispatcher.Instance;
         var navigation = new NavigationViewModel();
-        var dialogs = new DialogsViewModel(actions, dispatcher);
+        // Listening to an OperatorActions nothing else uses, so the fake client's refusals (every
+        // page's load is refused) do not put "The station refused that" at the foot of every frame.
+        // A frame that wants a notice sets one.
+        var dialogs = new DialogsViewModel(new OperatorActions(session), dispatcher);
 
         // Previews that play nothing: a shot is a picture, and a picture makes no sound.
         var previews = new PreviewsViewModel(new ClipPlayer(() => new NullStationPlayer()), dispatcher);

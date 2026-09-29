@@ -59,6 +59,14 @@ internal static class Pages
         yield return ("shell-settings-extensions", Extensions(), 1180, 1000);
         yield return ("shell-programme", Page(new Destination.Programme(), operatorSignedIn: true), 1180, 720);
         yield return ("shell-checkup", Page(new Destination.Checkup(), operatorSignedIn: true), 1180, 720);
+
+        // Tall enough to reach the build at the foot of Machinery, and the minimum window, where a
+        // mount's address and a store's counts run out of room first.
+        yield return ("shell-checkup-machinery-long", Checkup("Machinery"), 1180, 1500);
+        yield return ("shell-checkup-min", Checkup("Machinery"), 820, 520);
+        yield return ("shell-checkup-history", Checkup("History"), 1180, 720);
+        yield return ("shell-checkup-history-min", Checkup("History"), 820, 520);
+        yield return ("shell-checkup-releases", Checkup("Releases"), 1180, 720);
         yield return ("shell-voice", Page(new Destination.Voice(), operatorSignedIn: true), 1180, 720);
         yield return ("shell-voice-said", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Said), 1180, 720);
         yield return ("shell-voice-segments", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Segments), 1180, 720);
@@ -131,6 +139,18 @@ internal static class Pages
     /// <summary>
     /// A chart opened from the library: the first detail page, so the first frame with Back in it.
     /// </summary>
+    /// <summary>Check-up on one of its tabs, posed. The tab's read fails against the refusing client and the pose stays.</summary>
+    private static MainWindowContent Checkup(string tab)
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.Fill(shell, new Destination.Checkup());
+        shell.Navigation.Show(new Destination.Checkup());
+        shell.Checkup.ShowTabCommand.Execute(tab);
+
+        return new MainWindowContent { Shell = shell };
+    }
+
     private static MainWindowContent Chart()
     {
         var shell = Fakes.Shell(operatorSignedIn: true);

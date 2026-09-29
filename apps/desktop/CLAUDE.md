@@ -1110,10 +1110,39 @@ setting wants. A test says so.
 
 ## The check-up
 
-**Three readings, not one.** The check-up endpoint carries only the two signals nothing else exposes
-— the loops and the catalog backlog — because everything else a health page shows is already on a
-reading somebody is polling. So the page reads the check-up, the attention list and the activity feed
-separately rather than asking the station to compose a verdict it has no business composing.
+**Tabs, as the web console has them, and a view model per tab.** Machinery, History and What's new,
+each a view model (`MachineryViewModel`, `ActivityFeedViewModel`, `ReleasesViewModel`) owned by
+`CheckupViewModel`, which owns only which tab is open. The open tab is read on every visit and when
+it is pressed, never on a timer. `LoadCommand` allows concurrent runs, because a tab pressed while
+the visit's first read is still out is a read of a DIFFERENT tab, and a command that refused it
+left that tab empty.
+
+**Machinery is five readings, not one.** The check-up endpoint carries only the two signals nothing
+else exposes (the loops and the catalog backlog), because everything else a health page shows is
+already on a reading of its own. So the tab reads playout, the attention list, the check-up, the disk
+and the releases separately, one after another, rather than asking the station to compose a verdict
+it has no business composing. **Each section fails on its own**: one that has never been read says
+so in its own box and the rest still answer, and one read before keeps its last reading. That is
+also what lets `tools/Shots` pose a tab and have the refusing client leave the pose alone. The
+release line under the build reads quietly (no notice on failure), since the plain link it falls
+back to is true either way.
+
+**History is a page at a time, and more only when asked.** First page on opening, "Load more"
+through the feed's keyset cursor (`nextBefore`), and no polling: the web console refetches its feed,
+the desktop does not, because nobody reads a feed moving under them and the station rate-limits. A
+filter starts again from the top, since a cursor is a place in one filtered list, and a generation
+counter drops a page that lands after the filter changed. A line's time carries its day once it is
+not today (`CheckupWords.Moment`), because "load more" reaches yesterday within a page or two.
+
+**What's new draws release notes as plain text.** They are changelog Markdown and the app has no
+renderer; `ReleaseCheck.PlainNotes` takes the marks off and keeps every word. Check now is
+`platform.manage` where the read is `platform.view`, so its 403 is caught by `ManageOnly` and said
+beside the button, rather than reported as "no longer an operator" and refreshing the roles: an
+account that can read releases but not ask for them is still an operator. `ManageOnly` is for any
+manage-only call on a page an operator can open.
+
+**Ages round half away from zero**, as the web console's `Math.round` does. .NET's default is to the
+even neighbour, which put 150 seconds at "2m ago" here and "3m ago" there.
 
 **A loop reports two timestamps and no verdict**, and the client must not invent one: a five-second
 reconcile and a nightly sweep are both healthy, and no single threshold describes both.

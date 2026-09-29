@@ -327,39 +327,87 @@ internal static class Fakes
 
     private static void Checkup(CheckupViewModel checkup)
     {
-        checkup.ReadAt = "Read at 11:48:02";
-        checkup.Revision = "Built from 6ec2d2c1a4f9";
-        checkup.Backlog = "412 of 766 records held locally, 389 measured";
+        var machinery = checkup.Machinery;
+        machinery.HasPlayout = true;
+        machinery.SilenceTone = StatusTone.Standby;
+        machinery.Silence = "The station is loaded and the stream is up. It goes on air when the first listener arrives.";
+        machinery.Remedy = "Press play here, or open the stream anywhere else.";
+        machinery.Listeners = "0";
+        machinery.Stream = "up";
+        machinery.Queued = "14";
+        machinery.Mounts.Add(new MountViewModel("MP3", "https://radio.example.com/live.mp3", "128 kbps"));
+        machinery.Mounts.Add(new MountViewModel("FLAC", "https://radio.example.com/live-lossless-for-the-living-room.flac", "lossless"));
+        machinery.StaleConfig.Add("liquidsoap: running a configuration that was replaced 2 hours ago. Restart the container to pick up the new one.");
 
-        checkup.Attention.Add(new AttentionViewModel(
+        machinery.ReadAt = "Read at 11:48:02";
+        machinery.Version = "1.42.0";
+        machinery.Revision = "6ec2d2c1a4f9e0b7c3d21f4a9b8e7d6c5b4a3f21";
+        machinery.Build = "Built from 6ec2d2c";
+        machinery.NewerRelease = "deadair 1.43.0 is out.";
+        machinery.HasBacklog = true;
+        machinery.Records = "766";
+        machinery.Cached = "412";
+        machinery.Measured = "389";
+        machinery.MeasuredPercent = 50.8;
+
+        machinery.Attention.Add(new AttentionViewModel(
             "Four records cannot be fetched",
             "Every copy has been written off, so they will not air. Re-check them or remove them from rotation.",
             Severity.Failure,
             4));
-        checkup.Attention.Add(new AttentionViewModel(
+        machinery.Attention.Add(new AttentionViewModel(
             "The speech engine is slow",
             "Two breaks took longer than their slot allowed and were dropped.",
             Severity.Warning,
             null));
-        checkup.Attention.Add(new AttentionViewModel(
+        machinery.Attention.Add(new AttentionViewModel(
             "No news feeds configured",
             "The station has nothing to read a bulletin from.",
             Severity.Notice,
             null));
 
-        checkup.Loops.Add(new LoopViewModel("playout.reconcile", "just now", "3h ago"));
-        checkup.Loops.Add(new LoopViewModel("director.commit", "4s ago", "3h ago"));
-        checkup.Loops.Add(new LoopViewModel("catalog.sweep", "6h ago", "3h ago"));
-        checkup.Loops.Add(new LoopViewModel("analysis.walk", "has not come round yet", "12m ago"));
+        machinery.HasLoops = true;
+        machinery.Loops.Add(new LoopViewModel("playout.reconcile", "just now", "3h ago"));
+        machinery.Loops.Add(new LoopViewModel("director.commit", "4s ago", "3h ago"));
+        machinery.Loops.Add(new LoopViewModel("catalog.sweep-placeholders-and-orphaned-sources", "6h ago", "3h ago"));
+        machinery.Loops.Add(new LoopViewModel("analysis.walk", "not yet", "12m ago"));
 
-        checkup.Activity.Add(new ActivityViewModel("11:48:01", "playout", "Handed Alive to the player.", Severity.Notice));
-        checkup.Activity.Add(new ActivityViewModel("11:47:58", "director", "Committed a talk break ahead of Alive.", Severity.Notice));
-        checkup.Activity.Add(new ActivityViewModel("11:47:12", "render", "Spoke a talk break in 2.1s.", Severity.Notice));
-        checkup.Activity.Add(new ActivityViewModel("11:46:40", "enrichment", "Wikipedia returned nothing for Pearl Jam.", Severity.Warning));
-        checkup.Activity.Add(new ActivityViewModel("11:44:03", "analysis", "Measured 6 records.", Severity.Notice));
-        checkup.Activity.Add(new ActivityViewModel("11:41:19", "llm", "The model declined a talk break: wrong-daypart.", Severity.Warning));
-        checkup.Activity.Add(new ActivityViewModel("11:39:02", "playout", "Icecast stopped answering its stats endpoint.", Severity.Failure));
+        machinery.StorageReadAt = "Read at 11:47";
+        machinery.Stores.Add(new StoreViewModel("Record audio", "38.2 GB", "12,408 files", "3 unclaimed", null));
+        machinery.Stores.Add(new StoreViewModel("Cover art", "412 MB", "2,211 files", null, null));
+        machinery.Stores.Add(new StoreViewModel("Spoken segments and productions", "1.9 GB", "5,730 files", null, "12 missing"));
+        machinery.Stores.Add(new StoreViewModel("Voices", "84 MB", "11 files", null, null));
 
+        var history = checkup.History;
+        history.Entries.Add(new ActivityViewModel("11:48:01", "playout", "Handed Alive to the player.", Severity.Notice));
+        history.Entries.Add(new ActivityViewModel("11:47:58", "director", "Committed a talk break ahead of Alive, written by the late-night host with two facts about Pearl Jam's first rehearsals in Seattle and a request from Leeds.", Severity.Notice));
+        history.Entries.Add(new ActivityViewModel("11:47:12", "render", "Spoke a talk break in 2.1s.", Severity.Notice));
+        history.Entries.Add(new ActivityViewModel("11:46:40", "catalog", "Wikipedia returned nothing for Pearl Jam.", Severity.Warning));
+        history.Entries.Add(new ActivityViewModel("11:44:03", "storage", "Measured 6 records.", Severity.Notice));
+        history.Entries.Add(new ActivityViewModel("11:39:02", "playout", "Icecast stopped answering its stats endpoint, so the listener count is the last one it gave.", Severity.Failure));
+        history.Entries.Add(new ActivityViewModel("28 Sep 23:51", "playout", "Stood down: nobody had listened for five minutes.", Severity.Notice));
+        history.Entries.Add(new ActivityViewModel("28 Sep 23:40", "plugins", "Spotify refused a token refresh. Reconnect it under Settings.", Severity.Warning));
+        history.CanLoadMore = true;
+
+        var releases = checkup.Releases;
+        releases.Loaded = true;
+        releases.Checks = true;
+        releases.CheckLine = "The station checks GitHub for newer releases every few hours. It last heard back 29 Sep 2026, 09:12.";
+        releases.AvailableHeading = "OUT, AND NOT ON THIS STATION YET";
+        releases.Available.Add(new ReleaseCardViewModel(
+            "1.43.0",
+            "29 Sep 2026",
+            "Not installed",
+            new Uri("https://github.com/robert-dean/deadair/releases/tag/v1.43.0"),
+            "Minor Changes\n• 4d2e1f0: Phone-ins can be cast from the listeners who wrote in, and a caller who never answers is replaced rather than left as silence.\n\nPatch Changes\n• 9a8b7c6: The running order no longer shows a record twice after a replan."));
+        releases.Notes.Add(new ReleaseCardViewModel(
+            "1.42.0",
+            "27 Sep 2026",
+            "This station",
+            null,
+            "Minor Changes\n• 1a2b3c4: The check-up says what each loop last did and when it started, so a slow first pass and a stopped loop no longer look alike."));
+        releases.Notes.Add(new ReleaseCardViewModel("1.41.2", "25 Sep 2026", null, null, string.Empty));
+        releases.Older = 23;
     }
 
     private static void History(HistoryViewModel history)

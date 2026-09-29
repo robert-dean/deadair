@@ -132,6 +132,7 @@ internal static class Composition
         services.AddSingleton<VoiceViewModel>();
         services.AddSingleton<DetailPages>();
         services.AddSingleton<IFilePicker, FilePicker>();
+        services.AddSingleton<ISystemShell, SystemShell>();
 
         // Previews: a second platform player, over a file, beside the station's own. Its bytes are
         // fetched through the one client (the endpoints want the operator's token) and only then

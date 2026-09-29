@@ -14,6 +14,9 @@ using MaroonedSoftware.Deadair.Desktop.Services;
 using MaroonedSoftware.Deadair.Desktop.Themes;
 using MaroonedSoftware.Deadair.Sdk.Models;
 
+// The destination types live in a namespace that shares its name with a property elsewhere.
+using Nav = MaroonedSoftware.Deadair.Desktop.Navigation;
+
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
 /// <summary>
@@ -81,7 +84,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         IFilePicker? files = null,
         IPluginCatalog? plugins = null,
         AppLog? log = null,
-        DeclaredOptions? declared = null)
+        DeclaredOptions? declared = null,
+        ISystemShell? system = null,
+        NavigationViewModel? navigation = null)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(dispatcher);
@@ -91,12 +96,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         this.plugins = plugins;
         this.log = log;
         this.declared = declared;
-        _calls = new SettingsCalls(actions, http, dialogs, files);
+        _calls = new SettingsCalls(actions, http, dialogs, files, system);
+        _navigation = navigation;
 
         Artwork = new ArtworkSectionViewModel(_calls);
         Storage = new StorageSectionViewModel(_calls);
         Providers = new ProvidersSectionViewModel(_calls);
         Grants = new GrantsSectionViewModel(_calls);
+        StationPlugins = new PluginsSectionViewModel(_calls, plugin => _navigation?.Push(new Nav.Destination.PluginDetail(plugin.Id, plugin.Name)));
 
         SettingsSectionViewModel? app = null;
         foreach (var section in SettingsSections.All)
@@ -108,6 +115,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 { Id: SettingsSectionId.Storage } => Storage,
                 { Id: SettingsSectionId.Providers } => Providers,
                 { Id: SettingsSectionId.Grants } => Grants,
+                { Id: SettingsSectionId.Plugins } => StationPlugins,
                 { Group: not null } => AddGroup(section),
                 _ => throw new InvalidOperationException($"No contents for the {section.Label} section."),
             };
@@ -133,6 +141,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     private readonly SessionManager _session;
+    private readonly NavigationViewModel? _navigation;
 
     /// <summary>This install's own card, always in the list.</summary>
     public SettingsSectionViewModel AppSection { get; }
@@ -180,6 +189,21 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public GrantsSectionViewModel Grants { get; }
 
+    /// <summary>
+    /// The STATION's plugins, which run in the station. This app's own (somewhere else to play the
+    /// station) are <see cref="Plugins"/>, drawn as Extensions on this app's card, and the two are
+    /// never listed together.
+    /// </summary>
+    public PluginsSectionViewModel StationPlugins { get; }
+
+    /// <summary>Builds and reads one station plugin's page, for a detail destination.</summary>
+    public StationPluginViewModel OpenPlugin(string id, string name)
+    {
+        var page = new StationPluginViewModel(id, name, _calls, declared, () => _navigation?.Back());
+        page.LoadCommand.Execute(null);
+        return page;
+    }
+
     private SettingsGroupViewModel AddGroup(SettingsSection section)
     {
         var group = new SettingsGroupViewModel(section, _calls, (saver, answer) =>
@@ -217,9 +241,19 @@ public sealed partial class SettingsViewModel : ObservableObject
                 Sections.Add(section);
             }
         }
-        else if (Current.Section.NeedsOperator)
+        else
         {
-            ShowSection(AppSection);
+            if (Current.Section.NeedsOperator)
+            {
+                ShowSection(AppSection);
+            }
+
+            // A station plugin's page is under Settings, which anybody may open, so the rail would
+            // leave somebody who has just signed out looking at it.
+            if (_navigation?.Current is Nav.Destination.PluginDetail)
+            {
+                _navigation.Show(new Nav.Destination.Settings());
+            }
         }
     }
 
@@ -461,6 +495,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Storage.Reset();
         Providers.Reset();
         Grants.Reset();
+        StationPlugins.Reset();
         ApplyMounts([]);
     }
 

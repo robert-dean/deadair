@@ -88,6 +88,9 @@
                     <DataTemplate DataType="vm:GrantsSectionViewModel">
                         <views:SettingsGrantsSection />
                     </DataTemplate>
+                    <DataTemplate DataType="vm:PluginsSectionViewModel">
+                        <views:SettingsPluginsSection />
+                    </DataTemplate>
                 </ContentControl.DataTemplates>
             </ContentControl>
         </DockPanel>

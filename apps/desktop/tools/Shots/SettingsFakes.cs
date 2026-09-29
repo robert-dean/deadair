@@ -1,4 +1,6 @@
+using System.Text.Json;
 using MaroonedSoftware.Deadair.Desktop.Core.Configuration;
+using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.ViewModels;
 using MaroonedSoftware.Deadair.Sdk.Models;
 using Destination = MaroonedSoftware.Deadair.Desktop.Navigation.Destination;
@@ -38,10 +40,125 @@ internal static class SettingsFakes
         return new MainWindowContent { Shell = shell };
     }
 
+    /// <summary>A station plugin's own page, opened from the Plugins section, posed mid-way through being set up.</summary>
+    public static MainWindowContent Plugin(bool nowPlaying = true)
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        shell.ShowNowPlaying = nowPlaying;
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.Fill(shell, new Destination.Settings());
+        shell.Navigation.Show(new Destination.Settings());
+        shell.Navigation.Push(new Destination.PluginDetail("deadair.spotify", "Spotify"));
+
+        var page = (StationPluginViewModel)shell.Details.Current!;
+        page.Present(Spotify());
+        page.PresentGrants(new PluginGrantList
+        {
+            Grants =
+            [
+                new()
+                {
+                    PluginId = "deadair.spotify",
+                    PluginName = "Spotify",
+                    Capability = "net:api.spotify.com",
+                    Label = "Reach api.spotify.com",
+                    Describes = "Outbound HTTPS to one host that is not in the plugin's manifest.",
+                    Reason = "Spotify moved its library endpoints to a host this version's manifest does not name yet.",
+                    Decision = GrantDecision.Denied,
+                },
+            ],
+        });
+        page.Fetcher = new FetcherAuthorization
+        {
+            Configured = true,
+            Reachable = true,
+            Authorized = false,
+            Session = false,
+            LoginError = "Bad credentials: the refresh token was revoked by the account holder on 2026-09-27.",
+        };
+        page.PresentLog(new PluginLogPage
+        {
+            PluginId = "deadair.spotify",
+            Level = PluginLogLevel.Info,
+            Entries =
+            [
+                new() { Ts = "2026-09-29T14:31:07Z", Level = PluginLogLevel.Info, Text = "library sync: 12,904 records, 311 playlists" },
+                new() { Ts = "2026-09-29T14:31:09Z", Level = PluginLogLevel.Warn, Text = "rate limited on /v1/me/tracks, retrying after 30 seconds as the Retry-After header asked" },
+                new() { Ts = "2026-09-29T14:32:40Z", Level = PluginLogLevel.Error, Text = "token refresh refused: invalid_grant" },
+            ],
+        });
+        page.TestTone = StatusTone.Fault;
+        page.TestResult = "The plugin is not signed in to Spotify, so it cannot reach your library.";
+        shell.Dialogs.Notice = null;
+
+        return new MainWindowContent { Shell = shell };
+    }
+
+    private static PluginDetail Spotify() => new()
+    {
+        Id = "deadair.spotify",
+        Name = "Spotify",
+        Version = "2.4.1",
+        Description = "Your Spotify library as the station's record collection, and the audio fetched for air by the station's own track fetcher.",
+        Capabilities = ["catalog", "stream", "scrobble", "oauth"],
+        UsesTrackFetcher = true,
+        Status = PluginStatus.Misconfigured,
+        Origin = PluginOrigin.Installed,
+        Enabled = true,
+        FirstEnabledAt = new DateTimeOffset(2026, 9, 1, 9, 0, 0, TimeSpan.Zero),
+        LastError = "The client secret was rejected by accounts.spotify.com (invalid_client).",
+        Dir = "/var/lib/deadair/plugins/deadair-spotify",
+        OauthConnected = false,
+        LogLevel = PluginLogLevel.Info,
+        ConfigFields =
+        [
+            new() { Key = "clientId", Label = "Client id", Type = ConfigFieldType.String, Required = true, Help = "From the app you registered at developer.spotify.com." },
+            new() { Key = "clientSecret", Label = "Client secret", Type = ConfigFieldType.Secret, Required = true },
+            new() { Key = "redirectUri", Label = "Redirect address", Type = ConfigFieldType.Url, Help = "The callback address below, character for character." },
+            new() { Key = "market", Label = "Market", Type = ConfigFieldType.Select, Options = [new() { Value = "GB", Label = "United Kingdom" }, new() { Value = "US", Label = "United States" }] },
+            new() { Key = "scrobble", Label = "Scrobble what airs", Type = ConfigFieldType.Boolean },
+        ],
+        SecretsConfigured = new Dictionary<string, bool> { ["clientSecret"] = true },
+        Config = new Dictionary<string, JsonElement>
+        {
+            ["clientId"] = JsonSerializer.SerializeToElement("4f1c2a9e0b7d4c55a1e3f09b2d6c8a17"),
+            ["redirectUri"] = JsonSerializer.SerializeToElement("https://radio.example.com/plugins/deadair.spotify/oauth/callback"),
+            ["market"] = JsonSerializer.SerializeToElement("GB"),
+            ["scrobble"] = JsonSerializer.SerializeToElement(true),
+        },
+    };
+
+    private static PluginSummary Summary(string id, string name, string version, string description, PluginStatus status, bool enabled, PluginOrigin origin, params string[] capabilities) => new()
+    {
+        Id = id,
+        Name = name,
+        Version = version,
+        Description = description,
+        Status = status,
+        Enabled = enabled,
+        Origin = origin,
+        Capabilities = [.. capabilities],
+        ConfigFields = [],
+        SecretsConfigured = [],
+    };
+
     private static void Pose(SettingsViewModel settings, SettingsSectionId id)
     {
         switch (id)
         {
+            case SettingsSectionId.Plugins:
+                settings.StationPlugins.Present(
+                [
+                    Summary("deadair.spotify", "Spotify", "2.4.1", "Your Spotify library as the station's record collection.", PluginStatus.Misconfigured, true, PluginOrigin.Installed, "catalog", "stream", "scrobble", "oauth"),
+                    Summary("deadair.navidrome", "Navidrome", "1.9.0", "A Navidrome or Subsonic server as the record collection, streamed from its own URLs.", PluginStatus.Active, true, PluginOrigin.Bundled, "catalog", "stream"),
+                    Summary("deadair.chatterbox", "Chatterbox", "0.8.3", "Cloned voices for every persona, on a GPU somewhere on your network.", PluginStatus.Active, true, PluginOrigin.Bundled, "speech"),
+                    Summary("deadair.kokoro", "Kokoro", "0.5.0", "A small, fast voice that runs anywhere.", PluginStatus.Disabled, false, PluginOrigin.Bundled, "speech"),
+                    Summary("deadair.llm", "Language model", "3.1.0", "Writes what the presenter says between records, through whichever model you point it at.", PluginStatus.Active, true, PluginOrigin.Bundled, "llm"),
+                    Summary("deadair.weather", "Weather", "1.2.0", "Open-Meteo, the US National Weather Service or OpenWeatherMap.", PluginStatus.Failed, true, PluginOrigin.Bundled, "weather"),
+                    Summary("somebody.telepathy", "Telepathy with a very long plugin name that has to trim somewhere", "0.0.1-alpha.7", "Something nobody has a word for yet.", PluginStatus.Discovered, false, PluginOrigin.Installed, "telepathy"),
+                ]);
+                break;
+
             case SettingsSectionId.Artwork:
                 settings.Artwork.Present(new BreakArtworkList
                 {

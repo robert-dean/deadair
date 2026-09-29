@@ -45,6 +45,8 @@ internal static class Fakes
         // Previews that play nothing: a shot is a picture, and a picture makes no sound.
         var previews = new PreviewsViewModel(new ClipPlayer(() => new NullStationPlayer()), dispatcher);
         var library = new LibraryViewModel(actions, http, navigation, dialogs);
+        var stationSettings = new SettingsViewModel(
+            actions, http, settings, new ThemeManager(), dialogs, session, dispatcher, plugins: PosedPlugins(), navigation: navigation);
 
         // The picker, over a catalog whose plugins are two speakers that do not exist. A shot must
         // not go looking for real ones: a broadcast on somebody's network is not a thing to do to
@@ -66,9 +68,9 @@ internal static class Fakes
             library,
             new HistoryViewModel(actions, http),
             new CheckupViewModel(actions, http, new NoFiles()),
-            new SettingsViewModel(actions, http, settings, new ThemeManager(), dialogs, session, dispatcher, plugins: PosedPlugins()),
+            stationSettings,
             new VoiceViewModel(actions, http, dialogs, previews),
-            new DetailPages(actions, http, library),
+            new DetailPages(actions, http, library, stationSettings),
             dialogs,
             new ThemeManager(),
             dispatcher)

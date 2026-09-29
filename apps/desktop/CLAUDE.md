@@ -1140,6 +1140,50 @@ measured against a light ground.
 absent key already means the system's choice, which is what somebody who never went looking for the
 setting wants. A test says so.
 
+## The station's plugins, which are not this app's
+
+**Two things share the word and must never share a list.** This app's own plugins (`Plugins` above:
+somewhere else to play the station, loaded into this process) are Extensions, on this app's card, and
+reachable with no account. The STATION's plugins run in the station, need the operator, and are the
+Settings section called Plugins, whose view model is `SettingsViewModel.StationPlugins` for exactly
+this reason: `Plugins` was already taken by the first kind, and a property that could mean either is
+how the two end up in one list.
+
+**The section is the console's Plugins page: the list by role, the switch, Rescan and Import.**
+Roles and capability words are `Core/Configuration/PluginRoles`, the console's `plugin.roles.ts`: a
+plugin is listed once, under the first role any of its capabilities names, and a plugin none of
+whose capabilities any role names is listed under Other rather than dropped. The first enable of a
+plugin asks first (`StationPluginSwitch`), because a plugin is trusted code running with the station's
+privileges and that enable is the one that extends the trust; later enables do not ask again. A
+switch the station refused, or whose question was declined, is put back rather than left lying.
+
+**A plugin's own page is a detail page** (`Destination.PluginDetail`, `StationPluginViewModel`),
+built by `SettingsViewModel.OpenPlugin` so it gets the section's calls, and `DetailPages` now
+disposes the page it is leaving. Its form is `ConfigFormViewModel` with `FormEncoding.Typed`, offered
+the plugin's own suggestions and the sources its fields name. A reading taken while waiting redraws
+the header only: rebuilding the form would throw away what somebody was typing while they waited.
+Signing out while on one goes back to Settings, because the rail's entry for Settings needs no
+account and would otherwise leave the page up.
+
+**Connecting a plugin to its provider is done in the person's browser, and nothing comes back to this
+app.** The provider returns the browser to the CONSOLE's callback page on the station
+(`PluginLinks.OAuthCallback`, the same address the console shows, so a plugin registered from either
+works from both), and that page finishes the exchange. So Connect opens the provider's page through
+`ISystemShell` and then asks the plugin every three seconds whether it is connected: until it says
+so, for at most five minutes, until Stop, or until the page is left. That is the only poll on these
+pages and it asks through the SDK directly rather than through `OperatorActions`, since a station that
+missed one of them is not worth a notice every three seconds. A reconnect is not waited for, because
+the plugin says connected before and after and there is nothing to see change. NOT measured against a
+real provider.
+
+**The track fetcher's authorization is a second credential after that one**, drawn below it: start
+opens the approval page, the browser lands on an address only the station can reach (an error page,
+expected), and the address is pasted back to finish. Read only while the plugin is on.
+
+**`ISystemShell` is the one way a view model opens a link or copies text**, for the reason
+`IFilePicker` exists. It opens http and https only: an authorization link comes from the station,
+and `open` would as happily run a `file://` or another app's scheme.
+
 ## The check-up
 
 **Tabs, as the web console has them, and a view model per tab.** Machinery, History, Cost, Logs and

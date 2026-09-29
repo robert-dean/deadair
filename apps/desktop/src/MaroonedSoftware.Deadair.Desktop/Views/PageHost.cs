@@ -83,6 +83,7 @@ public sealed class PageHost : TransitioningContentControl
             // A detail page is built per visit, over the view model opened for it: there are many
             // charts and one of each rail page, so only the second are worth keeping.
             Nav.Destination.ChartDetail => Detail(new ChartDetailView(), shell.Details.Current),
+            Nav.Destination.PluginDetail => Detail(new StationPluginView(), shell.Details.Current),
 
             Nav.Destination.Programme => Page(() => new ProgrammeView(), shell.Programme),
             Nav.Destination.Library => Page(() => new LibraryView(), shell.Library),

@@ -77,6 +77,9 @@ internal static class Pages
         yield return ("shell-settings-storage-min", SettingsFakes.Frame(SettingsSectionId.Storage), 820, 520);
         yield return ("shell-settings-providers", SettingsFakes.Frame(SettingsSectionId.Providers), 1180, 1000);
         yield return ("shell-settings-grants", SettingsFakes.Frame(SettingsSectionId.Grants), 1180, 720);
+        yield return ("shell-settings-plugins", SettingsFakes.Frame(SettingsSectionId.Plugins), 1180, 900);
+        yield return ("shell-settings-plugin", SettingsFakes.Plugin(), 1180, 2000);
+        yield return ("shell-settings-plugin-min", SettingsFakes.Plugin(), 820, 520);
         yield return ("shell-settings-listener", Page(new Destination.Settings(), operatorSignedIn: false), 1180, 720);
         // Taller than the app's own window, deliberately: the card is two plugins long and the
         // second is the broken one, which is the row somebody opens this page to read.

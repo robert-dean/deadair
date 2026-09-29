@@ -20,7 +20,7 @@ namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 /// thing, and one that waited for a second press to fetch it would be a page that opens empty.
 /// </para>
 /// </remarks>
-public sealed class DetailPages(OperatorActions actions, HttpClient http, LibraryViewModel library)
+public sealed class DetailPages(OperatorActions actions, HttpClient http, LibraryViewModel library, SettingsViewModel? settings = null)
 {
     private StationUrl _station;
 
@@ -30,12 +30,19 @@ public sealed class DetailPages(OperatorActions actions, HttpClient http, Librar
     public object? Current { get; private set; }
 
     /// <summary>Builds and reads the page for a detail destination, and forgets the last one.</summary>
-    public void Open(Nav.Destination destination) =>
+    public void Open(Nav.Destination destination)
+    {
+        // A page left behind stops whatever it was waiting on (a plugin's sign-in, say): nobody is
+        // looking at it any more.
+        (Current as IDisposable)?.Dispose();
+
         Current = destination switch
         {
             Nav.Destination.ChartDetail chart => Chart(chart),
+            Nav.Destination.PluginDetail plugin => settings?.OpenPlugin(plugin.Id, plugin.Name),
             _ => null,
         };
+    }
 
     private ChartDetailViewModel Chart(Nav.Destination.ChartDetail chart)
     {

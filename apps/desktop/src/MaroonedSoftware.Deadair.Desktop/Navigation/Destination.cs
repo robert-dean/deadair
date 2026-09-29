@@ -44,6 +44,12 @@ public abstract record Destination
     /// reached.
     /// </remarks>
     public sealed record ChartDetail(string Id, string Name) : Destination;
+
+    /// <summary>One of the STATION's plugins: its settings, its sign-in, what it wrote.</summary>
+    /// <param name="Id">The plugin's id.</param>
+    /// <param name="Name">What the list called it, shown while the plugin is still being read.</param>
+    /// <remarks>A detail page, opened from the Plugins section of Settings, for the reason a chart is one.</remarks>
+    public sealed record PluginDetail(string Id, string Name) : Destination;
 }
 
 /// <summary>

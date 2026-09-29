@@ -1,0 +1,90 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SettingsPluginsSection"
+    x:DataType="vm:PluginsSectionViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <!-- The STATION's plugins, which run in the station. This app's own extensions are on this app's
+         card and are never listed here. -->
+    <DockPanel LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14" MaxWidth="760" HorizontalAlignment="Left">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <TextBlock Classes="h2" Text="The station's plugins" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button Classes="ghost" Content="Rescan" Command="{Binding RescanCommand}" IsEnabled="{Binding !Busy}"
+                            ToolTip.Tip="Look in the station's plugins folder again, for one copied there by hand" />
+                    <Button Classes="ghost" Content="Import…" Command="{Binding ImportCommand}" IsEnabled="{Binding !Busy}" />
+                </StackPanel>
+            </Grid>
+            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                       Text="What runs inside the station: where its music comes from, its voice, what writes its words. Open one to configure, connect or read it. Nothing here is this app's own; those are Extensions, under This app." />
+            <TextBlock Classes="mono dimmed" FontSize="11" Text="{Binding Summary}" />
+            <TextBlock TextWrapping="Wrap" Text="{Binding Notice}"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <Panel>
+            <TextBlock Classes="dimmed" TextWrapping="Wrap" MaxWidth="560" HorizontalAlignment="Left" IsVisible="{Binding IsEmpty}"
+                       Text="No plugins are mounted. Import one, or drop one into the station's plugin directory and rescan. Nothing about the station changes until one is enabled." />
+
+            <ScrollViewer>
+                <ItemsControl ItemsSource="{Binding Groups}" MaxWidth="760" HorizontalAlignment="Stretch">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:StationPluginGroupViewModel">
+                            <StackPanel Spacing="4" Margin="0,0,0,16">
+                                <TextBlock Classes="eyebrow" Text="{Binding Title}" Margin="4,0,0,4" />
+                                <ItemsControl ItemsSource="{Binding Plugins}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:StationPluginRowViewModel">
+                                            <!-- The row opens the plugin's page; the switch is the one
+                                                 thing decided from a glance. Fixed columns, so the
+                                                 status and the switch line up down the list. -->
+                                            <Border Classes="card" Padding="12,10" Margin="0,0,0,6">
+                                                <Grid ColumnDefinitions="*,112,52" ColumnSpacing="12">
+                                                    <Button Classes="ghost" BorderThickness="0" Padding="0" Background="Transparent"
+                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                            Command="{Binding $parent[ItemsControl;1].((vm:PluginsSectionViewModel)DataContext).OpenCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <StackPanel Spacing="2">
+                                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Classes="mono dimmed" FontSize="11" VerticalAlignment="Center" Text="{Binding Version}" />
+                                                                <Border Classes="pill" Height="18" Padding="6,0" IsVisible="{Binding IsInstalled}"
+                                                                        ToolTip.Tip="Added to the plugins folder on this station, not shipped with it">
+                                                                    <TextBlock FontSize="10" VerticalAlignment="Center" Text="Installed" />
+                                                                </Border>
+                                                            </StackPanel>
+                                                            <TextBlock Classes="dimmed" FontSize="12" Text="{Binding Description}" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Classes="dimmed" FontSize="11" Text="{Binding Does}" TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                        <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                                                 Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                                                        <TextBlock FontSize="12" Classes="secondary" Text="{Binding Status}" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                    <ToggleSwitch Grid.Column="2" IsChecked="{Binding Enabled}" OnContent="" OffContent=""
+                                                                  VerticalAlignment="Center" HorizontalAlignment="Right"
+                                                                  ToolTip.Tip="On or off in the station" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Panel>
+    </DockPanel>
+
+</UserControl>

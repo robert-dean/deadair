@@ -15,7 +15,7 @@ namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 /// and the station is read from it at call time: Settings outlives a change of station, and a section
 /// that captured the address when it was built would go on asking the old one.
 /// </remarks>
-public sealed class SettingsCalls(OperatorActions actions, HttpClient http, IDialogs dialogs, IFilePicker? files)
+public sealed class SettingsCalls(OperatorActions actions, HttpClient http, IDialogs dialogs, IFilePicker? files, ISystemShell? shell = null)
 {
     public OperatorActions Actions { get; } = actions;
 
@@ -23,6 +23,9 @@ public sealed class SettingsCalls(OperatorActions actions, HttpClient http, IDia
 
     /// <summary>The open and save panels, absent in a headless render where there is no window to hang them off.</summary>
     public IFilePicker? Files { get; } = files;
+
+    /// <summary>The browser and the clipboard, absent in a headless render.</summary>
+    public ISystemShell? Shell { get; } = shell;
 
     public StationUrl Station { get; set; }
 

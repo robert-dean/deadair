@@ -43,6 +43,8 @@ public enum SettingsSectionId
     Providers,
 
     Grants,
+
+    Plugins,
 }
 
 /// <summary>One section of Settings: what it is called, the line under that, and where its contents come from.</summary>
@@ -123,6 +125,7 @@ public static class SettingsSections
         new(SettingsSectionId.Providers, "Providers", "Who does what, and who is asked first", Blurb:
             "The jobs more than one of your plugins can do, and which of them the station uses. Nothing here switches a plugin on or off: that is the Plugins section, and this decides what the station does with the ones that are running."),
         new(SettingsSectionId.Grants, "Waiting on you", "What plugins have asked for"),
+        new(SettingsSectionId.Plugins, "Plugins", "What the station runs, and what they have asked for"),
     ];
 
     /// <summary>The declared fields a group section draws, in the order the station declared them.</summary>

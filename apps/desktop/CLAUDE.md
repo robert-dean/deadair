@@ -1048,6 +1048,37 @@ silently cancellable by omission.
 code: key, label, type, bounds and help all come off `GET /settings`. Nothing in this app knows what
 any particular setting means.
 
+**The page is a list of sections, the web console's `SETTINGS_SECTIONS`, and that list is the only
+one** (`Core/Configuration/SettingsSections`). This app's own card is first and is the only section
+listed with no account; the station's sections (one per declared group, then Artwork, Storage,
+Providers and Waiting on you) are listed only while the account is the operator's, and losing the role
+on one of them goes back to this app's card rather than leaving a page whose every call is refused. A
+group the list does not name is drawn nowhere here, deliberately: `schedule`, `personas` and
+`phrasings` belong to the pages that make sense of them, and `providers` is the Providers section's
+choice between plugins rather than text fields holding plugin ids. A test says none of the four is
+listed, because naming one would draw its settings twice.
+
+**Every section saves on its own, and an edit left in one survives a visit to another.** Each group is
+its own `ConfigFormViewModel` in a `SettingsGroupViewModel` that lives as long as the page, with a
+Save naming the group. The settings are read ONCE, when the page is first opened by an operator,
+because a re-read rebuilds the forms and throws away what was typed; a save answers with everything,
+and every other group takes that answer unless it holds an edit. The list marks a section with an
+unsaved edit. The standalone sections (Artwork, Storage, Providers, grants) are cheap reads and are
+read each time they are shown, Providers only while no order is half moved.
+
+**The list needs 200 units and the page does not always have them.** At the app's own 1180 with Now
+playing open the page is 552 wide, and a list beside a form left the form 354: a storage table with
+no room for the store's name, an artwork row wrapping its kind a letter at a time. So below 760 (a
+container query on the page) the list becomes one box above the section. `shell-settings-list` in
+`tools/Shots` is the list; every other settings frame is the box.
+
+**Providers are saved through SETTINGS**, under the key the station names for each job, as the
+console does: a pick is the plugin id as text (empty for Automatic) and is saved the moment it is
+chosen; an order is TEXT holding a JSON array of `{ source }` rows, moved with buttons and saved with
+its own button; going back to the default clears the row with JSON null. A plugin that is named and
+cannot answer stays among the choices, marked, or the box would read as Automatic while nothing is
+doing the job.
+
 **One form draws every declared field in the app**: `ConfigFormViewModel` over `FormField`, drawn by
 `FormFieldView`, for the station's settings, a station plugin's configuration and every settings
 subset a page shows. The station's settings and a plugin's config are two SDK records of one shape

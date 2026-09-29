@@ -66,7 +66,7 @@ internal static class Fakes
             library,
             new HistoryViewModel(actions, http),
             new CheckupViewModel(actions, http, new NoFiles()),
-            new SettingsViewModel(actions, http, settings, new ThemeManager(), PosedPlugins()),
+            new SettingsViewModel(actions, http, settings, new ThemeManager(), dialogs, session, dispatcher, plugins: PosedPlugins()),
             new VoiceViewModel(actions, http, dialogs, previews),
             new DetailPages(actions, http, library),
             dialogs,
@@ -100,6 +100,10 @@ internal static class Fakes
         }
 
         navigation.ApplyRole(operatorSignedIn);
+
+        // The session is signed out whatever the frame says, so the station's sections of Settings
+        // are listed by saying so rather than by signing in.
+        shell.StationSettings.ApplyRole(operatorSignedIn);
         return shell;
     }
 

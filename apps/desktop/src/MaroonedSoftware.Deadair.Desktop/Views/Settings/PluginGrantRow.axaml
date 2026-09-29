@@ -1,0 +1,41 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PluginGrantRow"
+    x:DataType="vm:PluginGrantRowViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <!-- One request and its answer. Drawn the same in Settings and on a plugin's own page, because it
+         is the same question in both. The answer is in a fixed column so it lines up down the list. -->
+    <Border Classes="card">
+        <Grid ColumnDefinitions="*,168" ColumnSpacing="16">
+            <StackPanel Spacing="3">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding PluginName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                             Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                    <TextBlock Classes="dimmed" FontSize="11" VerticalAlignment="Center" Text="{Binding State}" />
+                </StackPanel>
+                <TextBlock Text="{Binding Label}" TextWrapping="Wrap" />
+                <TextBlock Classes="secondary" TextWrapping="Wrap" Text="{Binding Reason}" />
+                <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap" Text="{Binding Describes}" />
+            </StackPanel>
+
+            <Border Grid.Column="1" CornerRadius="{DynamicResource DaCorner}" Padding="3" VerticalAlignment="Top"
+                    HorizontalAlignment="Right" Background="{DynamicResource DaRaisedBrush}" IsEnabled="{Binding !Busy}">
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <RadioButton Classes="segment" Content="Allow" IsChecked="{Binding IsAllowed, Mode=OneWay}"
+                                 Command="{Binding AllowCommand}" />
+                    <RadioButton Classes="segment" Content="Deny" IsChecked="{Binding IsDenied, Mode=OneWay}"
+                                 Command="{Binding DenyCommand}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+
+</UserControl>

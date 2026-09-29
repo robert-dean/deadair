@@ -1,0 +1,126 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:cfg="using:MaroonedSoftware.Deadair.Desktop.Core.Configuration"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SettingsProvidersSection"
+    x:DataType="vm:ProvidersSectionViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <DockPanel LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14" MaxWidth="760" HorizontalAlignment="Left">
+            <TextBlock Classes="h2" Text="Providers" />
+            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                       Text="The jobs more than one of your plugins can do, and which of them the station uses. Nothing here switches a plugin on or off: that is the Plugins section, and this decides what the station does with the ones that are running." />
+        </StackPanel>
+
+        <Panel>
+            <TextBlock Classes="dimmed" TextWrapping="Wrap" MaxWidth="560" HorizontalAlignment="Left" IsVisible="{Binding IsEmpty}"
+                       Text="No installed plugin does a job another one could do. Install a second plugin that can speak, write, or say who sounds like whom, and the choice appears here." />
+
+            <ScrollViewer>
+                <ItemsControl ItemsSource="{Binding Capabilities}" MaxWidth="760" HorizontalAlignment="Stretch">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ProviderCapabilityViewModel">
+                            <Border Classes="card" Margin="0,0,0,12">
+                                <StackPanel Spacing="10">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Classes="h3" Text="{Binding Title}" />
+                                        <TextBlock Classes="dimmed" TextWrapping="Wrap" Text="{Binding Meaning}" />
+                                    </StackPanel>
+
+                                    <TextBlock Classes="secondary" TextWrapping="Wrap" Text="{Binding OnlyLine}" IsVisible="{Binding IsOnly}" />
+
+                                    <!-- A pick, saved the moment it is chosen. -->
+                                    <StackPanel Spacing="6" IsVisible="{Binding IsPick}">
+                                        <TextBlock TextWrapping="Wrap" Text="{Binding Unanswered}"
+                                                   Foreground="{DynamicResource DaToneFaultBrush}"
+                                                   IsVisible="{Binding Unanswered, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                        <TextBlock FontSize="12" Classes="secondary" Text="Doing this job" />
+                                        <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Chosen}"
+                                                  Width="320" IsEnabled="{Binding !Busy}">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate x:DataType="cfg:ProviderOption">
+                                                    <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- An order, moved with buttons and saved with its own. -->
+                                    <StackPanel Spacing="8" IsVisible="{Binding IsOrder}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Border Classes="pill">
+                                                <TextBlock FontSize="11" VerticalAlignment="Center" Text="{Binding Whose}" />
+                                            </Border>
+                                            <Border Classes="pill" IsVisible="{Binding StaleCount, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                                <TextBlock FontSize="11" VerticalAlignment="Center" Text="{Binding StaleCount}"
+                                                           Foreground="{DynamicResource DaToneFaultBrush}" />
+                                            </Border>
+                                        </StackPanel>
+
+                                        <ItemsControl ItemsSource="{Binding Order}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:ProviderPlaceViewModel">
+                                                    <Grid ColumnDefinitions="28,*,72" ColumnSpacing="8" Height="34">
+                                                        <TextBlock Classes="mono dimmed" Text="{Binding Place}" VerticalAlignment="Center"
+                                                                   HorizontalAlignment="Right" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right">
+                                                            <Button Classes="icon small" IsEnabled="{Binding CanRaise}" ToolTip.Tip="Ask it sooner"
+                                                                    Command="{Binding $parent[ItemsControl;1].((vm:ProviderCapabilityViewModel)DataContext).RaiseCommand}"
+                                                                    CommandParameter="{Binding}">
+                                                                <PathIcon Data="{DynamicResource DaIconChevronUp}" Width="12" Height="12" />
+                                                            </Button>
+                                                            <Button Classes="icon small" IsEnabled="{Binding CanLower}" ToolTip.Tip="Ask it later"
+                                                                    Command="{Binding $parent[ItemsControl;1].((vm:ProviderCapabilityViewModel)DataContext).LowerCommand}"
+                                                                    CommandParameter="{Binding}">
+                                                                <PathIcon Data="{DynamicResource DaIconChevronDown}" Width="12" Height="12" />
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap" Text="{Binding Stale}"
+                                                   IsVisible="{Binding Stale, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Button Classes="primary" Content="Save order" IsEnabled="{Binding CanSave}"
+                                                    Command="{Binding SaveOrderCommand}" />
+                                            <Button Classes="ghost" Content="Reset to default" IsVisible="{Binding IsTheirs}"
+                                                    IsEnabled="{Binding !Busy}" Command="{Binding ResetOrderCommand}" />
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- The plugins that could do the job and are not asked, with why. -->
+                                    <ItemsControl ItemsSource="{Binding Idle}" IsVisible="{Binding HasIdle}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:ProviderIdleViewModel">
+                                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2">
+                                                    <TextBlock Classes="dimmed" Text="{Binding Name}" />
+                                                    <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                                             Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                                                    <TextBlock Classes="dimmed" FontSize="11" VerticalAlignment="Center" Text="{Binding Status}" />
+                                                    <TextBlock Classes="dimmed" FontSize="11" VerticalAlignment="Center" Text="{Binding Why}" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Panel>
+    </DockPanel>
+
+</UserControl>

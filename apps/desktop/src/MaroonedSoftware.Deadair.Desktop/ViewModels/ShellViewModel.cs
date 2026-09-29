@@ -165,8 +165,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                 case Nav.Destination.Checkup:
                     Checkup.LoadCommand.Execute(null);
                     break;
-                case Nav.Destination.Settings when StationSettings.Form is null:
-                    StationSettings.LoadCommand.Execute(null);
+                case Nav.Destination.Settings:
+                    StationSettings.Open();
                     break;
                 case Nav.Destination.Voice:
                     Voice.LoadCommand.Execute(null);

@@ -2,6 +2,7 @@ using System.Net;
 using Avalonia.Controls;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.Director;
+using MaroonedSoftware.Deadair.Desktop.Core.Configuration;
 using MaroonedSoftware.Deadair.Desktop.Core.NowPlaying;
 using MaroonedSoftware.Deadair.Desktop.Core.Playback;
 using MaroonedSoftware.Deadair.Desktop.Core.Programme;
@@ -63,10 +64,20 @@ internal static class Pages
         yield return ("shell-notice", Refused(), 1180, 720);
         yield return ("shell-settings", Page(new Destination.Settings(), operatorSignedIn: true), 1180, 720);
 
-        // Tall enough to reach the station's own fields, which sit below this app's card: every
-        // kind the declared form draws: a switch, a number, a size in gigabytes, a secret that is
-        // set, a choice and a table of rows.
-        yield return ("shell-settings-station", Page(new Destination.Settings(), operatorSignedIn: true), 1180, 2100);
+        // The station's sections, one declared group each, between them every kind the declared form
+        // draws: a switch, a number, a size in gigabytes, a secret that is set, a choice and a table of
+        // rows. The last at the minimum window, where the section list and the form share 580 units.
+        yield return ("shell-settings-playout", SettingsFakes.Frame(SettingsSectionId.Playout), 1180, 720);
+        yield return ("shell-settings-list", SettingsFakes.Frame(SettingsSectionId.Playout, nowPlaying: false), 1180, 720);
+        yield return ("shell-settings-mail", SettingsFakes.Frame(SettingsSectionId.Mail), 1180, 720);
+        yield return ("shell-settings-bulletins-min", SettingsFakes.Frame(SettingsSectionId.Bulletins), 820, 520);
+        yield return ("shell-settings-empty-group", SettingsFakes.Frame(SettingsSectionId.Station), 1180, 720);
+        yield return ("shell-settings-artwork", SettingsFakes.Frame(SettingsSectionId.Artwork), 1180, 720);
+        yield return ("shell-settings-storage", SettingsFakes.Frame(SettingsSectionId.Storage), 1180, 720);
+        yield return ("shell-settings-storage-min", SettingsFakes.Frame(SettingsSectionId.Storage), 820, 520);
+        yield return ("shell-settings-providers", SettingsFakes.Frame(SettingsSectionId.Providers), 1180, 1000);
+        yield return ("shell-settings-grants", SettingsFakes.Frame(SettingsSectionId.Grants), 1180, 720);
+        yield return ("shell-settings-listener", Page(new Destination.Settings(), operatorSignedIn: false), 1180, 720);
         // Taller than the app's own window, deliberately: the card is two plugins long and the
         // second is the broken one, which is the row somebody opens this page to read.
         yield return ("shell-settings-extensions", Extensions(), 1180, 1000);

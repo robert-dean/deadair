@@ -1,0 +1,49 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SettingsGroupSection"
+    x:DataType="vm:SettingsGroupViewModel">
+
+    <!-- One declared group of the station's settings, drawn from what it declares, with its own Save. -->
+    <DockPanel LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14" MaxWidth="760" HorizontalAlignment="Left">
+            <TextBlock Classes="h2" Text="{Binding Title}" />
+            <TextBlock Classes="dimmed" TextWrapping="Wrap" Text="{Binding Blurb}"
+                       IsVisible="{Binding Blurb, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <!-- Outside the scroll, because a section long enough to scroll is one where it would
+             otherwise be below the fold. It names the group, since it saves that group only. -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="12" Margin="0,14,0,0"
+                    IsVisible="{Binding HasForm}">
+            <Button Classes="primary" Content="{Binding SaveLabel}"
+                    Command="{Binding SaveCommand}" IsEnabled="{Binding !Busy}" />
+            <TextBlock Classes="dimmed" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding Notice}"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <Panel>
+            <TextBlock Classes="dimmed" Text="Reading the station's settings…"
+                       IsVisible="{Binding Form, Converter={x:Static ObjectConverters.IsNull}}" />
+            <TextBlock Classes="dimmed" TextWrapping="Wrap" MaxWidth="560" HorizontalAlignment="Left"
+                       Text="Nothing declares a setting in this section yet."
+                       IsVisible="{Binding IsEmpty}" />
+
+            <ScrollViewer IsVisible="{Binding HasForm}">
+                <Border Classes="card" MaxWidth="760" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="0,0,0,8">
+                    <ItemsControl ItemsSource="{Binding Form.Fields}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FormFieldViewModel">
+                                <views:FormFieldView />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+            </ScrollViewer>
+        </Panel>
+    </DockPanel>
+
+</UserControl>

@@ -159,8 +159,9 @@ interface Harness {
     registry: PluginRegistry;
     invoker: PluginInvoker;
     afterCommit: AfterCommit;
-    /** Only ever asked for a catalog sync after a provider's settings change. */
+    /** Only ever asked for a catalog sync, after a provider's settings change or it is enabled. */
     jobs: { send: ReturnType<typeof vi.fn> };
+    listings: { remove: ReturnType<typeof vi.fn> };
 }
 
 /**
@@ -205,8 +206,9 @@ function makeService(
     // The real one, not a stub: these routes register the reinit with it instead of
     // running it inline, so a test that wants to see the reinit has to run it.
     const afterCommit = new AfterCommit();
-    // Only ever asked for a catalog sync after a provider's settings change.
+    // Only ever asked for a catalog sync, after a provider's settings change or it is enabled.
     const jobs = { send: vi.fn(async () => 'job-1') };
+    const listings = { remove: vi.fn(async () => undefined) };
     const invoker = new PluginInvoker(registry, stubPluginLog().log);
     const service = new PluginsService(
         registry,
@@ -223,6 +225,9 @@ function makeService(
         { actor: { kind: 'system', sessionToken: '', source: 'test' } } as never,
         { record: vi.fn(async () => undefined) } as never,
         { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
+        undefined,
+        undefined,
+        listings as never,
     );
 
     return {
@@ -237,6 +242,7 @@ function makeService(
         invoker,
         afterCommit,
         jobs,
+        listings,
     };
 }
 
@@ -544,6 +550,17 @@ describe('PluginsService: disconnectOAuth', () => {
         expect(lifecycleManager.reinitPlugin).toHaveBeenCalledWith(SPOTIFY_ID);
     });
 
+    // The next account connected may be somebody else's, and until a walk read it the Playlists page
+    // would go on listing the old account's playlists.
+    it("forgets the playlist list kept from the disconnected account's library", async () => {
+        const fixture = new FakePermissionsFixture().grantOwner(SPOTIFY_ID, 'u-owner');
+        const { service, listings } = makeService(userActor('u-owner', []), fixture);
+
+        await service.disconnectOAuth(SPOTIFY_ID);
+
+        expect(listings.remove).toHaveBeenCalledExactlyOnceWith(SPOTIFY_ID);
+    });
+
     it('is denied for an actor without the oauth permission on the plugin', async () => {
         const fixture = new FakePermissionsFixture().grantOperator(SPOTIFY_ID, 'u-operator');
         const { service, configService, lifecycleManager } = makeService(userActor('u-operator', []), fixture);
@@ -677,6 +694,35 @@ describe('PluginsService: reinitializing after a write', () => {
         expect(lifecycleManager.reinitPlugin).not.toHaveBeenCalled();
         await afterCommit.run();
         expect(lifecycleManager.reinitPlugin).toHaveBeenCalledExactlyOnceWith(SPOTIFY_ID);
+    });
+
+    // A source turned back on missed every walk while it was off, and the Playlists page would list
+    // what it kept from before then until the next hourly one.
+    it('asks a catalog it just enabled to fill the library, after the reinit', async () => {
+        const { service, registry, afterCommit, jobs, lifecycleManager } = makeService(userActor('u-owner', []), owner());
+        registry.upsert(record(SPOTIFY_ID, { instance: catalogInstance as never }));
+        const order: string[] = [];
+        vi.mocked(lifecycleManager.reinitPlugin).mockImplementation(async () => void order.push('reinit'));
+        jobs.send.mockImplementation(async () => {
+            order.push('sync');
+            return 'job-1';
+        });
+
+        await service.enablePlugin(SPOTIFY_ID);
+        await afterCommit.run();
+
+        expect(jobs.send).toHaveBeenCalledExactlyOnceWith('catalog.sync', { pluginId: SPOTIFY_ID });
+        expect(order).toEqual(['reinit', 'sync']);
+    });
+
+    it('asks for no walk when disabling', async () => {
+        const { service, registry, afterCommit, jobs } = makeService(userActor('u-owner', []), owner());
+        registry.upsert(record(SPOTIFY_ID, { instance: catalogInstance as never }));
+
+        await service.disablePlugin(SPOTIFY_ID);
+        await afterCommit.run();
+
+        expect(jobs.send).not.toHaveBeenCalled();
     });
 
     it('defers the reinit after disabling', async () => {

@@ -35,6 +35,9 @@ interface Harness {
     pluginLog: ReturnType<typeof stubPluginLog>;
     getAuthorizeUrl: ReturnType<typeof vi.fn>;
     handleCallback: ReturnType<typeof vi.fn>;
+    afterCommit: AfterCommit;
+    /** Only ever asked for a catalog sync, once an account is connected. */
+    jobs: { send: ReturnType<typeof vi.fn> };
 }
 
 /**
@@ -46,7 +49,14 @@ function harness(): Harness {
     const getAuthorizeUrl = vi.fn(async (state: string) => `https://provider.example/authorize?state=${state}`);
     const handleCallback = vi.fn(async (_params: Record<string, string>) => {});
 
-    const instance = { getAuthorizeUrl, handleCallback } as unknown as PluginInstance;
+    // A catalog as well, as the providers that sign in this way are, so a connected account can be
+    // asked to fill the library.
+    const instance = {
+        getAuthorizeUrl,
+        handleCallback,
+        listPlaylists: vi.fn(async () => []),
+        getPlaylistTracks: vi.fn(async () => []),
+    } as unknown as PluginInstance;
     const record: PluginRecord = { id: PLUGIN_ID, dir: '/plugins/oauth', origin: 'bundled', status: 'active', manifest: manifest(), instance };
 
     const registry = new PluginRegistry();
@@ -59,6 +69,8 @@ function harness(): Harness {
     // authorization. The permission checks themselves are covered by
     // plugins.service.authorization.test.ts.
     const accessControl = { require: vi.fn(async () => {}) } as unknown as AccessControlService;
+    const afterCommit = new AfterCommit();
+    const jobs = { send: vi.fn(async () => 'job-1') };
     const service = new PluginsService(
         registry,
         unused,
@@ -69,15 +81,14 @@ function harness(): Harness {
         { holds: () => false, decisionFor: () => undefined } as never,
         accessControl,
         pluginLog.log,
-        new AfterCommit(),
-        // Only ever asked for a catalog sync after a provider's settings change.
-        { send: vi.fn(async () => 'job-1') } as never,
+        afterCommit,
+        jobs as never,
         { actor: { kind: 'system', sessionToken: '', source: 'test' } } as never,
         { record: vi.fn(async () => undefined) } as never,
         { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
     );
 
-    return { service, store, pluginLog, getAuthorizeUrl, handleCallback };
+    return { service, store, pluginLog, getAuthorizeUrl, handleCallback, afterCommit, jobs };
 }
 
 /** Runs the authorize leg and returns the `state` the host actually minted. */
@@ -206,6 +217,29 @@ describe('PluginsService OAuth state enforcement', () => {
 
         expect(result).toEqual({ pluginId: PLUGIN_ID, ok: true });
         expect(h.handleCallback).toHaveBeenCalledWith({ code: 'auth-code', state });
+    });
+
+    // A newly connected account's library had to wait for the top of the next hour, which left the
+    // Playlists page asking the provider live on every visit until then.
+    it('asks the newly connected account to fill the library once the callback commits', async () => {
+        const h = harness();
+        const state = await authorize(h);
+
+        await h.service.completeOAuthCallback(PLUGIN_ID, { code: 'auth-code', state });
+
+        expect(h.jobs.send).not.toHaveBeenCalled();
+        await h.afterCommit.run();
+        expect(h.jobs.send).toHaveBeenCalledExactlyOnceWith('catalog.sync', { pluginId: PLUGIN_ID });
+    });
+
+    it('asks for nothing when the callback did not complete', async () => {
+        const h = harness();
+        const state = await authorize(h);
+
+        await h.service.completeOAuthCallback(PLUGIN_ID, { error: 'access_denied', state });
+        await h.afterCommit.run();
+
+        expect(h.jobs.send).not.toHaveBeenCalled();
     });
 
     it('hands a desktop-style flow its `token`, which is what it gets instead of a `code`', async () => {

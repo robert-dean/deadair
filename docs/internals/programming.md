@@ -64,8 +64,11 @@ four-failure bench in `TrackAudioService`.
 hourly cron that never changes; `CatalogSyncJob` recognises that run by its payload having no keys (pg-boss
 delivers a cron run's payload as `null`) and returns early when `catalog.autoSync` is off or the hour is not
 a multiple of `catalog.syncEveryHours`, counted from the epoch in UTC, so "due" needs no record of the last
-run and a retry inside the hour is still due. The other two are SENT and always run: a provider's settings
-saved (`{ pluginId }`) and an operator's refresh (`POST /playlists/refresh`, `{ requestedBy: 'operator' }`).
+run and a retry inside the hour is still due. The other two are SENT and always run: a provider changed
+(`{ pluginId }`, when its settings are saved, it is enabled, or an account finishes connecting to it over
+OAuth) and an operator's refresh (`POST /playlists/refresh`, `{ requestedBy: 'operator' }`). Disconnecting an
+account deletes the playlist list kept from it in the same transaction, since the next account may be
+somebody else's.
 That is why every sender carries a key: a send of `{}` would be read as the schedule and could be skipped.
 Only an operator's walk goes on the activity feed, as one `sync.finished` entry, because the button can only
 answer "queued" and somebody is waiting to learn it finished.

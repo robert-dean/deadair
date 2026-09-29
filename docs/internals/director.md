@@ -21,7 +21,12 @@ built from a playlist when the station goes on air and CONSUMED — prepared mat
 and the rule that keeps the two honest is that if it is airing it is a lineup and if it is prepared
 it is a playlist. Memory is the authority and the row is the record: an acknowledged edit is written
 through before its caller is answered, everything the transport does rides a throttle, and a
-graceful shutdown flushes. `station_air` says only whether the station is driving. Every writer
+graceful shutdown flushes. **A record going on air is one of those, and it has to be asked for
+separately** (`DirectorService.remember`): the commit pass writes only when it prepares something,
+so a boundary whose next record was still downloading left the row calling the record on air
+`handed`, and a restart's `reclaimAll` then aired it again. On the live station that was every
+repeat inside the one-day window for four days (2026-09-25 to 09-29), each the first record after a
+restart. `station_air` says only whether the station is driving. Every writer
 posts a command to `DirectorService`; nothing else may write it.
 
 **A broadcast starts from one of three sources, and only the third chooses its copies.** A provider's

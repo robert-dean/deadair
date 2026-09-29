@@ -3264,6 +3264,14 @@ export class DirectorService {
         // player says so, on the one shared order. This listener is only for what has to be
         // written DOWN about it.
         //
+        // The order first, because a restart reads it back and `restore` reclaims every item still
+        // `handed`. The commit pass only writes when it prepares something, and it prepares a few
+        // records ahead, so a boundary it had nothing to add at left the row saying the record now
+        // on air was still waiting. Nothing else wrote it before the gate shut or the process
+        // stopped, and the next boot aired that record again: three times in four days on the live
+        // station, each the first record after a restart, each hours inside the repeat window.
+        this.persistSoon();
+        //
         // Play history exists to steer what the station plays NEXT: the repeat window and the
         // artist cooldown are both reads of it. A segment is not a record and has no artist, so a
         // row for it would put "Station ident" into the song key space and have the station

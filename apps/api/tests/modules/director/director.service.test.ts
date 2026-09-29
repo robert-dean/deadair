@@ -3591,6 +3591,30 @@ describe('DirectorService writing the running order down', () => {
         }
     });
 
+    it('writes a record going on air down, so a restart does not hand it back and air it twice', async () => {
+        // `restore` reclaims every item the row still calls `handed`. The commit pass writes only when
+        // it prepares something, so a boundary with the lead already full left the record on air
+        // recorded as waiting, and the live station replayed it after its next restart.
+        // 'b' still being fetched is what leaves the pass with nothing to prepare at the boundary.
+        vi.useFakeTimers();
+        try {
+            const { director, rundown, lineups, seedCatalogued } = build({ items: ['a', 'b', 'c'], localAudio: ['a'] });
+            await seedCatalogued();
+            await director.start();
+            const pulled = await rundown.next();
+            await vi.advanceTimersByTimeAsync(5_000);
+            vi.mocked(lineups.save).mockClear();
+
+            rundown.markAired(pulled!.item.id);
+            await vi.advanceTimersByTimeAsync(5_000);
+
+            const written = vi.mocked(lineups.save).mock.calls.at(-1)?.[0];
+            expect(written?.items.find(item => item.id === pulled!.item.id)?.state).toBe('airing');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('flushes what it owes on a graceful stop', async () => {
         // The difference between a clean shutdown and a kill: a stop that dropped the pending
         // write would cost the station its last couple of seconds and replay a record for them.

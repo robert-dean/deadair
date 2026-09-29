@@ -148,6 +148,10 @@ internal static class Pages
         yield return ("shell-voice-segments-min", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Segments), 820, 520);
         yield return ("shell-voice-pronunciations", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Pronunciations), 1180, 720);
         yield return ("shell-voice-pronunciations-min", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Pronunciations), 820, 520);
+        yield return ("shell-voice-soundboard", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Soundboard), 1180, 1000);
+        yield return ("shell-voice-soundboard-min", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Soundboard), 820, 520);
+        yield return ("dialog-pad-upload", VoiceDialog(station => new PadUploadDialogViewModel(
+            Fakes.Actions(), Fakes.Http(), station, new("Air Horn (Stadium) 03.wav", []), ["station", "late-night-and-other-quiet-hours"])), 1180, 720);
         yield return ("dialog-segment-upload", VoiceDialog(station => new SegmentUploadDialogViewModel(
             Fakes.Actions(), Fakes.Http(), station, new("evening_ident-v3_FINAL.wav", []), ["ident", "talkbreak"]) { Kind = "sweeper" }), 1180, 720);
         yield return ("dialog-segment-compose", VoiceDialog(station => new SegmentComposeDialogViewModel(

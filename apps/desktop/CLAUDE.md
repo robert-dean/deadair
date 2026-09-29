@@ -1217,6 +1217,15 @@ because a deleted proposal is proposed again by the same article forever. What i
 added and edited in a dialog, and deleting one asks, since the station starts saying the name however
 the engine does.
 
+**A sound's name goes up in the token's shape, whatever was typed.** `[sfx:name]` is the only
+spelling the station's parser finds, so the upload dialog shows the token the name will make and
+sends `PadText.Shape` of it: a sound uploaded as "Air Horn" would be one no script could reach. Set
+membership is a checkbox per set under each sound, sent the moment it is ticked and put back if the
+station refuses. Taking a sound out of use is Turn down, never Delete, for a file somebody dropped
+into the library on disk: the scan re-reads the library, and a deleted row would be back on the next
+pass. Delete is offered only for a file this station wrote from an upload or a fetch. Renaming a set
+says who it unpoints first, because a persona names a set by its name.
+
 **The phrasing and marker checks are advisory and never block a save.** `PersonaReadout` holds a
 copy of the station's placeholder vocabulary, and a desk that refused a save over its own copy would
 stop working the day the station learns a new one.

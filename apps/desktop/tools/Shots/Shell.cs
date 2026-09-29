@@ -402,6 +402,22 @@ internal static class Fakes
             new() { Id = Guid.NewGuid().ToString(), Kind = "news", State = SegmentState.Failed, Label = "News bulletin, 11:30", Source = "bulletin", Playable = false, Script = "The headlines at half past eleven.", Error = "The speech engine did not answer in time." },
             new() { Id = Guid.NewGuid().ToString(), Kind = "ident", State = SegmentState.Ready, Label = "Station ident, evening", Source = "library", Playable = true, DurationMs = 6_400 },
         ]);
+        var station = Guid.NewGuid();
+        var night = Guid.NewGuid();
+        voice.Soundboard.Present(new PadList
+        {
+            Sets =
+            [
+                new() { Id = station, Key = "station", Label = "station", Position = 0, Pads = 3, Personas = [] },
+                new() { Id = night, Key = "late-night-and-other-quiet-hours", Label = "late night", Position = 1, Pads = 1, Personas = ["Marla Vance", "The Conspiracy Host, Who Has A Theory About Every Record On The Running Order"] },
+            ],
+            Pads =
+            [
+                new() { Id = Guid.NewGuid(), Board = "station", Sets = ["station", "late-night-and-other-quiet-hours"], Name = "airhorn", Label = "Air horn", DurationMs = 1_400, LoudnessLufs = -9.2, Source = "upload", SourcePath = "station/airhorn.mp3", LastUsedAt = DateTimeOffset.Parse("2026-09-29T09:12:00Z", System.Globalization.CultureInfo.InvariantCulture), State = PadState2.Active },
+                new() { Id = Guid.NewGuid(), Board = "station", Sets = ["station"], Name = "rimshot-with-a-very-long-name-from-the-sample-pack", Label = "Rimshot", DurationMs = 400, Source = "library", SourcePath = "station/rimshot-with-a-very-long-name-from-the-sample-pack.wav", State = PadState2.Active },
+                new() { Id = Guid.NewGuid(), Board = "station", Sets = ["station"], Name = "laugh-track", Label = "Laugh track", DurationMs = 3_200, LoudnessLufs = -14.8, Source = "library", State = PadState2.Rejected },
+            ],
+        });
         voice.Pronunciations.Present(
         [
             new() { Id = Guid.NewGuid().ToString(), Written = "Sigur Rós", Spoken = "SIG-ur ROHSS", State = PronunciationState.Suggested, Origin = PronunciationOrigin.Gloss, SourceQuote = "Sigur Rós (Icelandic pronunciation: [ˈsɪːɣʏr ˈrouːs]) is an Icelandic post-rock band from Reykjavík, formed in 1994.", SourceUrl = "https://en.wikipedia.org/wiki/Sigur_R%C3%B3s", CreatedAt = "2026-09-28T02:00:00Z" },

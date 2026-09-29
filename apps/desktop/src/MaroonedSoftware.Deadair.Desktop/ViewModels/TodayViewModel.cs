@@ -66,6 +66,12 @@ public sealed partial class TodayViewModel(OperatorActions actions, Func<Deadair
     /// <summary>The stored slots, which the strip needs for the brief and host a block does not carry.</summary>
     public IReadOnlyList<ScheduleSlot> Slots { get; private set; } = [];
 
+    /// <summary>The slot the running order belongs to, which the editor warns about.</summary>
+    public string? AiringSlotId { get; private set; }
+
+    /// <summary>Raised when a block on the strip asks for its editor, with the stored slot.</summary>
+    public event Func<ScheduleSlot, Task>? EditSlotRequested;
+
     public async Task LoadAsync(CancellationToken cancellationToken)
     {
         var current = await actions.RunAsync(
@@ -115,7 +121,10 @@ public sealed partial class TodayViewModel(OperatorActions actions, Func<Deadair
     /// <summary>Draws a reading of the station's clock.</summary>
     public void PresentOnNow(ScheduleNow current, IReadOnlyList<ScheduleSlot> slots, IReadOnlyList<Persona> personas)
     {
+        ArgumentNullException.ThrowIfNull(current);
+
         Slots = slots;
+        AiringSlotId = current.AiringSlotId;
         OnNow.Clear();
         foreach (var cell in Core.Programme.OnNow.Cells(current, Slots, personas))
         {
@@ -163,6 +172,19 @@ public sealed partial class TodayViewModel(OperatorActions actions, Func<Deadair
         Marks = FormatClock.Marks(_bands, _producible);
         HasBands = Bands.Count > 0;
         ClockRead = true;
+    }
+
+    /// <summary>
+    /// Opens the slot editor on the block a cell names: the change somebody wants after reading what
+    /// is on is usually to the answer, and finding the block again on the Timetable is a tab away.
+    /// </summary>
+    [RelayCommand]
+    private async Task EditSlotAsync(OnNowCell cell)
+    {
+        if (cell.SlotId is { } id && Slots.FirstOrDefault(slot => slot.Id == id) is { } slot && EditSlotRequested is { } edit)
+        {
+            await edit(slot).ConfigureAwait(true);
+        }
     }
 
     [RelayCommand]

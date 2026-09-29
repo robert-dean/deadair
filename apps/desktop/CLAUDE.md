@@ -1178,17 +1178,43 @@ tree and a hand-built image both are.
 ## The programme
 
 **A slot's times are minutes from midnight and its days are a list**, because a slot recurs. Two
-things follow that are easy to draw wrong. An end of 1440 is midnight at the FAR end of the day, and
-formatting it as `00:00` produces a slot that appears to end before it starts. And the slot the
-station is actually airing is not always the one the clock says: a hold keeps a broadcast past its
-slot deliberately, which is why the ON AIR marker follows `airingSlotId` rather than the time.
+things follow that are easy to draw wrong. An end of midnight is the FAR end of the day, and
+formatting it as `00:00` produces a slot that appears to end before it starts: the contract's range
+stops at 1439, so the station stores it as 0 (older rows may hold 1440), and both draw and edit as
+`24:00`, which the editor sends back as 0. And the slot the station is actually airing is not always
+the one the clock says: a hold keeps a broadcast past its slot deliberately, which is why the ON AIR
+marker follows `airingSlotId` rather than the time.
 
-The timetable is read-only for now. Editing wants dragging and resizing, and a wrong drop reschedules
-a broadcast — the same order the running order's own edits arrived in.
+**The timetable is edited through a dialog, never by dragging.** The web console drags and resizes
+blocks on a week grid; a wrong drop there reschedules a broadcast, and this app keeps drag and drop
+out everywhere for that reason. So the Timetable tab is the list of slots it always was, with Add
+slot, and Edit and Delete on each row (Delete asks first, and says so when the slot is on air). The
+same editor opens from a block on Today's strip. `SlotDraft` (Core) is the web console's slot editor:
+an end BEFORE the start runs past midnight and the same time at both ends is a full day, so there is
+no "end after start" rule to break them; a name is required although the station permits none,
+because "Untitled" tells an operator nothing. **Overlaps are the station's to refuse**, as they are
+on the web console: it answers 409 with a sentence naming the other block, shown on the dialog, and
+it expands empty days and a wrapping block's tail onto the next weekday in ways a second copy here
+would one day disagree with. `PUT` replaces the row, so the editor sends every field; calls and
+mixing in go only when ON (absent is no calls, and absent leaves the station's own mixing setting
+standing), mixing in only beside a playlist, the chart order only beside a chart.
+
+**The pickers are the web console's.** "Playing from" is one list over the station's own playlists,
+the providers' and the charts (`SourceChoices`), because they are alternatives and two controls would
+let somebody fill in both. A playlist that is hidden or whose source refuses its tracks is not
+offered, but what a slot ALREADY plays from always is, under its id if nothing names it now: a picker
+whose value is missing draws as empty, which reads as a slot that plays nothing. "Hosted by" never
+offers a caller, who phones in and cannot present. The choices are read when the dialog opens.
+
+**The boundary rule sits under the list**, as the web console's sits under its grid: two station
+settings (`schedule.capOverrun`, `schedule.overrunMinutes`) drawn by `SettingsSubsetViewModel`, which
+reads the whole declaration, keeps the named keys and draws them through the shared form with its own
+Save. Nothing there is known to this app beyond the two keys.
 
 **The page is the web console's tabs, one view model per tab.** `ProgrammeViewModel` owns the tab
-and builds `TodayViewModel` itself from what it was given, so a tab is added without touching the
-shell or the container. A tab is read when it is opened and after a write, never on a timer.
+and builds each tab's view model (`TodayViewModel`, `TimetableViewModel`) itself from what it was
+given, so a tab is added without touching the shell or the container. A tab is read when it is
+opened and after a write, never on a timer.
 
 **Today is two halves of one question**: what the station PLAYS now (the on-now strip) and what it
 SAYS inside the hour (the format clock). Every fact on the strip comes from `GET /schedule/current`,

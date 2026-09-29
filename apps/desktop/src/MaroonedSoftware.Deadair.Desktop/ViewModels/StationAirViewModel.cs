@@ -380,7 +380,7 @@ public sealed record Choice<T>(T Value, string Label)
 }
 
 /// <summary>A host a show can be given, or (with no id) the station's own.</summary>
-public sealed record HostChoice(string? Id, string Label, string? Detail)
+public sealed record HostChoice(string? Id, string Label, string? Detail = null)
 {
     public override string ToString() => Label;
 }

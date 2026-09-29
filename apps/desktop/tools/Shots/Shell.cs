@@ -642,9 +642,38 @@ internal static class Fakes
 
     private static void Programme(ProgrammeViewModel programme)
     {
-        programme.Slots.Add(new SlotViewModel("1", "Mon, Tue, Wed, Thu, Fri", "06:00–10:00", "Breakfast", "Bright, and nothing anybody has to think about.", false));
-        programme.Slots.Add(new SlotViewModel("2", "Wed", "10:00–13:00", "Wednesday mornings", "Something with guitars, nothing after 1999.", true));
-        programme.Slots.Add(new SlotViewModel("3", "Every day", "23:00–24:00", "The late one", null, false));
+        // The week: weekdays, one day, a block running past midnight, one ending at midnight, and the
+        // one on air with a name long enough to trim.
+        programme.Timetable.Present(
+            new ScheduleSlotList
+            {
+                Slots =
+                [
+                    Slot("1", "Breakfast", 360, 600, "Bright, and nothing anybody has to think about.", "p1") with { Days = [1, 2, 3, 4, 5] },
+                    Slot("2", "Wednesday mornings with a name long enough to have to trim at the minimum window", 600, 780, "Something with guitars, nothing after 1999, and nothing anybody would call a ballad.", "p1"),
+                    Slot("3", "The late one", 1380, 0, null, null) with { Days = [] },
+                    Slot("6", "Overnight", 60, 300, "Quiet, instrumental, and long.", null) with { Days = [0, 6] },
+                    Slot("7", "Friday night", 1260, 120, null, "p2") with { Days = [5] },
+                ],
+            },
+            airing: "2");
+
+        // The boundary rule as the station declares it, with the cut switched on.
+        programme.Timetable.Overrun.Present(new StationSettings
+        {
+            Descriptors =
+            [
+                Setting("schedule.capOverrun", "Start shows on time", "When a block starts, the record already playing is left to finish, however long it is. Turn this on and a record still going the number of minutes below into the new block is cut, the way the Skip button cuts.", ConfigFieldType.Boolean, SettingGroup.Schedule),
+                Setting("schedule.overrunMinutes", "Let a record run into the next show for (minutes)", "Most records end well inside five minutes, so only the long ones are ever cut. Zero cuts whatever is playing the moment the block starts.", ConfigFieldType.Number, SettingGroup.Schedule) with { Min = 0, Max = 60 },
+            ],
+            Values = new Dictionary<string, JsonElement>
+            {
+                ["schedule.capOverrun"] = JsonSerializer.SerializeToElement("true"),
+                ["schedule.overrunMinutes"] = JsonSerializer.SerializeToElement("5"),
+            },
+            Configured = [],
+            Derived = [],
+        });
 
         // The strip, posed from a reading as the station sends it: a block held past its slot, so the
         // first cell says Due now and carries the sentence explaining why.

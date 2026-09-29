@@ -73,12 +73,15 @@ internal static class Pages
         yield return ("shell-programme", Page(new Destination.Programme(), operatorSignedIn: true), 1180, 720);
         yield return ("shell-programme-min", Page(new Destination.Programme(), operatorSignedIn: true), 820, 520);
         yield return ("shell-programme-timetable", Programme(ProgrammeTab.Timetable), 1180, 720);
+        yield return ("shell-programme-timetable-tall", Programme(ProgrammeTab.Timetable), 1180, 1100);
 
         // Tall enough for the whole format clock: once with the Now playing panel put away, where the
         // dial sits beside the list, and once with it, where the page is narrow and the dial moves above.
         yield return ("shell-programme-clock", Programme(ProgrammeTab.Today, nowPlaying: false), 1180, 1100);
         yield return ("shell-programme-clock-narrow", Programme(ProgrammeTab.Today), 1180, 1300);
         yield return ("dialog-band", Band(), 1180, 720);
+        yield return ("dialog-slot", SlotEditor(), 1180, 720);
+        yield return ("dialog-slot-min", SlotEditor(), 820, 520);
         yield return ("shell-checkup", Page(new Destination.Checkup(), operatorSignedIn: true), 1180, 720);
 
         // Tall enough to reach the build at the foot of Machinery, and the minimum window, where a
@@ -220,6 +223,43 @@ internal static class Pages
                 new Topic { Id = "t1", Kind = "news", Key = "tech", Label = "Technology and the internet", Config = [], Position = 0 },
                 new Topic { Id = "t2", Kind = "news", Key = "local", Label = "Local", Config = [], Position = 1 },
             ],
+            (_, _) => Task.FromResult(true)));
+
+        return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>The on-air slot open for editing, playing from a chart, so the chart's own row is in frame.</summary>
+    private static MainWindowContent SlotEditor()
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.Fill(shell, new Destination.Programme());
+        shell.Navigation.Show(new Destination.Programme());
+        shell.Programme.Tab = ProgrammeTab.Timetable;
+
+        var chart = new ProgrammeSource.Chart("lastfm:top");
+        _ = shell.Dialogs.ShowAsync(new SlotDialogViewModel(
+            new SlotDraft
+            {
+                Label = "Wednesday mornings",
+                StartsAt = "10:00",
+                EndsAt = "13:00",
+                Days = new HashSet<int> { 3 },
+                Source = chart,
+                PersonaId = "p1",
+                Brief = "Something with guitars, nothing after 1999, and nothing anybody would call a ballad.",
+                EraTo = "1999",
+                Callins = true,
+            },
+            isNew: false,
+            airing: true,
+            [
+                new SourceChoice(SourceChoices.Nothing, string.Empty, null),
+                new SourceChoice("Late night guitars", "The station's", new ProgrammeSource.Station(Guid.Empty)),
+                new SourceChoice("Discover Weekly", "Spotify", new ProgrammeSource.Playlist("spotify", "dw")),
+                new SourceChoice("Top 40 this week", "Chart · lastfm", chart),
+            ],
+            [new HostChoice(null, "The station's own host"), new HostChoice("p1", "Marla Vance"), new HostChoice("p2", "The Night Owl")],
             (_, _) => Task.FromResult(true)));
 
         return new MainWindowContent { Shell = shell };

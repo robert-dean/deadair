@@ -25,7 +25,7 @@
         </ContainerQuery>
     </UserControl.Styles>
 
-    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" Padding="0,0,14,0">
         <StackPanel Spacing="14">
 
             <!-- What is on, what is next, and what is after that, in words: the question somebody
@@ -44,9 +44,18 @@
                                      is 500 wide at the minimum window, and beside it the time left
                                      cut "Due now" to "Due no". -->
                                 <TextBlock Classes="eyebrow" Text="{Binding Eyebrow}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
-                                           TextTrimming="CharacterEllipsis"
-                                           Foreground="{DynamicResource DaTextBrush}" />
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource DaTextBrush}" />
+                                    <!-- The same editor the Timetable opens: the change somebody
+                                         wants after reading what is on is usually to the answer. -->
+                                    <Button Grid.Column="1" Classes="ghost" Content="Edit" Padding="6,1"
+                                            FontSize="11" IsVisible="{Binding CanEdit}"
+                                            ToolTip.Tip="Edit this block"
+                                            Command="{Binding $parent[ItemsControl].((vm:TodayViewModel)DataContext).EditSlotCommand}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
                                 <TextBlock Text="{Binding When}" Classes="dimmed" FontSize="11"
                                            TextTrimming="CharacterEllipsis" />
                                 <ProgressBar Minimum="0" Maximum="1" Value="{Binding ProgressValue}"

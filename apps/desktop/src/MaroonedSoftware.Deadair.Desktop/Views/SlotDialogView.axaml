@@ -1,0 +1,160 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:programme="using:MaroonedSoftware.Deadair.Desktop.Core.Programme"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SlotDialogView"
+    x:DataType="vm:SlotDialogViewModel">
+
+    <!-- The fields only; the host draws the title, the station's refusal and the buttons. A slot has
+         more fields than a window at its minimum has height, so they scroll inside the dialog rather
+         than pushing its buttons off the screen: the limit is set from the window in code. -->
+    <DockPanel>
+    <!-- Outside the scroll, so what stops a save is in view whichever field caused it. -->
+    <TextBlock DockPanel.Dock="Bottom" Text="{Binding Hint}" FontSize="12" TextWrapping="Wrap" Margin="0,10,0,0"
+               Foreground="{DynamicResource DaToneFaultBrush}"
+               IsVisible="{Binding Hint, Converter={x:Static ObjectConverters.IsNotNull}}" />
+    <ScrollViewer x:Name="Fields" HorizontalScrollBarVisibility="Disabled" Padding="0,0,12,0">
+        <StackPanel Spacing="12">
+
+            <TextBlock Classes="secondary" FontSize="12" TextWrapping="Wrap" IsVisible="{Binding IsAiring}"
+                       Foreground="{DynamicResource DaToneStandbyBrush}"
+                       Text="This slot is on air. Changes apply the next time it comes round." />
+
+            <!-- When it is on, as the sentence an operator would say out loud. -->
+            <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="8">
+                <TextBlock Text="Put" VerticalAlignment="Center" Classes="secondary" />
+                <TextBox Text="{Binding Label}" PlaceholderText="Breakfast" Width="200" MaxLength="200" />
+                <TextBlock Text="from" VerticalAlignment="Center" Classes="secondary" />
+                <TextBox Text="{Binding StartsAt}" PlaceholderText="06:00" Width="70"
+                         FontFamily="{DynamicResource DaFontMono}" ToolTip.Tip="Starts at" />
+                <TextBlock Text="until" VerticalAlignment="Center" Classes="secondary" />
+                <TextBox Text="{Binding EndsAt}" PlaceholderText="10:00" Width="70"
+                         FontFamily="{DynamicResource DaFontMono}" ToolTip.Tip="Ends at" />
+            </WrapPanel>
+
+            <!-- Seven toggles rather than seven boxes: a row of them is the week. -->
+            <WrapPanel Orientation="Horizontal" ItemSpacing="4" LineSpacing="4">
+                <TextBlock Text="on" VerticalAlignment="Center" Classes="secondary" Margin="0,0,4,0" />
+                <ItemsControl ItemsSource="{Binding Days}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="4" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:DayToggleViewModel">
+                            <ToggleButton Content="{Binding Name}" IsChecked="{Binding IsChosen}"
+                                          MinWidth="46" Padding="8,4" HorizontalContentAlignment="Center" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </WrapPanel>
+
+            <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap" Text="{Binding Reading}" />
+
+            <StackPanel Spacing="3">
+                <TextBlock Text="Playing from" FontSize="12" Classes="secondary" />
+                <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding Source}" MinWidth="320" MaxWidth="480">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="programme:SourceChoice">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="1" Text="{Binding Group}" Classes="dimmed" FontSize="11"
+                                           VerticalAlignment="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                           Text="Nothing is a slot the station fills itself. A playlist the station keeps starts on time however long it is, because it is not read from a provider when the block begins." />
+            </StackPanel>
+
+            <StackPanel Spacing="3" IsVisible="{Binding IsChart}">
+                <TextBlock Text="Played" FontSize="12" Classes="secondary" />
+                <ComboBox ItemsSource="{Binding ChartOrders}" SelectedItem="{Binding ChartOrder}" MinWidth="320">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ChartOrderChoice">
+                            <TextBlock Text="{Binding Label}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+
+            <StackPanel Spacing="3">
+                <TextBlock Text="Hosted by" FontSize="12" Classes="secondary" />
+                <ComboBox ItemsSource="{Binding Hosts}" SelectedItem="{Binding Host}" MinWidth="320">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:HostChoice">
+                            <TextBlock Text="{Binding Label}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+
+            <StackPanel Spacing="3">
+                <TextBlock Text="Asked to play" FontSize="12" Classes="secondary" />
+                <TextBox Text="{Binding Brief}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="56"
+                         MaxLength="500" PlaceholderText="warm and unhurried" />
+                <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                           Text="In your own words, for the model that chooses records. Leave it empty and the station plays its ordinary rotation. The host only presents." />
+            </StackPanel>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <StackPanel Spacing="3">
+                    <TextBlock Text="From year" FontSize="12" Classes="secondary" />
+                    <TextBox Text="{Binding EraFrom}" PlaceholderText="1970" FontFamily="{DynamicResource DaFontMono}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="3">
+                    <TextBlock Text="To year" FontSize="12" Classes="secondary" />
+                    <TextBox Text="{Binding EraTo}" PlaceholderText="1979" FontFamily="{DynamicResource DaFontMono}" />
+                </StackPanel>
+            </Grid>
+            <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                       Text="Empty means no bound. A record whose release year the catalogue does not know is played whatever the period." />
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <StackPanel Spacing="3">
+                    <TextBlock Text="Mode" FontSize="12" Classes="secondary" />
+                    <ComboBox ItemsSource="{Binding Modes}" SelectedItem="{Binding Mode}" HorizontalAlignment="Stretch">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ModeChoice">
+                                <TextBlock Text="{Binding Label}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="3">
+                    <TextBlock Text="When it runs out" FontSize="12" Classes="secondary" />
+                    <ComboBox ItemsSource="{Binding OnEnds}" SelectedItem="{Binding OnEnd}" HorizontalAlignment="Stretch">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:OnEndChoice">
+                                <TextBlock Text="{Binding Label}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
+            <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                       Text="Starting again replays what this block already aired. It never reaches further than that: a record you disliked stays off the air whether the block is running for the first time or the fifth." />
+
+            <StackPanel Spacing="2">
+                <CheckBox IsChecked="{Binding Callins}" Content="Take calls during this block" />
+                <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                           Text="A phone-in is written and spoken a turn at a time, so it lands minutes after it is asked for. A setlist or a feature takes none whatever this says." />
+            </StackPanel>
+
+            <StackPanel Spacing="2" IsVisible="{Binding MixesIn}">
+                <CheckBox IsChecked="{Binding MixInSimilar}" Content="Mix in similar records" />
+                <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                           Text="Every few records, one by an artist who sounds like the one just played. The playlist still plays in full around them." />
+            </StackPanel>
+
+            <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                       Text="Saving changes nothing that is on air now. The station moves when this slot next begins." />
+
+        </StackPanel>
+    </ScrollViewer>
+    </DockPanel>
+
+</UserControl>

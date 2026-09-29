@@ -29,6 +29,9 @@ public sealed record OnNowCell(
     public bool HasBrief => !string.IsNullOrWhiteSpace(Brief);
 
     public bool HasNote => Note is not null;
+
+    /// <summary>Only with the stored slot in hand, since that is what the editor opens on.</summary>
+    public bool CanEdit => SlotId is not null;
 }
 
 /// <summary>

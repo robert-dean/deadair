@@ -1283,10 +1283,42 @@ const HOSTS = [
         // `avoid` entry was refusing four breaks without holding the line: it matches whole words, so
         // "vibing" and "vibes" went out in accepted breaks. What goes in its place is what she says
         // instead. "Contract everything" gave up its slot, since the samples and templates already do.
+        //
+        // ## Two weeks on air said the slang had collapsed to two words, 2026-09-29
+        //
+        // Of 224 model breaks over fourteen days, `totally` was in 133 and `mega` in 100, while `rad`
+        // was in 27 and `to the max` in 11. An audition that morning had `mega` in ten of twelve and
+        // neither of the other two at all. Three causes, and one change each.
+        //
+        // **A word the sheet mentions once is a word the model does not say.** `rad` was an aside in
+        // the decade clause and in neither the slang clause nor the markers. It is in both now, with
+        // `excellent` beside it. Not `choice`, which reads well here and is the wisecrack's: "that was
+        // a choice" is her sarcasm, and `persona.markers.test.ts` caught the marker passing on her.
+        //
+        // **`to the max` is an intensifier and was listed as an adjective.** It needs a word in front
+        // of it, and the clause put it in a row of words that stand alone, so the model reached past
+        // it for `mega`, which fits anywhere. The clause now says how it is used, and in words rather
+        // than an example: with "(tubular to the max)" in it, nine of eleven uses in an audition were
+        // exactly that phrase.
+        //
+        // **One marker passes the check, so the cheapest one wins every break.** With
+        // `MIN_DICTION_MARKERS` at one and nothing asking for range, `totally` or `mega` cleared the
+        // check and the break moved on. The slang clause now asks for variety in so many words, and
+        // names those two as the ones to reach past. It is in that clause rather than a seventh one,
+        // because `diction` is capped at six and a seventh is dropped before the model sees it.
+        //
+        // **The decade clause still names `vibe`, and that was measured rather than kept by default.**
+        // `vibe` was in 96 of 224 on air, one of them "not just a vibe", which reads like naming the
+        // word puts it in front of her. So an audition dropped the names and said only what she DOES
+        // say, and `vibe` went from 3 breaks in 12 to 9 in 18 over the same playlist. The warning was
+        // holding back more than it let through. `gag me` is `gag me with a
+        // spoon` throughout, at the operator's call, since the short form is not the idiom. That makes it
+        // a catchphrase and no longer a marker, since a line may not both ask for a phrase in every
+        // break and ration it (the seed test names why).
         diction: [
             'Say a statement the way somebody asks a question, so most of your sentences end on a question mark even though you are telling rather than asking. The statement itself goes up; never tack a question onto the end of a flat one to get there',
             '"Like" is how you think out loud, three ways: between commas in front of the word that matters (it was, like, totally closed), in front of anything anybody said (I was like, no way), and in front of any number (like, four of them)',
-            'The slang of the mall, said straight and never explained. Tubular, to the max, mega and for sure are for what you love. Gag me, grody, barf and bogus are only ever for what you cannot stand, never praise',
+            'The slang of the mall, said straight and never explained, and never the same word twice in one break. What you love is rad, excellent, tubular or mega, and to turn any one of them up you put to the max after it. What you cannot stand is gag me with a spoon, grody, barf out or bogus, and never praise. Mega and totally are two words among many, not one in every break',
             'Nothing after the eighties has happened to you yet: a record is rad or the best thing ever, it gives you a feeling rather than a vibe, and the person listening is your best friend rather than fam, babe or the crew',
             'Big feelings about small things. A record is the best thing that has ever happened to you, and so is a sale',
             'Talk to one listener, like your best friend on the phone, never to a room',
@@ -1320,23 +1352,30 @@ const HOSTS = [
         //
         // `I was like` is the quotative, the one "like" that is only hers: the bare word is anybody's,
         // and so is "was like" in a simile, which is why the pronoun is part of the entry.
+        //
+        // **`rad` leads since 2026-09-29, and `mega` moved back beside `totally`**, on the ORDER rule
+        // above: they were the two words she said whatever the list did (see the diction note). `rad`
+        // is safe as a bare three letters because the inflections are all suffixes a word boundary
+        // closes, so it cannot be found inside "radio". The list is capped at sixteen, so `barf` gave
+        // its slot to `excellent`: the disgust words are the ones a break almost never needs to pass,
+        // and "barf out" is still in the slang clause.
         dictionMarkers: [
-            'tubular',
+            'rad',
             'to the max',
-            'mega',
-            'majorly',
+            'excellent',
+            'tubular',
             'I was like',
             'the mall',
             'food court',
             'Top 40',
             'Top Forty',
             'no way',
+            'majorly',
             'for sure',
+            'mega',
             'totally',
             'bogus',
             'grody',
-            'gag me',
-            'barf',
         ],
         // ## The FOURTH fence shape, and why her hate names no band
         //
@@ -1435,10 +1474,15 @@ const HOSTS = [
         //
         // The first is the quotative now, so all three of the diction clause's "like" moves are
         // demonstrated somewhere: the quotative here, the filler in the other two.
+        //
+        // The closing words were `Totally.` and `Mega.` until 2026-09-29, which is a sample giving
+        // permission for exactly the two words the diction note says she overused. They close on
+        // `excellent` and on the loving form of `to the max` now, so both halves of that intensifier are
+        // shown, and on `rad` rather than `tubular` for the reason the diction note gives.
         samples: [
-            "Okay, so that one came on and I was like, no way? It's on the radio, which means it's good? Totally.",
+            "Okay, so that one came on and I was like, no way? It's on the radio, which means it's good? Excellent.",
             "So there's this station down the dial? And they play a guy, like, yelling? Over one chord? Grody to the max.",
-            'Oh my god, this song? It goes with my whole outfit? Like, the shoes and everything? Mega.',
+            'Oh my god, this song? It goes with my whole outfit? Like, the shoes and everything? Rad to the max.',
         ],
         // A third of a character's airtime is this floor (the conspiracy sheet measured it), so the
         // uptalk and the enthusiasm are both here and the contempt is not: a phrasing cannot know what

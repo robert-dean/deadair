@@ -395,10 +395,20 @@ internal static class Fakes
         voice.Scripts.Scripts.Add(new ScriptRowViewModel(
             "11:31", "news", "model", "The speech engine did not answer in time.", StatusTone.Fault));
 
-        voice.Segments.Segments.Add(new SegmentRowViewModel("1", "Talk break: Jeremy into Alive", "talk", "ready", StatusTone.Ok, canPlay: true) { IsPlaying = true });
-        voice.Segments.Segments.Add(new SegmentRowViewModel("2", "Station ident, evening", "ident", "ready", StatusTone.Ok, canPlay: true));
-        voice.Segments.Segments.Add(new SegmentRowViewModel("3", "Talk break: Regulate into My Boo", "talk", "rendering", StatusTone.Standby, canPlay: false));
-        voice.Segments.Segments.Add(new SegmentRowViewModel("4", "News bulletin, 11:30", "news", "failed", StatusTone.Fault, canPlay: false));
+        voice.Segments.Present(
+        [
+            new() { Id = Guid.NewGuid().ToString(), Kind = "talkbreak", State = SegmentState.Ready, Label = "Talk break: Jeremy into Alive", Source = "director", Playable = true, Script = "That was Jeremy, and this is the other one everybody knows. Stay where you are, the kettle is on.", Voice = "marla", DurationMs = 14_200 },
+            new() { Id = Guid.NewGuid().ToString(), Kind = "talkbreak", State = SegmentState.Rendering, Label = "Talk break: Regulate (feat. Nate Dogg) - Original Version into My Boo", Source = "director", Playable = false, Script = "Warren G and Nate Dogg, and a record that has never once been played at the right time of day." },
+            new() { Id = Guid.NewGuid().ToString(), Kind = "news", State = SegmentState.Failed, Label = "News bulletin, 11:30", Source = "bulletin", Playable = false, Script = "The headlines at half past eleven.", Error = "The speech engine did not answer in time." },
+            new() { Id = Guid.NewGuid().ToString(), Kind = "ident", State = SegmentState.Ready, Label = "Station ident, evening", Source = "library", Playable = true, DurationMs = 6_400 },
+        ]);
+        voice.Pronunciations.Present(
+        [
+            new() { Id = Guid.NewGuid().ToString(), Written = "Sigur Rós", Spoken = "SIG-ur ROHSS", State = PronunciationState.Suggested, Origin = PronunciationOrigin.Gloss, SourceQuote = "Sigur Rós (Icelandic pronunciation: [ˈsɪːɣʏr ˈrouːs]) is an Icelandic post-rock band from Reykjavík, formed in 1994.", SourceUrl = "https://en.wikipedia.org/wiki/Sigur_R%C3%B3s", CreatedAt = "2026-09-28T02:00:00Z" },
+            new() { Id = Guid.NewGuid().ToString(), Written = "Röyksopp", Spoken = "royk-sop", State = PronunciationState.Active, Origin = PronunciationOrigin.Operator, CreatedAt = "2026-09-01T02:00:00Z" },
+            new() { Id = Guid.NewGuid().ToString(), Written = "(Remastered 2011)", Spoken = "", State = PronunciationState.Active, Origin = PronunciationOrigin.Operator, CreatedAt = "2026-09-01T02:00:00Z" },
+            new() { Id = Guid.NewGuid().ToString(), Written = "Siouxsie", Spoken = "SOO-zee", State = PronunciationState.Rejected, Origin = PronunciationOrigin.Gloss, SourceQuote = "Siouxsie Sioux, born Susan Janet Ballion.", CreatedAt = "2026-09-12T02:00:00Z" },
+        ]);
 
         voice.Productions.Productions.Add(new ProductionRowViewModel("p1", "Phone-in: the worst gig you ever went to", "callin", "drafting", true));
         voice.Productions.Productions.Add(new ProductionRowViewModel("p2", "Evening feature", "feature", "ready", false));
@@ -1409,6 +1419,9 @@ internal static class Fakes
         new() { Key = key, Label = label, Help = help, Type = type, Group = group };
 
     public static HttpClient Http() => new(new Refuses());
+
+    /// <summary>Somewhere for a dialog's refusals to go; a shot sends nothing that is not refused.</summary>
+    public static OperatorActions Actions() => new(new SessionManager(new InMemorySecretStore(), Http()));
 
     /// <summary>A settings store that keeps nothing, for a frame that builds its own view model.</summary>
     public static ISettingsStore Settings() => new MemorySettings();

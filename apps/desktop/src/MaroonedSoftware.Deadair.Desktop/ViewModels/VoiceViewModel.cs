@@ -14,6 +14,7 @@ public enum VoiceTab
     Auditions,
     Voices,
     Segments,
+    Pronunciations,
     Productions,
     Said,
 }
@@ -49,7 +50,8 @@ public sealed partial class VoiceViewModel : ObservableObject
         Characters = new CharactersViewModel(actions, http, dialogs, previews, files, navigation);
         Auditions = new AuditionsViewModel(actions, http, previews);
         Voices = new VoicesViewModel(actions, http, previews);
-        Segments = new SegmentsViewModel(actions, http, previews);
+        Segments = new SegmentsViewModel(actions, http, previews, dialogs, files);
+        Pronunciations = new PronunciationsViewModel(actions, http, dialogs);
         Productions = new ProductionsViewModel(actions, http, dialogs);
         Scripts = new ScriptsViewModel(actions, http);
 
@@ -59,6 +61,7 @@ public sealed partial class VoiceViewModel : ObservableObject
             [VoiceTab.Auditions] = Auditions,
             [VoiceTab.Voices] = Voices,
             [VoiceTab.Segments] = Segments,
+            [VoiceTab.Pronunciations] = Pronunciations,
             [VoiceTab.Productions] = Productions,
             [VoiceTab.Said] = Scripts,
         };
@@ -85,6 +88,8 @@ public sealed partial class VoiceViewModel : ObservableObject
 
     public SegmentsViewModel Segments { get; }
 
+    public PronunciationsViewModel Pronunciations { get; }
+
     public ProductionsViewModel Productions { get; }
 
     /// <summary>What it said.</summary>
@@ -100,6 +105,8 @@ public sealed partial class VoiceViewModel : ObservableObject
     public bool IsVoices => Tab == VoiceTab.Voices;
 
     public bool IsSegments => Tab == VoiceTab.Segments;
+
+    public bool IsPronunciations => Tab == VoiceTab.Pronunciations;
 
     public bool IsProductions => Tab == VoiceTab.Productions;
 

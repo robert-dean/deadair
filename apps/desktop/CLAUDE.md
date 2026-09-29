@@ -1203,6 +1203,20 @@ segment row, so none of it can air. A voice's row says who speaks in it (a stati
 persona key), and the mapping itself is left to the speech plugin's settings, which is the only
 thing that knows its engine's words.
 
+**A recording is chosen first and described second.** Upload opens the system's panel through
+`IFilePicker`, offering only the formats the station takes (`AudioFiles.Patterns`), and then a dialog
+asks the kind and the label, the label read off the file's name. It goes up as multipart through
+`SdkPart` with the content type its extension says, because the station refuses by type. Only a
+recording the station was GIVEN (`source` of `library`) offers Delete: anything it wrote and spoke
+itself is named by the running order and its history, and is had again by rendering, so there is
+nothing to take back. There is no re-render of a failed segment, because there is no route for one.
+
+**A pronunciation turned down is kept, and Delete is only for one in use.** Proposals arrive from
+articles the station already holds and none is said until accepted; turning one down is a state,
+because a deleted proposal is proposed again by the same article forever. What is said this way is
+added and edited in a dialog, and deleting one asks, since the station starts saying the name however
+the engine does.
+
 **The phrasing and marker checks are advisory and never block a save.** `PersonaReadout` holds a
 copy of the station's placeholder vocabulary, and a desk that refused a save over its own copy would
 stop working the day the station learns a new one.

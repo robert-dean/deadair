@@ -145,6 +145,13 @@ internal static class Pages
         yield return ("shell-voice-auditions", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Auditions), 1180, 900);
         yield return ("shell-voice-auditions-min", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Auditions), 820, 520);
         yield return ("shell-voice-voices", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Voices), 1180, 720);
+        yield return ("shell-voice-segments-min", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Segments), 820, 520);
+        yield return ("shell-voice-pronunciations", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Pronunciations), 1180, 720);
+        yield return ("shell-voice-pronunciations-min", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Pronunciations), 820, 520);
+        yield return ("dialog-segment-upload", VoiceDialog(station => new SegmentUploadDialogViewModel(
+            Fakes.Actions(), Fakes.Http(), station, new("evening_ident-v3_FINAL.wav", []), ["ident", "talkbreak"]) { Kind = "sweeper" }), 1180, 720);
+        yield return ("dialog-segment-compose", VoiceDialog(station => new SegmentComposeDialogViewModel(
+            Fakes.Actions(), Fakes.Http(), station, Fakes.Voices()) { Label = "Station ident, late", Script = "You are listening to Deadair. It is later than you think." }), 1180, 720);
 
         // A character's sheet: an existing host, and a new caller with its ties to the hosts.
         yield return ("shell-voice-persona", Persona(caller: false), 1180, 720);
@@ -472,6 +479,23 @@ internal static class Pages
         Fakes.CharacterSettings(shell.Voice.Characters);
         shell.Voice.Characters.ToggleSettingsCommand.Execute(null);
         shell.Dialogs.Notice = null;
+
+        return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>A Voice page with one of its dialogs open over it.</summary>
+    private static MainWindowContent VoiceDialog(Func<StationUrl, DialogViewModel> build)
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.Fill(shell, new Destination.Voice());
+        shell.Navigation.Show(new Destination.Voice());
+        shell.Dialogs.Notice = null;
+
+        if (StationUrl.TryParse("https://radio.example.com", out var station))
+        {
+            _ = shell.Dialogs.ShowAsync(build(station));
+        }
 
         return new MainWindowContent { Shell = shell };
     }

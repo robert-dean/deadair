@@ -1,0 +1,38 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SegmentComposeDialogView"
+    x:DataType="vm:SegmentComposeDialogViewModel">
+
+    <StackPanel Spacing="10" Width="480">
+        <StackPanel Spacing="3">
+            <TextBlock Text="Label" FontSize="12" Classes="secondary" />
+            <TextBox Text="{Binding Label}" />
+            <TextBlock Text="What the console calls it, and the mount label while it airs." FontSize="11" Classes="dimmed" />
+        </StackPanel>
+        <StackPanel Spacing="3">
+            <TextBlock Text="Script" FontSize="12" Classes="secondary" />
+            <TextBox Text="{Binding Script}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80" MaxHeight="200" />
+            <TextBlock Text="What the station says. The pronunciation list is applied when it is spoken." FontSize="11" Classes="dimmed" />
+        </StackPanel>
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+            <StackPanel Spacing="3">
+                <TextBlock Text="Kind" FontSize="12" Classes="secondary" />
+                <TextBox Text="{Binding Kind}" />
+                <TextBlock Text="ident, stinger, talkbreak" FontSize="11" Classes="dimmed" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="3">
+                <TextBlock Text="Voice" FontSize="12" Classes="secondary" />
+                <ComboBox ItemsSource="{Binding Voices}" SelectedItem="{Binding Voice}" HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ChoiceViewModel">
+                            <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+        </Grid>
+    </StackPanel>
+
+</UserControl>

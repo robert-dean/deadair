@@ -665,6 +665,34 @@ internal static class Fakes
             ],
         });
 
+        // Two shows, an episode in each state worth seeing, and a directory search with one show the
+        // station already carries.
+        library.Podcasts.PresentShows(new StationShowList
+        {
+            Shows =
+            [
+                new() { Id = "s1", PluginId = "podcast", Title = "The Rest Is History", FeedUrl = "https://feeds.example.org/history" },
+                new() { Id = "s2", PluginId = "podcast", Title = "Song Exploder", FeedUrl = "https://feeds.example.org/exploder" },
+            ],
+        });
+        library.Podcasts.PresentEpisodes(new StationEpisodePage
+        {
+            Episodes =
+            [
+                Episode("The Rest Is History", "The fall of the Roman Republic, part three: the long and bitter road to the Rubicon", "Tom and Dominic follow Caesar across the river and into civil war.", fetched: true, error: null, scheduled: "2026-09-29T21:00:00Z"),
+                Episode("Song Exploder", "Massive Attack: Teardrop", null, fetched: false, error: "The host answered 404 for the enclosure", scheduled: null),
+                Episode("Song Exploder", "Portishead: Roads", "How a record made in a Bristol studio became the sound of a decade.", fetched: false, error: null, scheduled: null),
+            ],
+        });
+        library.Podcasts.PresentResults(new StationDirectoryPage
+        {
+            Results =
+            [
+                new() { Id = "d1", PluginId = "podcast", Title = "Song Exploder", Author = "Hrishikesh Hirway", FeedUrl = "https://feeds.example.org/exploder" },
+                new() { Id = "d2", PluginId = "podcast", Title = "Switched on Pop: the long-running show about how pop music works", Author = "Vulture", FeedUrl = "https://feeds.example.org/switched-on-pop/a/very/long/path/that/must/trim" },
+            ],
+        });
+
         library.Acts.Total = 212;
         library.Acts.Summary = "1–50 of 212";
 
@@ -692,6 +720,24 @@ internal static class Fakes
                 ],
             });
     }
+
+    private static StationEpisode Episode(string show, string title, string? summary, bool fetched, string? error, string? scheduled) => new()
+    {
+        Id = Guid.NewGuid().ToString(),
+        ShowId = "s1",
+        EpisodeId = Guid.NewGuid().ToString(),
+        ShowTitle = show,
+        Title = title,
+        Summary = summary,
+        Url = "https://example.org/episode",
+        PublishedAt = DateTimeOffset.Now.AddDays(-2).ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+        DurationMs = 3_540_000,
+        Explicit = error is not null,
+        SeenAt = DateTimeOffset.Now.AddDays(-2).ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+        Fetched = fetched,
+        FetchError = error,
+        ScheduledFor = scheduled,
+    };
 
     private static NewsStory Story(string feed, string feedName, string title, string? summary, List<string>? categories) => new()
     {

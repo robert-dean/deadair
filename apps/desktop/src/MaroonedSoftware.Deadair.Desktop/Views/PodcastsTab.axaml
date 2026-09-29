@@ -1,0 +1,140 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PodcastsTab"
+    x:DataType="vm:PodcastsViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <DockPanel LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,10">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <ComboBox ItemsSource="{Binding Shows}" SelectedItem="{Binding Show}" MinWidth="220"
+                          ToolTip.Tip="Show" IsVisible="{Binding HasShows}" />
+                <Button Grid.Column="1" Classes="ghost" Content="Read the feeds now" Command="{Binding ReadFeedsCommand}" />
+            </Grid>
+            <TextBlock Text="{Binding Notice}" Classes="dimmed" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="18">
+
+                <StackPanel Spacing="4">
+                    <TextBlock Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap"
+                               IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+                    <ListBox Classes="rows" ItemsSource="{Binding Episodes}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:EpisodeRowViewModel">
+                                <!-- The fetch button has a column whether or not it is drawn, so the
+                                     episodes' words line up whichever of them can be fetched. -->
+                                <Grid ColumnDefinitions="*,96" ColumnSpacing="12" Margin="0,4">
+                                    <StackPanel Spacing="3">
+                                        <WrapPanel ItemSpacing="10">
+                                            <TextBlock Text="{Binding Show}" FontSize="11"
+                                                       Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                                <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                                         Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                                                <TextBlock Text="{Binding State}" FontSize="11"
+                                                           Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                            </StackPanel>
+                                            <TextBlock Classes="mono" Text="{Binding Facts}" FontSize="11"
+                                                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                        </WrapPanel>
+                                        <TextBlock Text="{Binding Title}" TextWrapping="Wrap" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource DaTextBrush}" />
+                                        <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" FontSize="12" MaxLines="3"
+                                                   TextTrimming="CharacterEllipsis" Classes="dimmed"
+                                                   IsVisible="{Binding HasSummary}" />
+                                        <TextBlock Text="{Binding When}" FontSize="11" Classes="dimmed"
+                                                   IsVisible="{Binding HasWhen}" />
+                                        <TextBlock Text="{Binding Failure}" FontSize="11" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource DaSeverityWarningBrush}"
+                                                   IsVisible="{Binding HasFailure}" />
+                                        <HyperlinkButton NavigateUri="{Binding Url}" Content="The episode's page" Padding="0"
+                                                         FontSize="11" IsVisible="{Binding HasUrl}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Classes="ghost" Content="{Binding FetchLabel}" FontSize="11"
+                                            Padding="8,3" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                            IsVisible="{Binding CanFetch}"
+                                            Command="{Binding $parent[UserControl].((vm:PodcastsViewModel)DataContext).FetchCommand}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </StackPanel>
+
+                <!-- Finding another show. What is typed goes to the directory the podcast plugin
+                     uses, which is why it is a search somebody presses rather than one that runs as
+                     they type. -->
+                <Border Classes="card">
+                    <StackPanel Spacing="10">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="eyebrow" Text="Find a show" />
+                            <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap"
+                                       Text="Show, publisher or subject, searched in the directory the Podcasts plugin uses. What you type is sent to it." />
+                        </StackPanel>
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" MaxWidth="340" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Text="{Binding Query}" PlaceholderText="Show, publisher or subject">
+                                <TextBox.KeyBindings>
+                                    <KeyBinding Gesture="Enter" Command="{Binding SearchCommand}" />
+                                </TextBox.KeyBindings>
+                            </TextBox>
+                            <Button Grid.Column="1" Classes="ghost" Content="Search" Command="{Binding SearchCommand}" />
+                        </Grid>
+                        <TextBlock Classes="dimmed" Text="{Binding NoResults}" TextWrapping="Wrap"
+                                   IsVisible="{Binding NoResults, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        <ItemsControl ItemsSource="{Binding Results}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Spacing="10" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:DirectoryRowViewModel">
+                                    <Grid ColumnDefinitions="*,96" ColumnSpacing="12">
+                                        <StackPanel Spacing="1">
+                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource DaTextBrush}" />
+                                            <TextBlock Text="{Binding Author}" FontSize="12" Classes="secondary"
+                                                       TextTrimming="CharacterEllipsis" IsVisible="{Binding HasAuthor}" />
+                                            <TextBlock Text="{Binding FeedUrl}" FontSize="11" Classes="dimmed"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Classes="ghost" Content="Subscribe" FontSize="11" Padding="8,3"
+                                                HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                IsVisible="{Binding !Subscribed}"
+                                                Command="{Binding $parent[UserControl].((vm:PodcastsViewModel)DataContext).SubscribeCommand}"
+                                                CommandParameter="{Binding}" />
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                    IsVisible="{Binding Subscribed}">
+                                            <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                                     Fill="{DynamicResource DaToneOkBrush}" />
+                                            <TextBlock Text="Subscribed" FontSize="11" Classes="secondary" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+
+    </DockPanel>
+
+</UserControl>

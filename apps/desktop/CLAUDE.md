@@ -1108,6 +1108,19 @@ what the operator filed a feed under, so it filters what is already here, and it
 only when there is more than one. Stories are read headlines-only, as the console does: the story
 behind each is fetched from the publisher's page, which is the slowest thing that route does.
 
+**Subscribing to a podcast writes the podcast plugin's configuration, and it must not lose a row.**
+It is the web console's write (`PodcastRules.With`): the plugin's first list field with a URL column is
+its feed list, the show is added as a row, the list is saved as the JSON array in a string a list
+field stores, and the feeds are read again. Every row already there is carried over as the JSON it
+was, so a row's `$id` and any column this app does not know survive. Two things this does that the
+console does not, both because the alternative deletes subscriptions: a list stored as a real array
+is read rather than taken as empty, and a list that does not parse refuses the write with a sentence
+rather than being replaced by one row. An episode's state is asked in order (aired, held, asked for in
+the last twenty minutes, failed, not fetched), so one asked for again after a failure reads as
+fetching; Fetch now is offered only for the last two. The directory search is `platform.manage`,
+because the words go to somebody else's directory, so its 403 is worded rather than treated as the
+operator having gone.
+
 **The voice page is four readings, not the console's eight tabs.** The four are the ones that answer a
 question somebody asks of a RUNNING station: who is presenting, what did it say, what audio does it
 hold, and what is being made. Voices, pronunciations, pads and topics are configuration rather than

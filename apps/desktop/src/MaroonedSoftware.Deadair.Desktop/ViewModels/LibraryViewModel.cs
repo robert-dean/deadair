@@ -16,6 +16,7 @@ public enum LibraryTab
     Playlists,
     Charts,
     News,
+    Podcasts,
 }
 
 /// <summary>
@@ -45,6 +46,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         Releases = new AlbumsViewModel(actions, http, navigation);
         Playlists = new PlaylistsViewModel(actions, http, dialogs, navigation, picker);
         Charts = new ChartsViewModel(actions, http, navigation, dialogs);
+        Podcasts = new PodcastsViewModel(actions, http);
         News = new NewsViewModel(actions, http);
     }
 
@@ -69,7 +71,9 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     public NewsViewModel News { get; }
 
-    private IEnumerable<LibraryTabViewModel> All => [Records, Acts, Releases, Playlists, Charts, News];
+    public PodcastsViewModel Podcasts { get; }
+
+    private IEnumerable<LibraryTabViewModel> All => [Records, Acts, Releases, Playlists, Charts, News, Podcasts];
 
     /// <summary>The records, which the shell asks after to know whether the page has been read.</summary>
     public ObservableCollection<TrackRowViewModel> Tracks => Records.Tracks;
@@ -89,6 +93,8 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     public bool IsNews => Tab == LibraryTab.News;
 
+    public bool IsPodcasts => Tab == LibraryTab.Podcasts;
+
     /// <summary>The tab showing.</summary>
     public LibraryTabViewModel Current => Tab switch
     {
@@ -97,6 +103,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         LibraryTab.Playlists => Playlists,
         LibraryTab.Charts => Charts,
         LibraryTab.News => News,
+        LibraryTab.Podcasts => Podcasts,
         _ => Records,
     };
 
@@ -131,6 +138,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         OnPropertyChanged(nameof(IsPlaylists));
         OnPropertyChanged(nameof(IsCharts));
         OnPropertyChanged(nameof(IsNews));
+        OnPropertyChanged(nameof(IsPodcasts));
         OnPropertyChanged(nameof(Current));
 
         _ = Current.OpenAsync();

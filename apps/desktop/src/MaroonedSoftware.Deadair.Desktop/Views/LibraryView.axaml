@@ -26,6 +26,8 @@
                         Command="{Binding ShowTabCommand}" CommandParameter="Charts" />
                 <Button Classes="tab" Classes.active="{Binding IsNews}" Content="News"
                         Command="{Binding ShowTabCommand}" CommandParameter="News" />
+                <Button Classes="tab" Classes.active="{Binding IsPodcasts}" Content="Podcasts"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Podcasts" />
             </WrapPanel>
         </StackPanel>
 
@@ -50,6 +52,9 @@
             </Panel>
             <Panel IsVisible="{Binding IsNews}">
                 <views:NewsTab DataContext="{Binding News}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsPodcasts}">
+                <views:PodcastsTab DataContext="{Binding Podcasts}" />
             </Panel>
         </Panel>
 

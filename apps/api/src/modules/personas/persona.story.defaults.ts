@@ -47,14 +47,15 @@ import type { PersonaStoryDraft } from './persona.story.js';
  * something the station arrived with.
  */
 export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStoryDraft[]>> = {
+    // Both inside the sheet's fence: the heat is in what is left unsaid, and nobody real in either.
     latenight: [
         {
-            title: 'The caller who never spoke',
-            story: 'Somebody used to ring this place around three in the morning and never say anything. I would say hello, and there would be breathing, and a clock somewhere behind it. Went on for a winter. I still say hello to the room sometimes, out of habit.',
+            title: 'The red light bulb',
+            story: 'First week I had this shift, I took the bulb out of the studio lamp and put a red one in. The engineer asked me what it was for. I told him it was for the listeners, and he said they cannot see it. Mm. They can hear it, though. It has been red in here ever since.',
         },
         {
-            title: 'The night the heating failed',
-            story: 'One February the heating in this building gave out and I did the whole shift in a coat and a pair of gloves with the fingers cut off. You can hear it if you ever find a tape. Every word about two feet closer to the microphone than it needed to be.',
+            title: 'The couple in the back booth',
+            story: 'I used to sing in a little club where the same couple sat in the back booth every Friday and never once danced. Years of it. Then one night, on the slowest song I had, the two of them got up and danced, just the two of them, in the middle of the room. They left before the next song. Some things you just let be.',
         },
     ],
     countdown: [

@@ -1487,13 +1487,32 @@ const HOSTS = [
         // A third of a character's airtime is this floor (the conspiracy sheet measured it), so the
         // uptalk and the enthusiasm are both here and the contempt is not: a phrasing cannot know what
         // the record is, and the one thing it may say about it is that it is on.
+        //
+        // ## The slang reached the floor, 2026-09-30
+        //
+        // The diction note above widened what the MODEL says, and these six still said `Totally`,
+        // `For sure` and `majorly` and nothing else, on a station where the floor wrote 51 of her 275
+        // breaks in a fortnight. So each one now carries a different word from the loving half of the
+        // slang clause, and there are eight rather than six, since a character whose model is refused
+        // repeats inside an hour off six. Every word is praise and none says anything about the
+        // record beyond that it is on, which is the rule above: loving it is the one thing she may do
+        // blind. The disgust words stay out for the same reason the contempt does.
+        //
+        // Seven of the eight carry "like", at the operator's call, and as the filler between commas in
+        // front of the word that matters or as the quotative, which are the two of the diction
+        // clause's three moves a phrasing can make without a number to put it in front of.
+        //
+        // The two new ones open on their own words (`Oh my god`, `I was like, no way`) so `wasHeard`
+        // has an opening to spend them on, and one of each still stands alone at either end of an order.
         templates: [
-            "That was {{previous.title}} from {{previous.artist}}? Totally.[[ And next it's {{next.artist}}, with {{next.title}}?]]",
+            "That was {{previous.title}} from {{previous.artist}}? It was, like, so rad.[[ And next it's {{next.artist}}, with {{next.title}}?]]",
             '{{previous.artist}} there, with {{previous.title}}. For sure.[[ Okay, so next? {{next.title}}.]]',
-            "You're on {{station.name}}? Good choice.[[ That was {{previous.title}}, {{previous.artist}}.]][[ Next, {{next.artist}}, {{next.title}}.]]",
-            "Okay, so next? It's {{next.title}}, from {{next.artist}}, and it's, like, on the radio, so.",
+            "You're on {{station.name}}? That's, like, totally the right one.[[ That was {{previous.title}}, {{previous.artist}}.]][[ Next, {{next.artist}}, {{next.title}}.]]",
+            "Okay, so next? It's {{next.title}}, from {{next.artist}}, and it's, like, on the radio, so. Excellent to the max.",
             "{{next.artist}} with {{next.title}}? It's, like, majorly the best.",
-            "It's {{clock.rough}} and you're on {{station.name}}?[[ That was {{previous.title}}, {{previous.artist}}.]][[ Next, {{next.artist}}, {{next.title}}.]]",
+            "It's {{clock.rough}} and you're on {{station.name}}, which is, like, mega?[[ That was {{previous.title}}, {{previous.artist}}.]][[ Next, {{next.artist}}, {{next.title}}.]]",
+            "Oh my god, {{previous.title}}? From {{previous.artist}}? It's, like, tubular to the max.[[ And next it's {{next.title}}, from {{next.artist}}.]]",
+            'I was like, no way, but {{next.artist}} is next? With {{next.title}}? Rad to the max.',
         ].join('\n'),
     },
     {

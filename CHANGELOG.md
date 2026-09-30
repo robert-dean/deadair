@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.37.7] — 2026-09-30
+
+- The seeded late-night host is a soul singer now. The quiet companion under the `latenight` key is a velvet-voiced crooner who traded the stage for the small hours and seduces one listener slowly, one record at a time: a low croon, "baby", "darling" or "sugar" once a break at most, and the lights always a little lower than they were. It is written in the manner of one seventies soul singer and names nobody, on the roster's archetypes-never-impersonations rule, and it quotes no song. The sheet fences the register: the heat is in the delivery and what is left unsaid, never explicit, graphic or a description of a body, and the station's explicit-content setting outranks it either way. The key and the voice are unchanged, so a schedule row naming it still resolves, and both seeded stories are rewritten to match. Seeds are written only on a station with no personas, so an existing station keeps the sheet it has until somebody edits it.
+
 ## [0.37.6] — 2026-09-30
 
 - The host introduces a caller and sees them off. A phone-in's first turn now puts the caller on air by name instead of reading out the date and time, and its last turn thanks them and says goodbye instead of asking one more question and leaving them on the line.
@@ -982,7 +986,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.37.6...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.37.7...HEAD
+[0.37.7]: https://github.com/robert-dean/deadair/compare/v0.37.6...v0.37.7
 [0.37.6]: https://github.com/robert-dean/deadair/compare/v0.37.5...v0.37.6
 [0.37.5]: https://github.com/robert-dean/deadair/compare/v0.37.4...v0.37.5
 [0.37.4]: https://github.com/robert-dean/deadair/compare/v0.37.3...v0.37.4

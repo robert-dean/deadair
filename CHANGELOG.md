@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.37.6] — 2026-09-30
+
+- The host introduces a caller and sees them off. A phone-in's first turn now puts the caller on air by name instead of reading out the date and time, and its last turn thanks them and says goodbye instead of asking one more question and leaving them on the line.
+
 ## [0.37.5] — 2026-09-30
 
 - The seeded nineties host is an emo kid now. The sheet under the `slacker` key was a jock who could not be bothered and is a monotone teenager in black who is bothered by everything: life is pain, everybody outside the booth is a conformist or a poser, and "it gets it" is the highest praise a record can earn. The key, the voice and the decade are unchanged, so a schedule row naming it still resolves. The darkness is pointed at small things (a pep rally, the sun, a mother who calls it a phase) and the sheet forbids self-harm, real deaths and unkindness about a person by name. Seeds are written only on a station with no personas, so an existing station keeps the sheet it has until somebody edits it.
@@ -978,7 +982,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.37.5...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.37.6...HEAD
+[0.37.6]: https://github.com/robert-dean/deadair/compare/v0.37.5...v0.37.6
 [0.37.5]: https://github.com/robert-dean/deadair/compare/v0.37.4...v0.37.5
 [0.37.4]: https://github.com/robert-dean/deadair/compare/v0.37.3...v0.37.4
 [0.37.3]: https://github.com/robert-dean/deadair/compare/v0.37.2...v0.37.3

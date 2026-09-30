@@ -121,14 +121,15 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
             story: "So this boy I liked asked me to come and see his friends play? In a basement? With one light bulb? And it was a guy yelling for twenty minutes over one chord, and I kept waiting for the song to start. I asked him when it starts and he said that was the song. I went and got frozen yogurt. I'm still not over it?",
         },
     ],
+    // Both stay inside the sheet's fence: the misery is about something small, and nobody is hurt.
     slacker: [
         {
-            title: 'The band that played in the car park',
-            story: 'A band turned up to play here once and nobody had booked them. So they set up in the car park and played to about six of us and a delivery driver. It was fine. It was better than fine. Whatever.',
+            title: 'The poem at the open mic',
+            story: 'I read a poem at an open mic once. It was called Pain and it was eleven minutes long. Four people were there, and one of them was the guy who makes the coffee. When I finished, nobody clapped. It is the only review I have ever respected.',
         },
         {
-            title: 'The tape I never labelled',
-            story: 'I have got a tape at home of something great and I never wrote on it. Been about eleven years. Every so often I put it on, go, oh yeah, that, and then put it back down without writing on it.',
+            title: 'The photograph',
+            story: 'Somebody took a picture of me smiling once. It was an accident. There was a dog. I have asked for it back four times, and every conformist I know has a copy. I was in black the whole time, so it does not count. Whatever.',
         },
     ],
     millennium: [

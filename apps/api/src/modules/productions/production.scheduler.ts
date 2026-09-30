@@ -278,3 +278,21 @@ export function titleFor(kind: string, at: number, zone: string): string {
     }).format(new Date(at));
     return `${kind.charAt(0).toUpperCase()}${kind.slice(1)}, ${when}`;
 }
+
+/**
+ * What a programme is called ON AIR: its title, unless that is {@link titleFor}'s label.
+ *
+ * The label is for an operator scanning a list and was handed to the model as the programme's name,
+ * so the conversation host's opening line on 24 September was "So it's Callin., Thu, Sept
+ * twenty-four, seventeen-twenty-six". A title somebody typed, a band's or a reading's, is still said.
+ * Matched on the shape `titleFor` produces for this kind rather than on a flag, because every row made
+ * before this has the label and no flag.
+ */
+export function spokenTitle(kind: string, title: string): string | undefined {
+    const named = `${kind.charAt(0).toUpperCase()}${kind.slice(1)}, `;
+    if (!title.startsWith(named)) return title;
+    return GENERATED_WHEN.test(title.slice(named.length)) ? undefined : title;
+}
+
+/** `titleFor`'s date and time: `Thu 24 Sept, 16:44`. */
+const GENERATED_WHEN = /^\p{L}{2,4}\.? \d{1,2} \p{L}{3,4}\.?, \d{2}:\d{2}$/u;

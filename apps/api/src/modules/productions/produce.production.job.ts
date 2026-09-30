@@ -37,6 +37,7 @@ import { beatPrompt, outlinePrompt, runInFrom } from './production.prompt.js';
 import { coerceOutline, priorityForSlot, type Production, type ProductionPass, type ProductionPlan } from './production.js';
 import { firstPass, nextPass, runsPass } from './production.passes.js';
 import { ProductionRepository } from './production.repository.js';
+import { spokenTitle } from './production.scheduler.js';
 
 /**
  * How long before its slot a production stops being background work.
@@ -260,7 +261,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 {
                     messages: outlinePrompt({
                         kind: claimed.kind,
-                        title: claimed.title,
+                        ...onAir(claimed),
                         ...(claimed.brief === undefined ? {} : { brief: claimed.brief }),
                         ...(subject === undefined ? {} : { subject }),
                         beats: plan.beats.length,
@@ -399,7 +400,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             // beat that failed twice for two different reasons is one nobody can diagnose.
             const prompt = beatPrompt({
                 kind: claimed.kind,
-                title: claimed.title,
+                ...onAir(claimed),
                 ...(claimed.brief === undefined ? {} : { brief: claimed.brief }),
                 ...(subject === undefined ? {} : { subject }),
                 ordinal: beat.ordinal,
@@ -583,7 +584,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 {
                     messages: beatPrompt({
                         kind: claimed.kind,
-                        title: claimed.title,
+                        ...onAir(claimed),
                         ...(claimed.brief === undefined ? {} : { brief: claimed.brief }),
                         ...(subject === undefined ? {} : { subject }),
                         ordinal: beat.productionOrdinal ?? index,
@@ -1060,6 +1061,12 @@ function mineExcept(beats: readonly Segment[], plan: ProductionPlan, speaker: nu
 function firstTurnOf(plan: ProductionPlan, index: number, speaker: number): boolean {
     return !plan.beats.slice(0, index).some(beat => (beat.speaker ?? 0) === speaker);
 }
+
+/** The title the model is handed, which is none at all for a label nobody typed. See `spokenTitle`. */
+const onAir = (production: Production): { title?: string } => {
+    const title = spokenTitle(production.kind, production.title);
+    return title === undefined ? {} : { title };
+};
 
 /**
  * Who the host is talking TO on this programme, or nobody at all.

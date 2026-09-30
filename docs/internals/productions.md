@@ -170,6 +170,20 @@ and the caller simply appeared unintroduced, and the last beat matched no case a
 `guest` is a separate question from `previousSpeaker` and has to be, since the opening beat has nobody before
 it; `lastTurn` is a fact about the BEAT, since a programme has one ending however many people were on it.
 
+**Having those two rules was not the same as the host following them**, and on every call that aired by
+24 September it did not. Three things outweighed them. The last turn is also an ANSWERING turn, and every
+answering turn is told to leave the other person something to come back on, so the host asked one more
+question and the caller stayed on the line; the outline's angle for that beat was usually the same
+question, and it sits in the user turn where a model weighs more than the system turn. So a closing turn
+drops the come-back rule for "do not ask them anything", the sign-off is repeated as the user turn's
+last line, and the outline is told the host's first beat introduces the caller and the last one says
+goodbye, so it stops planning another question there. The opening was told to "set the programme up",
+and with twenty-odd words it spent them on the title and the time and put the caller on in three ("Dale,
+hit us up"). It is now told to introduce the call and nothing else, in the way a presenter does ("Dale,
+you're on the air"). The title it read out was `titleFor`'s console label ("Callin, Thu 24 Sept, 17:26")
+handed over as the programme's name. `spokenTitle` withholds that label from both prompts, so only a
+title somebody actually typed is said.
+
 **A production beat is never recast alone** (`SegmentRepository.recast` skips `production_id`), since a recast
 re-offers what the outgoing host had lined up, which is right for a break and a hole in the middle of a
 programme for a beat, and a caller differs from the incoming host by definition.

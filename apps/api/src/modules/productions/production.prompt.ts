@@ -46,7 +46,12 @@ export const TAIL_WORDS = 40;
 /** What the outline pass is working from. */
 export interface OutlineRequest {
     kind: string;
-    title: string;
+    /**
+     * What the programme is called on air. Absent when nobody named it: `titleFor`'s label is for the
+     * console's list, and handed over as the programme's name it was read out as the host's opening
+     * line ("So it's Callin, Thu 24 Sept, 17:26"). See `spokenTitle`.
+     */
+    title?: string;
     /** What the operator asked for, in their own words. */
     brief?: string;
     /** Why the caller rang, for a programme with no brief. See `callSubjectOf`. */
@@ -91,7 +96,8 @@ export interface OutlineRequest {
 /** What one beat is written from. */
 export interface BeatRequest {
     kind: string;
-    title: string;
+    /** What the programme is called on air, or absent when nobody named it. See {@link OutlineRequest.title}. */
+    title?: string;
     brief?: string;
     /** Why the caller rang, for a programme with no brief. Every turn is told, as every turn is told the brief. */
     subject?: CallSubject;
@@ -296,7 +302,7 @@ export function outlinePrompt(request: OutlineRequest): LlmMessage[] {
     ].join('\n');
 
     const user = [
-        `The programme is called "${request.title}".`,
+        ...(request.title === undefined ? [] : [`The programme is called "${request.title}".`]),
         ...(request.brief === undefined ? [] : ['', `What was asked for: ${request.brief}`]),
         ...(request.brief !== undefined || request.subject === undefined
             ? []
@@ -321,7 +327,11 @@ export function outlinePrompt(request: OutlineRequest): LlmMessage[] {
                           'unless you were told.',
                   ]
             : ['', 'Cover these, by index:', ...request.items.map((item, index) => `${index}. ${item}`)]),
-    ].join('\n');
+    ]
+        .join('\n')
+        // Every block after the title opens with its own blank line, and an untitled programme has
+        // no title for the first of them to follow.
+        .trimStart();
 
     return [
         { role: 'system', content: system },
@@ -347,6 +357,10 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
     // Absent for a monologue, which is what keeps its prompt byte-identical to the one built before
     // callers existed.
     const guest = caller ? undefined : request.guest;
+    // The host seeing a caller off, which is the one turn where the conversation rules below are
+    // wrong: told to leave the caller something to come back on, the last turn of every live call
+    // asked another question and left them on the line.
+    const closing = guest !== undefined && request.lastTurn === true;
 
     const system = [
         caller
@@ -392,12 +406,20 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
             : [
                   '- You have already introduced yourself. Do not say your own name, your history or your credentials again; this audience has been listening for a while.',
               ]),
-        answering
-            ? // The failure a conversation has that a monologue cannot: two people taking turns to
-              // read out prepared statements. What makes it a call is that each turn is about the
-              // last one.
-              '- Answer what was just said to you before you say anything else. Make one point, and leave the other person something to come back on.'
-            : '- Make the beat about one thing and develop it. Covering less, properly, beats covering more.',
+        ...(closing
+            ? ['- Answer what was just said to you in a sentence, then wind the call up. Do not ask them anything: nobody comes back after this.']
+            : answering
+              ? // The failure a conversation has that a monologue cannot: two people taking turns to
+                // read out prepared statements. What makes it a call is that each turn is about the
+                // last one.
+                [
+                    '- Answer what was just said to you before you say anything else. Make one point, and leave the other person something to come back on.',
+                ]
+              : // Nothing for the host putting a caller on, whose turn is told to hand over and stop:
+                // "develop one thing" straight after that is the host keeping the floor.
+                opening && guest !== undefined
+                ? []
+                : ['- Make the beat about one thing and develop it. Covering less, properly, beats covering more.']),
         // The general version of this rule ("do not invent names, dates, figures") was in place for
         // the first live runs and did not hold: one came back with a lab in the wrong city, a decade
         // that had not happened yet, a part count off the assembly line and a spec that does not
@@ -429,7 +451,7 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
         ...(request.language === undefined ? [] : ['', languageRule(request.language)]),
     ].join('\n');
 
-    const parts: string[] = [`The programme is called "${request.title}".`];
+    const parts: string[] = request.title === undefined ? [] : [`The programme is called "${request.title}".`];
     // Who the other person is, which the host in particular cannot do without: putting somebody on
     // air means saying their name, and a presenter who was never told it says "our caller" for a
     // whole programme.
@@ -514,6 +536,9 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
     }
 
     parts.push(`Write beat ${request.ordinal + 1}${request.beat === undefined ? '' : `, "${request.beat.title}"`}, in about ${request.words} words.`);
+    // Again at the very end, where a model weighs most, because the outline's angle for this beat is
+    // usually one more thing to ask and the system turn's rule lost to it on every live call.
+    if (closing) parts.push(`This is where the call ends: thank ${nameOf(guest)}, say goodbye to them, and hand back to the music.`);
 
     if (request.correction !== undefined) parts.push(request.correction);
 
@@ -660,10 +685,15 @@ function openingRule(where: { opening: boolean; caller: boolean; arriving: boole
         // Named, because the alternative is what happened: a host who was never told who was waiting
         // says "our caller" or, worse, nothing at all, and somebody the listener has not been
         // introduced to starts talking.
+        //
+        // Told to "set the programme up" first, the host spent its twenty-odd words on the title and
+        // the time and put the caller on in three: "Dale, hit us up". A phone-in's set-up IS the
+        // caller, so the turn is the introduction and nothing else.
         if (where.guest !== undefined) {
             return [
                 `- This is the OPENING beat, and ${nameOf(where.guest)} is holding on the line waiting to come on.`,
-                `- Set the programme up in a sentence or two, then bring ${nameOf(where.guest)} in by name and hand over to them. Ask them something or invite them to say what they rang about — do not answer it yourself.`,
+                `- Introduce the call: tell the listener you have somebody on the line, say who it is, and put ${nameOf(where.guest)} on air the way a presenter does ("${nameOf(where.guest)}, you're on the air").`,
+                '- Then invite them to say what they rang about, and stop. Do not answer it yourself, and do not read out the date, the time or the name of the programme.',
             ];
         }
 
@@ -702,6 +732,9 @@ function dialogueRules(speakers: OutlineRequest['speakers']): string[] | undefin
         '- This is a conversation, not a talk. Each beat is one TURN by the person named against it below.',
         "- A caller's turn is what somebody who rang the station would actually say: their own experience, their own opinion, their own question.",
         "- The host's turns are the ones that introduce them, ask them something, and answer what they said.",
+        // Stated here as well as on the two turns, because a beat is handed this plan's angle for it
+        // and an angle of one more question beat the beat prompt's sign-off on every live call.
+        "- The host's FIRST beat puts the caller on air and nothing more. The host's LAST beat is where the call ends: they thank the caller and say goodbye. Plan nothing new for it.",
         '- Plan the turns so each one has something to react to. A turn that could have been said first is a turn nobody is listening to.',
     ];
 }

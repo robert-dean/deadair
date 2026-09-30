@@ -122,7 +122,8 @@ describe('putting a caller on air and taking them off again', () => {
         const system = systemOf(turn({ ...base, ordinal: 0, speaker: host, guest: dale }));
 
         expect(system).toMatch(/Dale is holding on the line/);
-        expect(system).toMatch(/bring Dale in by name/);
+        expect(system).toMatch(/say who it is, and put Dale on air/);
+        expect(system).not.toMatch(/develop it/);
         // The other half of handing over: a host who asks and then answers has not handed over.
         expect(system).toMatch(/do not answer it yourself/i);
     });
@@ -140,6 +141,41 @@ describe('putting a caller on air and taking them off again', () => {
         expect(system).toMatch(/this is where the call ENDS|it is where the call ENDS/);
         expect(system).toMatch(/Thank Dale/);
         expect(system).toMatch(/say goodbye to them/);
+    });
+
+    it('makes the opening turn the introduction, and nothing else', () => {
+        // Told to set the programme up first, the host read out the title and the time and put the
+        // caller on in three words: "Dale, hit us up".
+        const system = systemOf(turn({ ...base, ordinal: 0, speaker: host, guest: dale }));
+
+        expect(system).toMatch(/tell the listener you have somebody on the line/);
+        expect(system).toContain("Dale, you're on the air");
+        expect(system).toMatch(/do not read out the date, the time or the name of the programme/);
+        expect(system).not.toMatch(/Set the programme up/);
+    });
+
+    it('does not leave the caller something to come back on in the last turn', () => {
+        // The rule every answering turn gets, and the reason every live call ended on another
+        // question with the caller still on the line.
+        const system = systemOf(turn({ ...base, speaker: host, previousSpeaker: dale, guest: dale, lastTurn: true }));
+
+        expect(system).not.toContain('leave the other person something to come back on');
+        expect(system).toContain('Do not ask them anything');
+    });
+
+    it('says the call ends at the very end of the last turn, after the outline angle', () => {
+        const user = userOf(
+            turn({
+                ...base,
+                speaker: host,
+                previousSpeaker: dale,
+                guest: dale,
+                lastTurn: true,
+                beat: { title: 'One more question', angle: 'ask Dale what he would play next' },
+            }),
+        );
+
+        expect(user.trimEnd().split('\n').at(-1)).toBe('This is where the call ends: thank Dale, say goodbye to them, and hand back to the music.');
     });
 
     it('does not tell a middle beat anything of the sort', () => {
@@ -462,5 +498,35 @@ describe('a production on a station that does not broadcast in English', () => {
 
     it('says nothing about language on an English station', () => {
         expect(systemOf(turn({ ...base, speaker: host }))).not.toContain('Write every word you say in');
+    });
+});
+
+describe('the title', () => {
+    it('is named when somebody named it', () => {
+        expect(userOf(turn({ ...base }))).toContain('The programme is called "Phone-in".');
+    });
+
+    it('is left out when nobody did, so the label is never read out as the programme', () => {
+        const { title: _, ...untitled } = base;
+        const user = userOf(turn({ ...untitled }));
+
+        expect(user).not.toContain('The programme is called');
+        expect(user.startsWith('\n')).toBe(false);
+    });
+
+    it('leaves an untitled outline starting on its first real line', () => {
+        const messages = outlinePrompt({ kind: 'callin', beats: 7, wordsPerBeat: 25, brief: 'the mall' });
+
+        expect(String(messages[1]?.content).startsWith('What was asked for: the mall')).toBe(true);
+    });
+});
+
+describe('the outline of a call', () => {
+    it("plans the host's first turn as the introduction and the last as the goodbye", () => {
+        const speakers = [host, dale, host].map((who, ordinal) => ({ ordinal, who }));
+        const system = String(outlinePrompt({ kind: 'callin', title: 'Phone-in', beats: 3, wordsPerBeat: 25, speakers })[0]?.content);
+
+        expect(system).toContain("The host's FIRST beat puts the caller on air");
+        expect(system).toContain("The host's LAST beat is where the call ends");
     });
 });

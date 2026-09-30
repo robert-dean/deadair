@@ -6,7 +6,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
-import { ProductionScheduler } from '../../../src/modules/productions/production.scheduler.js';
+import { ProductionScheduler, spokenTitle, titleFor } from '../../../src/modules/productions/production.scheduler.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 
@@ -216,5 +216,25 @@ describe('a broadcast that takes calls', () => {
         await scheduler.ripen(now, show);
 
         expect(opened[0]).not.toHaveProperty('scheduledFor');
+    });
+});
+
+// The label a production gets when nobody names it is for the console's list. Handed to the model as
+// the programme's name, it became the host's opening line.
+describe('what a programme is called on air', () => {
+    const at = Date.parse('2026-09-24T21:26:00Z');
+
+    it('is nothing for the label the station made up', () => {
+        expect(spokenTitle('callin', titleFor('callin', at, 'America/New_York'))).toBeUndefined();
+        expect(spokenTitle('callin', 'Callin, Thu 24 Sept, 17:26')).toBeUndefined();
+    });
+
+    it('is the title somebody typed, including one that starts like the label', () => {
+        expect(spokenTitle('callin', 'The Rant Line')).toBe('The Rant Line');
+        expect(spokenTitle('callin', 'Callin, with Dale')).toBe('Callin, with Dale');
+    });
+
+    it("is another kind's label left alone, since it is not this kind's", () => {
+        expect(spokenTitle('callin', titleFor('podcast', at, 'UTC'))).toBe(titleFor('podcast', at, 'UTC'));
     });
 });

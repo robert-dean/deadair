@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.37.3] — 2026-09-30
+
+- A style search now answers with the records tagged exactly that style before the ones that only contain the word, so a brief searched as `pop` or `soul` no longer draws a thrash record tagged `pop/rock` or titled "Souls of Black".
+
 ## [0.37.2] — 2026-09-29
 
 - A restart no longer replays the record that was on air before it. The running order was saved only when the station lined up a new record, so a record that started while the next one was still downloading stayed saved as waiting to play, and the next boot queued it again. It aired twice inside the repeat window, as the first record after the restart. The order is now saved within two seconds of every record going on air.
@@ -966,7 +970,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.37.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.37.3...HEAD
+[0.37.3]: https://github.com/robert-dean/deadair/compare/v0.37.2...v0.37.3
 [0.37.2]: https://github.com/robert-dean/deadair/compare/v0.37.1...v0.37.2
 [0.37.1]: https://github.com/robert-dean/deadair/compare/v0.37.0...v0.37.1
 [0.37.0]: https://github.com/robert-dean/deadair/compare/v0.36.1...v0.37.0

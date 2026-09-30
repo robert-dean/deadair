@@ -71,3 +71,15 @@ export function directionFor(sort: 'asc' | 'desc'): OrderByModifiers {
 export function likeContains(search: string): string {
     return `%${search.replace(/[\\%_]/g, character => `\\${character}`)}%`;
 }
+
+/**
+ * A user's search term as a `LIKE` pattern that matches the whole value and nothing longer.
+ *
+ * {@link likeContains} without the wildcards around it, so under `ilike` it is equality that ignores
+ * case. It exists for ranking rather than for filtering: a search that matches by containment can
+ * still ask which of its rows ARE the term, and the two patterns have to escape identically or the
+ * ranking and the filter disagree about a name with a `%` in it.
+ */
+export function likeExactly(search: string): string {
+    return search.trim().replace(/[\\%_]/g, character => `\\${character}`);
+}

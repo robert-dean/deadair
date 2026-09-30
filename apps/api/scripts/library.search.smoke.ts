@@ -263,6 +263,41 @@ try {
         const differs = JSON.stringify(await ordered('broadcast-a')) !== JSON.stringify(await ordered('broadcast-b'));
         say(`  ${differs ? 'ok  ' : 'note'} a different seed ${differs ? 'answers differently' : 'happened to agree, which four rows may'}`);
 
+        // ── what IS the search outranks what only contains it ─────────────────
+        say('a style against the longer words it is part of');
+
+        // The live failure in miniature: `pop` is part of `pop/rock`, which one source hangs on every
+        // rock record, and part of a title. Both are still matches, and with more exact rows than
+        // the page holds neither may take a place from one. Distinct words from `STYLE`, so the
+        // vocabulary checks below are not counting these.
+        const EXACT = 'zzsmokepop';
+        const umbrella = await artist('umbrella', [`${EXACT}/rock`]);
+        await track(umbrella, 'umbrella-tag');
+        await track(umbrella, `${EXACT}s of black`);
+        const exact = await artist('exact', [EXACT.toUpperCase()]);
+        for (const title of ['exact-a', 'exact-b', 'exact-c']) await track(exact, title);
+        // An artist of their own with nothing found about them, so these two are exact by the
+        // record's tag and by the promoted column alone.
+        const untagged = await artist('untagged', undefined);
+        await track(untagged, 'exact-own-tag', { genres: [EXACT] });
+        await track(untagged, 'exact-promoted', { genre: EXACT });
+
+        /** The first `limit` rows a search answers with, in the order it answered. */
+        const page = async (query: string, limit: number, seed: string): Promise<string[]> =>
+            (await tracks.searchPlayable(query, limit, false, { seed })).map(row => row.title.slice(TAG.length + 1));
+
+        const exactTitles = ['exact-a', 'exact-b', 'exact-c', 'exact-own-tag', 'exact-promoted'];
+        // Several seeds, because the bug was a draw: any one ordering can put the right five first
+        // by chance, and seven rows do that one time in twenty-one.
+        for (const seed of ['a', 'b', 'c', 'd', 'e', 'f']) {
+            check(`a page of exact matches holds nothing else (seed ${seed})`, (await page(EXACT, 5, seed)).sort(), exactTitles);
+        }
+        check('what only contains the search still answers once the exact rows run out', (await page(EXACT, LIMIT, 'a')).slice(5).sort(), [
+            'umbrella-tag',
+            `${EXACT}s of black`,
+        ]);
+        check('a style only ever spelled inside a longer one is still found', (await found(`${EXACT}/ro`)).length, 2);
+
         // ── the vocabulary, which is a promise about the search above ─────────
         say('the words the library answers to');
 

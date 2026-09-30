@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.37.4] — 2026-09-30
+
+- The valley girl host (Tiffani) keeps her slang when the station falls back on her own phrasings: each one carries a different word (rad, excellent, tubular, "to the max"), most of them say "like", and there are eight rather than six so she repeats less. This changes the character a fresh station starts with. A station that already has her keeps its own sheet, which can be edited on the Personas page.
+
 ## [0.37.3] — 2026-09-30
 
 - A style search now answers with the records tagged exactly that style before the ones that only contain the word, so a brief searched as `pop` or `soul` no longer draws a thrash record tagged `pop/rock` or titled "Souls of Black".
@@ -970,7 +974,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.37.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.37.4...HEAD
+[0.37.4]: https://github.com/robert-dean/deadair/compare/v0.37.3...v0.37.4
 [0.37.3]: https://github.com/robert-dean/deadair/compare/v0.37.2...v0.37.3
 [0.37.2]: https://github.com/robert-dean/deadair/compare/v0.37.1...v0.37.2
 [0.37.1]: https://github.com/robert-dean/deadair/compare/v0.37.0...v0.37.1

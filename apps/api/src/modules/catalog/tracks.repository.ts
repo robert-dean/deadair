@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { sql, type ExpressionBuilder } from 'kysely';
 import { DataRepository } from '../data/data.repository.js';
 import type { DB } from '../data/db.js';
-import { CatalogListQuery, columnFor, directionFor, likeContains } from './catalog.query.js';
+import { CatalogListQuery, columnFor, directionFor, likeContains, likeExactly } from './catalog.query.js';
 import { catalogKey, normalizeKey } from './catalog.keys.js';
 import { artUrl } from './catalog.art.js';
 import { creditedDislikeExists, noCreditedDislike } from './credited.dislike.js';
@@ -200,6 +200,23 @@ function taggedWith(pattern: string) {
         ${tags('track_enrichment', 'track_id', 'id')}
         union all
         ${tags('artist_enrichment', 'artist_id', 'artist_id')}
+    )`;
+}
+
+/**
+ * Whether the search is the WHOLE of a record's title, its artist's name or one of its styles,
+ * rather than part of one.
+ *
+ * The same four places {@link TracksRepository.searchPlayable} matches by containment, asked the
+ * stricter question, and only ever used to order that answer. Raw for the reason {@link taggedWith}
+ * is, and correlated on the same outer `deadair.tracks` and `deadair.artists`.
+ */
+function isExactly(pattern: string) {
+    return sql<boolean>`(
+        deadair.tracks.title ilike ${pattern}
+        or deadair.artists.name ilike ${pattern}
+        or deadair.tracks.genre ilike ${pattern}
+        or ${taggedWith(pattern)}
     )`;
 }
 
@@ -581,6 +598,19 @@ export class TracksRepository extends DataRepository {
             // filtered set too, and `taggedWith`'s two correlated jsonb subqueries per candidate row
             // dwarf a hash — `CandidatesRepository.sample` next door draws with `order by random()`
             // over the whole candidate set on the same argument about a station's scale.
+            //
+            // **What IS the search comes before what merely contains it**, and the hash only orders
+            // within each half. The match above is containment, which is right as a filter (`metal`
+            // has to reach `heavy metal`) and was wrong as the whole answer: `pop` is contained in
+            // `pop/rock`, the umbrella one source hangs on every rock record, and `soul` is contained
+            // in a title. Measured on the live station, 2026-09-30: briefed `billboard top 100 across
+            // the decades`, the model searched `pop` and `soul`, the hash put Anthrax's "Caught In A
+            // Mosh" and Testament's "Souls of Black" in the ten owned rows of each, and both were
+            // named. 588 records were tagged exactly `pop` and 122 exactly `soul` at the time, so a
+            // full page of the real thing was there and was drawn against 369 and 39 that were not.
+            // A rank and never a filter, so a style only ever spelled as part of a longer tag, and a
+            // title searched by one of its words, still answer once the exact rows run out.
+            .$if(matchesText, qb => qb.orderBy(sql`case when ${isExactly(likeExactly(search))} then 0 else 1 end`))
             .orderBy(sql`md5(deadair.tracks.id::text || ${options.seed ?? ''})`)
             .limit(limit)
             .execute();

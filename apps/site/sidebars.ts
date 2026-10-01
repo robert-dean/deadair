@@ -36,6 +36,7 @@ const sidebars: SidebarsConfig = {
                 'features/check-up',
                 'features/plugins',
                 'features/models-and-voices',
+                'features/making-a-voice',
                 'features/console',
                 'features/languages',
                 'features/listening',

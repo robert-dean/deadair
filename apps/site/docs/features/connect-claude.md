@@ -8,14 +8,14 @@ A station can let an app connect to it as one of its operators. Claude is the ap
 add the station as a custom connector in Claude, approve it once, and Claude reaches the station
 through its MCP endpoint as you. Any other MCP client that signs in with OAuth connects the same way.
 
-The endpoint offers no tools yet. Connecting now proves the way in works; what Claude can do once it
-is in comes next.
+Once it is in, Claude can tell you what is on air, run the station for you and change it, as far as
+you let it when you approve it. See [what it can do](#what-it-can-do).
 
 ## Turning it on
 
 It is off until you switch it on, so a station reachable from the internet does not start answering
 an authorization flow because it was upgraded. In the console, open **Settings → Sign-in and
-connections** and turn on **Let apps connect as you**. Leave **Apps may register themselves** on:
+security** and turn on **Let apps connect as you**. Leave **Apps may register themselves** on:
 that is how Claude connects without anybody setting it up first.
 
 The station must know its own public address, the one set as `APP_BASE_URL` (on unraid, **Public
@@ -34,7 +34,9 @@ https://radio.example.com/api/mcp
 
 Leave the client id and secret empty. Claude registers itself with the station, then sends you to the
 station's console to approve it. Sign in if you are not already, check that it names Claude and that
-your answer goes to `claude.ai`, and choose **Allow**. If your account has an authenticator, you are
+your answer goes to `claude.ai`, choose what it may do, and choose **Allow**. **Read only**, the
+default, lets it see what is on air, the schedule and the library, and ask for records. **Read and
+manage** lets it change the station too: skip, run the schedule, edit characters and playlists. If your account has an authenticator, you are
 asked for a code first, as you are for creating an API key.
 
 Claude Code works the same way. Its approval says the app runs on your own computer, and asks you to
@@ -42,9 +44,30 @@ allow it only if you have just started it there yourself.
 
 ## What it can do
 
-Exactly what you can, and no more. An app connected by a listener can read what a listener can read;
-one connected by an administrator can do what they can. It can never do what your account cannot,
-and losing a role takes that away from the app too.
+A handful of tools are offered to Claude up front, for the things people ask for most:
+
+- what is playing now, and whether the station is on air and why not
+- the timetable, and which show is on
+- searching for a record a listener may ask for, asking for one, and the requests you have made
+- skipping what is on air
+- who it is connected as, and what it may do
+
+Everything else the console does is one search away. Claude is given `search_api`, which finds any of
+the station's operations by what it does, and `call_api`, which runs the one it found: the running
+order, the library and its ratings, characters and their stories, playlists, the timetable and the
+format clock, podcasts, productions, plugins, the check-up and more. So "put the soul show on at
+ten", "what did the late-night host say about that record" or "why is it quiet" are all things
+you can just ask. Claude is told to check with you before anything that deletes or undoes, and every
+call it makes this way is written to the station's log.
+
+A few things are never offered, whatever your role: signing in and credentials, connected apps,
+first-run setup, plugin configuration and sign-in, changing the station's settings (it can read
+them) and its log files. Those stay in the console.
+
+Beyond that, it can do exactly what you can, and no more. An app connected by a listener can read
+what a listener can read; one connected by an administrator can do what they can, if it was allowed
+to manage. It can never do what your account cannot, and losing a role takes that away from the app
+too.
 
 Its access works at the MCP endpoint only. The token it holds is refused by every other part of the
 station's API, and the console's own sign-in is refused at the MCP endpoint.
@@ -64,7 +87,7 @@ off, in which case it has to be approved again.
 ## Apps that cannot register themselves
 
 For a client that has to be given its details, register it by hand on **Settings → Sign-in and
-connections**: a name, the addresses it may be sent back to, and whether it keeps a secret. Its client
+security**: a name, the addresses it may be sent back to, and whether it keeps a secret. Its client
 id and, if it has one, its secret are shown once. Give them to the client, and point it at the same
 `/api/mcp` address.
 

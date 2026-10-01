@@ -37,7 +37,7 @@ Three speech plugins are bundled:
 
 The `slim` image brings no voice: point a speech plugin at a machine with a graphics card.
 
-A voice is a name the station uses, such as `host`, `newsreader` or a character's own, and each speech plugin's Voices table says what that name sounds like on its engine. Where the engine can perform, a script may carry a cue: a presenter may laugh, chuckle, sigh or gasp, and a caller on a [phone-in](./phone-ins.md) may also cough, clear their throat, sniff or groan, because on a telephone that is the realism. Only cues the loaded engine reports are offered.
+A voice is a name the station uses, such as `host`, `newsreader` or a character's own, and each speech plugin's Voices table says what that name sounds like on its engine. Where the engine can perform, a script may carry a cue: a presenter may laugh, chuckle, sigh or gasp, and a caller on a [phone-in](./phone-ins.md) may also cough, clear their throat, sniff or groan, because on a telephone that is the realism. Only cues the loaded engine reports are offered. To give a character a voice of its own, see [making a voice](./making-a-voice.md).
 
 ## From words to audio
 

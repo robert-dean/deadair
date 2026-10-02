@@ -23,6 +23,14 @@ class ScriptRowUiStateTest {
     ) = ScriptAttempt(id = "a", at = Instant.parse("2026-09-06T20:00:00Z"), kind = "link", writer = writer, outcome = outcome, script = script, reason = reason, rating = rating)
 
     @Test
+    fun `what is copied is the words, never the reason standing in for them`() {
+        assertEquals("Here is Metallica.", ScriptRowUiState(attempt()).copyText)
+        assertNull(ScriptRowUiState(attempt(outcome = ScriptOutcome.DECLINED, script = null, reason = "nothing to say")).copyText)
+        // Words and a reason together: still the words.
+        assertEquals("Here is Metallica.", ScriptRowUiState(attempt(reason = "kept it short")).copyText)
+    }
+
+    @Test
     fun `a decline is standby, not a fault`() {
         assertEquals(ScriptTone.OK, ScriptRowUiState(attempt()).tone)
         assertEquals(ScriptTone.STANDBY, ScriptRowUiState(attempt(outcome = ScriptOutcome.DECLINED, script = null, reason = "nothing to say")).tone)

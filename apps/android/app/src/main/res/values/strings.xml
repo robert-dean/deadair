@@ -439,6 +439,8 @@
     <string name="hide_details">Hide details</string>
     <!-- Sharing a break: the station makes a small copy that a text message can carry. -->
     <string name="share_break">Share this break</string>
+    <string name="copy_what_it_said">Copy what it said</string>
+    <string name="copied_what_it_said">Copied what it said</string>
     <string name="share_send_this_break">Send this break</string>
     <string name="share_gone">The station no longer has the audio for that break.</string>
     <string name="share_cannot_copy">The station can\'t make a copy to send right now.</string>

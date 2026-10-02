@@ -36,6 +36,12 @@ data class ScriptRowUiState(val attempt: ScriptAttempt) {
     val rateable: Boolean get() = attempt.script != null
 
     /**
+     * The words to put on the clipboard, or `null` where there are none. Never the reason that
+     * stands in for them: somebody copying what the station SAID wants what it said.
+     */
+    val copyText: String? get() = attempt.script
+
+    /**
      * Absent stays absent, and is NOT neutral. Most attempts have never been read back, and drawing
      * them as deliberately-no-opinion would make an unreviewed history look like a reviewed one.
      */

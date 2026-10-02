@@ -215,6 +215,11 @@ sealed interface Message {
     /** The share button on a row, for TalkBack. */
     data object ShareBreak : Message
 
+    /** The copy button on a row, for TalkBack, before and after it has copied. */
+    data object CopyWhatItSaid : Message
+
+    data object CopiedWhatItSaid : Message
+
     /** The share sheet's title. */
     data object SendThisBreak : Message
 

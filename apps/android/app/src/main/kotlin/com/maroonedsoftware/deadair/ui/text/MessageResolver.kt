@@ -236,6 +236,8 @@ fun Message.resolve(): String =
         Message.FactBefore -> stringResource(R.string.fact_before)
         Message.FactNote -> stringResource(R.string.fact_note)
         Message.ShareBreak -> stringResource(R.string.share_break)
+        Message.CopyWhatItSaid -> stringResource(R.string.copy_what_it_said)
+        Message.CopiedWhatItSaid -> stringResource(R.string.copied_what_it_said)
         Message.SendThisBreak -> stringResource(R.string.share_send_this_break)
         Message.ShareGone -> stringResource(R.string.share_gone)
         Message.ShareCannotCopy -> stringResource(R.string.share_cannot_copy)

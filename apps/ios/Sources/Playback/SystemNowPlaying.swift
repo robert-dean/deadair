@@ -9,11 +9,14 @@ import MediaPlayer
 /// connection is still a listener and the station would stay on air for five minutes for nobody.
 /// Previous, seeking and scrubbing are withdrawn: a live stream has no position.
 ///
-/// **Next is the OPERATOR's Skip, and it is registered and disabled.** A listener's lock screen
-/// draws nothing rather than a button the station would refuse. Turning it on is the operator
-/// remote's work, and it has to answer the question the desktop app answered with a setting that is
-/// off by default: a lock screen is in reach of anybody holding the phone, and one press cuts the
-/// record for everybody listening.
+/// **Next is the OPERATOR's Skip, offered only while the account is the operator, and that is the
+/// whole of the safety**, as on Android. A listener's lock screen draws nothing rather than a button
+/// the station would refuse. What it does NOT solve, accepted knowingly as Android accepted it: the
+/// same control means "next track" in every other app, so a passenger reaching for it in a car cuts
+/// the record for everybody listening, with no second press to think in. The desktop app answered
+/// that with a setting that is off by default; this app answers it as Android does. It is not gated
+/// on there being anything to skip either: the screen's Skip is, because it has the transport reading
+/// in front of it, and the player deliberately polls none of that.
 @MainActor
 final class SystemNowPlaying {
     var onPlay: (() -> Void)?

@@ -69,6 +69,19 @@ final class AppModel {
             readSlots: { try await session.withSession { try await $0.schedule.listSchedule().slots } },
             readPersonas: { try await session.withSession { try await $0.personas.listPersonas().personas } }
         )
+        listening.skip = { [transport] in await transport.skip() }
+        followOperatorRole()
+    }
+
+    /// The lock screen's next button follows the role for as long as the app lives, foreground or not:
+    /// a role taken away while the phone is locked takes the button with it.
+    private func followOperatorRole() {
+        listening.canSkip = session.state.isOperator
+        withObservationTracking {
+            _ = session.state
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.followOperatorRole() }
+        }
     }
 
     /// Ask an address whether it is a station, before it is kept.

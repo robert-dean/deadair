@@ -37,6 +37,17 @@ final class Listening {
     @ObservationIgnored private var audioObservers: [NSObjectProtocol] = []
     @ObservationIgnored private var resumeAfterInterruption = false
     @ObservationIgnored private var endBackgroundWork: (@MainActor () -> Void)?
+    @ObservationIgnored private var skipping = false
+
+    /// The operator's Skip, as the lock screen, headphones and a car's next button fire it.
+    @ObservationIgnored var skip: (@MainActor () async -> Void)?
+
+    /// Whether those controls offer next at all: only while the account operates the station. See
+    /// `SystemNowPlaying` for why that, and nothing else, is the safety.
+    var canSkip: Bool {
+        get { system.canSkip }
+        set { system.canSkip = newValue }
+    }
 
     init(settings: SettingsStore, nowPlaying: NowPlayingRepository, artwork: ArtworkLoader, userAgent: String) {
         self.settings = settings
@@ -56,6 +67,7 @@ final class Listening {
         conductor.onRetryDue = { [weak self] in self?.retarget(force: true) }
         system.onPlay = { [weak self] in self?.play() }
         system.onStop = { [weak self] in self?.stop() }
+        system.onSkip = { [weak self] in self?.skipFromSystem() }
         system.isPlaying = { [weak self] in self?.conductor.wantsToPlay ?? false }
         audioObservers = Platform.observeAudio { [weak self] event in self?.audio(event) }
         watchReadings()
@@ -87,6 +99,17 @@ final class Listening {
         gate.cancel()
         releaseBackgroundTime()
         system.clear()
+    }
+
+    /// One skip at a time from the system's controls: two in flight would take two records off air,
+    /// and a next button pressed twice in a car is exactly that.
+    private func skipFromSystem() {
+        guard canSkip, !skipping, let skip else { return }
+        skipping = true
+        Task {
+            await skip()
+            skipping = false
+        }
     }
 
     /// The app is pointed somewhere else. What was playing belonged to the old station.

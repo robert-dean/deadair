@@ -34,6 +34,9 @@ struct SettingsScreen: View {
                 Text("Starts the station as the app opens, unless it is already playing. The station comes on air when you tune in, so the first seconds are quiet.")
             }
             AccountSection()
+            Section {
+                Link(String(localized: "Privacy policy"), destination: privacyPolicyURL)
+            }
         }
         .navigationTitle("Settings")
         .onAppear {

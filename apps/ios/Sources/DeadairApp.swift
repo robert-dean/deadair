@@ -25,7 +25,7 @@ struct RootView: View {
                 HomeTabs()
             }
         }
-        .operatorNotices()
+        .toasts()
         // The first appearance, not every foregrounding (which is what `scenePhase` would give);
         // `OpenPlay` answers yes once per process however often this runs.
         .task { model.opened() }

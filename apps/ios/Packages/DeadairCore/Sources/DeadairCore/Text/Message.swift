@@ -116,6 +116,11 @@ public enum Message: Equatable, Sendable {
     /// Who wrote it: "Model", "Floor", or the station's own word for a writer this app has no name for.
     case writer(String)
     case scriptFact(ScriptFactLabel)
+    case shareBreak
+    case shareGone
+    case shareCannotCopy
+    case shareCouldNotReach
+    case shareFailed
 
     // MARK: The operator
 

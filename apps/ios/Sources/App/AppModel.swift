@@ -19,6 +19,8 @@ final class AppModel {
     let schedule: ScheduleRepository
     /// The running order, for the Up next tab.
     let order: OrderRepository
+    /// What the app has to say about something somebody just did, drawn above every screen.
+    let toasts = Toasts()
     /// Every operator call goes through here, so a refusal is said once and the roles re-read.
     let operatorActions: OperatorActions
 
@@ -47,7 +49,7 @@ final class AppModel {
             readOrder: { try await session.withSession { try await $0.director.getTheRunningOrder() } },
             readPersonas: { try await session.withSession { try await $0.personas.listPersonas().personas } }
         )
-        operatorActions = OperatorActions(session: session)
+        operatorActions = OperatorActions(session: session, toasts: toasts)
         listening = Listening(settings: settings, nowPlaying: nowPlaying, artwork: artwork, userAgent: http.userAgent)
         // Through the session, which refreshes and replays once on a 401, and throws rather than asks
         // when nobody is signed in: these screens are only offered to a signed-in account anyway.

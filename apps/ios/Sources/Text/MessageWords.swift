@@ -97,6 +97,11 @@ extension Message {
         case .writer("deterministic"): String(localized: "Floor")
         case .writer(let other): other
         case .scriptFact(let label): label.words
+        case .shareBreak: String(localized: "Share this break")
+        case .shareGone: String(localized: "The station no longer has the audio for that break.")
+        case .shareCannotCopy: String(localized: "The station can't make a copy to send right now.")
+        case .shareCouldNotReach: String(localized: "Couldn't reach the station to get that break.")
+        case .shareFailed: String(localized: "Couldn't get that break ready to send.")
 
         case .operatorNotice(let notice): notice.words
         }

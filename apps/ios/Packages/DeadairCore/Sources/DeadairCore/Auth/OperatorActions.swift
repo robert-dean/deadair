@@ -39,10 +39,37 @@ public enum Notice: Equatable, Sendable {
     case failed(status: Int)
 }
 
-/// A notice, and which one it is, so the same notice raised twice is shown twice.
-public struct PostedNotice: Equatable, Sendable {
+/// Something said to whoever is holding the phone, and which one it is, so the same words said
+/// twice are shown twice.
+public struct Toast: Equatable, Sendable {
     public let id: Int
-    public let notice: Notice
+    public let message: Message
+}
+
+/// What the app has to say about something somebody just did, one thing at a time.
+///
+/// **Posted to the whole app.** Android lost a notice raised on a pushed screen because its
+/// collector lived on a screen that was not composed; here the toast is drawn above the navigation
+/// stack, so whichever screen raised it, it is on top of what the reader is looking at.
+@MainActor
+@Observable
+public final class Toasts {
+    /// What is being said, until it is dismissed or replaced.
+    public private(set) var current: Toast?
+
+    @ObservationIgnored private var said = 0
+
+    public init() {}
+
+    public func say(_ message: Message) {
+        said += 1
+        current = Toast(id: said, message: message)
+    }
+
+    /// The toast has been read, or its time is up. A newer one is left standing.
+    public func dismiss(_ id: Int) {
+        if current?.id == id { current = nil }
+    }
 }
 
 /// How every `platform.manage` call from the phone is made.
@@ -53,24 +80,17 @@ public struct PostedNotice: Equatable, Sendable {
 /// roles, which redraws the screen without the controls, and says so once, rather than leaving a
 /// button that fails silently on every press.
 ///
-/// Failures come out as a `Notice` rather than as errors at the call site, because every call site
-/// would otherwise catch the same three things and show the same message.
-///
-/// **One notice at a time, posted to the whole app.** Android lost a notice raised on a pushed screen
-/// because its collector lived on a screen that was not composed; here the toast is drawn above the
-/// navigation stack, so whichever screen raised it, it is on top of what the operator is looking at.
+/// Failures come out as a `Notice` on the app's `Toasts` rather than as errors at the call site,
+/// because every call site would otherwise catch the same three things and show the same message.
 /// `apps/android`'s `OperatorActions`.
 @MainActor
-@Observable
 public final class OperatorActions {
-    /// What the operator should be told, until it is dismissed or replaced.
-    public private(set) var notice: PostedNotice?
+    private let session: OperatorSession
+    private let toasts: Toasts
 
-    @ObservationIgnored private let session: OperatorSession
-    @ObservationIgnored private var posted = 0
-
-    public init(session: OperatorSession) {
+    public init(session: OperatorSession, toasts: Toasts) {
         self.session = session
+        self.toasts = toasts
     }
 
     /// Make one call. Answers what the station answered, or `nil` after posting a notice.
@@ -107,14 +127,8 @@ public final class OperatorActions {
         }
     }
 
-    /// The notice has been read, or its time is up. A newer one is left standing.
-    public func dismiss(_ id: Int) {
-        if notice?.id == id { notice = nil }
-    }
-
     private func post(_ notice: Notice) {
-        posted += 1
-        self.notice = PostedNotice(id: posted, notice: notice)
+        toasts.say(.operatorNotice(notice))
     }
 }
 

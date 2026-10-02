@@ -11,17 +11,21 @@ struct ScriptsScreen: View {
     @Environment(AppModel.self) private var model
     let segmentId: String?
     @State private var scripts: ScriptsRepository?
+    @State private var sharer = BreakSharer()
 
     var body: some View {
         Group {
             if let scripts {
-                Attempts(scripts: scripts)
+                Attempts(scripts: scripts, sharer: sharer)
             } else {
                 ProgressView()
             }
         }
         .navigationTitle(segmentId == nil ? String(localized: "What it said") : String(localized: "One break"))
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: Binding(get: { sharer.ready }, set: { sharer.ready = $0 })) { copy in
+            ShareSheet(url: copy.url).presentationDetents([.medium, .large])
+        }
         .task(id: model.session.stored?.email) {
             // One feed per page, narrowed to the break it was opened for, and a new one for a new account.
             let session = model.session
@@ -37,6 +41,7 @@ struct ScriptsScreen: View {
 private struct Attempts: View {
     @Environment(AppModel.self) private var model
     let scripts: ScriptsRepository
+    let sharer: BreakSharer
 
     var body: some View {
         switch scripts.list(signedIn: model.signedIn) {
@@ -62,7 +67,7 @@ private struct Attempts: View {
                 if stale { StaleBanner() }
                 TimelineView(.periodic(from: .now, by: 60)) { context in
                     ForEach(attempts, id: \.id) { attempt in
-                        AttemptRow(attempt: attempt, now: context.date)
+                        AttemptRow(attempt: attempt, now: context.date, sharer: sharer)
                     }
                 }
                 if canLoadMore {
@@ -84,8 +89,10 @@ private struct Attempts: View {
 }
 
 private struct AttemptRow: View {
+    @Environment(AppModel.self) private var model
     let attempt: ScriptAttempt
     let now: Date
+    let sharer: BreakSharer
     @State private var open = false
 
     var body: some View {
@@ -102,6 +109,26 @@ private struct AttemptRow: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
+                // Only where there is audio to send: words were written and the segment is still known.
+                if BreakShare.shareable(attempt) {
+                    Spacer()
+                    // A fixed frame, so the row does not reflow when the button turns into a spinner and back.
+                    Group {
+                        if sharer.busyId == attempt.id {
+                            ProgressView()
+                        } else {
+                            Button {
+                                sharer.share(attempt, with: model)
+                            } label: {
+                                Image(systemName: "square.and.arrow.up")
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(sharer.busyId != nil)
+                            .accessibilityLabel(Text(Message.shareBreak.words))
+                        }
+                    }
+                    .frame(width: 32, height: 24)
+                }
             }
             Text(ui.line)
                 .font(.callout)
@@ -122,9 +149,8 @@ private struct AttemptRow: View {
         .padding(.vertical, 4)
         .contentShape(Rectangle())
         .onTapGesture { withAnimation { open.toggle() } }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityHint(open ? Text("Hide details") : Text("Show details"))
-        .accessibilityAddTraits(.isButton)
     }
 
     private func color(_ tone: ScriptTone) -> Color {

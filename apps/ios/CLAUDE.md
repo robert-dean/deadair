@@ -223,8 +223,9 @@ not remembered as done.
 re-reads the roles and says the account is no longer the operator; a 403 that names a step-up
 (`details.kind` or `mfa_required` in the challenge) says so instead and leaves the roles alone,
 because the account still holds them. Android lost a refusal raised on a pushed screen, since its
-collector lived on a screen that was not composed. Here the toast is an overlay above the
-`NavigationStack`, so whichever screen raised it, it is on top. `ensureRoles` runs at the root too,
+collector lived on a screen that was not composed. Here every toast goes through one `Toasts`,
+drawn as an overlay above the tabs, so whichever screen raised it, it is on top; a break that could
+not be got ready to send says so the same way. `ensureRoles` runs at the root too,
 so a role taken away since the last run is noticed before an operator control is drawn.
 
 **The second factor is answered against the AUTHENTICATOR**, picked out of the challenge's factors,

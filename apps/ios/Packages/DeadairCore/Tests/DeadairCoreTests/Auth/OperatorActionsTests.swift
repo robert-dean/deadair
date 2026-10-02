@@ -31,33 +31,36 @@ struct OperatorActionsTests {
 
     @Test func answersWhatTheStationAnsweredAndPostsNothing() async {
         let session = Session(FakeStation { _ in .json(Bodies.session("admin")) })
-        let actions = OperatorActions(session: session)
+        let toasts = Toasts()
+        let actions = OperatorActions(session: session, toasts: toasts)
 
         let answer = await actions.run { try await skip($0) }
 
         #expect(answer == true)
-        #expect(actions.notice == nil)
+        #expect(toasts.current == nil)
     }
 
     @Test func aPlain403ReReadsTheRolesAndSaysTheAccountIsNoLongerTheOperator() async {
         let session = Session(FakeStation { _ in .json(#"{"message":"Forbidden"}"#, status: 403) })
-        let actions = OperatorActions(session: session)
+        let toasts = Toasts()
+        let actions = OperatorActions(session: session, toasts: toasts)
 
         let answer = await actions.run { try await skip($0) }
 
         #expect(answer == nil)
-        #expect(actions.notice?.notice == .noLongerOperator)
+        #expect(toasts.current?.message == .operatorNotice(.noLongerOperator))
         #expect(session.roleReads == 1)
     }
 
     @Test func aStepUpIsToldApartFromARefusalAndLeavesTheRolesAlone() async {
         let body = #"{"message":"Forbidden","details":{"kind":"step_up_required"}}"#
         let session = Session(FakeStation { _ in .json(body, status: 403) })
-        let actions = OperatorActions(session: session)
+        let toasts = Toasts()
+        let actions = OperatorActions(session: session, toasts: toasts)
 
         _ = await actions.run { try await skip($0) }
 
-        #expect(actions.notice?.notice == .stepUpNeeded)
+        #expect(toasts.current?.message == .operatorNotice(.stepUpNeeded))
         #expect(session.roleReads == 0)
     }
 
@@ -69,56 +72,61 @@ struct OperatorActionsTests {
 
     @Test func anExpectedStatusIsSaidInItsOwnWords() async {
         let session = Session(FakeStation { _ in .json(#"{"message":"Conflict"}"#, status: 409) })
-        let actions = OperatorActions(session: session)
+        let toasts = Toasts()
+        let actions = OperatorActions(session: session, toasts: toasts)
 
         _ = await actions.run(expected: [409: .nothingToResume]) { try await skip($0) }
 
-        #expect(actions.notice?.notice == .nothingToResume)
+        #expect(toasts.current?.message == .operatorNotice(.nothingToResume))
     }
 
     @Test func anyOtherRefusalCarriesItsStatus() async {
         let session = Session(FakeStation { _ in .json(#"{"message":"Teapot"}"#, status: 418) })
-        let actions = OperatorActions(session: session)
+        let toasts = Toasts()
+        let actions = OperatorActions(session: session, toasts: toasts)
 
         _ = await actions.run { try await skip($0) }
 
-        #expect(actions.notice?.notice == .failed(status: 418))
+        #expect(toasts.current?.message == .operatorNotice(.failed(status: 418)))
     }
 
     @Test func noAnswerAtAllIsCouldNotReach() async {
         let session = Session(FakeStation { _ in .unreachable })
-        let actions = OperatorActions(session: session)
+        let toasts = Toasts()
+        let actions = OperatorActions(session: session, toasts: toasts)
 
         _ = await actions.run { try await skip($0) }
 
-        #expect(actions.notice?.notice == .couldNotReach)
+        #expect(toasts.current?.message == .operatorNotice(.couldNotReach))
     }
 
     @Test func aSessionThatEndedUnderThePressSaysNothing() async {
         let session = Session(FakeStation { _ in .json("{}") })
         session.signedOut = true
-        let actions = OperatorActions(session: session)
+        let toasts = Toasts()
+        let actions = OperatorActions(session: session, toasts: toasts)
 
         let answer = await actions.run { try await skip($0) }
 
         #expect(answer == nil)
-        #expect(actions.notice == nil)
+        #expect(toasts.current == nil)
     }
 
     @Test func theSameNoticeTwiceIsTwoNoticesAndDismissingTheOldOneLeavesTheNew() async {
         let session = Session(FakeStation { _ in .unreachable })
-        let actions = OperatorActions(session: session)
+        let toasts = Toasts()
+        let actions = OperatorActions(session: session, toasts: toasts)
 
         _ = await actions.run { try await skip($0) }
-        let first = actions.notice
+        let first = toasts.current
         _ = await actions.run { try await skip($0) }
-        let second = actions.notice
+        let second = toasts.current
 
-        #expect(first?.notice == second?.notice)
+        #expect(first?.message == second?.message)
         #expect(first?.id != second?.id)
-        actions.dismiss(first!.id)
-        #expect(actions.notice == second)
-        actions.dismiss(second!.id)
-        #expect(actions.notice == nil)
+        toasts.dismiss(first!.id)
+        #expect(toasts.current == second)
+        toasts.dismiss(second!.id)
+        #expect(toasts.current == nil)
     }
 }

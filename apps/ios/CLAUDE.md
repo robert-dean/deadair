@@ -303,8 +303,8 @@ a moving playhead; MP3 and HLS both played, with the timings and titles above; s
 connection on both; the format picker greyed the two formats the station does not publish; and
 audio went on with the phone locked.
 
-Since then: the app has run on an iPhone SE (2nd generation) signed with a personal team, sign-in
-against the station works with its second factor, and every screen has been compared with Android's
+Since then: the app has run on an iPhone SE (2nd generation) signed with a personal team, the operator has
+signed in against the station from the simulator, and every screen has been compared with Android's
 in light and dark on the 17 Pro and the SE simulators (2026-10-02).
 
 Not yet: the lock-screen tile's appearance on the phone, an interruption from a call, a reconnect

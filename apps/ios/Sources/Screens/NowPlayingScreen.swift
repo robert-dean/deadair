@@ -7,6 +7,8 @@ struct NowPlayingScreen: View {
     @Environment(AppModel.self) private var model
     /// One operator command at a time: two skips in flight would take two records off air.
     @State private var busy = false
+    @State private var cover = CoverPaletteReader()
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let ui = model.nowPlayingUi
@@ -89,7 +91,7 @@ struct NowPlayingScreen: View {
                             await model.orderActions.shuffle()
                         }
                     }
-                    PlayButton()
+                    PlayButton(onAccent: cover.palette?.accent.map { Color(rgb: $0.onAccent) })
                     if model.isOperator, let transport {
                         operatorControl("forward.end.fill", label: String(localized: "Skip"), enabled: transport.skipEnabled) {
                             await model.transport.skip()
@@ -110,6 +112,18 @@ struct NowPlayingScreen: View {
                 }
             }
             .padding()
+        }
+        // The page wears the on-air cover's colours: its accent on the controls, its mesh behind them,
+        // drifting while the station is on air (not while this phone plays, which left it standing
+        // still for somebody listening elsewhere). The words keep the system's colours.
+        .tint(cover.palette?.accent.map { Color(rgb: $0.accent) })
+        .background {
+            if let mesh = cover.palette?.mesh, !mesh.isEmpty {
+                CoverMesh(colors: mesh, moving: reading?.value.onAir == true).opacity(colorScheme == .dark ? 0.55 : 0.45)
+            }
+        }
+        .task(id: "\(artworkURL(station: station, reading: reading?.value)?.absoluteString ?? "")|\(colorScheme == .dark)") {
+            await cover.read(artworkURL(station: station, reading: reading?.value), darkPage: colorScheme == .dark, loader: model.artwork)
         }
         .navigationTitle(reading?.value.station ?? model.settings.settings.stationName ?? "deadair")
         .navigationBarTitleDisplayMode(.inline)
@@ -158,6 +172,8 @@ func artworkURL(station: StationUrl?, reading: NowPlaying?) -> URL? {
 /// Play, or stop. Never pause: a paused connection is still a listener.
 struct PlayButton: View {
     @Environment(AppModel.self) private var model
+    /// What reads on the accent the button is filled with: black on a light cover colour, white on a dark one.
+    var onAccent: Color?
 
     var body: some View {
         let listening = model.listening
@@ -168,6 +184,7 @@ struct PlayButton: View {
                 Image(systemName: listening.wantsToPlay ? "stop.fill" : "play.fill")
                     .font(.system(size: 34))
                     .frame(width: 76, height: 76)
+                    .foregroundStyle(onAccent ?? .white)
             }
             .buttonStyle(.borderedProminent)
             .clipShape(Circle())

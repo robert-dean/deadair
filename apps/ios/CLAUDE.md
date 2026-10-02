@@ -140,6 +140,13 @@ The gate ignores a title it has just seen, so a repeat every segment costs nothi
 `log stream --info --predicate 'subsystem == "com.maroonedsoftware.deadair"'` shows each phase and
 each title as it arrives.
 
+**Now playing and Up next wear the on-air cover's colours**, Android's rule: `CoverPalette`
+(`coverAccent`, `meshColors`, ported with their tests) decides from the colours `Platform.coverColors`
+counts off a 24-by-24 copy of the cover. The accent tints the controls only, and a cover with no colour
+worth a button (black and white) keeps the app's green while still getting a grey mesh. The mesh drifts
+while the station is on air, stands still on Up next and with Reduce Motion, and is re-read when the
+page turns light or dark.
+
 **A closure handed to an Objective-C callback from a main-actor type must be written `@Sendable`.**
 Swift 6 gives a closure written inside a `@MainActor` type the main actor, and when the API it is
 handed to is not marked `Sendable` it checks at RUN time that the closure runs there. AVFoundation

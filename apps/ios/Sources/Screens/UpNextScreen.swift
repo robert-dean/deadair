@@ -12,6 +12,8 @@ import SwiftUI
 struct UpNextScreen: View {
     @Environment(AppModel.self) private var model
     @State private var historyOpen = false
+    @State private var cover = CoverPaletteReader()
+    @Environment(\.colorScheme) private var colorScheme
     /// Edit mode: rows are for moving rather than opening, and Done is the one obvious way out. Only
     /// for the operator.
     @State private var editMode: EditMode = .inactive
@@ -34,6 +36,20 @@ struct UpNextScreen: View {
         }
         .navigationTitle(String(localized: "Up next"))
         .navigationBarTitleDisplayMode(.inline)
+        // The on-air cover's colours, as on Now playing: its accent on the on-air row and the controls,
+        // its mesh behind the top of the list. Standing still here, since colour moving at the top of
+        // a list somebody is reading pulls the eye off the rows; and fading into the page below.
+        .tint(cover.palette?.accent.map { Color(rgb: $0.accent) })
+        .background {
+            if let mesh = cover.palette?.mesh, !mesh.isEmpty {
+                CoverMesh(colors: mesh, moving: false)
+                    .opacity(colorScheme == .dark ? 0.5 : 0.4)
+                    .mask(LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .init(x: 0.5, y: 0.45)))
+            }
+        }
+        .task(id: "\(onAirArtwork?.absoluteString ?? "")|\(colorScheme == .dark)") {
+            await cover.read(onAirArtwork, darkPage: colorScheme == .dark, loader: model.artwork)
+        }
         .toolbar {
             if model.isOperator, case .loaded = state {
                 ToolbarItem(placement: .topBarLeading) {
@@ -68,6 +84,11 @@ struct UpNextScreen: View {
             model.order.reset()
             await model.order.hold()
         }
+    }
+
+    /// The cover on air, through the same public reading Now playing draws.
+    private var onAirArtwork: URL? {
+        artworkURL(station: model.settings.settings.station, reading: model.nowPlaying.state.latest?.value)
     }
 
     private func placeholder(_ words: String) -> some View {
@@ -197,6 +218,7 @@ private struct Rows: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
             .sheet(isPresented: $pickingHost) { HostPicker(broadcast: broadcast) }
             // The station's answer is the order now; whatever was held for the drag is done with.
             .onChange(of: reading.order.items) { _, _ in held = nil }

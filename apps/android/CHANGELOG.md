@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.11.2] — 2026-10-02
+
+- A playlist can be aired with similar records mixed in from the phone, as it can from the console. The playlist page has a "Mix in similar records" box beside "Take calls"; left unticked it says nothing, so a station with mixing switched on still mixes into every playlist.
+
 ## [0.11.1] — 2026-10-02
 
 - Two of Google Play's release recommendations, answered. The app now ships a current AndroidX Fragment (1.9.1) rather than the 1.0.0 that Google's code scanner pulled in, and the code scanner no longer insists on portrait, so it turns with a tablet or a foldable like the rest of the app.
@@ -172,7 +176,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.11.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.11.2...HEAD
+[0.11.2]: https://github.com/robert-dean/deadair/compare/android-v0.11.1...android-v0.11.2
 [0.11.1]: https://github.com/robert-dean/deadair/compare/android-v0.11.0...android-v0.11.1
 [0.11.0]: https://github.com/robert-dean/deadair/compare/android-v0.10.0...android-v0.11.0
 [0.10.0]: https://github.com/robert-dean/deadair/compare/android-v0.9.0...android-v0.10.0

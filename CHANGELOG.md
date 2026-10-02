@@ -9,6 +9,14 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.38.1] — 2026-10-02
+
+- The station no longer throws away its own next record when the audio chain is slow to fetch it. If a record took more than five seconds to download, the station decided it had been lost and sent it again, then saw two copies and cleared both, which could leave a listener hearing the fallback music for several seconds. The audio chain now reports what it is still downloading, and the station counts that as delivered.
+- Clearing the audio chain's queue no longer trips an internal error in the audio chain. When the queue held a record ready to play and another waiting behind it, clearing them could start the waiting one downloading just before it was thrown away, and the audio chain logged an assertion failure. It now clears the waiting records first.
+- Records no longer lose the first moment of their audio. Most records arrive as Ogg files, and the audio chain was starting them a little past the point the station measured as where the music begins, sometimes by more than a second. They now start where they should.
+- Removing a plugin the station ships now clears out an installed copy of it left over from before the station shipped it. That copy never loads, and until now nothing could remove it short of deleting its folder by hand. The plugin the station ships is left running.
+- An installed copy of a plugin the station also ships now says why it never loads. The station's own copy always wins, and the log used to say only that another copy had loaded first. It now says the installed copy is never loaded and can be removed.
+
 ## [0.38.0] — 2026-10-02
 
 - Any client can now ask for a small copy of a talk break to send on by text message: `GET /segments/{id}/audio?rendition=share` answers AAC in an `.m4a`, mono at 64 kbps, so a minute is about half a megabyte where the rendered wav is three. The station makes the copy once, through the new `transcode` provider (the bundled audio analyzer), keeps it in its own directory (`SEGMENT_SHARE_DIR`, `media/share-copies` in the container) and sweeps it nightly once nobody has asked for it in "Keep copies listeners share for" (`render.shareCopyDays`, seven days by default; there is no setting that keeps them forever). Without the query the route answers exactly what it always did. A station with nothing that can make a copy answers 503 to the request and nothing else changes. Every SDK's `getSegmentAudio` takes the optional `rendition`.
@@ -991,7 +999,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.38.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.38.1...HEAD
+[0.38.1]: https://github.com/robert-dean/deadair/compare/v0.38.0...v0.38.1
 [0.38.0]: https://github.com/robert-dean/deadair/compare/v0.37.7...v0.38.0
 [0.37.7]: https://github.com/robert-dean/deadair/compare/v0.37.6...v0.37.7
 [0.37.6]: https://github.com/robert-dean/deadair/compare/v0.37.5...v0.37.6

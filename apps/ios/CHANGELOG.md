@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-10-02
+
+- A refresh asked for while nothing was showing no longer makes the next screen ask the station twice when it opens.
+
 ## [0.2.0] — 2026-09-13
 
 - A "Play when the app opens" switch in Settings, off by default. With it on, opening the app starts the station. Coming back to the app, or finishing setting up a new station, does not start it, and the first seconds are quiet while the station comes on air.

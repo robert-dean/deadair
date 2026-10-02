@@ -7,7 +7,6 @@ import SwiftUI
 /// it is the console's own data, not because a listener is unwelcome. `apps/android`'s
 /// `SignedOutPlaceholder`, heading, detail and button at its sizes.
 struct SignedOutPlaceholder: View {
-    @Environment(AppModel.self) private var model
     /// What this screen is called, as its heading.
     let what: String
 
@@ -19,7 +18,9 @@ struct SignedOutPlaceholder: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.top, 8)
-            Button(String(localized: "Sign in")) { model.tab = .settings }
+            // Opens the sign-in page over this screen, which closes itself on success, so the reader
+            // comes back here with it loaded rather than being sent to Settings to find a form.
+            NavigationLink(value: PageRoute.signIn) { Text(String(localized: "Sign in")) }
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.capsule)
                 .padding(.top, 24)

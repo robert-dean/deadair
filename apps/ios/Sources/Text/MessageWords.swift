@@ -314,3 +314,16 @@ extension ListeningState {
         }
     }
 }
+
+extension StreamFormat {
+    /// What each format is for, under its name in Settings.
+    var purpose: String {
+        switch self {
+        case .mp3: String(localized: "Always available")
+        case .hls: String(localized: "Survives moving between wifi and mobile data")
+        case .aac: String(localized: "Smaller than MP3 at the same quality")
+        case .opus: String(localized: "Smallest of all, and the newest")
+        case .flac: String(localized: "Lossless. Uses the most data")
+        }
+    }
+}

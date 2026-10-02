@@ -26,6 +26,8 @@ enum PageRoute: Hashable {
     case addRecord
     /// Everything the station has played.
     case history
+    /// Signing in as the station's operator.
+    case signIn
 
     /// A record's page from the id a row carries, or `nil` for a row whose id is not one.
     static func track(_ id: String?) -> PageRoute? {
@@ -46,6 +48,7 @@ enum PageRoute: Hashable {
         case "desk": return [.desk]
         case "manage": return [.manage]
         case "addRecord": return [.addRecord]
+        case "signIn": return [.signIn]
         case "track": return id.map { [.track($0)] } ?? []
         case "album": return id.map { [.album($0)] } ?? []
         case "artist": return id.map { [.artist($0)] } ?? []
@@ -74,6 +77,7 @@ extension View {
             case .chart(let id, let name): ChartScreen(chartId: id, name: name)
             case .addRecord: AddRecordScreen()
             case .history: HistoryScreen()
+            case .signIn: SignInScreen()
             }
         }
     }

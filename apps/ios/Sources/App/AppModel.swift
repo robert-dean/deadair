@@ -36,6 +36,8 @@ final class AppModel {
 
     /// The tab that is showing. Here rather than in the view, so the player bar can go to Now playing.
     var tab: HomeTab = AppModel.startTab
+    /// What is pushed on the Settings tab, so setup's "I run this station" can open the sign-in page there.
+    var settingsPath: [PageRoute] = PageRoute.start
 
     /// Debug builds open on the tab named by `-start_tab` (nowPlaying, upNext, whatsOn, settings), so
     /// a screen can be looked at on a simulator without a tap that might land on something live.

@@ -42,6 +42,8 @@ struct AddressField: View {
     /// address has answered and not before, because an account belongs to a station and there is not
     /// one yet. Listening still needs none.
     var offersSignIn = false
+    /// In Settings the station is being changed rather than chosen, so the button says Use, as Android's does.
+    var changing = false
 
     var body: some View {
         TextField(text: Binding(get: { entry.state.address }, set: { entry.type($0) }), prompt: Text(verbatim: "radio.example.com")) {
@@ -61,11 +63,12 @@ struct AddressField: View {
         }
 
         if let name = entry.state.confirmedName, let station = entry.state.parsed {
-            Button(String(localized: "Listen to \(name)")) { model.keep(station, name: name) }
+            Button(changing ? String(localized: "Use \(name)") : String(localized: "Listen to \(name)")) { model.keep(station, name: name) }
                 .buttonStyle(.borderedProminent)
             if offersSignIn {
                 Button(String(localized: "I run this station: sign in")) {
                     model.tab = .settings
+                    model.settingsPath = [.signIn]
                     model.keep(station, name: name)
                 }
             }

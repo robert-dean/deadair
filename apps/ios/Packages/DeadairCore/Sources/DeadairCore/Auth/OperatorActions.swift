@@ -44,6 +44,23 @@ public enum Notice: Equatable, Sendable {
 public struct Toast: Equatable, Sendable {
     public let id: Int
     public let message: Message
+    /// One thing the reader may do about it, such as putting back what they just dropped.
+    public let action: ToastAction?
+
+    public static func == (lhs: Toast, rhs: Toast) -> Bool {
+        lhs.id == rhs.id && lhs.message == rhs.message && lhs.action?.label == rhs.action?.label
+    }
+}
+
+/// A toast's one button: what it is called, and what it does.
+public struct ToastAction: Sendable {
+    public let label: Message
+    public let run: @MainActor @Sendable () async -> Void
+
+    public init(label: Message, run: @escaping @MainActor @Sendable () async -> Void) {
+        self.label = label
+        self.run = run
+    }
 }
 
 /// What the app has to say about something somebody just did, one thing at a time.
@@ -61,9 +78,9 @@ public final class Toasts {
 
     public init() {}
 
-    public func say(_ message: Message) {
+    public func say(_ message: Message, action: ToastAction? = nil) {
         said += 1
-        current = Toast(id: said, message: message)
+        current = Toast(id: said, message: message, action: action)
     }
 
     /// The toast has been read, or its time is up. A newer one is left standing.

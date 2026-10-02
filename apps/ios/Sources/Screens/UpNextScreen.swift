@@ -12,6 +12,9 @@ import SwiftUI
 struct UpNextScreen: View {
     @Environment(AppModel.self) private var model
     @State private var historyOpen = false
+    /// Edit mode: rows are for moving rather than opening, and Done is the one obvious way out. Only
+    /// for the operator.
+    @State private var editMode: EditMode = .inactive
 
     var body: some View {
         let state = model.order.state(signedIn: model.signedIn)
@@ -26,11 +29,19 @@ struct UpNextScreen: View {
                 placeholder(String(localized: "Can't reach the station. Pull down to try again."))
             case .loaded(let reading, let stale):
                 Rows(reading: reading, stale: stale, historyOpen: $historyOpen)
+                    .environment(\.editMode, $editMode)
             }
         }
         .navigationTitle(String(localized: "Up next"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            if model.isOperator, case .loaded = state {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(editMode.isEditing ? String(localized: "Done") : String(localized: "Edit")) {
+                        withAnimation { editMode = editMode.isEditing ? .inactive : .active }
+                    }
+                }
+            }
             // Everything the station has said, for anybody it lets read it.
             if model.signedIn {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -41,6 +52,10 @@ struct UpNextScreen: View {
             }
         }
         .refreshable { model.order.retry() }
+        // A role taken away mid-edit ends the edit.
+        .onChange(of: model.isOperator) { _, operates in
+            if !operates { editMode = .inactive }
+        }
         // Re-held when the account changes, so an order read under one sign-in is never shown under another.
         .task(id: model.session.stored?.email) {
             model.order.reset()
@@ -61,16 +76,25 @@ struct UpNextScreen: View {
 /// The order's rows, under who is presenting it.
 private struct Rows: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.editMode) private var editMode
     private static let fold = "fold"
     let reading: OrderReading
     let stale: Bool
     @Binding var historyOpen: Bool
+    /// The order a dragged row was left in, held until the station's answer replaces the order:
+    /// without it the list would snap back for the moment the move is in flight, then jump forward.
+    @State private var held: [StationOrderItem]?
+    /// The row an action is in flight for, and whether any is: one operator action at a time.
+    @State private var busyItemId: String?
 
     var body: some View {
         let ui = RunningOrderUiState(items: reading.order.items, historyOpen: historyOpen)
         let broadcast = BroadcastUiState(order: reading.order, personas: reading.personas)
         let anchorId = ui.anchorIndex.map { ui.items[$0].id }
         let station = model.settings.settings.station
+        let editing = editMode?.wrappedValue.isEditing == true
+        let canEdit = model.isOperator && ui.dragBounds != nil && busyItemId == nil
+        let rows = held ?? ui.shown
 
         ScrollViewReader { scroller in
             List {
@@ -111,8 +135,8 @@ private struct Rows: View {
                         Text(String(localized: "The running order is empty.")).foregroundStyle(.secondary)
                     }
 
-                    ForEach(ui.shown, id: \.id) { item in
-                        let row = OrderRow(item: item, artwork: station?.artUrl(item.artworkUrl).flatMap(URL.init(string:)), stale: stale)
+                    ForEach(rows, id: \.id) { item in
+                        let row = OrderRow(item: item, artwork: station?.artUrl(item.artworkUrl).flatMap(URL.init(string:)), stale: stale, busy: busyItemId == item.id)
                         // Every record row leads to its page, which is also where its rating lives, and every break to what was said in it.
                         Group {
                             if item.kind == .track, let route = PageRoute.track(item.trackId) {
@@ -126,10 +150,31 @@ private struct Rows: View {
                         }
                         .id(item.id)
                         .listRowBackground(item.state == .airing ? Color.accentColor.opacity(0.12) : nil)
+                        // Only a row the player has not been handed can be moved or dropped: an
+                        // affordance that could only ever answer 422 is worse than none.
+                        .moveDisabled(item.isSpent || !canEdit)
+                        .contextMenu {
+                            if model.isOperator, !item.isSpent, !editing, busyItemId == nil {
+                                rowMenu(item, ui: ui)
+                            }
+                        }
+                        .swipeActions(edge: .trailing) {
+                            if model.isOperator, !item.isSpent, !editing, busyItemId == nil {
+                                Button(String(localized: "Drop"), role: .destructive) { drop(item, ui: ui) }
+                            }
+                        }
                     }
+                    .onMove(perform: canEdit ? { source, offset in
+                        guard let from = source.first, let target = ui.dropTarget(from: from, offset: offset) else { return }
+                        let landing = offset > from ? offset - 1 : offset
+                        held = ui.shown.moved(from: from, to: landing)
+                        act(ui.shown[from].id) { await model.orderActions.move(ui.shown[from].id, to: target) }
+                    } : nil)
                 }
             }
             .listStyle(.insetGrouped)
+            // The station's answer is the order now; whatever was held for the drag is done with.
+            .onChange(of: reading.order.items) { _, _ in held = nil }
             // Opened on the row the order is read from, and moved to it again when it changes: the
             // item on air is the whole point of this tab and a long order buries it. Keyed on the
             // anchor's id, so a poll that changes nothing does not pull the list back from wherever
@@ -147,6 +192,57 @@ private struct Rows: View {
     }
 }
 
+extension Rows {
+    /// The three moves and the drop, offered only where each lands somewhere: a menu item whose only
+    /// effect is nothing teaches an operator that the menu does nothing. Play next moves the row in
+    /// front of everything the player is not already holding, which is not necessarily the next thing
+    /// heard: whatever has been handed over plays first. Also VoiceOver's way to move a row, which a
+    /// drag is not.
+    @ViewBuilder
+    fileprivate func rowMenu(_ item: StationOrderItem, ui: RunningOrderUiState) -> some View {
+        if let shownIndex = ui.shown.firstIndex(where: { $0.id == item.id }) {
+            let position = ui.positionOf(shownIndex: shownIndex)
+            ForEach(Move.allCases, id: \.self) { move in
+                if let target = moveTarget(move, position: position, firstPlannedIndex: ui.firstPlannedIndex, size: ui.items.count) {
+                    Button(Message.move(move).words) {
+                        act(item.id) { await model.orderActions.move(item.id, to: target) }
+                    }
+                }
+            }
+            Button(String(localized: "Drop"), role: .destructive) { drop(item, ui: ui) }
+        }
+    }
+
+    /// Drop a row, and offer to put a record back where it was. A break cannot be put back: the
+    /// station only marks it removed, so another is not planted into the same slot a minute later.
+    fileprivate func drop(_ item: StationOrderItem, ui: RunningOrderUiState) {
+        guard let shownIndex = ui.shown.firstIndex(where: { $0.id == item.id }) else { return }
+        let position = ui.positionOf(shownIndex: shownIndex)
+        let actions = model.orderActions
+        let toasts = model.toasts
+        act(item.id) {
+            guard await actions.remove(item.id) else { return false }
+            if item.kind == .track, let trackId = item.trackId.flatMap(UUID.init(uuidString:)) {
+                toasts.say(.dropped(item.title), action: ToastAction(label: .putItBack) {
+                    await actions.restore(trackId: trackId, at: position)
+                })
+            }
+            return true
+        }
+    }
+
+    /// Take the one turn there is, and give it back when the station has answered. A refusal lets go
+    /// of the held order too, so the list goes back to what the station has.
+    fileprivate func act(_ itemId: String, _ action: @escaping @MainActor () async -> Bool) {
+        guard busyItemId == nil else { return }
+        busyItemId = itemId
+        Task {
+            if !(await action()) { held = nil }
+            busyItemId = nil
+        }
+    }
+}
+
 /// One item in the order: its picture, its title and credit, and its length, or on the item that is
 /// airing a moving level meter in place of the length.
 private struct OrderRow: View {
@@ -154,6 +250,7 @@ private struct OrderRow: View {
     let item: StationOrderItem
     let artwork: URL?
     let stale: Bool
+    var busy = false
 
     var body: some View {
         HStack(spacing: 14) {
@@ -176,7 +273,9 @@ private struct OrderRow: View {
             }
             Spacer(minLength: 8)
             let label = item.stateLabel
-            if item.state == .airing {
+            if busy {
+                ProgressView()
+            } else if item.state == .airing {
                 OnAirMeter(moving: !stale)
                     .accessibilityLabel(Text(label?.words ?? ""))
             } else if let label {

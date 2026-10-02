@@ -18,17 +18,29 @@ extension View {
 private struct NoticeToast: View {
     @Environment(AppModel.self) private var model
 
-    /// Long enough to read a sentence, short enough not to sit over the screen.
+    /// Long enough to read a sentence, short enough not to sit over the screen; longer with a button
+    /// on it, since the button is a decision.
     private static let shown: Duration = .seconds(4)
+    private static let shownWithAction: Duration = .seconds(7)
 
     var body: some View {
         let toasts = model.toasts
         ZStack {
             if let posted = toasts.current {
-                Text(posted.message.words)
-                    .font(.callout)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 12) {
+                    Text(posted.message.words)
+                        .font(.callout)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if let action = posted.action {
+                        Button(action.label.words) {
+                            toasts.dismiss(posted.id)
+                            Task { await action.run() }
+                        }
+                        .font(.callout.weight(.semibold))
+                        .buttonStyle(.borderless)
+                    }
+                }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
@@ -36,11 +48,10 @@ private struct NoticeToast: View {
                     .padding(.horizontal)
                     .onTapGesture { toasts.dismiss(posted.id) }
                     .transition(.move(edge: .top).combined(with: .opacity))
-                    .accessibilityAddTraits(.isStaticText)
                     .task(id: posted.id) {
                         // VoiceOver reads it as it arrives, since it was not where the finger was.
                         AccessibilityNotification.Announcement(posted.message.words).post()
-                        try? await Task.sleep(for: Self.shown)
+                        try? await Task.sleep(for: posted.action == nil ? Self.shown : Self.shownWithAction)
                         withAnimation { toasts.dismiss(posted.id) }
                     }
             }

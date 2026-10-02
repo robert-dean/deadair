@@ -78,6 +78,11 @@ extension Message {
         case .willSkip: String(localized: "Will skip")
         case .stationsHost: String(localized: "The station's host")
         case .noHost: String(localized: "Nobody")
+        case .move(.playNext): String(localized: "Play next")
+        case .move(.up): String(localized: "Move up")
+        case .move(.down): String(localized: "Move down")
+        case .dropped(let title): String(localized: "Dropped “\(title)”.")
+        case .putItBack: String(localized: "Put it back")
 
         case .recordNotFound: String(localized: "No record with that id is in the catalog.")
         case .albumNotFound: String(localized: "No album with that id is in the catalog.")

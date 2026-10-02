@@ -94,6 +94,10 @@ public enum Message: Equatable, Sendable {
     /// The broadcast named nobody and the persona list has not arrived to say who that means.
     case stationsHost
     case noHost
+    case move(Move)
+    /// "Dropped “Paranoid”."
+    case dropped(String)
+    case putItBack
 
     // MARK: The catalog
 

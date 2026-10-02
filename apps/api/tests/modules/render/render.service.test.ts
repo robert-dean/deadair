@@ -125,6 +125,8 @@ const service = (options: ServiceOptions = {}) => {
             {} as never,
             {} as never,
             logger as never,
+            // The copies listeners share. No case here asks for one.
+            {} as never,
         ),
         findById,
         read,
@@ -666,6 +668,8 @@ describe('RenderService.uploadPad', () => {
             { list: vi.fn(async () => []), setsFor: vi.fn(async () => new Map()), personasNaming: vi.fn(async () => []) } as never,
             { ingest } as never,
             { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
+            // The copies listeners share. No case here asks for one.
+            {} as never,
         );
 
         return { service: render, ingest };
@@ -768,6 +772,8 @@ describe('RenderService.deletePad', () => {
             { list: vi.fn(async () => []), setsFor: vi.fn(async () => new Map()), personasNaming: vi.fn(async () => []) } as never,
             { discard } as never,
             { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
+            // The copies listeners share. No case here asks for one.
+            {} as never,
         );
 
         return { service: render, remove, discard };
@@ -823,6 +829,8 @@ describe('RenderService.fetchPad', () => {
             { list: vi.fn(async () => []), setsFor: vi.fn(async () => new Map()), personasNaming: vi.fn(async () => []) } as never,
             { ingest } as never,
             { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
+            // The copies listeners share. No case here asks for one.
+            {} as never,
         );
 
         return { service: render, ingest };
@@ -928,6 +936,8 @@ describe('RenderService.uploadSegment', () => {
             {} as never,
             {} as never,
             { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
+            // The copies listeners share. No case here asks for one.
+            {} as never,
         );
 
         return { service: render, ingest };
@@ -1014,6 +1024,8 @@ describe('RenderService.deleteSegment', () => {
             {} as never,
             {} as never,
             { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
+            // The copies listeners share. No case here asks for one.
+            {} as never,
         );
 
         return { service: render, remove, discard };

@@ -20,6 +20,7 @@ import type {
     ScriptHistorySummaryQuery,
     SpeechPreviewRequest,
     ScriptPromptMessage,
+    SegmentAudioQuery,
     SegmentCreate,
     SegmentList,
     PadFetch,
@@ -52,6 +53,7 @@ import {
     type SegmentContentType,
     type SegmentExtension,
 } from './segment.store.js';
+import { SegmentShareService, type SegmentShareResponse } from './segment.share.service.js';
 import { SpeechService } from './speech.service.js';
 import { SAMPLE_TEXT, VoiceSampleStore } from './voice.sample.store.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -149,6 +151,8 @@ export class RenderService {
         private readonly padSets: PadSetRepository,
         private readonly padLibrary: PadLibrary,
         private readonly logger: Logger,
+        // The copy a listener shares. Last, for the rack's reason above.
+        private readonly shares: SegmentShareService,
     ) {}
 
     /**
@@ -318,13 +322,19 @@ export class RenderService {
      * the caller: there is nothing to play here. The director asks the same question of the row
      * before committing anything, so a 404 on this route means a segment went missing between the
      * commit and the fetch rather than that the station tried to air a segment it never had.
+     *
+     * `rendition=share` answers a small copy made for a listener to send on instead, which is
+     * {@link SegmentShareService}'s; the 404s are the same, since there is nothing to copy either.
+     * It may also answer 503 (nothing can make one) or 502 (the encoder failed).
      */
-    async getSegmentAudio(id: string): Promise<SegmentAudioResponse> {
+    async getSegmentAudio(id: string, query: SegmentAudioQuery = { rendition: 'original' }): Promise<SegmentAudioResponse | SegmentShareResponse> {
         const segment = await this.segments.findById(id);
         if (segment === undefined) throw httpError(404).withDetails({ message: `segment "${id}" does not exist` });
         if (segment.audioChecksum === undefined || segment.audioExt === undefined) {
             throw httpError(404).withDetails({ message: `segment "${id}" has no audio (${segment.state})` });
         }
+
+        if (query.rendition === 'share') return await this.shares.copyOf({ ...segment, audioChecksum: segment.audioChecksum });
 
         const bytes = await this.store.read(segment.audioChecksum, segment.audioExt);
         if (bytes === undefined) throw httpError(404).withDetails({ message: `segment "${id}" has no file` });

@@ -270,6 +270,48 @@ would invert the module order for a case that is already benign. The one thing t
 is the KIND, because `readyKinds()` feeds the format clock and a kind nothing else uses becomes a bookable
 hour in silence.
 
+## A copy to share
+
+**`GET /segments/{id}/audio?rendition=share` answers a small copy of a segment's audio for a listener to send
+on**, and the Android app's share button on a row of "What it said" is what asks for it. The original is
+whatever the speech engine produced, often wav at three megabytes a minute, which a plain MMS will not carry.
+The copy is AAC in an `.m4a`, mono at 64 kbps (`SHARE_BITRATE_KBPS`, `SHARE_CHANNELS` in
+`segment.share.store.ts`), so a minute is about half a megabyte.
+
+**`rendition` names a purpose, never a format**, and it is a closed enum (`original`, the default, or
+`share`). The station decides what `share` means, so the encoding can change without any client changing, and
+the next purpose is one more value. Two designs were turned down: `Accept` negotiation names a format rather
+than a purpose, needs `Vary`, and cannot be set by a plain link; open `format` and `bitrate` parameters make
+the station a general-purpose encoder with a cache entry per combination. The URL differs per rendition, so
+the day-long `max-age` stays correct and the copy's ETag is its own key.
+
+**The encode is the sidecar's**, because encoding does not happen in Node: a `transcode` plugin capability,
+answered by the bundled analyzer through the sidecar's `/transcode`, which runs ffmpeg's native `aac` encoder
+and never `libfdk_aac` (non-free; `analysis/README.md` § "The rule, stated once"). Its own capability and its
+own provider key (`render.transcodePluginId`) on the mixer's argument: a capability is the unit of selection.
+`SegmentShareService` asks for it against the station's own SIGNED URL for the original, which is what the
+sidecar can reach and what is certain to be the bytes that aired, and pipes the answer into the store. With
+nothing that can encode, or an encoder that answers `unsupported`, the route says 503; an encode that failed
+is a 502. Two requests for the same copy make one encode (an in-flight map keyed by the copy). A failed encode
+counts against the analyzer's breaker like a failed join does; `unsupported` does not, being resource-scoped.
+
+**The copy is cached in its own store and swept.** `SegmentShareStore` sits at `SEGMENT_SHARE_DIR`
+(`media/share-copies`) beside the voice samples rather than inside the segment store, for their reason: a copy
+has no row, so it cannot be planned, named by a lineup or aired, and a separate root makes that a filesystem
+fact. It is keyed by the SOURCE checksum and the encoding, so new audio is a new copy and identical audio
+shares one. Unlike the voice samples, anybody signed in can mint one, so `render.prune_share_copies` removes
+each copy nobody has asked for in `render.shareCopyDays` (seven by default), and a hit refreshes the file's
+mtime so the age runs from the last request. **There is no "keep forever"**: the window is clamped to at
+least a day, because these are a cache and every one can be made again. The sweep also removes the store's own
+`.tmp-` leftovers older than an hour, which `list()` deliberately reports without a path in a shared store.
+
+**Two things on the way in were not obvious.** The generated router validates the query STRICTLY, and
+Liquidsoap's signed URL carries its token as `?t=`, so the first version of this answered every break the
+station pulled with a 400; `signed.audio.middleware` now takes the token off the query once it has checked
+it, and `render.router.test.ts` holds a signed fetch to a 200. And a miss holds the request for as long as the
+encode takes, so `GET /segments/{id}/audio` is transaction-exempt (`segmentAudioExemption`), on the art
+route's argument: a pooled connection held across a minute of sidecar work, on a path that writes no row.
+
 ## How a word is said
 
 **Outside English, a script reaches the engine unrewritten.** `transposeForSpeech` takes the station's

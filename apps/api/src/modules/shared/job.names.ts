@@ -21,6 +21,7 @@ export type JobNames =
     | 'render.segment'
     | 'render.stitch_production'
     | 'render.prune_script_history'
+    | 'render.prune_share_copies'
     | 'storage.sweep_orphans'
     | 'activity.prune_events'
     | 'oauth.expire_clients'

@@ -331,6 +331,7 @@ operation /segments/{id}/audio: {
         name: Get segment audio
         service: RenderService.getSegmentAudio
         security: none
+        query: SegmentAudioQuery
         response: {
             200: {
                 # Every format the segment store holds. The service returns `contentType` and the
@@ -347,12 +348,14 @@ operation /segments/{id}/audio: {
                 headers: {
                     cache-control?: string
                     etag?: string
+                    content-disposition?: string # A file name to save it under, on the `share` copy
                 }
             }
             # Documented rather than produced here: the conditional-GET middleware turns a fresh
             # 200 carrying an ETag into one. A bare status says exactly that, so the service is
             # not asked to return it.
             304:
+            503: # The station has nothing that can make the `share` copy
         }
     }
 }

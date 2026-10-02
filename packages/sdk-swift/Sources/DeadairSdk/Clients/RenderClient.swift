@@ -166,8 +166,10 @@ public final class RenderClient: Sendable {
 
     /// Get segment audio
     /// The audio of one segment
-    public func getSegmentAudio(id: UUID) async throws -> GetSegmentAudioResponse {
-        let request = try SdkRequest(method: "GET", path: ["segments", http.segment(id), "audio"])
+    /// - Throws: `SdkError` on 503
+    public func getSegmentAudio(id: UUID, query: SegmentAudioQuery? = nil) async throws -> GetSegmentAudioResponse {
+        var request = try SdkRequest(method: "GET", path: ["segments", http.segment(id), "audio"])
+        try http.addQuery(&request, query)
         let response = try await http.execute(request, expectStatuses: [304])
         switch response.status {
         case 304:
@@ -175,7 +177,8 @@ public final class RenderClient: Sendable {
         default:
             let headers = try GetSegmentAudio200Headers(
                 cacheControl: http.optionalHeader(response, "cache-control", as: String.self),
-                etag: http.optionalHeader(response, "etag", as: String.self)
+                etag: http.optionalHeader(response, "etag", as: String.self),
+                contentDisposition: http.optionalHeader(response, "content-disposition", as: String.self)
             )
             switch response.contentType {
             case "audio/wav":
@@ -443,10 +446,12 @@ public enum PreviewSpeechResponse: Equatable, Sendable {
 public struct GetSegmentAudio200Headers: Equatable, Sendable {
     public let cacheControl: String?
     public let etag: String?
+    public let contentDisposition: String?
 
-    public init(cacheControl: String?, etag: String?) {
+    public init(cacheControl: String?, etag: String?, contentDisposition: String?) {
         self.cacheControl = cacheControl
         self.etag = etag
+        self.contentDisposition = contentDisposition
     }
 }
 

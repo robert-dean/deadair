@@ -155,6 +155,16 @@ export const speechPreviewExemption: TransactionExemption = ({ method, path }) =
 // The OAuth discovery documents, which an MCP client fetches before every connection and which are
 // built from settings alone: no row read, nothing written, nothing enqueued. The registration and
 // token endpoints beside them write, and stay inside a transaction.
+// A segment's audio, which is the art case again with a slower miss. The original is one row read
+// and then bytes off the segment store, fetched by Liquidsoap for every break and by the console to
+// play one back. `rendition=share` can be a minute on a miss, while the sidecar encodes the copy a
+// listener is about to send, and a pooled connection held across that is the pool going the way the
+// art route once took it. Nothing on the path writes a row or enqueues a job; the copy it writes is a
+// file, which a transaction could not have rolled back anyway. The query is not visible here, so the
+// whole route is exempt rather than only its slow half.
+export const segmentAudioExemption: TransactionExemption = ({ method, path }) =>
+    (method === 'GET' || method === 'HEAD') && /^\/segments\/[0-9a-f-]{36}\/audio$/i.test(path);
+
 export const oauthDiscoveryExemption: TransactionExemption = ({ method, path }) =>
     method === 'GET' && path.toLowerCase().startsWith('/.well-known/oauth-');
 
@@ -164,6 +174,7 @@ export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [
     infraExemption,
     streamingExemption,
     artExemption,
+    segmentAudioExemption,
     nowPlayingExemption,
     tuneInExemption,
     personaDraftExemption,

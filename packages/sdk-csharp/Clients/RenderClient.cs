@@ -254,11 +254,13 @@ public sealed class RenderClient(SdkHttp http)
     /// Get segment audio
     /// The audio of one segment
     /// </summary>
-    public async Task<GetSegmentAudioResponse> GetSegmentAudioAsync(Guid id, CancellationToken cancellationToken = default)
+    /// <exception cref="SdkException">On 503.</exception>
+    public async Task<GetSegmentAudioResponse> GetSegmentAudioAsync(Guid id, SegmentAudioQuery? query = null, CancellationToken cancellationToken = default)
     {
         var response = await http.ExecuteAsync(
             HttpMethod.Get,
             http.Path("segments", http.Segment(id), "audio"),
+            query: http.Params(query),
             expectStatuses: new[] { 304 },
             cancellationToken: cancellationToken).ConfigureAwait(false);
         switch (response.Status)
@@ -272,7 +274,8 @@ public sealed class RenderClient(SdkHttp http)
             {
                 var headers = new GetSegmentAudio200Headers(
                     response.Header("cache-control") is { } cacheControl ? cacheControl : null,
-                    response.Header("etag") is { } etag ? etag : null);
+                    response.Header("etag") is { } etag ? etag : null,
+                    response.Header("content-disposition") is { } contentDisposition ? contentDisposition : null);
                 switch (response.ContentType)
                 {
                     case "audio/wav":
@@ -650,7 +653,7 @@ public abstract record PreviewSpeechResponse
 }
 
 /// <summary>Response headers declared on GET /segments/{id}/audio.</summary>
-public sealed record GetSegmentAudio200Headers(string? CacheControl, string? Etag);
+public sealed record GetSegmentAudio200Headers(string? CacheControl, string? Etag, string? ContentDisposition);
 
 /// <summary>
 /// What GET /segments/{id}/audio returned.

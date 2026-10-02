@@ -101,6 +101,7 @@ import { CHARTS_KEYS } from '#modules/charts/charts.keys.js';
 import { ENRICHMENT_KEYS } from '#modules/enrichment/enrichment.keys.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { TRANSCODE_PLUGIN_KEY } from '#modules/render/transcode.settings.js';
+import { SHARE_COPY_DAYS_DEFAULT, SHARE_COPY_DAYS_KEY, SHARE_COPY_DAYS_MAX, SHARE_COPY_DAYS_MIN } from '#modules/render/segment.share.settings.js';
 import { MAIL_DEFAULTS, MAIL_KEYS, MAX_MAIL_PORT, MIN_MAIL_PORT } from '#modules/mail/mail.settings.js';
 import { SIGNIN_KEYS, SIGNIN_PROVIDER_COLUMNS, SIGNIN_PROVIDER_PRESETS } from '#modules/authentication/signin.settings.js';
 import { OAUTH_DEFAULTS, OAUTH_KEYS } from '#modules/oauth/oauth.settings.js';
@@ -1228,6 +1229,16 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: SCRIPT_HISTORY_DEFAULTS.retentionDays,
         help: 'Every break the station wrote, including the attempts that came to nothing, kept for this long and then swept nightly. Zero keeps all of it. This is the only record of what was said once a segment has been rewritten or deleted, so it is worth more than it costs.',
+    },
+    {
+        group: 'render',
+        key: SHARE_COPY_DAYS_KEY,
+        label: 'Keep copies listeners share for (days)',
+        type: 'number',
+        default: SHARE_COPY_DAYS_DEFAULT,
+        min: SHARE_COPY_DAYS_MIN,
+        max: SHARE_COPY_DAYS_MAX,
+        help: 'When somebody shares a break, the station makes a small copy to send and keeps it for this many days after the last time anybody asked for it, then sweeps it nightly. Every copy can be made again, so there is no setting that keeps them forever.',
     },
     {
         group: 'render',

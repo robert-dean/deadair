@@ -270,3 +270,9 @@ contract PadScanResult: { # What one pass over the pad library did
     contested: int(min=0) # Sounds that reached the library but not their set, because it already answered to their name. In the library and unreachable until somebody says where they go
     skipped: int(min=0) # Files passed over: not audio, unreadable, or named something no script could write
 }
+
+contract SegmentAudioRendition: enum(original, share) # Which copy of a segment's audio. `original` is what the station airs. `share` is a small copy made for a listener to send on, AAC in an .m4a, never aired
+
+contract SegmentAudioQuery: {
+    rendition: SegmentAudioRendition = original # A purpose the station interprets rather than a format the caller picks, so what `share` means can change without any caller changing
+}

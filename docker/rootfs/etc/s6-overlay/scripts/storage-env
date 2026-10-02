@@ -8,10 +8,10 @@
 # authored, and it is the entire reason to take a backup.
 #
 # The other is what the station merely HOLDS: records fetched from a provider before they air,
-# cover art, the speech it rendered, voice previews, the speech model's weights. All of it is
-# derived from something else and every file can be produced again by running the station. It
-# grows to the size of the library actually played, which is the only part of this that ever fills
-# a disk.
+# cover art, the speech it rendered, voice previews, the copies of breaks listeners shared, the
+# speech model's weights. All of it is derived from something else and every file can be produced
+# again by running the station. It grows to the size of the library actually played, which is the
+# only part of this that ever fills a disk.
 #
 # There is one exception on the second disk and it is worth knowing before you wipe anything. The
 # PAD LIBRARY — the soundboard audio an operator dropped in — is the only thing under `/media` that
@@ -33,7 +33,7 @@
 # means quietly filling the disk image every container shares. Unmounted, everything stays under
 # the data directory exactly where it has always been.
 #
-# Each variable is still individually overridable, for the operator who wants one of these six
+# Each variable is still individually overridable, for the operator who wants one of these seven
 # somewhere else entirely; only the ones nobody set are filled in here. The pad library is the one
 # most likely to be moved by hand, since it is the one an operator may want on the backed-up disk.
 if awk '$2 == "/media" { found = 1 } END { exit !found }' /proc/mounts 2>/dev/null; then
@@ -47,4 +47,5 @@ ART_DIR="${ART_DIR:-$DEADAIR_MEDIA/art}"
 SEGMENT_DIR="${SEGMENT_DIR:-$DEADAIR_MEDIA/segments}"
 PAD_LIBRARY_DIR="${PAD_LIBRARY_DIR:-$DEADAIR_MEDIA/pads}"
 VOICE_SAMPLE_DIR="${VOICE_SAMPLE_DIR:-$DEADAIR_MEDIA/voice-samples}"
-export DEADAIR_MEDIA TRACKS_DIR ART_DIR SEGMENT_DIR PAD_LIBRARY_DIR VOICE_SAMPLE_DIR
+SEGMENT_SHARE_DIR="${SEGMENT_SHARE_DIR:-$DEADAIR_MEDIA/share-copies}"
+export DEADAIR_MEDIA TRACKS_DIR ART_DIR SEGMENT_DIR PAD_LIBRARY_DIR VOICE_SAMPLE_DIR SEGMENT_SHARE_DIR

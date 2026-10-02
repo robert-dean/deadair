@@ -19,6 +19,7 @@ import {
     ScriptHistorySummaryQuery,
     ScriptRatingInput,
     Segment,
+    SegmentAudioQuery,
     SegmentCreate,
     SegmentList,
     SegmentScanResult,
@@ -248,23 +249,26 @@ RenderRouter.get('/segments/:id/audio', async ctx => {
         }),
     );
 
+    const query = await parseAndValidate(ctx.query, SegmentAudioQuery.strict());
+
     const service = ctx.container.get(RenderService);
     const result: {
         contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4';
         body: Buffer;
-        headers: { cacheControl?: string; etag?: string };
-    } = await service.getSegmentAudio(id);
+        headers: { cacheControl?: string; etag?: string; contentDisposition?: string };
+    } = await service.getSegmentAudio(id, query);
 
     ctx.status = 200;
     if (result.headers['cacheControl'] !== undefined) ctx.set('cache-control', String(result.headers['cacheControl']));
     if (result.headers['etag'] !== undefined) ctx.set('etag', String(result.headers['etag']));
+    if (result.headers['contentDisposition'] !== undefined) ctx.set('content-disposition', String(result.headers['contentDisposition']));
     ctx.type = result.contentType;
     ctx.body = result.body;
 });
 
 /**
  * Audio out of the segment store, addressed by content rather than by row
- * from [render.ck](../../data/contracts/render/render.ck#L383)
+ * from [render.ck](../../data/contracts/render/render.ck#L386)
  * anonymous access, no security required
  */
 RenderRouter.get('/audio/:checksum/:ext', async ctx => {
@@ -292,7 +296,7 @@ RenderRouter.get('/audio/:checksum/:ext', async ctx => {
 
 /**
  * The station's lexicon: what it says, what has been proposed to it, and what it has turned down
- * from [render.ck](../../data/contracts/render/render.ck#L417)
+ * from [render.ck](../../data/contracts/render/render.ck#L420)
  */
 RenderRouter.get('/pronunciations', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, PronunciationQuery.strict());
@@ -307,7 +311,7 @@ RenderRouter.get('/pronunciations', requirePolicy({ policy: 'platform.view' }), 
 
 /**
  * Adds one the operator typed. It is said from the next render on
- * from [render.ck](../../data/contracts/render/render.ck#L427)
+ * from [render.ck](../../data/contracts/render/render.ck#L430)
  */
 RenderRouter.post('/pronunciations', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, PronunciationWrite);
@@ -322,7 +326,7 @@ RenderRouter.post('/pronunciations', requirePolicy({ policy: 'platform.manage' }
 
 /**
  * Rewrites one entry's words, whoever proposed it
- * from [render.ck](../../data/contracts/render/render.ck#L448)
+ * from [render.ck](../../data/contracts/render/render.ck#L451)
  */
 RenderRouter.put('/pronunciations/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -344,7 +348,7 @@ RenderRouter.put('/pronunciations/:id', requirePolicy({ policy: 'platform.manage
 
 /**
  * Removes an entry outright. Turning a PROPOSAL down is a state rather than a deletion, because a deleted one comes back on the next pass
- * from [render.ck](../../data/contracts/render/render.ck#L463)
+ * from [render.ck](../../data/contracts/render/render.ck#L466)
  */
 RenderRouter.delete('/pronunciations/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -364,7 +368,7 @@ RenderRouter.delete('/pronunciations/:id', requirePolicy({ policy: 'platform.man
 
 /**
  * Accepts a proposal, turns one down, or takes an entry out of use without losing what it said
- * from [render.ck](../../data/contracts/render/render.ck#L481)
+ * from [render.ck](../../data/contracts/render/render.ck#L484)
  */
 RenderRouter.put('/pronunciations/:id/state', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -386,7 +390,7 @@ RenderRouter.put('/pronunciations/:id/state', requirePolicy({ policy: 'platform.
 
 /**
  * Every sound the station holds, board by board
- * from [render.ck](../../data/contracts/render/render.ck#L513)
+ * from [render.ck](../../data/contracts/render/render.ck#L516)
  */
 RenderRouter.get('/pads', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(RenderService);
@@ -399,7 +403,7 @@ RenderRouter.get('/pads', requirePolicy({ policy: 'platform.view' }), async ctx 
 
 /**
  * Takes a sound in from the browser and puts it on a board. The file lands in the pad library on disk, so it survives a rebuild and an archive carries it
- * from [render.ck](../../data/contracts/render/render.ck#L526)
+ * from [render.ck](../../data/contracts/render/render.ck#L529)
  */
 RenderRouter.post('/pads', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['multipart']), async ctx => {
     const multipartBody = ctx.parsedBody as MultipartBody;
@@ -414,7 +418,7 @@ RenderRouter.post('/pads', requirePolicy({ policy: 'platform.manage' }), bodyPar
 
 /**
  * Takes whatever audio is sitting in the pad library directory onto its board. Safe to repeat: a file nobody has touched is seen and left alone
- * from [render.ck](../../data/contracts/render/render.ck#L551)
+ * from [render.ck](../../data/contracts/render/render.ck#L554)
  */
 RenderRouter.post('/pads/scan', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(RenderService);
@@ -427,7 +431,7 @@ RenderRouter.post('/pads/scan', requirePolicy({ policy: 'platform.manage' }), as
 
 /**
  * Fetches a sound from an address and puts it on a board. The operator names the address, so this is them choosing a file exactly as dropping one in the library is
- * from [render.ck](../../data/contracts/render/render.ck#L566)
+ * from [render.ck](../../data/contracts/render/render.ck#L569)
  */
 RenderRouter.post('/pads/fetch', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, PadFetch);
@@ -442,7 +446,7 @@ RenderRouter.post('/pads/fetch', requirePolicy({ policy: 'platform.manage' }), b
 
 /**
  * Removes a sound the console put there, and the file it wrote for it
- * from [render.ck](../../data/contracts/render/render.ck#L596)
+ * from [render.ck](../../data/contracts/render/render.ck#L599)
  */
 RenderRouter.delete('/pads/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -462,7 +466,7 @@ RenderRouter.delete('/pads/:id', requirePolicy({ policy: 'platform.manage' }), a
 
 /**
  * Turns a sound down, or puts one back. Answers the whole rack, since one pad changing state is one row moving between two sections of the same page
- * from [render.ck](../../data/contracts/render/render.ck#L616)
+ * from [render.ck](../../data/contracts/render/render.ck#L619)
  */
 RenderRouter.put('/pads/:id/state', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -484,7 +488,7 @@ RenderRouter.put('/pads/:id/state', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * The sound itself, so an operator can hear what they dropped in
- * from [render.ck](../../data/contracts/render/render.ck#L637)
+ * from [render.ck](../../data/contracts/render/render.ck#L640)
  */
 RenderRouter.get('/pads/:id/audio', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -510,7 +514,7 @@ RenderRouter.get('/pads/:id/audio', requirePolicy({ policy: 'platform.view' }), 
 
 /**
  * Names a new set, or answers the one already under that key
- * from [render.ck](../../data/contracts/render/render.ck#L666)
+ * from [render.ck](../../data/contracts/render/render.ck#L669)
  */
 RenderRouter.post('/pads/sets', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, PadSetWrite);
@@ -525,7 +529,7 @@ RenderRouter.post('/pads/sets', requirePolicy({ policy: 'platform.manage' }), bo
 
 /**
  * Renames a set. The KEY moves with it, so every persona naming the old one stops finding it
- * from [render.ck](../../data/contracts/render/render.ck#L687)
+ * from [render.ck](../../data/contracts/render/render.ck#L690)
  */
 RenderRouter.put('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -547,7 +551,7 @@ RenderRouter.put('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' }),
 
 /**
  * Removes a set and its memberships, and no pads at all
- * from [render.ck](../../data/contracts/render/render.ck#L702)
+ * from [render.ck](../../data/contracts/render/render.ck#L705)
  */
 RenderRouter.delete('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -567,7 +571,7 @@ RenderRouter.delete('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' 
 
 /**
  * Puts a pad on a set or takes it off. Refused where the set already answers to that name, because a script writes a name
- * from [render.ck](../../data/contracts/render/render.ck#L720)
+ * from [render.ck](../../data/contracts/render/render.ck#L723)
  */
 RenderRouter.put('/pads/sets/:id/pads', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(

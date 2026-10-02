@@ -471,6 +471,13 @@ export const PadScanResult = z.strictObject({
 export type PadScanResult = z.infer<typeof PadScanResult>;
 
 /**
+ * Which copy of a segment's audio. `original` is what the station airs. `share` is a small copy made for a listener to send on, AAC in an .m4a, never aired
+ * generated from [SegmentAudioRendition](../../../../data/contracts/render/render.types.ck#L274)
+ */
+export const SegmentAudioRendition = z.enum(['original', 'share']);
+export type SegmentAudioRendition = z.infer<typeof SegmentAudioRendition>;
+
+/**
  * Everything the station can play that is not a record
  * generated from [SegmentList](../../../../data/contracts/render/render.types.ck#L42)
  */
@@ -646,6 +653,16 @@ export const PadListInput = z.strictObject({
     sets: z.array(PadSetInput),
 });
 export type PadListInput = z.infer<typeof PadListInput>;
+
+/**
+ * generated from [SegmentAudioQuery](../../../../data/contracts/render/render.types.ck#L276)
+ */
+export const SegmentAudioQuery = z.strictObject({
+    rendition: SegmentAudioRendition.default('original').describe(
+        'A purpose the station interprets rather than a format the caller picks, so what `share` means can change without any caller changing',
+    ),
+});
+export type SegmentAudioQuery = z.infer<typeof SegmentAudioQuery>;
 
 /**
  * generated from [ScriptHistoryPage](../../../../data/contracts/render/render.types.ck#L126)

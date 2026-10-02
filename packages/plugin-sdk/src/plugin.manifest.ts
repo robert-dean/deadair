@@ -68,6 +68,16 @@ export const PLUGIN_CAPABILITY_ANALYSIS = 'analysis';
 export const PLUGIN_CAPABILITY_MIXER = 'mixer';
 
 /**
+ * The plugin can make a smaller copy of a piece of audio: audio in, audio out.
+ *
+ * For a listener to SEND rather than for the station to air, which is why it may
+ * be lossy. Separate from {@link PLUGIN_CAPABILITY_MIXER} on that constant's own
+ * argument: a capability is the unit of selection, and a better joiner that cannot
+ * encode must not take sharing away. The bundled analyzer declares all three.
+ */
+export const PLUGIN_CAPABILITY_TRANSCODE = 'transcode';
+
+/**
  * The plugin can say what is popular: a chart id in, an ordered list of names
  * out.
  *
@@ -212,6 +222,7 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_LLM,
     PLUGIN_CAPABILITY_ANALYSIS,
     PLUGIN_CAPABILITY_MIXER,
+    PLUGIN_CAPABILITY_TRANSCODE,
     PLUGIN_CAPABILITY_CHARTS,
     PLUGIN_CAPABILITY_NEWS,
     PLUGIN_CAPABILITY_NARRATION,

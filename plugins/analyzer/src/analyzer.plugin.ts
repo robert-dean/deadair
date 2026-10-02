@@ -8,12 +8,15 @@ import {
     type AnalysisProvider,
     type AnalysisRef,
     type AudioJoin,
+    type AudioTranscode,
     type JoinedAudio,
     type MixerProvider,
     type PluginConnectionResult,
     type TrackAnalysis,
+    type TranscodedAudio,
+    type TranscodeProvider,
 } from '@deadair/plugin-sdk';
-import { ANALYZE_TIMEOUT_MS, JOIN_TIMEOUT_MS, PROBE_TIMEOUT_MS, analyzerManifest } from './analyzer.manifest.js';
+import { ANALYZE_TIMEOUT_MS, JOIN_TIMEOUT_MS, PROBE_TIMEOUT_MS, TRANSCODE_TIMEOUT_MS, analyzerManifest } from './analyzer.manifest.js';
 
 export { analyzerManifest };
 
@@ -57,7 +60,7 @@ const UPSTREAM_CODES = new Set(['unfetchable', 'undecodable', 'truncated']);
  * thing that does not happen in Node — so the work is a separate program and
  * this is the conversation with it.
  *
- * ## Why one plugin declares two capabilities
+ * ## Why one plugin declares three capabilities
  *
  * Joining is the same requirement seen from the other end: a station wanting a
  * phone-in's turns as one file needs them decoded, and this is already the plugin
@@ -72,8 +75,9 @@ const UPSTREAM_CODES = new Set(['unfetchable', 'undecodable', 'truncated']);
  *
  * That indirection is what makes the analyzer swappable. `analysis/README.md` is
  * the contract rather than a description of the bundled image: anything answering
- * `/health` and `/analyze` is a valid analyzer, `/join` is what earns the second
- * capability, and moving to another sidecar is a `baseUrl` change here.
+ * `/health` and `/analyze` is a valid analyzer, `/join` and `/transcode` are what
+ * earn the other two capabilities, and moving to another sidecar is a `baseUrl`
+ * change here.
  *
  * ## What it deliberately does not interpret
  *
@@ -83,7 +87,7 @@ const UPSTREAM_CODES = new Set(['unfetchable', 'undecodable', 'truncated']);
  * plugin that unpacked the cue points to "validate" them would have to be
  * edited for every one of those, and would reject a payload newer than itself.
  */
-export class AnalyzerPlugin extends Plugin implements AnalysisProvider, MixerProvider {
+export class AnalyzerPlugin extends Plugin implements AnalysisProvider, MixerProvider, TranscodeProvider {
     private baseUrl = '';
 
     protected async onLoad(): Promise<void> {
@@ -209,7 +213,7 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider, MixerPro
         }
 
         if (!response.ok) {
-            throw await this.joinFailure(response);
+            throw await this.audioFailure(response, 'join the audio');
         }
 
         const body = response.body;
@@ -236,21 +240,70 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider, MixerPro
         };
     }
 
+    async transcode(request: AudioTranscode): Promise<TranscodedAudio> {
+        // Captured before the first await, so a config save mid-call cannot turn a failed copy into
+        // an invoker failure. See packages/plugin-sdk/CLAUDE.md, "Never read `this.host` after an
+        // `await`".
+        const host = this.host;
+        if (this.baseUrl.length === 0) {
+            throw new PluginError('the analyzer has no URL configured').withCode('config');
+        }
+
+        const response = await host.fetch(`${this.baseUrl}/transcode`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ url: request.url, bitrateKbps: request.bitrateKbps, channels: request.channels }),
+            timeoutMs: TRANSCODE_TIMEOUT_MS,
+        });
+
+        // A sidecar from before `/transcode`. `unsupported` for `join`'s reason: the station has
+        // somewhere to go, which is telling the listener it cannot make a copy.
+        if (response.status === 404 || response.status === 405) {
+            throw new PluginError('this analyzer cannot make a copy of audio').withCode('unsupported').withUpstreamStatus(response.status);
+        }
+
+        if (!response.ok) {
+            throw await this.audioFailure(response, 'make a copy of the audio');
+        }
+
+        const body = response.body;
+        if (body === null) {
+            throw new PluginError('the analyzer answered the copy with no audio').withCode('upstream');
+        }
+
+        const mime = response.headers.get('content-type')?.split(';')[0]?.trim();
+        if (mime === undefined || mime.length === 0) {
+            await body.cancel();
+            throw new PluginError('the analyzer answered the copy without saying what the audio is').withCode('upstream');
+        }
+
+        const declared = Number(response.headers.get('x-duration-ms'));
+
+        host.logger.debug('made a copy of audio', { bitrateKbps: request.bitrateKbps, channels: request.channels, mime });
+
+        return {
+            mime,
+            audio: body,
+            ...(Number.isFinite(declared) && declared > 0 ? { durationMs: Math.round(declared) } : {}),
+        };
+    }
+
     /**
-     * A non-2xx from a join, as the error the station will log.
+     * A non-2xx from a join or a copy, as the error the station will log.
      *
      * The same shape as {@link upstreamFailure} without a track to name, and
      * separate rather than parameterised because the two failures are read in
      * different places: one is recorded against a record and re-read by the walk,
-     * and this one costs a production its seam and nothing else.
+     * and these cost a production its seam or a listener their copy, and nothing
+     * else.
      */
-    private async joinFailure(response: Response): Promise<PluginError> {
+    private async audioFailure(response: Response, doing: string): Promise<PluginError> {
         const body = await tryJsonBody<ErrorResponse>(response);
         const code = body?.error?.code;
         const detail = body?.error?.message;
         const described = code !== undefined && detail !== undefined ? `${code}: ${detail}` : (detail ?? `HTTP ${response.status}`);
 
-        return new PluginError(`the analyzer could not join the audio (${described})`)
+        return new PluginError(`the analyzer could not ${doing} (${described})`)
             .withCode(code !== undefined && UPSTREAM_CODES.has(code) ? 'upstream' : 'internal')
             .withUpstreamStatus(response.status);
     }

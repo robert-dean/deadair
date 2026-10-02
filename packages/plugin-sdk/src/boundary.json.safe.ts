@@ -39,6 +39,7 @@
 import type { AlmanacDay, AlmanacEntry, AlmanacQuery, AlmanacSubject } from './capabilities/almanac.js';
 import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from './capabilities/analysis.js';
 import type { AudioJoin, AudioOverlay } from './capabilities/mixer.js';
+import type { AudioTranscode } from './capabilities/transcode.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from './capabilities/charts.js';
 import type {
     NarrationPart,
@@ -209,6 +210,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     AnalysisRef: IsJsonSafe<AnalysisRef>;
     AudioJoin: IsJsonSafe<AudioJoin>;
     AudioOverlay: IsJsonSafe<AudioOverlay>;
+    AudioTranscode: IsJsonSafe<AudioTranscode>;
     TrackCuePoints: IsJsonSafe<TrackCuePoints>;
     TrackLoudness: IsJsonSafe<TrackLoudness>;
     TrackTaggedLoudness: IsJsonSafe<TrackTaggedLoudness>;
@@ -307,6 +309,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'AnalysisRef',
     'AudioJoin',
     'AudioOverlay',
+    'AudioTranscode',
     'TrackCuePoints',
     'TrackLoudness',
     'TrackTaggedLoudness',
@@ -387,6 +390,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'LlmPluginInstance',
     'AnalysisProvider',
     'MixerProvider',
+    'TranscodeProvider',
     'ChartsProvider',
     'NewsProvider',
     'NarrationProvider',
@@ -420,6 +424,9 @@ export const BOUNDARY_LIVE_OBJECT_TYPES = [
     // longest single piece of audio the station ever makes, so holding it whole
     // is the one thing this must not do.
     'JoinedAudio',
+    // `audio`: and once more on the `transcode` side, for the copy made to be shared. Small, but
+    // the same shape for the same reason, so the host has one way to take audio from a plugin.
+    'TranscodedAudio',
     // `text`: the words as the model produces them, and `result`: a promise that
     // settles when it stops. The stream is what lets the host hold its single
     // model slot until the generation really ends rather than until the call

@@ -100,6 +100,7 @@ import {
 import { CHARTS_KEYS } from '#modules/charts/charts.keys.js';
 import { ENRICHMENT_KEYS } from '#modules/enrichment/enrichment.keys.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
+import { TRANSCODE_PLUGIN_KEY } from '#modules/render/transcode.settings.js';
 import { MAIL_DEFAULTS, MAIL_KEYS, MAX_MAIL_PORT, MIN_MAIL_PORT } from '#modules/mail/mail.settings.js';
 import { SIGNIN_KEYS, SIGNIN_PROVIDER_COLUMNS, SIGNIN_PROVIDER_PRESETS } from '#modules/authentication/signin.settings.js';
 import { OAUTH_DEFAULTS, OAUTH_KEYS } from '#modules/oauth/oauth.settings.js';
@@ -1849,6 +1850,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         default: '',
         help: 'The plugin that makes one piece of audio out of several, which is what lets a programme written turn by turn air as a single item. Its own key rather than the measurement one, so a station can measure with one engine and join with another. With none available a programme airs as its separate parts.',
+    },
+    {
+        group: 'providers',
+        key: TRANSCODE_PLUGIN_KEY,
+        label: 'Make copies to share with',
+        type: 'string',
+        default: '',
+        help: 'The plugin that makes the small copy of a talk break a listener sends on by text message. Its own key, so a station can join with one engine and make copies with another. With none available, asking for a copy says the station cannot make one, and nothing else changes.',
     },
     {
         group: 'providers',

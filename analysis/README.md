@@ -17,7 +17,7 @@ in that contract: a station whose sidecar answers 404 to either keeps every othe
 does, and the plugin turns that 404 into an `unsupported` the station degrades over rather than a
 fault.
 
-App-side those are three CAPABILITIES — `analysis`, `mixer` and `transcode`, with their own keys —
+App-side those are three CAPABILITIES (`analysis`, `mixer` and `transcode`, with their own keys)
 while remaining one sidecar behind one plugin declaring all three. The split is about which plugin the host PICKS for
 each job, not about which program does the work; `packages/plugin-sdk/src/capabilities/mixer.ts`
 argues it.

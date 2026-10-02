@@ -11,6 +11,7 @@ import {
     asCatalogPlugin,
     asLlmPlugin,
     asMixerPlugin,
+    asTranscodePlugin,
     asNarrationPlugin,
     asPodcastPlugin,
     asSpeechPlugin,
@@ -194,6 +195,40 @@ describe('asMixerPlugin', () => {
         const both = record(['analysis', 'mixer'], { ...analysisMethods, ...mixerMethods });
         expect(asAnalysisPlugin(both)).toBeDefined();
         expect(asMixerPlugin(both)).toBeDefined();
+    });
+});
+
+describe('asTranscodePlugin', () => {
+    /** The one method `transcode` requires, as a bare stub. */
+    const transcodeMethods = {
+        transcode: async () => ({ mime: 'audio/mp4', audio: new ReadableStream<Uint8Array>() }),
+    };
+    const mixerMethods = { join: async () => ({ mime: 'audio/flac', audio: new ReadableStream<Uint8Array>() }) };
+
+    it('accepts a plugin that can make a copy', () => {
+        expect(asTranscodePlugin(record(['transcode'], transcodeMethods))).toBeDefined();
+    });
+
+    it('refuses a plugin that declares transcode and never wrote it', () => {
+        expect(asTranscodePlugin(record(['transcode'], {}))).toBeUndefined();
+    });
+
+    it('refuses a plugin that is not running', () => {
+        for (const status of ['discovered', 'disabled', 'misconfigured', 'failed'] as const) {
+            expect(asTranscodePlugin(record(['transcode'], transcodeMethods, status))).toBeUndefined();
+        }
+    });
+
+    // Its own capability for the mixer's reason: the plugin making copies must not have to be the
+    // plugin the station joins with.
+    it('is independent of the mixer view, in both directions', () => {
+        const joinsOnly = record(['mixer'], mixerMethods);
+        expect(asMixerPlugin(joinsOnly)).toBeDefined();
+        expect(asTranscodePlugin(joinsOnly)).toBeUndefined();
+
+        const copiesOnly = record(['transcode'], transcodeMethods);
+        expect(asMixerPlugin(copiesOnly)).toBeUndefined();
+        expect(asTranscodePlugin(copiesOnly)).toBeDefined();
     });
 });
 

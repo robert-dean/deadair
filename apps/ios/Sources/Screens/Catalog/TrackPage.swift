@@ -44,9 +44,11 @@ struct TrackPage: View {
 
                 Section(String(localized: "Airings")) {
                     Text(Message.airedTimes(track.playCount).words).foregroundStyle(.secondary)
-                    TimelineView(.periodic(from: .now, by: 60)) { context in
-                        ForEach(Array(track.plays.sorted { $0.airedAt > $1.airedAt }.enumerated()), id: \.offset) { _, play in
-                            LabeledContent(Message.aired(airedLabel(play.airedAt, now: context.date, calendar: .current)).words, value: play.source)
+                    ForEach(Array(track.plays.sorted { $0.airedAt > $1.airedAt }.enumerated()), id: \.offset) { _, play in
+                        LabeledContent {
+                            Text(play.source)
+                        } label: {
+                            AiredText(date: play.airedAt)
                         }
                     }
                 }

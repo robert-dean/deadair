@@ -4,7 +4,10 @@ import SwiftUI
 extension View {
     /// The player bar along the bottom of a tab that is not Now playing.
     func miniPlayer() -> some View {
-        safeAreaInset(edge: .bottom, spacing: 0) { MiniPlayerBar() }
+        // Filling the screen first, so a tab that is only a spinner still has the bar along the bottom
+        // rather than wrapped round the spinner in the middle.
+        frame(maxWidth: .infinity, maxHeight: .infinity)
+            .safeAreaInset(edge: .bottom, spacing: 0) { MiniPlayerBar() }
     }
 }
 

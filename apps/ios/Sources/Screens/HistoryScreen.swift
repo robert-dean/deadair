@@ -28,15 +28,15 @@ struct HistoryScreen: View {
                 } else {
                     List {
                         if stale { StaleBanner() }
-                        TimelineView(.periodic(from: .now, by: 60)) { context in
-                            ForEach(entries, id: \.id) { entry in
-                                let row = Row(entry: entry, artwork: station?.artUrl(entry.artworkUrl).flatMap(URL.init(string:)), now: context.date)
-                                    .opacity(stale ? 0.6 : 1)
-                                if let route = PageRoute.track(entry.trackId) {
-                                    NavigationLink(value: route) { row }
-                                } else {
-                                    row
-                                }
+                        // Each row keeps its own label current: a TimelineView around the ForEach made the
+                        // whole list one row of the List, every record stacked in a single cell.
+                        ForEach(entries, id: \.id) { entry in
+                            let row = Row(entry: entry, artwork: station?.artUrl(entry.artworkUrl).flatMap(URL.init(string:)))
+                                .opacity(stale ? 0.6 : 1)
+                            if let route = PageRoute.track(entry.trackId) {
+                                NavigationLink(value: route) { row }
+                            } else {
+                                row
                             }
                         }
                         if canLoadMore {
@@ -77,7 +77,6 @@ struct HistoryScreen: View {
         @Environment(AppModel.self) private var model
         let entry: HistoryEntry
         let artwork: URL?
-        let now: Date
 
         var body: some View {
             HStack(spacing: 12) {
@@ -88,7 +87,7 @@ struct HistoryScreen: View {
                     Text(entry.artists).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                Text(Message.aired(airedLabel(entry.airedAt, now: now, calendar: .current)).words)
+                AiredText(date: entry.airedAt)
                     .font(.footnote.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
@@ -106,5 +105,19 @@ struct StaleBanner: View {
             .padding(10)
             .background(.yellow.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
             .listRowSeparator(.hidden)
+    }
+}
+
+/// When something aired, as the reader would say it, kept current once a minute by the label itself.
+///
+/// Its own timeline rather than one around a list: a `TimelineView` wrapping a `ForEach` in a
+/// `List` is ONE row of that list, and every record ended up stacked in a single cell.
+struct AiredText: View {
+    let date: Date
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            Text(Message.aired(airedLabel(date, now: context.date, calendar: .current)).words)
+        }
     }
 }

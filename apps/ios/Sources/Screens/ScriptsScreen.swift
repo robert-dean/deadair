@@ -65,10 +65,8 @@ private struct Attempts: View {
         case .loaded(let attempts, let canLoadMore, let loadingMore, let stale):
             List {
                 if stale { StaleBanner() }
-                TimelineView(.periodic(from: .now, by: 60)) { context in
-                    ForEach(attempts, id: \.id) { attempt in
-                        AttemptRow(attempt: attempt, now: context.date, sharer: sharer)
-                    }
+                ForEach(attempts, id: \.id) { attempt in
+                    AttemptRow(attempt: attempt, sharer: sharer)
                 }
                 if canLoadMore {
                     HStack {
@@ -91,7 +89,6 @@ private struct Attempts: View {
 private struct AttemptRow: View {
     @Environment(AppModel.self) private var model
     let attempt: ScriptAttempt
-    let now: Date
     let sharer: BreakSharer
     @State private var open = false
 
@@ -99,7 +96,7 @@ private struct AttemptRow: View {
         let ui = ScriptRowUiState(attempt)
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                Text(Message.aired(airedLabel(attempt.at, now: now, calendar: .current)).words)
+                AiredText(date: attempt.at)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Circle().fill(color(ui.tone)).frame(width: 8, height: 8)

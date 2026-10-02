@@ -51,6 +51,7 @@ struct UpNextScreen: View {
 /// The order's rows, under who is presenting it.
 private struct Rows: View {
     @Environment(AppModel.self) private var model
+    private static let fold = "fold"
     let reading: OrderReading
     let stale: Bool
     @Binding var historyOpen: Bool
@@ -87,6 +88,7 @@ private struct Rows: View {
                         } label: {
                             Label(label.words, systemImage: "chevron.down")
                         }
+                        .id(Self.fold)
                     } else {
                         NavigationLink {
                             HistoryScreen()
@@ -122,8 +124,14 @@ private struct Rows: View {
             // item on air is the whole point of this tab and a long order buries it. Keyed on the
             // anchor's id, so a poll that changes nothing does not pull the list back from wherever
             // the reader took it.
+            // While history is folded the fold sits right above the anchor, so it is what the list opens
+            // on: scrolled to the anchor itself, the fold went up under the bar and the count with it.
             .task(id: anchorId) {
-                if let anchorId { scroller.scrollTo(anchorId, anchor: .top) }
+                if ui.historyLabel != nil {
+                    scroller.scrollTo(Self.fold, anchor: .top)
+                } else if let anchorId {
+                    scroller.scrollTo(anchorId, anchor: .top)
+                }
             }
         }
     }

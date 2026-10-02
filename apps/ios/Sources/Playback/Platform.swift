@@ -8,17 +8,29 @@ import UIKit
 /// obvious where to look when an iOS release changes how audio sessions, background time or images
 /// behave.
 enum Platform {
+    /// Where the session is activated and deactivated. `setActive` waits on the media server, and
+    /// on the main thread iOS reports it as a hang risk on every play and stop. Serial, so a stop
+    /// pressed straight after a play deactivates after the activation rather than before it.
+    private static let audioSessionQueue = DispatchQueue(label: "com.maroonedsoftware.deadair.audio-session")
+
     /// Claim audio output for playback, the way a music app does: other audio stops, and the
     /// silent switch does not mute the station.
+    ///
+    /// The category is set before this returns, so a player that starts before the activation
+    /// lands activates the session itself under `.playback` rather than under the default category,
+    /// which the silent switch mutes.
     static func activateAudio() {
-        let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, mode: .default)
-        try? session.setActive(true)
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+        audioSessionQueue.async {
+            try? AVAudioSession.sharedInstance().setActive(true)
+        }
     }
 
     /// Give audio output back, and tell whatever was playing before that it may resume.
     static func deactivateAudio() {
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        audioSessionQueue.async {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
     }
 
     /// What the audio session reports that the player itself does not.
@@ -87,6 +99,40 @@ enum Platform {
 }
 
 typealias PlatformImage = UIImage
+
+extension Platform {
+    /// A cover's main colours, most common first, for `CoverPalette` to choose from.
+    ///
+    /// The picture is drawn down to 24 by 24 and its pixels counted in coarse buckets, which is enough
+    /// to find what a cover is mostly made of and cheap enough to do once per record. A bucket's colour
+    /// is the average of the pixels in it rather than its corner, so a cover's green stays its green.
+    static func coverColors(_ image: PlatformImage, count: Int = 6) -> [UInt32] {
+        guard let cg = image.cgImage else { return [] }
+        let side = 24
+        var pixels = [UInt8](repeating: 0, count: side * side * 4)
+        let drawn: Bool = pixels.withUnsafeMutableBytes { buffer in
+            guard let context = CGContext(
+                data: buffer.baseAddress, width: side, height: side, bitsPerComponent: 8, bytesPerRow: side * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return false }
+            context.interpolationQuality = .medium
+            context.draw(cg, in: CGRect(x: 0, y: 0, width: side, height: side))
+            return true
+        }
+        guard drawn else { return [] }
+        var buckets: [Int: (count: Int, r: Int, g: Int, b: Int)] = [:]
+        for i in stride(from: 0, to: pixels.count, by: 4) where pixels[i + 3] > 128 {
+            let r = Int(pixels[i]), g = Int(pixels[i + 1]), b = Int(pixels[i + 2])
+            let key = (r >> 5) << 6 | (g >> 5) << 3 | (b >> 5)
+            let old = buckets[key] ?? (0, 0, 0, 0)
+            buckets[key] = (old.count + 1, old.r + r, old.g + g, old.b + b)
+        }
+        return buckets.values
+            .sorted { $0.count > $1.count }
+            .prefix(count)
+            .map { UInt32($0.r / $0.count) << 16 | UInt32($0.g / $0.count) << 8 | UInt32($0.b / $0.count) }
+    }
+}
 
 extension Image {
     init(platformImage: PlatformImage) {

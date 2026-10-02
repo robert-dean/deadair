@@ -8,8 +8,10 @@ import Testing
 /// where they can be translated, and what this guards is that the right one is chosen. "Off air" is
 /// the RESTING state of an audience-gated station, so it must not be the fault message.
 struct NowPlayingUiStateTests {
-    private func state(_ air: AirState, listeners: Int = 0, stale: Bool = false, fellBack: Bool = false, show: NowPlayingShow? = nil) -> NowPlayingUiState {
-        NowPlayingUiState(air: air, listeners: listeners, format: .mp3, playing: false, buffering: false, fellBackToMp3: fellBack, stale: stale, show: show)
+    private func state(
+        _ air: AirState, listeners: Int = 0, playing: Bool = false, buffering: Bool = false, stale: Bool = false, fellBack: Bool = false, show: NowPlayingShow? = nil
+    ) -> NowPlayingUiState {
+        NowPlayingUiState(air: air, listeners: listeners, format: .mp3, playing: playing, buffering: buffering, fellBackToMp3: fellBack, stale: stale, show: show)
     }
 
     private let track = NowPlayingTrack(title: "Windowlicker", artist: "Aphex Twin", album: "Windowlicker", startedAt: 1)
@@ -44,11 +46,6 @@ struct NowPlayingUiStateTests {
         #expect(state(.unreachable, stale: false).subtitle == nil)
     }
 
-    @Test func handsTheListenerCountToTheLanguageToCount() {
-        #expect(state(.offAir, listeners: 0).footer == .listeners(count: 0, format: .mp3))
-        #expect(state(.offAir, listeners: 12).footer == .listeners(count: 12, format: .mp3))
-    }
-
     @Test func notesTheFallbackOnlyWhenItHappened() {
         #expect(state(.offAir, fellBack: true).fallbackNote == .fellBackToMp3(wanted: .mp3))
         #expect(state(.offAir).fallbackNote == nil)
@@ -64,24 +61,23 @@ struct NowPlayingUiStateTests {
         #expect(state(.onAir(NowPlayingTrack(title: "Untitled", artist: "", startedAt: 1))).subtitle == nil)
     }
 
-    @Test func namesTheShowAndItsHostAboveTheRecord() {
-        #expect(state(.onAir(track), show: NowPlayingShow(name: "Late Static", host: "Cass")).header == .showWithHost(show: "Late Static", host: "Cass"))
+    @Test func namesWhoIsPresentingUnderTheCredit() {
+        #expect(state(.onAir(track), show: NowPlayingShow(name: "Late Static", host: "Cass")).hostLine == .withHost("Cass"))
     }
 
-    @Test func namesAShowNobodyPresentsAsTheStationWroteIt() {
-        #expect(state(.onAir(track), show: NowPlayingShow(name: "Overnight")).header == .text("Overnight"))
+    @Test func neverDrawsTheShowsNameWhichIsTheOperatorsLabelAndMayBeTheStationsMadeUpOne() {
+        #expect(state(.onAir(track), show: NowPlayingShow(name: "From Spotify")).hostLine == nil)
     }
 
-    @Test func namesTheHostAloneWhenTheShowHasNoNameToGive() {
-        // A broadcast's name can be blank: it is the operator's own label, and nothing requires one.
-        #expect(state(.onAir(track), show: NowPlayingShow(name: "", host: "Cass")).header == .withHost("Cass"))
+    @Test func hasNoHostLineWhenNobodyPresentsOrTheStationIsNotOnAir() {
+        #expect(state(.onAir(track)).hostLine == nil)
+        #expect(state(.onAir(track), show: NowPlayingShow(name: "Overnight", host: "")).hostLine == nil)
+        // A stale presenter over "can't reach the station" would name somebody nobody can hear.
+        #expect(state(.unreachable, stale: true, show: NowPlayingShow(name: "Late Static", host: "Cass")).hostLine == nil)
     }
 
-    @Test func hasNoHeaderWhenTheStationNamesNoShowOrIsNotOnAir() {
-        #expect(state(.onAir(track)).header == nil)
-        #expect(state(.onAir(track), show: NowPlayingShow(name: "")).header == nil)
-        // A stale show over "can't reach the station" would name something nobody can hear.
-        #expect(state(.unreachable, stale: true, show: NowPlayingShow(name: "Late Static", host: "Cass")).header == nil)
+    @Test func hasNoHostLineDuringABreakWhoseTitleAlreadySaysWhoIsOnTheMic() {
+        #expect(state(.onAir(spoken), show: NowPlayingShow(name: "Late Static", host: "Cass")).hostLine == nil)
     }
 
     @Test func saysTheHostIsOnTheMicDuringABreakWithTheBreaksLabelUnderIt() {
@@ -89,7 +85,7 @@ struct NowPlayingUiStateTests {
 
         #expect(ui.title == .onTheMic(host: "Cass"))
         #expect(ui.subtitle == .text("Top of the hour"))
-        // A break has no album, and the header already says which show this is.
+        // A break has no album.
         #expect(ui.album == nil)
     }
 
@@ -101,5 +97,17 @@ struct NowPlayingUiStateTests {
     @Test func treatsARecordFromAStationOlderThanKindAsARecord() {
         // The SDK's default: a station that predates the field sends no kind, and that is a record.
         #expect(state(.onAir(NowPlayingTrack(title: "Windowlicker", artist: "Aphex Twin", startedAt: 1))).title == .text("Windowlicker"))
+    }
+
+    @Test func restsOnlyWhileARecordIsComingOutOfThePhone() {
+        let record = NowPlayingTrack(title: "Carriageway", artist: "Pale Arcs", startedAt: 1)
+
+        #expect(state(.onAir(record), playing: true).canRest)
+        // Stopped, still warming up, or reading something that is no longer true: the words are the news.
+        #expect(!state(.onAir(record)).canRest)
+        #expect(!state(.onAir(record), playing: true, buffering: true).canRest)
+        #expect(!state(.onAir(record), playing: true, stale: true).canRest)
+        #expect(!state(.warmingUp, playing: true).canRest)
+        #expect(!state(.offAir, playing: true).canRest)
     }
 }

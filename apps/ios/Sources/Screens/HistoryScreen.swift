@@ -17,39 +17,39 @@ struct HistoryScreen: View {
         Group {
             switch list {
             case .signedOut:
-                placeholder(String(localized: "The station keeps this for signed-in listeners. Listening itself needs no account."))
+                SignedOutPlaceholder(what: String(localized: "History"))
             case .loading:
                 ProgressView()
             case .unreachable:
-                placeholder(String(localized: "Can't reach the station. Pull down to try again."))
+                ErrorPlaceholder(retry: { model.history.retry() })
             case .loaded(let entries, let canLoadMore, let loadingMore, let stale):
                 if entries.isEmpty {
-                    placeholder(String(localized: "Nothing has aired yet."))
+                    EmptyPlaceholder(what: String(localized: "Nothing has aired yet."))
                 } else {
                     List {
-                        if stale { StaleBanner() }
-                        TimelineView(.periodic(from: .now, by: 60)) { context in
-                            ForEach(entries, id: \.id) { entry in
-                                Row(entry: entry, artwork: station?.artUrl(entry.artworkUrl).flatMap(URL.init(string:)), now: context.date)
-                                    .opacity(stale ? 0.6 : 1)
+                        // Each row keeps its own label current: a TimelineView around the ForEach made the
+                        // whole list one row of the List, every record stacked in a single cell.
+                        ForEach(entries, id: \.id) { entry in
+                            // Only the picture fades while stale: the words are the point, and stay readable.
+                            let row = Row(entry: entry, artwork: station?.artUrl(entry.artworkUrl).flatMap(URL.init(string:)), stale: stale)
+                            // The link behind the row rather than around it, so the row carries no chevron.
+                            row.background {
+                                if let route = PageRoute.track(entry.trackId) {
+                                    NavigationLink(value: route) { EmptyView() }.opacity(0)
+                                }
                             }
                         }
+                        // Asked for by name, as on Android, rather than fetched as the foot comes into view.
                         if canLoadMore {
-                            HStack {
-                                Spacer()
-                                if loadingMore { ProgressView() }
-                                Spacer()
-                            }
-                            // The row coming into view is the ask; `loadMore` does nothing while one is
-                            // already running, so appearing twice costs nothing.
-                            .onAppear { Task { await model.history.loadMore() } }
+                            EarlierRow(loading: loadingMore) { Task { await model.history.loadMore() } }
                         }
                     }
                     .listStyle(.plain)
+                    .staleBanner(stale)
                 }
             }
         }
-        .navigationTitle(String(localized: "Played"))
+        .navigationTitle(String(localized: "History"))
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { model.history.retry() }
         // Re-held when the account changes, so a list read under one sign-in is never shown under another.
@@ -57,50 +57,64 @@ struct HistoryScreen: View {
             model.history.reset()
             await model.history.hold()
         }
-        .miniPlayer()
-    }
-
-    private func placeholder(_ words: String) -> some View {
-        Text(words)
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private struct Row: View {
         @Environment(AppModel.self) private var model
         let entry: HistoryEntry
         let artwork: URL?
-        let now: Date
+        let stale: Bool
 
         var body: some View {
-            HStack(spacing: 12) {
-                ArtworkView(url: artwork, loader: model.artwork, cornerRadius: 6, placeholderSize: 20)
+            HStack(spacing: 16) {
+                ArtworkView(url: artwork, loader: model.artwork, cornerRadius: 4, placeholderSize: 22, dimmed: stale)
                     .frame(width: 48, height: 48)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(entry.title).lineLimit(1)
                     Text(entry.artists).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                Text(Message.aired(airedLabel(entry.airedAt, now: now, calendar: .current)).words)
-                    .font(.footnote.monospacedDigit())
+                AiredText(date: entry.airedAt)
+                    .font(.caption.weight(.medium).monospacedDigit())
                     .foregroundStyle(.secondary)
             }
+            .padding(.vertical, 4)
             .accessibilityElement(children: .combine)
         }
     }
 }
 
-/// Said above a list when what it shows came from a reading that has since gone stale.
-struct StaleBanner: View {
+
+/// When something aired, as the reader would say it, kept current once a minute by the label itself.
+///
+/// Its own timeline rather than one around a list: a `TimelineView` wrapping a `ForEach` in a
+/// `List` is ONE row of that list, and every record ended up stacked in a single cell.
+struct AiredText: View {
+    let date: Date
+
     var body: some View {
-        Label(String(localized: "Can't reach the station. Showing what it said last."), systemImage: "wifi.exclamationmark")
-            .font(.footnote)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(10)
-            .background(.yellow.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
-            .listRowSeparator(.hidden)
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            Text(Message.aired(airedLabel(date, now: context.date, calendar: .current)).words)
+        }
+    }
+}
+
+/// The foot of a list with more behind it: "Earlier", across the width, or a spinner while it loads.
+struct EarlierRow: View {
+    let loading: Bool
+    let load: () -> Void
+
+    var body: some View {
+        Group {
+            if loading {
+                ProgressView()
+            } else {
+                Button(String(localized: "Earlier"), action: load)
+                    .buttonStyle(.borderless)
+                    .font(.subheadline.weight(.medium))
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 44)
+        .listRowSeparator(.hidden)
     }
 }

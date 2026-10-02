@@ -35,6 +35,10 @@ struct ArtworkView: View {
     /// The corner and the placeholder's size, for the one place the cover is drawn small.
     var cornerRadius: CGFloat = 12
     var placeholderSize: CGFloat = 56
+    /// The symbol drawn while there is no picture: the radio for a record, the mic for a break.
+    var placeholder = "radio"
+    /// The picture faded, for a reading that is no longer current. The placeholder and the backing stay.
+    var dimmed = false
 
     @State private var image: PlatformImage?
 
@@ -42,9 +46,9 @@ struct ArtworkView: View {
         ZStack {
             RoundedRectangle(cornerRadius: cornerRadius).fill(.quaternary)
             if let image {
-                Image(platformImage: image).resizable().scaledToFill()
+                Image(platformImage: image).resizable().scaledToFill().opacity(dimmed ? 0.4 : 1)
             } else {
-                Image(systemName: "radio").font(.system(size: placeholderSize)).foregroundStyle(.secondary)
+                Image(systemName: placeholder).font(.system(size: placeholderSize)).foregroundStyle(.secondary)
             }
         }
         .aspectRatio(1, contentMode: .fit)

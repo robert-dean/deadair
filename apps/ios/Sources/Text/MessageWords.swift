@@ -1,4 +1,5 @@
 import DeadairCore
+import DeadairSdk
 import Foundation
 
 /// Where a `Message` becomes words, and the only place app copy is written.
@@ -22,7 +23,6 @@ extension Message {
         case .fellBackToMp3(let wanted): String(localized: "This station does not publish \(wanted.label), so you are hearing MP3.")
         case .onTheMic(let host?): String(localized: "\(host) is on the mic")
         case .onTheMic(nil): String(localized: "The host is on the mic")
-        case .showWithHost(let show, let host): String(localized: "\(show) · with \(host)")
         case .withHost(let host): String(localized: "with \(host)")
         case .stopsIn(let span): String(localized: "Stops in \(span.words)")
         case .stopsAfterThisRecord: String(localized: "Stops after this record")
@@ -62,6 +62,201 @@ extension Message {
             }
 
         case .aired(let label): label.words
+
+        case .foldedHistory(let played, let passed):
+            [
+                played > 0 ? String(localized: "\(played) played earlier") : nil,
+                passed > 0 ? String(localized: "\(passed) skipped") : nil,
+            ]
+            .compactMap { $0 }
+            .joined(separator: ", ")
+            .nonEmpty ?? String(localized: "Earlier in this broadcast")
+        case .itemState(let state): state.words
+        case .notWrittenYet: String(localized: "Not written yet")
+        case .noAudioYet: String(localized: "No audio yet")
+        case .willSkip: String(localized: "Will skip")
+        case .stationsHost: String(localized: "The station's host")
+        case .noHost: String(localized: "Nobody")
+        case .move(.playNext): String(localized: "Play next")
+        case .move(.up): String(localized: "Move up")
+        case .move(.down): String(localized: "Move down")
+        case .dropped(let title): String(localized: "Dropped “\(title)”.")
+        case .putItBack: String(localized: "Put it back")
+
+        case .recordNotFound: String(localized: "No record with that id is in the catalog.")
+        case .albumNotFound: String(localized: "No album with that id is in the catalog.")
+        case .artistNotFound: String(localized: "No artist with that id is in the catalog.")
+        case .airedTimes(0): String(localized: "Never aired")
+        case .airedTimes(let count): String(localized: "Aired \(count) times")
+        case .trackCount(let count): String(localized: "\(count) tracks")
+        case .albumCount(let count): String(localized: "\(count) albums")
+        case .moreNotShown(let count): String(localized: "\(count) more not shown")
+        case .field(let field): field.words
+        case .provenance(let source): source.words
+
+        case .outcome(.written): String(localized: "Written")
+        case .outcome(.declined): String(localized: "Declined")
+        case .outcome(.failed): String(localized: "Failed")
+        case .writer("model"): String(localized: "Model")
+        case .writer("deterministic"): String(localized: "Floor")
+        case .writer(let other): other
+        case .scriptFact(let label): label.words
+        case .shareBreak: String(localized: "Share this break")
+        case .shareGone: String(localized: "The station no longer has the audio for that break.")
+        case .shareCannotCopy: String(localized: "The station can't make a copy to send right now.")
+        case .shareCouldNotReach: String(localized: "Couldn't reach the station to get that break.")
+        case .shareFailed: String(localized: "Couldn't get that break ready to send.")
+
+        case .silenceLabel(let cause): cause.label
+        case .silenceTitle(let cause): cause.title
+        case .schedulePutThisOn: String(localized: "The schedule put this on. It runs until the block ends.")
+        case .betweenBlocks: String(localized: "Between blocks: nothing is scheduled, so the station is playing what it fills the gaps with.")
+        case .youPutThisOn: String(localized: "You put this on. It holds until the next scheduled block begins.")
+        case .scheduleTakesThisBack: String(localized: "The schedule takes this back at the next block.")
+        case .heldUntilReleased: String(localized: "Held until you release it. The schedule will not take this back.")
+        case .heldUntilAbout(let clock): String(localized: "Held until about \(clock.words).")
+        case .lastSaid: String(localized: "Could not reach the station just now. This is the last it said.")
+        case .lastSaidAt(let clock): String(localized: "Could not reach the station just now. Showing what it said at \(clock.words).")
+        case .deskOnAir: String(localized: "On air")
+        case .deskOffAir: String(localized: "Off air")
+        // Nobody is its own sentence: "going out to 0" reads like a fault.
+        case .goingOut(nil, 0): String(localized: "Going out, and nobody is listening")
+        case .goingOut(let name?, 0): String(localized: "\(name), and nobody is listening")
+        case .goingOut(nil, let listeners): String(localized: "Going out to \(listeners)")
+        case .goingOut(let name?, let listeners): String(localized: "\(name), going out to \(listeners)")
+        case .timeLeft(let artists, let left): String(localized: "\(artists) · \(left) left")
+
+        case .askedFor(let brief): String(localized: "Asked for: \(brief)")
+        case .eraOutOfRange: String(localized: "Between \(PlanUiState.eraYears.lowerBound) and \(PlanUiState.eraYears.upperBound)")
+        case .eraBackwards: String(localized: "Earlier than the start")
+        case .chartPeak(let peak): String(localized: "peak \(peak)")
+        case .chartWeeks(let weeks): String(localized: "\(weeks) weeks")
+        case .chartOrder(.countdown): String(localized: "Countdown, ending on number one")
+        case .chartOrder(.ranked): String(localized: "Number one first")
+        case .chartOrder(.unordered): String(localized: "No fixed order")
+        case .airConfirm(let what): String(localized: "Air \(what) to everyone?")
+        case .playlistUnavailable: String(localized: "This playlist is unavailable.")
+        case .added(let title): String(localized: "Added “\(title)”.")
+        case .searchNotShown(let count): String(localized: "\(count) more matches. Type more of the title to narrow them.")
+        case .chartUnavailable: String(localized: "This chart is unavailable.")
+
+        case .operatorNotice(let notice): notice.words
+        }
+    }
+}
+
+extension SilenceCause {
+    /// Two words beside the lamp.
+    var label: String {
+        switch self {
+        case .airing: String(localized: "On air")
+        case .transportStalled: String(localized: "Transport stalled")
+        case .controlDenied: String(localized: "Stream refusing us")
+        case .streamUnreachable: String(localized: "Stream unreachable")
+        case .configNotAdopted: String(localized: "Config not adopted")
+        case .stoodDown: String(localized: "Off air")
+        case .noProgramme: String(localized: "Nothing to air")
+        case .warmingUp: String(localized: "Warming up")
+        case .waitingOnAudio: String(localized: "Records not here")
+        case .noAudience: String(localized: "Ready")
+        case .notDriving: String(localized: "Not driving")
+        case .starved: String(localized: "Off the running order")
+        }
+    }
+
+    /// The sentence the panel opens on.
+    var title: String {
+        switch self {
+        case .airing: String(localized: "On air")
+        case .transportStalled: String(localized: "The transport loop has stopped")
+        case .controlDenied: String(localized: "The stream is refusing the bridge secret")
+        case .streamUnreachable: String(localized: "The stream is not reachable")
+        case .configNotAdopted: String(localized: "A container is running config that was replaced")
+        case .stoodDown: String(localized: "The station was stood down")
+        case .noProgramme: String(localized: "There is nothing left to air")
+        case .warmingUp: String(localized: "The station is fetching its first records")
+        case .waitingOnAudio: String(localized: "The records are not here, and nothing is fetching them")
+        case .noAudience: String(localized: "Waiting for a listener")
+        case .notDriving: String(localized: "The mount is not being held")
+        case .starved: String(localized: "The mount is airing the local bed")
+        }
+    }
+}
+
+extension ScriptFactLabel {
+    var words: String {
+        switch self {
+        case .kind: String(localized: "Kind")
+        case .host: String(localized: "Host")
+        case .model: String(localized: "Model")
+        case .from: String(localized: "From")
+        case .took: String(localized: "Took")
+        case .tokens: String(localized: "Tokens")
+        case .after: String(localized: "After")
+        case .before: String(localized: "Before")
+        case .note: String(localized: "Note")
+        }
+    }
+}
+
+extension EnrichmentField {
+    var words: String {
+        switch self {
+        case .released: String(localized: "Providers say released")
+        case .label: String(localized: "Label")
+        case .bpm: String(localized: "BPM")
+        case .key: String(localized: "Key")
+        case .isrc: String(localized: "ISRC")
+        }
+    }
+}
+
+extension Provenance {
+    /// "musicbrainz · 3 May 2026", and "· due again" when the station will ask it again.
+    var words: String {
+        let date = fetchedAt.formatted(date: .abbreviated, time: .omitted)
+        let state = switch self.state {
+        case .found: date
+        case .nothingFound: String(localized: "nothing found")
+        case .couldNotAsk: String(localized: "could not ask")
+        case .couldNotReask: String(localized: "\(date), could not re-ask")
+        }
+        let line = String(localized: "\(provider) · \(state)")
+        return stale ? String(localized: "\(line) · due again") : line
+    }
+}
+
+extension StationItemState {
+    var words: String {
+        switch self {
+        case .planned: String(localized: "Planned")
+        case .handed: String(localized: "Handed over")
+        case .airing: String(localized: "On air")
+        case .played: String(localized: "Played")
+        case .skipped: String(localized: "Skipped")
+        case .unavailable: String(localized: "Unavailable")
+        case .removed: String(localized: "Removed")
+        }
+    }
+}
+
+extension String {
+    /// Itself, or `nil` when there is nothing in it.
+    var nonEmpty: String? { isEmpty ? nil : self }
+}
+
+extension Notice {
+    var words: String {
+        switch self {
+        case .noLongerOperator: String(localized: "The station no longer treats this account as its operator.")
+        case .stepUpNeeded: String(localized: "The station wants your authenticator code again before that. Do it on the console.")
+        case .nothingToResume: String(localized: "Nothing to resume: the station has not been put on air yet.")
+        case .playlistEmpty: String(localized: "That playlist has nothing the station can play.")
+        case .hostGone: String(localized: "That persona is no longer on the station.")
+        case .recordGone: String(localized: "The station no longer has that record.")
+        case .recordRefused: String(localized: "The station will not play that record now.")
+        case .couldNotReach: String(localized: "Could not reach the station to do that.")
+        case .failed(let status): String(localized: "The station refused that (\(status)).")
         }
     }
 }
@@ -116,6 +311,19 @@ extension ListeningState {
         case .warmingUp: String(localized: "Coming on air")
         case .reconnecting: String(localized: "Reconnecting")
         case .unreachable: String(localized: "Can't reach the stream")
+        }
+    }
+}
+
+extension StreamFormat {
+    /// What each format is for, under its name in Settings.
+    var purpose: String {
+        switch self {
+        case .mp3: String(localized: "Always available")
+        case .hls: String(localized: "Survives moving between wifi and mobile data")
+        case .aac: String(localized: "Smaller than MP3 at the same quality")
+        case .opus: String(localized: "Smallest of all, and the newest")
+        case .flac: String(localized: "Lossless. Uses the most data")
         }
     }
 }

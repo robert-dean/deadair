@@ -12,6 +12,12 @@ final class StationEntry {
         state = .typing(stored ?? "", stored: stored)
     }
 
+    /// The field a link filled: its address typed in, and nothing kept until it has answered and
+    /// somebody has pressed Listen.
+    init(proposed: StationUrl, stored: String?) {
+        state = .typing(proposed.origin, stored: stored)
+    }
+
     func type(_ address: String) {
         state = .typing(address, stored: state.stored)
     }
@@ -32,6 +38,12 @@ final class StationEntry {
 struct AddressField: View {
     @Environment(AppModel.self) private var model
     @Bindable var entry: StationEntry
+    /// Setup's second way on: keep the station and go straight to signing in to it. Offered once the
+    /// address has answered and not before, because an account belongs to a station and there is not
+    /// one yet. Listening still needs none.
+    var offersSignIn = false
+    /// In Settings the station is being changed rather than chosen, so the button says Use, as Android's does.
+    var changing = false
 
     var body: some View {
         TextField(text: Binding(get: { entry.state.address }, set: { entry.type($0) }), prompt: Text(verbatim: "radio.example.com")) {
@@ -51,8 +63,15 @@ struct AddressField: View {
         }
 
         if let name = entry.state.confirmedName, let station = entry.state.parsed {
-            Button(String(localized: "Listen to \(name)")) { model.keep(station, name: name) }
+            Button(changing ? String(localized: "Use \(name)") : String(localized: "Listen to \(name)")) { model.keep(station, name: name) }
                 .buttonStyle(.borderedProminent)
+            if offersSignIn {
+                Button(String(localized: "I run this station: sign in")) {
+                    model.tab = .settings
+                    model.settingsPath = [.signIn]
+                    model.keep(station, name: name)
+                }
+            }
         } else if entry.state.showsCheck {
             Button {
                 Task { await entry.check(with: model) }

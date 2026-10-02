@@ -1,3 +1,5 @@
+import DeadairSdk
+
 /// A thing the app says, before it is said in any language.
 ///
 /// The state types that decide what a line says (what the now-playing line reads, what the address
@@ -30,9 +32,7 @@ public enum Message: Equatable, Sendable {
     /// the station sent, and absent when it named nobody, which has its own sentence rather than a
     /// blank where the name would go.
     case onTheMic(host: String?)
-    /// The line above the record: "Late Static · with Cass". Both halves are the station's words.
-    case showWithHost(show: String, host: String)
-    /// The same line when the show has no name to give: "with Cass".
+    /// Who is presenting, under the record: "with Cass".
     case withHost(String)
     /// The sleep timer's countdown: "Stops in 14 min". Never less than a minute.
     case stopsIn(Span)
@@ -79,4 +79,94 @@ public enum Message: Equatable, Sendable {
     // MARK: History
 
     case aired(AiredLabel)
+
+    // MARK: The running order
+
+    /// The fold over what has already aired: "12 played earlier, 2 skipped", or "Earlier in this
+    /// broadcast" when it holds only rows that were removed.
+    case foldedHistory(played: Int, passed: Int)
+    case itemState(StationItemState)
+    case notWrittenYet
+    case noAudioYet
+    case willSkip
+    /// The broadcast named nobody and the persona list has not arrived to say who that means.
+    case stationsHost
+    case noHost
+    case move(Move)
+    /// "Dropped “Paranoid”."
+    case dropped(String)
+    case putItBack
+
+    // MARK: The catalog
+
+    case recordNotFound
+    case albumNotFound
+    case artistNotFound
+    /// "Aired 3 times", or "Never aired".
+    case airedTimes(Int)
+    case trackCount(Int)
+    case albumCount(Int)
+    /// "12 more not shown", under a list the station holds more of than one page carries.
+    case moreNotShown(Int)
+    case field(EnrichmentField)
+    /// "musicbrainz · 2 Oct 2026", with what became of the last attempt to ask.
+    case provenance(Provenance)
+
+    // MARK: What it said
+
+    case outcome(ScriptOutcome)
+    /// Who wrote it: "Model", "Floor", or the station's own word for a writer this app has no name for.
+    case writer(String)
+    case scriptFact(ScriptFactLabel)
+    case shareBreak
+    case shareGone
+    case shareCannotCopy
+    case shareCouldNotReach
+    case shareFailed
+
+    // MARK: The desk
+
+    case silenceLabel(SilenceCause)
+    case silenceTitle(SilenceCause)
+    case schedulePutThisOn
+    case betweenBlocks
+    case youPutThisOn
+    case scheduleTakesThisBack
+    case heldUntilReleased
+    case heldUntilAbout(Clock)
+    /// Over a stale reading whose time is not known: "This is the last it said."
+    case lastSaid
+    /// Over a stale reading: "Showing what it said at 14:05."
+    case lastSaidAt(Clock)
+    case deskOnAir
+    case deskOffAir
+    /// "Late Static, going out to 3", or "Going out, and nobody is listening".
+    case goingOut(name: String?, listeners: Int)
+    /// "Black Sabbath · 2:41 left"
+    case timeLeft(artists: String, left: String)
+
+    // MARK: Planning
+
+    /// "Asked for: warm and unhurried"
+    case askedFor(String)
+    case eraOutOfRange
+    case eraBackwards
+    /// "peak 3"
+    case chartPeak(Int)
+    /// "12 weeks"
+    case chartWeeks(Int)
+    case chartOrder(PlayoutChartInputChartOrder)
+    /// "Air Classic Rock to everyone?"
+    case airConfirm(String)
+    case playlistUnavailable
+    /// "Added “Paranoid”."
+    case added(String)
+    /// "12 more matches. Type more of the title to narrow them."
+    case searchNotShown(Int)
+    case chartUnavailable
+
+    // MARK: The operator
+
+    /// What an operator action came back with.
+    case operatorNotice(Notice)
 }

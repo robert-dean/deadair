@@ -23,3 +23,5 @@ iconutil -c iconset "$icns" -o "$work/deadair.iconset"
 sips -s format jpeg -s formatOptions best "$work/deadair.iconset/icon_512x512@2x.png" --out "$work/flat.jpg" > /dev/null
 sips -s format png "$work/flat.jpg" --out "$out" > /dev/null
 sips -g pixelWidth -g pixelHeight -g hasAlpha "$out"
+# The welcome screen draws the same icon as its mark, at a size a phone needs and no larger.
+sips -Z 576 "$out" --out "$root/apps/ios/Sources/Assets.xcassets/StationMark.imageset/StationMark.png" > /dev/null

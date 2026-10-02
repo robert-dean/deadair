@@ -2,9 +2,10 @@
 
 `apps/ios` is the app somebody LISTENS to the station on from an iPhone, and `packages/sdk-swift` is
 the generated client it talks through. It is a listener's app for anyone, with an optional sign-in
-for the station's operator. The operator's remote (the transport, the running order, Skip on the lock
-screen) is not built yet, and the seams it needs are: `OperatorSession`, the cached roles, and a
-player whose next-track command exists and is disabled.
+for the station's operator. Signed in as the operator it is also the remote Android is: Skip and
+Shuffle on Now playing and the lock screen, the running order to edit, the desk, Manage, replanning a
+show and putting something on air. Its screens are Android's layouts, measure for measure; Android is
+the reference whenever the two differ, and a difference should be a recorded decision, not drift.
 
 Every paragraph records a measured failure or a decision and the reason for it. `apps/android/CLAUDE.md`
 and `apps/desktop/CLAUDE.md` hold the history most of these rules came from, and the paragraphs
@@ -140,6 +141,24 @@ The gate ignores a title it has just seen, so a repeat every segment costs nothi
 `log stream --info --predicate 'subsystem == "com.maroonedsoftware.deadair"'` shows each phase and
 each title as it arrives.
 
+**Now playing and Up next wear the on-air cover's colours**, Android's rule: `CoverPalette`
+(`coverAccent`, `meshColors`, ported with their tests) decides from the colours `Platform.coverColors`
+counts off a 24-by-24 copy of the cover. The accent tints the controls only, and a cover with no colour
+worth a button (black and white) keeps the app's green while still getting a grey mesh. The mesh drifts
+while the station is on air, stands still on Up next and with Reduce Motion, and is re-read when the
+page turns light or dark.
+
+**Now playing is Android's layout, measure for measure, and the measures are in the file.** Upright,
+the cover runs the width with both edges dissolving into the mesh, and gives way on a short phone
+(`belowCover`, at least `minCover`) so the controls never do: on the iPhone SE it is 298 points.
+The page is laid out INSIDE the safe area and only its background bleeds past it. With the reader
+ignoring the safe area its insets read zero, the cover never gave way, and on the SE the play button
+went under the tab bar (2026-10-02). While the tabs are away the stack keeps the height it had with
+them, so it does not drop into the room they leave. Resting needs a record coming out of the phone
+(`canRest`), never runs under VoiceOver, and its waking touch is swallowed by a layer drawn only
+while resting. No sleep timer, listener count or fallback note on the screen: the timer is a row in
+Settings' Listening section and the fallback is said under the format it is about.
+
 **A closure handed to an Objective-C callback from a main-actor type must be written `@Sendable`.**
 Swift 6 gives a closure written inside a `@MainActor` type the main actor, and when the API it is
 handed to is not marked `Sendable` it checks at RUN time that the closure runs there. AVFoundation
@@ -154,6 +173,14 @@ MediaPlayer calls from its own thread, and the remote-command handlers are all e
 background task and `UIImage`. Everything else in the app compiles for macOS as it stands, which is
 what let the app be type-checked against the real AVFoundation, MediaPlayer, Security and SwiftUI
 before this machine had Xcode, with that one file stubbed. Keep it that way.
+
+**The session is activated off the main thread; the category is not.** `setActive` waits on the media
+server, and a phone logged a "Hang Risk" fault on every play and stop while it ran on the main thread
+(2026-10-02). It runs on one serial queue, so a stop pressed straight after a play still deactivates
+second. The `.playback` category is set before `activateAudio()` returns, because the player can
+start before the activation lands, and a player that activates the session itself does so under
+whatever category is set: the default one is muted by the silent switch. iOS 27's asynchronous
+`activate`/`deactivate` would do the same job, but the deployment target is 17.
 
 **An interruption stops and drops, and resumes only when iOS says to.** A call is an interruption
 that can last longer than the station's five-minute linger, and a paused connection through it keeps
@@ -172,6 +199,19 @@ holds a background task, which the backoff's first waits fit inside, and after t
 tile is what the listener presses. The tile survives suspension but not termination: iOS has no
 `MediaButtonReceiver`, so a play press in a car cannot start an app that has been swiped away.
 CarPlay and an `AudioPlaybackIntent` are the two real routes to that, and neither is built.
+
+**A `deadair://` link proposes a station; it never switches to one.** Android's rule and the
+desktop's grammar (`StationLink`, whose tests are theirs case for case). With no station kept, setup
+opens straight on the field with the address in it. With one kept, a sheet asks over the app, and
+the kept station, its session and whatever is playing stay until the new address has answered and
+somebody has pressed Listen; "Keep the station I have" turns it down. A link naming the kept
+station asks nothing. A user or password, in the link or inside its escaped origin, is refused.
+
+**There is no in-app scanner, and that is deliberate.** Android scans the console's code with Google's
+scanner, which needs no camera permission. On iOS any in-app camera needs `NSCameraUsageDescription`, a
+prompt, and a new line in `PRIVACY.md` and the App Store's privacy answers. The console's code is a
+`deadair://` link, and the system Camera already opens one in this app, so setup says to use it and
+the app asks for nothing. Not yet measured on a phone: the simulator has no camera.
 
 **A station on the home network triggers iOS's Local Network prompt**, the first time the app
 connects to a local address, and `NSLocalNetworkUsageDescription` in `Config/Info.plist` is what the
@@ -211,6 +251,29 @@ rethrown with the session untouched.
 that read is stored as no roles. `ensureRoles` asks once per process per account, and a failure is
 not remembered as done.
 
+**Every operator call goes through `OperatorActions`, and its notice is drawn at the ROOT.** A 403
+re-reads the roles and says the account is no longer the operator; a 403 that names a step-up
+(`details.kind` or `mfa_required` in the challenge) says so instead and leaves the roles alone,
+because the account still holds them. Android lost a refusal raised on a pushed screen, since its
+collector lived on a screen that was not composed. Here every toast goes through one `Toasts`,
+drawn as an overlay above the tabs, so whichever screen raised it, it is on top; a break that could
+not be got ready to send says so the same way. `ensureRoles` runs at the root too,
+so a role taken away since the last run is noticed before an operator control is drawn.
+
+**Take off air arms, and lives only on the desk.** One press arms it and renames it; a second inside
+five seconds fires; the arm forgets on its own and is never persisted, Android's `ArmedStop` and the
+console's figure. Now playing keeps Skip and the lock screen's next button; the desk, reached from
+Settings, holds Take off air, the hold, the air mode and the silence diagnosis, so the two stops are
+on different screens. Measured on the simulator against the live station on 2026-10-02: one press
+armed it and drained the bar, the arm lapsed after five seconds, and the station stayed on air.
+
+**Verifying against the live station: look, never tap near a verb.** On 2026-10-02 a tap meant for
+the host picker's Cancel landed on a persona row while the sheet was still sliding up, and recast the
+live show for everybody listening; it was put back by hand. The app was doing what it should, since
+one tap on a row recasts as on Android. The lesson is for whoever drives the simulator: a fresh
+screenshot after every animation before any tap on a screen that acts on air, and on the forms that
+replan or put the station on air, open and read and press nothing.
+
 **The second factor is answered against the AUTHENTICATOR**, picked out of the challenge's factors,
 never its first entry, and the three refusals that share one 401 are told apart by
 `WWW-Authenticate`. Both are the desktop app's shipped bug.
@@ -220,9 +283,16 @@ apps/ios/Packages/DeadairCore/test.sh
 swift build --package-path packages/sdk-swift -Xswiftc -warnings-as-errors
 ```
 
+**Debug builds take `-start_tab` and `-start_page` launch arguments** (`AppModel.startTab`,
+`PageRoute.start`): `-start_tab upNext|whatsOn|settings` opens on a tab, and `-start_page history`,
+`scripts`, `desk`, `manage`, `addRecord`, `signIn`, or `track:<id>`, `album:<id>`, `artist:<id>`
+opens Settings with that page pushed. They exist so a screen can be screenshotted on a simulator with
+`simctl launch` and no tap at all, which is the only safe way to look at a screen that acts on air
+(see the recast above). Release builds ignore both.
+
 ## What has been verified
 
-`DeadairCore`'s tests pass, 177 of them, with warnings as errors, under both the Command Line Tools
+`DeadairCore`'s tests pass, 412 of them on 2026-10-02, with warnings as errors, under both the Command Line Tools
 and Xcode 26.6, and the single-flight test was shown to fail with the in-flight share removed. The
 generated SDK compiles in Swift 6 mode with strict concurrency. The app builds for the iOS simulator
 with no warnings, from the hand-written project file, on the first attempt.
@@ -233,6 +303,11 @@ a moving playhead; MP3 and HLS both played, with the timings and titles above; s
 connection on both; the format picker greyed the two formats the station does not publish; and
 audio went on with the phone locked.
 
-Not yet: a real phone, the lock-screen tile's appearance, an interruption from a call, a reconnect
-after a dropped stream, the background task running out, sign-in against the station, and anything
-that needs the Apple account.
+Since then: the app has run on an iPhone SE (2nd generation) signed with a personal team; the
+operator has signed in against the station from the simulator; and Now playing, Up next, What's on,
+History, What it said, the record pages, Settings and the sign-in page were laid out against Android's
+and screenshotted on the 17 Pro and SE simulators, most in both light and dark (2026-10-02). The host
+picker, Manage, the plan form and setup were not looked at that way.
+
+Not yet: the lock-screen tile's appearance on the phone, an interruption from a call, a reconnect
+after a dropped stream, the background task running out, and the system Camera opening a console code.

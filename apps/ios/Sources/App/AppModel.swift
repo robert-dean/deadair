@@ -17,6 +17,42 @@ final class AppModel {
     /// What the station has played, and what it is scheduled to do: the signed-in operator's reads.
     let history: HistoryRepository
     let schedule: ScheduleRepository
+    /// The running order, for the Up next tab.
+    let order: OrderRepository
+    /// The transport reading, polled while the operator's controls are on screen.
+    let playout: PlayoutRepository
+    /// What the app has to say about something somebody just did, drawn above every screen.
+    let toasts = Toasts()
+    /// Every operator call goes through here, so a refusal is said once and the roles re-read.
+    let operatorActions: OperatorActions
+    let transport: Transport
+    let orderActions: OrderActions
+    let catalogActions: CatalogActions
+    let airActions: AirActions
+    let scriptActions: ScriptActions
+
+    /// A station a `deadair://` link proposed, waiting for somebody to check it and press Listen.
+    var proposed: StationUrl?
+
+    /// The tab that is showing. Here rather than in the view, so the player bar can go to Now playing.
+    var tab: HomeTab = AppModel.startTab
+    /// What is pushed on the Settings tab, so setup's "I run this station" can open the sign-in page there.
+    var settingsPath: [PageRoute] = PageRoute.start
+
+    /// Debug builds open on the tab named by `-start_tab` (nowPlaying, upNext, whatsOn, settings), so
+    /// a screen can be looked at on a simulator without a tap that might land on something live.
+    private static var startTab: HomeTab {
+        #if DEBUG
+        switch UserDefaults.standard.string(forKey: "start_tab") {
+        case "upNext": return .upNext
+        case "whatsOn": return .whatsOn
+        case "settings": return .settings
+        default: return .nowPlaying
+        }
+        #else
+        return .nowPlaying
+        #endif
+    }
 
     @ObservationIgnored private var openPlay = OpenPlay()
 
@@ -36,6 +72,20 @@ final class AppModel {
         self.nowPlaying = nowPlaying
         self.artwork = artwork
         self.session = session
+        order = OrderRepository(
+            readOrder: { try await session.withSession { try await $0.director.getTheRunningOrder() } },
+            readPersonas: { try await session.withSession { try await $0.personas.listPersonas().personas } }
+        )
+        playout = PlayoutRepository(
+            readStatus: { try await session.withSession { try await $0.playout.getPlayoutStatus() } },
+            readAir: { try await session.withSession { try await $0.director.getStationAir() } }
+        )
+        operatorActions = OperatorActions(session: session, toasts: toasts)
+        transport = Transport(actions: operatorActions, playout: playout)
+        orderActions = OrderActions(actions: operatorActions, order: order)
+        catalogActions = CatalogActions(actions: operatorActions, order: order)
+        airActions = AirActions(actions: operatorActions, playout: playout, order: order)
+        scriptActions = ScriptActions(actions: operatorActions)
         listening = Listening(settings: settings, nowPlaying: nowPlaying, artwork: artwork, userAgent: http.userAgent)
         // Through the session, which refreshes and replays once on a 401, and throws rather than asks
         // when nobody is signed in: these screens are only offered to a signed-in account anyway.
@@ -45,6 +95,27 @@ final class AppModel {
             readSlots: { try await session.withSession { try await $0.schedule.listSchedule().slots } },
             readPersonas: { try await session.withSession { try await $0.personas.listPersonas().personas } }
         )
+        listening.skip = { [transport] in await transport.skip() }
+        followOperatorRole()
+    }
+
+    /// The lock screen's next button follows the role for as long as the app lives, foreground or not:
+    /// a role taken away while the phone is locked takes the button with it.
+    private func followOperatorRole() {
+        listening.canSkip = session.state.isOperator
+        withObservationTracking {
+            _ = session.state
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.followOperatorRole() }
+        }
+    }
+
+    /// A `deadair://` link arrived. It only ever proposes: the field is filled, and the station the app
+    /// already has, its session and whatever is playing all stay until the new address has answered and
+    /// somebody has pressed Listen. A link naming the station already kept closes the question.
+    func open(_ url: URL) {
+        guard let link = StationLink.parse(url.absoluteString) else { return }
+        proposed = StationLink.proposal(link, kept: settings.settings.station)
     }
 
     /// Ask an address whether it is a station, before it is kept.
@@ -55,12 +126,15 @@ final class AppModel {
     /// Keep a station that has answered. Everything that belonged to the old one goes: what was
     /// playing, the reading, and a session the new station did not issue.
     func keep(_ station: StationUrl, name: String) {
+        proposed = nil
         listening.stationChanged()
         settings.keep(station, name: name)
         nowPlaying.point(at: station)
         session.point(at: station)
         history.reset()
         schedule.reset()
+        order.reset()
+        playout.reset()
     }
 
     /// The app has opened: start the station if the listener asked for that. Answers yes once per
@@ -75,6 +149,10 @@ final class AppModel {
         if case .signedIn = session.state { return true }
         return false
     }
+
+    /// Whether the station last said this account operates it. A hint for what to draw: the
+    /// station still decides every press, and `operatorActions` re-reads this when it says no.
+    var isOperator: Bool { session.state.isOperator }
 
     /// The Now playing screen's state, from the reading and the player together.
     var nowPlayingUi: NowPlayingUiState {

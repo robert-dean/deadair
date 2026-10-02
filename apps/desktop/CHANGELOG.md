@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-10-02
+
+- A new plugin capability, `transcode`, makes a small copy of a piece of audio for somebody to send on rather than for the station to air. The bundled audio analyzer answers it through a new `/transcode` endpoint on the analysis sidecar, which encodes with ffmpeg's own AAC encoder (mono at 64 kbps by default, so a minute of speech is about half a megabyte). It has its own provider choice, "Make copies to share with" (`render.transcodePluginId`), so a station can join audio with one plugin and make copies with another; leave it empty and the first plugin that can is used, as for every other provider. Nothing asks for a copy yet. The console and the desktop app name the new capability on plugin cards and in Providers.
+
 ## [0.4.0] — 2026-09-29
 
 - Check-up is tabbed: the machinery with the disk and the build, the activity feed a page at a time, what each decision cost, the station's logs (read and saved), and what is new in each release.
@@ -68,7 +72,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.4.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.4.1...HEAD
+[0.4.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.4.0...desktop-v0.4.1
 [0.4.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.3.0...desktop-v0.4.0
 [0.3.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.4...desktop-v0.3.0
 [0.2.4]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.3...desktop-v0.2.4

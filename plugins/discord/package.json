@@ -1,6 +1,6 @@
 {
     "name": "@deadair/plugin-discord",
-    "version": "0.37.7",
+    "version": "0.38.0",
     "private": true,
     "type": "module",
     "main": "./dist/index.js",

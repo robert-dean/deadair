@@ -2,9 +2,10 @@
 
 `apps/ios` is the app somebody LISTENS to the station on from an iPhone, and `packages/sdk-swift` is
 the generated client it talks through. It is a listener's app for anyone, with an optional sign-in
-for the station's operator. The operator's remote (the transport, the running order, Skip on the lock
-screen) is not built yet, and the seams it needs are: `OperatorSession`, the cached roles, and a
-player whose next-track command exists and is disabled.
+for the station's operator. Signed in as the operator it is also the remote Android is: Skip and
+Shuffle on Now playing and the lock screen, the running order to edit, the desk, Manage, replanning a
+show and putting something on air. Its screens are Android's layouts, measure for measure; Android is
+the reference whenever the two differ, and a difference should be a recorded decision, not drift.
 
 Every paragraph records a measured failure or a decision and the reason for it. `apps/android/CLAUDE.md`
 and `apps/desktop/CLAUDE.md` hold the history most of these rules came from, and the paragraphs
@@ -282,9 +283,16 @@ apps/ios/Packages/DeadairCore/test.sh
 swift build --package-path packages/sdk-swift -Xswiftc -warnings-as-errors
 ```
 
+**Debug builds take `-start_tab` and `-start_page` launch arguments** (`AppModel.startTab`,
+`PageRoute.start`): `-start_tab upNext|whatsOn|settings` opens on a tab, and `-start_page history`,
+`scripts`, `desk`, `manage`, `addRecord`, `signIn`, or `track:<id>`, `album:<id>`, `artist:<id>`
+opens Settings with that page pushed. They exist so a screen can be screenshotted on a simulator with
+`simctl launch` and no tap at all, which is the only safe way to look at a screen that acts on air
+(see the recast above). Release builds ignore both.
+
 ## What has been verified
 
-`DeadairCore`'s tests pass, 177 of them, with warnings as errors, under both the Command Line Tools
+`DeadairCore`'s tests pass, 412 of them on 2026-10-02, with warnings as errors, under both the Command Line Tools
 and Xcode 26.6, and the single-flight test was shown to fail with the in-flight share removed. The
 generated SDK compiles in Swift 6 mode with strict concurrency. The app builds for the iOS simulator
 with no warnings, from the hand-written project file, on the first attempt.
@@ -295,6 +303,9 @@ a moving playhead; MP3 and HLS both played, with the timings and titles above; s
 connection on both; the format picker greyed the two formats the station does not publish; and
 audio went on with the phone locked.
 
-Not yet: a real phone, the lock-screen tile's appearance, an interruption from a call, a reconnect
-after a dropped stream, the background task running out, sign-in against the station, and anything
-that needs the Apple account.
+Since then: the app has run on an iPhone SE (2nd generation) signed with a personal team, sign-in
+against the station works with its second factor, and every screen has been compared with Android's
+in light and dark on the 17 Pro and the SE simulators (2026-10-02).
+
+Not yet: the lock-screen tile's appearance on the phone, an interruption from a call, a reconnect
+after a dropped stream, the background task running out, and the system Camera opening a console code.

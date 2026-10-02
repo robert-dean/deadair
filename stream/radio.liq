@@ -89,6 +89,22 @@ settings.clock.leak_warning := 100
 # root by default; allow it for this local/personal container.
 settings.init.allow_root := true
 
+# Decode Ogg through ffmpeg, not Liquidsoap's own Ogg decoder, because only ffmpeg honours a cue-in.
+#
+# The native decoder outranks ffmpeg (15 against 10), so every `.ogg` went to it, and that is most
+# records: Spotify serves Ogg Vorbis. Its seek jumps to an Ogg page boundary and stops, so a record
+# starts wherever the page fell rather than at its `liq_cue_in`, and the position it reports back is
+# wrong too. Liquidsoap logs the pair as "Initial seek mismatch! Expected: …, effective: …", which
+# reads as starting EARLY. Measured on a Vorbis file with a tone change at 3s, the record started
+# LATE: a 0.3s cue-in began at 1.62s, cutting 1.32s, while the log said "effective: 0". ffmpeg drops
+# audio up to the target instead, and landed within 20ms every time. On the live station 828 of 1,173
+# Ogg record starts logged the mismatch (2026-09-15 to 2026-10-02), so most records were losing the
+# start of their audio. How much is one page at the file's bitrate, which the log cannot say.
+#
+# Lowering the Ogg decoder rather than raising ffmpeg keeps this to Ogg: mp3, flac and the rest are
+# decoded exactly as before.
+settings.decoder.priorities.ogg := 5
+
 music_dir   = environment.get("MUSIC_DIR", default="/music")
 
 # The harbor PORT, which no longer carries a mount of its own: it exists for the

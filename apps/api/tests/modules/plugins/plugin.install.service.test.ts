@@ -43,10 +43,12 @@ interface Harness {
     accessControl: { require: ReturnType<typeof vi.fn> };
 }
 
-function harness(options: { existing?: PluginRecord; staged?: Partial<StagedPlugin>; namedDirs?: string[] } = {}): Harness {
+function harness(
+    options: { existing?: PluginRecord; staged?: Partial<StagedPlugin>; namedDirs?: string[]; shadowed?: PluginRecord[] } = {},
+): Harness {
     const calls: string[] = [];
     const registry = new PluginRegistry();
-    if (options.existing) registry.upsert(options.existing);
+    if (options.existing) registry.setAll([options.existing, ...(options.shadowed ?? [])]);
 
     const staged: StagedPlugin = {
         id: 'example.charts',
@@ -214,6 +216,37 @@ describe('PluginInstallService.removePlugin', () => {
 
         expect(calls).toEqual([]);
         expect(activity.record).not.toHaveBeenCalled();
+    });
+
+    it('removes the installed copies a bundled plugin shadows, and leaves the bundled one running', async () => {
+        // An import from before the station shipped the plugin: never loaded, and with no other way out,
+        // since the catalogue answers with the bundled record for the id.
+        const bundled = record({
+            id: 'deadair.rhapsode',
+            origin: 'bundled',
+            dir: '/app/plugins/rhapsode',
+            manifest: manifest('deadair.rhapsode', 'Rhapsode'),
+        });
+        const leftover: PluginRecord = {
+            id: 'deadair.rhapsode',
+            dir: '/data/plugins/deadair-plugin-rhapsode-0.22.0',
+            origin: 'installed',
+            status: 'failed',
+            error: 'shadowed',
+        };
+        const { service, calls, activity } = harness({ existing: bundled, shadowed: [leftover] });
+
+        const plugins = await service.removePlugin('deadair.rhapsode');
+
+        expect(calls).toEqual(['remove /data/plugins/deadair-plugin-rhapsode-0.22.0', 'rescan']);
+        expect(plugins).toEqual([{ id: 'example.charts' }]);
+        expect(activity.record).toHaveBeenCalledWith(
+            expect.objectContaining({
+                kind: 'plugin.removed',
+                detail: 'An operator removed an installed copy of Rhapsode that the bundled one replaced.',
+                data: { pluginId: 'deadair.rhapsode' },
+            }),
+        );
     });
 
     it('answers 404 for a plugin the station does not have', async () => {

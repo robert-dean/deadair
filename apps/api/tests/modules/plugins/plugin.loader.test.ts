@@ -179,7 +179,21 @@ describe('PluginLoader.discover', () => {
         expect(records).toHaveLength(2);
         expect(records[0]).toMatchObject({ id: 'test.valid', dir: bundledDir, origin: 'bundled', status: 'discovered' });
         expect(records[1]).toMatchObject({ status: 'failed' });
-        expect(records[1]?.error).toMatch(/duplicate/i);
+    });
+
+    it('says an installed copy of a bundled plugin is never loaded and can be removed', async () => {
+        // A plugin imported before the station started shipping it is left behind when it does, and
+        // "the copy loaded first wins" never told anybody the folder was dead weight.
+        const bundledDir = await bundledDirWith('valid-plugin');
+        const pluginsDir = await pluginsDirWith('duplicate-id');
+        const loader = new PluginLoader(new PluginLoaderOptions(pluginsDir, [bundledDir]));
+
+        const [, shadowed] = await loader.discover();
+
+        expect(shadowed).toMatchObject({ id: 'test.valid', origin: 'installed', status: 'failed' });
+        expect(shadowed?.error).toBe(
+            '"test.valid" is bundled with the station, and the bundled copy always wins, so this installed copy is never loaded; remove it to stop this warning',
+        );
     });
 
     it('marks what it found under pluginsDir as installed, quarantined candidates included', async () => {

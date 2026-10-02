@@ -138,6 +138,8 @@ describe('PluginLifecycleManager.rescan', () => {
         // provider has not vanished from the playout path.
         expect(registry.instance('spotify')).toBe(instance);
         expect(dispose).not.toHaveBeenCalled();
+        // And the losing copy is remembered, so removing the bundled id can still reach its folder.
+        expect(registry.shadowedCopies('spotify').map(copy => copy.dir)).toEqual(['/srv/plugins/spotify-dev']);
         expect(registry.list()).toHaveLength(1);
     });
 

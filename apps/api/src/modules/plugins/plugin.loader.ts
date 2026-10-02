@@ -54,6 +54,23 @@ interface PluginPackageJson {
     };
 }
 
+/**
+ * Why a second copy of a plugin id was not loaded, in words that say what to do about it.
+ *
+ * The bundled list is scanned first, so an installed copy of a plugin the station also ships always
+ * loses. That is the rule (an import of a bundled id is refused outright), but a copy imported BEFORE
+ * the station started shipping it is left behind in the plugins directory when it does, and the old
+ * message, "the copy loaded first wins", gave no hint that the folder was dead weight. Measured on the
+ * live station: an imported Rhapsode, shadowed since the release that bundled it, logged this on
+ * every boot for over a week with nothing to say it could simply be deleted.
+ */
+export function duplicateReason(id: string, claimedBy: PluginOrigin, origin: PluginOrigin): string {
+    if (claimedBy === 'bundled' && origin === 'installed') {
+        return `"${id}" is bundled with the station, and the bundled copy always wins, so this installed copy is never loaded; remove it to stop this warning`;
+    }
+    return `duplicate plugin id "${id}"; the copy loaded first wins`;
+}
+
 /** Whether `path` resolves to an existing regular file. */
 async function fileExists(path: string): Promise<boolean> {
     try {
@@ -94,7 +111,7 @@ export class PluginLoader {
 
         const records: PluginRecord[] = [];
         const seenDirs = new Set<string>();
-        const seenIds = new Set<string>();
+        const seenIds = new Map<string, PluginOrigin>();
 
         for (const { dir, origin } of candidates) {
             if (seenDirs.has(dir)) continue;
@@ -155,10 +172,10 @@ export class PluginLoader {
      * Turns one directory into a record, or `undefined` when the directory is
      * not a plugin at all.
      *
-     * `seenIds` is mutated: the first plugin to claim an id keeps it, and every
-     * later claimant is quarantined.
+     * `seenIds` is mutated: the first plugin to claim an id keeps it, with where it was found, and
+     * every later claimant is quarantined.
      */
-    private async loadCandidate(dir: string, origin: PluginOrigin, seenIds: Set<string>): Promise<PluginRecord | undefined> {
+    private async loadCandidate(dir: string, origin: PluginOrigin, seenIds: Map<string, PluginOrigin>): Promise<PluginRecord | undefined> {
         let entry: string;
         let entryPath: string;
         try {
@@ -218,10 +235,11 @@ export class PluginLoader {
             );
         }
 
-        if (seenIds.has(validated.id)) {
-            return this.quarantine(dir, origin, `duplicate plugin id "${validated.id}"; the copy loaded first wins`, validated.id);
+        const claimedBy = seenIds.get(validated.id);
+        if (claimedBy !== undefined) {
+            return this.quarantine(dir, origin, duplicateReason(validated.id, claimedBy, origin), validated.id);
         }
-        seenIds.add(validated.id);
+        seenIds.set(validated.id, origin);
 
         return { id: validated.id, manifest: validated, dir, origin, status: 'discovered' };
     }

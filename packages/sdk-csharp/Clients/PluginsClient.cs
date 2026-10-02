@@ -102,7 +102,7 @@ public sealed class PluginsClient(SdkHttp http)
 
     /// <summary>
     /// Remove plugin
-    /// Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused
+    /// Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused, unless an installed copy of it is left over from before the station shipped it: that copy never loads, and it is what gets removed
     /// </summary>
     /// <exception cref="SdkException">On 404, 409.</exception>
     public async Task<List<PluginSummary>> RemovePluginAsync(string id, CancellationToken cancellationToken = default)

@@ -303,9 +303,11 @@ a moving playhead; MP3 and HLS both played, with the timings and titles above; s
 connection on both; the format picker greyed the two formats the station does not publish; and
 audio went on with the phone locked.
 
-Since then: the app has run on an iPhone SE (2nd generation) signed with a personal team, the operator has
-signed in against the station from the simulator, and every screen has been compared with Android's
-in light and dark on the 17 Pro and the SE simulators (2026-10-02).
+Since then: the app has run on an iPhone SE (2nd generation) signed with a personal team; the
+operator has signed in against the station from the simulator; and Now playing, Up next, What's on,
+History, What it said, the record pages, Settings and the sign-in page were laid out against Android's
+and screenshotted on the 17 Pro and SE simulators, most in both light and dark (2026-10-02). The host
+picker, Manage, the plan form and setup were not looked at that way.
 
 Not yet: the lock-screen tile's appearance on the phone, an interruption from a call, a reconnect
 after a dropped stream, the background task running out, and the system Camera opening a console code.

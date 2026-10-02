@@ -11,7 +11,7 @@ extension View {
     }
 }
 
-/// What is on air, and the one button, along the bottom of every tab but Now playing.
+/// What is on air, and the one button, along the bottom of What's on.
 ///
 /// Leaving Now playing would otherwise leave no way to stop the station but going back to it. Not
 /// on Now playing itself, whose own button is a thumb away: two live stop controls on one screen is

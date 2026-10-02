@@ -15,6 +15,10 @@ enum HomeTab: Hashable {
 /// back to it. Settings is a tab rather than a gear over every screen, because a gear above a list
 /// of records said nothing about the records.
 ///
+/// The player bar is over What's on only, as on Android: not over Now playing, which has the button
+/// already, nor Up next, whose own on-air row says what is playing a thumb's width away, nor Settings,
+/// which is not about what is on.
+///
 /// Up next and What's on are tabs whether or not anybody is signed in, and says what it needs when nobody is:
 /// a tab that appeared on signing in would move every tab after it.
 struct HomeTabs: View {
@@ -26,13 +30,13 @@ struct HomeTabs: View {
             NavigationStack { NowPlayingScreen().pageDestinations() }
                 .tabItem { Label(String(localized: "Now playing"), systemImage: "radio") }
                 .tag(HomeTab.nowPlaying)
-            NavigationStack { UpNextScreen().miniPlayer().pageDestinations() }
+            NavigationStack { UpNextScreen().pageDestinations() }
                 .tabItem { Label(String(localized: "Up next"), systemImage: "list.bullet") }
                 .tag(HomeTab.upNext)
             NavigationStack { WhatsOnScreen().miniPlayer().pageDestinations() }
                 .tabItem { Label(String(localized: "What's on"), systemImage: "calendar") }
                 .tag(HomeTab.whatsOn)
-            NavigationStack { SettingsScreen().miniPlayer().pageDestinations() }
+            NavigationStack { SettingsScreen().pageDestinations() }
                 .tabItem { Label(String(localized: "Settings"), systemImage: "gearshape") }
                 .tag(HomeTab.settings)
         }

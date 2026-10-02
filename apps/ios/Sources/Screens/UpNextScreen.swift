@@ -30,6 +30,16 @@ struct UpNextScreen: View {
         }
         .navigationTitle(String(localized: "Up next"))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            // Everything the station has said, for anybody it lets read it.
+            if model.signedIn {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(value: PageRoute.scripts(segmentId: nil)) {
+                        Label(String(localized: "What it said"), systemImage: "quote.bubble")
+                    }
+                }
+            }
+        }
         .refreshable { model.order.retry() }
         // Re-held when the account changes, so an order read under one sign-in is never shown under another.
         .task(id: model.session.stored?.email) {

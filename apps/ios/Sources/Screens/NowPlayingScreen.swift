@@ -5,11 +5,18 @@ import SwiftUI
 /// What is on air, and the one button a listener needs.
 struct NowPlayingScreen: View {
     @Environment(AppModel.self) private var model
+    /// One operator command at a time: two skips in flight would take two records off air.
+    @State private var busy = false
 
     var body: some View {
         let ui = model.nowPlayingUi
         let reading = model.nowPlaying.state.latest
         let station = model.settings.settings.station
+        // The transport reading, for the operator only. It is what says whether there is anything to
+        // skip, and which record the cover is: the public reading names none.
+        let transport = model.playout.state(signedIn: model.signedIn).status.map {
+            TransportUiState(status: $0, air: model.playout.state(signedIn: model.signedIn).air, busy: busy)
+        }
 
         ScrollView {
             VStack(spacing: 20) {
@@ -21,8 +28,19 @@ struct NowPlayingScreen: View {
                         .background(.yellow.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
                 }
 
-                ArtworkView(url: artworkURL(station: station, reading: reading?.value), loader: model.artwork)
+                // The cover leads to the record's page, for a signed-in account, when the transport
+                // reading can say which record it is.
+                if let route = PageRoute.track(transport?.onAirTrackId) {
+                    NavigationLink(value: route) {
+                        ArtworkView(url: artworkURL(station: station, reading: reading?.value), loader: model.artwork)
+                    }
+                    .buttonStyle(.plain)
                     .frame(maxWidth: 360)
+                    .accessibilityLabel(Text("Open this record"))
+                } else {
+                    ArtworkView(url: artworkURL(station: station, reading: reading?.value), loader: model.artwork)
+                        .frame(maxWidth: 360)
+                }
 
                 VStack(spacing: 6) {
                     // The programme first, the way a station's own app leads with the show and its
@@ -53,7 +71,22 @@ struct NowPlayingScreen: View {
                     PlayheadBar(track: reading.value.track, readAt: reading.readAt)
                 }
 
-                PlayButton()
+                // Shuffle, play, Skip: the play button in the middle and one control either side of it
+                // at the same distance, for the operator. There is no "previous": a station has no
+                // going back.
+                HStack(spacing: 40) {
+                    if model.isOperator, let transport {
+                        operatorControl("shuffle", label: String(localized: "Shuffle"), enabled: !busy && transport.skipEnabled) {
+                            await model.orderActions.shuffle()
+                        }
+                    }
+                    PlayButton()
+                    if model.isOperator, let transport {
+                        operatorControl("forward.end.fill", label: String(localized: "Skip"), enabled: transport.skipEnabled) {
+                            await model.transport.skip()
+                        }
+                    }
+                }
 
                 VStack(spacing: 4) {
                     Text(ui.footer.words).font(.footnote).foregroundStyle(.secondary)
@@ -73,11 +106,37 @@ struct NowPlayingScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { model.nowPlaying.retry() }
         .task { await model.nowPlaying.hold() }
+        // The two-second transport poll runs while this screen is up and the account operates the
+        // station, and stops a few seconds after either ends.
+        .task(id: model.isOperator) {
+            if model.isOperator { await model.playout.hold() }
+        }
         .onChange(of: reading?.value.station) { _, name in
             if let name { model.settings.rename(name) }
         }
     }
 
+}
+
+extension NowPlayingScreen {
+    /// One of the operator's controls beside the play button: it takes the one turn there is, and
+    /// gives it back when the station has answered.
+    private func operatorControl(_ symbol: String, label: String, enabled: Bool, action: @escaping @MainActor () async -> Void) -> some View {
+        Button {
+            guard !busy else { return }
+            busy = true
+            Task {
+                await action()
+                busy = false
+            }
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 22, weight: .semibold))
+                .frame(width: 48, height: 48)
+        }
+        .disabled(!enabled)
+        .accessibilityLabel(Text(label))
+    }
 }
 
 /// The cover for what is on air, through the station's own art route. Nothing off air: a cover

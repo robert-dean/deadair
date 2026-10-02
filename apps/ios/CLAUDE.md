@@ -188,6 +188,12 @@ the kept station, its session and whatever is playing stay until the new address
 somebody has pressed Listen; "Keep the station I have" turns it down. A link naming the kept
 station asks nothing. A user or password, in the link or inside its escaped origin, is refused.
 
+**There is no in-app scanner, and that is deliberate.** Android scans the console's code with Google's
+scanner, which needs no camera permission. On iOS any in-app camera needs `NSCameraUsageDescription`, a
+prompt, and a new line in `PRIVACY.md` and the App Store's privacy answers. The console's code is a
+`deadair://` link, and the system Camera already opens one in this app, so setup says to use it and
+the app asks for nothing. Not yet measured on a phone: the simulator has no camera.
+
 **A station on the home network triggers iOS's Local Network prompt**, the first time the app
 connects to a local address, and `NSLocalNetworkUsageDescription` in `Config/Info.plist` is what the
 prompt says. Plain HTTP is allowed by `NSAllowsArbitraryLoads`, for the reason Android's

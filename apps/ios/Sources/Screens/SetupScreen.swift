@@ -35,6 +35,13 @@ struct SetupScreen: View {
                         } footer: {
                             Text("The address your station's console loads from. One address carries the console, the API and the stream, so it is all this app needs. Listening needs no account.")
                         }
+                        // The console's code is a deadair:// link, and the iPhone's own Camera opens it in
+                        // this app, so there is no scanner here and no camera permission to ask for.
+                        Section {
+                            Label(String(localized: "Or point your iPhone's Camera at the code on your station's console. It opens here with the address filled in."), systemImage: "qrcode.viewfinder")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     .navigationTitle(String(localized: "Find your station"))
                     .navigationBarTitleDisplayMode(.inline)

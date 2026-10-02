@@ -13,6 +13,7 @@ struct TrackPage: View {
     @State private var detail: LoadState<TrackDetail> = .loading
     @State private var enrichment: LoadState<EnrichmentUiState> = .loading
     @State private var attempt = 0
+    @State private var ratings = RatingWrites()
 
     var body: some View {
         DetailBody(state: detail, notFound: .recordNotFound, retry: { attempt += 1 }) { track in
@@ -42,6 +43,12 @@ struct TrackPage: View {
                     }
                 }
 
+                if model.isOperator {
+                    RatingSection(rating: track.rating, label: track.title, busy: ratings.busy) { mark in
+                        ratings.rate({ await model.catalogActions.rateTrack(id, mark) }, then: { attempt += 1 })
+                    }
+                }
+
                 Section(String(localized: "Airings")) {
                     Text(Message.airedTimes(track.playCount).words).foregroundStyle(.secondary)
                     ForEach(Array(track.plays.sorted { $0.airedAt > $1.airedAt }.enumerated()), id: \.offset) { _, play in
@@ -63,7 +70,8 @@ struct TrackPage: View {
         .navigationTitle(String(localized: "Record"))
         .navigationBarTitleDisplayMode(.inline)
         .task(id: attempt) {
-            if attempt > 0 { detail = .loading }
+            // A retry after a failure shows the spinner; a re-read after a rating keeps the page up.
+            if attempt > 0, detail.value == nil { detail = .loading }
             let id = id
             async let read = model.read { try await $0.catalog.getTrack(id: id) }
             async let facts = model.read { EnrichmentUiState(try await $0.catalog.getTrackEnrichment(id: id)) }

@@ -10,6 +10,7 @@ struct ArtistPage: View {
     @State private var albums: LoadState<ListPage<Album>> = .loading
     @State private var enrichment: LoadState<EnrichmentUiState> = .loading
     @State private var attempt = 0
+    @State private var ratings = RatingWrites()
 
     var body: some View {
         DetailBody(state: artist, notFound: .artistNotFound, retry: { attempt += 1 }) { artist in
@@ -19,6 +20,12 @@ struct ArtistPage: View {
                     Text("\(Message.albumCount(artist.albumCount).words) · \(Message.trackCount(artist.trackCount).words)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+
+                if model.isOperator {
+                    RatingSection(rating: artist.rating, label: artist.name, busy: ratings.busy) { mark in
+                        ratings.rate({ await model.catalogActions.rateArtist(id, mark) }, then: { attempt += 1 })
+                    }
                 }
 
                 Section(String(localized: "Albums")) {
@@ -60,7 +67,8 @@ struct ArtistPage: View {
         .navigationTitle(String(localized: "Artist"))
         .navigationBarTitleDisplayMode(.inline)
         .task(id: attempt) {
-            if attempt > 0 { artist = .loading }
+            // A retry after a failure shows the spinner; a re-read after a rating keeps the page up.
+            if attempt > 0, artist.value == nil { artist = .loading }
             let id = id
             async let read = model.read { try await $0.catalog.getArtist(id: id) }
             async let list = model.read { deadair in

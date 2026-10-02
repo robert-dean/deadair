@@ -54,6 +54,15 @@ struct NowPlayingScreen: View {
                     Text(ui.title.words)
                         .font(.title2.weight(.semibold))
                         .multilineTextAlignment(.center)
+                        // Room kept either side for the heart, so a title long enough to wrap does
+                        // not push it off the screen, and the title stays centred.
+                        .padding(.horizontal, model.isOperator ? 44 : 0)
+                        // The operator's heart for the record on air, at the end of its title.
+                        .overlay(alignment: .trailing) {
+                            if model.isOperator, let id = transport?.onAirTrackId.flatMap(UUID.init(uuidString:)) {
+                                LikeHeart(trackId: id)
+                            }
+                        }
                     if let subtitle = ui.subtitle {
                         Text(subtitle.words)
                             .font(ui.subtitleScrolls ? .body : .callout)
@@ -228,6 +237,46 @@ struct PlayheadBar: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(Text("\(clockOf(head.elapsedMs)) of \(clockOf(head.durationMs))"))
             }
+        }
+    }
+}
+
+/// The heart on Now playing, for the record on air.
+///
+/// The rating is read once per record, when it goes on air, rather than polled: the operator is the
+/// only one who changes it, and when they do it is here or on the record's page. A read that fails
+/// leaves the heart empty rather than wrong, and pressing an empty heart likes the record, which is
+/// what it would have done anyway. The heart shows the mark only once the station has taken it.
+/// `apps/android`'s `rememberLike`.
+struct LikeHeart: View {
+    @Environment(AppModel.self) private var model
+    let trackId: UUID
+    @State private var rating: Rating?
+    @State private var busy = false
+
+    var body: some View {
+        let liked = rating == .liked
+        Button {
+            guard !busy else { return }
+            let mark = toggledLike(rating)
+            busy = true
+            Task {
+                if await model.catalogActions.rateTrack(trackId, mark) { rating = mark }
+                busy = false
+            }
+        } label: {
+            Image(systemName: liked ? "heart.fill" : "heart")
+                .font(.title3)
+                .foregroundStyle(liked ? Color.accentColor : .secondary)
+                .frame(width: 40, height: 40)
+        }
+        .buttonStyle(.borderless)
+        .disabled(busy)
+        .accessibilityLabel(liked ? Text("Stop liking this record") : Text("Like this record"))
+        .task(id: trackId) {
+            rating = nil
+            let id = trackId
+            rating = await model.read { try await $0.catalog.getTrack(id: id).rating }?.value
         }
     }
 }

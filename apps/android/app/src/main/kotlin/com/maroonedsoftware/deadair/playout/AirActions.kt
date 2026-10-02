@@ -19,9 +19,17 @@ import com.maroonedsoftware.deadair.sdk.models.StationAir
  * once, and the running order is asked to read again because it has just been rebuilt.
  */
 class AirActions(private val actions: OperatorActions, private val playout: PlayoutRepository, private val order: OrderRepository) {
-    /** `callins` is sent only when it is on: absent is no calls, with nothing station-wide behind it. */
-    suspend fun airPlaylist(pluginId: String, playlistId: String, callins: Boolean = false): Boolean =
-        air { it.playout.playAPlaylist(PlayoutPlaylistInput(pluginId = pluginId, playlistId = playlistId, callins = true.takeIf { callins })) }
+    /**
+     * Both flags are sent only when they are on. Absent `callins` is no calls, with nothing
+     * station-wide behind it; absent `mixInSimilar` is NOT "don't mix" but the station's own
+     * `rotation.mixInSimilar`, which is why an unticked box must say nothing rather than `false`.
+     */
+    suspend fun airPlaylist(pluginId: String, playlistId: String, mixInSimilar: Boolean = false, callins: Boolean = false): Boolean =
+        air {
+            it.playout.playAPlaylist(
+                PlayoutPlaylistInput(pluginId = pluginId, playlistId = playlistId, mixInSimilar = true.takeIf { mixInSimilar }, callins = true.takeIf { callins }),
+            )
+        }
 
     suspend fun airChart(chartId: String, chartOrder: PlayoutChartInputChartOrder, callins: Boolean = false): Boolean =
         air { it.playout.playAChart(PlayoutChartInput(chartId = chartId, chartOrder = chartOrder, callins = true.takeIf { callins })) }

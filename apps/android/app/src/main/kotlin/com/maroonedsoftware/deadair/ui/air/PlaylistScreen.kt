@@ -24,6 +24,7 @@ import com.maroonedsoftware.deadair.nowplaying.clockOf
 import com.maroonedsoftware.deadair.sdk.models.CatalogPlaylistTracks
 import com.maroonedsoftware.deadair.ui.CallinsToggle
 import com.maroonedsoftware.deadair.ui.LoadState
+import com.maroonedsoftware.deadair.ui.MixInSimilarToggle
 import com.maroonedsoftware.deadair.ui.catalog.DetailScaffold
 import com.maroonedsoftware.deadair.ui.catalog.detailFailure
 
@@ -37,10 +38,11 @@ fun PlaylistScreen(
     onRetry: () -> Unit,
     /** This page puts something on air, so it says what the station answered. */
     snackbarHost: SnackbarHostState,
-    /** Air it, saying whether the broadcast takes calls. */
-    onAir: (callins: Boolean) -> Unit,
+    /** Air it, saying whether similar records are mixed in and whether the broadcast takes calls. */
+    onAir: (mixInSimilar: Boolean, callins: Boolean) -> Unit,
 ) {
     var confirming by rememberSaveable { mutableStateOf(false) }
+    var mixInSimilar by rememberSaveable { mutableStateOf(false) }
     var callins by rememberSaveable { mutableStateOf(false) }
 
     DetailScaffold(
@@ -55,7 +57,8 @@ fun PlaylistScreen(
         Text(pluralStringResource(R.plurals.tracks_count, count, count), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         if (canAir(playlist.tracks)) {
-            CallinsToggle(checked = callins, enabled = !busy, onChange = { callins = it }, modifier = Modifier.padding(top = 16.dp))
+            MixInSimilarToggle(checked = mixInSimilar, enabled = !busy, onChange = { mixInSimilar = it }, modifier = Modifier.padding(top = 16.dp))
+            CallinsToggle(checked = callins, enabled = !busy, onChange = { callins = it })
             Button(onClick = { confirming = true }, enabled = !busy, modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
                 Text(stringResource(R.string.air_this_playlist))
             }
@@ -82,7 +85,7 @@ fun PlaylistScreen(
             what = title,
             onConfirm = {
                 confirming = false
-                onAir(callins)
+                onAir(mixInSimilar, callins)
             },
             onDismiss = { confirming = false },
         )

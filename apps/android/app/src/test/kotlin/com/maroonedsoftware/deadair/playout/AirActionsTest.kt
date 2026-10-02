@@ -142,6 +142,20 @@ class AirActionsTest {
     }
 
     @Test
+    fun `a playlist aired with similar records mixed in asks for them, and one aired without leaves the station's setting standing`() = runTest {
+        val recorded = Recorded()
+        val (playout, order) = repositories(backgroundScope)
+        val actions = AirActions(OperatorActions(FakeSession(recorded, HttpStatusCode.OK, "{}")), playout, order)
+
+        actions.airPlaylist("deadair.spotify", "pl_1", mixInSimilar = true)
+        assertEquals("""{"pluginId":"deadair.spotify","playlistId":"pl_1","mixInSimilar":true}""", recorded.body)
+
+        // Not `false`: absent is the station's own `rotation.mixInSimilar`, and false would override it.
+        actions.airPlaylist("deadair.spotify", "pl_1")
+        assertEquals("""{"pluginId":"deadair.spotify","playlistId":"pl_1"}""", recorded.body)
+    }
+
+    @Test
     fun `a station that refuses says so rather than looking as though it worked`() = runTest {
         val operator = OperatorActions(FakeSession(Recorded(), HttpStatusCode.UnprocessableEntity, "{}"))
         val (playout, order) = repositories(backgroundScope)

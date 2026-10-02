@@ -49,12 +49,12 @@ fun PlaylistRoute(graph: AppGraph, pluginId: String, playlistId: String, onBack:
         busy = busy,
         onBack = onBack,
         onRetry = detail::reload,
-        onAir = { callins ->
+        onAir = { mixInSimilar, callins ->
             if (busy) return@PlaylistScreen
             busy = true
             scope.launch {
                 try {
-                    if (graph.air.airPlaylist(pluginId, playlistId, callins)) onAired()
+                    if (graph.air.airPlaylist(pluginId, playlistId, mixInSimilar, callins)) onAired()
                 } finally {
                     busy = false
                 }

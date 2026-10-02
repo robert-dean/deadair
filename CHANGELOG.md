@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.38.0] — 2026-10-02
+
+- Any client can now ask for a small copy of a talk break to send on by text message: `GET /segments/{id}/audio?rendition=share` answers AAC in an `.m4a`, mono at 64 kbps, so a minute is about half a megabyte where the rendered wav is three. The station makes the copy once, through the new `transcode` provider (the bundled audio analyzer), keeps it in its own directory (`SEGMENT_SHARE_DIR`, `media/share-copies` in the container) and sweeps it nightly once nobody has asked for it in "Keep copies listeners share for" (`render.shareCopyDays`, seven days by default; there is no setting that keeps them forever). Without the query the route answers exactly what it always did. A station with nothing that can make a copy answers 503 to the request and nothing else changes. Every SDK's `getSegmentAudio` takes the optional `rendition`.
+- A new plugin capability, `transcode`, makes a small copy of a piece of audio for somebody to send on rather than for the station to air. The bundled audio analyzer answers it through a new `/transcode` endpoint on the analysis sidecar, which encodes with ffmpeg's own AAC encoder (mono at 64 kbps by default, so a minute of speech is about half a megabyte). It has its own provider choice, "Make copies to share with" (`render.transcodePluginId`), so a station can join audio with one plugin and make copies with another; leave it empty and the first plugin that can is used, as for every other provider. Nothing asks for a copy yet. The console and the desktop app name the new capability on plugin cards and in Providers.
+
 ## [0.37.7] — 2026-09-30
 
 - The seeded late-night host is a soul singer now. The quiet companion under the `latenight` key is a velvet-voiced crooner who traded the stage for the small hours and seduces one listener slowly, one record at a time: a low croon, "baby", "darling" or "sugar" once a break at most, and the lights always a little lower than they were. It is written in the manner of one seventies soul singer and names nobody, on the roster's archetypes-never-impersonations rule, and it quotes no song. The sheet fences the register: the heat is in the delivery and what is left unsaid, never explicit, graphic or a description of a body, and the station's explicit-content setting outranks it either way. The key and the voice are unchanged, so a schedule row naming it still resolves, and both seeded stories are rewritten to match. Seeds are written only on a station with no personas, so an existing station keeps the sheet it has until somebody edits it.
@@ -986,7 +991,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.37.7...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.38.0...HEAD
+[0.38.0]: https://github.com/robert-dean/deadair/compare/v0.37.7...v0.38.0
 [0.37.7]: https://github.com/robert-dean/deadair/compare/v0.37.6...v0.37.7
 [0.37.6]: https://github.com/robert-dean/deadair/compare/v0.37.5...v0.37.6
 [0.37.5]: https://github.com/robert-dean/deadair/compare/v0.37.4...v0.37.5

@@ -7,7 +7,7 @@ import { captureWrites } from '#modules/render/script.history.settings.js';
 import { breakPrompt, readAnswer, writeDecline, writeTrim, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
 import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
-import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
+import { breakGeneration, BUDGET_MS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 import { NEWS_KIND } from './news.break.writer.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 
@@ -84,6 +84,10 @@ export const NEWS_SHAPE: BreakPromptShape = {
     // discography note because nothing about it is even trying to be true today. The sheet still
     // goes, so this still sounds like the station's presenter; what is withheld is the accumulation.
     showsNotebook: false,
+    // The character as a lean: no signatures offered, its words allowed rather than required, and
+    // no closing reminder to speak "every sentence" in it. The prompt half of `dialect: 'optional'`
+    // below, which the guard had applied alone. See `BreakPromptShape.voice`.
+    voice: 'lean',
     opening: request =>
         // What it is ABOUT, when a band asked for one. Said in the opening rather than as a rule
         // because it changes what the bulletin IS rather than constraining how it is written — and
@@ -175,8 +179,7 @@ export class ModelNewsBreakWriter extends BreakWriter {
             {
                 messages,
                 ...(model.length === 0 ? {} : { model }),
-                maxOutputTokens: MAX_OUTPUT_TOKENS,
-                reasoningEffort: 'low',
+                ...breakGeneration(this.config),
             },
             // No tools. Everything this bulletin may contain is already in the prompt, and a model
             // that could go looking for more of a story is a model that can report something the

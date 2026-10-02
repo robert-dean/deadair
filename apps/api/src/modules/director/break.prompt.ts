@@ -171,6 +171,17 @@ export interface BreakPromptShape {
      */
     showsNotebook?: boolean;
     /**
+     * How much of the character this kind of break carries. Absent is all of it.
+     *
+     * `lean` is for a break that reports somebody else's facts, which is `NEWS_SHAPE`: the sheet still
+     * goes, so the bulletin still sounds like the station's presenter, but the signature phrases are
+     * not offered, the character's words are allowed rather than asked for, and the closing reminder
+     * to write "every sentence in your own speech" is not sent. That reminder sits after the rules,
+     * the strongest position in the prompt, and it was telling a bulletin the opposite of its own
+     * opening ("no jokes, no opinions"). See `PersonaLineOptions.lean` for what it produced on air.
+     */
+    voice?: 'lean';
+    /**
      * Whether this kind may carry one of the character's own STORIES, and on whose terms.
      *
      * Absent for every kind that may not, which is most of them — and `NEWS_SHAPE` is the one where
@@ -833,10 +844,10 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
         // job that filtered on it would be a second opinion about the same question.
         ...(persona === undefined
             ? []
-            : personaLines(
-                  persona,
-                  shape.allowsPreoccupation === true && settings.preoccupation !== undefined ? { preoccupation: settings.preoccupation } : {},
-              )),
+            : personaLines(persona, {
+                  ...(shape.allowsPreoccupation === true && settings.preoccupation !== undefined ? { preoccupation: settings.preoccupation } : {}),
+                  ...(shape.voice === 'lean' ? { lean: true } : {}),
+              })),
         // Immediately after the sheet, and inside the same block, because a trait IS a sheet line —
         // one this character grew into rather than one its author typed. Gated on the persona as
         // well as on the shape: a note about a character nobody is presenting has nothing to attach
@@ -932,7 +943,8 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
     // AFTER the rules, and that position is the whole reason it exists. The failure it addresses is
     // caused BY the rules: a host reads seven careful instructions about naming records accurately
     // and answers them in careful, plain English. See `persona.sheet.ts`.
-    const reminder = persona === undefined ? undefined : personaVoiceReminder(persona, settings.language);
+    // Not for a break whose character is a lean: see `BreakPromptShape.voice`.
+    const reminder = persona === undefined || shape.voice === 'lean' ? undefined : personaVoiceReminder(persona, settings.language);
     if (reminder !== undefined) lines.push('', reminder);
 
     // Last of all, after the persona's reminder, because it is the one instruction every other line
@@ -1125,6 +1137,7 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
                 'A bulletin that reads out headlines and nothing else has told the listener nothing. ' +
                 'The wording is yours; the facts are not. Say only what each story actually says: do not add detail, ' +
                 'do not explain what it means, do not say what will happen next, and do not merge two stories into one. ' +
+                'When a story says who claims something, keep it theirs: say that they said it, rather than reporting it as a fact. ' +
                 "The text is the publisher's own wording — use it to know what happened, not as lines to read out. " +
                 'Where a story has no text under it, say what its headline says in one spoken sentence and move on rather than filling the gap. ' +
                 'If a story is unclear, leave it out rather than guessing at it. Do not say how you feel about any of it.',
@@ -1303,8 +1316,11 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         const spent = settings.persona === undefined ? [] : spentCatchphrases(settings.persona, request.recent);
         if (spent.length > 0) {
             parts.push(
-                `You have already said ${spent.map(phrase => `"${phrase}"`).join(' and ')} recently. Do not say ${spent.length === 1 ? 'it' : 'any of them'} again now. ` +
-                    'If you want a line to go out on, make up a new one of your own in the same voice.',
+                `You have already said ${spent.map(phrase => `"${phrase}"`).join(' and ')} recently. Do not say ${spent.length === 1 ? 'it' : 'any of them'} again now.` +
+                    // The prohibition stays for a break whose character is a lean, because the guard
+                    // still refuses a spent signature there; the invitation to make a new sign-off
+                    // does not. See `BreakPromptShape.voice`.
+                    (shape.voice === 'lean' ? '' : ' If you want a line to go out on, make up a new one of your own in the same voice.'),
             );
         }
     }

@@ -9,7 +9,7 @@ import { WEATHER_KIND } from '#modules/weather/weather.kind.js';
 import { breakPrompt, readAnswer, writeDecline, writeTrim, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
 import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, patienceFor, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
-import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
+import { breakGeneration, BUDGET_MS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 
 /**
  * A model giving the weather, with the station's own report underneath it.
@@ -138,8 +138,7 @@ export class ModelWeatherBreakWriter extends BreakWriter {
             {
                 messages,
                 ...(model.length === 0 ? {} : { model }),
-                maxOutputTokens: MAX_OUTPUT_TOKENS,
-                reasoningEffort: 'low',
+                ...breakGeneration(this.config),
             },
             // No tools, and here that includes `get_weather`. Everything this break may contain is
             // already in the prompt, fetched once by `WeatherSource` so the floor and this see the

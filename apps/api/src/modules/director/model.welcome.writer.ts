@@ -19,7 +19,7 @@ import {
 } from './break.prompt.js';
 import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
-import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
+import { breakGeneration, BUDGET_MS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 import { WELCOME_KIND } from './welcome.writer.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 
@@ -149,8 +149,7 @@ export class ModelWelcomeWriter extends BreakWriter {
             {
                 messages,
                 ...(model.length === 0 ? {} : { model }),
-                maxOutputTokens: MAX_OUTPUT_TOKENS,
-                reasoningEffort: 'low',
+                ...breakGeneration(this.config),
             },
             // No tools, for the talk break's reason: everything this needs is already in the prompt,
             // and the one thing a greeting must not be is late.

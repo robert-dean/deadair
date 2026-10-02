@@ -85,6 +85,19 @@ through. But "the model is self-hosted so nothing is billed" stopped being true 
 a paid API, which is exactly the trigger that section named. The retrofit surface is unchanged; what changed is
 that a runaway refill now costs money rather than a warm GPU.
 
+**How hard the break model thinks, and how much room it has, are settings, because they belong to the
+model.** Every model-written break used to send `reasoningEffort: 'low'` and an 800-token ceiling, sized
+against gpt-oss, which thought briefly and answered in about 200 tokens. gemma4 on the same host thought for
+434 tokens before a one-line answer to a three-line prompt, and on the station's real prompts it ran out of the
+800 mid-thought and said nothing: 54 of the 88 breaks it declined in its first four days on air
+(2026-09-29 to 2026-10-02), each one falling to the floor. At `none` it answered in 39 tokens. So
+`llm.breakReasoning` and `llm.breakMaxTokens` hold them now, read through `breakGeneration` by every break
+writer, and their defaults are the old constants so nothing changed for a station that sets neither. `none`
+joined `LlmReasoningEffort` for this: unset leaves the provider's own default in charge, and some models
+think by default. The plugin's own effort setting still wins unless it is Auto, which is why the setting's help
+says so. The record-choosing model keeps its own room (`llm.setMaxTokens`) and its own `low`: an hour of
+programming is a research task, and a link is not.
+
 ## The tool loop
 
 **The source list is ordered, and the order is the only steer a model gets about which question to ask

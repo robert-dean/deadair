@@ -62,8 +62,14 @@ import { PluginError } from '../plugin.error.js';
  * anything that is not a reasoning model: the field means nothing to a plain
  * model and a strict OpenAI-compatible server answers 400 rather than ignoring
  * it.
+ *
+ * `none` asks a reasoning model to answer without thinking at all, which is not the
+ * same as leaving the field unset: unset leaves the provider's own default in
+ * charge, and some think by default. It is the value the station's talk breaks
+ * can be set to, because a small local model at `low` was measured spending its
+ * whole allowance thinking about a forty-word link and saying nothing.
  */
-export type LlmReasoningEffort = 'low' | 'medium' | 'high';
+export type LlmReasoningEffort = 'none' | 'low' | 'medium' | 'high';
 
 /** Why a generation stopped. `tool-calls` is the one the host's loop acts on. */
 export type LlmFinishReason = 'stop' | 'length' | 'tool-calls' | 'content-filter' | 'error' | 'other';

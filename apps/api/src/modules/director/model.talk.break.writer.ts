@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import type { LlmReasoningEffort } from '@deadair/plugin-sdk';
 import { languageGuard, stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
@@ -111,7 +112,44 @@ export const MAX_OUTPUT_TOKENS = 800;
 export const MODEL_WRITER_KEYS = {
     enabled: 'llm.breakWriter',
     model: 'llm.breakModel',
+    reasoning: 'llm.breakReasoning',
+    maxTokens: 'llm.breakMaxTokens',
 } as const;
+
+/** The efforts an operator can give the break model. Its own vocabulary, so it is also what is sent. */
+export const BREAK_REASONING_EFFORTS = ['none', 'low', 'medium', 'high'] as const satisfies readonly LlmReasoningEffort[];
+
+/** `low`, which is what every break asked for before this was a setting. */
+export const DEFAULT_BREAK_REASONING: LlmReasoningEffort = 'low';
+
+/**
+ * How hard the break model thinks, and how much room it has, from the operator's settings.
+ *
+ * Settings rather than constants because both are facts about the operator's model, not about this
+ * code. `low` and {@link MAX_OUTPUT_TOKENS} were sized against gpt-oss, which thought briefly and
+ * answered in about 200 tokens. Measured on 2026-10-02 against gemma4 on the station's own Ollama
+ * host: at `low` it spent 434 tokens thinking before a one-line answer to a three-line prompt, and on
+ * the station's real prompts it ran out of the 800 mid-thought and said nothing. That was 54 of the
+ * 88 breaks it had declined in its first four days, each one falling to the floor. At `none` the same
+ * model answered in 39 tokens and 0.6 seconds. Which of those an operator wants depends on the model,
+ * so the station asks.
+ *
+ * Shared by every model-written break (talk, welcome, news, weather, almanac, changeover, dedication,
+ * story), since all of them are short spoken links and one model writes them all. Parsed rather than
+ * read, because a setting is a string: see `maxOutputTokens` in `model.set.generator.ts`.
+ */
+export function breakGeneration(config: AppConfig): { maxOutputTokens: number; reasoningEffort: LlmReasoningEffort } {
+    const effort = String(config.get(MODEL_WRITER_KEYS.reasoning, DEFAULT_BREAK_REASONING) ?? '').trim();
+    const reasoningEffort = (BREAK_REASONING_EFFORTS as readonly string[]).includes(effort)
+        ? (effort as LlmReasoningEffort)
+        : DEFAULT_BREAK_REASONING;
+
+    const raw = config.get(MODEL_WRITER_KEYS.maxTokens, MAX_OUTPUT_TOKENS);
+    const parsed = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? ''), 10);
+    const maxOutputTokens = Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : MAX_OUTPUT_TOKENS;
+
+    return { maxOutputTokens, reasoningEffort };
+}
 
 /**
  * OFF, so a fresh install writes its breaks from the phrasings and cannot be slow at it.
@@ -206,10 +244,9 @@ export class ModelTalkBreakWriter extends BreakWriter {
             {
                 messages,
                 ...(model.length === 0 ? {} : { model }),
-                maxOutputTokens: MAX_OUTPUT_TOKENS,
-                // A talk break is not a reasoning problem, and on a host that spills its context
-                // this is the difference between a break and a fall-through.
-                reasoningEffort: 'low',
+                // How hard to think and how much room to do it in are the operator's, because they
+                // depend on the model: see `breakGeneration`.
+                ...breakGeneration(this.config),
             },
             {
                 // Nothing to look up: both records are already in the prompt. A tool round trip

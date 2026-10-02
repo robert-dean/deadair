@@ -82,6 +82,17 @@ same argument that made the markers get sent: refusing a script for an instructi
 trick question, and a model told only what it may not say fills the hole with a sample line, which is the
 failure one rule over. Only the phrase-shaped half of `avoid` is checkable, and the entries describing a
 subject stay instructions to a model, which is why the grounding rules underneath them are what actually hold.
+
+**`dialect: 'optional'` was the guard's half of the bulletin's lean, and for a long time the prompt kept
+asking for the opposite.** The sheet the news writer sent still said "work at least 1" of the character's
+words "into anything you say", offered its signature phrases, and closed, after every rule, on "write every
+sentence in your own speech". Measured on 2026-10-01: a bulletin about an execution and a dismissed
+prosecution ended "Whatever. Life is pain.", a marker the prompt required and a signature it offered, so the
+guard had nothing to refuse. `NEWS_SHAPE` now sets `voice: 'lean'`, and `personaLines` renders that sheet
+without the signatures and with the markers allowed rather than asked for, and `breakPrompt` sends no closing
+reminder. The user turn still names a spent signature, because the guard still refuses one, but no longer
+invites a new sign-off. Weather and almanac pass `dialect: 'optional'` too and keep the whole sheet for now:
+the failure was measured in the news, and a forecast in character has not been one.
 The seeds are written from `persona.defaults.ts` in `ready()` rather than from the migration, so the
 sheets have one source, and the guard is that the station is EMPTY rather than that each key is missing —
 which is what makes deleting a seeded persona expressible.

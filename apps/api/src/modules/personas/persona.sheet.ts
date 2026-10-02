@@ -768,6 +768,18 @@ export interface PersonaLineOptions {
     /** Example lines woven in. Defaults to {@link MAX_EXAMPLES}. */
     maxExamples?: number;
     /**
+     * The character as a lean rather than a requirement, for a break that REPORTS: the signature
+     * phrases are not offered, and the character's own words are allowed rather than asked for.
+     *
+     * The prompt half of `dialect: 'optional'`, which the bulletin's guard has applied for a long
+     * time while this kept asking for the opposite. Measured on 2026-10-01: told to "work at least 1"
+     * of `whatever`, `pain` and `the void` into anything it said, and offered "Life is pain" as a
+     * signature, a small model reported an execution and a dismissed prosecution and followed them
+     * with "Whatever. Life is pain." The guard could not refuse it, because both were things the
+     * sheet had invited.
+     */
+    lean?: boolean;
+    /**
      * The one of {@link PersonaSheet.preoccupations} this moment gets, or absent for none at all.
      *
      * Chosen by the caller rather than here, which is `PersonaLineOptions`' shape for the reason
@@ -819,8 +831,10 @@ export function personaLines(sheet: PersonaSheet, opts: PersonaLineOptions = {})
         // position would refuse the character speaking normally. This is the instruction that was
         // missing; the sentence after it is what makes the instruction worth following.
         lines.push(
-            `These words are yours. Work at least ${MIN_DICTION_MARKERS} of them into anything you say, where it falls naturally — ` +
-                `never listed, and never all at once: ${markers.join(', ')}`,
+            opts.lean === true
+                ? `These words are yours, if one falls naturally into a sentence; there is no need to use any, and never list them: ${markers.join(', ')}`
+                : `These words are yours. Work at least ${MIN_DICTION_MARKERS} of them into anything you say, where it falls naturally — ` +
+                      `never listed, and never all at once: ${markers.join(', ')}`,
         );
         lines.push(
             'Inside a sentence, not stuck on the front of one. An exclamation before the real line is not you talking, it is a label ' +
@@ -845,7 +859,8 @@ export function personaLines(sheet: PersonaSheet, opts: PersonaLineOptions = {})
         );
     }
 
-    const catchphrases = cleanList(sheet.catchphrases, PERSONA_SHEET_LIMITS.catchphrases);
+    // Not offered to a break that reports: see `PersonaLineOptions.lean`.
+    const catchphrases = opts.lean === true ? [] : cleanList(sheet.catchphrases, PERSONA_SHEET_LIMITS.catchphrases);
     if (catchphrases.length > 0) {
         // The invitation at the end is the positive half of the rule the user turn enforces. A
         // signature the station has just used is refused there, and a model told only that has been

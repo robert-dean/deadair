@@ -645,10 +645,13 @@ function toStory(
     const summary = withoutEchoedHeadline(item.summary?.trim(), item.title, headline);
     const body = withoutEchoedHeadline(item.content?.trim(), item.title, headline);
 
+    const shownSummary = wholeSentences(summary, MAX_SUMMARY_CHARS);
+    const shownBody = wholeSentences(body, MAX_BODY_CHARS);
+
     return {
         headline,
-        ...(summary === undefined || summary.length === 0 ? {} : { summary: summary.slice(0, MAX_SUMMARY_CHARS) }),
-        ...(body === undefined || body.length === 0 ? {} : { body: truncateSentences(body, MAX_BODY_CHARS) }),
+        ...(shownSummary === undefined ? {} : { summary: shownSummary }),
+        ...(shownBody === undefined ? {} : { body: shownBody }),
         ...(item.feedName === undefined ? {} : { source: item.feedName }),
         ...(item.publishedAt === undefined ? {} : { publishedAt: item.publishedAt }),
         // The station's OWN categories, strongest match first — not the publisher's labels, which
@@ -656,6 +659,47 @@ function toStory(
         // cut below read one answer.
         categories: categoriesOf({ ...item, ...(feedCategory === undefined ? {} : { feedCategory }) }, rules).map(match => match.key),
     };
+}
+
+/**
+ * A feed's own mark that it cut its text short: an ellipsis, three dots, or either in brackets, at
+ * the very end. `[…]` is what WordPress puts on an excerpt.
+ */
+const TRUNCATION_MARK = /\s*(?:…|\.{3}|\[\s*(?:…|\.{3})\s*\])\s*$/u;
+
+/**
+ * Whole sentences of a story's text within `maxChars`, or nothing.
+ *
+ * ## Why a fragment never reaches a writer
+ *
+ * A feed's teaser is often the opening of the article cut off at a length, and marked with an
+ * ellipsis. Both writers read it as the story: the floor took it as the "opening sentence" because a
+ * fragment has no sentence boundary to stop at, and read it aloud ellipsis and all. Measured on the
+ * live station on 2026-10-01: "…set off a firestorm of protests around the …" closed a bulletin.
+ * A model shown the same fragment finishes the sentence out of its own head, which in a bulletin is
+ * the station stating something false as fact (see {@link MAX_BODY_CHARS}).
+ *
+ * So a feed-truncated text keeps only the sentences it completed before the cut, and a text with
+ * none is dropped. The same rule replaces the teaser's raw character slice, which cut mid-word, and
+ * the body's fallback to a word cut, which appended an ellipsis of its own: either way, half a
+ * sentence is worse than the headline alone, and the headline is what a story with no text gets.
+ */
+function wholeSentences(text: string | undefined, maxChars: number): string | undefined {
+    let value = text?.trim();
+    if (value === undefined || value.length === 0) return undefined;
+
+    const cutByFeed = TRUNCATION_MARK.test(value);
+    if (cutByFeed) value = value.replace(TRUNCATION_MARK, '').trimEnd();
+    if (value.length === 0) return undefined;
+
+    // A feed sometimes marks a cut right after a full stop, which leaves a complete sentence.
+    const complete = !cutByFeed || /[.!?]["'”’)\]]*$/u.test(value);
+    if (complete && value.length <= maxChars) return value;
+
+    // Strictly shorter than the fragment, so the cut has to land on a sentence the text finished.
+    const cut = truncateSentences(value, Math.min(maxChars, value.length - 1));
+    // `truncateSentences` falls back to a word cut ending in "…" when no sentence fits.
+    return /[.!?]["'”’)\]]*$/u.test(cut) ? cut : undefined;
 }
 
 /**

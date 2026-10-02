@@ -406,13 +406,14 @@ the words an anchor would use — what happened, to whom, where, in spoken Engli
 that the wording is its and the facts are not, with every anti-invention rule beside it unchanged and in the
 same sentence as the licence. **That the headline is now source rather than copy is the whole change**, and it
 is stated in three places because it was previously contradicted in three: the opening, the stories rule, and
-`describeStory`'s own doc. The floor underneath is unaffected and still reads headlines verbatim, which is what
-a writer that cannot rephrase is for; a bulletin that falls through is a plainer bulletin, not a wrong one.
+`describeStory`'s own doc. The floor underneath is unaffected: it reads each headline verbatim followed by the
+story's opening sentence where it has a usable one (`openingSentence` in `news.break.writer.ts`), which is what a
+writer that cannot rephrase is for; a bulletin that falls through is a plainer bulletin, not a wrong one.
 
 **A guard would have made this worse, which is why there is not one.** Every other measured failure here is
 refused, but the only thing a refusal can do is drop to `NewsBreakWriter`, and what the floor reads is headlines
-and nothing else — so declining a bulletin for sounding like a list of headlines hands the listener a list of
-headlines. The prompt is the fix and the capture in `script_history` is how it is checked.
+and their opening sentences, so declining a bulletin for sounding like a list of headlines hands the listener a
+list of headlines. The prompt is the fix and the capture in `script_history` is how it is checked.
 
 **And the prompt was only ever half of it, which the capture is what showed.** Reading the `prompt` column back
 rather than the scripts: **21 of the 34 stories in this station's captured prompts had a body that began with
@@ -421,6 +422,16 @@ what happened — were carrying one sentence twice, and a writer told to report 
 exactly that. Blaming the model for the restatement was wrong by about two thirds. `withoutEchoedHeadline` takes
 the echo off both the body and the teaser in `toStory`, before either is cut, so the writer's ceiling is spent
 on the story rather than on a line it has already been shown.
+
+**A fragment never reaches either writer: a story's text is whole sentences or nothing.** Feeds cut their teasers
+at a length and mark the cut with an ellipsis, and the floor read the fragment as an "opening sentence" because a
+fragment has no sentence boundary to stop at. Measured on 2026-10-01, a bulletin closed on "…set off a firestorm
+of protests around the …". A model shown the same text finishes the sentence itself, which in a bulletin is the
+station stating something false as fact. `wholeSentences` in `toStory` keeps only the sentences a feed-truncated
+text completed (`…`, `...`, or either in brackets), and the same rule replaced two cuts that made fragments of
+their own: the teaser's raw 240-character slice, which stopped mid-word, and the body's fallback to a word cut,
+which appended an ellipsis. A story left with no text is read as its headline, which is what a story with no text
+always got.
 
 It is a PREFIX and the WHOLE headline, and it detects nothing about where the text came from. A headline quoted
 mid-article is the article referring to itself and is left alone; a body sharing its opening few words with its

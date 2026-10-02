@@ -424,6 +424,62 @@ describe('breakPrompt', () => {
         });
     });
 
+    // Measured on 2026-10-01: a bulletin about an execution and a dismissed prosecution ended
+    // "Whatever. Life is pain." Both were things the sheet had invited. See `BreakPromptShape.voice`.
+    describe('a bulletin, which carries the character as a lean', () => {
+        const persona = {
+            style: 'an emo kid',
+            dictionMarkers: ['whatever', 'the void'],
+            catchphrases: ['Life is pain'],
+            diction: ['Flat, short sentences'],
+        };
+        const bulletin = (recent?: string[]) =>
+            breakPrompt(
+                { kind: 'news', stories: [{ headline: 'Bridge reopens.' }], ...(recent === undefined ? {} : { recent }) },
+                { persona },
+                NEWS_SHAPE,
+            );
+
+        it('still sends the sheet, so it sounds like the presenter', () => {
+            const rules = system(bulletin());
+            expect(rules).toContain('You are an emo kid');
+            expect(rules).toContain('Flat, short sentences');
+        });
+
+        it('offers no signature phrases', () => {
+            expect(system(bulletin())).not.toContain('Life is pain');
+            expect(system(bulletin())).not.toMatch(/signature phrases/i);
+        });
+
+        it("allows the character's words rather than asking for them", () => {
+            const rules = system(bulletin());
+            expect(rules).toContain('whatever, the void');
+            expect(rules).not.toMatch(/work at least/i);
+        });
+
+        it('sends no closing reminder to say every sentence in character', () => {
+            expect(system(bulletin())).not.toContain('Write every sentence in your own speech');
+            // The same sheet on a talk break does get it, so the check above is not vacuous.
+            expect(system(prompt({ kind: 'talkbreak', previous }, { persona }))).toContain('Write every sentence in your own speech');
+        });
+
+        it('still says a spent signature is spent, without inviting a new sign-off', () => {
+            const said = user(bulletin(['Life is pain.']));
+            expect(said).toContain('You have already said "Life is pain" recently');
+            expect(said).not.toMatch(/make up a new one/i);
+        });
+
+        it('keeps a claim with whoever the story says made it', () => {
+            expect(user(bulletin())).toMatch(/keep it theirs: say that they said it/i);
+        });
+
+        it('leaves a talk break carrying the whole character', () => {
+            const rules = system(prompt({ kind: 'talkbreak', previous }, { persona }));
+            expect(rules).toContain('"Life is pain"');
+            expect(rules).toMatch(/work at least 1 of them/i);
+        });
+    });
+
     describe('a signature the station has already used', () => {
         const persona = { style: 'a pirate', catchphrases: ['Arrr, and there it goes', 'Make of that what you will'] };
 

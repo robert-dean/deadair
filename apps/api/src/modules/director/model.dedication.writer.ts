@@ -17,7 +17,7 @@ import {
 } from './break.prompt.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
 import { DEDICATION_KIND, DEDICATION_LABEL, dedicationOf, type DedicationParts } from './dedication.writer.js';
-import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
+import { breakGeneration, BUDGET_MS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 /**
@@ -133,8 +133,7 @@ export class ModelDedicationWriter extends BreakWriter {
             {
                 messages,
                 ...(model.length === 0 ? {} : { model }),
-                maxOutputTokens: MAX_OUTPUT_TOKENS,
-                reasoningEffort: 'low',
+                ...breakGeneration(this.config),
             },
             // No tools, for the talk break's reason, and one more: nothing a listener typed may reach
             // anything that fetches.

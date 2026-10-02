@@ -66,7 +66,7 @@ private struct Attempts: View {
             List {
                 if stale { StaleBanner() }
                 ForEach(attempts, id: \.id) { attempt in
-                    AttemptRow(attempt: attempt, sharer: sharer)
+                    AttemptRow(attempt: attempt, sharer: sharer, scripts: scripts)
                 }
                 if canLoadMore {
                     HStack {
@@ -90,7 +90,9 @@ private struct AttemptRow: View {
     @Environment(AppModel.self) private var model
     let attempt: ScriptAttempt
     let sharer: BreakSharer
+    let scripts: ScriptsRepository
     @State private var open = false
+    @State private var rating = false
 
     var body: some View {
         let ui = ScriptRowUiState(attempt)
@@ -131,6 +133,10 @@ private struct AttemptRow: View {
                 .font(.callout)
                 .foregroundStyle(ui.lineIsReason ? .secondary : .primary)
                 .lineLimit(open ? nil : 2)
+            // The operator's opinion, asked only where there are words to have one about.
+            if model.isOperator, ui.rateable {
+                ScriptRatingControl(rating: ui.rating, busy: rating) { mark in rate(mark) }
+            }
             if open {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(Array(ui.facts.enumerated()), id: \.offset) { _, fact in
@@ -150,11 +156,56 @@ private struct AttemptRow: View {
         .accessibilityHint(open ? Text("Hide details") : Text("Show details"))
     }
 
+    /// The station answers with the attempt as it now has it, which is swapped in at once.
+    private func rate(_ mark: ScriptRating) {
+        guard !rating else { return }
+        rating = true
+        Task {
+            if let answer = await model.scriptActions.rate(attempt.id, mark) { scripts.replace(answer) }
+            rating = false
+        }
+    }
+
     private func color(_ tone: ScriptTone) -> Color {
         switch tone {
         case .ok: .accentColor
         case .standby: .gray
         case .fault: .red
         }
+    }
+}
+
+/// What the operator thought of something the station said.
+///
+/// The catalog control's mechanics and deliberately not that control: its words are claims about
+/// rotation, and nothing acts on a script rating at all. Here an unrated attempt shows nothing pressed
+/// and a neutral one shows the middle, because "heard it, no opinion" is a thing somebody said and
+/// "nobody has listened yet" is not. `apps/android`'s `ScriptRatingControl`.
+private struct ScriptRatingControl: View {
+    let rating: ScriptRating?
+    let busy: Bool
+    let onRate: (ScriptRating) -> Void
+
+    var body: some View {
+        HStack(spacing: 16) {
+            segment(.disliked, symbol: "hand.thumbsdown", name: String(localized: "The station should not say things like this"))
+            segment(.neutral, symbol: "minus", name: String(localized: "Heard it, no opinion"))
+            segment(.liked, symbol: "hand.thumbsup", name: String(localized: "More like this"))
+        }
+        .disabled(busy)
+    }
+
+    private func segment(_ value: ScriptRating, symbol: String, name: String) -> some View {
+        let selected = rating == value
+        return Button {
+            onRate(value)
+        } label: {
+            Image(systemName: selected ? "\(symbol).fill" : symbol)
+                .foregroundStyle(selected ? Color.accentColor : .secondary)
+                .frame(width: 36, height: 28)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(Text(name))
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

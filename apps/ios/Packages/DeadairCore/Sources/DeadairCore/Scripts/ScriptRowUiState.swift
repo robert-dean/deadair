@@ -68,3 +68,20 @@ public struct ScriptRowUiState: Equatable, Sendable {
 
     private func neighbour(_ track: ScriptNeighbour) -> String { "\(track.title) — \(track.artist)" }
 }
+
+/// The operator's opinion of something the station said. Nothing acts on it yet; it is kept.
+/// `apps/android`'s `ScriptActions`.
+@MainActor
+public final class ScriptActions {
+    private let actions: OperatorActions
+
+    public init(actions: OperatorActions) {
+        self.actions = actions
+    }
+
+    /// The attempt as the station now has it, or `nil` after a notice.
+    public func rate(_ attemptId: String, _ rating: ScriptRating) async -> ScriptAttempt? {
+        guard let id = UUID(uuidString: attemptId) else { return nil }
+        return await actions.run { try await $0.render.rateScript(id: id, body: ScriptRatingInput(rating: rating)) }
+    }
+}

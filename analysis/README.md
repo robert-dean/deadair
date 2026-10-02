@@ -6,16 +6,19 @@ head and tail of every record, to know how long it may talk over an intro, and l
 between two records.
 
 It also **joins** several files into one, which is the same work seen from the other end: both need
-decoded PCM, and decoding is the one thing that does not happen in Node.
+decoded PCM, and decoding is the one thing that does not happen in Node. And it **transcodes** one
+file into a small AAC copy for a listener to send on, for the same reason: encoding does not happen in
+Node either.
 
 **This directory is one implementation of the contract below, not the contract itself.** Anything
 that answers these endpoints is a valid analyzer, and swapping to it is a `baseUrl` change in the
-plugin's config. That is the whole reason the boundary is HTTP. `/join` is optional in that contract:
-a station whose sidecar answers 404 to it keeps every other thing an analyzer does, and the plugin
-turns that 404 into an `unsupported` the station degrades over rather than a fault.
+plugin's config. That is the whole reason the boundary is HTTP. `/join` and `/transcode` are optional
+in that contract: a station whose sidecar answers 404 to either keeps every other thing an analyzer
+does, and the plugin turns that 404 into an `unsupported` the station degrades over rather than a
+fault.
 
-App-side those are two CAPABILITIES — `analysis` and `mixer`, with their own keys — while remaining
-one sidecar behind one plugin declaring both. The split is about which plugin the host PICKS for
+App-side those are three CAPABILITIES — `analysis`, `mixer` and `transcode`, with their own keys —
+while remaining one sidecar behind one plugin declaring all three. The split is about which plugin the host PICKS for
 each job, not about which program does the work; `packages/plugin-sdk/src/capabilities/mixer.ts`
 argues it.
 
@@ -52,6 +55,11 @@ Transitive entries count for the same reason. `beat_this` is MIT with MIT checkp
 `soxr`, which is LGPL, so it is installed `--no-deps` out of `requirements.nodeps.txt` with the one
 resample it wanted soxr for done in scipy instead. `requirements.txt` carries the evidence per line,
 which is the place to add to when something new is pinned.
+
+`/transcode` asks ffmpeg for its NATIVE `aac` encoder, which is part of ffmpeg proper, and never for
+`libfdk_aac`, which is non-free and so falls on the wrong side of this rule. Debian's ffmpeg is built
+without it anyway; the point of saying so is that a "better" AAC encoder is the obvious thing to reach
+for, and `test_transcode.py` pins the command so nobody does.
 
 The four cue points and the vocal fields are outside the question entirely — band-limited energy
 between 200 Hz and 4 kHz, no toolkit — which is why this only ever came up for the beat layer.
@@ -232,6 +240,39 @@ of more than 64 parts, which is a mistake upstream rather than a long programme.
 decodes every part it is given, and a join that escaped the ceiling would be a way past the operator's
 own concurrency setting into the machine's memory.
 
+### `POST /transcode`
+
+```jsonc
+// request
+{
+  "url": "https://…",   // complete and self-authenticating, as /analyze's is
+  "bitrateKbps": 64,    // 16..320, default 64
+  "channels": 1         // 1 or 2, default 1
+}
+```
+
+```
+// response, 200
+Content-Type: audio/mp4
+X-Duration-Ms: 60000
+
+<the audio: AAC in an .m4a, index at the front>
+```
+
+A small copy of one file, made to be SENT rather than aired: the station asks for it when a listener
+shares a talk break, and a minute of speech at the defaults is about half a megabyte, which fits a
+plain MMS where the rendered wav (three megabytes a minute) does not. Lossy, and that is fine for the
+reason it is not fine for `/join`: nothing this answers ever goes back into the programme. The
+station decides the numbers; they are parameters here only so that decision lives in one place.
+
+It writes to a temporary file rather than a pipe, because an ordinary MP4's index is written last and
+needs a seekable output, and `+faststart` then moves the index to the front so a phone can start
+playing before the last byte arrives. Both that file and the download are gone before the answer is
+sent, failures included. A download that arrived short is refused as `unfetchable` rather than
+encoded: a short copy sent to somebody is wrong with nobody downstream to notice.
+
+Under the same concurrency ceiling as the other two, because it decodes a whole file.
+
 ### Errors
 
 `4xx` / `5xx` with:
@@ -364,6 +405,11 @@ curl -s -X POST localhost:9321/analyze -H 'content-type: application/json' -d '{
 curl -s -X POST localhost:9321/join -H 'content-type: application/json' \
   -d '{"parts":[{"url":"http://localhost:8000/one.wav"},{"url":"http://localhost:8000/two.wav"}],"gapMs":200}' \
   -o joined.flac
+```
+
+```bash
+curl -s -X POST localhost:9321/transcode -H 'content-type: application/json' \
+  -d '{"url":"http://localhost:8000/break.wav"}' -o break.m4a
 ```
 
 Check the answers against the file in an audio editor by eye once. There is no test that can hear it,

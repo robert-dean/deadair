@@ -155,7 +155,7 @@ public sealed partial class SegmentsViewModel(
         await previews.ToggleAsync(
             SegmentKey(segment.Id),
             async token => Clips.From(await RunAsync<object>(
-                async (sdk, inner) => await sdk.Render.GetSegmentAudioAsync(id, inner).ConfigureAwait(false),
+                async (sdk, inner) => await sdk.Render.GetSegmentAudioAsync(id, cancellationToken: inner).ConfigureAwait(false),
                 cancellationToken: token).ConfigureAwait(true))).ConfigureAwait(true);
 
         foreach (var row in Segments)

@@ -23,7 +23,6 @@ extension Message {
         case .fellBackToMp3(let wanted): String(localized: "This station does not publish \(wanted.label), so you are hearing MP3.")
         case .onTheMic(let host?): String(localized: "\(host) is on the mic")
         case .onTheMic(nil): String(localized: "The host is on the mic")
-        case .showWithHost(let show, let host): String(localized: "\(show) · with \(host)")
         case .withHost(let host): String(localized: "with \(host)")
         case .stopsIn(let span): String(localized: "Stops in \(span.words)")
         case .stopsAfterThisRecord: String(localized: "Stops after this record")

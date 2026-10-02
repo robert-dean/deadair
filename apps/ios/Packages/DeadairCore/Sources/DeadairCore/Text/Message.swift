@@ -32,9 +32,7 @@ public enum Message: Equatable, Sendable {
     /// the station sent, and absent when it named nobody, which has its own sentence rather than a
     /// blank where the name would go.
     case onTheMic(host: String?)
-    /// The line above the record: "Late Static · with Cass". Both halves are the station's words.
-    case showWithHost(show: String, host: String)
-    /// The same line when the show has no name to give: "with Cass".
+    /// Who is presenting, under the record: "with Cass".
     case withHost(String)
     /// The sleep timer's countdown: "Stops in 14 min". Never less than a minute.
     case stopsIn(Span)

@@ -28,6 +28,12 @@ struct SettingsScreen: View {
             Section {
                 // The explicit-closure setter, not the method passed straight in: see apps/ios/CLAUDE.md.
                 Toggle("Play when the app opens", isOn: Binding(get: { model.settings.settings.playOnOpen }, set: { model.settings.setPlayOnOpen($0) }))
+                // Here rather than on Now playing, as on Android, and only while the station is
+                // playing: there is nothing to put to sleep otherwise.
+                if model.listening.wantsToPlay {
+                    let reading = model.nowPlaying.state.latest
+                    SleepMenu(canWaitForRecord: reading.flatMap { Playhead.project($0.value.track, readAt: $0.readAt, now: .now) } != nil)
+                }
             } header: {
                 Text("Listening")
             } footer: {
@@ -63,10 +69,14 @@ struct FormatSection: View {
             }
             .pickerStyle(.inline)
             .labelsHidden()
+            // Said here, beside the choice it is about, and only while something is playing.
+            if let note = model.nowPlayingUi.fallbackNote {
+                Text(note.words).font(.footnote).foregroundStyle(.orange)
+            }
         } header: {
             Text("Format")
         } footer: {
-            Text("MP3 always plays. HLS is the one for a phone that moves between wifi and mobile data. A format your station does not publish plays as MP3, and the player says so.")
+            Text("MP3 always plays. HLS is the one for a phone that moves between wifi and mobile data. A format your station does not publish plays as MP3, and this page says so.")
         }
         .task { await model.nowPlaying.hold() }
     }
@@ -155,5 +165,39 @@ struct AccountSection: View {
             }
             account = account.after(result)
         }
+    }
+}
+
+/// The sleep timer: a moon that opens the choices, and the countdown beside it while one is set.
+///
+/// "After this record" is offered only when the station can say how much of the record is left,
+/// the rule the progress bar already keeps: a timer set against a guess would stop the station at
+/// the wrong moment for somebody who is by then asleep.
+struct SleepMenu: View {
+    @Environment(AppModel.self) private var model
+    let canWaitForRecord: Bool
+
+    var body: some View {
+        let timer = model.listening.sleepTimer
+        Menu {
+            ForEach(SleepTimer.choices, id: \.self) { minutes in
+                Button(String(localized: "\(minutes) minutes")) { timer.arm(.minutes(minutes)) }
+            }
+            Button(String(localized: "After this record")) { timer.arm(.afterRecord) }
+                .disabled(!canWaitForRecord)
+            if timer.state != .off {
+                Button(String(localized: "Turn off the timer"), role: .destructive) { timer.clear() }
+            }
+        } label: {
+            // Ticks once a second, which only matters while a countdown is showing.
+            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                Label {
+                    Text(timer.line(at: .now)?.words ?? String(localized: "Sleep timer"))
+                } icon: {
+                    Image(systemName: timer.state == .off ? "moon.zzz" : "moon.zzz.fill")
+                }
+            }
+        }
+        .accessibilityLabel(Text("Sleep timer"))
     }
 }

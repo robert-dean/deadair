@@ -147,6 +147,17 @@ worth a button (black and white) keeps the app's green while still getting a gre
 while the station is on air, stands still on Up next and with Reduce Motion, and is re-read when the
 page turns light or dark.
 
+**Now playing is Android's layout, measure for measure, and the measures are in the file.** Upright,
+the cover runs the width with both edges dissolving into the mesh, and gives way on a short phone
+(`belowCover`, at least `minCover`) so the controls never do: on the iPhone SE it is 298 points.
+The page is laid out INSIDE the safe area and only its background bleeds past it. With the reader
+ignoring the safe area its insets read zero, the cover never gave way, and on the SE the play button
+went under the tab bar (2026-10-02). While the tabs are away the stack keeps the height it had with
+them, so it does not drop into the room they leave. Resting needs a record coming out of the phone
+(`canRest`), never runs under VoiceOver, and its waking touch is swallowed by a layer drawn only
+while resting. No sleep timer, listener count or fallback note on the screen: the timer is a row in
+Settings' Listening section and the fallback is said under the format it is about.
+
 **A closure handed to an Objective-C callback from a main-actor type must be written `@Sendable`.**
 Swift 6 gives a closure written inside a `@MainActor` type the main actor, and when the API it is
 handed to is not marked `Sendable` it checks at RUN time that the closure runs there. AVFoundation

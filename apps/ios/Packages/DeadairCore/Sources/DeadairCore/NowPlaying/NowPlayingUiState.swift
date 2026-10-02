@@ -71,17 +71,16 @@ public struct NowPlayingUiState: Equatable, Sendable {
         return nil
     }
 
-    /// The line above the record: the show and who presents it, as far as the station said. Only on
-    /// air, because a quiet station has no programme, and a stale show over "can't reach the
-    /// station" would name something nobody can hear.
-    public var header: Message? {
-        guard case .onAir = air else { return nil }
-        switch (nonBlank(show?.name), nonBlank(show?.host)) {
-        case let (name?, host?): return .showWithHost(show: name, host: host)
-        case let (name?, nil): return .text(name)
-        case let (nil, host?): return .withHost(host)
-        case (nil, nil): return nil
-        }
+    /// Who is presenting, under the credit. Only on air, because a stale presenter over "can't reach
+    /// the station" would name somebody nobody can hear, and not during a break, whose title already
+    /// says who is on the mic.
+    ///
+    /// The show's NAME is never drawn. It is the operator's own label, and for a broadcast without
+    /// one the station makes one up from where the records came from ("From Spotify"), which on a
+    /// listener's screen read as software rather than as a programme. `apps/android`'s `hostLine`.
+    public var hostLine: Message? {
+        guard case .onAir = air, spokenBreak == nil else { return nil }
+        return nonBlank(show?.host).map(Message.withHost)
     }
 
     /// Whether the subtitle is a credit that may scroll past, or a sentence that has to wrap.
@@ -94,8 +93,13 @@ public struct NowPlayingUiState: Equatable, Sendable {
         return false
     }
 
-    /// The line under the controls: who is listening, and how. The count is spelled by the language.
-    public var footer: Message { .listeners(count: listeners, format: format) }
+    /// Whether the screen may give itself to the cover when left alone: only while a record is
+    /// actually coming out of the phone. Warming up, off air, unreachable or stale, the words are
+    /// the news, and hiding them would hide the one thing worth reading.
+    public var canRest: Bool {
+        guard case .onAir = air else { return false }
+        return playing && !buffering && !stale
+    }
 
     /// Said only when the chosen format was not there to be had.
     public var fallbackNote: Message? { fellBackToMp3 ? .fellBackToMp3(wanted: format) : nil }

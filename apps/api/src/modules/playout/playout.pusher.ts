@@ -6,7 +6,7 @@ import { annotateUri, blendOutOf, itemAnnotations, listenerArtist, listenerArtwo
 import { AudienceWatch } from './audience.watch.js';
 import { DEFAULT_LEVELING_ENABLED, LEVELING_ENABLED_KEY, SPEECH_TRIM_KEY, TARGET_LUFS_KEY, resolveSpeechTrimDb, resolveTargetLufs } from './gain.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
-import { PLAYOUT_LEAD, PlayoutControlClient, type QueueStatus } from './liquidsoap.control.js';
+import { heldBy, PLAYOUT_LEAD, PlayoutControlClient, type QueueStatus } from './liquidsoap.control.js';
 import { Rundown, type RundownItem } from './rundown.js';
 import { resolvePublicUrl, STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -387,15 +387,16 @@ export class PlayoutPusher {
 
             // Whichever of the two says the player is holding MORE.
             //
-            // `queued` counts pending requests and the ones the prefetch has resolved,
-            // but NOT the one it is currently resolving — so during a download it
-            // under-reports, and topping up against it alone hands over an extra item
-            // every pass until the fetch completes. `served` is the app's own count of
-            // what it handed over, which covers the in-flight item but knows nothing
-            // about requests this process never pushed — a Liquidsoap that outlived an
-            // app restart is still holding those, and pushing on top of them would
-            // stack the queue deeper than the lead.
-            const held = Math.max(this.rundown.servedCount(), current.queued);
+            // `heldBy` counts pending requests, the ones the prefetch has resolved, and
+            // (from a script that reports it) the one it is downloading. An older script
+            // leaves the download out, so its reading under-reports for the length of a
+            // fetch and topping up against it alone would hand over an extra item every
+            // pass until the fetch completes. `served` is the app's own count of what it
+            // handed over, which covers the in-flight item but knows nothing about
+            // requests this process never pushed: a Liquidsoap that outlived an app
+            // restart is still holding those, and pushing on top of them would stack the
+            // queue deeper than the lead.
+            const held = Math.max(this.rundown.servedCount(), heldBy(current));
             // How deep to hand over: the player's full lead while the station is on air,
             // and one warm item while it is not.
             const target = onAir ? LEAD : WARM_LEAD;
@@ -597,7 +598,14 @@ export class PlayoutPusher {
         // is a dead plan waiting its turn. There is no id to compare — the reading counts requests
         // and does not name them — so the count is the whole of the evidence, and it is enough: the
         // only way the player holds more than it was handed is that somebody else handed it.
-        const excess = reading.queued > this.rundown.servedCount();
+        //
+        // Counted through `heldBy`, both sides including what is downloading, because the
+        // two sides have to count the same things. The rundown used to call a record lost
+        // while Liquidsoap was still downloading it and push it again; the download then
+        // landed beside the second push, the player held two where the rundown counted
+        // one, and this flushed the station's own records. Measured on the live station
+        // three times on 2026-10-02, once with a 15-second gap at air start.
+        const excess = heldBy(reading) > this.rundown.servedCount();
 
         if (foreign === undefined && !excess) {
             this.reclaimedFor = undefined;

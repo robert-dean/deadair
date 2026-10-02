@@ -416,12 +416,13 @@ Every one of them answers with the same **reading** of the queue, so a mutation'
 already the state it produced:
 
 ```json
-{ "queued": 1, "ready": true, "onAir": "b3f1…", "remainingMs": 92500, "driving": true }
+{ "queued": 1, "resolving": 0, "ready": true, "onAir": "b3f1…", "remainingMs": 92500, "driving": true }
 ```
 
 | Field         | Meaning                                                                                                                                                                                                                                                          |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `queued`      | requests waiting, excluding the one on air (pending **and** prefetch-resolved). Note it also excludes the one currently being _resolved_, so it dips for the length of a download — the app counts its own hand-overs alongside it rather than trusting it alone |
+| `queued` | requests waiting, excluding the one on air (pending **and** prefetch-resolved). It also excludes the one currently being _resolved_, so it dips for the length of a download; `resolving` is that one |
+| `resolving` | requests the app pushed that the prefetch is downloading, and so are in neither list `queued` counts. The app adds the two (`heldBy`) wherever it asks what the player holds. Absent from an older script |
 | `ready`       | whether the queue can produce audio at all; `false` means the mount has fallen through to another bed                                                                                                                                                            |
 | `onAir`       | rundown item id of the request playing, `""` when not producing                                                                                                                                                                                                  |
 | `driving`     | whether deadair's lease is unexpired, i.e. whether any of this is reaching the mount. Every other field describes the **queue**; this one describes the **station**                                                                                              |

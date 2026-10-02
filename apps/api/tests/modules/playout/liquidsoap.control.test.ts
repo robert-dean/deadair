@@ -6,7 +6,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 
-import { parseReading, PlayoutControlClient } from '../../../src/modules/playout/liquidsoap.control.js';
+import { heldBy, parseReading, PlayoutControlClient } from '../../../src/modules/playout/liquidsoap.control.js';
 import { annotateUri, itemAnnotations, HARD_JOIN_MS, ITEM_KEY } from '../../../src/modules/playout/annotate.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import { speechGainFor } from '../../../src/modules/playout/gain.js';
@@ -79,9 +79,28 @@ describe('parseReading', () => {
     });
 
     it('ignores a malformed field instead of failing the whole reading', () => {
-        const reading = parseReading({ queued: 2, ready: 'yes', onAir: 42, remainingMs: 'soon' });
+        const reading = parseReading({ queued: 2, ready: 'yes', onAir: 42, remainingMs: 'soon', resolving: 'one' });
 
         expect(reading).toEqual({ queued: 2 });
+    });
+
+    it('reads what the player is downloading, and leaves it unreported from an older script', () => {
+        expect(parseReading({ queued: 0, ready: true, resolving: 1 })!.resolving).toBe(1);
+        expect(parseReading({ queued: 0, ready: true, resolving: 0 })!.resolving).toBe(0);
+        // Absent is "not reported", never zero.
+        expect(parseReading({ queued: 0, ready: true })!.resolving).toBeUndefined();
+        expect(parseReading({ queued: 0, ready: true, resolving: -1 })!.resolving).toBeUndefined();
+        expect(parseReading({ queued: 0, ready: true, resolving: 1.5 })!.resolving).toBeUndefined();
+    });
+});
+
+describe('heldBy', () => {
+    it('counts what the player is downloading beside what it has queued', () => {
+        expect(heldBy({ queued: 1, resolving: 1 })).toBe(2);
+    });
+
+    it('answers queued alone from a script that does not report downloads', () => {
+        expect(heldBy({ queued: 1 })).toBe(1);
     });
 });
 

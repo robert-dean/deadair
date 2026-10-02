@@ -391,6 +391,42 @@ describe('Rundown.reconcile', () => {
         }
     });
 
+    it('counts a download the player reports as held, however long it runs past the grace', async () => {
+        // Measured on the live station: a download ran past the grace, the item was called lost and
+        // pushed again, and the duplicate then made the player look as if it held a stranger's queue.
+        // A script that reports `resolving` says outright that the item is still on its way.
+        vi.useFakeTimers();
+        try {
+            const rundown = rundownWith(['a', 'b']);
+            await rundown.next();
+
+            vi.advanceTimersByTime(30_000);
+            rundown.reconcile({ queued: 0, resolving: 1, ready: true, onAir: 'something-else' });
+
+            expect(rundown.queuedCount()).toBe(1);
+            expect(rundown.upcoming().map(entry => entry.externalId)).toEqual(['a', 'b']);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('still calls a push lost once the player says it is downloading nothing', async () => {
+        // The other side: `resolving` is a count, not a pardon. A reading that reports it as zero
+        // past the grace is a push that really went missing, and it is offered again.
+        vi.useFakeTimers();
+        try {
+            const rundown = rundownWith(['a', 'b']);
+            await rundown.next();
+
+            vi.advanceTimersByTime(30_000);
+            rundown.reconcile({ queued: 0, resolving: 0, ready: true, onAir: 'something-else' });
+
+            expect(rundown.queuedCount()).toBe(2);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('leaves an item this process is still resolving alone, even when a reading lands mid-resolve', async () => {
         // The other half of the grace. A hand-over marks the item `handed` and then awaits the
         // resolve, and an operator's skip takes a reading every 100ms while it waits for the

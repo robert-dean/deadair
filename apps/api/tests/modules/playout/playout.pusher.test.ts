@@ -521,6 +521,32 @@ describe('PlayoutPusher and a player holding somebody else’s plan', () => {
         expect(pushed).toHaveLength(PLAYOUT_LEAD);
     });
 
+    it('neither pushes again nor flushes while the player is still downloading what it was handed', async () => {
+        // The live sequence of 2026-10-02. A download ran past the grace, the record was called lost
+        // and pushed again, the download landed beside the second push, and the player held two where
+        // the rundown counted one, so this flushed the station's own records. A reading that reports
+        // the download leaves no step of that to take.
+        vi.useFakeTimers();
+        try {
+            const { pusher, control, pushed } = station(['a', 'b', 'c'], { queued: 0, ready: true });
+            await pusher.reconcile();
+            const handed = pushed.length;
+            expect(handed).toBeGreaterThan(0);
+
+            control.reading = { queued: 0, resolving: handed, ready: true };
+            vi.advanceTimersByTime(30_000);
+            await pusher.reconcile();
+
+            control.reading = { queued: handed, resolving: 0, ready: true };
+            await pusher.reconcile();
+
+            expect(pushed).toHaveLength(handed);
+            expect(control.flush).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('drops the queue behind a record from a running order it does not hold', async () => {
         const { pusher, control } = station(['a', 'b', 'c'], { queued: 2, ready: true, onAir: 'from-a-previous-session' });
 

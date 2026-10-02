@@ -253,7 +253,10 @@ onto a resolved item against >1.2s or no boundary at all onto an unresolved queu
 lands and one taken before the replacement resolves does not. `SEGMENT_SLACK` is what keeps a window of one
 honest — a segment may produce no player item (skipped, or a talk-over that rides the record behind it), so
 segments ride along for free and only RECORDS count against the lead. `RESOLVE_GRACE_MS` is 5s on the same
-argument and is reasoned rather than measured, so a record airing twice is the first thing to look at.
+argument, and the live station measured it too short: on 2026-10-02 downloads ran past it, the rundown pushed
+the same record again, and the pusher then flushed the station's own records as a stranger's queue. So
+`radio.liq` now reports `resolving`, the requests it is downloading, and `heldBy` adds them to `queued`
+wherever the app asks what the player holds. The grace is the fallback for a script that does not report it.
 `MAX_HAND_OVERS` STAYS at 3: it covers a Liquidsoap that restarted and dropped what it held, which is not an
 audio-availability fact.
 

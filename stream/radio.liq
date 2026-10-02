@@ -909,6 +909,8 @@ thread.run(every=lease_tick, watch_starve)
 #
 #   queued       requests waiting, EXCLUDING the one on air: both the pending queue and the one
 #                already resolved by the prefetch. The depth the pusher tops up against.
+#   resolving    requests the app pushed that are in NEITHER of those lists because the prefetch
+#                has popped them and is downloading them. See playout_resolving below.
 #   ready        whether the queue can produce audio at all: false means it has nothing (drained,
 #                or the next request is still resolving), so the mount has fallen through to
 #                another bed and nothing in the running order is being heard. This is the ONLY
@@ -931,6 +933,34 @@ thread.run(every=lease_tick, watch_starve)
 #
 # Built as a string rather than returned as a record because these responses are hand-rolled JSON;
 # concatenation (not interpolation) around the call site keeps the braces out of the interpolator.
+# Every request /control/push has created and this script has not finished with. Pruned on each
+# push rather than on each reading, so the only writer is a harbor handler and a reading never
+# mutates anything.
+playout_pushed = ref([])
+
+# How many pushed requests the prefetch is downloading right now.
+#
+# `queued` cannot see these, and that blind spot is the whole reason this exists. The prefetch POPS
+# a request off the pending list before it resolves it, and only puts it in the resolved list once
+# the download is done, so for the length of the download the request is in neither and `length()`
+# under-reports by one. The app used to cover that with a five-second grace and then call the
+# request lost. Measured on the live station on 2026-10-02: downloads ran past the grace, so the app
+# pushed the same record again, then saw two requests where it had counted one and flushed both as a
+# stranger's queue. This is the measurement that replaces the guess.
+#
+# A request counts when its status is `idle` or `resolving` and it is not in `queue()`. `idle` is
+# included for the instant between the pop and the resolve starting; a pending request is idle too,
+# but it IS in `queue()`, so it is already in `queued`. A `ready` request outside `queue()` is the
+# one on air, and a destroyed or failed one is gone.
+def playout_resolving() =
+  held = list.map(fun (r) -> request.id(r), playout_queue.queue())
+  def in_flight(r) =
+    s = request.status(r)
+    (s == "idle" or s == "resolving") and not list.mem(request.id(r), held)
+  end
+  list.length(list.filter(in_flight, playout_pushed()))
+end
+
 def playout_reading() =
   ready = playout_queue.is_ready()
   ready_json = if ready then "true" else "false" end
@@ -960,7 +990,7 @@ def playout_reading() =
   # `dB` on the way here is applied as a linear factor and looks like nothing at all from the app
   # side, which is a difference of ten decibels reported as a difference of none.
   speech_json = if on_air_speech() then "true" else "false" end
-  '"queued": #{playout_queue.length()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}, "voice": "#{voice_state()}", "speech": #{speech_json}, "gain": "#{on_air_gain()}", "configStamp": "#{config_stamp}"'
+  '"queued": #{playout_queue.length()}, "resolving": #{playout_resolving()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}, "voice": "#{voice_state()}", "speech": #{speech_json}, "gain": "#{on_air_gain()}", "configStamp": "#{config_stamp}"'
 end
 
 def control_status(req) =
@@ -980,6 +1010,9 @@ def control_push(req) =
       http.response(status_code=400, content_type="text/plain", data="empty uri")
     else
       r = request.create(uri)
+      # Forget what has finished (played, flushed or failed) before remembering this one.
+      playout_pushed := list.filter(fun (p) -> request.status(p) != "destroyed" and request.status(p) != "failed", playout_pushed())
+      playout_pushed := [...playout_pushed(), r]
       playout_queue.push(r)
       control_json('{"rid": #{request.id(r)}, ' ^ playout_reading() ^ '}')
     end
@@ -995,14 +1028,25 @@ end
 # it, leaving a request nothing will ever play and a temp file nothing will ever clean up. With
 # PLAYOUT_PREFETCH at 3 there are up to three requests in that window at any moment.
 #
-# Removing per request avoids the window entirely: whatever `queue()` returns is what is there, and
-# anything mid-resolve is simply not in the list to be mishandled. `destroy` then releases the
-# downloaded file now rather than leaving it for Liquidsoap to notice as leaked.
+# Removing per request avoids that window: whatever `queue()` returns is what is there, and anything
+# mid-resolve is not in the list to be mishandled. `destroy` then releases the downloaded file now
+# rather than leaving it for Liquidsoap to notice as leaked.
+#
+# **Pending first, resolved last, and the order is the fix for a crash this function caused.**
+# `queue()` lists the RESOLVED requests ahead of the pending ones, and removing a resolved one goes
+# through the inner `set_queue`, which empties the prefetch. An empty prefetch is exactly what wakes
+# the feeding task, which pops the next PENDING request and starts downloading it: the very request
+# this loop is about to destroy. Destroyed mid-download, it trips `assert false` in request.ml's
+# resolve, logged as "Error while fetching next request: ... Assertion failed". Measured on the live
+# station on 2026-10-02, in the same second as the app's flush of two requests. Emptying the pending
+# list first leaves the woken task nothing to pop. A request the task popped before this ran at all
+# can still be destroyed under it, and that is the outcome a flush wants (it must not air); what this
+# removes is the window the flush opened on itself.
 #
 # What the app sees is unchanged — everything queued is dropped, whatever is on air keeps playing —
 # so this is not a change to the /control/flush contract.
 def drop_queued() =
-  q = playout_queue.queue()
+  q = list.rev(playout_queue.queue())
   list.iter(fun (r) -> playout_queue.remove(r), q)
   list.iter(fun (r) -> request.destroy(r), q)
 end

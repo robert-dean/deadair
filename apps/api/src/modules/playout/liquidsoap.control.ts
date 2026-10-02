@@ -99,6 +99,13 @@ export interface QueueStatus {
      */
     queued: number;
     /**
+     * Requests the app pushed that Liquidsoap is downloading right now, and so are in
+     * neither list `queued` counts: the prefetch pops a request before it resolves it.
+     * Absent from a script too old to report it. Read it through {@link heldBy}, never
+     * on its own.
+     */
+    resolving?: number;
+    /**
      * Whether the queue is actually producing audio. False means the mount has
      * fallen through to another bed, so nothing in the running order is being
      * heard — the only positive signal that an item ENDED, which a boundary
@@ -531,6 +538,20 @@ function isTimeout(error: unknown): boolean {
 }
 
 /**
+ * How many requests the player is holding, the item on air aside: `queued` plus
+ * whatever it is still downloading.
+ *
+ * The number to compare against what this process handed over. `queued` alone reads
+ * one short for the length of every download, and on 2026-10-02 that was long enough
+ * for the rundown to call a record lost and push it again, and then for the pusher to
+ * see two requests where it had counted one and flush both as a stranger's. A script
+ * that does not report `resolving` answers `queued`, which is what both did before.
+ */
+export function heldBy(reading: QueueStatus): number {
+    return reading.queued + (reading.resolving ?? 0);
+}
+
+/**
  * Parse one `playout_reading` body.
  *
  * `queued` is required — a body without it is not a reading at all, which is how
@@ -549,6 +570,9 @@ export function parseReading(body: unknown): QueueStatus | undefined {
     if (!Number.isFinite(queued)) return undefined;
 
     const status: QueueStatus = { queued };
+    // A count, so anything that is not a whole number of requests is no answer rather than a wrong one.
+    const resolving = Number(raw.resolving);
+    if (raw.resolving !== undefined && Number.isInteger(resolving) && resolving >= 0) status.resolving = resolving;
     if (typeof raw.ready === 'boolean') status.ready = raw.ready;
     if (typeof raw.driving === 'boolean') status.driving = raw.driving;
     // "" is radio.liq's "nothing on air", not an id.

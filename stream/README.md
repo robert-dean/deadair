@@ -416,12 +416,13 @@ Every one of them answers with the same **reading** of the queue, so a mutation'
 already the state it produced:
 
 ```json
-{ "queued": 1, "ready": true, "onAir": "b3f1…", "remainingMs": 92500, "driving": true }
+{ "queued": 1, "resolving": 0, "ready": true, "onAir": "b3f1…", "remainingMs": 92500, "driving": true }
 ```
 
 | Field         | Meaning                                                                                                                                                                                                                                                          |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `queued`      | requests waiting, excluding the one on air (pending **and** prefetch-resolved). Note it also excludes the one currently being _resolved_, so it dips for the length of a download — the app counts its own hand-overs alongside it rather than trusting it alone |
+| `queued` | requests waiting, excluding the one on air (pending **and** prefetch-resolved). It also excludes the one currently being _resolved_, so it dips for the length of a download; `resolving` is that one |
+| `resolving` | requests the app pushed that the prefetch is downloading, and so are in neither list `queued` counts. The app adds the two (`heldBy`) wherever it asks what the player holds. Absent from an older script |
 | `ready`       | whether the queue can produce audio at all; `false` means the mount has fallen through to another bed                                                                                                                                                            |
 | `onAir`       | rundown item id of the request playing, `""` when not producing                                                                                                                                                                                                  |
 | `driving`     | whether deadair's lease is unexpired, i.e. whether any of this is reaching the mount. Every other field describes the **queue**; this one describes the **station**                                                                                              |
@@ -453,6 +454,13 @@ orphans it, leaving a request nothing will play and a temp file nothing will cle
 `PLAYOUT_PREFETCH` at 3 there are up to three requests in that window at any moment. Removing per
 request avoids it entirely, and `request.destroy` releases the download rather than waiting for
 Liquidsoap to flag it as leaked. What the app sees is unchanged.
+
+It drops the **pending requests before the resolved one**, and the order matters. Removing the
+resolved request empties the prefetch, which wakes the feeding task, which pops the next pending
+request and starts downloading it. If that request is still on the list to destroy, it is destroyed
+mid-download and Liquidsoap logs `Error while fetching next request: ... Assertion failed` from
+`request.ml`. The live station hit this on 2026-10-02, in the same second the app flushed two
+requests. With the pending list emptied first, the woken task has nothing to pop.
 
 `skip` is the one command about the item already playing: the decoder lives here, so an operator
 skip in the console has to come through as a request to Liquidsoap. The app pushes the lead item

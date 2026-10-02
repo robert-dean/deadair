@@ -3,7 +3,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { RENDER_PLUGIN_ID } from '#modules/render/segment.source.js';
 import { Epoch } from '#modules/shared/epoch.js';
 import type { LiveOrder } from './live.order.js';
-import type { QueueStatus } from './liquidsoap.control.js';
+import { heldBy, type QueueStatus } from './liquidsoap.control.js';
 import { TrackResolver } from './playout.capability.js';
 import { errorText } from '#modules/shared/error.text.js';
 
@@ -253,11 +253,16 @@ export interface PulledItem {
  * uri is a loopback GET of a local file. Five seconds is generous for that and still an order of
  * magnitude above what it should take.
  *
- * **Reasoned rather than measured**, which is worth admitting: the gap between a push and the item
- * appearing in `queued` has not been timed against the running station. The failure mode of guessing
- * low is a record airing twice, so if that is ever heard, this is the first thing to look at — and
- * the second is whether something is reaching the air path cold, which the commit gate is supposed
- * to prevent but does not on a restart or an operator's reorder.
+ * **It was reasoned rather than measured, and the live station measured it too short.** On
+ * 2026-10-02 pushed records stayed out of `queued` for longer than five seconds while Liquidsoap
+ * downloaded them, three times in one afternoon. Each one was called lost and pushed again, and the
+ * duplicate then made the player look as if it held a stranger's queue, so `PlayoutPusher.reclaim`
+ * flushed the station's own records. Why a loopback GET took that long is not known.
+ *
+ * So this is now a FALLBACK. `radio.liq` reports `resolving`, the requests it is downloading, and
+ * {@link heldBy} adds them to `queued`, so an item mid-download is counted rather than waited for.
+ * The grace only does real work against an older script that does not report it, and against a
+ * genuinely lost push, where five seconds is still the right time to give up.
  */
 const RESOLVE_GRACE_MS = 5_000;
 
@@ -847,7 +852,7 @@ export class Rundown {
             this.airing.observedAt = Date.now();
         }
 
-        this.reconcileServed(reading.queued);
+        this.reconcileServed(heldBy(reading));
         this.forgetSpentPrepared();
     }
 
@@ -914,27 +919,28 @@ export class Rundown {
     /**
      * Reconcile what the player is holding against what we think we handed it.
      *
-     * `queued` excludes the item on air, so it is exactly the handed count when
+     * `held` is {@link heldBy} of the reading: `queued` plus whatever Liquidsoap is
+     * downloading. It excludes the item on air, so it is exactly the handed count when
      * everything landed. Fewer means a push went missing (or Liquidsoap
      * restarted), and those items are offered again rather than left
      * believed-delivered — the alternative is a running order that quietly skips
      * them. The tail is what goes back, because the player consumes from the
      * front.
      *
-     * EXCEPT while an item is still being resolved. Liquidsoap takes a pushed
-     * request off the queue to fetch it, and until the first frame plays it is in
-     * neither `queued` nor `onAir` — so a short reading is the NORMAL state for
-     * the seconds it takes to download a track, not evidence of anything. Acting
-     * on it hands the same item over a second time and the listener hears the
-     * track twice. Only an item that has been unaccounted for longer than
+     * EXCEPT while an item is still being resolved, on a script too old to say so.
+     * Liquidsoap takes a pushed request off the queue to fetch it, and until it is
+     * downloaded it is in neither `queued` nor `onAir`. A `radio.liq` that reports
+     * `resolving` counts it anyway; one that does not leaves a short reading as the
+     * NORMAL state for the length of a download. Acting on that hands the same item
+     * over a second time, so only an item that has been unaccounted for longer than
      * {@link RESOLVE_GRACE_MS} is treated as lost.
      */
-    private reconcileServed(queued: number): void {
+    private reconcileServed(held: number): void {
         const handed = this.handedIds();
-        if (queued >= handed.length) return;
+        if (held >= handed.length) return;
 
         const settledBy = Date.now() - RESOLVE_GRACE_MS;
-        const lost = handed.filter((id, index) => index >= queued && (this.servedAt.get(id) ?? 0) <= settledBy);
+        const lost = handed.filter((id, index) => index >= held && (this.servedAt.get(id) ?? 0) <= settledBy);
 
         // Everything short is still within its grace: the player is fetching, which
         // is the overwhelmingly common reason for a reading to be short at all.

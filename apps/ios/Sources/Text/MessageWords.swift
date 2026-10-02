@@ -125,6 +125,10 @@ extension Message {
         case .goingOut(let name?, let listeners): String(localized: "\(name), going out to \(listeners)")
         case .timeLeft(let artists, let left): String(localized: "\(artists) · \(left) left")
 
+        case .askedFor(let brief): String(localized: "Asked for: \(brief)")
+        case .eraOutOfRange: String(localized: "Between \(PlanUiState.eraYears.lowerBound) and \(PlanUiState.eraYears.upperBound)")
+        case .eraBackwards: String(localized: "Earlier than the start")
+
         case .operatorNotice(let notice): notice.words
         }
     }

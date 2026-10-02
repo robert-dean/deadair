@@ -235,6 +235,13 @@ Settings, holds Take off air, the hold, the air mode and the silence diagnosis, 
 on different screens. Measured on the simulator against the live station on 2026-10-02: one press
 armed it and drained the bar, the arm lapsed after five seconds, and the station stayed on air.
 
+**Verifying against the live station: look, never tap near a verb.** On 2026-10-02 a tap meant for
+the host picker's Cancel landed on a persona row while the sheet was still sliding up, and recast the
+live show for everybody listening; it was put back by hand. The app was doing what it should, since
+one tap on a row recasts as on Android. The lesson is for whoever drives the simulator: a fresh
+screenshot after every animation before any tap on a screen that acts on air, and on the forms that
+replan or put the station on air, open and read and press nothing.
+
 **The second factor is answered against the AUTHENTICATOR**, picked out of the challenge's factors,
 never its first entry, and the three refusals that share one 401 are told apart by
 `WWW-Authenticate`. Both are the desktop app's shipped bug.

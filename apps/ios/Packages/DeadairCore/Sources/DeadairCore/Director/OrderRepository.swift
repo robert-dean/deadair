@@ -47,6 +47,7 @@ public final class OrderRepository {
     @ObservationIgnored private var polls = 0
     @ObservationIgnored private var personasReadAt: Int?
     @ObservationIgnored private var personas: [Persona]?
+    @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
 
     public init(
         sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
@@ -56,6 +57,7 @@ public final class OrderRepository {
     ) {
         self.readOrder = readOrder
         self.readPersonas = readPersonas
+        self.sleep = sleep
         poller = Poller(schedule: Self.schedule, sleep: sleep, now: now) { [weak self] in
             guard let self else { throw Gone() }
             return try await self.read()
@@ -81,6 +83,19 @@ public final class OrderRepository {
 
     /// Ask again now, and forget the backoff.
     public func retry() { poller.kick() }
+
+    /// When to look again after something that fills the order at the station's own pace.
+    public static let refillFollowUps: [Duration] = [.milliseconds(1500), .seconds(4), .seconds(8)]
+
+    /// Read again a few times over the next seconds, each measured from now.
+    public func refetchSoon(_ delays: [Duration] = OrderRepository.refillFollowUps) {
+        for delay in delays {
+            Task { [weak self, sleep] in
+                try? await sleep(delay)
+                self?.retry()
+            }
+        }
+    }
 
     /// Show the order an action answered with, until the next poll.
     public func apply(_ order: StationOrder) {

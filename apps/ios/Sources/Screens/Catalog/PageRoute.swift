@@ -14,6 +14,10 @@ enum PageRoute: Hashable {
     case scripts(segmentId: String?)
     /// Everything that can take the station off air, and why it is or is not on. The operator's.
     case desk
+    /// The station's controls beyond a single row of Up next, in one place.
+    case manage
+    /// Replan this show, or start a new one.
+    case plan(currentBrief: String?, somethingOn: Bool)
 
     /// A record's page from the id a row carries, or `nil` for a row whose id is not one.
     static func track(_ id: String?) -> PageRoute? {
@@ -31,6 +35,9 @@ extension View {
             case .artist(let id): ArtistPage(id: id)
             case .scripts(let segmentId): ScriptsScreen(segmentId: segmentId)
             case .desk: DeskScreen()
+            case .manage: ManageScreen()
+            case .plan(let brief, let on): PlanScreen(currentBrief: brief, somethingOn: on)
+
             }
         }
     }

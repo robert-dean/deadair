@@ -42,8 +42,15 @@ struct UpNextScreen: View {
                     }
                 }
             }
-            // Everything the station has said, for anybody it lets read it.
-            if model.signedIn {
+            // Manage for the operator, where every station-wide control is; for a signed-in listener
+            // the one read they have, everything the station has said.
+            if model.isOperator {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(value: PageRoute.manage) {
+                        Label(String(localized: "Manage"), systemImage: "slider.horizontal.3")
+                    }
+                }
+            } else if model.signedIn {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink(value: PageRoute.scripts(segmentId: nil)) {
                         Label(String(localized: "What it said"), systemImage: "quote.bubble")

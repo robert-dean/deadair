@@ -49,6 +49,18 @@ public final class OrderActions {
         await applying(expected: [404: .hostGone]) { try await $0.director.recastTheBroadcast(body: SetStationHostInput(personaId: personaId)) }
     }
 
+    /// Programme everything the player is not already holding again.
+    ///
+    /// Answers 202 and nothing: the records are chosen before the old ones are dropped, so the tail
+    /// keeps playing while the model works and the new set swaps in when it exists. Hence the longer
+    /// follow-up reads rather than an order to apply.
+    @discardableResult
+    public func replan(_ input: ReplanStationInput) async -> Bool {
+        let accepted = await actions.run { try await $0.director.replanTheRunningOrder(body: input) } != nil
+        if accepted { order.refetchSoon() }
+        return accepted
+    }
+
     @discardableResult
     private func applying(expected: [Int: Notice] = [:], _ action: @escaping @Sendable (Deadair) async throws -> StationOrder) async -> Bool {
         guard let answer = await actions.run(expected: expected, action) else { return false }

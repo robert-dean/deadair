@@ -143,6 +143,13 @@ public enum Message: Equatable, Sendable {
     /// "Black Sabbath · 2:41 left"
     case timeLeft(artists: String, left: String)
 
+    // MARK: Planning
+
+    /// "Asked for: warm and unhurried"
+    case askedFor(String)
+    case eraOutOfRange
+    case eraBackwards
+
     // MARK: The operator
 
     /// What an operator action came back with.

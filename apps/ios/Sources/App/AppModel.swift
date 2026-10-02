@@ -28,6 +28,7 @@ final class AppModel {
     let transport: Transport
     let orderActions: OrderActions
     let catalogActions: CatalogActions
+    let airActions: AirActions
 
     /// The tab that is showing. Here rather than in the view, so the player bar can go to Now playing.
     var tab: HomeTab = .nowPlaying
@@ -62,6 +63,7 @@ final class AppModel {
         transport = Transport(actions: operatorActions, playout: playout)
         orderActions = OrderActions(actions: operatorActions, order: order)
         catalogActions = CatalogActions(actions: operatorActions, order: order)
+        airActions = AirActions(actions: operatorActions, playout: playout, order: order)
         listening = Listening(settings: settings, nowPlaying: nowPlaying, artwork: artwork, userAgent: http.userAgent)
         // Through the session, which refreshes and replays once on a 401, and throws rather than asks
         // when nobody is signed in: these screens are only offered to a signed-in account anyway.

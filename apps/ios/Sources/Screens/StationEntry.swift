@@ -12,6 +12,12 @@ final class StationEntry {
         state = .typing(stored ?? "", stored: stored)
     }
 
+    /// The field a link filled: its address typed in, and nothing kept until it has answered and
+    /// somebody has pressed Listen.
+    init(proposed: StationUrl, stored: String?) {
+        state = .typing(proposed.origin, stored: stored)
+    }
+
     func type(_ address: String) {
         state = .typing(address, stored: state.stored)
     }

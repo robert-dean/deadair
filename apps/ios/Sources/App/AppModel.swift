@@ -31,6 +31,9 @@ final class AppModel {
     let airActions: AirActions
     let scriptActions: ScriptActions
 
+    /// A station a `deadair://` link proposed, waiting for somebody to check it and press Listen.
+    var proposed: StationUrl?
+
     /// The tab that is showing. Here rather than in the view, so the player bar can go to Now playing.
     var tab: HomeTab = .nowPlaying
 
@@ -90,6 +93,14 @@ final class AppModel {
         }
     }
 
+    /// A `deadair://` link arrived. It only ever proposes: the field is filled, and the station the app
+    /// already has, its session and whatever is playing all stay until the new address has answered and
+    /// somebody has pressed Listen. A link naming the station already kept closes the question.
+    func open(_ url: URL) {
+        guard let link = StationLink.parse(url.absoluteString) else { return }
+        proposed = StationLink.proposal(link, kept: settings.settings.station)
+    }
+
     /// Ask an address whether it is a station, before it is kept.
     func probe(_ station: StationUrl) async -> StationCheck {
         await StationProbe { [http] in http.sdk(for: $0) }.check(station)
@@ -98,6 +109,7 @@ final class AppModel {
     /// Keep a station that has answered. Everything that belonged to the old one goes: what was
     /// playing, the reading, and a session the new station did not issue.
     func keep(_ station: StationUrl, name: String) {
+        proposed = nil
         listening.stationChanged()
         settings.keep(station, name: name)
         nowPlaying.point(at: station)

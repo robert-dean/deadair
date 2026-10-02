@@ -181,6 +181,13 @@ tile is what the listener presses. The tile survives suspension but not terminat
 `MediaButtonReceiver`, so a play press in a car cannot start an app that has been swiped away.
 CarPlay and an `AudioPlaybackIntent` are the two real routes to that, and neither is built.
 
+**A `deadair://` link proposes a station; it never switches to one.** Android's rule and the
+desktop's grammar (`StationLink`, whose tests are theirs case for case). With no station kept, setup
+opens straight on the field with the address in it. With one kept, a sheet asks over the app, and
+the kept station, its session and whatever is playing stay until the new address has answered and
+somebody has pressed Listen; "Keep the station I have" turns it down. A link naming the kept
+station asks nothing. A user or password, in the link or inside its escaped origin, is refused.
+
 **A station on the home network triggers iOS's Local Network prompt**, the first time the app
 connects to a local address, and `NSLocalNetworkUsageDescription` in `Config/Info.plist` is what the
 prompt says. Plain HTTP is allowed by `NSAllowsArbitraryLoads`, for the reason Android's

@@ -1,3 +1,4 @@
+import DeadairCore
 import SwiftUI
 
 /// Where the privacy policy is published: `apps/ios/PRIVACY.md`, the same address the App Store
@@ -12,8 +13,15 @@ let privacyPolicyURL = URL(string: "https://github.com/robert-dean/deadair/blob/
 /// prefilled by the app itself: there is no address that is right for more than one person, and a
 /// wrong one that looks deliberate is worse than an empty field.
 struct SetupScreen: View {
-    @State private var entry = StationEntry(stored: nil)
-    @State private var path: [SetupStep] = []
+    @State private var entry: StationEntry
+    @State private var path: [SetupStep]
+
+    /// A link has already chosen a station and put it in the field, so a welcome in front of that
+    /// field would be one more tap for nothing.
+    init(proposed: StationUrl? = nil) {
+        _entry = State(initialValue: proposed.map { StationEntry(proposed: $0, stored: nil) } ?? StationEntry(stored: nil))
+        _path = State(initialValue: proposed == nil ? [] : [.station])
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -84,6 +92,40 @@ private struct Welcome: View {
         // Motion on they are simply there.
         .onAppear {
             if reduceMotion { revealed = true } else { withAnimation(.easeOut(duration: 0.5).delay(0.15)) { revealed = true } }
+        }
+    }
+}
+
+/// A station a link proposed, as a sheet's item.
+struct Proposal: Identifiable {
+    let station: StationUrl
+    var id: String { station.origin }
+}
+
+/// A link to another station, asked over the app: the address filled in, checked before anything is
+/// kept, and "Keep the station I have" to turn it down having changed nothing.
+struct ProposalSheet: View {
+    @Environment(AppModel.self) private var model
+    @State private var entry: StationEntry
+
+    init(proposed: StationUrl) {
+        _entry = State(initialValue: StationEntry(proposed: proposed, stored: nil))
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    AddressField(entry: entry)
+                } footer: {
+                    Text(String(localized: "You are listening to \(model.settings.settings.stationName ?? model.settings.settings.station?.origin ?? ""). Check this address and listen to it to switch; nothing changes until you do."))
+                }
+                Section {
+                    Button(String(localized: "Keep the station I have")) { model.proposed = nil }
+                }
+            }
+            .navigationTitle(String(localized: "Find your station"))
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }

@@ -995,14 +995,25 @@ end
 # it, leaving a request nothing will ever play and a temp file nothing will ever clean up. With
 # PLAYOUT_PREFETCH at 3 there are up to three requests in that window at any moment.
 #
-# Removing per request avoids the window entirely: whatever `queue()` returns is what is there, and
-# anything mid-resolve is simply not in the list to be mishandled. `destroy` then releases the
-# downloaded file now rather than leaving it for Liquidsoap to notice as leaked.
+# Removing per request avoids that window: whatever `queue()` returns is what is there, and anything
+# mid-resolve is not in the list to be mishandled. `destroy` then releases the downloaded file now
+# rather than leaving it for Liquidsoap to notice as leaked.
+#
+# **Pending first, resolved last, and the order is the fix for a crash this function caused.**
+# `queue()` lists the RESOLVED requests ahead of the pending ones, and removing a resolved one goes
+# through the inner `set_queue`, which empties the prefetch. An empty prefetch is exactly what wakes
+# the feeding task, which pops the next PENDING request and starts downloading it: the very request
+# this loop is about to destroy. Destroyed mid-download, it trips `assert false` in request.ml's
+# resolve, logged as "Error while fetching next request: ... Assertion failed". Measured on the live
+# station on 2026-10-02, in the same second as the app's flush of two requests. Emptying the pending
+# list first leaves the woken task nothing to pop. A request the task popped before this ran at all
+# can still be destroyed under it, and that is the outcome a flush wants (it must not air); what this
+# removes is the window the flush opened on itself.
 #
 # What the app sees is unchanged — everything queued is dropped, whatever is on air keeps playing —
 # so this is not a change to the /control/flush contract.
 def drop_queued() =
-  q = playout_queue.queue()
+  q = list.rev(playout_queue.queue())
   list.iter(fun (r) -> playout_queue.remove(r), q)
   list.iter(fun (r) -> request.destroy(r), q)
 end

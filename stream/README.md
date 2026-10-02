@@ -454,6 +454,13 @@ orphans it, leaving a request nothing will play and a temp file nothing will cle
 request avoids it entirely, and `request.destroy` releases the download rather than waiting for
 Liquidsoap to flag it as leaked. What the app sees is unchanged.
 
+It drops the **pending requests before the resolved one**, and the order matters. Removing the
+resolved request empties the prefetch, which wakes the feeding task, which pops the next pending
+request and starts downloading it. If that request is still on the list to destroy, it is destroyed
+mid-download and Liquidsoap logs `Error while fetching next request: ... Assertion failed` from
+`request.ml`. The live station hit this on 2026-10-02, in the same second the app flushed two
+requests. With the pending list emptied first, the woken task has nothing to pop.
+
 `skip` is the one command about the item already playing: the decoder lives here, so an operator
 skip in the console has to come through as a request to Liquidsoap. The app pushes the lead item
 first, so the skip lands on something already resolved rather than on an empty queue.

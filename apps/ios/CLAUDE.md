@@ -155,6 +155,14 @@ background task and `UIImage`. Everything else in the app compiles for macOS as 
 what let the app be type-checked against the real AVFoundation, MediaPlayer, Security and SwiftUI
 before this machine had Xcode, with that one file stubbed. Keep it that way.
 
+**The session is activated off the main thread; the category is not.** `setActive` waits on the media
+server, and a phone logged a "Hang Risk" fault on every play and stop while it ran on the main thread
+(2026-10-02). It runs on one serial queue, so a stop pressed straight after a play still deactivates
+second. The `.playback` category is set before `activateAudio()` returns, because the player can
+start before the activation lands, and a player that activates the session itself does so under
+whatever category is set: the default one is muted by the silent switch. iOS 27's asynchronous
+`activate`/`deactivate` would do the same job, but the deployment target is 17.
+
 **An interruption stops and drops, and resumes only when iOS says to.** A call is an interruption
 that can last longer than the station's five-minute linger, and a paused connection through it keeps
 the station on air for nobody. `.ended` with `.shouldResume` plays again through warm-up; anything

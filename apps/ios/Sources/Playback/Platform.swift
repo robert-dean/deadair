@@ -8,17 +8,29 @@ import UIKit
 /// obvious where to look when an iOS release changes how audio sessions, background time or images
 /// behave.
 enum Platform {
+    /// Where the session is activated and deactivated. `setActive` waits on the media server, and
+    /// on the main thread iOS reports it as a hang risk on every play and stop. Serial, so a stop
+    /// pressed straight after a play deactivates after the activation rather than before it.
+    private static let audioSessionQueue = DispatchQueue(label: "com.maroonedsoftware.deadair.audio-session")
+
     /// Claim audio output for playback, the way a music app does: other audio stops, and the
     /// silent switch does not mute the station.
+    ///
+    /// The category is set before this returns, so a player that starts before the activation
+    /// lands activates the session itself under `.playback` rather than under the default category,
+    /// which the silent switch mutes.
     static func activateAudio() {
-        let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, mode: .default)
-        try? session.setActive(true)
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+        audioSessionQueue.async {
+            try? AVAudioSession.sharedInstance().setActive(true)
+        }
     }
 
     /// Give audio output back, and tell whatever was playing before that it may resume.
     static func deactivateAudio() {
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        audioSessionQueue.async {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
     }
 
     /// What the audio session reports that the player itself does not.

@@ -27,54 +27,68 @@ extension View {
 /// line in a bar they lose the half that says what to do; `apps/android`'s bar measured that.
 struct MiniPlayerBar: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.colorScheme) private var colorScheme
+
+    /// What reads on the app's green, which is pale in the dark and deep in the light.
+    private var onAccent: Color { colorScheme == .dark ? Color(white: 0.06) : .white }
 
     var body: some View {
         let ui = model.nowPlayingUi
         let listening = model.listening
         let reading = model.nowPlaying.state.latest?.value
 
-        VStack(spacing: 0) {
-            Divider()
-            HStack(spacing: 12) {
-                // The artwork and the words are one target, which opens Now playing; the button beside
-                // them is its own. A tap meant for the words must never stop the station.
-                Button {
-                    model.tab = .nowPlaying
-                } label: {
-                    HStack(spacing: 12) {
-                        ArtworkView(url: artworkURL(station: model.settings.settings.station, reading: reading), loader: model.artwork, cornerRadius: 6, placeholderSize: 20)
-                            .frame(width: 44, height: 44)
-                            .opacity(ui.stale ? 0.4 : 1)
+        HStack(spacing: 12) {
+            // The artwork and the words are one target, which opens Now playing; the button beside
+            // them is its own. A tap meant for the words must never stop the station.
+            Button {
+                model.tab = .nowPlaying
+            } label: {
+                HStack(spacing: 12) {
+                    ArtworkView(
+                        url: artworkURL(station: model.settings.settings.station, reading: reading), loader: model.artwork, cornerRadius: 4,
+                        placeholderSize: 22, dimmed: ui.stale
+                    )
+                    .frame(width: 48, height: 48)
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(ui.title.words).font(.body.weight(.semibold)).lineLimit(1)
-                            if let second = secondLine(ui: ui, state: listening.conductor.state) {
-                                Text(second).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
-                            }
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(ui.title.words).font(.body).lineLimit(1)
+                        if let second = secondLine(ui: ui, state: listening.conductor.state) {
+                            Text(second).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .contentShape(Rectangle())
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .buttonStyle(.plain)
-                .accessibilityElement(children: .combine)
-                .accessibilityHint(Text("Opens Now playing"))
-
-                Button {
-                    listening.wantsToPlay ? listening.stop() : listening.play()
-                } label: {
-                    Image(systemName: listening.wantsToPlay ? "stop.fill" : "play.fill")
-                        .font(.system(size: 20))
-                        .frame(width: 44, height: 44)
-                }
-                .buttonStyle(.borderedProminent)
-                .clipShape(Circle())
-                .accessibilityLabel(listening.wantsToPlay ? Text("Stop") : Text("Play"))
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityHint(Text("Opens Now playing"))
+
+            // The same button as Now playing's, flat: a glow on a small button in a strip of chrome
+            // is a smudge.
+            Button {
+                listening.wantsToPlay ? listening.stop() : listening.play()
+            } label: {
+                ZStack {
+                    Circle().fill(.tint)
+                    if listening.conductor.state == .warmingUp {
+                        ProgressView().tint(onAccent)
+                    } else {
+                        Image(systemName: listening.wantsToPlay ? "stop.fill" : "play.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(onAccent)
+                    }
+                }
+                .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(listening.wantsToPlay ? Text("Stop listening") : Text("Play"))
         }
-        .background(.bar)
+        .padding(.leading, 16)
+        .padding(.trailing, 8)
+        .frame(minHeight: 64)
+        .background(Color(uiColor: .secondarySystemBackground))
         .task { await model.nowPlaying.hold() }
     }
 

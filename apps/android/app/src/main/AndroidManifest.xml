@@ -183,6 +183,16 @@
                 android:value="true" />
         </service>
 
+        <!--
+            The code scanner's trampoline, declared by ML Kit locked to portrait. Android 16 ignores
+            the lock on a tablet or a foldable anyway, and Play flags it, so it is removed here. The
+            activity draws nothing of its own: it hands off to Play services' scanner screen, which
+            is another app and lays itself out.
+        -->
+        <activity
+            android:name="com.google.mlkit.vision.codescanner.internal.GmsBarcodeScanningDelegateActivity"
+            tools:remove="android:screenOrientation" />
+
         <!-- What tells Android Auto this is a media app, and so lists it in the car. -->
         <meta-data
             android:name="com.google.android.gms.car.application"

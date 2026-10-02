@@ -9,7 +9,9 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { LlmService } from '../../../src/modules/llm/llm.service.js';
 import {
+    breakGeneration,
     BUDGET_MS,
+    DEFAULT_BREAK_REASONING,
     MAX_OUTPUT_TOKENS,
     MODEL_WRITER,
     MODEL_WRITER_KEYS,
@@ -230,6 +232,36 @@ describe('ModelTalkBreakWriter', () => {
             await expect(writer.write({ kind: TALK_BREAK_KIND, previous, next })).resolves.toBeUndefined();
 
             expect(vi.mocked(logger.info).mock.calls[0]?.[0]).toContain('thinking');
+        });
+
+        it('sends the effort and the room the operator set, as the strings a setting arrives as', async () => {
+            // A setting is a string, so the number arrives as "2400" and has to be parsed. The
+            // effort is what gemma4 needed: at `low` it ran out of room thinking about a link.
+            const { writer, converse } = build({ values: { [MODEL_WRITER_KEYS.reasoning]: 'none', [MODEL_WRITER_KEYS.maxTokens]: '2400' } });
+
+            await writer.write({ kind: TALK_BREAK_KIND, previous, next });
+
+            expect(converse.mock.calls[0]?.[0]).toMatchObject({ reasoningEffort: 'none', maxOutputTokens: 2400 });
+        });
+
+        it('keeps what every break asked for before these were settings, when nothing is set', async () => {
+            const { writer, converse } = build();
+
+            await writer.write({ kind: TALK_BREAK_KIND, previous, next });
+
+            expect(converse.mock.calls[0]?.[0]).toMatchObject({ reasoningEffort: 'low', maxOutputTokens: MAX_OUTPUT_TOKENS });
+        });
+
+        it('falls back to the defaults on a value nobody could have meant', () => {
+            const config = (values: Record<string, unknown>) =>
+                ({ get: (key: string, fallback: unknown) => (key in values ? values[key] : fallback) }) as unknown as AppConfig;
+
+            expect(breakGeneration(config({ [MODEL_WRITER_KEYS.reasoning]: 'loads', [MODEL_WRITER_KEYS.maxTokens]: '0' }))).toEqual({
+                reasoningEffort: DEFAULT_BREAK_REASONING,
+                maxOutputTokens: MAX_OUTPUT_TOKENS,
+            });
+            expect(breakGeneration(config({ [MODEL_WRITER_KEYS.maxTokens]: 'lots' })).maxOutputTokens).toBe(MAX_OUTPUT_TOKENS);
+            expect(breakGeneration(config({ [MODEL_WRITER_KEYS.reasoning]: ' high ' })).reasoningEffort).toBe('high');
         });
 
         it('leaves a reasoning model room to think AND speak', async () => {

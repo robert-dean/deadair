@@ -79,7 +79,7 @@ import { BRIEF_ONLY_DEFAULT, BRIEF_ONLY_KEY } from '#modules/director/set.genera
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
 import { DEFAULT_SMART_SHUFFLE, DEFAULT_SMART_SHUFFLE_DAYS, SMART_SHUFFLE_DAYS_RANGE, SMART_SHUFFLE_KEYS } from '#modules/director/smart.shuffle.js';
 import { ADVISORY_DEFAULT, ADVISORY_KEY } from '#modules/director/advisory.policy.js';
-import { MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
+import { DEFAULT_BREAK_REASONING, MAX_OUTPUT_TOKENS, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
 import { ALWAYS_REACH_DEFAULT, MUSIC_SEARCH_KEYS } from '#modules/llm/music.search.tool.js';
 import { MODEL_FACTS_DEFAULT, MODEL_FACTS_KEYS } from '#modules/enrichment/fact.extraction.service.js';
@@ -1352,6 +1352,30 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         dependsOn: MODEL_WRITER_KEYS.enabled,
         optionsFrom: 'llm.models',
         help: "Per call rather than plugin config, so a big model for a show and a small one for a link is expressible. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
+    },
+    {
+        group: 'llm',
+        key: MODEL_WRITER_KEYS.reasoning,
+        label: 'How hard the break model thinks',
+        type: 'select',
+        default: DEFAULT_BREAK_REASONING,
+        dependsOn: MODEL_WRITER_KEYS.enabled,
+        options: [
+            { value: 'none', label: 'Not at all' },
+            { value: 'low', label: 'A little' },
+            { value: 'medium', label: 'Some' },
+            { value: 'high', label: 'A lot' },
+        ],
+        help: 'A break is a sentence or two, so it rarely needs a model to reason first. Some models think at length even on A little and run out of room before they say anything, which the log reports as "used its whole answer thinking"; Not at all is the fix for those. Only reaches the model if the language model plugin\'s own effort setting is Auto.',
+    },
+    {
+        group: 'llm',
+        key: MODEL_WRITER_KEYS.maxTokens,
+        label: 'Room for a break',
+        type: 'number',
+        default: MAX_OUTPUT_TOKENS,
+        dependsOn: MODEL_WRITER_KEYS.enabled,
+        help: 'How many tokens the model gets for one break, thinking included. The answer itself is well under a hundred, so the rest is room to think. Raise it if the log says the model used its whole answer thinking and you want it to keep thinking; the cost is a slower break.',
     },
     // Who the station sounds like was a setting here and is now a row in `deadair.personas`, with
     // its own page: a character has to reach the phrasings and the voice as well as the prompt, and

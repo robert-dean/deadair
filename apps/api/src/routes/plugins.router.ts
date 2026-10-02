@@ -116,7 +116,7 @@ PluginsRouter.get('/plugins/:id', requirePolicy({ policy: 'platform.view' }), as
 });
 
 /**
- * Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused
+ * Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused, unless an installed copy of it is left over from before the station shipped it: that copy never loads, and it is what gets removed
  * from [plugins.ck](../../data/contracts/plugins/plugins.ck#L137)
  */
 PluginsRouter.delete('/plugins/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {

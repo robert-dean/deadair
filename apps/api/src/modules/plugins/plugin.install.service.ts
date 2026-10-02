@@ -92,8 +92,16 @@ export class PluginInstallService {
      * its configuration and the trust it was already given. A folder linked in from a checkout loses
      * only the link (`PluginInstaller.remove`).
      *
-     * @throws 404 no plugin with that id. 409 it is bundled with the station, which has no folder of
-     *   its own to delete and would be back on the next boot anyway.
+     * A BUNDLED id removes the installed copies it shadows, and only those. They are copies imported
+     * before the station started shipping the plugin: the bundled one always wins the id, so they
+     * never load, and the catalogue answers with the bundled record, which left them with no way to
+     * be named here at all. Measured on the live station: an imported Rhapsode left behind by the
+     * release that bundled it, warning on every boot. The bundled plugin is not touched, so nothing is
+     * disposed: what goes was never running.
+     *
+     * @throws 404 no plugin with that id. 409 it is bundled with the station and no installed copy of
+     *   it is left over, so there is no folder to delete, and the bundled plugin would be back on the
+     *   next boot anyway.
      */
     async removePlugin(id: string): Promise<PluginSummary[]> {
         await this.accessControl.require({ namespace: 'plugin', id }, 'configure');
@@ -102,9 +110,19 @@ export class PluginInstallService {
             const record = this.pluginRegistry.get(id);
             if (!record) throw httpError(404).withDetails({ message: `plugin "${id}" is not installed` });
             if (record.origin !== 'installed') {
-                throw httpError(409).withDetails({
-                    message: `${record.manifest?.name ?? id} is bundled with the station; turn it off instead, since it comes back with the station itself`,
-                });
+                const shadowed = this.pluginRegistry.shadowedCopies(id);
+                if (shadowed.length === 0) {
+                    throw httpError(409).withDetails({
+                        message: `${record.manifest?.name ?? id} is bundled with the station; turn it off instead, since it comes back with the station itself`,
+                    });
+                }
+
+                for (const copy of shadowed) await this.pluginInstaller.remove(copy.dir);
+                await this.pluginLifecycleManager.rescan();
+
+                const copies = shadowed.length === 1 ? 'an installed copy' : `${shadowed.length} installed copies`;
+                this.note(id, 'plugin.removed', `An operator removed ${copies} of ${record.manifest?.name ?? id} that the bundled one replaced.`);
+                return this.pluginsService.listPlugins();
             }
 
             await this.pluginLifecycleManager.disposePlugin(id);

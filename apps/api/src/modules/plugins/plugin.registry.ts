@@ -20,6 +20,29 @@ export function firstWinsById(records: readonly PluginRecord[]): Map<string, Plu
 }
 
 /**
+ * The installed copies in a discovery result that lost their id to a BUNDLED plugin, keyed by id.
+ *
+ * {@link firstWinsById} drops every losing copy, which is right for the catalogue and left these with
+ * no way out: the catalogue answers with the bundled record for the id, so removing "that plugin"
+ * meant the bundled one and was refused. They are the copies an operator imported before the
+ * station started shipping the plugin, and they are what `PluginInstallService.removePlugin` deletes
+ * when it is asked to remove a bundled id. Other losers (two installed copies of one id, say) are not
+ * collected: removing by id already reaches the folder that won, and the loser beside it is a
+ * different question.
+ */
+export function bundledShadows(records: readonly PluginRecord[]): Map<string, PluginRecord[]> {
+    const winners = firstWinsById(records);
+    const shadows = new Map<string, PluginRecord[]>();
+    for (const record of records) {
+        const winner = winners.get(record.id);
+        if (winner === undefined || winner === record) continue;
+        if (winner.origin !== 'bundled' || record.origin !== 'installed') continue;
+        shadows.set(record.id, [...(shadows.get(record.id) ?? []), record]);
+    }
+    return shadows;
+}
+
+/**
  * The in-memory catalogue of everything the host knows about plugins: one
  * record per plugin id, its current status, and its live instance once the
  * lifecycle manager has initialized it.
@@ -32,6 +55,7 @@ export function firstWinsById(records: readonly PluginRecord[]): Map<string, Plu
 @Injectable()
 export class PluginRegistry {
     private readonly records = new Map<string, PluginRecord>();
+    private shadows = new Map<string, PluginRecord[]>();
 
     /**
      * Replaces the whole catalogue, typically with a fresh `discover()` result.
@@ -43,6 +67,21 @@ export class PluginRegistry {
         for (const [id, record] of firstWinsById(records)) {
             this.records.set(id, record);
         }
+        this.setShadowed(records);
+    }
+
+    /**
+     * Records which installed copies in a discovery result are shadowed by a bundled plugin
+     * ({@link bundledShadows}). `setAll` does this itself; a rescan, which upserts rather than
+     * replacing the catalogue, calls it with the same result.
+     */
+    setShadowed(records: readonly PluginRecord[]): void {
+        this.shadows = bundledShadows(records);
+    }
+
+    /** The installed copies of `id` that never load because the station bundles that plugin. */
+    shadowedCopies(id: string): PluginRecord[] {
+        return this.shadows.get(id) ?? [];
     }
 
     /** Adds or replaces one record outright. */

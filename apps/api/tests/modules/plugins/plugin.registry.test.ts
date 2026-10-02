@@ -117,6 +117,29 @@ describe('PluginRegistry', () => {
 
             expect(registry.list()).toEqual([first]);
         });
+
+        it('remembers the installed copies a bundled plugin shadows, and no other loser', () => {
+            const registry = new PluginRegistry();
+            const bundled = record({ id: 'a', dir: '/app/plugins/a', origin: 'bundled' });
+            const leftover = record({ id: 'a', dir: '/data/plugins/a-0.1.0', origin: 'installed', status: 'failed' });
+            const installed = record({ id: 'b', dir: '/data/plugins/b-1', origin: 'installed' });
+            const devCopy = record({ id: 'b', dir: '/data/plugins/b-dev', origin: 'installed', status: 'failed' });
+            registry.setAll([bundled, installed, leftover, devCopy]);
+
+            expect(registry.shadowedCopies('a')).toEqual([leftover]);
+            // Two installed copies of one id: removing by id already reaches the one that won.
+            expect(registry.shadowedCopies('b')).toEqual([]);
+        });
+
+        it('forgets a shadowed copy once a later result no longer has it', () => {
+            const registry = new PluginRegistry();
+            const bundled = record({ id: 'a', origin: 'bundled' });
+            registry.setAll([bundled, record({ id: 'a', dir: '/data/plugins/a-0.1.0', origin: 'installed', status: 'failed' })]);
+
+            registry.setShadowed([bundled]);
+
+            expect(registry.shadowedCopies('a')).toEqual([]);
+        });
     });
 
     describe('remove', () => {

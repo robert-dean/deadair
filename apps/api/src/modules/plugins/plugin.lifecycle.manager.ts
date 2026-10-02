@@ -104,6 +104,7 @@ export class PluginLifecycleManager {
         // quarantined as a duplicate id and would be upserted over the copy that
         // won the id, orphaning its live instance.
         const found = firstWinsById(records);
+        this.pluginRegistry.setShadowed(records);
 
         for (const existing of this.pluginRegistry.list()) {
             if (found.has(existing.id)) continue;

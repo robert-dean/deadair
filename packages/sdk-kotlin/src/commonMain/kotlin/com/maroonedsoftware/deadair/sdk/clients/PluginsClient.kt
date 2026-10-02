@@ -92,7 +92,7 @@ class PluginsClient(private val http: SdkHttp) {
 
     /**
      * Remove plugin
-     * Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused
+     * Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused, unless an installed copy of it is left over from before the station shipped it: that copy never loads, and it is what gets removed
      * @throws SdkError on 404, 409
      */
     suspend fun removePlugin(id: String): List<PluginSummary> {

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -40,6 +41,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
+import com.maroonedsoftware.deadair.scripts.BreakShare
 import com.maroonedsoftware.deadair.scripts.ScriptsState
 import com.maroonedsoftware.deadair.sdk.models.ScriptAttempt
 import com.maroonedsoftware.deadair.sdk.models.ScriptRating
@@ -60,6 +62,9 @@ import kotlinx.coroutines.launch
 /** The operator's opinion of a break. `null` for anyone else. */
 data class ScriptRatingHandler(val busyId: String?, val onRate: (attemptId: String, ScriptRating) -> Unit)
 
+/** Sending a break on. For anyone signed in; `busyId` is the row whose copy is being fetched. */
+data class BreakShareHandler(val busyId: String?, val onShare: (ScriptAttempt) -> Unit)
+
 /**
  * What the station said between the records, newest first, and what came of trying.
  *
@@ -78,7 +83,8 @@ fun ScriptsScreen(
     onRetry: () -> Unit,
     onSignIn: () -> Unit,
     rating: ScriptRatingHandler?,
-    /** This page can rate, so it says what the station answered. */
+    sharing: BreakShareHandler?,
+    /** This page can rate and share, so it says what the station answered. */
     snackbarHost: SnackbarHostState,
 ) {
     Scaffold(
@@ -104,7 +110,7 @@ fun ScriptsScreen(
                         if (state.attempts.isEmpty()) {
                             EmptyPlaceholder(stringResource(R.string.scripts_empty))
                         } else {
-                            Rows(state, scope, onLoadMore, rating)
+                            Rows(state, scope, onLoadMore, rating, sharing)
                         }
                     }
             }
@@ -113,7 +119,13 @@ fun ScriptsScreen(
 }
 
 @Composable
-private fun Rows(state: ScriptsState.Loaded, scope: CoroutineScope, onLoadMore: suspend () -> Unit, rating: ScriptRatingHandler?) {
+private fun Rows(
+    state: ScriptsState.Loaded,
+    scope: CoroutineScope,
+    onLoadMore: suspend () -> Unit,
+    rating: ScriptRatingHandler?,
+    sharing: BreakShareHandler?,
+) {
     val zone = remember { ZoneId.systemDefault() }
     val nowEpochMs by rememberNowEpochMs()
 
@@ -122,7 +134,7 @@ private fun Rows(state: ScriptsState.Loaded, scope: CoroutineScope, onLoadMore: 
 
         LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
             itemsIndexed(state.attempts, key = { _, attempt -> attempt.id }) { index, attempt ->
-                AttemptRow(attempt, nowEpochMs, zone, rating)
+                AttemptRow(attempt, nowEpochMs, zone, rating, sharing)
                 if (index < state.attempts.lastIndex) HorizontalDivider()
             }
             if (state.canLoadMore) {
@@ -143,13 +155,13 @@ private fun Rows(state: ScriptsState.Loaded, scope: CoroutineScope, onLoadMore: 
 }
 
 @Composable
-private fun AttemptRow(attempt: ScriptAttempt, nowEpochMs: Long, zone: ZoneId, rating: ScriptRatingHandler?) {
+private fun AttemptRow(attempt: ScriptAttempt, nowEpochMs: Long, zone: ZoneId, rating: ScriptRatingHandler?, sharing: BreakShareHandler?) {
     val ui = ScriptRowUiState(attempt)
     var open by rememberSaveable(attempt.id) { mutableStateOf(false) }
     val expands = stringResource(if (open) R.string.hide_details else R.string.show_details)
 
     Column(modifier = Modifier.fillMaxWidth().clickable(onClickLabel = expands) { open = !open }.padding(horizontal = Gutter, vertical = 12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 Message.Aired(airedLabel(attempt.at.toEpochMilliseconds(), nowEpochMs, zone)).resolve(),
                 style = MaterialTheme.typography.labelMedium,
@@ -159,6 +171,11 @@ private fun AttemptRow(attempt: ScriptAttempt, nowEpochMs: Long, zone: ZoneId, r
             Text(Message.Outcome(attempt.outcome).resolve(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.extraSmall) {
                 Text(ui.writer.resolve(), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+            }
+            // Only where there is audio to send: words were written and the segment is still known.
+            if (sharing != null && BreakShare.shareable(attempt)) {
+                Spacer(modifier = Modifier.weight(1f))
+                ShareButton(busy = sharing.busyId == attempt.id, enabled = sharing.busyId == null) { sharing.onShare(attempt) }
             }
         }
         Text(
@@ -188,6 +205,21 @@ private fun AttemptRow(attempt: ScriptAttempt, nowEpochMs: Long, zone: ZoneId, r
                         Text(fact.value, style = MaterialTheme.typography.bodySmall)
                     }
                 }
+            }
+        }
+    }
+}
+
+/** The row's share button, or a spinner in its place while the station makes the copy. */
+@Composable
+private fun ShareButton(busy: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    // A fixed box, so the row does not reflow when the button turns into a spinner and back.
+    Box(modifier = Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+        if (busy) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+        } else {
+            IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(32.dp)) {
+                Icon(painterResource(R.drawable.ic_share), contentDescription = Message.ShareBreak.resolve(), modifier = Modifier.size(18.dp))
             }
         }
     }

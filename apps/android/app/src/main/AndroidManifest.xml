@@ -138,6 +138,22 @@
         </service>
 
         <!--
+            Hands the share sheet the one copy of a break being sent (BreakSharer). Not exported, and
+            granting per URI: an app reads the file only because the share intent said it may. The
+            authority carries the application id, so the .debug copy and the Play build never claim
+            the same one.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.shares"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/share_paths" />
+        </provider>
+
+        <!--
             The station on the home screen. Not exported: the only thing that talks to a widget
             provider is the system, which reaches it whether or not anybody else could.
         -->

@@ -95,6 +95,21 @@ public enum Message: Equatable, Sendable {
     case stationsHost
     case noHost
 
+    // MARK: The catalog
+
+    case recordNotFound
+    case albumNotFound
+    case artistNotFound
+    /// "Aired 3 times", or "Never aired".
+    case airedTimes(Int)
+    case trackCount(Int)
+    case albumCount(Int)
+    /// "12 more not shown", under a list the station holds more of than one page carries.
+    case moreNotShown(Int)
+    case field(EnrichmentField)
+    /// "musicbrainz · 2 Oct 2026", with what became of the last attempt to ask.
+    case provenance(Provenance)
+
     // MARK: The operator
 
     /// What an operator action came back with.

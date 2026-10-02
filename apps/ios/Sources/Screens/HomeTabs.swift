@@ -23,16 +23,16 @@ struct HomeTabs: View {
     var body: some View {
         // The explicit-closure setter, not the method passed straight in: see apps/ios/CLAUDE.md.
         TabView(selection: Binding(get: { model.tab }, set: { model.tab = $0 })) {
-            NavigationStack { NowPlayingScreen() }
+            NavigationStack { NowPlayingScreen().catalogDestinations() }
                 .tabItem { Label(String(localized: "Now playing"), systemImage: "radio") }
                 .tag(HomeTab.nowPlaying)
-            NavigationStack { UpNextScreen().miniPlayer() }
+            NavigationStack { UpNextScreen().miniPlayer().catalogDestinations() }
                 .tabItem { Label(String(localized: "Up next"), systemImage: "list.bullet") }
                 .tag(HomeTab.upNext)
-            NavigationStack { WhatsOnScreen().miniPlayer() }
+            NavigationStack { WhatsOnScreen().miniPlayer().catalogDestinations() }
                 .tabItem { Label(String(localized: "What's on"), systemImage: "calendar") }
                 .tag(HomeTab.whatsOn)
-            NavigationStack { SettingsScreen().miniPlayer() }
+            NavigationStack { SettingsScreen().miniPlayer().catalogDestinations() }
                 .tabItem { Label(String(localized: "Settings"), systemImage: "gearshape") }
                 .tag(HomeTab.settings)
         }

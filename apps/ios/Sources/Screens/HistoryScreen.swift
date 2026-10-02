@@ -30,8 +30,13 @@ struct HistoryScreen: View {
                         if stale { StaleBanner() }
                         TimelineView(.periodic(from: .now, by: 60)) { context in
                             ForEach(entries, id: \.id) { entry in
-                                Row(entry: entry, artwork: station?.artUrl(entry.artworkUrl).flatMap(URL.init(string:)), now: context.date)
+                                let row = Row(entry: entry, artwork: station?.artUrl(entry.artworkUrl).flatMap(URL.init(string:)), now: context.date)
                                     .opacity(stale ? 0.6 : 1)
+                                if let route = CatalogRoute.track(entry.trackId) {
+                                    NavigationLink(value: route) { row }
+                                } else {
+                                    row
+                                }
                             }
                         }
                         if canLoadMore {

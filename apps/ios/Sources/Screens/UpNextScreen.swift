@@ -100,9 +100,17 @@ private struct Rows: View {
                     }
 
                     ForEach(ui.shown, id: \.id) { item in
-                        OrderRow(item: item, artwork: station?.artUrl(item.artworkUrl).flatMap(URL.init(string:)), stale: stale)
-                            .id(item.id)
-                            .listRowBackground(item.state == .airing ? Color.accentColor.opacity(0.12) : nil)
+                        let row = OrderRow(item: item, artwork: station?.artUrl(item.artworkUrl).flatMap(URL.init(string:)), stale: stale)
+                        // Every record row leads to its page, which is also where its rating lives.
+                        Group {
+                            if item.kind == .track, let route = CatalogRoute.track(item.trackId) {
+                                NavigationLink(value: route) { row }
+                            } else {
+                                row
+                            }
+                        }
+                        .id(item.id)
+                        .listRowBackground(item.state == .airing ? Color.accentColor.opacity(0.12) : nil)
                     }
                 }
             }

@@ -102,7 +102,7 @@ public struct NowPlayingUiState: Equatable, Sendable {
 }
 
 /// The station's words, or nothing when they are blank: a blank name is no name to show.
-func nonBlank(_ words: String?) -> String? {
+public func nonBlank(_ words: String?) -> String? {
     guard let words, !words.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
     return words
 }

@@ -79,8 +79,46 @@ extension Message {
         case .stationsHost: String(localized: "The station's host")
         case .noHost: String(localized: "Nobody")
 
+        case .recordNotFound: String(localized: "No record with that id is in the catalog.")
+        case .albumNotFound: String(localized: "No album with that id is in the catalog.")
+        case .artistNotFound: String(localized: "No artist with that id is in the catalog.")
+        case .airedTimes(0): String(localized: "Never aired")
+        case .airedTimes(let count): String(localized: "Aired \(count) times")
+        case .trackCount(let count): String(localized: "\(count) tracks")
+        case .albumCount(let count): String(localized: "\(count) albums")
+        case .moreNotShown(let count): String(localized: "\(count) more not shown")
+        case .field(let field): field.words
+        case .provenance(let source): source.words
+
         case .operatorNotice(let notice): notice.words
         }
+    }
+}
+
+extension EnrichmentField {
+    var words: String {
+        switch self {
+        case .released: String(localized: "Providers say released")
+        case .label: String(localized: "Label")
+        case .bpm: String(localized: "BPM")
+        case .key: String(localized: "Key")
+        case .isrc: String(localized: "ISRC")
+        }
+    }
+}
+
+extension Provenance {
+    /// "musicbrainz · 3 May 2026", and "· due again" when the station will ask it again.
+    var words: String {
+        let date = fetchedAt.formatted(date: .abbreviated, time: .omitted)
+        let state = switch self.state {
+        case .found: date
+        case .nothingFound: String(localized: "nothing found")
+        case .couldNotAsk: String(localized: "could not ask")
+        case .couldNotReask: String(localized: "\(date), could not re-ask")
+        }
+        let line = String(localized: "\(provider) · \(state)")
+        return stale ? String(localized: "\(line) · due again") : line
     }
 }
 

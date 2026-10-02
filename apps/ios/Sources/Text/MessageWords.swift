@@ -135,6 +135,8 @@ extension Message {
         case .chartOrder(.unordered): String(localized: "No fixed order")
         case .airConfirm(let what): String(localized: "Air \(what) to everyone?")
         case .playlistUnavailable: String(localized: "This playlist is unavailable.")
+        case .added(let title): String(localized: "Added “\(title)”.")
+        case .searchNotShown(let count): String(localized: "\(count) more matches. Type more of the title to narrow them.")
         case .chartUnavailable: String(localized: "This chart is unavailable.")
 
         case .operatorNotice(let notice): notice.words

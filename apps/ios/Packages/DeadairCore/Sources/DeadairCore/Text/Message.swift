@@ -157,6 +157,10 @@ public enum Message: Equatable, Sendable {
     /// "Air Classic Rock to everyone?"
     case airConfirm(String)
     case playlistUnavailable
+    /// "Added “Paranoid”."
+    case added(String)
+    /// "12 more matches. Type more of the title to narrow them."
+    case searchNotShown(Int)
     case chartUnavailable
 
     // MARK: The operator

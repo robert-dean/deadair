@@ -138,6 +138,29 @@
           }
         }
       }
+    },
+    "%lld more matches. Type more of the title to narrow them.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld more match. Type more of the title to find it."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld more matches. Type more of the title to narrow them."
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "version": "1.0"

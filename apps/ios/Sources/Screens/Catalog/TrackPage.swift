@@ -14,6 +14,7 @@ struct TrackPage: View {
     @State private var enrichment: LoadState<EnrichmentUiState> = .loading
     @State private var attempt = 0
     @State private var ratings = RatingWrites()
+    @State private var adding = false
 
     var body: some View {
         DetailBody(state: detail, notFound: .recordNotFound, retry: { attempt += 1 }) { track in
@@ -47,6 +48,10 @@ struct TrackPage: View {
                     RatingSection(rating: track.rating, label: track.title, busy: ratings.busy) { mark in
                         ratings.rate({ await model.catalogActions.rateTrack(id, mark) }, then: { attempt += 1 })
                     }
+                }
+
+                if model.isOperator {
+                    AddToOrderSection(trackId: track.id, title: track.title, hasAudio: track.hasLocalAudio, busy: $adding)
                 }
 
                 Section(String(localized: "Airings")) {

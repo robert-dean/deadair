@@ -39,6 +39,19 @@ public final class OrderActions {
         await applying { try await $0.director.addARecordToTheRunningOrder(body: AddStationTrackInput(trackId: trackId, atIndex: index)) }
     }
 
+    /// Add a record from the library, at a position or, with `nil`, at the end.
+    ///
+    /// The station vets a record picked by hand exactly as it vets one a playlist put on air, so a
+    /// record whose audio is here can still be refused: a dislike, the period, the advisory policy, its
+    /// length. All of those, and a position the player has already been handed, arrive as one 422
+    /// whose body this app does not read, so they share one sentence.
+    @discardableResult
+    public func addTrack(_ trackId: UUID, at index: Int?) async -> Bool {
+        await applying(expected: [404: .recordGone, 422: .recordRefused]) {
+            try await $0.director.addARecordToTheRunningOrder(body: AddStationTrackInput(trackId: trackId, atIndex: index))
+        }
+    }
+
     /// Hand the broadcast to somebody else, or `nil` to hand it back to the station's own host.
     ///
     /// Breaks already written in the outgoing character are written again in the new one, so this is a

@@ -22,6 +22,8 @@ enum PageRoute: Hashable {
     case airSomething
     case playlist(pluginId: String, playlistId: String, name: String)
     case chart(id: String, name: String)
+    /// A record from the library, into the running order.
+    case addRecord
 
     /// A record's page from the id a row carries, or `nil` for a row whose id is not one.
     static func track(_ id: String?) -> PageRoute? {
@@ -44,6 +46,7 @@ extension View {
             case .airSomething: AirSomethingScreen()
             case .playlist(let pluginId, let playlistId, let name): PlaylistScreen(pluginId: pluginId, playlistId: playlistId, name: name)
             case .chart(let id, let name): ChartScreen(chartId: id, name: name)
+            case .addRecord: AddRecordScreen()
 
             }
         }

@@ -26,6 +26,10 @@ struct ManageScreen: View {
                 // Always offered: off air it is the way on.
                 Section(String(localized: "Put something on")) {
                     NavigationLink(value: PageRoute.airSomething) { row(String(localized: "Playlists"), detail: nil) }
+                    // Off air, a playlist is the way on: there is no broadcast for one record to join.
+                    if broadcast?.nothingOn == false {
+                        NavigationLink(value: PageRoute.addRecord) { row(String(localized: "Add a record"), detail: nil) }
+                    }
                 }
             }
             if model.signedIn {

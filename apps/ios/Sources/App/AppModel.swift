@@ -35,7 +35,22 @@ final class AppModel {
     var proposed: StationUrl?
 
     /// The tab that is showing. Here rather than in the view, so the player bar can go to Now playing.
-    var tab: HomeTab = .nowPlaying
+    var tab: HomeTab = AppModel.startTab
+
+    /// Debug builds open on the tab named by `-start_tab` (nowPlaying, upNext, whatsOn, settings), so
+    /// a screen can be looked at on a simulator without a tap that might land on something live.
+    private static var startTab: HomeTab {
+        #if DEBUG
+        switch UserDefaults.standard.string(forKey: "start_tab") {
+        case "upNext": return .upNext
+        case "whatsOn": return .whatsOn
+        case "settings": return .settings
+        default: return .nowPlaying
+        }
+        #else
+        return .nowPlaying
+        #endif
+    }
 
     @ObservationIgnored private var openPlay = OpenPlay()
 

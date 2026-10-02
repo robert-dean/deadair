@@ -17,14 +17,14 @@ struct HistoryScreen: View {
         Group {
             switch list {
             case .signedOut:
-                SignedOutPlaceholder()
+                SignedOutPlaceholder(what: String(localized: "History"))
             case .loading:
                 ProgressView()
             case .unreachable:
-                placeholder(String(localized: "Can't reach the station. Pull down to try again."))
+                ErrorPlaceholder(retry: { model.history.retry() })
             case .loaded(let entries, let canLoadMore, let loadingMore, let stale):
                 if entries.isEmpty {
-                    placeholder(String(localized: "Nothing has aired yet."))
+                    EmptyPlaceholder(what: String(localized: "Nothing has aired yet."))
                 } else {
                     List {
                         if stale { StaleBanner() }
@@ -64,15 +64,6 @@ struct HistoryScreen: View {
         }
     }
 
-    private func placeholder(_ words: String) -> some View {
-        Text(words)
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
     private struct Row: View {
         @Environment(AppModel.self) private var model
         let entry: HistoryEntry
@@ -96,17 +87,6 @@ struct HistoryScreen: View {
     }
 }
 
-/// Said above a list when what it shows came from a reading that has since gone stale.
-struct StaleBanner: View {
-    var body: some View {
-        Label(String(localized: "Can't reach the station. Showing what it said last."), systemImage: "wifi.exclamationmark")
-            .font(.footnote)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(10)
-            .background(.yellow.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
-            .listRowSeparator(.hidden)
-    }
-}
 
 /// When something aired, as the reader would say it, kept current once a minute by the label itself.
 ///

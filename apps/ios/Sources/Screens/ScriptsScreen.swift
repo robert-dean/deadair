@@ -46,22 +46,13 @@ private struct Attempts: View {
     var body: some View {
         switch scripts.list(signedIn: model.signedIn) {
         case .signedOut:
-            SignedOutPlaceholder()
+            SignedOutPlaceholder(what: String(localized: "What it said"))
         case .loading:
             ProgressView()
         case .unreachable:
-            Text(String(localized: "Can't reach the station. Pull down to try again."))
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .refreshable { scripts.retry() }
+            ErrorPlaceholder(retry: { scripts.retry() })
         case .loaded(let attempts, _, _, _) where attempts.isEmpty:
-            Text(String(localized: "The station has not said anything yet."))
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            EmptyPlaceholder(what: String(localized: "The station has not said anything yet."))
         case .loaded(let attempts, let canLoadMore, let loadingMore, let stale):
             List {
                 if stale { StaleBanner() }

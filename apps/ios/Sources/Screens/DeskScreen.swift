@@ -20,14 +20,11 @@ struct DeskScreen: View {
         Group {
             switch model.playout.state(signedIn: model.signedIn) {
             case .signedOut:
-                SignedOutPlaceholder()
+                SignedOutPlaceholder(what: String(localized: "The desk"))
             case .loading:
                 ProgressView()
             case .unreachable:
-                Text(String(localized: "Can't reach the station. Pull down to try again."))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .padding()
+                ErrorPlaceholder(retry: { model.playout.retry() })
             case .loaded(let status, let air, let stale):
                 desk(DeskUiState(transport: TransportUiState(status: status, air: air, busy: busy)), stale: stale)
             }

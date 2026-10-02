@@ -14,11 +14,10 @@ struct WhatsOnScreen: View {
 
         Group {
             if !model.signedIn {
-                SignedOutPlaceholder()
+                SignedOutPlaceholder(what: String(localized: "What's on"))
             } else if let reading = state.latest?.value {
                 let ui = whatsOn(reading.now, slots: reading.slots, personas: reading.personas)
                 List {
-                    if state.isStale { StaleBanner() }
                     Section { OnNowCard(onNow: ui.onNow) }
                     ForEach(Array(ui.ahead.enumerated()), id: \.offset) { _, ahead in
                         Section {
@@ -26,9 +25,9 @@ struct WhatsOnScreen: View {
                         }
                     }
                 }
-                .opacity(state.isStale ? 0.6 : 1)
+                .staleBanner(state.isStale, readAt: state.latest?.readAt)
             } else if case .unreachable = state {
-                placeholder(String(localized: "Can't reach the station. Pull down to try again."))
+                ErrorPlaceholder(retry: { model.schedule.retry() })
             } else {
                 ProgressView()
             }
@@ -40,15 +39,6 @@ struct WhatsOnScreen: View {
             model.schedule.reset()
             await model.schedule.hold()
         }
-    }
-
-    private func placeholder(_ words: String) -> some View {
-        Text(words)
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

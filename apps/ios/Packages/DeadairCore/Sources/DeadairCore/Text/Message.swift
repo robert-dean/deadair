@@ -134,6 +134,10 @@ public enum Message: Equatable, Sendable {
     case scheduleTakesThisBack
     case heldUntilReleased
     case heldUntilAbout(Clock)
+    /// Over a stale reading whose time is not known: "This is the last it said."
+    case lastSaid
+    /// Over a stale reading: "Showing what it said at 14:05."
+    case lastSaidAt(Clock)
     case deskOnAir
     case deskOffAir
     /// "Late Static, going out to 3", or "Going out, and nobody is listening".

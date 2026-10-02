@@ -115,6 +115,8 @@ extension Message {
         case .scheduleTakesThisBack: String(localized: "The schedule takes this back at the next block.")
         case .heldUntilReleased: String(localized: "Held until you release it. The schedule will not take this back.")
         case .heldUntilAbout(let clock): String(localized: "Held until about \(clock.words).")
+        case .lastSaid: String(localized: "Could not reach the station just now. This is the last it said.")
+        case .lastSaidAt(let clock): String(localized: "Could not reach the station just now. Showing what it said at \(clock.words).")
         case .deskOnAir: String(localized: "On air")
         case .deskOffAir: String(localized: "Off air")
         // Nobody is its own sentence: "going out to 0" reads like a fault.

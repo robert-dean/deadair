@@ -24,11 +24,11 @@ struct UpNextScreen: View {
         Group {
             switch state {
             case .signedOut:
-                SignedOutPlaceholder()
+                SignedOutPlaceholder(what: String(localized: "Up next"))
             case .loading:
                 ProgressView()
             case .unreachable:
-                placeholder(String(localized: "Can't reach the station. Pull down to try again."))
+                ErrorPlaceholder(retry: { model.order.retry() })
             case .loaded(let reading, let stale):
                 Rows(reading: reading, stale: stale, historyOpen: $historyOpen)
                     .environment(\.editMode, $editMode)
@@ -89,15 +89,6 @@ struct UpNextScreen: View {
     /// The cover on air, through the same public reading Now playing draws.
     private var onAirArtwork: URL? {
         artworkURL(station: model.settings.settings.station, reading: model.nowPlaying.state.latest?.value)
-    }
-
-    private func placeholder(_ words: String) -> some View {
-        Text(words)
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -367,20 +358,3 @@ struct OnAirMeter: View {
     }
 }
 
-/// Said where a signed-in screen would be, with the way to sign in beside it.
-struct SignedOutPlaceholder: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Text(String(localized: "The station keeps this for signed-in listeners. Listening itself needs no account."))
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Button(String(localized: "Sign in")) { model.tab = .settings }
-                .buttonStyle(.bordered)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}

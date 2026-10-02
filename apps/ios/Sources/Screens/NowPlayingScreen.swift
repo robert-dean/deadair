@@ -385,9 +385,12 @@ struct PlayButton: View {
     var fill: Color = .accentColor
     /// What reads on the accent the button is filled with: black on a light cover colour, white on a dark one.
     var onAccent: Color?
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let listening = model.listening
+        // The app's own green is pale in the dark and deep in the light, so what reads on it flips.
+        let onAccent = onAccent ?? (colorScheme == .dark ? Color(white: 0.06) : .white)
         let warming = listening.conductor.state == .warmingUp
         Button {
             listening.wantsToPlay ? listening.stop() : listening.play()
@@ -396,11 +399,11 @@ struct PlayButton: View {
                 Circle().fill(fill)
                 Circle().fill(LinearGradient(colors: [.white.opacity(0.25), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
                 if warming {
-                    ProgressView().controlSize(.large).tint(onAccent ?? .white)
+                    ProgressView().controlSize(.large).tint(onAccent)
                 } else {
                     Image(systemName: listening.wantsToPlay ? "stop.fill" : "play.fill")
                         .font(.system(size: 30))
-                        .foregroundStyle(onAccent ?? .white)
+                        .foregroundStyle(onAccent)
                 }
             }
             .frame(width: 72, height: 72)

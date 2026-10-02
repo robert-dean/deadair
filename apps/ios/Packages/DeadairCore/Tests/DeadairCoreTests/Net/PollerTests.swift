@@ -60,6 +60,9 @@ struct PollerTests {
         lease.release()
         // Released twice is harmless, and does not take a lease somebody else holds.
         lease.release()
+        // The grace returns at once here, but the teardown still runs on a task of its own. Until
+        // it has, the loop is inside the grace and a kick would rightly ask again.
+        #expect(await eventually { !poller.isPolling })
 
         poller.kick()
         try? await Task.sleep(for: .milliseconds(50))
@@ -68,6 +71,25 @@ struct PollerTests {
         // A new lease starts it again.
         let again = poller.subscribe()
         #expect(await eventually { script.calls == 2 })
+        again.release()
+    }
+
+    @Test func aKickWhileNothingIsLeasedIsNotCarriedIntoTheNextLease() async {
+        let script = Script<Int>([.success(1), .success(2), .success(3)])
+        let sleeps = Sleeps(immediately: [.seconds(5)])
+        let poller = Poller(schedule: schedule, sleep: sleeps.sleep) { try await script.next() }
+
+        let lease = poller.subscribe()
+        #expect(await eventually { sleeps.recorded.count == 1 })
+        lease.release()
+        #expect(await eventually { !poller.isPolling })
+        poller.kick()
+
+        // The new loop asks once and then waits. A kick kept from the old loop would have sent it
+        // straight round again without the wait.
+        let again = poller.subscribe()
+        #expect(await eventually { sleeps.recorded == [.seconds(1), .seconds(1)] })
+        #expect(script.calls == 2)
         again.release()
     }
 

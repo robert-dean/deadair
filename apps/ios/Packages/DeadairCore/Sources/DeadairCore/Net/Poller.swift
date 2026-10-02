@@ -76,6 +76,11 @@ public final class Poller<Value: Sendable> {
     @ObservationIgnored private var teardown: Task<Void, Never>?
     @ObservationIgnored private var kicked = false
 
+    /// Whether a loop is running, leased or inside the grace. Internal, for the tests: the
+    /// teardown runs on a task of its own, so "nothing more is asked" can only be checked once
+    /// this has gone false.
+    var isPolling: Bool { loop != nil }
+
     public init(
         schedule: PollSchedule,
         grace: Duration = .seconds(5),
@@ -130,6 +135,9 @@ public final class Poller<Value: Sendable> {
     }
 
     private func start() {
+        // A new loop asks at once, which is everything a pending kick wanted. One left over from a
+        // loop that was torn down would otherwise make it ask twice.
+        kicked = false
         loop = Task { [weak self] in await self?.run() }
     }
 

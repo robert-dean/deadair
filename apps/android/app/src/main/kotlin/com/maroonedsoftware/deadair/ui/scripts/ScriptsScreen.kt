@@ -1,6 +1,7 @@
 package com.maroonedsoftware.deadair.ui.scripts
 
 import androidx.compose.animation.AnimatedVisibility
+import android.content.ClipData
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,13 +30,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +62,7 @@ import com.maroonedsoftware.deadair.ui.text.resolve
 import com.maroonedsoftware.deadair.ui.theme.Gutter
 import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** The operator's opinion of a break. `null` for anyone else. */
@@ -172,9 +178,11 @@ private fun AttemptRow(attempt: ScriptAttempt, nowEpochMs: Long, zone: ZoneId, r
             Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.extraSmall) {
                 Text(ui.writer.resolve(), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
             }
+            Spacer(modifier = Modifier.weight(1f))
+            // The words, wherever there are some, whether or not they ever became audio.
+            ui.copyText?.let { words -> CopyButton(words) }
             // Only where there is audio to send: words were written and the segment is still known.
             if (sharing != null && BreakShare.shareable(attempt)) {
-                Spacer(modifier = Modifier.weight(1f))
                 ShareButton(busy = sharing.busyId == attempt.id, enabled = sharing.busyId == null) { sharing.onShare(attempt) }
             }
         }
@@ -209,6 +217,45 @@ private fun AttemptRow(attempt: ScriptAttempt, nowEpochMs: Long, zone: ZoneId, r
         }
     }
 }
+
+/**
+ * The row's copy button, which puts the words on the clipboard and shows a tick for a moment.
+ *
+ * The tick rather than a snackbar: Android 13 and later announce a copy themselves, and a second
+ * confirmation over the system's would say the same thing twice. On older phones the tick is all
+ * there is, which is why it is there at all.
+ */
+@Composable
+private fun CopyButton(words: String) {
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
+    var copied by remember(words) { mutableStateOf(false) }
+    if (copied) {
+        LaunchedEffect(Unit) {
+            delay(COPIED_TICK_MS)
+            copied = false
+        }
+    }
+
+    IconButton(
+        onClick = {
+            scope.launch {
+                clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("what it said", words)))
+                copied = true
+            }
+        },
+        modifier = Modifier.size(32.dp),
+    ) {
+        Icon(
+            painterResource(if (copied) R.drawable.ic_check else R.drawable.ic_content_copy),
+            contentDescription = (if (copied) Message.CopiedWhatItSaid else Message.CopyWhatItSaid).resolve(),
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+/** How long the copy button shows its tick before it can be read as a copy button again. */
+private const val COPIED_TICK_MS = 1_500L
 
 /** The row's share button, or a spinner in its place while the station makes the copy. */
 @Composable

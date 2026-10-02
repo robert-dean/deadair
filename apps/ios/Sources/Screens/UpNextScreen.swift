@@ -153,9 +153,7 @@ private struct Rows: View {
                         Label(label.words, systemImage: "chevron.down")
                     }
                 } else {
-                    NavigationLink {
-                        HistoryScreen()
-                    } label: {
+                    NavigationLink(value: PageRoute.history) {
                         Label(String(localized: "Everything the station has played"), systemImage: "clock.arrow.circlepath")
                     }
                 }

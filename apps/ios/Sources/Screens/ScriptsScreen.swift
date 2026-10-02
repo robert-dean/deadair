@@ -55,24 +55,17 @@ private struct Attempts: View {
             EmptyPlaceholder(what: String(localized: "The station has not said anything yet."))
         case .loaded(let attempts, let canLoadMore, let loadingMore, let stale):
             List {
-                if stale { StaleBanner() }
                 ForEach(attempts, id: \.id) { attempt in
                     AttemptRow(attempt: attempt, sharer: sharer, scripts: scripts)
+                        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
                 }
                 if canLoadMore {
-                    HStack {
-                        Spacer()
-                        if loadingMore {
-                            ProgressView()
-                        } else {
-                            Button(String(localized: "Earlier")) { Task { await scripts.loadMore() } }
-                        }
-                        Spacer()
-                    }
+                    EarlierRow(loading: loadingMore) { Task { await scripts.loadMore() } }
                 }
             }
             .listStyle(.plain)
             .refreshable { scripts.retry() }
+            .staleBanner(stale)
         }
     }
 }
@@ -95,10 +88,10 @@ private struct AttemptRow: View {
                 Circle().fill(color(ui.tone)).frame(width: 8, height: 8)
                 Text(Message.outcome(attempt.outcome).words).font(.caption).foregroundStyle(.secondary)
                 Text(ui.writer.words)
-                    .font(.caption2)
+                    .font(.caption2.weight(.medium))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
+                    .background(.tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
                 // Only where there is audio to send: words were written and the segment is still known.
                 if BreakShare.shareable(attempt) {
                     Spacer()
@@ -121,7 +114,7 @@ private struct AttemptRow: View {
                 }
             }
             Text(ui.line)
-                .font(.callout)
+                .font(.subheadline)
                 .foregroundStyle(ui.lineIsReason ? .secondary : .primary)
                 .lineLimit(open ? nil : 2)
             // The operator's opinion, asked only where there are words to have one about.
@@ -137,10 +130,9 @@ private struct AttemptRow: View {
                         }
                     }
                 }
-                .padding(.top, 2)
+                .padding(.top, 8)
             }
         }
-        .padding(.vertical, 4)
         .contentShape(Rectangle())
         .onTapGesture { withAnimation { open.toggle() } }
         .accessibilityElement(children: .contain)
@@ -160,7 +152,7 @@ private struct AttemptRow: View {
     private func color(_ tone: ScriptTone) -> Color {
         switch tone {
         case .ok: .accentColor
-        case .standby: .gray
+        case .standby: Color(uiColor: .systemGray2)
         case .fault: .red
         }
     }
@@ -178,25 +170,17 @@ private struct ScriptRatingControl: View {
     let onRate: (ScriptRating) -> Void
 
     var body: some View {
-        HStack(spacing: 16) {
-            segment(.disliked, symbol: "hand.thumbsdown", name: String(localized: "The station should not say things like this"))
-            segment(.neutral, symbol: "minus", name: String(localized: "Heard it, no opinion"))
-            segment(.liked, symbol: "hand.thumbsup", name: String(localized: "More like this"))
-        }
+        SegmentedChoice(
+            segments: [
+                .init(value: ScriptRating.disliked, symbol: "hand.thumbsdown", name: String(localized: "The station should not say things like this")),
+                .init(value: .neutral, symbol: "minus.circle", name: String(localized: "Heard it, no opinion")),
+                .init(value: .liked, symbol: "hand.thumbsup", name: String(localized: "More like this")),
+            ],
+            selected: rating,
+            height: 36,
+            onPick: onRate
+        )
         .disabled(busy)
-    }
-
-    private func segment(_ value: ScriptRating, symbol: String, name: String) -> some View {
-        let selected = rating == value
-        return Button {
-            onRate(value)
-        } label: {
-            Image(systemName: selected ? "\(symbol).fill" : symbol)
-                .foregroundStyle(selected ? Color.accentColor : .secondary)
-                .frame(width: 36, height: 28)
-        }
-        .buttonStyle(.borderless)
-        .accessibilityLabel(Text(name))
-        .accessibilityAddTraits(selected ? .isSelected : [])
+        .padding(.top, 2)
     }
 }

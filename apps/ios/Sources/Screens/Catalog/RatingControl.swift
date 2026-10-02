@@ -17,34 +17,23 @@ struct RatingSection: View {
     let onRate: (Rating) -> Void
 
     var body: some View {
-        Section {
-            HStack(spacing: 0) {
-                segment(.disliked, symbol: "hand.thumbsdown", name: String(localized: "Never play \(label)"))
-                Divider().frame(height: 28)
-                segment(.neutral, symbol: "minus", name: String(localized: "No opinion about \(label)"))
-                Divider().frame(height: 28)
-                segment(.liked, symbol: "hand.thumbsup", name: String(localized: "Play \(label) more often"))
-            }
+        VStack(alignment: .leading, spacing: 0) {
+            SegmentedChoice(
+                segments: [
+                    .init(value: Rating.disliked, symbol: "hand.thumbsdown", name: String(localized: "Never play \(label)")),
+                    .init(value: .neutral, symbol: "minus.circle", name: String(localized: "No opinion about \(label)")),
+                    .init(value: .liked, symbol: "hand.thumbsup", name: String(localized: "Play \(label) more often")),
+                ],
+                selected: ratingSelection(rating),
+                iconSize: 20,
+                onPick: onRate
+            )
             .disabled(busy)
-        } footer: {
             Text(String(localized: "This is the station's mark, not a favourite: it changes how often the station plays this."))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 8)
         }
-    }
-
-    private func segment(_ value: Rating, symbol: String, name: String) -> some View {
-        let selected = ratingSelection(rating) == value
-        return Button {
-            onRate(value)
-        } label: {
-            Image(systemName: selected ? "\(symbol).fill" : symbol)
-                .font(.title3)
-                .frame(maxWidth: .infinity, minHeight: 36)
-                .foregroundStyle(selected ? Color.accentColor : .secondary)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.borderless)
-        .accessibilityLabel(Text(name))
-        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 

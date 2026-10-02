@@ -24,10 +24,36 @@ enum PageRoute: Hashable {
     case chart(id: String, name: String)
     /// A record from the library, into the running order.
     case addRecord
+    /// Everything the station has played.
+    case history
 
     /// A record's page from the id a row carries, or `nil` for a row whose id is not one.
     static func track(_ id: String?) -> PageRoute? {
         id.flatMap(UUID.init(uuidString:)).map(PageRoute.track)
+    }
+
+    /// Debug builds open Settings on the page named by `-start_page` (history, scripts, desk, manage,
+    /// addRecord, or track:, album:, artist: with an id), so a pushed page can be looked at on a
+    /// simulator without a tap that might land on something live.
+    static var start: [PageRoute] {
+        #if DEBUG
+        guard let named = UserDefaults.standard.string(forKey: "start_page") else { return [] }
+        let parts = named.split(separator: ":", maxSplits: 1).map(String.init)
+        let id = parts.count > 1 ? UUID(uuidString: parts[1]) : nil
+        switch parts[0] {
+        case "history": return [.history]
+        case "scripts": return [.scripts(segmentId: nil)]
+        case "desk": return [.desk]
+        case "manage": return [.manage]
+        case "addRecord": return [.addRecord]
+        case "track": return id.map { [.track($0)] } ?? []
+        case "album": return id.map { [.album($0)] } ?? []
+        case "artist": return id.map { [.artist($0)] } ?? []
+        default: return []
+        }
+        #else
+        return []
+        #endif
     }
 }
 
@@ -47,7 +73,7 @@ extension View {
             case .playlist(let pluginId, let playlistId, let name): PlaylistScreen(pluginId: pluginId, playlistId: playlistId, name: name)
             case .chart(let id, let name): ChartScreen(chartId: id, name: name)
             case .addRecord: AddRecordScreen()
-
+            case .history: HistoryScreen()
             }
         }
     }

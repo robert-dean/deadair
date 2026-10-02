@@ -23,6 +23,7 @@ enum HomeTab: Hashable {
 /// a tab that appeared on signing in would move every tab after it.
 struct HomeTabs: View {
     @Environment(AppModel.self) private var model
+    @State private var settingsPath = PageRoute.start
 
     var body: some View {
         // The explicit-closure setter, not the method passed straight in: see apps/ios/CLAUDE.md.
@@ -36,7 +37,7 @@ struct HomeTabs: View {
             NavigationStack { WhatsOnScreen().miniPlayer().pageDestinations() }
                 .tabItem { Label(String(localized: "What's on"), systemImage: "calendar") }
                 .tag(HomeTab.whatsOn)
-            NavigationStack { SettingsScreen().pageDestinations() }
+            NavigationStack(path: $settingsPath) { SettingsScreen().pageDestinations() }
                 .tabItem { Label(String(localized: "Settings"), systemImage: "gearshape") }
                 .tag(HomeTab.settings)
         }

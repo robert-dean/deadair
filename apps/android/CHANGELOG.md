@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.11.1] — 2026-10-02
+
+- Two of Google Play's release recommendations, answered. The app now ships a current AndroidX Fragment (1.9.1) rather than the 1.0.0 that Google's code scanner pulled in, and the code scanner no longer insists on portrait, so it turns with a tablet or a foldable like the rest of the app.
+
 ## [0.11.0] — 2026-10-02
 
 - Copy what the station said. Every row in "What it said" that has words gets a copy button beside Share, which puts the script on the clipboard and shows a tick for a moment. It copies the words only, never the reason the station gives for a break it declined.
@@ -168,7 +172,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.11.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.11.1...HEAD
+[0.11.1]: https://github.com/robert-dean/deadair/compare/android-v0.11.0...android-v0.11.1
 [0.11.0]: https://github.com/robert-dean/deadair/compare/android-v0.10.0...android-v0.11.0
 [0.10.0]: https://github.com/robert-dean/deadair/compare/android-v0.9.0...android-v0.10.0
 [0.9.0]: https://github.com/robert-dean/deadair/compare/android-v0.8.0...android-v0.9.0

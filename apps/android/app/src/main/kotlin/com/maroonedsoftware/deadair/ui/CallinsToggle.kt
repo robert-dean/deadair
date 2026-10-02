@@ -24,14 +24,31 @@ import com.maroonedsoftware.deadair.R
  */
 @Composable
 fun CallinsToggle(checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    CheckRow(R.string.plan_callins, R.string.plan_callins_desc, checked, enabled, onChange, modifier)
+}
+
+/**
+ * Whether records that sound like the playlist's own are mixed in among them, one every few.
+ *
+ * Unticked sends NOTHING rather than `false`, which leaves the station's `rotation.mixInSimilar`
+ * standing: a station with it on mixes into every playlist without anybody ticking this, exactly as
+ * the console's plain Air press does. Ticked is the console's "Air with similar records mixed in".
+ */
+@Composable
+fun MixInSimilarToggle(checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    CheckRow(R.string.air_mix_in_similar, R.string.air_mix_in_similar_desc, checked, enabled, onChange, modifier)
+}
+
+@Composable
+private fun CheckRow(title: Int, description: Int, checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier) {
     Row(
         modifier = modifier.fillMaxWidth().toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = onChange).padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked = checked, onCheckedChange = null, enabled = enabled)
         Column(modifier = Modifier.padding(start = 12.dp)) {
-            Text(stringResource(R.string.plan_callins), style = MaterialTheme.typography.bodyMedium)
-            Text(stringResource(R.string.plan_callins_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(title), style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(description), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

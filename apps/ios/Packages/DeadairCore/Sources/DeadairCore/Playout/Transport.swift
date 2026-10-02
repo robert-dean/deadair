@@ -21,8 +21,35 @@ public final class Transport {
         await status { try await $0.playout.skipTheCurrentItem() }
     }
 
+    public func stop() async {
+        await status { try await $0.playout.stopPlayout() }
+    }
+
+    /// 409 is not a fault: the station was never put on air, so there is nothing to resume.
+    public func start() async {
+        await status(expected: [409: .nothingToResume]) { try await $0.playout.startPlayout() }
+    }
+
+    /// `nil` minutes holds until released by hand.
+    public func hold(minutes: Int?) async {
+        await air { try await $0.director.holdTheStationAgainstTheSchedule(body: HoldStationInput(minutes: minutes)) }
+    }
+
+    public func release() async {
+        await air { try await $0.director.releaseTheStationToTheSchedule() }
+    }
+
+    public func setAirMode(_ mode: AirMode) async {
+        await air { try await $0.director.setTheAirMode(body: SetStationAirInput(airMode: mode)) }
+    }
+
     private func status(expected: [Int: Notice] = [:], _ action: @escaping @Sendable (Deadair) async throws -> PlayoutStatus) async {
         if let answer = await actions.run(expected: expected, action) { playout.apply(answer) }
+        playout.refetchSoon()
+    }
+
+    private func air(_ action: @escaping @Sendable (Deadair) async throws -> StationAir) async {
+        if let answer = await actions.run(action) { playout.applyAir(answer) }
         playout.refetchSoon()
     }
 }

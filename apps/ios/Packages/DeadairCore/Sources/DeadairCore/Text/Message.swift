@@ -122,6 +122,23 @@ public enum Message: Equatable, Sendable {
     case shareCouldNotReach
     case shareFailed
 
+    // MARK: The desk
+
+    case silenceLabel(SilenceCause)
+    case silenceTitle(SilenceCause)
+    case schedulePutThisOn
+    case betweenBlocks
+    case youPutThisOn
+    case scheduleTakesThisBack
+    case heldUntilReleased
+    case heldUntilAbout(Clock)
+    case deskOnAir
+    case deskOffAir
+    /// "Late Static, going out to 3", or "Going out, and nobody is listening".
+    case goingOut(name: String?, listeners: Int)
+    /// "Black Sabbath · 2:41 left"
+    case timeLeft(artists: String, left: String)
+
     // MARK: The operator
 
     /// What an operator action came back with.

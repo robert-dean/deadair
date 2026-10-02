@@ -12,6 +12,8 @@ enum PageRoute: Hashable {
     case artist(UUID)
     /// What the station said, narrowed to one break, or everything when `nil`.
     case scripts(segmentId: String?)
+    /// Everything that can take the station off air, and why it is or is not on. The operator's.
+    case desk
 
     /// A record's page from the id a row carries, or `nil` for a row whose id is not one.
     static func track(_ id: String?) -> PageRoute? {
@@ -28,6 +30,7 @@ extension View {
             case .album(let id): AlbumPage(id: id)
             case .artist(let id): ArtistPage(id: id)
             case .scripts(let segmentId): ScriptsScreen(segmentId: segmentId)
+            case .desk: DeskScreen()
             }
         }
     }

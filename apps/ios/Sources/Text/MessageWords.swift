@@ -103,7 +103,62 @@ extension Message {
         case .shareCouldNotReach: String(localized: "Couldn't reach the station to get that break.")
         case .shareFailed: String(localized: "Couldn't get that break ready to send.")
 
+        case .silenceLabel(let cause): cause.label
+        case .silenceTitle(let cause): cause.title
+        case .schedulePutThisOn: String(localized: "The schedule put this on. It runs until the block ends.")
+        case .betweenBlocks: String(localized: "Between blocks: nothing is scheduled, so the station is playing what it fills the gaps with.")
+        case .youPutThisOn: String(localized: "You put this on. It holds until the next scheduled block begins.")
+        case .scheduleTakesThisBack: String(localized: "The schedule takes this back at the next block.")
+        case .heldUntilReleased: String(localized: "Held until you release it. The schedule will not take this back.")
+        case .heldUntilAbout(let clock): String(localized: "Held until about \(clock.words).")
+        case .deskOnAir: String(localized: "On air")
+        case .deskOffAir: String(localized: "Off air")
+        // Nobody is its own sentence: "going out to 0" reads like a fault.
+        case .goingOut(nil, 0): String(localized: "Going out, and nobody is listening")
+        case .goingOut(let name?, 0): String(localized: "\(name), and nobody is listening")
+        case .goingOut(nil, let listeners): String(localized: "Going out to \(listeners)")
+        case .goingOut(let name?, let listeners): String(localized: "\(name), going out to \(listeners)")
+        case .timeLeft(let artists, let left): String(localized: "\(artists) · \(left) left")
+
         case .operatorNotice(let notice): notice.words
+        }
+    }
+}
+
+extension SilenceCause {
+    /// Two words beside the lamp.
+    var label: String {
+        switch self {
+        case .airing: String(localized: "On air")
+        case .transportStalled: String(localized: "Transport stalled")
+        case .controlDenied: String(localized: "Stream refusing us")
+        case .streamUnreachable: String(localized: "Stream unreachable")
+        case .configNotAdopted: String(localized: "Config not adopted")
+        case .stoodDown: String(localized: "Off air")
+        case .noProgramme: String(localized: "Nothing to air")
+        case .warmingUp: String(localized: "Warming up")
+        case .waitingOnAudio: String(localized: "Records not here")
+        case .noAudience: String(localized: "Ready")
+        case .notDriving: String(localized: "Not driving")
+        case .starved: String(localized: "Off the running order")
+        }
+    }
+
+    /// The sentence the panel opens on.
+    var title: String {
+        switch self {
+        case .airing: String(localized: "On air")
+        case .transportStalled: String(localized: "The transport loop has stopped")
+        case .controlDenied: String(localized: "The stream is refusing the bridge secret")
+        case .streamUnreachable: String(localized: "The stream is not reachable")
+        case .configNotAdopted: String(localized: "A container is running config that was replaced")
+        case .stoodDown: String(localized: "The station was stood down")
+        case .noProgramme: String(localized: "There is nothing left to air")
+        case .warmingUp: String(localized: "The station is fetching its first records")
+        case .waitingOnAudio: String(localized: "The records are not here, and nothing is fetching them")
+        case .noAudience: String(localized: "Waiting for a listener")
+        case .notDriving: String(localized: "The mount is not being held")
+        case .starved: String(localized: "The mount is airing the local bed")
         }
     }
 }

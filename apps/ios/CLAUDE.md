@@ -228,6 +228,13 @@ drawn as an overlay above the tabs, so whichever screen raised it, it is on top;
 not be got ready to send says so the same way. `ensureRoles` runs at the root too,
 so a role taken away since the last run is noticed before an operator control is drawn.
 
+**Take off air arms, and lives only on the desk.** One press arms it and renames it; a second inside
+five seconds fires; the arm forgets on its own and is never persisted, Android's `ArmedStop` and the
+console's figure. Now playing keeps Skip and the lock screen's next button; the desk, reached from
+Settings, holds Take off air, the hold, the air mode and the silence diagnosis, so the two stops are
+on different screens. Measured on the simulator against the live station on 2026-10-02: one press
+armed it and drained the bar, the arm lapsed after five seconds, and the station stayed on air.
+
 **The second factor is answered against the AUTHENTICATOR**, picked out of the challenge's factors,
 never its first entry, and the three refusals that share one 401 are told apart by
 `WWW-Authenticate`. Both are the desktop app's shipped bug.

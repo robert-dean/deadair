@@ -11,6 +11,18 @@ struct SettingsScreen: View {
         Form {
             Section("Station") {
                 if let entry { AddressField(entry: entry) }
+                // The desk is the operator's: a thing you go and do, so a page rather than a tab, and
+                // here where somebody asks why nothing is going out.
+                if model.isOperator {
+                    NavigationLink(value: PageRoute.desk) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(String(localized: "The desk"))
+                            Text(String(localized: "Take the station off air, hold it against the schedule, and see why it is or is not on."))
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
             FormatSection()
             Section {

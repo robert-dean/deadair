@@ -16,7 +16,7 @@ struct AlbumPage: View {
             List {
                 DetailHeader(artwork: album.imageUrl) {
                     Text(album.name).font(.title3.weight(.semibold))
-                    NavigationLink(value: CatalogRoute.artist(album.artistId)) {
+                    NavigationLink(value: PageRoute.artist(album.artistId)) {
                         Text(album.artistName).font(.body).foregroundStyle(.tint)
                     }
                     .buttonStyle(.plain)
@@ -34,7 +34,7 @@ struct AlbumPage: View {
                         Text(String(localized: "No tracks from this album are in the catalog.")).font(.footnote).foregroundStyle(.secondary)
                     case .loaded(let page):
                         ForEach(page.items, id: \.id) { track in
-                            NavigationLink(value: CatalogRoute.track(track.id)) {
+                            NavigationLink(value: PageRoute.track(track.id)) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(track.title).lineLimit(1)
                                     let line = [nonBlank(track.artists), track.durationMs.map(clockOf)].compactMap { $0 }.joined(separator: " · ")

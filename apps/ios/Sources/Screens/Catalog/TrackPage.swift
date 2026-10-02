@@ -20,13 +20,13 @@ struct TrackPage: View {
                 DetailHeader(artwork: track.albumImageUrl) {
                     Text(track.title).font(.title3.weight(.semibold))
                     // The credit leads to the canonical artist, and the album to its page.
-                    NavigationLink(value: CatalogRoute.artist(track.artistId)) {
+                    NavigationLink(value: PageRoute.artist(track.artistId)) {
                         Text(track.artists).font(.body).foregroundStyle(.tint)
                     }
                     .buttonStyle(.plain)
                     if let album = track.albumName {
                         if let albumId = track.albumId {
-                            NavigationLink(value: CatalogRoute.album(albumId)) {
+                            NavigationLink(value: PageRoute.album(albumId)) {
                                 Text(album).font(.subheadline).foregroundStyle(.tint).lineLimit(2)
                             }
                             .buttonStyle(.plain)

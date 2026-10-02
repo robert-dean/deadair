@@ -110,6 +110,13 @@ public enum Message: Equatable, Sendable {
     /// "musicbrainz · 2 Oct 2026", with what became of the last attempt to ask.
     case provenance(Provenance)
 
+    // MARK: What it said
+
+    case outcome(ScriptOutcome)
+    /// Who wrote it: "Model", "Floor", or the station's own word for a writer this app has no name for.
+    case writer(String)
+    case scriptFact(ScriptFactLabel)
+
     // MARK: The operator
 
     /// What an operator action came back with.

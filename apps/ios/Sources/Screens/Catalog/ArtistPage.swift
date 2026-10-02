@@ -29,7 +29,7 @@ struct ArtistPage: View {
                         Text(Message.cantReachStation.words).font(.footnote).foregroundStyle(.red)
                     case .loaded(let page):
                         ForEach(page.items, id: \.id) { album in
-                            NavigationLink(value: CatalogRoute.album(album.id)) {
+                            NavigationLink(value: PageRoute.album(album.id)) {
                                 HStack(spacing: 12) {
                                     ArtworkView(
                                         url: model.settings.settings.station?.artUrl(album.imageUrl).flatMap(URL.init(string:)), loader: model.artwork,

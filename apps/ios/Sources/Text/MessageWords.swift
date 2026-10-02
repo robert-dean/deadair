@@ -90,7 +90,31 @@ extension Message {
         case .field(let field): field.words
         case .provenance(let source): source.words
 
+        case .outcome(.written): String(localized: "Written")
+        case .outcome(.declined): String(localized: "Declined")
+        case .outcome(.failed): String(localized: "Failed")
+        case .writer("model"): String(localized: "Model")
+        case .writer("deterministic"): String(localized: "Floor")
+        case .writer(let other): other
+        case .scriptFact(let label): label.words
+
         case .operatorNotice(let notice): notice.words
+        }
+    }
+}
+
+extension ScriptFactLabel {
+    var words: String {
+        switch self {
+        case .kind: String(localized: "Kind")
+        case .host: String(localized: "Host")
+        case .model: String(localized: "Model")
+        case .from: String(localized: "From")
+        case .took: String(localized: "Took")
+        case .tokens: String(localized: "Tokens")
+        case .after: String(localized: "After")
+        case .before: String(localized: "Before")
+        case .note: String(localized: "Note")
         }
     }
 }

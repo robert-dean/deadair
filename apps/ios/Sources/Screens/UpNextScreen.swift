@@ -101,10 +101,13 @@ private struct Rows: View {
 
                     ForEach(ui.shown, id: \.id) { item in
                         let row = OrderRow(item: item, artwork: station?.artUrl(item.artworkUrl).flatMap(URL.init(string:)), stale: stale)
-                        // Every record row leads to its page, which is also where its rating lives.
+                        // Every record row leads to its page, which is also where its rating lives, and every break to what was said in it.
                         Group {
-                            if item.kind == .track, let route = CatalogRoute.track(item.trackId) {
+                            if item.kind == .track, let route = PageRoute.track(item.trackId) {
                                 NavigationLink(value: route) { row }
+                            } else if item.kind == .segment, let segmentId = item.segmentId {
+                                // A break leads to its attempts: what the station said, or tried to, in that slot.
+                                NavigationLink(value: PageRoute.scripts(segmentId: segmentId)) { row }
                             } else {
                                 row
                             }

@@ -2,29 +2,32 @@ import DeadairCore
 import DeadairSdk
 import SwiftUI
 
-/// A page in the station's catalog, pushed onto whichever tab it was opened from.
+/// A page pushed onto whichever tab it was opened from: the catalog's, and what the station said.
 ///
 /// Values rather than views, so a record page can lead to its album and the album to its artist and
 /// back is a stack: the detail pages are what made a back stack necessary on Android too.
-enum CatalogRoute: Hashable {
+enum PageRoute: Hashable {
     case track(UUID)
     case album(UUID)
     case artist(UUID)
+    /// What the station said, narrowed to one break, or everything when `nil`.
+    case scripts(segmentId: String?)
 
     /// A record's page from the id a row carries, or `nil` for a row whose id is not one.
-    static func track(_ id: String?) -> CatalogRoute? {
-        id.flatMap(UUID.init(uuidString:)).map(CatalogRoute.track)
+    static func track(_ id: String?) -> PageRoute? {
+        id.flatMap(UUID.init(uuidString:)).map(PageRoute.track)
     }
 }
 
 extension View {
-    /// Where a catalog link leads, for every stack that can show one.
-    func catalogDestinations() -> some View {
-        navigationDestination(for: CatalogRoute.self) { route in
+    /// Where a page link leads, for every stack that can show one.
+    func pageDestinations() -> some View {
+        navigationDestination(for: PageRoute.self) { route in
             switch route {
             case .track(let id): TrackPage(id: id)
             case .album(let id): AlbumPage(id: id)
             case .artist(let id): ArtistPage(id: id)
+            case .scripts(let segmentId): ScriptsScreen(segmentId: segmentId)
             }
         }
     }

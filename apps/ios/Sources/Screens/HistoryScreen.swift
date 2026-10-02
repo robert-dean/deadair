@@ -32,7 +32,7 @@ struct HistoryScreen: View {
                             ForEach(entries, id: \.id) { entry in
                                 let row = Row(entry: entry, artwork: station?.artUrl(entry.artworkUrl).flatMap(URL.init(string:)), now: context.date)
                                     .opacity(stale ? 0.6 : 1)
-                                if let route = CatalogRoute.track(entry.trackId) {
+                                if let route = PageRoute.track(entry.trackId) {
                                     NavigationLink(value: route) { row }
                                 } else {
                                     row

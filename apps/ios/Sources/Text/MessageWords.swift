@@ -62,6 +62,24 @@ extension Message {
             }
 
         case .aired(let label): label.words
+
+        case .operatorNotice(let notice): notice.words
+        }
+    }
+}
+
+extension Notice {
+    var words: String {
+        switch self {
+        case .noLongerOperator: String(localized: "The station no longer treats this account as its operator.")
+        case .stepUpNeeded: String(localized: "The station wants your authenticator code again before that. Do it on the console.")
+        case .nothingToResume: String(localized: "Nothing to resume: the station has not been put on air yet.")
+        case .playlistEmpty: String(localized: "That playlist has nothing the station can play.")
+        case .hostGone: String(localized: "That persona is no longer on the station.")
+        case .recordGone: String(localized: "The station no longer has that record.")
+        case .recordRefused: String(localized: "The station will not play that record now.")
+        case .couldNotReach: String(localized: "Could not reach the station to do that.")
+        case .failed(let status): String(localized: "The station refused that (\(status)).")
         }
     }
 }

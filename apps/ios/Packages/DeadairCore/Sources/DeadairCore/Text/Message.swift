@@ -79,4 +79,9 @@ public enum Message: Equatable, Sendable {
     // MARK: History
 
     case aired(AiredLabel)
+
+    // MARK: The operator
+
+    /// What an operator action came back with.
+    case operatorNotice(Notice)
 }

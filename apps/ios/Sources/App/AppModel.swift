@@ -17,6 +17,8 @@ final class AppModel {
     /// What the station has played, and what it is scheduled to do: the signed-in operator's reads.
     let history: HistoryRepository
     let schedule: ScheduleRepository
+    /// Every operator call goes through here, so a refusal is said once and the roles re-read.
+    let operatorActions: OperatorActions
 
     @ObservationIgnored private var openPlay = OpenPlay()
 
@@ -36,6 +38,7 @@ final class AppModel {
         self.nowPlaying = nowPlaying
         self.artwork = artwork
         self.session = session
+        operatorActions = OperatorActions(session: session)
         listening = Listening(settings: settings, nowPlaying: nowPlaying, artwork: artwork, userAgent: http.userAgent)
         // Through the session, which refreshes and replays once on a 401, and throws rather than asks
         // when nobody is signed in: these screens are only offered to a signed-in account anyway.
@@ -75,6 +78,10 @@ final class AppModel {
         if case .signedIn = session.state { return true }
         return false
     }
+
+    /// Whether the station last said this account operates it. A hint for what to draw: the
+    /// station still decides every press, and `operatorActions` re-reads this when it says no.
+    var isOperator: Bool { session.state.isOperator }
 
     /// The Now playing screen's state, from the reading and the player together.
     var nowPlayingUi: NowPlayingUiState {

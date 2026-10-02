@@ -89,7 +89,6 @@ struct AccountSection: View {
         } footer: {
             Text("Listening needs no account. Signing in with the operator's email and password lets this app read more of what the station says about itself.")
         }
-        .task(id: model.session.stored?.email) { await model.session.ensureRoles() }
     }
 
     private var passwordStep: some View {

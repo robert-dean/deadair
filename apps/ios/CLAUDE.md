@@ -219,6 +219,14 @@ rethrown with the session untouched.
 that read is stored as no roles. `ensureRoles` asks once per process per account, and a failure is
 not remembered as done.
 
+**Every operator call goes through `OperatorActions`, and its notice is drawn at the ROOT.** A 403
+re-reads the roles and says the account is no longer the operator; a 403 that names a step-up
+(`details.kind` or `mfa_required` in the challenge) says so instead and leaves the roles alone,
+because the account still holds them. Android lost a refusal raised on a pushed screen, since its
+collector lived on a screen that was not composed. Here the toast is an overlay above the
+`NavigationStack`, so whichever screen raised it, it is on top. `ensureRoles` runs at the root too,
+so a role taken away since the last run is noticed before an operator control is drawn.
+
 **The second factor is answered against the AUTHENTICATOR**, picked out of the challenge's factors,
 never its first entry, and the three refusals that share one 401 are told apart by
 `WWW-Authenticate`. Both are the desktop app's shipped bug.

@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-10-02
+
+- Copy what the station said. Every row in "What it said" that has words gets a copy button beside Share, which puts the script on the clipboard and shows a tick for a moment. It copies the words only, never the reason the station gives for a break it declined.
+
 ## [0.10.0] — 2026-10-02
 
 - Share a talk break from "What it said". Every row whose break became audio has a share button, which asks the station for its small copy of that break (sized so a plain text message can carry it) and opens the share sheet with it, so it can go by SMS, a chat app or email. Signed-in listeners get it as well as the operator. The single-break page that Up next opens has the same button. The app keeps only the one copy it is sending, in its cache. A station older than this release sends the full-size original instead, which still shares but may be too big for a plain text message.
@@ -164,7 +168,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.10.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.11.0...HEAD
+[0.11.0]: https://github.com/robert-dean/deadair/compare/android-v0.10.0...android-v0.11.0
 [0.10.0]: https://github.com/robert-dean/deadair/compare/android-v0.9.0...android-v0.10.0
 [0.9.0]: https://github.com/robert-dean/deadair/compare/android-v0.8.0...android-v0.9.0
 [0.8.0]: https://github.com/robert-dean/deadair/compare/android-v0.7.1...android-v0.8.0

@@ -17,7 +17,7 @@ struct HistoryScreen: View {
         Group {
             switch list {
             case .signedOut:
-                placeholder(String(localized: "The station keeps this for signed-in listeners. Listening itself needs no account."))
+                SignedOutPlaceholder()
             case .loading:
                 ProgressView()
             case .unreachable:

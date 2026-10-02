@@ -71,19 +71,6 @@ struct NowPlayingScreen: View {
         }
         .navigationTitle(reading?.value.station ?? model.settings.settings.stationName ?? "deadair")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            // The station's own record of what it played, for a signed-in account. Absent otherwise
-            // rather than offered and refused: listening needs no account.
-            if model.signedIn {
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        HistoryScreen()
-                    } label: {
-                        Label(String(localized: "Played"), systemImage: "clock.arrow.circlepath")
-                    }
-                }
-            }
-        }
         .refreshable { model.nowPlaying.retry() }
         .task { await model.nowPlaying.hold() }
         .onChange(of: reading?.value.station) { _, name in

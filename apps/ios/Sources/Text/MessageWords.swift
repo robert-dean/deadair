@@ -1,4 +1,5 @@
 import DeadairCore
+import DeadairSdk
 import Foundation
 
 /// Where a `Message` becomes words, and the only place app copy is written.
@@ -63,9 +64,43 @@ extension Message {
 
         case .aired(let label): label.words
 
+        case .foldedHistory(let played, let passed):
+            [
+                played > 0 ? String(localized: "\(played) played earlier") : nil,
+                passed > 0 ? String(localized: "\(passed) skipped") : nil,
+            ]
+            .compactMap { $0 }
+            .joined(separator: ", ")
+            .nonEmpty ?? String(localized: "Earlier in this broadcast")
+        case .itemState(let state): state.words
+        case .notWrittenYet: String(localized: "Not written yet")
+        case .noAudioYet: String(localized: "No audio yet")
+        case .willSkip: String(localized: "Will skip")
+        case .stationsHost: String(localized: "The station's host")
+        case .noHost: String(localized: "Nobody")
+
         case .operatorNotice(let notice): notice.words
         }
     }
+}
+
+extension StationItemState {
+    var words: String {
+        switch self {
+        case .planned: String(localized: "Planned")
+        case .handed: String(localized: "Handed over")
+        case .airing: String(localized: "On air")
+        case .played: String(localized: "Played")
+        case .skipped: String(localized: "Skipped")
+        case .unavailable: String(localized: "Unavailable")
+        case .removed: String(localized: "Removed")
+        }
+    }
+}
+
+extension String {
+    /// Itself, or `nil` when there is nothing in it.
+    var nonEmpty: String? { isEmpty ? nil : self }
 }
 
 extension Notice {

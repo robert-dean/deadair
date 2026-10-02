@@ -14,7 +14,7 @@ struct WhatsOnScreen: View {
 
         Group {
             if !model.signedIn {
-                placeholder(String(localized: "The station keeps this for signed-in listeners. Listening itself needs no account."))
+                SignedOutPlaceholder()
             } else if let reading = state.latest?.value {
                 let ui = whatsOn(reading.now, slots: reading.slots, personas: reading.personas)
                 List {

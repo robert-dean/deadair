@@ -1,3 +1,5 @@
+import DeadairSdk
+
 /// A thing the app says, before it is said in any language.
 ///
 /// The state types that decide what a line says (what the now-playing line reads, what the address
@@ -79,6 +81,19 @@ public enum Message: Equatable, Sendable {
     // MARK: History
 
     case aired(AiredLabel)
+
+    // MARK: The running order
+
+    /// The fold over what has already aired: "12 played earlier, 2 skipped", or "Earlier in this
+    /// broadcast" when it holds only rows that were removed.
+    case foldedHistory(played: Int, passed: Int)
+    case itemState(StationItemState)
+    case notWrittenYet
+    case noAudioYet
+    case willSkip
+    /// The broadcast named nobody and the persona list has not arrived to say who that means.
+    case stationsHost
+    case noHost
 
     // MARK: The operator
 

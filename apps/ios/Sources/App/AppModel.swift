@@ -17,6 +17,8 @@ final class AppModel {
     /// What the station has played, and what it is scheduled to do: the signed-in operator's reads.
     let history: HistoryRepository
     let schedule: ScheduleRepository
+    /// The running order, for the Up next tab.
+    let order: OrderRepository
     /// Every operator call goes through here, so a refusal is said once and the roles re-read.
     let operatorActions: OperatorActions
 
@@ -41,6 +43,10 @@ final class AppModel {
         self.nowPlaying = nowPlaying
         self.artwork = artwork
         self.session = session
+        order = OrderRepository(
+            readOrder: { try await session.withSession { try await $0.director.getTheRunningOrder() } },
+            readPersonas: { try await session.withSession { try await $0.personas.listPersonas().personas } }
+        )
         operatorActions = OperatorActions(session: session)
         listening = Listening(settings: settings, nowPlaying: nowPlaying, artwork: artwork, userAgent: http.userAgent)
         // Through the session, which refreshes and replays once on a 401, and throws rather than asks
@@ -67,6 +73,7 @@ final class AppModel {
         session.point(at: station)
         history.reset()
         schedule.reset()
+        order.reset()
     }
 
     /// The app has opened: start the station if the listener asked for that. Answers yes once per

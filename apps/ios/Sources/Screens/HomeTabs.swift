@@ -3,6 +3,7 @@ import SwiftUI
 /// Which of the station's faces is showing. `apps/android`'s `Tab`, in its order.
 enum HomeTab: Hashable {
     case nowPlaying
+    case upNext
     case whatsOn
     case settings
 }
@@ -14,7 +15,7 @@ enum HomeTab: Hashable {
 /// back to it. Settings is a tab rather than a gear over every screen, because a gear above a list
 /// of records said nothing about the records.
 ///
-/// What's on is a tab whether or not anybody is signed in, and says what it needs when nobody is:
+/// Up next and What's on are tabs whether or not anybody is signed in, and says what it needs when nobody is:
 /// a tab that appeared on signing in would move every tab after it.
 struct HomeTabs: View {
     @Environment(AppModel.self) private var model
@@ -25,6 +26,9 @@ struct HomeTabs: View {
             NavigationStack { NowPlayingScreen() }
                 .tabItem { Label(String(localized: "Now playing"), systemImage: "radio") }
                 .tag(HomeTab.nowPlaying)
+            NavigationStack { UpNextScreen().miniPlayer() }
+                .tabItem { Label(String(localized: "Up next"), systemImage: "list.bullet") }
+                .tag(HomeTab.upNext)
             NavigationStack { WhatsOnScreen().miniPlayer() }
                 .tabItem { Label(String(localized: "What's on"), systemImage: "calendar") }
                 .tag(HomeTab.whatsOn)

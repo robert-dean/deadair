@@ -302,11 +302,18 @@ describe('what a writer is handed', () => {
         expect((await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories.map(one => one.headline)).toEqual(['Real.']);
     });
 
-    it('carries the teaser as background, bounded', async () => {
-        const { source } = build({ items: [item('Bridge reopens', { summary: 'x'.repeat(400) })] });
+    it('carries the teaser as background, bounded on a whole sentence', async () => {
+        const { source } = build({ items: [item('Bridge reopens', { summary: 'It reopened today. '.repeat(30) })] });
 
         const [story] = (await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories ?? [];
-        expect(story?.summary?.length).toBe(240);
+        expect(story?.summary?.length).toBeLessThanOrEqual(240);
+        expect(story?.summary).toMatch(/today\.$/);
+    });
+
+    it('carries no teaser at all rather than one cut mid-word', async () => {
+        const { source } = build({ items: [item('Bridge reopens', { summary: 'x'.repeat(400) })] });
+
+        expect((await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories[0]?.summary).toBeUndefined();
     });
 
     // The substrate a bulletin is actually written from. A teaser is one sentence restating the
@@ -341,6 +348,54 @@ describe('what a writer is handed', () => {
         const [story] = (await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories ?? [];
         expect(story?.body).toBeUndefined();
         expect(story?.summary).toBe('A teaser.');
+    });
+
+    // Measured on this station on 2026-10-01: a teaser the feed had cut short closed a bulletin with
+    // "…set off a firestorm of protests around the …". See `wholeSentences`.
+    describe('text a feed cut short', () => {
+        const stories = async (overrides: Partial<NewsItem>) => {
+            const { source } = build({ items: [item('Family files lawsuits over shooting', overrides)] });
+            return (await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories[0];
+        };
+
+        it('keeps the sentences a truncated teaser finished, and drops the fragment after them', async () => {
+            expect(
+                (await stories({ summary: 'The family sued on Monday. The shooting set off a firestorm of protests around the …' }))?.summary,
+            ).toBe('The family sued on Monday.');
+        });
+
+        it('drops a truncated teaser that never finished a sentence', async () => {
+            const story = await stories({ summary: 'The fatal shooting set off a firestorm of protests around the …' });
+            expect(story?.summary).toBeUndefined();
+            expect(story?.headline).toBe('Family files lawsuits over shooting.');
+        });
+
+        it('knows the other ways a feed marks a cut: three dots, and either in brackets', async () => {
+            for (const mark of ['...', '[…]', '[...]', ' [ … ]']) {
+                expect((await stories({ summary: `It was filed on Monday. It said the city${mark}` }))?.summary).toBe('It was filed on Monday.');
+            }
+        });
+
+        it('keeps a complete sentence a feed marked as cut anyway', async () => {
+            expect((await stories({ summary: 'The family sued on Monday. …' }))?.summary).toBe('The family sued on Monday.');
+        });
+
+        it('cuts a long teaser on a sentence rather than mid-word', async () => {
+            const long = `The family sued on Monday. ${'The city council met again and again to discuss it. '.repeat(6)}`;
+            const summary = (await stories({ summary: long }))?.summary;
+            expect(summary?.length).toBeLessThanOrEqual(240);
+            expect(summary).toMatch(/\.$/);
+        });
+
+        it('never hands a writer a body that ends in an ellipsis of its own', async () => {
+            // One sentence longer than the body's room: the old word cut appended "…" to it.
+            const body = `${'word '.repeat(200)}ends here.`;
+            expect((await stories({ content: body }))?.body).toBeUndefined();
+        });
+
+        it('leaves an ordinary teaser exactly as it was', async () => {
+            expect((await stories({ summary: 'The family sued on Monday.' }))?.summary).toBe('The family sued on Monday.');
+        });
     });
 
     // Measured on this station: 21 of the 34 stories in its captured prompts had a body that opened

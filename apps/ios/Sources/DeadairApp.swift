@@ -12,7 +12,7 @@ struct DeadairApp: App {
     }
 }
 
-/// Setup when there is no station, the player when there is. Chosen above navigation rather than
+/// Setup when there is no station, the tabs when there is. Chosen above navigation rather than
 /// pushed, so Setup is never a place back can reach: `apps/android` makes the same choice.
 struct RootView: View {
     @Environment(AppModel.self) private var model
@@ -22,9 +22,7 @@ struct RootView: View {
             if model.settings.settings.station == nil {
                 SetupScreen()
             } else {
-                NavigationStack {
-                    NowPlayingScreen()
-                }
+                HomeTabs()
             }
         }
         .operatorNotices()

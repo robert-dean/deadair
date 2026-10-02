@@ -57,7 +57,6 @@ struct HistoryScreen: View {
             model.history.reset()
             await model.history.hold()
         }
-        .miniPlayer()
     }
 
     private func placeholder(_ words: String) -> some View {

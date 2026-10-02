@@ -20,6 +20,9 @@ final class AppModel {
     /// Every operator call goes through here, so a refusal is said once and the roles re-read.
     let operatorActions: OperatorActions
 
+    /// The tab that is showing. Here rather than in the view, so the player bar can go to Now playing.
+    var tab: HomeTab = .nowPlaying
+
     @ObservationIgnored private var openPlay = OpenPlay()
 
     init() {

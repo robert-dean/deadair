@@ -40,7 +40,6 @@ struct WhatsOnScreen: View {
             model.schedule.reset()
             await model.schedule.hold()
         }
-        .miniPlayer()
     }
 
     private func placeholder(_ words: String) -> some View {

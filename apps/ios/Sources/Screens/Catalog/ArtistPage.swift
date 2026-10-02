@@ -14,9 +14,9 @@ struct ArtistPage: View {
 
     var body: some View {
         DetailBody(state: artist, notFound: .artistNotFound, retry: { attempt += 1 }) { artist in
-            List {
-                DetailHeader(artwork: artist.imageUrl) {
-                    Text(artist.name).font(.title3.weight(.semibold))
+            DetailColumn {
+                DetailHeader(artwork: artist.imageUrl, side: 96, centred: true) {
+                    Text(artist.name).font(.title2)
                     Text("\(Message.albumCount(artist.albumCount).words) · \(Message.trackCount(artist.trackCount).words)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -26,42 +26,50 @@ struct ArtistPage: View {
                     RatingSection(rating: artist.rating, label: artist.name, busy: ratings.busy) { mark in
                         ratings.rate({ await model.catalogActions.rateArtist(id, mark) }, then: { attempt += 1 })
                     }
+                    .padding(.top, 16)
                 }
 
-                Section(String(localized: "Albums")) {
-                    switch albums {
-                    case .loading:
-                        Text(String(localized: "Loading…")).font(.footnote).foregroundStyle(.secondary)
-                    case .failed:
-                        Text(Message.cantReachStation.words).font(.footnote).foregroundStyle(.red)
-                    case .loaded(let page):
-                        ForEach(page.items, id: \.id) { album in
-                            NavigationLink(value: PageRoute.album(album.id)) {
-                                HStack(spacing: 12) {
-                                    ArtworkView(
-                                        url: model.settings.settings.station?.artUrl(album.imageUrl).flatMap(URL.init(string:)), loader: model.artwork,
-                                        cornerRadius: 6, placeholderSize: 18
-                                    )
-                                    .frame(width: 44, height: 44)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(album.name).lineLimit(1)
-                                        let meta = [album.year.map(String.init), Message.trackCount(album.trackCount).words].compactMap { $0 }
-                                        Text(meta.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                        }
-                        if page.notShown > 0 {
-                            Text(Message.moreNotShown(page.notShown).words).font(.footnote).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-
+                // Who they are before what they made, as on Android.
                 EnrichmentSection(
                     heading: String(localized: "About this artist"),
                     state: enrichment,
                     emptyMessage: String(localized: "No provider has been asked about this artist yet. The enrichment pass picks up what it has not seen, oldest first.")
                 )
+
+                SectionHeading(String(localized: "Albums"))
+                switch albums {
+                case .loading:
+                    Text(String(localized: "Loading…")).font(.caption).foregroundStyle(.secondary)
+                case .failed:
+                    Text(Message.cantReachStation.words).font(.caption).foregroundStyle(.red)
+                case .loaded(let page) where page.items.isEmpty:
+                    Text(String(localized: "Nothing by this artist has been ingested as an album. Their tracks may still be in the catalog, filed without a release."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                case .loaded(let page):
+                    ForEach(Array(page.items.enumerated()), id: \.element.id) { index, album in
+                        NavigationLink(value: PageRoute.album(album.id)) {
+                            DetailRow(last: index == page.items.count - 1) {
+                                HStack(spacing: 16) {
+                                    ArtworkView(
+                                        url: model.settings.settings.station?.artUrl(album.imageUrl).flatMap(URL.init(string:)), loader: model.artwork,
+                                        cornerRadius: 8, placeholderSize: 16
+                                    )
+                                    .frame(width: 48, height: 48)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(album.name).lineLimit(1)
+                                        let meta = [album.year.map(String.init), Message.trackCount(album.trackCount).words].compactMap { $0 }
+                                        Text(meta.joined(separator: " · ")).font(.subheadline).foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    if page.notShown > 0 {
+                        Text(Message.moreNotShown(page.notShown).words).font(.caption).foregroundStyle(.secondary).padding(.top, 8)
+                    }
+                }
             }
         }
         .navigationTitle(String(localized: "Artist"))

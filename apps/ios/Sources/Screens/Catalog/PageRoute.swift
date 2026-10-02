@@ -100,17 +100,8 @@ struct DetailBody<Value: Sendable, Content: View>: View {
         case .loading:
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let status):
-            VStack(spacing: 12) {
-                Text(detailFailure(status, notFound: notFound).words)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                if status != 404 {
-                    Button(String(localized: "Try again"), action: retry).buttonStyle(.bordered)
-                }
-            }
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Android's error page: what went wrong, what to check, and Try again.
+            ErrorPlaceholder(what: detailFailure(status, notFound: notFound).words, retry: retry)
         case .loaded(let value):
             content(value)
         }
@@ -121,15 +112,114 @@ struct DetailBody<Value: Sendable, Content: View>: View {
 struct DetailHeader<Lines: View>: View {
     @Environment(AppModel.self) private var model
     let artwork: String?
+    /// The artist page's is smaller and centred against its two lines.
+    var side: CGFloat = 112
+    var centred = false
     @ViewBuilder let lines: () -> Lines
 
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            ArtworkView(url: model.settings.settings.station?.artUrl(artwork).flatMap(URL.init(string:)), loader: model.artwork, cornerRadius: 8, placeholderSize: 36)
-                .frame(width: 112, height: 112)
+        HStack(alignment: centred ? .center : .top, spacing: 16) {
+            ArtworkView(
+                url: model.settings.settings.station?.artUrl(artwork).flatMap(URL.init(string:)), loader: model.artwork, cornerRadius: 8,
+                placeholderSize: side / 3
+            )
+            .frame(width: side, height: side)
             VStack(alignment: .leading, spacing: 4, content: lines)
             Spacer(minLength: 0)
         }
-        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+    }
+}
+
+/// A detail page as Android draws one: a single scrolling column inside the gutter, its parts under
+/// headings rather than in grouped cards.
+struct DetailColumn<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) { content }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+        }
+    }
+}
+
+/// A part of a detail page, named: 24 above, 8 below.
+struct SectionHeading: View {
+    let text: String
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Text(text)
+            .font(.callout.weight(.semibold))
+            .padding(.top, 24)
+            .padding(.bottom, 8)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// One row of a list on a detail page: a full-width target, a hairline under all but the last.
+struct DetailRow<Content: View>: View {
+    var last = false
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(spacing: 0) {
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            if !last { Divider() }
+        }
+    }
+}
+
+/// Things laid in rows that wrap, Android's `FlowRow`: chips, label-over-value cells, links.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 6
+    var lineSpacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = arrange(proposal.width ?? .infinity, subviews)
+        let width = rows.map { $0.width }.max() ?? 0
+        let height = rows.map { $0.height }.reduce(0, +) + lineSpacing * CGFloat(max(rows.count - 1, 0))
+        return CGSize(width: proposal.width ?? width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for row in arrange(bounds.width, subviews) {
+            var x = bounds.minX
+            for index in row.indices {
+                let size = subviews[index].sizeThatFits(.unspecified)
+                subviews[index].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+                x += size.width + spacing
+            }
+            y += row.height + lineSpacing
+        }
+    }
+
+    private struct Row {
+        var indices: [Int] = []
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+    }
+
+    private func arrange(_ maxWidth: CGFloat, _ subviews: Subviews) -> [Row] {
+        var rows: [Row] = [Row()]
+        for index in subviews.indices {
+            let size = subviews[index].sizeThatFits(.unspecified)
+            let needed = rows[rows.count - 1].indices.isEmpty ? size.width : rows[rows.count - 1].width + spacing + size.width
+            if needed > maxWidth, !rows[rows.count - 1].indices.isEmpty {
+                rows.append(Row())
+            }
+            var row = rows[rows.count - 1]
+            row.width = row.indices.isEmpty ? size.width : row.width + spacing + size.width
+            row.height = max(row.height, size.height)
+            row.indices.append(index)
+            rows[rows.count - 1] = row
+        }
+        return rows.filter { !$0.indices.isEmpty }
     }
 }

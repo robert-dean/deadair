@@ -14,9 +14,9 @@ struct AlbumPage: View {
 
     var body: some View {
         DetailBody(state: album, notFound: .albumNotFound, retry: { attempt += 1 }) { album in
-            List {
+            DetailColumn {
                 DetailHeader(artwork: album.imageUrl) {
-                    Text(album.name).font(.title3.weight(.semibold))
+                    Text(album.name).font(.title2)
                     NavigationLink(value: PageRoute.artist(album.artistId)) {
                         Text(album.artistName).font(.body).foregroundStyle(.tint)
                     }
@@ -29,29 +29,32 @@ struct AlbumPage: View {
                     RatingSection(rating: album.rating, label: album.name, busy: ratings.busy) { mark in
                         ratings.rate({ await model.catalogActions.rateAlbum(id, mark) }, then: { attempt += 1 })
                     }
+                    .padding(.top, 16)
                 }
 
-                Section(String(localized: "Tracks")) {
-                    switch tracks {
-                    case .loading:
-                        Text(String(localized: "Loading…")).font(.footnote).foregroundStyle(.secondary)
-                    case .failed:
-                        Text(Message.cantReachStation.words).font(.footnote).foregroundStyle(.red)
-                    case .loaded(let page) where page.items.isEmpty:
-                        Text(String(localized: "No tracks from this album are in the catalog.")).font(.footnote).foregroundStyle(.secondary)
-                    case .loaded(let page):
-                        ForEach(page.items, id: \.id) { track in
-                            NavigationLink(value: PageRoute.track(track.id)) {
+                SectionHeading(String(localized: "Tracks"))
+                switch tracks {
+                case .loading:
+                    Text(String(localized: "Loading…")).font(.caption).foregroundStyle(.secondary)
+                case .failed:
+                    Text(Message.cantReachStation.words).font(.caption).foregroundStyle(.red)
+                case .loaded(let page) where page.items.isEmpty:
+                    Text(String(localized: "No tracks from this album are in the catalog.")).font(.caption).foregroundStyle(.secondary)
+                case .loaded(let page):
+                    ForEach(Array(page.items.enumerated()), id: \.element.id) { index, track in
+                        NavigationLink(value: PageRoute.track(track.id)) {
+                            DetailRow(last: index == page.items.count - 1) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(track.title).lineLimit(1)
                                     let line = [nonBlank(track.artists), track.durationMs.map(clockOf)].compactMap { $0 }.joined(separator: " · ")
-                                    if !line.isEmpty { Text(line).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                                    if !line.isEmpty { Text(line).font(.subheadline).foregroundStyle(.secondary).lineLimit(1) }
                                 }
                             }
                         }
-                        if page.notShown > 0 {
-                            Text(Message.moreNotShown(page.notShown).words).font(.footnote).foregroundStyle(.secondary)
-                        }
+                        .buttonStyle(.plain)
+                    }
+                    if page.notShown > 0 {
+                        Text(Message.moreNotShown(page.notShown).words).font(.caption).foregroundStyle(.secondary).padding(.top, 8)
                     }
                 }
 

@@ -2,7 +2,7 @@ import DeadairCore
 import DeadairSdk
 import SwiftUI
 
-/// What the enrichment providers said, as a section of a detail page.
+/// What the enrichment providers said, as a part of a detail page: its heading, then an outlined card.
 ///
 /// The console's panel with the same order and the same omissions: tags, the scalars that resolved,
 /// the station's own claims with their quotes one tap away, the providers' facts, the biography
@@ -14,14 +14,17 @@ struct EnrichmentSection: View {
     let emptyMessage: String
 
     var body: some View {
-        Section(heading) {
+        SectionHeading(heading)
+        // On an outlined card of its own, Android's: everything in it is somebody else's word.
+        Card {
+            Text(String(localized: "What the providers say")).font(.subheadline.weight(.semibold))
             switch state {
             case .loading:
-                Text(String(localized: "Loading…")).font(.footnote).foregroundStyle(.secondary)
+                Text(String(localized: "Loading…")).font(.caption).foregroundStyle(.secondary)
             case .failed:
-                Text(String(localized: "Could not load what the providers said.")).font(.footnote).foregroundStyle(.red)
+                Text(String(localized: "Could not load what the providers said.")).font(.caption).foregroundStyle(.red)
             case .loaded(let ui) where ui.isEmpty:
-                Text(emptyMessage).font(.footnote).foregroundStyle(.secondary)
+                Text(emptyMessage).font(.caption).foregroundStyle(.secondary)
             case .loaded(let ui):
                 Facts(ui: ui)
             }
@@ -33,41 +36,65 @@ private struct Facts: View {
     let ui: EnrichmentUiState
 
     var body: some View {
-        if !ui.tags.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 12) {
+            if !ui.tags.isEmpty {
+                FlowLayout {
                     ForEach(ui.tags, id: \.self) { tag in
-                        Text(tag).font(.caption).padding(.horizontal, 8).padding(.vertical, 4).background(.quaternary, in: Capsule())
+                        Text(tag)
+                            .font(.caption.weight(.medium))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(.tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
                     }
                 }
             }
-        }
 
-        ForEach(Array(ui.scalars.enumerated()), id: \.offset) { _, scalar in
-            LabeledContent(Message.field(scalar.field).words, value: scalar.value)
-        }
+            if !ui.scalars.isEmpty {
+                FlowLayout(spacing: 24, lineSpacing: 8) {
+                    ForEach(Array(ui.scalars.enumerated()), id: \.offset) { _, scalar in
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(Message.field(scalar.field).words).font(.caption2.weight(.medium)).foregroundStyle(.secondary)
+                            Text(scalar.value).font(.subheadline)
+                        }
+                        .frame(minWidth: 96, alignment: .leading)
+                    }
+                }
+            }
 
-        // Above the providers' own facts, because these are the ones with a source behind them and
-        // the ones the presenter reaches for first.
-        ForEach(ui.claims, id: \.id) { claim in Claim(claim: claim) }
+            // Above the providers' own facts, because these are the ones with a source behind them and
+            // the ones the presenter reaches for first.
+            ForEach(ui.claims, id: \.id) { claim in Claim(claim: claim) }
 
-        ForEach(Array(ui.facts.facts.enumerated()), id: \.offset) { _, fact in
-            Text("• \(fact)").font(.callout)
-        }
+            if !ui.facts.facts.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(ui.facts.facts.enumerated()), id: \.offset) { _, fact in
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text("•")
+                            Text(fact)
+                        }
+                        .font(.subheadline)
+                    }
+                }
+            }
 
-        if let biography = ui.facts.biography, !biography.trimmingCharacters(in: .whitespaces).isEmpty {
-            Biography(text: biography)
-        }
+            if let biography = ui.facts.biography, !biography.trimmingCharacters(in: .whitespaces).isEmpty {
+                Biography(text: biography)
+            }
 
-        ForEach(Array(ui.facts.links.enumerated()), id: \.offset) { _, link in
-            if let url = URL(string: link.url) { Link(link.label, destination: url) }
-        }
+            if !ui.facts.links.isEmpty {
+                FlowLayout(spacing: 16) {
+                    ForEach(Array(ui.facts.links.enumerated()), id: \.offset) { _, link in
+                        if let url = URL(string: link.url) { Link(link.label, destination: url).font(.subheadline.weight(.medium)) }
+                    }
+                }
+            }
 
-        VStack(alignment: .leading, spacing: 2) {
-            ForEach(Array(ui.sources.enumerated()), id: \.offset) { _, source in
-                Text(Message.provenance(source).words)
-                    .font(.caption2)
-                    .foregroundStyle(source.failed ? Color.orange : Color.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(Array(ui.sources.enumerated()), id: \.offset) { _, source in
+                    Text(Message.provenance(source).words)
+                        .font(.caption2)
+                        .foregroundStyle(source.failed ? Color.orange : Color.secondary)
+                }
             }
         }
     }
@@ -81,9 +108,9 @@ private struct Claim: View {
     @State private var open = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(claim.category.replacingOccurrences(of: "_", with: " ")).font(.caption2).foregroundStyle(.tint).textCase(.uppercase)
-            Text(claim.claim).font(.callout)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(claim.category.replacingOccurrences(of: "_", with: " ")).font(.caption2.weight(.medium)).foregroundStyle(.tint)
+            Text(claim.claim).font(.subheadline)
             Button(open ? String(localized: "Hide the source") : String(localized: "Show the source")) { withAnimation { open.toggle() } }
                 .font(.caption)
                 .buttonStyle(.borderless)
@@ -103,7 +130,7 @@ private struct Biography: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(text).font(.callout).lineLimit(open ? nil : 4)
+            Text(text).font(.subheadline).lineLimit(open ? nil : 4)
             Button(open ? String(localized: "Show less") : String(localized: "Read more")) { withAnimation { open.toggle() } }
                 .font(.caption)
                 .buttonStyle(.borderless)

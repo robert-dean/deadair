@@ -18,9 +18,9 @@ struct TrackPage: View {
 
     var body: some View {
         DetailBody(state: detail, notFound: .recordNotFound, retry: { attempt += 1 }) { track in
-            List {
+            DetailColumn {
                 DetailHeader(artwork: track.albumImageUrl) {
-                    Text(track.title).font(.title3.weight(.semibold))
+                    Text(track.title).font(.title2)
                     // The credit leads to the canonical artist, and the album to its page.
                     NavigationLink(value: PageRoute.artist(track.artistId)) {
                         Text(track.artists).font(.body).foregroundStyle(.tint)
@@ -48,19 +48,20 @@ struct TrackPage: View {
                     RatingSection(rating: track.rating, label: track.title, busy: ratings.busy) { mark in
                         ratings.rate({ await model.catalogActions.rateTrack(id, mark) }, then: { attempt += 1 })
                     }
-                }
-
-                if model.isOperator {
+                    .padding(.top, 16)
                     AddToOrderSection(trackId: track.id, title: track.title, hasAudio: track.hasLocalAudio, busy: $adding)
+                        .padding(.top, 16)
                 }
 
-                Section(String(localized: "Airings")) {
-                    Text(Message.airedTimes(track.playCount).words).foregroundStyle(.secondary)
-                    ForEach(Array(track.plays.sorted { $0.airedAt > $1.airedAt }.enumerated()), id: \.offset) { _, play in
-                        LabeledContent {
-                            Text(play.source)
-                        } label: {
-                            AiredText(date: play.airedAt)
+                SectionHeading(String(localized: "Airings"))
+                Text(Message.airedTimes(track.playCount).words).font(.subheadline)
+                let plays = track.plays.sorted { $0.airedAt > $1.airedAt }
+                ForEach(Array(plays.enumerated()), id: \.offset) { index, play in
+                    DetailRow(last: index == plays.count - 1) {
+                        HStack {
+                            AiredText(date: play.airedAt).font(.subheadline)
+                            Spacer()
+                            Text(play.source).font(.caption.weight(.medium)).foregroundStyle(.secondary)
                         }
                     }
                 }

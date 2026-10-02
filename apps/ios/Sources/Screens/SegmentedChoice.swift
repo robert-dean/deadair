@@ -44,3 +44,23 @@ struct SegmentedChoice<Value: Hashable>: View {
         .overlay(Capsule().strokeBorder(Color(uiColor: .separator)))
     }
 }
+
+/// Android's `OutlinedButton`: the words in the accent, a hairline pill round them, nothing filled.
+struct OutlinedButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(isEnabled ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+            .padding(.horizontal, 20)
+            .frame(minHeight: 44)
+            .background(Capsule().fill(.tint.opacity(configuration.isPressed ? 0.12 : 0)))
+            .overlay(Capsule().strokeBorder(Color(uiColor: .separator)))
+            .contentShape(Capsule())
+    }
+}
+
+extension ButtonStyle where Self == OutlinedButtonStyle {
+    static var outlined: OutlinedButtonStyle { OutlinedButtonStyle() }
+}

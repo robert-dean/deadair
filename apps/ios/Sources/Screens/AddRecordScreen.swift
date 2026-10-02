@@ -121,16 +121,19 @@ struct AddToOrderSection: View {
 
     var body: some View {
         let reading: OrderReading? = if case .loaded(let reading, _) = model.order.state(signedIn: model.signedIn) { reading } else { nil }
-        Section {
-            HStack {
-                Button(String(localized: "Play next")) { add(reading.flatMap { playNextIndex($0.order.items) }) }
-                    .disabled(reading == nil)
-                Button(String(localized: "Add to the end")) { add(nil) }
+        VStack(alignment: .leading, spacing: 8) {
+            // Two equal halves of the width, Play next only once the order it is a position in is read.
+            HStack(spacing: 8) {
+                if let reading {
+                    Button { add(playNextIndex(reading.order.items)) } label: { Text(String(localized: "Play next")).frame(maxWidth: .infinity) }
+                }
+                Button { add(nil) } label: { Text(String(localized: "Add to the end")).frame(maxWidth: .infinity) }
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.outlined)
             .disabled(!hasAudio || busy)
-        } footer: {
-            if !hasAudio { Text(String(localized: "Not on this station yet, so it cannot be added")) }
+            if !hasAudio {
+                Text(String(localized: "Not on this station yet, so it cannot be added")).font(.caption).foregroundStyle(.secondary)
+            }
         }
         // Held only for the operator, so a listener's record page does not start the order poll.
         .task { await model.order.hold() }

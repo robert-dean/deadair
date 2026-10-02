@@ -9,6 +9,7 @@ import { ANALYSIS_PLUGIN_KEY } from '../../../src/modules/analysis/analysis.sett
 import { LLM_PLUGIN_KEY } from '../../../src/modules/llm/llm.settings.js';
 import { MIXER_PLUGIN_KEY } from '../../../src/modules/render/mixer.settings.js';
 import { SPEECH_PLUGIN_KEY } from '../../../src/modules/render/speech.settings.js';
+import { TRANSCODE_PLUGIN_KEY } from '../../../src/modules/render/transcode.settings.js';
 import { SIMILARITY_ORDER_KEY } from '../../../src/modules/similarity/similarity.settings.js';
 import { ORDER_SOURCE_COLUMN } from '../../../src/modules/plugins/plugin.order.js';
 import { PROVIDER_CAPABILITIES, pluginInUse, pluginsInOrder, providerCapabilities } from '../../../src/modules/plugins/plugin.providers.js';
@@ -23,6 +24,7 @@ describe('the provider table', () => {
         expect(PROVIDER_CAPABILITIES.speech.settingKey).toBe(SPEECH_PLUGIN_KEY);
         expect(PROVIDER_CAPABILITIES.llm.settingKey).toBe(LLM_PLUGIN_KEY);
         expect(PROVIDER_CAPABILITIES.mixer.settingKey).toBe(MIXER_PLUGIN_KEY);
+        expect(PROVIDER_CAPABILITIES.transcode.settingKey).toBe(TRANSCODE_PLUGIN_KEY);
         expect(PROVIDER_CAPABILITIES.analysis.settingKey).toBe(ANALYSIS_PLUGIN_KEY);
         expect(PROVIDER_CAPABILITIES.similarity.settingKey).toBe(SIMILARITY_ORDER_KEY);
     });

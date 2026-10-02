@@ -90,9 +90,10 @@ export function useScanSegments() {
 /**
  * Fetches one segment's audio and hands back an object URL to play it with.
  *
- * Unlike a voice sample this route is anonymous, so an `<audio src>` pointing straight at it would
- * work. It still goes through the SDK: the console holds one idea of where the API is, and a second
- * URL composed by hand here is one more thing to keep in step with it.
+ * Through the SDK rather than an `<audio src>`, because the route is not anonymous: without a signed
+ * token it is held to the read floor, so it needs the console's bearer, which only the SDK sends.
+ * The console holds one idea of where the API is, too, and a URL composed by hand here would be a
+ * second one to keep in step.
  *
  * The caller owns the URL and must revoke it, exactly as `fetchVoiceSample` documents.
  */

@@ -70,6 +70,13 @@ export const signedAudioMiddleware = (): ServerKitMiddleware => {
             // way.
             throw httpError(401).withDetails({ message: 'invalid or expired audio token' });
         }
+
+        // Spent, so taken off the query before the route sees it. The token is this gate's business
+        // and no contract declares it, and a route that validates its query strictly (the segment
+        // audio route does, for `rendition`) would otherwise answer every signed fetch with a 400:
+        // which is every break Liquidsoap ever pulls.
+        const { [AUDIO_TOKEN_PARAM]: _spent, ...rest } = ctx.query;
+        ctx.query = rest;
         await next();
     };
 };

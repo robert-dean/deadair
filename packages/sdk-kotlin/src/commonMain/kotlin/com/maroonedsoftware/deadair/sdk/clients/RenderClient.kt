@@ -20,6 +20,7 @@ import com.maroonedsoftware.deadair.sdk.models.ScriptHistorySummary
 import com.maroonedsoftware.deadair.sdk.models.ScriptHistorySummaryQuery
 import com.maroonedsoftware.deadair.sdk.models.ScriptRatingInput
 import com.maroonedsoftware.deadair.sdk.models.Segment
+import com.maroonedsoftware.deadair.sdk.models.SegmentAudioQuery
 import com.maroonedsoftware.deadair.sdk.models.SegmentCreate
 import com.maroonedsoftware.deadair.sdk.models.SegmentList
 import com.maroonedsoftware.deadair.sdk.models.SegmentScanResult
@@ -216,10 +217,12 @@ class RenderClient(private val http: SdkHttp) {
     /**
      * Get segment audio
      * The audio of one segment
+     * @throws SdkError on 503
      */
-    suspend fun getSegmentAudio(id: Uuid): GetSegmentAudioResponse {
+    suspend fun getSegmentAudio(id: Uuid, query: SegmentAudioQuery? = null): GetSegmentAudioResponse {
         val response = http.execute(HttpMethod.Get, expectStatuses = setOf(304)) {
             path("segments", segment(id), "audio")
+            params(query)
         }
         return when (response.status.value) {
             304 -> {
@@ -229,6 +232,7 @@ class RenderClient(private val http: SdkHttp) {
                 val headers = GetSegmentAudio200Headers(
                     response.headers["cache-control"]?.let { it },
                     response.headers["etag"]?.let { it },
+                    response.headers["content-disposition"]?.let { it },
                 )
                 when (response.contentType) {
                     "audio/wav" -> GetSegmentAudioResponse.Status200AudioWav(response.bytes, headers)
@@ -573,6 +577,7 @@ sealed interface PreviewSpeechResponse {
 data class GetSegmentAudio200Headers(
     val cacheControl: String?,
     val etag: String?,
+    val contentDisposition: String?,
 )
 
 /**

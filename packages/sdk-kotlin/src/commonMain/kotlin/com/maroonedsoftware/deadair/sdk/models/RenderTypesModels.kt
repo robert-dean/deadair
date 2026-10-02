@@ -380,6 +380,15 @@ data class PadScanResult(
     val skipped: Long,
 )
 
+/** Which copy of a segment's audio. `original` is what the station airs. `share` is a small copy made for a listener to send on, AAC in an .m4a, never aired */
+@Serializable
+enum class SegmentAudioRendition {
+    @SerialName("original")
+    ORIGINAL,
+    @SerialName("share")
+    SHARE,
+}
+
 /** Everything the station can play that is not a record */
 @Serializable
 data class SegmentList(
@@ -518,6 +527,12 @@ data class PadList(
 data class PadListInput(
     val pads: List<PadInput>,
     val sets: List<PadSetInput>,
+)
+
+@Serializable
+data class SegmentAudioQuery(
+    /** A purpose the station interprets rather than a format the caller picks, so what `share` means can change without any caller changing */
+    val rendition: SegmentAudioRendition? = SegmentAudioRendition.ORIGINAL,
 )
 
 @Serializable

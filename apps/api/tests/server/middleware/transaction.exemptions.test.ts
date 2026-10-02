@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     artExemption,
+    segmentAudioExemption,
     DEFAULT_TRANSACTION_EXEMPTIONS,
     infraExemption,
     isTransactionExempt,
@@ -32,6 +33,19 @@ describe('infraExemption', () => {
 
     it('exempts nothing else that merely starts with the same path', () => {
         expect(exempt('GET', '/health/deep')).toBe(false);
+    });
+});
+
+describe('segmentAudioExemption', () => {
+    it('exempts a segment’s audio, whose share copy can take a minute to make', () => {
+        expect(segmentAudioExemption({ method: 'GET', path: '/segments/2071d88a-998f-4c12-8515-b2ea9c54f245/audio' })).toBe(true);
+        expect(exempt('GET', '/segments/2071d88a-998f-4c12-8515-b2ea9c54f245/audio')).toBe(true);
+    });
+
+    it('exempts nothing else under /segments', () => {
+        expect(segmentAudioExemption({ method: 'GET', path: '/segments' })).toBe(false);
+        expect(segmentAudioExemption({ method: 'POST', path: '/segments/2071d88a-998f-4c12-8515-b2ea9c54f245/audio' })).toBe(false);
+        expect(segmentAudioExemption({ method: 'DELETE', path: '/segments/2071d88a-998f-4c12-8515-b2ea9c54f245' })).toBe(false);
     });
 });
 

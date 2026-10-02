@@ -20,6 +20,9 @@ import { SegmentStore } from './segment.store.js';
 import { SpeechGate } from './speech.gate.js';
 import { SpeechService } from './speech.service.js';
 import { VoiceSampleStore } from './voice.sample.store.js';
+import { SegmentShareStore } from './segment.share.store.js';
+import { SegmentShareService } from './segment.share.service.js';
+import { TranscodeService } from './transcode.service.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 
@@ -76,6 +79,14 @@ const DEFAULT_PAD_ASSETS_DIR = '../../assets/pads';
  * from. Separate roots make that a filesystem fact rather than a convention.
  */
 const DEFAULT_SAMPLE_DIR = './media/voice-samples';
+
+/**
+ * Where the small copies listeners share are cached, when `SEGMENT_SHARE_DIR` is unset.
+ *
+ * Its own root beside the voice samples, for their reason: a copy is not a segment and must never be
+ * mistaken for one. Unlike them it is swept nightly (`render.prune_share_copies`).
+ */
+const DEFAULT_SHARE_DIR = './media/share-copies';
 
 /**
  * Segments: the things the station plays that are not records.
@@ -170,6 +181,10 @@ export const RenderModule: ServerKitModule = {
             .register(VoiceSampleStore)
             .useFactory(() => new VoiceSampleStore(config.get('VOICE_SAMPLE_DIR', DEFAULT_SAMPLE_DIR)))
             .asSingleton();
+        registry
+            .register(SegmentShareStore)
+            .useFactory(() => new SegmentShareStore(config.get('SEGMENT_SHARE_DIR', DEFAULT_SHARE_DIR)))
+            .asSingleton();
 
         // Scoped with the repositories beside it. The render path reads it once per segment, which
         // is what keeps an operator's edit to the lexicon audible on the next break.
@@ -184,6 +199,9 @@ export const RenderModule: ServerKitModule = {
         // through one chosen plugin. No gate, because a join holds nothing exclusive the way a
         // single set of model weights does.
         registry.register(MixerService).useClass(MixerService).asScoped();
+        // The same again for the copies a listener shares, and the service that keeps them.
+        registry.register(TranscodeService).useClass(TranscodeService).asScoped();
+        registry.register(SegmentShareService).useClass(SegmentShareService).asScoped();
 
         registry.register(RenderService).useClass(RenderService).asScoped();
     },

@@ -25,6 +25,7 @@ for dir in \
     "$ART_DIR" \
     "$SEGMENT_DIR" \
     "$VOICE_SAMPLE_DIR" \
+    "$SEGMENT_SHARE_DIR" \
     "$TRACKS_DIR" \
 ; do
     mkdir -p "$dir"

@@ -251,7 +251,7 @@ export class DeleteSegmentMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L417)
+ * from [render.ck](../../data/contracts/render/render.ck#L420)
  */
 @Injectable()
 export class ListPronunciationsMcpTool implements McpToolHandler {
@@ -277,7 +277,7 @@ export class ListPronunciationsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L427)
+ * from [render.ck](../../data/contracts/render/render.ck#L430)
  */
 @Injectable()
 export class CreatePronunciationMcpTool implements McpToolHandler {
@@ -300,7 +300,7 @@ export class CreatePronunciationMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L448)
+ * from [render.ck](../../data/contracts/render/render.ck#L451)
  */
 @Injectable()
 export class UpdatePronunciationMcpTool implements McpToolHandler {
@@ -323,7 +323,7 @@ export class UpdatePronunciationMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L463)
+ * from [render.ck](../../data/contracts/render/render.ck#L466)
  */
 @Injectable()
 export class DeletePronunciationMcpTool implements McpToolHandler {
@@ -347,7 +347,7 @@ export class DeletePronunciationMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L481)
+ * from [render.ck](../../data/contracts/render/render.ck#L484)
  */
 @Injectable()
 export class SetPronunciationStateMcpTool implements McpToolHandler {
@@ -370,7 +370,7 @@ export class SetPronunciationStateMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L513)
+ * from [render.ck](../../data/contracts/render/render.ck#L516)
  */
 @Injectable()
 export class ListPadsMcpTool implements McpToolHandler {
@@ -392,7 +392,7 @@ export class ListPadsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L551)
+ * from [render.ck](../../data/contracts/render/render.ck#L554)
  */
 @Injectable()
 export class ScanThePadLibraryMcpTool implements McpToolHandler {
@@ -415,7 +415,7 @@ export class ScanThePadLibraryMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L566)
+ * from [render.ck](../../data/contracts/render/render.ck#L569)
  */
 @Injectable()
 export class FetchPadMcpTool implements McpToolHandler {
@@ -439,7 +439,7 @@ export class FetchPadMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L596)
+ * from [render.ck](../../data/contracts/render/render.ck#L599)
  */
 @Injectable()
 export class DeletePadMcpTool implements McpToolHandler {
@@ -462,7 +462,7 @@ export class DeletePadMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L616)
+ * from [render.ck](../../data/contracts/render/render.ck#L619)
  */
 @Injectable()
 export class SetPadStateMcpTool implements McpToolHandler {
@@ -486,7 +486,7 @@ export class SetPadStateMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L666)
+ * from [render.ck](../../data/contracts/render/render.ck#L669)
  */
 @Injectable()
 export class CreatePadSetMcpTool implements McpToolHandler {
@@ -509,7 +509,7 @@ export class CreatePadSetMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L687)
+ * from [render.ck](../../data/contracts/render/render.ck#L690)
  */
 @Injectable()
 export class UpdatePadSetMcpTool implements McpToolHandler {
@@ -532,7 +532,7 @@ export class UpdatePadSetMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L702)
+ * from [render.ck](../../data/contracts/render/render.ck#L705)
  */
 @Injectable()
 export class DeletePadSetMcpTool implements McpToolHandler {
@@ -555,7 +555,7 @@ export class DeletePadSetMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L720)
+ * from [render.ck](../../data/contracts/render/render.ck#L723)
  */
 @Injectable()
 export class SetPadMembershipMcpTool implements McpToolHandler {

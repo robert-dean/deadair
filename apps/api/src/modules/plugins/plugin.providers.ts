@@ -6,6 +6,7 @@ import {
     PLUGIN_CAPABILITY_MIXER,
     PLUGIN_CAPABILITY_SIMILARITY,
     PLUGIN_CAPABILITY_SPEECH,
+    PLUGIN_CAPABILITY_TRANSCODE,
     PLUGIN_CAPABILITY_WEATHER,
 } from '@deadair/plugin-sdk';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
@@ -16,6 +17,7 @@ import { ENRICHMENT_KEYS } from '#modules/enrichment/enrichment.keys.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
+import { TRANSCODE_PLUGIN_KEY } from '#modules/render/transcode.settings.js';
 import { SIMILARITY_ORDER_KEY } from '#modules/similarity/similarity.settings.js';
 import { WEATHER_KEYS } from '#modules/weather/weather.keys.js';
 import {
@@ -26,6 +28,7 @@ import {
     asEnrichmentPlugin,
     asSimilarityPlugin,
     asSpeechPlugin,
+    asTranscodePlugin,
     asWeatherPlugin,
     type AnalysisPlugin,
     type ChartsPlugin,
@@ -34,6 +37,7 @@ import {
     type MixerPlugin,
     type SimilarityPlugin,
     type SpeechPlugin,
+    type TranscodePlugin,
     type WeatherPlugin,
 } from './plugin.capabilities.js';
 import { byOrderThen, pluginOrder } from './plugin.order.js';
@@ -133,6 +137,12 @@ export const PROVIDER_CAPABILITIES = {
         settingKey: MIXER_PLUGIN_KEY,
         as: asMixerPlugin,
     } satisfies ProviderCapability<MixerPlugin>,
+    [PLUGIN_CAPABILITY_TRANSCODE]: {
+        capability: PLUGIN_CAPABILITY_TRANSCODE,
+        mode: 'one',
+        settingKey: TRANSCODE_PLUGIN_KEY,
+        as: asTranscodePlugin,
+    } satisfies ProviderCapability<TranscodePlugin>,
     [PLUGIN_CAPABILITY_ANALYSIS]: {
         capability: PLUGIN_CAPABILITY_ANALYSIS,
         mode: 'one',

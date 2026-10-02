@@ -108,6 +108,8 @@ public static class ProviderChoices
             $"Only {onlyName} can write, so there is nothing to choose."),
         "mixer" => ("Joining audio", "Which plugin makes one piece of audio out of several. Its own choice, so a station can measure with one engine and join with another.",
             $"Only {onlyName} can join audio, so there is nothing to choose."),
+        "transcode" => ("Making copies to share", "Which plugin makes the small copy of a talk break a listener sends on by text message. Its own choice, so a station can join with one engine and make copies with another.",
+            $"Only {onlyName} can make copies to share, so there is nothing to choose."),
         "analysis" => ("Measuring records", "Which plugin measures records, so the station can trim the dead air off each one and know how long it may talk over an intro.",
             $"Only {onlyName} can measure records, so there is nothing to choose."),
         "similarity" => ("Who sounds like whom", "Every source is asked who resembles an artist and the answers are pooled. What to play by an artist, and what sounds like a particular record, take the first usable answer, so this order decides whose judgement airs.",

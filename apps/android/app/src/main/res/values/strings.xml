@@ -437,6 +437,13 @@
     <string name="scripts_empty">The station has not said anything yet.</string>
     <string name="show_details">Show details</string>
     <string name="hide_details">Hide details</string>
+    <!-- Sharing a break: the station makes a small copy that a text message can carry. -->
+    <string name="share_break">Share this break</string>
+    <string name="share_send_this_break">Send this break</string>
+    <string name="share_gone">The station no longer has the audio for that break.</string>
+    <string name="share_cannot_copy">The station can\'t make a copy to send right now.</string>
+    <string name="share_could_not_reach">Couldn\'t reach the station to get that break.</string>
+    <string name="share_failed">Couldn\'t get that break ready to send.</string>
     <string name="outcome_written">Written</string>
     <!-- Not a fault: a model that declined and let the floor write is the station working as designed -->
     <string name="outcome_declined">Declined</string>

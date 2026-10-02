@@ -18,6 +18,7 @@ import type {
     ScriptHistorySummaryQuery,
     ScriptRatingInput,
     Segment,
+    SegmentAudioQuery,
     SegmentCreate,
     SegmentList,
     SegmentScanResult,
@@ -209,16 +210,20 @@ export class RenderClient {
      * @name Get segment audio
      * @description The audio of one segment
      */
-    async getSegmentAudio(id: string): Promise<
+    async getSegmentAudio(
+        id: string,
+        query?: SegmentAudioQuery,
+    ): Promise<
         | {
               status: 200;
               contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4';
               data: Blob;
-              headers: { cacheControl?: string; etag?: string };
+              headers: { cacheControl?: string; etag?: string; contentDisposition?: string };
           }
         | { status: 304 }
     > {
-        const result = await this.fetch(`/segments/${encodeURIComponent(id)}/audio`, {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/segments/${encodeURIComponent(id)}/audio${qs}`, {
             method: 'GET',
             expectStatuses: [304],
         });
@@ -230,7 +235,11 @@ export class RenderClient {
                     status: 200,
                     contentType: readContentType(result) as 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4',
                     data: await result.blob(),
-                    headers: { cacheControl: result.headers.get('cache-control') ?? undefined, etag: result.headers.get('etag') ?? undefined },
+                    headers: {
+                        cacheControl: result.headers.get('cache-control') ?? undefined,
+                        etag: result.headers.get('etag') ?? undefined,
+                        contentDisposition: result.headers.get('content-disposition') ?? undefined,
+                    },
                 };
         }
     }

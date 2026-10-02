@@ -1089,6 +1089,12 @@ public struct PadScanResult: Codable, Equatable, Sendable {
     }
 }
 
+/// Which copy of a segment's audio. `original` is what the station airs. `share` is a small copy made for a listener to send on, AAC in an .m4a, never aired
+public enum SegmentAudioRendition: String, Codable, CaseIterable, Sendable {
+    case original = "original"
+    case share = "share"
+}
+
 /// Everything the station can play that is not a record
 public struct SegmentList: Codable, Equatable, Sendable {
     public var segments: [Segment]
@@ -1592,6 +1598,29 @@ public struct PadListInput: Codable, Equatable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.pads, forKey: .pads)
         try container.encode(self.sets, forKey: .sets)
+    }
+}
+
+public struct SegmentAudioQuery: Codable, Equatable, Sendable {
+    /// A purpose the station interprets rather than a format the caller picks, so what `share` means can change without any caller changing
+    public var rendition: SegmentAudioRendition
+
+    public init(rendition: SegmentAudioRendition = .original) {
+        self.rendition = rendition
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case rendition = "rendition"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.rendition = try container.decodeIfPresent(SegmentAudioRendition.self, forKey: .rendition) ?? .original
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.rendition, forKey: .rendition)
     }
 }
 

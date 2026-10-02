@@ -1,4 +1,4 @@
-import { PLUGIN_CAPABILITY_ANALYSIS, PLUGIN_CAPABILITY_MIXER, type PluginManifest } from '@deadair/plugin-sdk';
+import { PLUGIN_CAPABILITY_ANALYSIS, PLUGIN_CAPABILITY_MIXER, PLUGIN_CAPABILITY_TRANSCODE, type PluginManifest } from '@deadair/plugin-sdk';
 import { z } from 'zod';
 
 export const PLUGIN_ID = 'deadair.analyzer';
@@ -40,6 +40,16 @@ export const ANALYZE_TIMEOUT_MS = 5 * 60_000;
  */
 export const JOIN_TIMEOUT_MS = 3 * 60_000;
 
+/**
+ * How long making a copy to share may take.
+ *
+ * A minute: it decodes and encodes one talk break, which is seconds of work, and
+ * somebody is holding a phone waiting for it. Long enough for a slow machine and
+ * a long bulletin; past that, the listener is better told it failed than kept
+ * waiting.
+ */
+export const TRANSCODE_TIMEOUT_MS = 60_000;
+
 /** A short call: it exists to answer "is anything there?", not to do work. */
 export const PROBE_TIMEOUT_MS = 5_000;
 
@@ -51,13 +61,13 @@ export const analyzerManifest: PluginManifest = {
     id: PLUGIN_ID,
     name: 'Audio analyzer',
     version: PLUGIN_VERSION,
-    // Two capabilities and one address, because the host picks one plugin per capability and both of
-    // these are the same sidecar. See the plugin's own note: on `analysis` alone, the joiner would be
-    // whichever plugin the operator chose to measure with.
-    capabilities: [PLUGIN_CAPABILITY_ANALYSIS, PLUGIN_CAPABILITY_MIXER],
+    // Three capabilities and one address, because the host picks one plugin per capability and all
+    // of these are the same sidecar. See the plugin's own note: on `analysis` alone, the joiner would
+    // be whichever plugin the operator chose to measure with.
+    capabilities: [PLUGIN_CAPABILITY_ANALYSIS, PLUGIN_CAPABILITY_MIXER, PLUGIN_CAPABILITY_TRANSCODE],
     apiVersion: '^1.0.0',
     description:
-        'Measures where a record starts, is underway, begins ending and stops, so the station can trim dead air and time what it says, and joins several pieces of audio into one so a programme written turn by turn airs as a single item. Talks to the bundled analysis container.',
+        'Measures where a record starts, is underway, begins ending and stops, so the station can trim dead air and time what it says, and joins several pieces of audio into one so a programme written turn by turn airs as a single item, and makes the small copy of a talk break a listener sends on. Talks to the bundled analysis container.',
     permissions: {
         // The operator names the address, so there is no hostname to write down.
         // An unset or unparseable `baseUrl` contributes no entry at all, which
@@ -76,7 +86,7 @@ export const analyzerManifest: PluginManifest = {
             type: 'url',
             required: true,
             default: DEFAULT_BASE_URL,
-            help: 'The bundled analysis container answers on http://analysis:9321, or http://localhost:9321 when the API runs on the host. Point it anywhere that serves the same two endpoints.',
+            help: 'The bundled analysis container answers on http://analysis:9321, or http://localhost:9321 when the API runs on the host. Point it anywhere that serves the same endpoints.',
         },
     ],
     configSchema,

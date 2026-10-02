@@ -22,6 +22,7 @@ import { ScheduleTickJob } from '#modules/schedule/schedule.tick.job.js';
 import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
 import { PruneScriptHistoryJob } from '#modules/render/prune.script.history.job.js';
+import { PruneShareCopiesJob } from '#modules/render/prune.share.copies.job.js';
 import { PersonaAuditionJob } from '#modules/personas/persona.audition.job.js';
 import { PersonaDistilJob } from '#modules/personas/persona.distil.job.js';
 import { PersonaStoryPassJob } from '#modules/personas/persona.story.pass.job.js';
@@ -463,6 +464,16 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         job: SweepOrphansJob,
         cron: '17 5 * * *',
         policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 20 }) },
+    },
+
+    // The copies listeners share, removed once nobody has asked for one in `render.shareCopyDays`.
+    // Nightly and NO retry on the prune jobs' argument: a copy left until tomorrow costs a few
+    // hundred kilobytes, and a retry only buys a second try at deleting something. Its own minute,
+    // after the orphan sweep, because the two walk different directories and need not share one.
+    'render.prune_share_copies': {
+        job: PruneShareCopiesJob,
+        cron: '29 5 * * *',
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
     },
 
     'activity.prune_events': {

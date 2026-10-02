@@ -7,6 +7,7 @@ import {
     PLUGIN_CAPABILITY_LLM,
     PLUGIN_CAPABILITY_MESSAGING,
     PLUGIN_CAPABILITY_MIXER,
+    PLUGIN_CAPABILITY_TRANSCODE,
     PLUGIN_CAPABILITY_NARRATION,
     PLUGIN_CAPABILITY_NEWS,
     PLUGIN_CAPABILITY_PODCAST,
@@ -25,6 +26,7 @@ import {
     type LlmPluginInstance,
     type MessagingPluginInstance,
     type MixerProvider,
+    type TranscodeProvider,
     type MusicProviderPluginInstance,
     type NarrationPluginInstance,
     type NewsPluginInstance,
@@ -918,4 +920,38 @@ export const asMixerPlugin = (record: PluginRecord): MixerPlugin | undefined => 
     if (!implementsMixer(record.manifest, record.instance)) return undefined;
 
     return { record, manifest: record.manifest, instance: record.instance as MixerProvider };
+};
+
+/**
+ * The one method that earns the `transcode` capability. Required, on
+ * {@link MIXER_METHODS}' argument.
+ */
+export const TRANSCODE_METHODS = ['transcode'] as const satisfies ReadonlyArray<keyof TranscodeProvider>;
+
+/** A plugin narrowed to "can make a smaller copy of some audio, right now". */
+export interface TranscodePlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: TranscodeProvider;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `transcode` capability. */
+export const implementsTranscode = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_TRANSCODE)) return false;
+    return TRANSCODE_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/**
+ * The transcode-capable view of a record, or `undefined` when it is not one.
+ *
+ * Its own view and its own key (`render.transcodePluginId`) for
+ * {@link asMixerPlugin}'s reason: the bundled analyzer answers all three audio
+ * capabilities, and a station may still make its shareable copies with a
+ * different plugin than the one it joins with.
+ */
+export const asTranscodePlugin = (record: PluginRecord): TranscodePlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsTranscode(record.manifest, record.instance)) return undefined;
+
+    return { record, manifest: record.manifest, instance: record.instance as TranscodeProvider };
 };

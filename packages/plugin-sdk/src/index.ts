@@ -14,6 +14,7 @@ export * from './capabilities/scrobble.js';
 export * from './capabilities/search.js';
 export * from './capabilities/similarity.js';
 export * from './capabilities/speech.js';
+export * from './capabilities/transcode.js';
 export * from './capabilities/weather.js';
 export * from './article.parse.js';
 export * from './define.plugin.js';

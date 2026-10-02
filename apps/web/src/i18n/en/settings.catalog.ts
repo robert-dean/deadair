@@ -374,6 +374,12 @@ export const settings = {
                     'Which plugin makes one piece of audio out of several. Its own choice, so a station can measure with one engine and join with another.',
                 only: 'Only {{name}} can join audio, so there is nothing to choose.',
             },
+            transcode: {
+                title: 'Making copies to share',
+                meaning:
+                    'Which plugin makes the small copy of a talk break a listener sends on by text message. Its own choice, so a station can join with one engine and make copies with another.',
+                only: 'Only {{name}} can make copies to share, so there is nothing to choose.',
+            },
             analysis: {
                 title: 'Measuring records',
                 meaning:

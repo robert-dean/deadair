@@ -30,6 +30,10 @@ import { RenderService } from '../../src/modules/render/render.service.js';
 import { SegmentRepository, type Segment } from '../../src/modules/render/segment.repository.js';
 import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentExtension } from '../../src/modules/render/segment.store.js';
 import { conditionalGetMiddleware } from '../../src/server/middleware/conditional.get.middleware.js';
+import { signedAudioMiddleware } from '../../src/server/middleware/signed.audio.middleware.js';
+import { LiquidsoapEndpoint } from '../../src/modules/playout/liquidsoap.endpoint.js';
+import { signAudioPath } from '../../src/modules/playout/playout.audio.token.js';
+import type { SegmentShareService } from '../../src/modules/render/segment.share.service.js';
 
 const ID = '11111111-1111-4111-8111-111111111111';
 const BYTES = Buffer.from('a station ident');
@@ -95,7 +99,7 @@ const postJson = (url: string, body: string): Promise<{ status: number }> =>
     });
 
 /** The API's chain around the segment route: errors rendered, freshness applied, container stubbed. */
-const serve = async (segment: Segment | undefined): Promise<string> => {
+const serve = async (segment: Segment | undefined, options: { shares?: Partial<SegmentShareService>; signedWith?: string } = {}): Promise<string> => {
     const repository = { findById: async () => segment } as unknown as SegmentRepository;
     // Only the repository and the store are on this route: fetching a segment's audio
     // neither writes words nor speaks them, so the rest of the service's collaborators
@@ -116,14 +120,21 @@ const serve = async (segment: Segment | undefined): Promise<string> => {
         unused,
         unused,
         unused,
+        // The copies listeners share, faked where a case asks for one.
+        (options.shares ?? {}) as never,
     );
     const app = new Koa();
 
     app.use(errorMiddleware() as unknown as Koa.Middleware);
     app.use(async (ctx, next) => {
-        (ctx as unknown as { container: { get: (token: unknown) => unknown } }).container = { get: () => service };
+        const secret = options.signedWith;
+        (ctx as unknown as { container: { get: (token: unknown) => unknown } }).container = {
+            get: token => (token === LiquidsoapEndpoint ? { secret: () => secret } : service),
+        };
         await next();
     });
+    // The gate in front of this route, for the cases about what Liquidsoap's signed URL carries.
+    if (options.signedWith !== undefined) app.use(signedAudioMiddleware() as unknown as Koa.Middleware);
     app.use(conditionalGetMiddleware() as unknown as Koa.Middleware);
     app.use(RenderRouter.routes() as unknown as Koa.Middleware);
 
@@ -199,6 +210,63 @@ describe('GET /segments/:id/audio', () => {
         const base = await serve(ready('a'.repeat(64), 'mp3'));
 
         expect((await send(`${base}/segments/${ID}/audio`)).status).toBe(404);
+    });
+
+    // The query is validated strictly, and Liquidsoap's URL carries its token in the query. The gate
+    // takes the token off once it has checked it; without that, every break the station pulls would
+    // be a 400 and the station would air silence.
+    it('serves a signed URL, token and all, through the strict query', async () => {
+        const checksum = await store.write(BYTES, 'wav');
+        const base = await serve(ready(checksum, 'wav'), { signedWith: 'bridge-secret' });
+        const path = `/segments/${ID}/audio`;
+        const t = signAudioPath('bridge-secret', path, Date.now() + 60_000);
+
+        const response = await send(`${base}${path}?t=${encodeURIComponent(t)}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual(BYTES);
+    });
+
+    it('serves the original when the rendition says so, exactly as when it says nothing', async () => {
+        const checksum = await store.write(BYTES, 'wav');
+        const base = await serve(ready(checksum, 'wav'));
+
+        const response = await send(`${base}/segments/${ID}/audio?rendition=original`);
+
+        expect(response.status).toBe(200);
+        expect(response.headers['content-type']).toBe('audio/wav');
+    });
+
+    it('answers rendition=share with the copy and a name to save it under', async () => {
+        const checksum = await store.write(BYTES, 'wav');
+        const copy = Buffer.from('a small copy');
+        const base = await serve(ready(checksum, 'wav'), {
+            shares: {
+                copyOf: async () => ({
+                    contentType: 'audio/mp4',
+                    body: copy,
+                    headers: {
+                        cacheControl: 'public, max-age=86400',
+                        etag: '"copy"',
+                        contentDisposition: 'attachment; filename="deadair-top-of-the-hour.m4a"',
+                    },
+                }),
+            },
+        });
+
+        const response = await send(`${base}/segments/${ID}/audio?rendition=share`);
+
+        expect(response.status).toBe(200);
+        expect(response.headers['content-type']).toBe('audio/mp4');
+        expect(response.headers['content-disposition']).toBe('attachment; filename="deadair-top-of-the-hour.m4a"');
+        expect(response.body).toEqual(copy);
+    });
+
+    it('refuses a rendition it does not know rather than guessing', async () => {
+        const checksum = await store.write(BYTES, 'wav');
+        const base = await serve(ready(checksum, 'wav'));
+
+        expect((await send(`${base}/segments/${ID}/audio?rendition=tiny`)).status).toBe(400);
     });
 });
 

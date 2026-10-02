@@ -18,11 +18,12 @@ Security: public
 ## Attributes
 
 <details>
-<summary>Attributes (1)</summary>
+<summary>Attributes (2)</summary>
 
-| Attribute | Type     | Required | Description     |
-| --------- | -------- | -------- | --------------- |
-| `id`      | `string` | Yes      | Path parameter. |
+| Attribute   | Type                    | Required | Description                                                                                                                          |
+| ----------- | ----------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`        | `string`                | Yes      | Path parameter.                                                                                                                      |
+| `rendition` | `SegmentAudioRendition` | Yes      | A purpose the station interprets rather than a format the caller picks, so what `share` means can change without any caller changing |
 
 </details>
 
@@ -40,9 +41,12 @@ Security: public
 
 Response headers:
 
-| Header          | Type     | Description |
-| --------------- | -------- | ----------- |
-| `cache-control` | `string` |             |
-| `etag`          | `string` |             |
+| Header                | Type     | Description                                       |
+| --------------------- | -------- | ------------------------------------------------- |
+| `cache-control`       | `string` |                                                   |
+| `etag`                | `string` |                                                   |
+| `content-disposition` | `string` | A file name to save it under, on the `share` copy |
 
 `304`
+
+`503`

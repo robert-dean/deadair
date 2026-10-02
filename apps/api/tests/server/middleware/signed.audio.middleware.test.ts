@@ -75,6 +75,14 @@ describe('signedAudioMiddleware', () => {
         expect((await run(request(path))).status).toBe(401);
     });
 
+    it('takes the spent token off the query, so a route validating its query strictly never sees it', async () => {
+        const t = signAudioPath(SECRET, SEGMENT, Date.now() + 60_000);
+        const ctx = request(SEGMENT, { query: { t, rendition: 'share' } });
+
+        expect(await run(ctx)).toEqual({ passed: true });
+        expect(ctx.query).toEqual({ rendition: 'share' });
+    });
+
     it('refuses a token cut for another path', async () => {
         const t = signAudioPath(SECRET, STORED, Date.now() + 60_000);
 

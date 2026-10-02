@@ -12,7 +12,7 @@ import { isPluginError, type HostFetchInit, type PluginError } from '@deadair/pl
 import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 import { AnalyzerPlugin } from '../src/analyzer.plugin.js';
-import { ANALYZE_TIMEOUT_MS, JOIN_TIMEOUT_MS } from '../src/analyzer.manifest.js';
+import { ANALYZE_TIMEOUT_MS, JOIN_TIMEOUT_MS, TRANSCODE_TIMEOUT_MS } from '../src/analyzer.manifest.js';
 
 const BASE_URL = 'http://analysis.test:9321';
 
@@ -44,6 +44,8 @@ interface FakeHostOptions {
      * beside the bytes: what the audio IS, and how long it runs.
      */
     join?: () => Response;
+    /** The whole response for `/transcode`, which answers audio too. */
+    transcode?: () => Response;
 }
 
 /** What the sidecar answers a join with: some bytes, a media type and a duration. */
@@ -51,6 +53,13 @@ const joinedResponse = (): Response =>
     new Response(new Uint8Array([0x66, 0x4c, 0x61, 0x43]), {
         status: 200,
         headers: { 'content-type': 'audio/flac', 'x-duration-ms': '184320' },
+    });
+
+/** What the sidecar answers a copy with: some bytes, a media type and a duration. */
+const transcodedResponse = (): Response =>
+    new Response(new Uint8Array([0x00, 0x00, 0x00, 0x18, 0x66, 0x74]), {
+        status: 200,
+        headers: { 'content-type': 'audio/mp4', 'x-duration-ms': '31250' },
     });
 
 function fakeHost(options: FakeHostOptions = {}) {
@@ -65,6 +74,7 @@ function fakeHost(options: FakeHostOptions = {}) {
         calls.push({ url, init });
 
         if (url.endsWith('/join')) return (options.join ?? joinedResponse)();
+        if (url.endsWith('/transcode')) return (options.transcode ?? transcodedResponse)();
 
         const chosen = url.endsWith('/analyze') ? options.analyze : options.health;
         const status = chosen?.status ?? 200;
@@ -255,6 +265,57 @@ describe('AnalyzerPlugin.join', () => {
     it('is a config error, not an upstream one, when no URL is set', async () => {
         const { plugin } = await started({ config: { baseUrl: '' } });
         expect(await rejectionCode(plugin.join(REQUEST))).toBe('config');
+    });
+});
+
+describe('AnalyzerPlugin.transcode', () => {
+    const REQUEST = { url: 'http://api.test/segments/a/audio', bitrateKbps: 64, channels: 1 };
+
+    it('posts the url and the numbers the station chose, on its own timeout', async () => {
+        const { plugin, calls } = await started();
+        await plugin.transcode(REQUEST);
+
+        const call = calls.find(candidate => candidate.url.endsWith('/transcode'));
+        expect(JSON.parse((call?.init?.body as string) ?? '{}')).toEqual(REQUEST);
+        expect(call?.init?.timeoutMs).toBe(TRANSCODE_TIMEOUT_MS);
+    });
+
+    it('answers with what the copy is and how long it runs', async () => {
+        const { plugin } = await started();
+        const copy = await plugin.transcode(REQUEST);
+
+        expect(copy.mime).toBe('audio/mp4');
+        expect(copy.durationMs).toBe(31_250);
+        expect(await new Response(copy.audio).arrayBuffer()).toHaveProperty('byteLength', 6);
+    });
+
+    it('reports an analyzer that cannot make copies as `unsupported`', async () => {
+        const { plugin } = await started({ transcode: () => new Response('', { status: 404 }) });
+
+        expect(await rejectionCode(plugin.transcode(REQUEST))).toBe('unsupported');
+    });
+
+    it('carries the analyzer own code up for audio it could not fetch', async () => {
+        const { plugin } = await started({
+            transcode: () =>
+                new Response(JSON.stringify({ error: { code: 'unfetchable', message: 'the audio transfer was cut short' } }), {
+                    status: 502,
+                    headers: { 'content-type': 'application/json' },
+                }),
+        });
+
+        expect(await rejectionCode(plugin.transcode(REQUEST))).toBe('upstream');
+    });
+
+    it('refuses a copy the analyzer would not name', async () => {
+        const { plugin } = await started({ transcode: () => new Response(new Uint8Array([1]), { headers: { 'content-type': '' } }) });
+
+        expect(await rejectionCode(plugin.transcode(REQUEST))).toBe('upstream');
+    });
+
+    it('is a config error when no URL is set', async () => {
+        const { plugin } = await started({ config: { baseUrl: '' } });
+        expect(await rejectionCode(plugin.transcode(REQUEST))).toBe('config');
     });
 });
 

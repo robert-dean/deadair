@@ -212,6 +212,22 @@ sealed interface Message {
 
     data object FactNote : Message
 
+    /** The share button on a row, for TalkBack. */
+    data object ShareBreak : Message
+
+    /** The share sheet's title. */
+    data object SendThisBreak : Message
+
+    /** The station has no audio for that break any more. */
+    data object ShareGone : Message
+
+    /** The station has nothing that can make a copy small enough to send. */
+    data object ShareCannotCopy : Message
+
+    data object ShareCouldNotReach : Message
+
+    data object ShareFailed : Message
+
     // ── The broadcast ─────────────────────────────────────────────────────────────────────
     /** The broadcast named nobody and the station's own host has not been read yet, so there is no name to give. */
     data object StationsHost : Message

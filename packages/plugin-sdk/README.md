@@ -17,6 +17,7 @@ A plugin extends deadair by declaring capabilities:
 | `llm`        | produce words: a conversation in, text out                     |
 | `analysis`   | measure a track's audio: bytes in, cue points and loudness out  |
 | `mixer`      | make one piece of audio out of several: parts in, audio out    |
+| `transcode`  | make a small copy of some audio to share: audio in, audio out  |
 | `charts`     | say what is popular: a chart id in, ranked names out           |
 | `similarity` | say what sounds like this: an artist or a record in, names out |
 | `news`       | say what happened outside the station: a feed in, entries out  |
@@ -1206,10 +1207,11 @@ plugins it is the only place an operator can learn them.
 
 ## Decoded audio
 
-`analysis` and `mixer` are the two capabilities that need decoded PCM, which is
-the one thing that does not happen inside deadair. The expected shape for both is
-an adapter over a separate program — the bundled one is an HTTP sidecar serving
-both — in the same relationship a speech plugin has with its engine.
+`analysis`, `mixer` and `transcode` are the three capabilities that need decoded
+PCM, which is the one thing that does not happen inside deadair. The expected
+shape for all three is an adapter over a separate program (the bundled one is an
+HTTP sidecar serving all of them), in the same relationship a speech plugin has
+with its engine.
 
 ### Measuring, and joining
 
@@ -1231,7 +1233,14 @@ rather than failing where the thing behind you cannot join what it was given; a
 station that asks has somewhere to go, since a programme whose parts were not
 joined simply airs as its parts.
 
-### Why these are two capabilities and can still be one plugin
+`transcode(request)` is what `transcode` requires: one URL, a bitrate and a
+channel count in, a smaller copy out, as a `mime` and a stream. The station asks
+for it when a listener shares a talk break and keeps what you answer for a while,
+so the numbers are the station's decision and not yours; encode at what you are
+asked for. It never airs, so lossy is fine. Answer `unsupported` where the thing
+behind you cannot encode, and the listener is told the station cannot make a copy.
+
+### Why these are separate capabilities and can still be one plugin
 
 Joining is the same requirement seen from the other end: whatever decodes for you
 can almost certainly concatenate. So declare both and serve them off one address,
@@ -1244,7 +1253,8 @@ was whichever plugin the operator chose to MEASURE with: install one that
 measures better and cannot join, name it, and joining stops with nothing to do
 about it but choose a worse analyzer. Two keys (`analysis.pluginId` and
 `render.mixerPluginId`) let a station measure with one engine and join with
-another, and let a mix-only plugin exist at all.
+another, and let a mix-only plugin exist at all. `transcode` has its own third key
+(`render.transcodePluginId`) for the same reason.
 
 Declaring several capabilities is ordinary here rather than a compromise: the
 bundled music providers declare three and four.

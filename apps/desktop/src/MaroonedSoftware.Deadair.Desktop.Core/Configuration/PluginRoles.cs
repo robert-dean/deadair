@@ -31,7 +31,7 @@ public static class PluginRoles
         new("Music sources", ["catalog", "stream"]),
         new("Voice", ["speech"]),
         new("Writing", ["llm"]),
-        new("Audio", ["analysis", "mixer"]),
+        new("Audio", ["analysis", "mixer", "transcode"]),
         new("Knowledge", ["enrichment", "similarity", "search", "scrobble"]),
         new("News & programmes", ["news", "weather", "podcast", "almanac", "charts"]),
     ];
@@ -73,6 +73,7 @@ public static class PluginRoles
         "llm" => "Writing",
         "analysis" => "Measures records",
         "mixer" => "Joins audio",
+        "transcode" => "Makes copies to share",
         "enrichment" => "Record details",
         "similarity" => "Who sounds like whom",
         "search" => "Web search",

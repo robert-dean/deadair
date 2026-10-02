@@ -1,0 +1,98 @@
+package com.maroonedsoftware.deadair.scripts
+
+import android.content.ClipData
+import android.content.Context
+import android.content.Intent
+import androidx.core.content.FileProvider
+import com.maroonedsoftware.deadair.auth.NotSignedInException
+import com.maroonedsoftware.deadair.auth.OperatorSession
+import com.maroonedsoftware.deadair.sdk.clients.GetSegmentAudioResponse
+import com.maroonedsoftware.deadair.sdk.models.SegmentAudioQuery
+import com.maroonedsoftware.deadair.sdk.models.SegmentAudioRendition
+import com.maroonedsoftware.deadair.sdk.runtime.SdkError
+import com.maroonedsoftware.deadair.ui.text.Message
+import java.io.File
+import java.io.IOException
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+/** What came of getting a break ready to send. */
+sealed interface BreakShareOutcome {
+    /** A chooser to start, holding the copy and permission to read it. */
+    data class Ready(val chooser: Intent) : BreakShareOutcome
+
+    data class Failed(val why: Message) : BreakShareOutcome
+}
+
+/**
+ * Fetches the station's shareable copy of a break and hands it to the share sheet.
+ *
+ * The copy is written under `cacheDir/shared/` and offered through a `FileProvider`, which is the
+ * only way to hand another app a file this one owns. **That directory never holds more than one**:
+ * it is emptied before each share, so nothing accumulates however many breaks somebody sends, and
+ * Android may clear it under storage pressure anyway. Emptying before rather than after is
+ * deliberate: the app receiving the file reads it after the chooser returns, at a moment this one
+ * cannot know.
+ */
+@OptIn(ExperimentalUuidApi::class)
+class BreakSharer(private val context: Context, private val session: OperatorSession) {
+    suspend fun prepare(segmentId: String, chooserTitle: String): BreakShareOutcome {
+        val copy =
+            try {
+                session.withSession { it.render.getSegmentAudio(Uuid.parse(segmentId), SegmentAudioQuery(rendition = SegmentAudioRendition.SHARE)) }
+            } catch (error: SdkError) {
+                return BreakShareOutcome.Failed(BreakShare.failure(error.status))
+            } catch (_: NotSignedInException) {
+                return BreakShareOutcome.Failed(Message.ShareFailed)
+            } catch (_: IOException) {
+                return BreakShareOutcome.Failed(BreakShare.failure(null))
+            }
+
+        val (bytes, mime, extension, disposition) =
+            when (copy) {
+                is GetSegmentAudioResponse.Status200AudioMp4 -> Received(copy.data, "audio/mp4", "m4a", copy.headers.contentDisposition)
+                is GetSegmentAudioResponse.Status200AudioMpeg -> Received(copy.data, "audio/mpeg", "mp3", copy.headers.contentDisposition)
+                is GetSegmentAudioResponse.Status200AudioWav -> Received(copy.data, "audio/wav", "wav", copy.headers.contentDisposition)
+                is GetSegmentAudioResponse.Status200AudioOgg -> Received(copy.data, "audio/ogg", "ogg", copy.headers.contentDisposition)
+                is GetSegmentAudioResponse.Status200AudioFlac -> Received(copy.data, "audio/flac", "flac", copy.headers.contentDisposition)
+                // Never asked for: the app sends no validator.
+                GetSegmentAudioResponse.Status304 -> return BreakShareOutcome.Failed(Message.ShareFailed)
+            }
+
+        val file =
+            try {
+                withContext(Dispatchers.IO) {
+                    val dir = File(context.cacheDir, SHARED_DIR)
+                    dir.listFiles()?.forEach { it.delete() }
+                    dir.mkdirs()
+                    File(dir, BreakShare.fileName(disposition, extension)).apply { writeBytes(bytes) }
+                }
+            } catch (_: IOException) {
+                return BreakShareOutcome.Failed(Message.ShareFailed)
+            }
+
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}$AUTHORITY_SUFFIX", file)
+        val send =
+            Intent(Intent.ACTION_SEND).apply {
+                type = mime
+                putExtra(Intent.EXTRA_STREAM, uri)
+                // ClipData as well as the extra: it is what carries the read grant through the chooser
+                // to whichever app is picked.
+                clipData = ClipData.newRawUri(file.name, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        return BreakShareOutcome.Ready(Intent.createChooser(send, chooserTitle).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+    }
+
+    private data class Received(val data: ByteArray, val mime: String, val extension: String, val disposition: String?)
+
+    companion object {
+        /** Under `cacheDir`, and named in `res/xml/share_paths.xml`. */
+        const val SHARED_DIR = "shared"
+
+        /** After the package name, so the `.debug` copy and the Play build never claim the same authority. */
+        const val AUTHORITY_SUFFIX = ".shares"
+    }
+}

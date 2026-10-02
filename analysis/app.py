@@ -1,6 +1,6 @@
 """The analysis sidecar's HTTP surface.
 
-Two endpoints, documented in README.md, which is the contract rather than a
+The endpoints are documented in README.md, which is the contract rather than a
 description of this file. Anything answering them is a valid analyzer.
 
 Everything here is plumbing: fetch-and-decode, classify a failure, size the
@@ -25,7 +25,7 @@ from dataclasses import dataclass
 import numpy as np
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from join import (
     MAX_GAP_MS,
@@ -115,6 +115,9 @@ FETCH_TIMEOUT_S = int(os.environ.get("ANALYSIS_FETCH_TIMEOUT_S", "180"))
 # not a track is not.
 MAX_BYTES = int(os.environ.get("ANALYSIS_MAX_BYTES", str(512 * 1024 * 1024)))
 
+# A copy made to be SENT is mono or stereo and nothing wider. See `/transcode`.
+MAX_TRANSCODE_CHANNELS = 2
+
 app = FastAPI(title="deadair analysis")
 
 # Bounded at the ceiling, and the semaphore is what actually bounds it -- FastAPI
@@ -172,6 +175,19 @@ class JoinRequest(BaseModel):
     # On by default, because a gap between two untrimmed parts is not a gap of
     # `gapMs`, it is `gapMs` plus two unknowns.
     trim: bool = True
+
+
+class TranscodeRequest(BaseModel):
+    """One file to be made smaller, for somebody to SEND rather than for the station to air.
+
+    The station names a purpose and decides these numbers itself; they are here so
+    the decision lives in one place, the caller, rather than in two. Bounded so a
+    caller cannot ask this service to do something silly at the ceiling's expense.
+    """
+
+    url: str
+    bitrateKbps: int = Field(default=64, ge=16, le=320)
+    channels: int = Field(default=1, ge=1, le=MAX_TRANSCODE_CHANNELS)
 
 
 class AnalysisError(Exception):
@@ -581,6 +597,100 @@ def _encode_flac(samples: np.ndarray, channels: int) -> bytes:
     return finished.stdout
 
 
+def aac_command(source: str, out: str, bitrate_kbps: int, channels: int) -> list[str]:
+    """The ffmpeg invocation for a small AAC copy of a LOCAL file.
+
+    **The native `aac` encoder, and never `libfdk_aac`.** The native one is part of
+    ffmpeg proper and LGPL; fdk-aac is non-free, which "The rule, stated once" in
+    README.md keeps out of this path, and naming it here would either fail on the
+    image's Debian ffmpeg (built without it) or, worse, succeed on a build that
+    has it. A name of its own so the test can say so.
+
+    To a FILE rather than a pipe: an ordinary MP4 writes its index (`moov`) after
+    the audio, which needs a seekable output, and `+faststart` then moves that
+    index to the front so a phone can start playing before the last byte lands.
+    `-map_metadata -1` because the copy is going to somebody else, and whatever
+    the speech engine wrote into its container is not theirs to have.
+    """
+    return [
+        "ffmpeg",
+        "-nostdin",
+        "-hide_banner",
+        "-loglevel", "error",
+        "-t", str(MAX_SECONDS),
+        "-i", source,
+        "-vn",
+        "-map_metadata", "-1",
+        "-ac", str(channels),
+        "-c:a", "aac",
+        "-b:a", f"{bitrate_kbps}k",
+        "-movflags", "+faststart",
+        "-f", "mp4",
+        "-y",
+        out,
+    ]
+
+
+def _encode_aac(source: str, out: str, bitrate_kbps: int, channels: int) -> None:
+    """Run `aac_command`, classifying a failure the way `_decode` does."""
+    try:
+        finished = subprocess.run(aac_command(source, out, bitrate_kbps, channels), capture_output=True, check=False)
+    except FileNotFoundError as error:  # pragma: no cover - a broken image, not a bad file
+        raise AnalysisError("internal", "ffmpeg is not installed in this image", status=500) from error
+
+    if finished.returncode != 0:
+        stderr = finished.stderr.decode("utf-8", errors="replace").strip()
+        raise AnalysisError("undecodable", stderr[:500] or f"ffmpeg exited {finished.returncode}")
+
+    if not os.path.exists(out) or os.path.getsize(out) == 0:
+        raise AnalysisError("undecodable", "the file held no audio to encode")
+
+
+def _duration_of(path: str) -> int | None:
+    """How long a local file plays, in milliseconds, or `None` if ffprobe will not say."""
+    command = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path]
+    try:
+        finished = subprocess.run(command, capture_output=True, check=False, timeout=60)
+        return int(float(finished.stdout.decode().strip()) * 1000)
+    except (ValueError, OSError, subprocess.SubprocessError):
+        return None
+
+
+def _transcode(url: str, bitrate_kbps: int, channels: int) -> tuple[bytes, int | None]:
+    """A small AAC copy of the audio at `url`, and how long it plays.
+
+    **Leaves nothing behind**, on success or failure: the download is unlinked in
+    `finally` as `_analyze`'s is, and the encoder's output is written inside a
+    temporary directory that is gone before this returns. The copy is held in
+    memory instead, which is the right trade at this size -- a minute at 64 kbps
+    is about half a megabyte.
+
+    A truncated download is refused rather than encoded. `/analyze` can report an
+    incomplete measurement and let the station decide; a short copy sent to
+    somebody is simply wrong, with nobody downstream to notice.
+    """
+    path, whole = _download(url)
+
+    try:
+        if not whole:
+            raise AnalysisError("unfetchable", "the audio transfer was cut short")
+
+        with tempfile.TemporaryDirectory(prefix="transcode-") as scratch:
+            out = os.path.join(scratch, "copy.m4a")
+            _encode_aac(path, out, bitrate_kbps, channels)
+            with open(out, "rb") as handle:
+                audio = handle.read()
+            length_ms = _duration_of(out)
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        _trim()
+
+    return audio, length_ms
+
+
 def _loudness_of(samples: np.ndarray) -> dict:
     """The loudness fields, omitting any the signal cannot support.
 
@@ -713,6 +823,31 @@ async def join(request: JoinRequest) -> Response:
     # just decoded every sample, and the caller storing the row would otherwise
     # have to decode the result again to learn how long it is.
     return Response(content=audio, media_type="audio/flac", headers={"X-Duration-Ms": str(length_ms)})
+
+
+@app.post("/transcode")
+async def transcode(request: TranscodeRequest) -> Response:
+    """A small AAC copy of one file, for a listener to send on. Answers AUDIO, as `/join` does.
+
+    Under the same semaphore and pool as everything else: it decodes a whole file,
+    and the operator's concurrency setting should be able to see it. Never on the
+    air path -- the station keeps what it airs lossless or as rendered, and this
+    is a copy made for a text message.
+    """
+    if not request.url.strip():
+        return _error(AnalysisError("unfetchable", "no url given", status=400))
+
+    async with _slots:
+        loop = asyncio.get_running_loop()
+        try:
+            audio, length_ms = await loop.run_in_executor(_pool, _transcode, request.url, request.bitrateKbps, request.channels)
+        except AnalysisError as error:
+            return _error(error)
+        except Exception as error:  # noqa: BLE001 - the boundary; nothing above this catches
+            return _error(AnalysisError("internal", str(error)[:500], status=500))
+
+    headers = {} if length_ms is None else {"X-Duration-Ms": str(length_ms)}
+    return Response(content=audio, media_type="audio/mp4", headers=headers)
 
 
 def _error(error: AnalysisError) -> JSONResponse:

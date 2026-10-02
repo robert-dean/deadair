@@ -39,6 +39,16 @@ public final class OrderActions {
         await applying { try await $0.director.addARecordToTheRunningOrder(body: AddStationTrackInput(trackId: trackId, atIndex: index)) }
     }
 
+    /// Hand the broadcast to somebody else, or `nil` to hand it back to the station's own host.
+    ///
+    /// Breaks already written in the outgoing character are written again in the new one, so this is a
+    /// change to what the station will SAY as well as to a name on a card. A 404 is a persona picked
+    /// from a list the station has since changed.
+    @discardableResult
+    public func recast(_ personaId: String?) async -> Bool {
+        await applying(expected: [404: .hostGone]) { try await $0.director.recastTheBroadcast(body: SetStationHostInput(personaId: personaId)) }
+    }
+
     @discardableResult
     private func applying(expected: [Int: Notice] = [:], _ action: @escaping @Sendable (Deadair) async throws -> StationOrder) async -> Bool {
         guard let answer = await actions.run(expected: expected, action) else { return false }

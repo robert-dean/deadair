@@ -86,6 +86,7 @@ private struct Rows: View {
     @State private var held: [StationOrderItem]?
     /// The row an action is in flight for, and whether any is: one operator action at a time.
     @State private var busyItemId: String?
+    @State private var pickingHost = false
 
     var body: some View {
         let ui = RunningOrderUiState(items: reading.order.items, historyOpen: historyOpen)
@@ -104,11 +105,27 @@ private struct Rows: View {
                 // no one, and the line would name the station's own host over an empty order.
                 if !broadcast.nothingOn {
                     Section {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(String(localized: "Host")).font(.caption).foregroundStyle(.secondary)
-                            Text(broadcast.hostName.words).font(.title2.weight(.semibold)).lineLimit(1)
+                        // Where the reader may change it, the name is the control, with a chevron, so the
+                        // host is changed where it is read rather than two pages away. Not while rows are
+                        // being moved: the one thing to do then is finish.
+                        let recasts = model.isOperator && broadcast.canRecast && !editing
+                        Button {
+                            pickingHost = true
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(String(localized: "Host")).font(.caption).foregroundStyle(.secondary)
+                                    Text(broadcast.hostName.words).font(.title2.weight(.semibold)).lineLimit(1).foregroundStyle(.primary)
+                                }
+                                if recasts {
+                                    Image(systemName: "chevron.down").foregroundStyle(.secondary)
+                                }
+                            }
                         }
+                        .buttonStyle(.plain)
+                        .disabled(!recasts)
                         .accessibilityElement(children: .combine)
+                        .accessibilityHint(recasts ? Text("Change the host") : Text(""))
                     }
                 }
 
@@ -173,6 +190,7 @@ private struct Rows: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .sheet(isPresented: $pickingHost) { HostPicker(broadcast: broadcast) }
             // The station's answer is the order now; whatever was held for the drag is done with.
             .onChange(of: reading.order.items) { _, _ in held = nil }
             // Opened on the row the order is read from, and moved to it again when it changes: the

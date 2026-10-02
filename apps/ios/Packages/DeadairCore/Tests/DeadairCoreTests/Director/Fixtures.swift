@@ -22,6 +22,6 @@ func stationOrder(name: String = "Heavy metal hits", brief: String? = nil, perso
     )
 }
 
-func persona(_ id: String, _ label: String, defaultHost: Bool = false, djName: String? = nil) -> Persona {
-    Persona(id: id, key: id, label: label, style: "warm", djName: djName, defaultHost: defaultHost, presenting: defaultHost)
+func persona(_ id: String, _ label: String, kind: PersonaKind? = nil, defaultHost: Bool = false, djName: String? = nil) -> Persona {
+    Persona(id: id, key: id, kind: kind, label: label, style: "warm", djName: djName, defaultHost: defaultHost, presenting: defaultHost)
 }

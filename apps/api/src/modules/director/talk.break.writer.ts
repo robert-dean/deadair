@@ -221,19 +221,28 @@ export function labelFor({ previous, next }: PhrasingInputs): string {
  *
  * A remix is cut only when it carries a YEAR. "Tornado Of Souls - 2004 Remix" is Megadeth's reissue
  * series, the same record reshelved, and the floor read it out verbatim in an audition; "Bizarre Love
- * Triangle (Shep Pettibone Remix)" is a different recording, and naming it is the point.
+ * Triangle (Shep Pettibone Remix)" is a different recording, and naming it is the point. A version is
+ * the same: "Mr. Crowley - 2002 Version" is a reissue and goes, "Acoustic Version" is a recording and
+ * stays.
+ *
+ * A soundtrack credit goes too, when the suffix OPENS with "from" and names a film or a soundtrack:
+ * "I Don't Want to Miss a Thing - From the Touchstone film, "Armageddon"" aired from the floor as
+ * exactly that on 2026-10-02. Opening with "from" is what keeps "(Theme From Shaft)" safe, since there
+ * the credit is the title.
  */
 export function spoken(text: string): string {
     const furniture =
-        /\b(remaster(ed)?|re-?master|deluxe|expanded|anniversary|mono|stereo|single version|album version|radio edit|bonus track|\d{4} (re)?mix)\b/i;
+        /\b(remaster(ed)?|re-?master|deluxe|expanded|anniversary|mono|stereo|single version|album version|radio edit|bonus track|\d{4} (re)?mix|\d{4} version)\b/i;
+    const soundtrackCredit = /^[\s([\]\-–—]*from\b.*\b(film|motion picture|movie|soundtrack)\b/i;
+    const isFurniture = (match: string): boolean => furniture.test(match) || soundtrackCredit.test(match);
 
     let cleaned = text
         // "Title (2011 Remaster)" and "Title [Deluxe Edition]".
-        .replace(/[([][^()[\]]*[)\]]/g, match => (furniture.test(match) ? '' : match))
+        .replace(/[([][^()[\]]*[)\]]/g, match => (isFurniture(match) ? '' : match))
         // "Title - 2011 Remaster", where the marker is hung off a dash instead, and "Paranoid - 2012 -
         // Remaster", where the year is a dash of its own. Cutting only the last dash left that one
         // on air as "Paranoid - 2012", so a bare year in front of the marker goes with it.
-        .replace(/(\s[-–—]\s\d{4})?\s[-–—]\s[^-–—]*$/, match => (furniture.test(match) ? '' : match))
+        .replace(/(\s[-–—]\s\d{4})?\s[-–—]\s[^-–—]*$/, match => (isFurniture(match) ? '' : match))
         .replace(/\s{2,}/g, ' ')
         .trim();
 

@@ -376,6 +376,13 @@ describe('spoken', () => {
         ['Hangar 18 (2004 Remix)', 'Hangar 18'],
         // The year hung off a dash of its own, which aired as "Paranoid - 2012".
         ['Paranoid - 2012 - Remaster', 'Paranoid'],
+        // Both aired from the floor on 2026-10-02 exactly as filed.
+        ['Mr. Crowley - 2002 Version', 'Mr. Crowley'],
+        ['I Don\'t Want to Miss a Thing - From the Touchstone film, "Armageddon"', "I Don't Want to Miss a Thing"],
+        ['Take My Breath Away (From "Top Gun" Original Soundtrack)', 'Take My Breath Away'],
+        ['Ghostbusters (From the Motion Picture)', 'Ghostbusters'],
+        // The credit goes and the "from" that is part of the title stays.
+        ['Theme From Shaft (From the film "Shaft")', 'Theme From Shaft'],
     ])('drops catalogue furniture from %s', (filed, read) => {
         expect(spoken(filed)).toBe(read);
     });
@@ -390,6 +397,10 @@ describe('spoken', () => {
         // A different recording, and the remixer is the reason it was picked.
         ['Bizarre Love Triangle (Shep Pettibone Remix)', 'Bizarre Love Triangle (Shep Pettibone Remix)'],
         ['Marquee Moon', 'Marquee Moon'],
+        // A version that is a different recording, which is why it was chosen.
+        ['Layla - Acoustic Version', 'Layla - Acoustic Version'],
+        // The credit IS the title here: it does not open with "from".
+        ['Love Theme from Romeo and Juliet', 'Love Theme from Romeo and Juliet'],
     ])('leaves %s alone', (filed, read) => {
         expect(spoken(filed)).toBe(read);
     });

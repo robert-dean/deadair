@@ -23,6 +23,10 @@ struct ManageScreen: View {
                         row(String(localized: "Replan the show"), detail: broadcast?.brief.map { Message.askedFor($0).words })
                     }
                 }
+                // Always offered: off air it is the way on.
+                Section(String(localized: "Put something on")) {
+                    NavigationLink(value: PageRoute.airSomething) { row(String(localized: "Playlists"), detail: nil) }
+                }
             }
             if model.signedIn {
                 Section(String(localized: "What it said")) {

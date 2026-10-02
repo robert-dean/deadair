@@ -18,6 +18,10 @@ enum PageRoute: Hashable {
     case manage
     /// Replan this show, or start a new one.
     case plan(currentBrief: String?, somethingOn: Bool)
+    /// The playlists and charts that can be put on air.
+    case airSomething
+    case playlist(pluginId: String, playlistId: String, name: String)
+    case chart(id: String, name: String)
 
     /// A record's page from the id a row carries, or `nil` for a row whose id is not one.
     static func track(_ id: String?) -> PageRoute? {
@@ -37,6 +41,9 @@ extension View {
             case .desk: DeskScreen()
             case .manage: ManageScreen()
             case .plan(let brief, let on): PlanScreen(currentBrief: brief, somethingOn: on)
+            case .airSomething: AirSomethingScreen()
+            case .playlist(let pluginId, let playlistId, let name): PlaylistScreen(pluginId: pluginId, playlistId: playlistId, name: name)
+            case .chart(let id, let name): ChartScreen(chartId: id, name: name)
 
             }
         }

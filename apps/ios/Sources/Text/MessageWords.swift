@@ -128,6 +128,14 @@ extension Message {
         case .askedFor(let brief): String(localized: "Asked for: \(brief)")
         case .eraOutOfRange: String(localized: "Between \(PlanUiState.eraYears.lowerBound) and \(PlanUiState.eraYears.upperBound)")
         case .eraBackwards: String(localized: "Earlier than the start")
+        case .chartPeak(let peak): String(localized: "peak \(peak)")
+        case .chartWeeks(let weeks): String(localized: "\(weeks) weeks")
+        case .chartOrder(.countdown): String(localized: "Countdown, ending on number one")
+        case .chartOrder(.ranked): String(localized: "Number one first")
+        case .chartOrder(.unordered): String(localized: "No fixed order")
+        case .airConfirm(let what): String(localized: "Air \(what) to everyone?")
+        case .playlistUnavailable: String(localized: "This playlist is unavailable.")
+        case .chartUnavailable: String(localized: "This chart is unavailable.")
 
         case .operatorNotice(let notice): notice.words
         }

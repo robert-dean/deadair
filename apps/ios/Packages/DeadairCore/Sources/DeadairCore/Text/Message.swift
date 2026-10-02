@@ -149,6 +149,15 @@ public enum Message: Equatable, Sendable {
     case askedFor(String)
     case eraOutOfRange
     case eraBackwards
+    /// "peak 3"
+    case chartPeak(Int)
+    /// "12 weeks"
+    case chartWeeks(Int)
+    case chartOrder(PlayoutChartInputChartOrder)
+    /// "Air Classic Rock to everyone?"
+    case airConfirm(String)
+    case playlistUnavailable
+    case chartUnavailable
 
     // MARK: The operator
 

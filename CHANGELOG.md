@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.38.2] — 2026-10-02
+
+- Two new settings for the model that writes the talk breaks: how hard it thinks before it speaks, and how much room it has. Some models think at length even when asked to think a little, and run out of room before they say anything, so the break falls back to the station's own phrasings. Setting the break model to not think at all fixes that for those models. Nothing changes until you set them.
+- The news is read in the presenter's voice without their catchphrases. A presenter's signature lines and favourite words were being pushed into bulletins, so a story about an execution could end on a flippant sign-off. The bulletin still sounds like the presenter, but it is no longer asked to use their catchphrases or their words, and a claim a story attributes to someone stays attributed to them.
+- The news no longer reads a story's text where a feed cut it off mid-sentence. Feeds often shorten their summaries and end them with "…", and the station used to read the fragment aloud, ellipsis and all. It now keeps only the sentences the feed finished, and reads the headline alone when there are none.
+- The station no longer reads out a record's reissue year or soundtrack credit as part of its name. "Mr. Crowley - 2002 Version" is now said as "Mr. Crowley", and "I Don't Want to Miss a Thing - From the Touchstone film, Armageddon" as "I Don't Want to Miss a Thing". A version that is a different recording, such as an acoustic one, is still named.
+
 ## [0.38.1] — 2026-10-02
 
 - The station no longer throws away its own next record when the audio chain is slow to fetch it. If a record took more than five seconds to download, the station decided it had been lost and sent it again, then saw two copies and cleared both, which could leave a listener hearing the fallback music for several seconds. The audio chain now reports what it is still downloading, and the station counts that as delivered.
@@ -999,7 +1006,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.38.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.38.2...HEAD
+[0.38.2]: https://github.com/robert-dean/deadair/compare/v0.38.1...v0.38.2
 [0.38.1]: https://github.com/robert-dean/deadair/compare/v0.38.0...v0.38.1
 [0.38.0]: https://github.com/robert-dean/deadair/compare/v0.37.7...v0.38.0
 [0.37.7]: https://github.com/robert-dean/deadair/compare/v0.37.6...v0.37.7

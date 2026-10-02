@@ -163,6 +163,17 @@ which is the ordinary case. The level follower therefore never sees the leading 
 blend is sized against the trimmed record; note that `cross` presents its output as one never-ending
 track, so nothing `track_sensitive` above it sees a boundary.
 
+**The trim is only as exact as the decoder's seek, and Liquidsoap's own Ogg decoder's is not.** The
+cue-in is applied as a seek when the file is opened. The native Ogg decoder outranks ffmpeg, so it
+took every `.ogg`, which is most records (Spotify serves Ogg Vorbis). It seeks to an Ogg page boundary
+and stops, so the record starts wherever that page fell, past the cue-in, cutting the start of the
+audio. The position it reports is wrong as well, so the log's `Initial seek mismatch! Expected: …,
+effective: …` reads as the record starting early when it started late. Measured on a Vorbis file with
+a tone change at 3s: a 0.3s cue-in began at 1.62s while the log said `effective: 0`. ffmpeg decodes up
+to the target and landed within 20ms. `radio.liq` therefore sets `settings.decoder.priorities.ogg` to
+5, below ffmpeg's 10, which moves Ogg to ffmpeg and leaves every other format where it was. After a
+Liquidsoap bump, a `seek mismatch` line against an `.ogg` means this needs checking again.
+
 Then it is **set to the station's level**, from the same measurement: `amplify(override="liq_amplify")`
 sits between the trim and `normalize`, acting on a gain the app resolved before the record was handed
 over (`apps/api/src/modules/playout/gain.ts`, stamped by `annotate.ts`). Same silent failure as the

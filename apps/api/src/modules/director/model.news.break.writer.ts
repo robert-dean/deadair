@@ -84,6 +84,10 @@ export const NEWS_SHAPE: BreakPromptShape = {
     // discography note because nothing about it is even trying to be true today. The sheet still
     // goes, so this still sounds like the station's presenter; what is withheld is the accumulation.
     showsNotebook: false,
+    // The character as a lean: no signatures offered, its words allowed rather than required, and
+    // no closing reminder to speak "every sentence" in it. The prompt half of `dialect: 'optional'`
+    // below, which the guard had applied alone. See `BreakPromptShape.voice`.
+    voice: 'lean',
     opening: request =>
         // What it is ABOUT, when a band asked for one. Said in the opening rather than as a rule
         // because it changes what the bulletin IS rather than constraining how it is written — and

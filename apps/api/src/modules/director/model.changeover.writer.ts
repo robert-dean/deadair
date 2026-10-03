@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { languageGuard, stationPromptSettings } from './prompt.settings.js';
+import { languageGuard, speakerGuard, stationPromptSettings } from './prompt.settings.js';
 import { languageName } from '#modules/shared/language.name.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
@@ -143,6 +143,7 @@ export class ModelChangeoverWriter extends BreakWriter {
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
             ...(request.moment === undefined ? {} : { moment: request.moment }),
             ...languageGuard(this.config),
+            ...speakerGuard(this.config, request),
             // No record was shown, so no year belongs in the answer but one the prompt itself carried.
             years: permittedYears([], request.moment, shownWithoutRecent(messages, request.recent)),
         };

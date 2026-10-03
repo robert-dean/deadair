@@ -2263,6 +2263,11 @@ export interface AnswerGuard {
      */
     names?: readonly (BreakTrack | undefined)[];
     /**
+     * Who may be named in front of the script as its speaker, so that label is taken off before the
+     * engine reads it out. Built by `speakerGuard`. See `SpeakableOptions.speakers`.
+     */
+    speakers?: readonly string[];
+    /**
      * The two records this break sits BETWEEN, so a cue can be judged against the right one.
      *
      * Separate from {@link AnswerGuard.names}, which is a flat list because the question it asks —
@@ -2463,6 +2468,7 @@ const tidyAnswer = (text: string, guard: AnswerGuard = {}): string | undefined =
         perform: PRESENTER_CUES,
         pads: guard.pads ?? [],
         ...(guard.language === undefined ? {} : { language: guard.language }),
+        ...(guard.speakers === undefined ? {} : { speakers: guard.speakers }),
     });
 
 /**

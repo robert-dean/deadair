@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Anchor, Badge, Box, Code, Collapse, Group, SegmentedControl, Stack, Text, UnstyledButton } from '@mantine/core';
+import { ActionIcon, Anchor, Badge, Box, Code, Collapse, Group, SegmentedControl, Stack, Text, Tooltip, UnstyledButton } from '@mantine/core';
+import { IconShare } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
 import type { ScriptAttempt, ScriptOutcome } from '@deadair/sdk';
 import type { TFunction } from 'i18next';
@@ -8,6 +9,9 @@ import { Trans, useTranslation } from 'react-i18next';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { useRateScript, useScriptHistory } from '../../api/scripts.queries';
 import { FeedMoment } from '../shared/dated.feed';
+import { notifyDone } from '../shared/notify';
+import { severityColor } from '../shared/status';
+import { shareable, shareBreak, shareFailure, type ShareFailure } from './break.share';
 import { Eyebrow } from '../shared/eyebrow';
 import { FeedPage } from '../shared/feed.page';
 import { ScriptRatingControl } from './script.rating.control';
@@ -190,8 +194,25 @@ interface AttemptRowProps {
  * a dozen lines at a time.
  */
 function AttemptRow({ attempt }: AttemptRowProps) {
+    const { t } = useTranslation('scripts');
     const [open, setOpen] = useState(false);
+    const [sharing, setSharing] = useState(false);
+    const [shareFailed, setShareFailed] = useState<ShareFailure | undefined>(undefined);
     const rate = useRateScript();
+
+    const share = async (segmentId: string) => {
+        setSharing(true);
+        setShareFailed(undefined);
+        try {
+            // The share sheet says for itself that something was sent; a download lands quietly in a
+            // corner of the browser, so that one is named.
+            if ((await shareBreak(segmentId)) === 'saved') notifyDone(t('share.saved'));
+        } catch (error) {
+            setShareFailed(shareFailure(error));
+        } finally {
+            setSharing(false);
+        }
+    };
 
     // A declined or failed attempt has no words, so the reason takes the line the script would have
     // had. Without it the row is a timestamp and a badge saying nothing happened.
@@ -251,7 +272,30 @@ function AttemptRow({ attempt }: AttemptRowProps) {
                         />
                     </Box>
                 )}
+
+                {/* Only where there is audio to send: words were written and the segment is still known. */}
+                {shareable(attempt) ? (
+                    <Box pt="xs" style={{ flexShrink: 0 }}>
+                        <Tooltip label={t('share.label')} openDelay={400}>
+                            <ActionIcon
+                                variant="subtle"
+                                size="md"
+                                aria-label={t('share.label')}
+                                loading={sharing}
+                                onClick={() => void share(attempt.segmentId)}
+                            >
+                                <IconShare size={16} stroke={1.7} />
+                            </ActionIcon>
+                        </Tooltip>
+                    </Box>
+                ) : undefined}
             </Group>
+
+            {shareFailed === undefined ? undefined : (
+                <Text size="xs" c={severityColor.warning} px="md" pb="xs">
+                    {t(`share.failure.${shareFailed}`)}
+                </Text>
+            )}
 
             {/* Unmounted rather than hidden while collapsed: a page of fifty rows each holding a
                 few thousand words of prompt is worth not putting in the DOM to save a transition. */}

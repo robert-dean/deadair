@@ -50,4 +50,14 @@ export const scripts = {
         neutral: 'Heard it, no opinion',
         liked: 'More like this',
     },
+    share: {
+        label: 'Share this break',
+        saved: 'The break was saved as a download.',
+        failure: {
+            gone: 'The station no longer has the audio for that break.',
+            cannotCopy: "The station can't make a copy to send right now.",
+            couldNotReach: "Couldn't reach the station to get that break.",
+            failed: "Couldn't get that break ready to send.",
+        },
+    },
 } as const;

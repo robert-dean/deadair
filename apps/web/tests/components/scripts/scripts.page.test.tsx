@@ -6,7 +6,7 @@
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
-import type { ScriptAttempt } from '@deadair/sdk';
+import { SdkError, type ScriptAttempt } from '@deadair/sdk';
 
 import { ScriptsPage } from '../../../src/components/scripts/scripts.page';
 import { render, screen, setupUser } from '../../utils/render';
@@ -25,6 +25,13 @@ const rate = vi.fn();
 vi.mock('../../../src/api/scripts.queries', () => ({
     useScriptHistory: (filter: unknown) => history(filter),
     useRateScript: () => ({ mutate: rate, isPending: false, variables: undefined }),
+}));
+
+const shareBreak = vi.fn();
+
+vi.mock('../../../src/components/scripts/break.share', async importOriginal => ({
+    ...(await importOriginal<typeof import('../../../src/components/scripts/break.share')>()),
+    shareBreak: (id: string) => shareBreak(id),
 }));
 
 const attempt = (over: Partial<ScriptAttempt> = {}): ScriptAttempt => ({
@@ -115,5 +122,32 @@ describe('ScriptsPage', () => {
 
         expect(opinions).toHaveLength(3);
         expect(opinions.some(radio => (radio as HTMLInputElement).checked)).toBe(false);
+    });
+
+    /** Only where there is audio to send: words were written and the segment is still known. */
+    it('offers to share a written break, and nothing that never became audio', () => {
+        history.mockReturnValue(
+            answer([
+                attempt({ id: 'sh_4', segmentId: 'seg_4' }),
+                attempt({ id: 'sh_5', segmentId: undefined }),
+                attempt({ id: 'sh_6', segmentId: 'seg_6', script: undefined, outcome: 'declined', reason: 'The model declined.' }),
+            ]),
+        );
+
+        render(<ScriptsPage />);
+
+        expect(screen.getAllByRole('button', { name: 'Share this break' })).toHaveLength(1);
+    });
+
+    it("asks for the break's own segment, and says why when it cannot be sent", async () => {
+        history.mockReturnValue(answer([attempt({ id: 'sh_7', segmentId: 'seg_7' })]));
+        shareBreak.mockRejectedValue(new SdkError(404, 'Not Found', undefined, new Headers()));
+        const user = setupUser();
+
+        render(<ScriptsPage />);
+        await user.click(screen.getByRole('button', { name: 'Share this break' }));
+
+        expect(shareBreak).toHaveBeenCalledWith('seg_7');
+        expect(await screen.findByText('The station no longer has the audio for that break.')).toBeInTheDocument();
     });
 });

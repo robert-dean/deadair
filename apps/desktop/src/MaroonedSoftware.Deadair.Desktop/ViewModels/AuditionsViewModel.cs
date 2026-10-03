@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.Programme;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Core.Voicing;
 using MaroonedSoftware.Deadair.Desktop.Services;
@@ -99,7 +100,7 @@ public sealed partial class AuditionRunViewModel(PersonaAuditionSummary run) : O
 /// The rehearsal on a character's page writes ONE break between two fixed invented records, which is
 /// right for judging an edit and wrong for this question: does the character hold up over real
 /// material, and does the model start declining once there are facts in front of it? So this runs the
-/// same writers over a playlist, one break per transition, and airs none of it.
+/// same writers over a playlist or a chart, one break per transition, and airs none of it.
 /// </para>
 /// <para>
 /// It polls, and only while a run is still going: the station's own jobs carry a run on without
@@ -120,7 +121,7 @@ public sealed partial class AuditionsViewModel(OperatorActions actions, HttpClie
 
     public ObservableCollection<ChoiceViewModel> Hosts { get; } = [];
 
-    public ObservableCollection<ChoiceViewModel> Playlists { get; } = [];
+    public ObservableCollection<SourceChoice> Sources { get; } = [];
 
     public ObservableCollection<AuditionRunViewModel> Runs { get; } = [];
 
@@ -129,20 +130,24 @@ public sealed partial class AuditionsViewModel(OperatorActions actions, HttpClie
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartCommand))]
-    private ChoiceViewModel? _playlist;
+    private SourceChoice? _source;
 
     [ObservableProperty]
     private decimal? _breaks = AuditionText.DefaultBreaks;
 
     public string? Empty => Runs.Count > 0 || Host is null ? null
-        : $"{Host.Label} has not been auditioned yet. Pick a playlist above and press Start. Ten breaks is about an hour of radio, "
+        : $"{Host.Label} has not been auditioned yet. Pick a playlist or a chart above and press Start. Ten breaks is about an hour of radio, "
             + "and you can read them as they land.";
 
     protected override async Task ReadAsync(CancellationToken cancellationToken)
     {
         var roster = await RunAsync((sdk, token) => sdk.Personas.ListPersonasAsync(token), cancellationToken: cancellationToken)
             .ConfigureAwait(true);
+        var owned = await RunAsync((sdk, token) => sdk.StationPlaylists.ListStationPlaylistsAsync(token), cancellationToken: cancellationToken)
+            .ConfigureAwait(true);
         var playlists = await RunAsync((sdk, token) => sdk.Playlists.ListImportablePlaylistsAsync(token), cancellationToken: cancellationToken)
+            .ConfigureAwait(true);
+        var charts = await RunAsync((sdk, token) => sdk.Charts.ListChartsAsync(token), cancellationToken: cancellationToken)
             .ConfigureAwait(true);
 
         if (roster is not null)
@@ -150,10 +155,7 @@ public sealed partial class AuditionsViewModel(OperatorActions actions, HttpClie
             PresentHosts(roster.Personas);
         }
 
-        if (playlists is not null)
-        {
-            PresentPlaylists(playlists.Playlists);
-        }
+        PresentSources(owned?.Playlists ?? [], playlists?.Playlists ?? [], charts?.Charts ?? []);
 
         await ReadRunsAsync(cancellationToken).ConfigureAwait(true);
     }
@@ -180,18 +182,17 @@ public sealed partial class AuditionsViewModel(OperatorActions actions, HttpClie
             ?? Hosts.FirstOrDefault();
     }
 
-    public void PresentPlaylists(IEnumerable<CatalogPlaylist> playlists)
+    /// <summary>The station's own playlists, the providers' and the charts, as the timetable offers them.</summary>
+    public void PresentSources(IEnumerable<StationPlaylist> owned, IEnumerable<CatalogPlaylist> playlists, IEnumerable<StationChart> charts)
     {
-        ArgumentNullException.ThrowIfNull(playlists);
-
-        var chosen = Playlist?.Value;
-        Playlists.Clear();
-        foreach (var playlist in playlists.Where(AuditionText.Offerable))
+        var chosen = Source?.Source;
+        Sources.Clear();
+        foreach (var choice in AuditionText.Sources(owned, playlists, charts, chosen))
         {
-            Playlists.Add(new ChoiceViewModel($"{playlist.PluginId}\n{playlist.Id}", $"{playlist.Name} · {playlist.PluginName}", playlist.Name));
+            Sources.Add(choice);
         }
 
-        Playlist = Playlists.FirstOrDefault(choice => choice.Value == chosen);
+        Source = Sources.FirstOrDefault(choice => choice.Source == chosen);
     }
 
     partial void OnHostChanged(ChoiceViewModel? value)
@@ -291,16 +292,15 @@ public sealed partial class AuditionsViewModel(OperatorActions actions, HttpClie
     [RelayCommand(CanExecute = nameof(CanStart))]
     private async Task StartAsync()
     {
-        if (Host is not { } host || Playlist is not { } playlist)
+        if (Host is not { } host || Source is not { } source)
         {
             return;
         }
 
-        var parts = playlist.Value.Split('\n');
         var limit = (long)Math.Clamp(Breaks ?? AuditionText.DefaultBreaks, 1, AuditionText.MostBreaks);
         var started = await RunAsync((sdk, token) => sdk.PersonasAuditions.StartPersonaAuditionAsync(
             host.Value,
-            new PersonaAuditionRequest { PluginId = parts[0], PlaylistId = parts[1], Name = playlist.Extra, Limit = limit },
+            AuditionText.Request(source, limit),
             token)).ConfigureAwait(true);
 
         if (started is not null)
@@ -310,7 +310,7 @@ public sealed partial class AuditionsViewModel(OperatorActions actions, HttpClie
         }
     }
 
-    private bool CanStart() => Host is not null && Playlist is not null;
+    private bool CanStart() => Host is not null && Source is not null;
 
     /// <summary>Stops a run. What it wrote stays readable; nothing it wrote ever aired.</summary>
     [RelayCommand]

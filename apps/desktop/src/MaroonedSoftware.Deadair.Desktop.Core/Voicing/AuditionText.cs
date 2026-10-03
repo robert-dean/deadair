@@ -1,3 +1,4 @@
+using MaroonedSoftware.Deadair.Desktop.Core.Programme;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Sdk.Models;
 
@@ -93,12 +94,31 @@ public static class AuditionText
     }
 
     /// <summary>
-    /// Whether a playlist can be auditioned: one that is not hidden and whose tracks can be read. A
-    /// playlist that says nothing about permissions can be read, as the console reads it.
+    /// What a run can be written over: the timetable's own sources, the station's playlists, the
+    /// providers' and the charts, without its "nothing" entry. An audition with no source has nothing
+    /// to read.
     /// </summary>
-    public static bool Offerable(CatalogPlaylist playlist)
+    public static IReadOnlyList<SourceChoice> Sources(
+        IEnumerable<StationPlaylist> owned,
+        IEnumerable<CatalogPlaylist> playlists,
+        IEnumerable<StationChart> charts,
+        ProgrammeSource? chosen) =>
+        [.. SourceChoices.Build(owned, playlists, charts, chosen).Where(choice => choice.Source is not null)];
+
+    /// <summary>
+    /// The request for a run over one source, naming that source alone, since the station refuses any
+    /// other number. A station playlist goes without a caption: the station reads its name itself.
+    /// </summary>
+    public static PersonaAuditionRequest Request(SourceChoice choice, long limit)
     {
-        ArgumentNullException.ThrowIfNull(playlist);
-        return playlist.Hidden != true && (playlist.Permissions?.Contains(PlaylistPermission.Read) ?? true);
+        ArgumentNullException.ThrowIfNull(choice);
+
+        return choice.Source switch
+        {
+            ProgrammeSource.Station station => new() { StationPlaylistId = station.PlaylistId, Limit = limit },
+            ProgrammeSource.Chart chart => new() { ChartId = chart.ChartId, Name = choice.Label, Limit = limit },
+            ProgrammeSource.Playlist playlist => new() { PluginId = playlist.PluginId, PlaylistId = playlist.PlaylistId, Name = choice.Label, Limit = limit },
+            _ => throw new ArgumentException("an audition needs a source", nameof(choice)),
+        };
     }
 }

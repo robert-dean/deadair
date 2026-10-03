@@ -229,8 +229,9 @@ apps/site              the website at deadair.radio: Docusaurus
 packages/plugin-sdk    the plugin contract and the host capabilities
 packages/sdk           a typed client, generated from the contracts
 plugins/*              spotify, navidrome, ytmusic, musicbrainz, lastfm, deezer,
-                       wikipedia, rss, websearch, weather, podcast, kokoro,
-                       chatterbox, rhapsode, elevenlabs, llm, analyzer
+                       wikipedia, rss, websearch, weather, podcast, telegram,
+                       discord, slack, kokoro, chatterbox, rhapsode, elevenlabs,
+                       llm, analyzer, cast
 examples/plugins/*     a plugin built from outside the workspace, as anybody else's is
 analysis/              the measurement sidecar (Python): cue points and loudness
 stream/, nginx/        the audio chain (radio.liq), the stream server and the edge

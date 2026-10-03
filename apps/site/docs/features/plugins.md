@@ -1,10 +1,10 @@
 ---
 title: Plugins
 sidebar_position: 9
-description: The nineteen bundled plugins that bring the station its music, facts, voice, words and measurements, and how trust and permissions work.
+description: The twenty-one bundled plugins that bring the station its music, facts, voice, words and measurements, and how trust and permissions work.
 ---
 
-Almost everything the station reaches outside itself is a plugin: where the music comes from, what it knows about a record, how it speaks, which model writes its words, and the program that measures its audio. Nineteen are bundled in the image, and each is switched on and configured from its own page. A plugin somebody else wrote is installed by importing it from the console, or by copying it into the plugins folder on the station's data volume, and is then held to exactly the same rules.
+Almost everything the station reaches outside itself is a plugin: where the music comes from, what it knows about a record, how it speaks, which model writes its words, and the program that measures its audio. Twenty-one are bundled in the image, and each is switched on and configured from its own page. A plugin somebody else wrote is installed by importing it from the console, or by copying it into the plugins folder on the station's data volume, and is then held to exactly the same rules.
 
 ![The plugin catalogue: a card per plugin and its state](/img/console/plugins.webp)
 *Fig. 1. The plugins.*
@@ -13,7 +13,7 @@ Almost everything the station reaches outside itself is a plugin: where the musi
 
 With no model the station writes its own breaks from its phrasings. With no voice it plays records. With no analyzer every record plays, unmeasured. The one it cannot do without is a music provider: there is nothing to programme until there are records.
 
-## The bundled nineteen
+## The bundled twenty-one
 
 **Music**
 
@@ -49,13 +49,17 @@ With no model the station writes its own breaks from its phrasings. With no voic
 - **Discord.** The same on a Discord server: people use the station's slash commands (or type them) in the channels you list or in a direct message, and pick from buttons when a request matches more than one record. It can post each record to a channel as it goes to air. It needs a bot token from the Discord Developer Portal with the Message Content intent turned on, and no public address: the station holds a connection open to Discord rather than waiting to be called.
 - **Slack.** The same in a Slack workspace: the station's slash commands, direct messages to the app, buttons to pick a record, and each record posted to a channel as it goes to air. It needs an app made from the manifest in [setting up Slack](#setting-up-slack), with its bot token and an app-level token, and no public address: the station holds a Socket Mode connection open to Slack.
 
+**Speakers**
+
+- **Speakers.** Plays the station on speakers and televisions on your network: anything with Chromecast built in, which includes Google's own speakers, many televisions and a good few AV receivers. Add each one by the address your router gave it. The speaker fetches the stream itself from the public address in the station's stream settings, so that address has to be one it can reach, and a speaker playing the station counts as a listener.
+
 **Measurement**
 
 - **Audio analyzer.** Measures each record's cue points and loudness, and joins several pieces of audio into one, so a [phone-in](./phone-ins.md) airs as a single item.
 
 ## One capability nothing bundled fills
 
-A **narration** plugin hands the station text to read out whole: a chapter, an issue, a long read. The station reads it in its presenter's voice, and there is a page in the console for what it has read, but none of the nineteen above offers anything to read. That one waits on a plugin somebody else wrote, or one you write. See [readings](./narrations.md).
+A **narration** plugin hands the station text to read out whole: a chapter, an issue, a long read. The station reads it in its presenter's voice, and there is a page in the console for what it has read, but none of the twenty-one above offers anything to read. That one waits on a plugin somebody else wrote, or one you write. See [readings](./narrations.md).
 
 ## Plugins are trusted code
 

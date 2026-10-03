@@ -428,6 +428,20 @@
     <string name="air_it">Air it</string>
 
     <!-- Asking the station to play a record -->
+    <string name="request_a_record">Request a record</string>
+    <string name="request_search_hint">Search by title or artist</string>
+    <string name="request_nothing_found">Nothing the station could play matches that.</string>
+    <string name="request_intro">The station plays a request soon after it is asked for, between two records, if its rules allow. One at a time.</string>
+    <string name="request_this_record">Request “%1$s”</string>
+    <string name="request_your_name">Your name</string>
+    <string name="request_your_name_hint">Leave it blank to be “a listener”</string>
+    <string name="request_dedicate_to">Dedicate it to</string>
+    <string name="request_message">A message</string>
+    <string name="request_message_hint">The presenter may put it in their own words</string>
+    <string name="request_send">Send request</string>
+    <string name="request_record_gone">The station cannot play that record any more.</string>
+    <string name="my_requests">Your requests</string>
+    <string name="my_requests_none">You have not asked for anything yet.</string>
     <string name="request_waiting">“%1$s” is in. The station\'s operator will look at it.</string>
     <string name="request_on_its_way">“%1$s” is on its way.</string>
     <string name="request_refused">The station turned that one down.</string>

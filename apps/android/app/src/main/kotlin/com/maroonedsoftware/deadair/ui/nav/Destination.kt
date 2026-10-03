@@ -72,6 +72,10 @@ sealed interface Destination : NavKey {
     @Serializable
     data object AddRecord : Destination
 
+    /** Asking the station to play a record, and what became of the listener's own requests. Any signed-in account; reached from Up next. */
+    @Serializable
+    data object Request : Destination
+
     @Serializable
     data class Playlist(val pluginId: String, val playlistId: String) : Destination
 
@@ -115,6 +119,7 @@ val NavConfiguration: SavedStateConfiguration =
                     subclass(Destination.Artist::class)
                     subclass(Destination.AirSomething::class)
                     subclass(Destination.AddRecord::class)
+                    subclass(Destination.Request::class)
                     subclass(Destination.Playlist::class)
                     subclass(Destination.Chart::class)
                     subclass(Destination.Scripts::class)

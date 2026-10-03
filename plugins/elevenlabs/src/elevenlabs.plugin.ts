@@ -10,6 +10,9 @@ import {
     type PluginHost,
     type SpeechHandle,
     type SpeechPluginInstance,
+    type SpeechCue,
+    type SpeechDelivery,
+    type SpeechLimits,
     type SpeechRequest,
     type SpeechVoice,
 } from '@deadair/plugin-sdk';
@@ -24,7 +27,8 @@ import {
     isOutputFormat,
     type OutputFormat,
 } from './elevenlabs.manifest.js';
-import { DEFAULT_MODEL, MODELS, settingsOf, type ModelTraits } from './elevenlabs.models.js';
+import { DEFAULT_MODEL, MODELS, settingsOf, tagsOf, takesLanguageCode, traitsOf, type ModelTraits } from './elevenlabs.models.js';
+import { performed } from './elevenlabs.tags.js';
 import { VOICE_VOICE_COLUMN, VOICES_FIELD, voiceMapOf, type VoiceMap, type VoiceMapping, type VoiceSettings } from './elevenlabs.voices.js';
 
 export { elevenlabsManifest };
@@ -51,6 +55,9 @@ export class ElevenLabsPlugin extends Plugin implements SpeechPluginInstance {
     private format: OutputFormat = DEFAULT_OUTPUT_FORMAT;
     private defaultVoice = DEFAULT_VOICE;
     private voices: VoiceMap = {};
+
+    /** The configured model's languages, once `/v1/models` has answered with them. */
+    private languages?: readonly string[];
 
     protected async onLoad(): Promise<void> {
         const host = this.host;
@@ -155,11 +162,64 @@ export class ElevenLabsPlugin extends Plugin implements SpeechPluginInstance {
         return [{ id: '', label: 'Default', description: describe(fallback), spec: this.specOf(fallback) }, ...mapped];
     }
 
+    /**
+     * The cues the configured model has a tag for. None for a model that performs no tags, or one
+     * the table does not know: claiming a cue and having it read aloud is the only way to break this.
+     */
+    async listCues(): Promise<readonly SpeechCue[]> {
+        const tags = tagsOf(this.model);
+        return tags === undefined ? [] : (Object.keys(tags.cues) as SpeechCue[]);
+    }
+
+    /** {@link listCues}' twin: the readings the configured model has a leading tag for. */
+    async listDeliveries(): Promise<readonly SpeechDelivery[]> {
+        const tags = tagsOf(this.model);
+        return tags === undefined ? [] : (Object.keys(tags.deliveries) as SpeechDelivery[]);
+    }
+
+    /**
+     * How much one request may carry, from the table and never from the network, since this is asked
+     * on the render path. Nothing for an unknown model, which takes the host's cautious default.
+     */
+    async listLimits(): Promise<SpeechLimits> {
+        const traits = traitsOf(this.model);
+        return traits === undefined ? {} : { maxCharacters: traits.maxCharacters };
+    }
+
+    /**
+     * The languages the configured model speaks, as `GET /v1/models` lists them.
+     *
+     * Asked of the service rather than copied, because v4 alone lists more than ninety. Remembered
+     * once it has answered, and empty on any failure, which the host reads as "cannot tell" rather
+     * than as a model that speaks nothing.
+     */
+    async listLanguages(): Promise<readonly string[]> {
+        if (this.languages !== undefined) return this.languages;
+
+        const host = this.host;
+        if (this.apiKey === undefined) return [];
+
+        try {
+            const response = await host.fetch(`${API_BASE}/v1/models`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+            if (!response.ok) {
+                await response.body?.cancel().catch(() => {});
+                return [];
+            }
+
+            const languages = languagesOf(await tryJsonBody<unknown>(response), this.model);
+            if (languages.length > 0) this.languages = languages;
+            return languages;
+        } catch (error) {
+            host.logger.debug('elevenlabs could not list its languages', { error: errorText(error) });
+            return [];
+        }
+    }
+
     async speak(request: SpeechRequest): Promise<SpeechHandle> {
         const host = this.host;
         if (this.apiKey === undefined) throw new PluginError('elevenlabs has no API key configured').withCode('config');
 
-        const text = request.text.trim();
+        const text = performed(request.text, request.delivery, tagsOf(this.model)).trim();
         if (text.length === 0) throw new PluginError('elevenlabs was asked to say nothing').withCode('config');
 
         const mapping = this.resolveVoice(host, request.voice);
@@ -172,6 +232,9 @@ export class ElevenLabsPlugin extends Plugin implements SpeechPluginInstance {
             body: JSON.stringify({
                 text,
                 model_id: this.model,
+                // Only to a model documented to take it: the API refuses a language a model does not
+                // enforce, and a refused line is a lost break. The others read the language off the text.
+                ...(request.language !== undefined && takesLanguageCode(this.model) ? { language_code: primaryOf(request.language) } : {}),
                 // Omitted when the row set nothing, so the voice reads with the settings it was saved
                 // with in ElevenLabs rather than with the API's textbook defaults.
                 ...(Object.keys(settings).length === 0 ? {} : { voice_settings: settings }),
@@ -238,6 +301,25 @@ export class ElevenLabsPlugin extends Plugin implements SpeechPluginInstance {
         return this.apiKey === undefined ? {} : { 'xi-api-key': this.apiKey };
     }
 }
+
+/** The ISO 639-1 part of a BCP 47 tag, which is the form `language_code` takes. */
+const primaryOf = (language: string): string => language.split('-')[0]!.toLowerCase();
+
+/** The `language_id`s of one model in a `/v1/models` answer. Anything misshapen is none. */
+const languagesOf = (body: unknown, model: string): string[] => {
+    if (!Array.isArray(body)) return [];
+
+    const entry: unknown = body.find(
+        (candidate: unknown) => candidate !== null && typeof candidate === 'object' && (candidate as { model_id?: unknown }).model_id === model,
+    );
+    const languages: unknown = entry === undefined ? undefined : (entry as { languages?: unknown }).languages;
+    if (!Array.isArray(languages)) return [];
+
+    return languages.flatMap((language: unknown) => {
+        const id = language !== null && typeof language === 'object' ? (language as { language_id?: unknown }).language_id : undefined;
+        return typeof id === 'string' && id.length > 0 ? [id] : [];
+    });
+};
 
 /** One voice on the account, as `/v1/voices` lists it. */
 interface AccountVoice {

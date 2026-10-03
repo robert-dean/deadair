@@ -36,6 +36,8 @@ interface FakeHostOptions {
     voicesThrow?: boolean;
     subscriptionStatus?: number;
     subscriptionBody?: unknown;
+    modelsStatus?: number;
+    modelsBody?: unknown;
 }
 
 function fakeHost(options: FakeHostOptions = {}) {
@@ -65,6 +67,14 @@ function fakeHost(options: FakeHostOptions = {}) {
             return new Response(JSON.stringify(options.voicesBody ?? { voices: [{ voice_id: 'a' }, { voice_id: 'b' }] }), {
                 status: options.voicesStatus ?? 200,
             });
+        }
+
+        if (url.endsWith('/v1/models')) {
+            const body = options.modelsBody ?? [
+                { model_id: 'eleven_v4', languages: [{ language_id: 'en' }, { language_id: 'de' }] },
+                { model_id: 'eleven_v3', languages: [{ language_id: 'en' }] },
+            ];
+            return new Response(JSON.stringify(body), { status: options.modelsStatus ?? 200 });
         }
 
         if (url.endsWith('/v1/user/subscription')) {
@@ -342,5 +352,65 @@ describe('ElevenLabsPlugin.suggestConfigOptions', () => {
 
         expect(Object.keys(await plugin.suggestConfigOptions())).toEqual(['model']);
         expect(calls).toHaveLength(0);
+    });
+});
+
+describe('ElevenLabsPlugin, what the model can do', () => {
+    it('claims the cues and deliveries v4 has tags for, and performs them', async () => {
+        const { plugin, calls } = await started();
+
+        expect(await plugin.listCues()).toEqual(['laugh', 'sigh', 'gasp', 'clear throat']);
+        expect(await plugin.listDeliveries()).toEqual(['hushed', 'frantic']);
+
+        await plugin.speak({ text: 'Well [laugh] there it is.', delivery: 'hushed' });
+
+        expect(bodyOf(speechCall(calls)).text).toBe('[hushed] Well [laughs] there it is.');
+    });
+
+    it('claims nothing on a model that performs no tags, and strips what arrives anyway', async () => {
+        const { plugin, calls } = await started({ config: { model: 'eleven_flash_v2_5' } });
+
+        expect(await plugin.listCues()).toEqual([]);
+        expect(await plugin.listDeliveries()).toEqual([]);
+
+        await plugin.speak({ text: 'Well [laugh] there it is.', delivery: 'hushed' });
+
+        expect(bodyOf(speechCall(calls)).text).toBe('Well there it is.');
+    });
+
+    it('claims nothing on a model it does not know', async () => {
+        const { plugin } = await started({ config: { model: 'eleven_v9' } });
+
+        expect(await plugin.listCues()).toEqual([]);
+        expect(await plugin.listLimits()).toEqual({});
+    });
+
+    it("declares the model's character ceiling", async () => {
+        expect(await (await started()).plugin.listLimits()).toEqual({ maxCharacters: 10_000 });
+        expect(await (await started({ config: { model: 'eleven_v3' } })).plugin.listLimits()).toEqual({ maxCharacters: 5_000 });
+    });
+
+    it("lists the configured model's languages once, from the service", async () => {
+        const { plugin, calls } = await started();
+
+        expect(await plugin.listLanguages()).toEqual(['en', 'de']);
+        expect(await plugin.listLanguages()).toEqual(['en', 'de']);
+        expect(calls.filter(c => c.url.endsWith('/v1/models'))).toHaveLength(1);
+    });
+
+    it('answers no languages, rather than throwing, when the service will not say', async () => {
+        const { plugin } = await started({ modelsStatus: 500 });
+
+        expect(await plugin.listLanguages()).toEqual([]);
+    });
+
+    it('sends language_code only to a model that takes it, as the primary subtag', async () => {
+        const v4 = await started();
+        await v4.plugin.speak({ text: 'Guten Abend.', language: 'de-DE' });
+        expect(bodyOf(speechCall(v4.calls))).not.toHaveProperty('language_code');
+
+        const flash = await started({ config: { model: 'eleven_flash_v2_5' } });
+        await flash.plugin.speak({ text: 'Guten Abend.', language: 'de-DE' });
+        expect(bodyOf(speechCall(flash.calls)).language_code).toBe('de');
     });
 });

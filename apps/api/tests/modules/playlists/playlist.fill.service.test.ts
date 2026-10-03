@@ -11,6 +11,7 @@ import type { PlaylistPlaceholderRow, StationPlaylistsRepository } from '../../.
 import type { CatalogPlaceholderRepository } from '../../../src/modules/catalog/ingest/catalog.placeholder.repository.js';
 import type { CatalogResolverRepository } from '../../../src/modules/catalog/ingest/catalog.resolver.repository.js';
 import type { CatalogResolverService } from '../../../src/modules/catalog/ingest/catalog.resolver.service.js';
+import { ProviderCopyResolver } from '../../../src/modules/catalog/ingest/provider.copy.resolver.js';
 import type { ProviderTrackLookup } from '../../../src/modules/director/provider.track.lookup.js';
 import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
@@ -75,7 +76,15 @@ function build(world: World) {
     const invoker = { invoke: vi.fn(async (_id: string, _op: string, call: () => Promise<unknown>) => call()) } as unknown as PluginInvoker;
     const { config } = settingsConfig(world.settings ?? {});
 
-    const service = new PlaylistFillService(playlists, placeholders, library, ingest, lookup, registry, invoker, config, logger);
+    const service = new PlaylistFillService(
+        playlists,
+        placeholders,
+        library,
+        new ProviderCopyResolver(library, ingest, registry, invoker, logger),
+        lookup,
+        config,
+        logger,
+    );
     return { service, resolved, ingested, lookup, instance };
 }
 

@@ -15,6 +15,7 @@ import { CatalogPlaceholderRepository } from './ingest/catalog.placeholder.repos
 import { CatalogPlaceholderService } from './ingest/catalog.placeholder.service.js';
 import { CatalogResolverRepository } from './ingest/catalog.resolver.repository.js';
 import { CatalogResolverService } from './ingest/catalog.resolver.service.js';
+import { ProviderCopyResolver } from './ingest/provider.copy.resolver.js';
 import { CatalogSyncService } from './ingest/catalog.sync.service.js';
 
 export const CatalogModule: ServerKitModule = {
@@ -46,6 +47,7 @@ export const CatalogModule: ServerKitModule = {
         // these are per-run there and per-request on the request path.
         registry.register(CatalogResolverRepository).useClass(CatalogResolverRepository).asScoped();
         registry.register(CatalogResolverService).useClass(CatalogResolverService).asScoped();
+        registry.register(ProviderCopyResolver).useClass(ProviderCopyResolver).asScoped();
         registry.register(CatalogSyncService).useClass(CatalogSyncService).asScoped();
         registry.register(CatalogPlaceholderRepository).useClass(CatalogPlaceholderRepository).asScoped();
         registry.register(CatalogPlaceholderService).useClass(CatalogPlaceholderService).asScoped();

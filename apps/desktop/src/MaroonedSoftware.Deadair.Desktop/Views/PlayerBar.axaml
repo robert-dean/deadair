@@ -107,7 +107,8 @@
                         <PathIcon Data="{DynamicResource DaIconShuffle}" />
                     </Button>
 
-                    <Button Classes="play" Command="{Binding ToggleCommand}" ToolTip.Tip="{Binding PlayLabel}">
+                    <Button Classes="play" Command="{Binding ToggleCommand}"
+                            ToolTip.Tip="{Binding PlayLabel, StringFormat='{}{0} (Space)'}">
                         <PathIcon Width="14" Height="14"
                                   Data="{Binding Playing, Converter={x:Static conv:PlayIconConverter.Instance}}" />
                     </Button>
@@ -212,6 +213,12 @@
                             Classes.active="{Binding $parent[Window].((vm:ShellViewModel)DataContext).ShowNowPlaying}"
                             Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).ToggleNowPlayingCommand}">
                         <PathIcon Data="{DynamicResource DaIconPanelRight}" />
+                    </Button>
+
+                    <!-- Studio: the record on air across the whole screen. -->
+                    <Button Classes="icon" ToolTip.Tip="Studio (F)"
+                            Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).ToggleStudioCommand}">
+                        <PathIcon Data="{DynamicResource DaIconTv}" />
                     </Button>
 
                     <Button Classes="icon" ToolTip.Tip="Open the desk"

@@ -506,6 +506,13 @@ a progress bar that is confidently wrong is worse than one that is absent.
 request timed out throws away something true and still useful. It is the station's own rule read from
 the other side: a failed reading of the listener count is "could not say", never zero.
 
+**Who is presenting is one line, in the Android app's words** (`Core/NowPlaying/HostLine`): "with
+Cass" under a record, "Cass is on the mic" during a break. It reads `show.host` from `/nowplaying`,
+which the station leaves out when nobody on air has an on-air name, and a record with nobody to name
+says nothing rather than "with the host". A break falls back to "The host is on the mic", because
+then the line is the only thing saying the station is talking rather than playing. A break's artist
+is empty, so the credit line is hidden on `HasArtist` rather than drawn as a blank line's height.
+
 **The sleep timer stops the listener and nothing else, and matters more here than in a music app.**
 A connection is an audience to an audience-gated station, so somebody asleep with the app playing
 keeps the station on air for as long as the Mac is awake. `Core/Playback/SleepTimer` is only the
@@ -864,6 +871,66 @@ by the window's `DesktopScaling`, which is 1 there, and never by a screen's rend
 settings are read in `App` before the window is built, so it opens in place instead of jumping.
 Measured on a 1x display only; a Retina Mac has not been tried.
 
+## Studio
+
+**The record on air across the whole window, to sit back from** (`Views/StudioView`). The cover
+large, the title, the credit, who is presenting, the playhead or LIVE, and Listen/Stop, over the
+cover's colours drifting slowly. A listener's view and nothing else: no Skip, no running order. It is
+the bar's TV button, the Window menu's Studio, or F, and it is left by its close button, Escape or F.
+
+- **It is a layer over the shell, not a window**, for the reason a dialog is one (`Dialogs, and where
+  a refusal is said`). It covers all three rows, the bar included, and sits UNDER `DialogHost`, so a
+  question asked while it is up is still seen. `ShellViewModel.IsStudio` is not remembered: opening
+  the app straight into Studio would hide everything somebody opened it to do. A station going away
+  (`NeedsStation`) takes Studio down, so the setup screen is never under it.
+- **It is always dark**, whatever the appearance: a screen left on across a room, white type on the
+  cover's colours dimmed. A `ThemeVariantScope` alone did NOT do that, measured in the light Shots
+  frame. The app's brushes are declared once at the application over `DynamicResource` colours, and
+  a brush's colour resolves where the BRUSH lives, so every one stayed light inside the scope. The
+  brushes Studio draws with are declared again inside its scope, and the lamp and LIVE are two
+  elements each rather than `ToneBrushConverter`, which reads the application's variant.
+- **The backdrop is a few radial gradients, not a shader** (`Controls/StudioBackdrop`). The colours
+  are `CoverColours.Backdrop`, which dims each and walks it darker until white reads on it, as
+  `HeaderTint` walks; the motion is `StudioDrift`, closed paths with whole-number frequencies so the
+  loop has no seam, both in Core with tests. It drifts once round in 90 seconds while playing and five
+  times slower while stopped, eased between the two, and a new cover fades in over two seconds. It
+  draws at 20 frames a second, which on a slow drift is the same picture as 60 for a third of the
+  work, and its clock runs only while its OWN `IsVisible` is true: Avalonia tells a control when it is
+  hidden and not when a parent is, so the view binds it on the backdrop itself.
+- **It holds still for Reduce Motion and stops drawing while it cannot be seen** (`Core/Ui/IScreenFacts`,
+  `Player.Mac/MacScreenFacts`). Reduce Motion is read each time the backdrop starts, so a change in
+  System Settings applies the next time Studio opens, and with it on there is no clock at all. While
+  no part of the window is on screen (`NSWindow.occlusionState`; another app's Space in front, for
+  one) a tick draws nothing and keeps its place. Both are two property reads through `objc_msgSend`
+  rather than through the native shim, which is the player's. Measured on 2026-10-03 with a trace:
+  switching to another app's Space read not seen, and coming back read seen. The backdrop reaches
+  them through a static `Facts`, set in `App` beside `ArtworkLoader.Shared` and for the same reason;
+  a headless render leaves it null and nothing changes.
+- **It takes the screen, and gives back only what it took** (`Core/Ui/StudioScreen`, wired in
+  `MainWindow`). Opening Studio puts the window full screen; leaving puts it back as it was, but only
+  if Studio made it full screen. A window already full screen stays so, and somebody who leaves full
+  screen by hand while Studio is up has the screen back: leaving Studio then touches nothing. All of
+  that measured on 2026-10-03 against a `dotnet run`, reading `AXFullScreen` and the frame through
+  System Events. The full-screen frame is never saved, because `TakeFrame` already refuses one.
+- **⌘W from full-screen Studio used to leave the window on screen for good**, measured the same day.
+  `HideWindow` takes Studio down, which starts macOS animating the window out of full screen, and the
+  hide that followed landed mid-animation: Avalonia marked the window hidden, the animation put it
+  back, and every later hide did nothing because Avalonia thought it already had. `WindowKeeper.Hide`
+  now takes a full-screen window out first and waits a second after any exit from full screen before
+  hiding. A fixed allowance, because `WindowState` reads Normal the moment it is set and nothing is
+  raised when the animation ends; a Show while a hide is waiting cancels it. Checked against the
+  window server's own list of on-screen windows, since System Events lists a hidden window too.
+- **Stopping does not leave Studio.** A station on a spare screen should stay up saying Listen.
+- **The close and play buttons fade after three seconds of a still pointer**, and the pointer goes
+  with them; they are not pressable while faded, so the first click after a rest wakes them rather
+  than pressing a button nobody could see. A pointer resting on a button keeps them up.
+- **Its keys are in `MainWindow.OnKeyDown`, never menu key equivalents**, for the reason Space is
+  there: AppKit offers every keypress to the menu first, so a bare F on the Window menu's Studio would
+  take F from every text box. While Studio is up the window keeps Space, F and Escape and lends no
+  other key: a rail letter or ⌘K would move a page nobody can see. Studio takes the focus when it
+  opens, because the window's keys stand down while a text box is focused, and a search box left
+  focused under it would have taken Space as a typed character.
+
 ## Navigation
 
 **The rail replaces rather than pushes.** A rail is not history, so pressing Desk after Library does
@@ -986,6 +1053,9 @@ permission — so a layout was the one thing going unverified.
 dotnet run --project apps/desktop/tools/Shots -- artifacts/shots dark
 dotnet run --project apps/desktop/tools/Shots -- artifacts/shots light
 ```
+
+A third argument renders only the frames whose names start with it (`shell-desk`, `studio`), since
+drawing every frame takes minutes and looking at one page should not.
 
 It asserts nothing and cannot fail meaningfully. A layout is judged by looking at it, which is the
 thing an assertion cannot do; the value is entirely in the picture.

@@ -1,0 +1,198 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.StudioView"
+    x:DataType="vm:ShellViewModel"
+    Focusable="True"
+    Background="Black">
+
+    <!--
+        Studio: the record on air across the whole window, to sit back from.
+
+        Always dark, whatever the app's appearance: it is a screen left on across a room, the type on
+        it is white, and the backdrop under that type is the cover's colours dimmed (StudioBackdrop).
+        A listener's view and nothing else, so there is no Skip and no running order; Space still
+        starts and stops, F and Escape leave (MainWindow.OnKeyDown).
+
+        The close button and the play button fade once the pointer has been still for a few seconds,
+        and the pointer with them, so a screen left on shows the record and nothing to press. The
+        playhead stays, because it is information rather than a control.
+
+        Black under the backdrop rather than transparent, so a click anywhere lands here and not on the
+        page underneath.
+    -->
+    <UserControl.Styles>
+        <Style Selector="Border#Cover">
+            <Setter Property="Width" Value="360" />
+            <Setter Property="Height" Value="360" />
+        </Style>
+        <Style Selector="StackPanel#Record">
+            <Setter Property="Spacing" Value="24" />
+        </Style>
+        <!-- The cover follows the room. Height is what runs out first on a screen, and a cover with no
+             room under it pushes the title off the bottom. -->
+        <ContainerQuery Name="Studio" Query="min-height:900">
+            <Style Selector="Border#Cover">
+                <Setter Property="Width" Value="480" />
+                <Setter Property="Height" Value="480" />
+            </Style>
+        </ContainerQuery>
+        <ContainerQuery Name="Studio" Query="min-height:1200">
+            <Style Selector="Border#Cover">
+                <Setter Property="Width" Value="640" />
+                <Setter Property="Height" Value="640" />
+            </Style>
+        </ContainerQuery>
+        <ContainerQuery Name="Studio" Query="max-height:680">
+            <Style Selector="Border#Cover">
+                <Setter Property="Width" Value="220" />
+                <Setter Property="Height" Value="220" />
+            </Style>
+            <Style Selector="StackPanel#Record">
+                <Setter Property="Spacing" Value="16" />
+            </Style>
+        </ContainerQuery>
+
+        <Style Selector=":is(Control).fades">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.4" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <!-- Not pressable while it cannot be seen: the first click after a rest wakes the controls
+             rather than pressing one nobody could see. -->
+        <Style Selector="UserControl.idle :is(Control).fades">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+
+        <Style Selector="Button.play.studio">
+            <Setter Property="Width" Value="56" />
+            <Setter Property="Height" Value="56" />
+            <Setter Property="CornerRadius" Value="28" />
+        </Style>
+        <Style Selector="Button.play.studio /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="CornerRadius" Value="28" />
+        </Style>
+    </UserControl.Styles>
+
+    <!-- Dark whatever the app's appearance, through a scope: a UserControl has no variant of its own.
+         The scope alone is not enough. The app's brushes (Tokens.axaml) are defined once at the
+         application, and a brush's DynamicResource colour resolves where the BRUSH lives, so in a
+         light app every one of them stayed light in here. The ones Studio draws with are declared
+         again inside the scope, where their colours resolve dark. -->
+    <ThemeVariantScope RequestedThemeVariant="Dark">
+    <ThemeVariantScope.Resources>
+        <SolidColorBrush x:Key="DaBgBrush" Color="{DynamicResource DaBg}" />
+        <SolidColorBrush x:Key="DaRaisedBrush" Color="{DynamicResource DaRaised}" />
+        <SolidColorBrush x:Key="DaHoverBrush" Color="{DynamicResource DaHover}" />
+        <SolidColorBrush x:Key="DaTextBrush" Color="{DynamicResource DaText}" />
+        <SolidColorBrush x:Key="DaTextSecondaryBrush" Color="{DynamicResource DaTextSecondary}" />
+        <SolidColorBrush x:Key="DaTextDimmedBrush" Color="{DynamicResource DaTextDimmed}" />
+        <SolidColorBrush x:Key="DaToneLiveBrush" Color="{DynamicResource DaToneLive}" />
+        <SolidColorBrush x:Key="DaToneOffBrush" Color="{DynamicResource DaToneOff}" />
+    </ThemeVariantScope.Resources>
+    <Panel Container.Name="Studio" Container.Sizing="WidthAndHeight">
+        <!-- Its own visibility bound, because the backdrop's clock only hears about its own. -->
+        <controls:StudioBackdrop x:Name="Backdrop"
+                                 IsVisible="{Binding IsStudio}"
+                                 Palette="{Binding Listener.CoverPalette}"
+                                 Moving="{Binding Listener.Playing}" />
+
+        <!-- Below the title row's 38, so it never sits under the window's own buttons. -->
+        <Button Classes="icon ghost fades" HorizontalAlignment="Right" VerticalAlignment="Top"
+                Margin="0,48,24,0" Width="36" Height="36" Padding="9"
+                ToolTip.Tip="Leave Studio (Esc)"
+                Command="{Binding LeaveStudioCommand}">
+            <PathIcon Data="{DynamicResource DaIconClose}" />
+        </Button>
+
+        <StackPanel x:Name="Record" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Margin="32" MaxWidth="720">
+
+            <!-- Square and never rounded, as every cover in this app is. -->
+            <Border x:Name="Cover" Classes="art" HorizontalAlignment="Center"
+                    BoxShadow="0 24 64 0 #99000000">
+                <Panel>
+                    <TextBlock Text="{Binding Listener.Initial}" FontSize="120" FontWeight="Bold"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    <Image Source="{Binding Listener.Artwork}" Stretch="UniformToFill" />
+                </Panel>
+            </Border>
+
+            <StackPanel Spacing="6" HorizontalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                    <!-- Two lamps rather than the tone converter, which reads the APP's appearance. -->
+                    <Ellipse Classes="lamp live" Width="8" Height="8" VerticalAlignment="Center"
+                             IsVisible="{Binding Listener.OnAir}"
+                             Fill="{DynamicResource DaToneLiveBrush}" />
+                    <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                             IsVisible="{Binding !Listener.OnAir}"
+                             Fill="{DynamicResource DaToneOffBrush}" />
+                    <TextBlock Classes="eyebrow" Text="ON AIR NOW" IsVisible="{Binding Listener.OnAir}"
+                               Foreground="{DynamicResource DaToneLiveBrush}" />
+                    <TextBlock Classes="eyebrow" Text="OFF AIR" IsVisible="{Binding !Listener.OnAir}" />
+                    <TextBlock Classes="eyebrow" Text="{Binding Listener.StationName}" />
+                </StackPanel>
+                <TextBlock Text="{Binding Listener.Title, TargetNullValue='Nothing on air'}"
+                           FontSize="30" FontWeight="Bold" LetterSpacing="-0.5"
+                           TextAlignment="Center" TextWrapping="Wrap" MaxLines="2"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Listener.Artist}" Classes="secondary" FontSize="18"
+                           IsVisible="{Binding Listener.HasArtist}"
+                           TextAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Listener.HostLine}" FontSize="14"
+                           IsVisible="{Binding Listener.HasHostLine}"
+                           TextAlignment="Center" TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                <!-- The desk's sentence: off air is the resting state of an audience-gated station. -->
+                <TextBlock Text="The station is quiet. Press Listen and it wakes up." FontSize="14"
+                           IsVisible="{Binding !Listener.OnAir}" TextAlignment="Center" TextWrapping="Wrap"
+                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+            </StackPanel>
+
+            <!-- The playhead when the station could say where the record is up to, and LIVE when it
+                 could not, as in the bar and for the same reason. As wide as the cover. -->
+            <Panel Width="{Binding #Cover.Bounds.Width}" Height="16" HorizontalAlignment="Center"
+                   IsVisible="{Binding Listener.OnAir}">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" IsVisible="{Binding Listener.HasPlayhead}">
+                    <TextBlock Classes="mono" Text="{Binding Listener.Elapsed}" FontSize="11"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    <ProgressBar Grid.Column="1" Minimum="0" Maximum="{Binding Listener.Duration}"
+                                 Value="{Binding Listener.Position}" Height="3" MinWidth="0"
+                                 VerticalAlignment="Center"
+                                 Foreground="{DynamicResource DaTextBrush}"
+                                 Background="#40FFFFFF" />
+                    <TextBlock Grid.Column="2" Classes="mono" Text="{Binding Listener.Remaining}" FontSize="11"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="12" IsVisible="{Binding !Listener.HasPlayhead}">
+                    <Rectangle Height="1" VerticalAlignment="Center" Fill="#40FFFFFF" />
+                    <Panel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Classes="eyebrow" Text="LIVE" IsVisible="{Binding Listener.IsLive}"
+                                   Foreground="{DynamicResource DaToneLiveBrush}" />
+                        <TextBlock Classes="eyebrow" Text="LIVE" IsVisible="{Binding !Listener.IsLive}"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    </Panel>
+                    <Rectangle Grid.Column="2" Height="1" VerticalAlignment="Center" Fill="#40FFFFFF" />
+                </Grid>
+            </Panel>
+
+            <Button Classes="play studio fades" HorizontalAlignment="Center"
+                    Command="{Binding Listener.ToggleCommand}"
+                    ToolTip.Tip="{Binding Listener.PlayLabel, StringFormat='{}{0} (Space)'}">
+                <PathIcon Width="20" Height="20"
+                          Data="{Binding Listener.Playing, Converter={x:Static conv:PlayIconConverter.Instance}}" />
+            </Button>
+        </StackPanel>
+    </Panel>
+    </ThemeVariantScope>
+
+</UserControl>

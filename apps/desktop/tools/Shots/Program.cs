@@ -23,7 +23,7 @@ namespace Shots;
 // Not a test. It asserts nothing and cannot fail meaningfully — a layout is judged by looking at it,
 // which is exactly the thing an assertion cannot do.
 //
-//     dotnet run --project apps/desktop/tools/Shots -- artifacts/shots [light|dark]
+//     dotnet run --project apps/desktop/tools/Shots -- artifacts/shots [light|dark] [name-prefix]
 internal static class Program
 {
     [STAThread]
@@ -37,6 +37,10 @@ internal static class Program
             ? parsed
             : Appearance.Dark;
 
+        // Only the frames whose names start with this, so looking at one page does not wait on all
+        // of them being drawn.
+        var only = args.Length > 2 ? args[2] : null;
+
         Directory.CreateDirectory(into);
 
         AppBuilder.Configure<App>()
@@ -47,11 +51,11 @@ internal static class Program
                 // what a screen would show.
                 UseHeadlessDrawing = false,
             })
-            .AfterSetup(_ => Render(into, appearance))
+            .AfterSetup(_ => Render(into, appearance, only))
             .SetupWithoutStarting();
     }
 
-    private static void Render(string into, Appearance appearance)
+    private static void Render(string into, Appearance appearance, string? only)
     {
         if (Application.Current is { } application)
         {
@@ -62,6 +66,11 @@ internal static class Program
 
         foreach (var (name, page, width, height) in Pages.All())
         {
+            if (only is not null && !name.StartsWith(only, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             Save(Path.Combine(into, $"{name}-{appearance.ToString().ToLowerInvariant()}.png"), page, width, height);
         }
     }

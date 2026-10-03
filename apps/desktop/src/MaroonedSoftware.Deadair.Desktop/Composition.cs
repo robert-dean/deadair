@@ -76,6 +76,11 @@ internal static class Composition
             ? new MacSystemNowPlaying()
             : new NullSystemNowPlaying());
 
+        // Reduce Motion and whether the window can be seen, for Studio's backdrop.
+        services.AddSingleton<IScreenFacts>(_ => OperatingSystem.IsMacOS()
+            ? new MacScreenFacts()
+            : new NoScreenFacts());
+
         // A control cannot be handed anything by a container, so the loader is put where controls
         // can reach it. Here rather than in the control, because this file is the only one that
         // knows how the app is wired — including that there is exactly one HttpClient.

@@ -32,7 +32,8 @@
         had before any of this.
 
         No key equivalent on Listen: a bare Space on a main-menu item would take the space bar from
-        every text box (see OnKeyDown). Close is ⌘W and HIDES, since closing is not quitting; it is
+        every text box (see OnKeyDown). Nor on Studio, for the same reason with F. Studio's header is
+        one word that does not change, because changing it would be the in-place update above. Close is ⌘W and HIDES, since closing is not quitting; it is
         not `Window.Close()`, which is a programmatic close and would really close. Still no Edit
         menu: its Cut, Copy and Paste would take those keys before Avalonia's text boxes do.
     -->
@@ -53,6 +54,8 @@
             <NativeMenuItem Header="Window">
                 <NativeMenuItem.Menu>
                     <NativeMenu>
+                        <NativeMenuItem Header="Studio"
+                                        Command="{Binding ToggleStudioCommand}" />
                         <NativeMenuItem Header="Minimize" Gesture="Cmd+M"
                                         Command="{Binding MinimizeWindowCommand}" />
                         <NativeMenuItem Header="Close" Gesture="Cmd+W"

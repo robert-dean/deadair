@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
+using MaroonedSoftware.Deadair.Desktop.Core.Ui;
 using MaroonedSoftware.Deadair.Desktop.ViewModels;
 
 namespace MaroonedSoftware.Deadair.Desktop.Views;
@@ -13,12 +14,20 @@ public partial class MainWindow : Window
     private ISettingsStore? _settings;
     private DispatcherTicker? _frameSettles;
     private bool _frameMoved;
+    private readonly StudioScreen _studioScreen = new();
 
     public MainWindow()
     {
         InitializeComponent();
         AddHandler(KeyDownEvent, OnKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         DataContextChanged += (_, _) => WatchStation();
+        PropertyChanged += (_, e) =>
+        {
+            if (e.Property == WindowStateProperty)
+            {
+                _studioScreen.Moved(Shape(WindowState));
+            }
+        };
     }
 
     private ShellViewModel? _watched;
@@ -47,7 +56,42 @@ public partial class MainWindow : Window
         {
             ShowMenusIfAttached();
         }
+        else if (e.PropertyName == nameof(ShellViewModel.IsStudio) && _watched is { } shell)
+        {
+            TakeOrGiveBackTheScreen(shell.IsStudio);
+        }
     }
+
+    /// <summary>
+    /// Studio takes the screen when it opens and gives it back when it closes, if it was Studio that
+    /// took it (<see cref="StudioScreen"/>).
+    /// </summary>
+    /// <remarks>
+    /// The full-screen frame is never saved: <see cref="TakeFrame"/> already refuses one, so the
+    /// window reopens after a relaunch where it was before Studio.
+    /// </remarks>
+    private void TakeOrGiveBackTheScreen(bool studio)
+    {
+        var shape = studio ? _studioScreen.Enter(Shape(WindowState)) : _studioScreen.Leave(Shape(WindowState));
+
+        if (shape is { } next)
+        {
+            WindowState = next switch
+            {
+                WindowShape.FullScreen => WindowState.FullScreen,
+                WindowShape.Maximized => WindowState.Maximized,
+                _ => WindowState.Normal,
+            };
+        }
+    }
+
+    private static WindowShape Shape(WindowState state) => state switch
+    {
+        WindowState.FullScreen => WindowShape.FullScreen,
+        WindowState.Maximized => WindowShape.Maximized,
+        WindowState.Minimized => WindowShape.Minimized,
+        _ => WindowShape.Normal,
+    };
 
     /// <summary>
     /// Sets the Controls and Window menus on the window once a station is attached, and never again.
@@ -236,7 +280,8 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The rail's letters, without a modifier, as the web console has them, and Space for Listen and Stop.
+    /// The rail's letters, without a modifier, as the web console has them, Space for Listen and Stop,
+    /// and F for Studio.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -263,6 +308,26 @@ public partial class MainWindow : Window
         // page it was asked about. Its own buttons take Return and Escape.
         if (shell.Dialogs.IsOpen)
         {
+            return;
+        }
+
+        // Studio keeps three keys and lends none of the rest: a letter that navigated, or a palette
+        // that opened a page, would be moving a page nobody can see. F and Escape leave it, and Space
+        // is Listen and Stop there as everywhere. Before the text-box rule below, because Studio took
+        // the focus when it opened.
+        if (shell.IsStudio)
+        {
+            if (e.KeyModifiers == KeyModifiers.None && e.Key is Key.Escape or Key.F)
+            {
+                shell.LeaveStudioCommand.Execute(null);
+                e.Handled = true;
+            }
+            else if (e.KeyModifiers == KeyModifiers.None && e.Key == Key.Space)
+            {
+                shell.Listener.ToggleCommand.Execute(null);
+                e.Handled = true;
+            }
+
             return;
         }
 
@@ -293,6 +358,14 @@ public partial class MainWindow : Window
         if (e.Key == Key.Space)
         {
             shell.Listener.ToggleCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        // F for Studio, which no page's letter takes.
+        if (e.Key == Key.F)
+        {
+            shell.ToggleStudioCommand.Execute(null);
             e.Handled = true;
             return;
         }

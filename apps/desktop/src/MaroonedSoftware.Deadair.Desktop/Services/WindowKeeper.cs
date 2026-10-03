@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
 
 namespace MaroonedSoftware.Deadair.Desktop.Services;
 
@@ -43,6 +44,14 @@ public sealed class WindowKeeper : IWindowKeeper
     private readonly IClassicDesktopStyleApplicationLifetime _desktop;
     private readonly Window _window;
 
+    /// <summary>How long macOS takes to animate a window out of full screen, with room to spare.</summary>
+    private static readonly TimeSpan FullScreenExit = TimeSpan.FromSeconds(1);
+
+    /// <summary>When the window's last exit from full screen will have finished moving it.</summary>
+    private DateTimeOffset _fullScreenSettles;
+
+    private IDisposable? _pendingHide;
+
     public WindowKeeper(IClassicDesktopStyleApplicationLifetime desktop, Window window)
     {
         ArgumentNullException.ThrowIfNull(desktop);
@@ -55,12 +64,22 @@ public sealed class WindowKeeper : IWindowKeeper
         // (and the container's disposal in it) the single way out.
         desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
+        window.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == Window.WindowStateProperty
+                && e.GetOldValue<WindowState>() == WindowState.FullScreen
+                && e.GetNewValue<WindowState>() != WindowState.FullScreen)
+            {
+                _fullScreenSettles = DateTimeOffset.UtcNow + FullScreenExit;
+            }
+        };
+
         window.Closing += (_, e) =>
         {
             if (HidesInsteadOfClosing(e.CloseReason, e.IsProgrammatic))
             {
                 e.Cancel = true;
-                window.Hide();
+                Hide();
             }
         };
 
@@ -95,6 +114,9 @@ public sealed class WindowKeeper : IWindowKeeper
 
     public void Show()
     {
+        _pendingHide?.Dispose();
+        _pendingHide = null;
+
         if (_window.WindowState == WindowState.Minimized)
         {
             _window.WindowState = WindowState.Normal;
@@ -104,7 +126,44 @@ public sealed class WindowKeeper : IWindowKeeper
         _window.Activate();
     }
 
-    public void Hide() => _window.Hide();
+    /// <remarks>
+    /// <para>
+    /// <b>Never in the middle of leaving full screen.</b> Measured with Studio, which takes the window
+    /// full screen: ⌘W from there left it, and hid it at once, while macOS was still animating it back to
+    /// its frame. Avalonia marked the window hidden, the animation finished by putting it back on
+    /// screen, and every hide after that did nothing, because as far as Avalonia knew it was already
+    /// hidden. So a window in full screen is taken out of it first, and the hide waits until the
+    /// animation has had time to finish.
+    /// </para>
+    /// <para>
+    /// The wait is a fixed allowance rather than an event: <c>WindowState</c> reads Normal the moment
+    /// it is set, before macOS has moved anything, and Avalonia raises nothing when the animation ends.
+    /// A Show while a hide is waiting cancels it.
+    /// </para>
+    /// </remarks>
+    public void Hide()
+    {
+        _pendingHide?.Dispose();
+        _pendingHide = null;
+
+        if (_window.WindowState == WindowState.FullScreen)
+        {
+            _window.WindowState = WindowState.Normal;
+        }
+
+        var settling = _fullScreenSettles - DateTimeOffset.UtcNow;
+        if (settling <= TimeSpan.Zero)
+        {
+            _window.Hide();
+            return;
+        }
+
+        _pendingHide = DispatcherTimer.RunOnce(() =>
+        {
+            _pendingHide = null;
+            _window.Hide();
+        }, settling);
+    }
 
     public void Minimize() => _window.WindowState = WindowState.Minimized;
 

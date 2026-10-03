@@ -109,6 +109,10 @@
              a panel of its own, as a player's bar is. -->
         <views:PlayerBar Grid.Row="2" DataContext="{Binding Listener}" />
 
+        <!-- Studio, over the whole window, bar included: it is the record on air and nothing else.
+             Under the dialogs, so a question asked while it is up is still seen. -->
+        <views:StudioView Grid.RowSpan="3" IsVisible="{Binding IsStudio}" />
+
         <!-- Over everything, bar included: a question about a playlist is not answered by pressing
              Skip underneath it. -->
         <views:DialogHost Grid.RowSpan="3" DataContext="{Binding Dialogs}" />

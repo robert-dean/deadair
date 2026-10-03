@@ -109,6 +109,40 @@ public class CoverColoursTests
         Assert.Equal([Navy], CoverColours.Candidates(pixels));
     }
 
+    [Fact]
+    public void StudioIsWashedInTheCoversColoursMostColourfulFirst()
+    {
+        // Grey first, as the commonest colour of a cover usually is: its background.
+        var backdrop = CoverColours.Backdrop([Grey, Navy, PaleYellow]);
+
+        Assert.Equal(3, backdrop.Count);
+        // The yellow is the most colourful and keeps its hue, then the navy, then the grey.
+        Assert.True(Red(backdrop[0]) > Blue(backdrop[0]));
+        Assert.True(Blue(backdrop[1]) > Red(backdrop[1]));
+        Assert.Equal(Red(backdrop[2]), Blue(backdrop[2]));
+    }
+
+    [Fact]
+    public void EveryStudioColourCarriesWhiteType()
+    {
+        // Yellow and green are the trap: at a dim lightness they are still bright.
+        foreach (var colour in CoverColours.Backdrop([PaleYellow, OffWhite, 0xFF30FF30], count: 5))
+        {
+            Assert.Equal(0xFFFFFFFFu, CoverColours.ReadableOn(colour));
+        }
+    }
+
+    [Fact]
+    public void StudioUsesNoMoreColoursThanAsked() =>
+        Assert.Equal(2, CoverColours.Backdrop([Navy, PaleYellow, Grey, GrassGreen], count: 2).Count);
+
+    [Fact]
+    public void TwoCandidatesThatComeOutTheSameAreOneColour() =>
+        Assert.Single(CoverColours.Backdrop([0xFF000000, 0xFF010101]));
+
+    [Fact]
+    public void StudioHasNoColoursWithoutACover() => Assert.Empty(CoverColours.Backdrop([]));
+
     private static uint Red(uint argb) => argb >> 16 & 0xFF;
 
     private static uint Green(uint argb) => argb >> 8 & 0xFF;

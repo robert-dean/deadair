@@ -152,6 +152,13 @@ with (`platform.manage`: list, grant, decline), so the Android, iOS and desktop 
 this module knowing they exist. A chat's `/request` reaches the same `RequestDesk.submit`, so one person
 cannot get round the rules by asking from the other side.
 
+**The Android and iOS apps call it**, from a Request button on Up next for any signed-in account. The
+search is `GET /requests/search`, never the library's, so a listener is never offered a record the
+desk would refuse at the door, and the page lists `GET /requests/mine` every fifteen seconds while it
+shows. That poll is the only way an app learns a request moved on: `tell` reaches chat requesters only,
+and nothing is pushed to a phone. A refusal arrives as a 201 with `declined` and a `reason`, so both apps
+decide what to say from the status and never from the code.
+
 **The arbitration is a pure function**, `request.arbiter.ts`, because it is the part that is policy:
 [#76](https://github.com/robert-dean/deadair/discussions/76) says the design problem is arbitration, not
 intake. One open request per person (the key is the account, or the platform's user id), a cooldown after

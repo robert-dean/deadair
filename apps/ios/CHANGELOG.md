@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-10-03
+
+- Signed in, you can now ask the station to play a record. Up next has a Request button: search by title or artist, pick a record, and add your name, a dedication or a message if you like. When the station holds few matches, records from its music providers are offered too, marked with where they come from, and the station fetches one before playing it. The station plays a request soon after it is asked for, between two records, if its rules allow, and it takes one request at a time from each listener. The same page lists your recent requests and what became of each one, including the station's reason when it turned one down.
+
 ## [0.5.0] — 2026-10-03
 
 - A new format, Automatic, is now what the app plays unless you pick one: HLS where the station publishes it, so moving between wifi and mobile data does not cut the stream, and MP3 where it does not. After updating, an app that was on MP3 moves to Automatic once, because the app never recorded whether MP3 was chosen or just the default; pick MP3 again under Settings to keep it. Any other format you chose is kept.

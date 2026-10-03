@@ -56,10 +56,11 @@ class PlaybackConductor(
      */
     private val displayOn: Flow<Boolean> = flowOf(false),
     /**
-     * Whether the phone has a network at all. A drop with none waits for one rather than spending
-     * the reconnect budget retrying against nothing; see `ReconnectPolicy.onNetwork`.
+     * The phone's default network, by handle, or `null` for none. A drop with none waits for one
+     * rather than spending the reconnect budget, and a move to another network restarts a mount
+     * that would otherwise be left on the old one; see `ReconnectPolicy.onNetwork`.
      */
-    private val network: Flow<Boolean> = flowOf(true),
+    private val network: Flow<Long?> = emptyFlow(),
     /** Where the sleep timer's state goes, for a screen to show. */
     publishSleep: (SleepState) -> Unit = {},
     /** Called after the sleep timer has stopped the station, for the service to tidy itself away. */
@@ -95,6 +96,17 @@ class PlaybackConductor(
                 player.play()
             },
             stop = { player.stop() },
+            // The same item set again, which ExoPlayer treats as a new source and so a new
+            // connection, made on whatever network is the default now. Not `stop()` and
+            // `prepare()`: `LivePlayer.stop` is the listener's stop and drops `playWhenReady`.
+            restart = {
+                player.currentMediaItem?.let { item ->
+                    player.setMediaItem(item)
+                    player.prepare()
+                    player.play()
+                }
+            },
+            heldConnection = { current?.format != StreamFormat.HLS },
         )
     /**
      * Mirrors `player.playWhenReady`, so the poll below can be gated on it. A separate listener

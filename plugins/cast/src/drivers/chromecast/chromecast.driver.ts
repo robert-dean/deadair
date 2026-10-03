@@ -54,7 +54,7 @@ export class ChromecastDriver implements SpeakerDriver {
     private readonly channels = new Map<string, Promise<CastChannel>>();
     private readonly sessions = new Map<string, CastSession>();
 
-    traits(): SpeakerTraits {
+    async describe(): Promise<SpeakerTraits> {
         // MP3 and AAC, the formats every Cast device plays from a plain HTTP stream. Opus and FLAC
         // are on the platform's list too, but in containers the station's Ogg mounts are not, so
         // offering them is a cast that fails on the device rather than here.

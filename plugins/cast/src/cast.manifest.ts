@@ -26,7 +26,8 @@ export function castManifest(protocols: ConfigFieldOption[]): PluginManifest {
         version: PLUGIN_VERSION,
         capabilities: [PLUGIN_CAPABILITY_OUTPUT],
         apiVersion: '^1.0.0',
-        description: 'Plays the station on speakers and televisions on your network: anything with Chromecast built in.',
+        description:
+            'Plays the station on speakers and televisions on your network: anything with Chromecast built in, a Sonos, or a UPnP/DLNA renderer such as an AV receiver.',
         permissions: {
             // Every speaker is an address the operator typed in, and nothing else is reached.
             network: [{ fromConfig: DEVICES_FIELD }],
@@ -49,8 +50,9 @@ export function castManifest(protocols: ConfigFieldOption[]): PluginManifest {
                 label: 'Speakers',
                 type: 'list',
                 help:
-                    'One row per speaker. The address is the one your router gave it; a fixed one in your router’s settings stops it ' +
-                    'moving. A port is only needed when the speaker does not use the usual one for its kind.',
+                    'One row per speaker. For a Chromecast or a Sonos, the address is the one your router gave it; a fixed one in your ' +
+                    'router’s settings stops it moving. For any other UPnP/DLNA renderer, paste the full address of its description ' +
+                    '(an http:// URL ending in .xml), which a UPnP browser shows; some move it when they restart.',
                 columns: [
                     { key: 'name', label: 'Name', type: 'string', required: true, placeholder: 'Kitchen' },
                     { key: 'protocol', label: 'Kind', type: 'select', required: true, options: protocols },

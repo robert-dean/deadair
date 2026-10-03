@@ -76,11 +76,13 @@ Apart from your station, the one thing the desktop app talks to is GitHub: at la
 
 ## On a speaker or a television
 
-The station can put itself on a speaker on your network: anything with Chromecast built in, which includes Google's own speakers, many televisions and a good few AV receivers. Turn on the **Speakers** plugin and add each speaker by the address your router gave it, then use **Play on a speaker** under the transport on the **Desk**.
+The station can put itself on a speaker on your network: anything with Chromecast built in (Google's own speakers, many televisions and a good few AV receivers), a Sonos, or any UPnP/DLNA renderer. Turn on the **Speakers** plugin and add each speaker, then use **Play on a speaker** under the transport on the **Desk**. A Chromecast or a Sonos is added by the address your router gave it. Any other renderer is added by the address of its description, an `http://` URL ending in `.xml` that a UPnP browser shows, and some renderers move it when they restart.
 
 The speaker fetches the stream itself, from the station's public address (**Settings**, **Stream**, **Public URL**), so that address has to be one the speaker can reach. A speaker playing the station is a listener like any other, and holds it on air while it plays. The station keeps it playing: if the stream drops, or the station restarts, it plays it again on its own. It lets go when you stop it from the same menu, or when somebody at the speaker stops it there or plays something else on it, and it never plays the station over whatever they chose.
 
-The speaker shows the station's name and the programme rather than each record, because a Chromecast's own player cannot be told what changed without starting the stream again.
+The speaker shows the station's name and the programme rather than each record, because a Chromecast's own player cannot be told what changed without starting the stream again. A Sonos reads the record from the stream itself.
+
+Some UPnP renderers, Samsung televisions among them, cannot play an `https://` stream at all and refuse it with error 716. For those the public address has to be a plain `http://` one they can reach.
 
 ## In the console
 

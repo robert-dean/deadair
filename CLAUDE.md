@@ -143,7 +143,7 @@ plugins/*             bundled plugins: spotify, navidrome, ytmusic (YouTube Musi
                       that holds several engines at once and publishes what each one can do, and
                       elevenlabs through ElevenLabs' hosted API with a key), llm,
                       analyzer (the adapter over the measurement sidecar), cast (the station on
-                      speakers: one `output` plugin, a driver per protocol, Chromecast first; the
+                      speakers: one `output` plugin, a driver per protocol, Chromecast and UPnP/Sonos; the
                       speaker fetches the mount itself)
 analysis/             the measurement sidecar: a Python service that decodes a record and answers
                       with its cue points and its loudness. No decoding happens in Node

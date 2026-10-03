@@ -9,11 +9,13 @@ export interface SpeakerTarget {
     address: string;
 }
 
-/** What a driver knows about a device without asking it. */
+/** What a driver can say about a device: from the protocol alone, or by asking it. */
 export interface SpeakerTraits {
     /** The content types it plays, MP3 first. See `OutputDevice.accepts`. */
     accepts: string[];
     followsMetadata: boolean;
+    /** The make or model, where the device says. */
+    model?: string;
 }
 
 /** How a device is doing, before the plugin adds which device it was. */
@@ -39,8 +41,12 @@ export interface SpeakerDriver {
     readonly protocol: string;
     /** What the operator picks from, in the protocol column. */
     readonly label: string;
-    /** What the device can do, from the protocol and the address alone. */
-    traits(target: SpeakerTarget): SpeakerTraits;
+    /**
+     * What the device can do. A driver may ask the device, and must answer anyway when it does not
+     * reply: a configured speaker is listed whether or not it is switched on, so this falls back to
+     * what the protocol alone promises rather than throwing.
+     */
+    describe(host: PluginHost, target: SpeakerTarget): Promise<SpeakerTraits>;
     play(host: PluginHost, target: SpeakerTarget, request: OutputPlayRequest): Promise<void>;
     updateMetadata(host: PluginHost, target: SpeakerTarget, metadata: OutputMetadata): Promise<void>;
     stop(host: PluginHost, target: SpeakerTarget): Promise<void>;

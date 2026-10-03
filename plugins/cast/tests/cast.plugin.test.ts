@@ -12,7 +12,7 @@ function stubDriver(protocol: string) {
     return {
         protocol,
         label: protocol,
-        traits: vi.fn(() => ({ accepts: ['audio/mpeg'], followsMetadata: false })),
+        describe: vi.fn(async () => ({ accepts: ['audio/mpeg'], followsMetadata: false })),
         play: vi.fn(async () => {}),
         updateMetadata: vi.fn(async () => {}),
         stop: vi.fn(async () => {}),
@@ -41,7 +41,7 @@ describe('the cast manifest', () => {
         const devices = manifest.configFields.find(field => field.key === 'devices');
         const protocol = devices?.columns?.find(column => column.key === 'protocol');
 
-        expect(protocol?.options?.map(option => option.value)).toEqual(['chromecast']);
+        expect(protocol?.options?.map(option => option.value)).toEqual(['chromecast', 'upnp']);
     });
 
     it('declares its address column as a url, which is what puts it on the allowlist', () => {

@@ -49,13 +49,22 @@ export class CastPlugin extends Plugin implements OutputPluginInstance {
     }
 
     async listDevices(): Promise<OutputDevice[]> {
-        return [...this.speakers.values()].map(({ target, driver }) => ({
-            id: target.id,
-            name: target.name,
-            address: target.address,
-            protocol: driver.protocol,
-            ...driver.traits(target),
-        }));
+        const host = this.host;
+        // Together, since a driver may ask each device, and a speaker that is switched off should cost
+        // the list one timeout rather than one per speaker behind it.
+        return Promise.all(
+            [...this.speakers.values()].map(async ({ target, driver }) => {
+                const { model, ...traits } = await driver.describe(host, target);
+                return {
+                    id: target.id,
+                    name: target.name,
+                    ...(model === undefined ? {} : { model }),
+                    address: target.address,
+                    protocol: driver.protocol,
+                    ...traits,
+                };
+            }),
+        );
     }
 
     async play(request: OutputPlayRequest): Promise<void> {

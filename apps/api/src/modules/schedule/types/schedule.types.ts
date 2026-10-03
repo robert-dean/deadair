@@ -229,6 +229,14 @@ export const ScheduleNow = z.strictObject({
         .describe(
             "What time it is on the station's own clock, in the same zone-naive `YYYY-MM-DD HH:mm:ss` shape as a block's ends. It is here so a caller can say how much of the block is left without knowing the station's timezone: subtracting two readings taken in one frame is arithmetic, deriving one is not",
         ),
+    timezone: z
+        .string()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe(
+            "The IANA zone the station reads its clock in: `station.timezone`, or the machine's own when that is empty. Optional because a station from before it existed does not send it. For a console showing the station's time beside an operator's own when the two differ, which a zone-naive reading cannot tell it",
+        ),
     slotId: z.string().max(100).optional().describe('The slot in force at this instant. Absent means the station has no schedule'),
     airingSlotId: z
         .string()

@@ -241,6 +241,11 @@ public sealed record ScheduleNow
     [JsonPropertyName("now")]
     public required string Now { get; init; }
 
+    /// <summary>The IANA zone the station reads its clock in: `station.timezone`, or the machine's own when that is empty. Optional because a station from before it existed does not send it. For a console showing the station's time beside an operator's own when the two differ, which a zone-naive reading cannot tell it</summary>
+    [JsonPropertyName("timezone")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Timezone { get; init; }
+
     /// <summary>The slot in force at this instant. Absent means the station has no schedule</summary>
     [JsonPropertyName("slotId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

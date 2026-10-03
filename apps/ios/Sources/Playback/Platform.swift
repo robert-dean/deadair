@@ -1,4 +1,5 @@
 import AVFoundation
+import Network
 import SwiftUI
 import UIKit
 
@@ -71,6 +72,28 @@ enum Platform {
                 MainActor.assumeIsolated { handle(.reset) }
             },
         ]
+    }
+
+    /// Report the phone's network, on the main actor, for as long as the returned monitor is kept:
+    /// the interface a new connection would go out on (`en0` for wifi, `pdp_ip0` for mobile data),
+    /// or `nil` for none. Cancel it to stop.
+    ///
+    /// The interface rather than a network, because a path has no handle for one; so a move between
+    /// two wifi networks reads as no move at all, and is left to fail and be retried as it always
+    /// was. A satisfied path, not one known to reach the internet: a station on the home network is
+    /// reached over a wifi that may have nothing behind it. The handler is `@Sendable` because the
+    /// monitor calls it on its own queue; see the note on `StationPlayer.watch` for what happens to
+    /// a main-actor closure that is not.
+    @MainActor
+    static func observeNetwork(_ handle: @escaping @MainActor (String?) -> Void) -> NWPathMonitor {
+        let monitor = NWPathMonitor()
+        monitor.pathUpdateHandler = { @Sendable path in
+            // Preference order, so the first is the one a new connection takes.
+            let network = path.status == .satisfied ? path.availableInterfaces.first?.name : nil
+            Task { @MainActor in handle(network) }
+        }
+        monitor.start(queue: DispatchQueue(label: "com.maroonedsoftware.deadair.network"))
+        return monitor
     }
 
     /// Ask for a little time to finish something after the app leaves the screen, and hand back

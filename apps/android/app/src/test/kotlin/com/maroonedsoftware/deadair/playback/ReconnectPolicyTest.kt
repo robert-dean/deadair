@@ -32,6 +32,9 @@ class ReconnectPolicyTest {
         reconnect: () -> Unit = {},
         stop: () -> Unit = {},
         backoff: Backoff = Backoff(),
+        offlineLimitMs: Long = 15 * 60_000L,
+        restart: () -> Unit = {},
+        heldConnection: () -> Boolean = { true },
     ) = ReconnectPolicy(
         backoff = backoff,
         // `.let` rather than a `{ job.cancel() }` on a line of its own, which Kotlin reads as a
@@ -40,6 +43,9 @@ class ReconnectPolicyTest {
         wantsPlay = wantsPlay,
         reconnect = reconnect,
         stop = stop,
+        restart = restart,
+        heldConnection = heldConnection,
+        offlineLimitMs = offlineLimitMs,
     )
 
     @Test
@@ -272,5 +278,242 @@ class ReconnectPolicyTest {
         policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE)
 
         assertEquals(0, stops)
+    }
+
+    @Test
+    fun `with no network a drop waits for one rather than retrying`() = runTest {
+        var reconnects = 0
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 }, stop = { stops += 1 })
+
+        policy.onNetwork(null)
+        // Errors one after another, as a player retrying nothing would make them: none is retried
+        // and none spends the budget, so ten minutes of them stops nothing.
+        repeat(20) {
+            policy.onPlayerError(error())
+            advanceTimeBy(30_000)
+        }
+
+        assertEquals(0, reconnects)
+        assertEquals(0, stops)
+    }
+
+    @Test
+    fun `the network coming back retries at once`() = runTest {
+        var reconnects = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 })
+
+        policy.onNetwork(null)
+        policy.onPlayerError(error())
+        advanceTimeBy(60_000)
+        policy.onNetwork(WIFI)
+
+        assertEquals(1, reconnects)
+    }
+
+    @Test
+    fun `the network coming back starts the backoff again from a second`() = runTest {
+        var reconnects = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 })
+
+        // Most of the budget spent before the network went.
+        repeat(5) {
+            policy.onPlayerError(error())
+            advanceTimeBy(30_001)
+        }
+        assertEquals(5, reconnects)
+
+        policy.onNetwork(null)
+        policy.onPlayerError(error())
+        policy.onNetwork(WIFI)
+        assertEquals(6, reconnects)
+
+        // The attempt made on the network's return failed too; it waits a second, not thirty.
+        policy.onPlayerError(error())
+        advanceTimeBy(1_001)
+        assertEquals(7, reconnects)
+    }
+
+    @Test
+    fun `losing the network holds a retry that was already scheduled`() = runTest {
+        var reconnects = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 })
+
+        policy.onPlayerError(error())
+        policy.onNetwork(null)
+        advanceTimeBy(60_000)
+        assertEquals(0, reconnects)
+
+        policy.onNetwork(WIFI)
+        assertEquals(1, reconnects)
+    }
+
+    @Test
+    fun `losing the network while playing does nothing until the player fails`() = runTest {
+        var reconnects = 0
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 }, stop = { stops += 1 })
+
+        // A handover with audio still in the buffer, and the new network up before it ran out.
+        policy.onNetwork(null)
+        policy.onNetwork(WIFI)
+        advanceTimeBy(60_000)
+
+        assertEquals(0, reconnects)
+        assertEquals(0, stops)
+    }
+
+    @Test
+    fun `a retry that already fired is not held when the network goes`() = runTest {
+        var reconnects = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 })
+
+        policy.onPlayerError(error())
+        advanceTimeBy(1_001)
+        assertEquals(1, reconnects)
+
+        // The attempt is connecting when the network goes, and connects anyway on the next one:
+        // nothing failed, so the network's return has nothing to retry.
+        policy.onNetwork(null)
+        policy.onNetwork(WIFI)
+        assertEquals(1, reconnects)
+    }
+
+    @Test
+    fun `waiting for the network ends in a stop after its own limit`() = runTest {
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, stop = { stops += 1 }, offlineLimitMs = 60_000)
+
+        policy.onNetwork(null)
+        policy.onPlayerError(error())
+        advanceTimeBy(30_000)
+        // A second error while already waiting does not start the limit again.
+        policy.onPlayerError(error())
+        advanceTimeBy(29_999)
+        assertEquals(0, stops)
+
+        advanceTimeBy(2)
+        assertEquals(1, stops)
+    }
+
+    @Test
+    fun `the listener stopping ends the wait for the network`() = runTest {
+        var reconnects = 0
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 }, stop = { stops += 1 }, offlineLimitMs = 60_000)
+
+        policy.onNetwork(null)
+        policy.onPlayerError(error())
+        policy.onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+        advanceTimeBy(120_000)
+        policy.onNetwork(WIFI)
+
+        assertEquals(0, reconnects)
+        assertEquals(0, stops)
+    }
+
+    @Test
+    fun `a move to another network restarts a held connection at once`() = runTest {
+        var restarts = 0
+        var reconnects = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 }, restart = { restarts += 1 })
+
+        policy.onNetwork(WIFI)
+        // Wifi fading out: mobile data becomes the default while the socket is still on wifi and
+        // the player has not noticed anything yet.
+        policy.onNetwork(CELL)
+
+        assertEquals(1, restarts)
+        assertEquals(0, reconnects)
+    }
+
+    @Test
+    fun `a move through a spell with no network is still a move`() = runTest {
+        var restarts = 0
+        val policy = policy(wantsPlay = { true }, restart = { restarts += 1 })
+
+        policy.onNetwork(WIFI)
+        policy.onNetwork(null)
+        advanceTimeBy(5_000)
+        policy.onNetwork(CELL)
+
+        assertEquals(1, restarts)
+    }
+
+    @Test
+    fun `the same network coming back is not a move`() = runTest {
+        var restarts = 0
+        val policy = policy(wantsPlay = { true }, restart = { restarts += 1 })
+
+        policy.onNetwork(WIFI)
+        policy.onNetwork(null)
+        policy.onNetwork(WIFI)
+
+        assertEquals(0, restarts)
+    }
+
+    @Test
+    fun `the first network heard of is not a move`() = runTest {
+        var restarts = 0
+        val policy = policy(wantsPlay = { true }, restart = { restarts += 1 })
+
+        policy.onNetwork(CELL)
+
+        assertEquals(0, restarts)
+    }
+
+    @Test
+    fun `HLS is left alone when the network moves`() = runTest {
+        var restarts = 0
+        val policy = policy(wantsPlay = { true }, restart = { restarts += 1 }, heldConnection = { false })
+
+        policy.onNetwork(WIFI)
+        policy.onNetwork(CELL)
+
+        assertEquals(0, restarts)
+    }
+
+    @Test
+    fun `a move makes a scheduled retry now, from a fresh backoff`() = runTest {
+        var reconnects = 0
+        var restarts = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 }, restart = { restarts += 1 })
+
+        policy.onNetwork(WIFI)
+        repeat(4) {
+            policy.onPlayerError(error())
+            advanceTimeBy(30_000)
+        }
+        assertEquals(4, reconnects)
+        // The fifth failure's retry is sixteen seconds out when mobile data takes over.
+        policy.onPlayerError(error())
+        policy.onNetwork(CELL)
+        assertEquals(5, reconnects)
+        assertEquals(0, restarts)
+
+        // Nothing left over from the old wait, and the next failure waits a second.
+        advanceTimeBy(20_000)
+        assertEquals(5, reconnects)
+        policy.onPlayerError(error())
+        advanceTimeBy(1_001)
+        assertEquals(6, reconnects)
+    }
+
+    @Test
+    fun `a move with nobody listening does nothing`() = runTest {
+        var restarts = 0
+        var reconnects = 0
+        val policy = policy(wantsPlay = { false }, reconnect = { reconnects += 1 }, restart = { restarts += 1 })
+
+        policy.onNetwork(WIFI)
+        policy.onNetwork(CELL)
+
+        assertEquals(0, restarts)
+        assertEquals(0, reconnects)
+    }
+
+    private companion object {
+        const val WIFI = 100L
+        const val CELL = 200L
     }
 }

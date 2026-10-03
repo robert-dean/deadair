@@ -26,7 +26,8 @@ public enum Message: Equatable, Sendable {
     case comingOnAir
     case showingLastSaid
     /// "N listening · MP3", with the count spelled the way the language counts.
-    case listeners(count: Int, format: StreamFormat)
+    /// `format` is `nil` for Automatic.
+    case listeners(count: Int, format: StreamFormat?)
     case fellBackToMp3(wanted: StreamFormat)
     /// The title while the station talks between records: "Cass is on the mic". `host` is the name
     /// the station sent, and absent when it named nobody, which has its own sentence rather than a

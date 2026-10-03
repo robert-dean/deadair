@@ -9,7 +9,8 @@ import DeadairSdk
 public struct NowPlayingUiState: Equatable, Sendable {
     public var air: AirState
     public var listeners: Int
-    public var format: StreamFormat
+    /// The format asked for, or `nil` for Automatic.
+    public var format: StreamFormat?
     public var playing: Bool
     public var buffering: Bool
     /// True when the chosen format was not published and MP3 was taken instead.
@@ -21,7 +22,7 @@ public struct NowPlayingUiState: Equatable, Sendable {
     public var show: NowPlayingShow?
 
     public init(
-        air: AirState, listeners: Int, format: StreamFormat, playing: Bool, buffering: Bool, fellBackToMp3: Bool = false, stale: Bool = false,
+        air: AirState, listeners: Int, format: StreamFormat?, playing: Bool, buffering: Bool, fellBackToMp3: Bool = false, stale: Bool = false,
         show: NowPlayingShow? = nil
     ) {
         self.air = air
@@ -102,7 +103,10 @@ public struct NowPlayingUiState: Equatable, Sendable {
     }
 
     /// Said only when the chosen format was not there to be had.
-    public var fallbackNote: Message? { fellBackToMp3 ? .fellBackToMp3(wanted: format) : nil }
+    public var fallbackNote: Message? {
+        guard fellBackToMp3, let format else { return nil }
+        return .fellBackToMp3(wanted: format)
+    }
 }
 
 /// The station's words, or nothing when they are blank: a blank name is no name to show.

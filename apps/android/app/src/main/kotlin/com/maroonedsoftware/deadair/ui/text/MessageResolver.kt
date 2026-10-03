@@ -49,7 +49,7 @@ fun Message.resolve(): String =
             // like a fault, and every language has a word for nobody.
             val people =
                 if (count == 0L) stringResource(R.string.nobody_listening) else pluralStringResource(R.plurals.listening, count.toInt(), count)
-            stringResource(R.string.now_footer, people, format.label)
+            stringResource(R.string.now_footer, people, format?.label ?: stringResource(R.string.format_automatic))
         }
         is Message.OnTheMic -> if (host == null) stringResource(R.string.now_on_the_mic_unnamed) else stringResource(R.string.now_on_the_mic, host)
         is Message.WithHost -> stringResource(R.string.now_with_host, host)

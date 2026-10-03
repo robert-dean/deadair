@@ -16,6 +16,11 @@ final class SettingsStore {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        // Once per install: see `formatTextFromBeforeAutomatic` for why a stored MP3 is forgotten.
+        if !defaults.bool(forKey: Keys.automaticFormat) {
+            defaults.set(ListenerSettings.formatTextFromBeforeAutomatic(defaults.string(forKey: Keys.format)), forKey: Keys.format)
+            defaults.set(true, forKey: Keys.automaticFormat)
+        }
         settings = ListenerSettings(
             stationText: defaults.string(forKey: Keys.station),
             nameText: defaults.string(forKey: Keys.name),
@@ -38,7 +43,8 @@ final class SettingsStore {
         write()
     }
 
-    func choose(_ format: StreamFormat) {
+    /// Keep a format, or `nil` for Automatic.
+    func choose(_ format: StreamFormat?) {
         settings.format = format
         write()
     }
@@ -60,5 +66,7 @@ final class SettingsStore {
         static let name = "station_name"
         static let format = "stream_format"
         static let playOnOpen = "play_on_open"
+        /// Set once the stored format has been read for Automatic; see `formatTextFromBeforeAutomatic`.
+        static let automaticFormat = "format_automatic_read"
     }
 }

@@ -37,8 +37,11 @@ class SettingsStore(private val context: Context) {
                 // they can fix it.
                 station = stored[STATION]?.let { StationUrl.parse(it).getOrNull() },
                 stationName = stored[STATION_NAME]?.takeIf { it.isNotBlank() },
-                // Likewise a format this build does not know, which is what a downgrade looks like.
-                format = stored[FORMAT]?.let { name -> StreamFormat.entries.firstOrNull { it.name == name } } ?: StreamFormat.MP3,
+                // Likewise a format this build does not know, which is what a downgrade looks like:
+                // Automatic, as for somebody who never chose. Only a choice is ever stored, so an
+                // install from before Automatic existed that never chose is Automatic now, and one
+                // that chose MP3 keeps it.
+                format = stored[FORMAT]?.let { name -> StreamFormat.entries.firstOrNull { it.name == name } },
                 dynamicColor = stored[DYNAMIC_COLOR] ?: true,
                 playOnOpen = stored[PLAY_ON_OPEN] ?: false,
                 // And a wallpaper setting this build does not know, on the format's argument.
@@ -59,8 +62,9 @@ class SettingsStore(private val context: Context) {
         }
     }
 
-    suspend fun setFormat(format: StreamFormat) {
-        context.preferences.edit { it[FORMAT] = format.name }
+    /** Keep a format, or `null` for Automatic, which is stored as nothing at all. */
+    suspend fun setFormat(format: StreamFormat?) {
+        context.preferences.edit { if (format == null) it.remove(FORMAT) else it[FORMAT] = format.name }
     }
 
     suspend fun setDynamicColor(on: Boolean) {

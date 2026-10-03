@@ -1,1 +1,6 @@
-The station on your home screen: what is playing, a play/stop button, and the operator's skip. By default it shows what you are listening to and asks the station nothing when you are not; it can follow the station instead, from Settings.
+• Share a talk break from "What it said" as a copy small enough for a text message, or save it wherever you choose.
+• Copy a break's words with the new copy button.
+• New Automatic format: HLS where the station has it, MP3 otherwise.
+• Moving between wifi and mobile data no longer cuts the stream, and a drop with no signal waits for one instead of giving up.
+• Air a playlist with similar records mixed in.
+• The code scanner now rotates with tablets and foldables.

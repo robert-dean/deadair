@@ -25,7 +25,7 @@
 // says reaching for the whole vocabulary here is how a presenter starts coughing on a station
 // that widened the list for somebody else. The rule counts identifiers rather than doc links.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { SPEECH_CUES, type SpeechCue } from '@deadair/plugin-sdk';
+import { normalize, SPEECH_CUES, type SpeechCue } from '@deadair/plugin-sdk';
 import { keepPads, MAX_PADS } from './pad.cues.js';
 
 /**
@@ -71,6 +71,15 @@ export interface SpeakableOptions {
      * row to decide what to join. So this is what puts the hit on the record of what was written.
      */
     pads?: readonly string[];
+    /**
+     * Who may be speaking: the presenter's on-air name and label, or a production's cast.
+     *
+     * A model that writes a script as a play puts a name and a colon in front of it, and the engine
+     * reads the name out. With the names in hand the label is recognised by WHO it names rather than
+     * by its shape, so `Solène:` and `Iris : bonsoir` go as surely as `Host:`, and an opening that only
+     * looks like a label (`Tonight: …`) stays. Compared accent- and case-blind.
+     */
+    speakers?: readonly string[];
 }
 
 /**
@@ -81,6 +90,31 @@ export interface SpeakableOptions {
  * out loud first has put its first thing after the thinking.
  */
 export const afterThinking = (text: string): string => text.replace(/^[\s\S]*<\/think>/i, '');
+
+/**
+ * A run in front of a colon on the first line that could be somebody's name: letters in any script,
+ * spaces, dots, apostrophes and hyphens, and no longer than a name gets.
+ */
+const NAMED_LABEL = /^\s*([\p{L}][\p{L}\p{M} .'’-]{0,39}?)\s*:\s*/u;
+
+/** A label by shape alone, for a script whose speakers nobody named. */
+const SHAPED_LABEL = /^\s*[A-Z][A-Za-z ]{0,20}:\s*(?=[A-Z"'“])/;
+
+/**
+ * The script without a speaker label in front of it.
+ *
+ * A label naming one of `speakers` goes whatever follows it. Otherwise the older rule by shape
+ * applies: a capitalised run and a colon in front of a capital.
+ */
+function withoutSpeakerLabel(script: string, speakers: readonly string[]): string {
+    const named = NAMED_LABEL.exec(script);
+    if (named !== null && speakers.length > 0) {
+        const label = normalize(named[1] ?? '');
+        if (label !== '' && speakers.some(speaker => normalize(speaker) === label)) return script.slice(named[0].length);
+    }
+
+    return script.replace(SHAPED_LABEL, '');
+}
 
 /**
  * One answer as speakable words, or nothing when there is nothing left of it.
@@ -101,8 +135,8 @@ export function speakableScript(text: string, options: SpeakableOptions): string
     // last one rather than dropping the answer: the words after it are usually the actual script.
     script = afterThinking(script).trim();
 
-    // Anything before a speaker label on the first line: "DJ:", "Host:", "Announcer:".
-    script = script.replace(/^\s*[A-Z][A-Za-z ]{0,20}:\s*(?=[A-Z"'“])/, '');
+    // Anything before a speaker label on the first line: "DJ:", "Host:", "Announcer:", or a name.
+    script = withoutSpeakerLabel(script, options.speakers ?? []);
 
     // Stage directions, wherever they are: [warmly], (laughs), *sighs*.
     //

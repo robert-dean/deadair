@@ -113,6 +113,28 @@ describe('what survives', () => {
         expect(spoken('Host: Here we go.')).toBe('Here we go.');
     });
 
+    it('drops a label naming one of the speakers, whatever its alphabet and whatever follows it', () => {
+        const named = (text: string) => speakableScript(text, { perform: PRESENTER_CUES, speakers: ['Solène', 'Iris', 'DJ Lucifer'] });
+
+        // Accented: the shape rule only knows A to Z.
+        expect(named('Solène: Bonsoir à tous.')).toBe('Bonsoir à tous.');
+        // French spacing and a lower-case continuation: the shape rule wants a capital after the colon.
+        expect(named('Iris : bonsoir, il est minuit.')).toBe('bonsoir, il est minuit.');
+        // Case and accents are folded, so the label need not be written the way the name is stored.
+        expect(named('dj lucifer: Here we go.')).toBe('Here we go.');
+        expect(named('Solene: Bonsoir.')).toBe('Bonsoir.');
+    });
+
+    it('still drops a role word nobody named', () => {
+        expect(speakableScript('Host: Here we go.', { perform: PRESENTER_CUES, speakers: ['Iris'] })).toBe('Here we go.');
+    });
+
+    it('leaves a first line that names nobody alone when it does not look like a label', () => {
+        expect(speakableScript('Tonight: rain, and a lot of it.', { perform: PRESENTER_CUES, speakers: ['Iris'] })).toBe(
+            'Tonight: rain, and a lot of it.',
+        );
+    });
+
     it('answers nothing when there was nothing but notation', () => {
         expect(spoken('[warmly]')).toBeUndefined();
         expect(spoken('   ')).toBeUndefined();

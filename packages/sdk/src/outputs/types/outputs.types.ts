@@ -29,7 +29,7 @@ export interface OutputProblem {
 
 /**
  * A speaker the station is meant to be playing on, and how it is doing
- * generated from [OutputCast](../../../../../apps/api/data/contracts/outputs/outputs.types.ck#L33)
+ * generated from [OutputCast](../../../../../apps/api/data/contracts/outputs/outputs.types.ck#L34)
  */
 export interface OutputCast {
     pluginId: string;
@@ -54,7 +54,7 @@ export function reviveOutputCast(raw: OutputCast): OutputCast {
 
 /**
  * Play the station on a speaker
- * generated from [OutputCastRequest](../../../../../apps/api/data/contracts/outputs/outputs.types.ck#L47)
+ * generated from [OutputCastRequest](../../../../../apps/api/data/contracts/outputs/outputs.types.ck#L48)
  */
 export interface OutputCastRequest {
     pluginId: string;
@@ -88,7 +88,7 @@ export interface OutputDevice {
 
 /**
  * Every speaker the station is meant to be playing on
- * generated from [OutputCastList](../../../../../apps/api/data/contracts/outputs/outputs.types.ck#L43)
+ * generated from [OutputCastList](../../../../../apps/api/data/contracts/outputs/outputs.types.ck#L44)
  */
 export interface OutputCastList {
     casts: OutputCast[];
@@ -114,4 +114,6 @@ export interface OutputDeviceList {
     devices: OutputDevice[];
     /** Plugins that did not answer. Their speakers are missing from `devices` rather than the whole list failing */
     problems: OutputProblem[];
+    /** True when the station has looked for speakers on its network and never found one, which on a container usually means its network cannot carry multicast (a bridge network). Speakers added by address still work */
+    discoverySeesNothing: boolean;
 }

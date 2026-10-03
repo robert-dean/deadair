@@ -125,6 +125,17 @@ describe('CastMenu', () => {
         expect(await screen.findByRole('menuitem', { name: /Plays none of the station’s streams/ })).toBeDisabled();
     });
 
+    it('says once when the station cannot look for speakers on its own network', async () => {
+        listCasts.mockResolvedValue({ casts: [] });
+        listOutputDevices.mockResolvedValue({ devices: [device()], problems: [], discoverySeesNothing: true });
+        renderMenu();
+        const user = setupUser();
+
+        await user.click(await screen.findByRole('button', { name: 'Play on a speaker' }));
+
+        expect(await screen.findByText(/never found a speaker on its network by itself/)).toBeInTheDocument();
+    });
+
     it('says there are no speakers yet, and names a plugin that could not list its own', async () => {
         listCasts.mockResolvedValue({ casts: [] });
         listOutputDevices.mockResolvedValue({ devices: [], problems: [{ pluginId: 'deadair.cast', message: 'no' }] });

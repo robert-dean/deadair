@@ -4,6 +4,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { toPluginError } from '@deadair/plugin-sdk';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { pluginHttpError } from '#modules/plugins/plugin.error.http.js';
+import { PluginHostFactory } from '#modules/plugins/plugin.host.factory.js';
 import { mountsFor, stationMounts } from './outputs.mounts.js';
 import { OutputsRepository, type OutputCastRow } from './outputs.repository.js';
 import { OutputSpeakers, OutputUnplayableError, isUnknownDevice } from './outputs.speakers.js';
@@ -24,6 +25,7 @@ export class OutputsService {
         private readonly repository: OutputsRepository,
         private readonly speakers: OutputSpeakers,
         private readonly config: AppConfig,
+        private readonly hosts: PluginHostFactory,
     ) {}
 
     /**
@@ -59,7 +61,7 @@ export class OutputsService {
 
         devices.sort((left, right) => left.name.localeCompare(right.name) || left.deviceId.localeCompare(right.deviceId));
         problems.sort((left, right) => left.pluginId.localeCompare(right.pluginId));
-        return { devices, problems };
+        return { devices, problems, discoverySeesNothing: this.hosts.discoverySeesNothing() };
     }
 
     /** Every cast, each asked how it is doing now. A speaker that does not answer is `unreachable`, never an error. */

@@ -93,6 +93,12 @@ export function CastMenu({ onStart, onStop, busy }: CastMenuProps) {
                     idle.map(device => <DeviceItems key={`${device.pluginId}/${device.deviceId}`} device={device} onStart={onStart} />)
                 )}
 
+                {devices.data?.discoverySeesNothing === true && (
+                    <Text size="xs" c="dimmed" px="sm" py={4}>
+                        {t('onAir.cast.cannotLook')}
+                    </Text>
+                )}
+
                 {devices.data?.problems.map(problem => (
                     <Text key={problem.pluginId} size="xs" c="dimmed" px="sm" py={4}>
                         {t('onAir.cast.problem', { plugin: problem.pluginId })}

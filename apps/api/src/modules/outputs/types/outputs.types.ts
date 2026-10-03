@@ -28,7 +28,7 @@ export type OutputProblem = z.infer<typeof OutputProblem>;
 
 /**
  * A speaker the station is meant to be playing on, and how it is doing
- * generated from [OutputCast](../../../../data/contracts/outputs/outputs.types.ck#L33)
+ * generated from [OutputCast](../../../../data/contracts/outputs/outputs.types.ck#L34)
  */
 export const OutputCast = z.strictObject({
     pluginId: z.string().max(200),
@@ -47,7 +47,7 @@ export type OutputCast = z.infer<typeof OutputCast>;
 
 /**
  * Play the station on a speaker
- * generated from [OutputCastRequest](../../../../data/contracts/outputs/outputs.types.ck#L47)
+ * generated from [OutputCastRequest](../../../../data/contracts/outputs/outputs.types.ck#L48)
  */
 export const OutputCastRequest = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -81,7 +81,7 @@ export type OutputDevice = z.infer<typeof OutputDevice>;
 
 /**
  * Every speaker the station is meant to be playing on
- * generated from [OutputCastList](../../../../data/contracts/outputs/outputs.types.ck#L43)
+ * generated from [OutputCastList](../../../../data/contracts/outputs/outputs.types.ck#L44)
  */
 export const OutputCastList = z.strictObject({
     casts: z.array(OutputCast),
@@ -97,5 +97,10 @@ export const OutputDeviceList = z.strictObject({
     problems: z
         .array(OutputProblem)
         .describe('Plugins that did not answer. Their speakers are missing from `devices` rather than the whole list failing'),
+    discoverySeesNothing: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe(
+            'True when the station has looked for speakers on its network and never found one, which on a container usually means its network cannot carry multicast (a bridge network). Speakers added by address still work',
+        ),
 });
 export type OutputDeviceList = z.infer<typeof OutputDeviceList>;

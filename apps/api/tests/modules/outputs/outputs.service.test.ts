@@ -3,13 +3,15 @@ import { PluginError } from '@deadair/plugin-sdk';
 import type { AuthorizationContext } from '../../../src/modules/permissions/authorization.context.js';
 
 import { OutputsService } from '../../../src/modules/outputs/outputs.service.js';
+import type { PluginHostFactory } from '../../../src/modules/plugins/plugin.host.factory.js';
 import { PLUGIN_ID, PUBLIC_URL, kitchen, outputsWorld, speakerPlugin } from './outputs.harness.js';
 
 const operator = { actor: { kind: 'user', actorId: '00000000-0000-0000-0000-000000000001' } } as unknown as AuthorizationContext;
 
 function service(options: Parameters<typeof outputsWorld>[0] = {}) {
     const world = outputsWorld(options);
-    return { ...world, service: new OutputsService(operator, world.repository, world.speakers, world.settings.config) };
+    const hosts = { discoverySeesNothing: () => false } as unknown as PluginHostFactory;
+    return { ...world, service: new OutputsService(operator, world.repository, world.speakers, world.settings.config, hosts) };
 }
 
 async function status(call: Promise<unknown>): Promise<number | undefined> {
@@ -41,6 +43,7 @@ describe('OutputsService.listDevices', () => {
                 },
             ],
             problems: [],
+            discoverySeesNothing: false,
         });
     });
 

@@ -5,6 +5,9 @@ import { RateLimiterMemory, RateLimiterQueue, RateLimiterQueueError } from 'rate
 import { PluginError, isPluginError, parseRows } from '@deadair/plugin-sdk';
 import type {
     ConfigField,
+    DiscoveredService,
+    DiscoveryOptions,
+    DiscoveryQuery,
     ConfigFieldColumn,
     HostFetchInit,
     HostFetchMethod,
@@ -26,6 +29,7 @@ import type {
 } from '@deadair/plugin-sdk';
 import { SpotifyShimClient, type FetchedPlaylistTrack } from '#modules/stream/spotify.shim.client.js';
 import { PluginConfigService } from './plugin.config.service.js';
+import { DISCOVERY_DEFAULT_TIMEOUT_MS, DISCOVERY_MAX_TIMEOUT_MS, SystemDiscoverer, type NetworkDiscoverer } from './plugin.discovery.js';
 import { invocationRemainingMs, invocationSignal } from './plugin.invocation.deadline.js';
 import { PLUGIN_INVOKE_TIMEOUT_MS } from './plugin.invoker.js';
 import { PluginLog } from './plugin.log.js';
@@ -217,6 +221,8 @@ export class PluginHostFactoryOptions {
         readonly openWebSocket: HostWebSocketOpener = platformWebSocket,
         /** How `host.tls` opens a connection once the URL has passed the policy. */
         readonly openTls: HostTlsOpener = platformTls,
+        /** How `host.discover` looks for devices. One per process, since it owns the multicast sockets. */
+        readonly discoverer: NetworkDiscoverer = new SystemDiscoverer(),
     ) {}
 }
 
@@ -892,11 +898,22 @@ export class PluginHostFactory {
         const sockets: SocketRegistry = { closed: false, sockets: new Set(), tls: new Set() };
         this.openSockets.set(manifest.id, sockets);
 
+        // What `host.discover` has found for this plugin, which it may then reach as though the
+        // operator had typed it in. Per instance, so a config save starts the plugin over from what
+        // it was told rather than from everything it ever saw.
+        const found = new Set<string>();
+        const declared = entries;
+        const reachable = async (): Promise<NetworkEntry[]> => [
+            ...(await declared()),
+            ...[...found].map((hostname): NetworkEntry => ({ pattern: hostname, bucket: hostname, operator: true })),
+        ];
+
         return {
             logger,
-            fetch: (url, init) => this.hostFetch(manifest, entries, buckets, logger, bodies, url, init),
-            socket: (url, options) => this.hostSocket(manifest, entries, buckets, logger, sockets, url, options),
-            tls: (url, options) => this.hostTls(manifest, entries, buckets, logger, sockets, url, options),
+            fetch: (url, init) => this.hostFetch(manifest, reachable, buckets, logger, bodies, url, init),
+            socket: (url, options) => this.hostSocket(manifest, reachable, buckets, logger, sockets, url, options),
+            tls: (url, options) => this.hostTls(manifest, reachable, buckets, logger, sockets, url, options),
+            discover: (query, options) => this.hostDiscover(manifest, found, query, options),
             // A getter, not a captured value: the host object outlives every
             // invocation made through it, so it has to read the ambient one at
             // the moment the plugin asks rather than whichever was running when
@@ -1494,6 +1511,51 @@ export class PluginHostFactory {
             // An error is always followed by a close, which is where it is reported.
             raw.addEventListener('error', () => logger.debug('plugin socket error', { hostname }));
         });
+    }
+
+    /**
+     * Whether network discovery has been tried and has never found anything, which on a container
+     * means its network cannot carry multicast to the station. For the console to say once.
+     */
+    discoverySeesNothing(): boolean {
+        return this.options.discoverer.seesNothing();
+    }
+
+    /**
+     * `host.discover`: a query the manifest named, run by the host's one discoverer, with every
+     * address that answered admitted to this plugin's allowlist as an operator-supplied one. That is
+     * what lets a plugin reach a device it found without the `network.open` grant, and without
+     * certificate checks over `host.tls`, exactly as it could one the operator typed in: a device
+     * that answered on the station's own network is the operator's device.
+     */
+    private async hostDiscover(
+        manifest: PluginManifest,
+        found: Set<string>,
+        query: DiscoveryQuery,
+        options: DiscoveryOptions | undefined,
+    ): Promise<DiscoveredService[]> {
+        const allowed = (manifest.permissions.discovery ?? []).some(entry =>
+            entry.protocol === 'mdns' && query.protocol === 'mdns'
+                ? entry.service === query.service
+                : entry.protocol === 'ssdp' && query.protocol === 'ssdp' && entry.searchTarget === query.searchTarget,
+        );
+        if (!allowed) {
+            const what = query.protocol === 'mdns' ? query.service : query.searchTarget;
+            throw new PluginError(`plugin "${manifest.id}" does not declare discovery of ${query.protocol} "${what}"`).withCode('internal');
+        }
+
+        const timeoutMs = Math.max(250, Math.min(options?.timeoutMs ?? DISCOVERY_DEFAULT_TIMEOUT_MS, DISCOVERY_MAX_TIMEOUT_MS));
+        const services = await this.options.discoverer.discover(query, timeoutMs);
+        for (const service of services) {
+            found.add(service.address.toLowerCase());
+            if (service.location === undefined) continue;
+            try {
+                found.add(new URL(service.location).hostname.toLowerCase());
+            } catch {
+                // A location that is not a URL admits nothing.
+            }
+        }
+        return services;
     }
 
     /**

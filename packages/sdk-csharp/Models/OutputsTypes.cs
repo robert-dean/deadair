@@ -131,6 +131,10 @@ public sealed record OutputDeviceList
     /// <summary>Plugins that did not answer. Their speakers are missing from `devices` rather than the whole list failing</summary>
     [JsonPropertyName("problems")]
     public required List<OutputProblem> Problems { get; init; }
+
+    /// <summary>True when the station has looked for speakers on its network and never found one, which on a container usually means its network cannot carry multicast (a bridge network). Speakers added by address still work</summary>
+    [JsonPropertyName("discoverySeesNothing")]
+    public required bool DiscoverySeesNothing { get; init; }
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<OutputMountFormat>))]

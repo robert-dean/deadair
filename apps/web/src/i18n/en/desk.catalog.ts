@@ -74,6 +74,8 @@ export const desk = {
             noMounts: 'Plays none of the station’s streams',
             stop: 'Stop',
             problem: '{{plugin}} could not list its speakers.',
+            cannotLook:
+                'The station has never found a speaker on its network by itself, which on Docker usually means a bridge network. Add speakers by address, or run it with host networking.',
             listFailed: 'The speakers could not be listed.',
             startFailed: 'The station could not be played on that speaker.',
             stopFailed: 'That speaker could not be stopped.',

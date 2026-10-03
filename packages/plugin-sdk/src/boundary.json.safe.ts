@@ -98,7 +98,16 @@ import type {
 import type { LlmMessage, LlmModelInfo, LlmRequest, LlmResult, LlmToolCall, LlmToolDeclaration, LlmUsage } from './capabilities/llm.js';
 import type { SpeechLimits, SpeechRequest, SpeechVoice } from './capabilities/speech.js';
 import type { ConfigField, ConfigFieldColumn, ConfigFieldOption, ConfigFieldPreset } from './plugin.config.fields.js';
-import type { PlaylistTracksRequest, PluginSocketOptions, PluginTlsOptions, TrackFetchRequest, TrackFetchSession } from './plugin.host.js';
+import type {
+    DiscoveredService,
+    DiscoveryOptions,
+    DiscoveryQuery,
+    PlaylistTracksRequest,
+    PluginSocketOptions,
+    PluginTlsOptions,
+    TrackFetchRequest,
+    TrackFetchSession,
+} from './plugin.host.js';
 import type { PluginConnectionResult } from './plugin.lifecycle.js';
 import type { PluginManifest } from './plugin.manifest.js';
 import type { NetworkPermissionFromConfig, NetworkPermissionHost, PluginGrantRequest, PluginPermissions } from './plugin.permissions.js';
@@ -187,6 +196,10 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     PlaylistTracksRequest: IsJsonSafe<PlaylistTracksRequest>;
     PluginSocketOptions: IsJsonSafe<PluginSocketOptions>;
     PluginTlsOptions: IsJsonSafe<PluginTlsOptions>;
+    // A type alias rather than an interface, so it is checked here and not listed below.
+    DiscoveryQuery: IsJsonSafe<DiscoveryQuery>;
+    DiscoveryOptions: IsJsonSafe<DiscoveryOptions>;
+    DiscoveredService: IsJsonSafe<DiscoveredService>;
     SearchTracksOptions: IsJsonSafe<SearchTracksOptions>;
     ListPlaylistsOptions: IsJsonSafe<ListPlaylistsOptions>;
     GetPlaylistTracksOptions: IsJsonSafe<GetPlaylistTracksOptions>;
@@ -292,6 +305,8 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'PlaylistTracksRequest',
     'PluginSocketOptions',
     'PluginTlsOptions',
+    'DiscoveryOptions',
+    'DiscoveredService',
     'SearchTracksOptions',
     'ListPlaylistsOptions',
     'GetPlaylistTracksOptions',

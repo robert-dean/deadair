@@ -142,6 +142,36 @@ export interface PluginTlsSocket {
 }
 
 /**
+ * What {@link PluginHost.discover} is asked to look for: an mDNS service type such as
+ * `_googlecast._tcp`, or an SSDP search target such as
+ * `urn:schemas-upnp-org:device:MediaRenderer:1`. Each must be named in the manifest's
+ * `permissions.discovery`.
+ */
+export type DiscoveryQuery = { protocol: 'mdns'; service: string } | { protocol: 'ssdp'; searchTarget: string };
+
+/** What {@link PluginHost.discover} may be told. */
+export interface DiscoveryOptions {
+    /** How long to listen for answers, in ms. Clamped to the host's own ceiling of a few seconds. */
+    timeoutMs?: number;
+}
+
+/** One device that answered a discovery query. */
+export interface DiscoveredService {
+    /** The mDNS instance name, or the SSDP unique service name: stable for one device. */
+    name: string;
+    /** The IPv4 address it answered from, which the host now lets this plugin reach. */
+    address: string;
+    /** The port the service is on, where the protocol says (mDNS does; SSDP puts it in `location`). */
+    port?: number;
+    /** mDNS TXT record, key to value: a Cast device's friendly name is `fn`, its model `md`. */
+    txt?: Record<string, string>;
+    /** SSDP: the absolute URL of the device's description. */
+    location?: string;
+    /** SSDP: what the device says it runs. */
+    server?: string;
+}
+
+/**
  * Namespaced key/value store, private to this plugin. Values must be
  * JSON-serialisable. Requires the `storage` permission.
  */
@@ -350,6 +380,20 @@ export interface PluginHost {
      * closes every one it still has.
      */
     tls(url: string, options?: PluginTlsOptions): Promise<PluginTlsSocket>;
+
+    /**
+     * Find devices on the station's network, by mDNS or SSDP. The query must be one the manifest
+     * names in `permissions.discovery`.
+     *
+     * The host owns the sockets, so plugins never bind the multicast ports themselves, and it
+     * remembers every address that answered: this plugin may then reach those addresses through
+     * `fetch`, `socket` and `tls` as though the operator had typed them in.
+     *
+     * Resolves with whatever answered within the timeout, which is an empty list on a network that
+     * cannot carry multicast to the station (a container on a bridge network is the usual one). An
+     * empty answer is not an error; say so as such rather than reporting no devices as a fault.
+     */
+    discover(query: DiscoveryQuery, options?: DiscoveryOptions): Promise<DiscoveredService[]>;
 
     /**
      * Aborts when the host gives up on the call you are currently inside.

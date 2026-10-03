@@ -1,6 +1,8 @@
 import { vi } from 'vitest';
 
 import type {
+    DiscoveredService,
+    DiscoveryQuery,
     HostFetchInit,
     HostFetchMethod,
     PluginHost,
@@ -126,6 +128,11 @@ export interface FakePluginHost extends PluginHost {
      * script the device's answers to whatever the plugin writes.
      */
     onTlsOpen(listener: ((socket: FakePluginTlsSocket) => void) | undefined): void;
+    /**
+     * What `host.discover` answers from now on: a fixed list, or one worked out per query. Nothing
+     * is found until a test says otherwise, which is what a station on a bridge network sees.
+     */
+    seedDiscovery(found: DiscoveredService[] | ((query: DiscoveryQuery) => DiscoveredService[])): void;
 }
 
 /**
@@ -272,6 +279,7 @@ export function createFakePluginHost(): FakePluginHost {
     const tlsSockets: FakePluginTlsSocket[] = [];
     let tlsRefusal: Error | undefined;
     let tlsOpened: ((socket: FakePluginTlsSocket) => void) | undefined;
+    let discovered: (query: DiscoveryQuery) => DiscoveredService[] = () => [];
 
     const fetchImpl = vi.fn(async (url: string, init?: HostFetchInit): Promise<Response> => {
         calls.push({ url, method: init?.method, headers: init?.headers, body: init?.body });
@@ -297,6 +305,7 @@ export function createFakePluginHost(): FakePluginHost {
             tlsOpened?.(socket);
             return socket;
         }),
+        discover: vi.fn(async (query: DiscoveryQuery) => discovered(query)),
         // Never aborts: these tests are about what a plugin does with a reply,
         // not about being cancelled half way through one.
         signal: new AbortController().signal,
@@ -339,6 +348,9 @@ export function createFakePluginHost(): FakePluginHost {
         },
         onTlsOpen(listener) {
             tlsOpened = listener;
+        },
+        seedDiscovery(found) {
+            discovered = typeof found === 'function' ? found : () => found;
         },
         seedRemainingMs(ms) {
             remainingMs = ms;

@@ -481,6 +481,28 @@ only a limited number at once (more than sockets, since a speaker plugin holds o
 per device), and disposing the plugin closes every one without calling your close
 listeners. `send` after a close does nothing, and a listener that throws is logged.
 
+## When you need to find devices on the network
+
+A plugin that drives devices on the operator's network can look for them rather
+than asking for every address. `host.discover` runs an mDNS or SSDP query from the
+host, which owns the multicast sockets so no plugin binds those ports itself:
+
+```ts
+const casts = await host.discover({ protocol: 'mdns', service: '_googlecast._tcp' });
+// [{ name, address: '192.168.1.148', port: 8009, txt: { fn: 'Kitchen speaker', md: 'Google Home Mini' } }]
+const renderers = await host.discover({ protocol: 'ssdp', searchTarget: 'urn:schemas-upnp-org:device:MediaRenderer:1' });
+// [{ name: 'uuid:...', address: '192.168.1.176', location: 'http://192.168.1.176:44667/description.xml', server: '...' }]
+```
+
+Each query must be listed exactly in `permissions.discovery`. Every address that
+answers (and the host of an SSDP `location`) is then reachable by `fetch`, `socket`
+and `tls` as though the operator had typed it in, including `verifyCertificate:
+false`, until the plugin is reinitialised.
+
+An empty answer is normal: a station in a container on a bridge network cannot see
+multicast at all. Keep working from the addresses you were given, and do not
+report "nothing found" as a fault.
+
 ## When your audio needs a helper to fetch it
 
 Almost every provider answers `resolveStreamUrl` out of its own head: it knows a

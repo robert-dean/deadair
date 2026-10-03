@@ -243,27 +243,33 @@ public struct OutputDeviceList: Codable, Equatable, Sendable {
     public var devices: [OutputDevice]
     /// Plugins that did not answer. Their speakers are missing from `devices` rather than the whole list failing
     public var problems: [OutputProblem]
+    /// True when the station has looked for speakers on its network and never found one, which on a container usually means its network cannot carry multicast (a bridge network). Speakers added by address still work
+    public var discoverySeesNothing: Bool
 
-    public init(devices: [OutputDevice], problems: [OutputProblem]) {
+    public init(devices: [OutputDevice], problems: [OutputProblem], discoverySeesNothing: Bool) {
         self.devices = devices
         self.problems = problems
+        self.discoverySeesNothing = discoverySeesNothing
     }
 
     private enum CodingKeys: String, CodingKey {
         case devices = "devices"
         case problems = "problems"
+        case discoverySeesNothing = "discoverySeesNothing"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.devices = try container.decode([OutputDevice].self, forKey: .devices)
         self.problems = try container.decode([OutputProblem].self, forKey: .problems)
+        self.discoverySeesNothing = try container.decode(Bool.self, forKey: .discoverySeesNothing)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.devices, forKey: .devices)
         try container.encode(self.problems, forKey: .problems)
+        try container.encode(self.discoverySeesNothing, forKey: .discoverySeesNothing)
     }
 }
 

@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.39.0] — 2026-10-03
+
+- Share a talk break from the console's Scripts page, as the Android app already can. Every written break whose audio the station still has gets a share button, which asks the station for its small copy (sized for a text message) and opens the browser's share sheet with it. Where there is no share sheet, which includes most desktop browsers and any console opened over plain HTTP, the copy is saved as a download instead. If the station no longer has the audio, cannot make a copy, or cannot be reached, the row says which.
+- A fourth voice: the station can speak through ElevenLabs. Enable the ElevenLabs plugin, paste an API key, and map the station's voices onto ElevenLabs voices, which the form offers from the account. Test connection reports how much of the plan's characters are spent. Each voice can set its own Stability, Similarity, Style and Speed; a setting the chosen model does not read is not sent. The model defaults to Eleven v4. A spent quota stops the plugin with a message saying so, rather than retrying.
+- When the speech server refuses a request, the error now names the address it was sent to, and where a redirect took it if there was one. Before, it named only the voice, which is rarely the problem: an `HTTP 405` usually means the Server URL points at the engine's web page, or at an address that redirects and turns the request into a GET.
+
 ## [0.38.2] — 2026-10-02
 
 - Two new settings for the model that writes the talk breaks: how hard it thinks before it speaks, and how much room it has. Some models think at length even when asked to think a little, and run out of room before they say anything, so the break falls back to the station's own phrasings. Setting the break model to not think at all fixes that for those models. Nothing changes until you set them.
@@ -1006,7 +1012,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.38.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.39.0...HEAD
+[0.39.0]: https://github.com/robert-dean/deadair/compare/v0.38.2...v0.39.0
 [0.38.2]: https://github.com/robert-dean/deadair/compare/v0.38.1...v0.38.2
 [0.38.1]: https://github.com/robert-dean/deadair/compare/v0.38.0...v0.38.1
 [0.38.0]: https://github.com/robert-dean/deadair/compare/v0.37.7...v0.38.0

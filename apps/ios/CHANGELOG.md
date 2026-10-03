@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-10-03
+
+- Save a talk break as well as sharing it. Every row in "What it said" that has a share button now has a save button beside it, which fetches the same small copy and opens the Files save dialog, so the clip can be kept on the phone, in iCloud Drive or wherever you pick. It asks for no permission.
+
 ## [0.3.0] — 2026-10-02
 
 - The station's operator can add a record from the library to Up next, as on Android: Manage's Add a record searches by title once two letters are typed, and each result offers Play next or Add to the end. A record the station has no audio for says so instead. A record's page offers the same two buttons. The station still decides, and a record it will not play now says so.

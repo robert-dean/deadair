@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-10-03
+
+- Save a talk break as well as sharing it. Every row in "What it said" that has a share button now has a save button beside it, which fetches the same small copy and opens the system's save dialog, so the clip can be kept in Downloads, on Drive or wherever you pick, under a name you can change. It asks for no storage permission. Dismissing the dialog saves nothing and says nothing.
+
 ## [0.11.2] — 2026-10-02
 
 - A playlist can be aired with similar records mixed in from the phone, as it can from the console. The playlist page has a "Mix in similar records" box beside "Take calls"; left unticked it says nothing, so a station with mixing switched on still mixes into every playlist.
@@ -176,7 +180,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.11.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.12.0...HEAD
+[0.12.0]: https://github.com/robert-dean/deadair/compare/android-v0.11.2...android-v0.12.0
 [0.11.2]: https://github.com/robert-dean/deadair/compare/android-v0.11.1...android-v0.11.2
 [0.11.1]: https://github.com/robert-dean/deadair/compare/android-v0.11.0...android-v0.11.1
 [0.11.0]: https://github.com/robert-dean/deadair/compare/android-v0.10.0...android-v0.11.0

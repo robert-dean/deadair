@@ -1,13 +1,13 @@
 ---
 title: 'StationCheckup'
-sidebar_position: 12
+sidebar_position: 14
 mdx:
     format: 'md'
 ---
 
 > One reading of the machinery, for a page that assembles the station's health.
 >
-> It carries ONLY the two signals nothing else exposes. Everything else a check-up shows — the
+> It carries ONLY the signals nothing else exposes. Everything else a check-up shows — the
 > silence verdict, the listener count, what needs somebody, the plugin statuses, the disk — is
 > already on a contract the console reads, and composing them again here would be a second answer
 > that can disagree with the first. `/playout/status` in particular is polled every two seconds for
@@ -26,7 +26,7 @@ mdx:
 > here exists to fix.
 
 <details>
-<summary>Attributes (5)</summary>
+<summary>Attributes (6)</summary>
 
 | Attribute    | Type                 | Required | Description                                                                                                                                                                                                                                                                            |
 | ------------ | -------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -35,5 +35,6 @@ mdx:
 | `version`    | `string`             | No       | The release this station is, as the image's `org.opencontainers.image.version` label says it. Absent on the same terms as `revision` and for a second reason: only a tagged build carries one, so a station following `latest` reports a commit and no version. _read-only_            |
 | `heartbeats` | `StationHeartbeat[]` | No       | _read-only_                                                                                                                                                                                                                                                                            |
 | `backlog`    | `StationBacklog`     | No       | _read-only_                                                                                                                                                                                                                                                                            |
+| `model`      | `StationModel`       | No       | _read-only_                                                                                                                                                                                                                                                                            |
 
 </details>

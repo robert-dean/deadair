@@ -2676,3 +2676,29 @@ describe('readAnswer on a station that does not broadcast in English', () => {
         expect(yearsIn('1984, and then nineteen ninety')).toEqual([1984, 1990]);
     });
 });
+
+describe('the station in its own words', () => {
+    const talk = { kind: 'talkbreak' as const, previous: { title: 'Move On Up', artist: 'Curtis Mayfield' } };
+
+    it('tells the presenter who the station is, after its name and before its character', () => {
+        const rules = system(prompt(talk, { station: 'Night Owl', stationIdentity: 'A soul station for people who stay up late.' }));
+
+        expect(rules).toContain('About the station: A soul station for people who stay up late.');
+        expect(rules.indexOf('called Night Owl')).toBeLessThan(rules.indexOf('About the station'));
+    });
+
+    it('offers what is going on as something to know, not something to say every break', () => {
+        const rules = system(prompt(talk, { stationContext: 'It is our tenth birthday this week.' }));
+
+        expect(rules).toContain('It is our tenth birthday this week.');
+        expect(rules).toMatch(/to know rather than to announce/);
+        expect(rules).toMatch(/never in every break/);
+    });
+
+    it('says nothing about either when the station wrote neither', () => {
+        const rules = system(prompt(talk, {}));
+
+        expect(rules).not.toContain('About the station');
+        expect(rules).not.toContain('true at the station right now');
+    });
+});

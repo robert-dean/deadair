@@ -29,13 +29,14 @@ The station asks its model one thing at a time, because a local model is one set
 
 ## Voices
 
-Three speech plugins are bundled:
+Four speech plugins are bundled:
 
 - **Kokoro** speaks through any OpenAI-compatible speech server, and ships pointed at the Kokoro server in the `latest` and `full` images. A voice can be a blend, such as `af_bella(2)+af_sky(1)`.
 - **Chatterbox** reads from reference clips rather than named presets. It manages its model on the graphics card, and can let it go after a quiet spell (15 minutes by default), which matters when a local language model wants the same card.
 - **Rhapsode** speaks through a server that holds several engines at once. A voice there belongs to one engine, so its table names both, and one station can read its news in one engine's voice and its breaks in another's. The server says what each engine can do — which cues it performs, how much text it takes, which audio formats it can encode — so the station asks instead of assuming, and the server decides what is on the card: the plugin only says how long to keep it there.
+- **ElevenLabs** is the hosted one: paste an API key and nothing runs on your machine. The Voices table offers your account's own voices by name, and each row can set Stability and Similarity (and Style and Speed, on the models that read them). The model defaults to Eleven v4, which performs laughs, sighs, gasps and a cleared throat, and reads a line hushed or rushed. Test connection says how much of your plan's characters are spent; when they run out the plugin stops and says so rather than retrying. Every character the station speaks is billed by ElevenLabs, and what your plan allows you to do with the audio is between you and them. A voice from ElevenLabs' library is somebody's recorded voice, licensed to that marketplace, so check its terms before putting it on air.
 
-The `slim` image brings no voice: point a speech plugin at a machine with a graphics card.
+The `slim` image brings no voice: point a speech plugin at a machine with a graphics card, or use ElevenLabs.
 
 A voice is a name the station uses, such as `host`, `newsreader` or a character's own, and each speech plugin's Voices table says what that name sounds like on its engine. Where the engine can perform, a script may carry a cue: a presenter may laugh, chuckle, sigh or gasp, and a caller on a [phone-in](./phone-ins.md) may also cough, clear their throat, sniff or groan, because on a telephone that is the realism. Only cues the loaded engine reports are offered. To give a character a voice of its own, see [making a voice](./making-a-voice.md).
 
@@ -61,7 +62,7 @@ What changes:
 - Checks that only understand English words, such as naming the wrong part of the day, are off. When the station can't tell whether a break mentioned the time or the weather, it assumes it did, so a break that runs late is replaced rather than going out stale.
 - The weather names places in the station's language.
 
-The voice has to speak the language too. Rhapsode and Chatterbox's multilingual model are told which language to use. Rhapsode, and Chatterbox for whichever model is loaded, report which languages they speak, and the station writes a warning to its log once if yours isn't among them. With Kokoro, choose voices built for the language. The Wikipedia plugin has its own language setting, since a station may still want its facts from English Wikipedia.
+The voice has to speak the language too. Rhapsode and Chatterbox's multilingual model are told which language to use. Rhapsode, and Chatterbox for whichever model is loaded, report which languages they speak, and the station writes a warning to its log once if yours isn't among them. ElevenLabs reports the languages of the model you chose, and the station tells Flash v2.5 which one to use; the other ElevenLabs models read the language off the text. With Kokoro, choose voices built for the language. The Wikipedia plugin has its own language setting, since a station may still want its facts from English Wikipedia.
 
 ## In the console
 

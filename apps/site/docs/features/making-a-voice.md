@@ -45,6 +45,10 @@ cloning a person. For the same reason, don't name a real singer or presenter in 
 Describe the manner you want instead. Check that your ElevenLabs plan lets you use what it generates
 in the way you mean to.
 
+If the station speaks through the [ElevenLabs plugin](./models-and-voices.md#voices), there is nothing to clone.
+Save the preview you picked to your ElevenLabs account, and it appears by name in that plugin's Voices table.
+Give it the character's voice name there and skip to [wiring it to the character](#wiring-it-to-the-character).
+
 ### What survives cloning
 
 A designed voice is cloned a second time when it reaches your server, and not every voice comes

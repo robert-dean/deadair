@@ -138,9 +138,10 @@ plugins/*             bundled plugins: spotify, navidrome, ytmusic (YouTube Musi
                       (Open-Meteo, the US National Weather Service or OpenWeatherMap), podcast (the
                       shows the station carries, read from their feeds), telegram, discord and
                       slack (the station on chat platforms: commands answered, what airs announced;
-                      the last two over a socket the plugin holds), kokoro, chatterbox and
-                      rhapsode (the station's voice; the last of those speaks through a server that
-                      holds several engines at once and publishes what each one can do), llm,
+                      the last two over a socket the plugin holds), kokoro, chatterbox,
+                      rhapsode and elevenlabs (the station's voice; rhapsode speaks through a server
+                      that holds several engines at once and publishes what each one can do, and
+                      elevenlabs through ElevenLabs' hosted API with a key), llm,
                       analyzer (the adapter over the measurement sidecar)
 analysis/             the measurement sidecar: a Python service that decodes a record and answers
                       with its cue points and its loudness. No decoding happens in Node

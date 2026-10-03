@@ -40,6 +40,7 @@ With no model the station writes its own breaks from its phrasings. With no voic
 - **Kokoro.** Any OpenAI-compatible speech server, pointed by default at the Kokoro voice the `latest` and `full` images bundle.
 - **Chatterbox.** A voice read from reference clips, with the model on the graphics card managed by the plugin.
 - **Rhapsode.** A speech server that holds several engines at once and says what each of them can do: which performance cues it can perform, which builds it can load, how much text it takes in one go. The station asks rather than assuming, and the server decides which model is on the card.
+- **ElevenLabs.** The hosted speech service, with an API key: no graphics card, and the account's own voices offered by name. Eleven v4 performs laughs, sighs and a hushed or rushed reading. Every character spoken counts against your ElevenLabs plan.
 - **Language model.** As many providers at once as you add: OpenAI-compatible servers, Anthropic and Gemini. See [models and voices](./models-and-voices.md).
 
 **Chat**

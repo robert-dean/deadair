@@ -73,7 +73,8 @@ import com.maroonedsoftware.deadair.ui.theme.supportsDynamicColor
 @Composable
 fun SettingsScreen(
     entry: StationEntryState,
-    format: StreamFormat,
+    /** The format chosen, or `null` for Automatic. */
+    format: StreamFormat?,
     availability: Map<StreamFormat, Boolean>,
     session: SessionState,
     dynamicColor: Boolean,
@@ -87,7 +88,7 @@ fun SettingsScreen(
     onAddressChange: (String) -> Unit,
     onCheck: () -> Unit,
     onConfirm: () -> Unit,
-    onFormat: (StreamFormat) -> Unit,
+    onFormat: (StreamFormat?) -> Unit,
     onDynamicColor: (Boolean) -> Unit,
     onWallpaperFollows: (WallpaperFollows) -> Unit,
     onWidgetFollows: (WidgetFollows) -> Unit,
@@ -166,6 +167,14 @@ fun SettingsScreen(
 
             Text(stringResource(R.string.section_format), style = MaterialTheme.typography.titleMedium)
             Column(Modifier.selectableGroup()) {
+                // First, because it is what nobody choosing gets, and never disabled, because it
+                // resolves to something every station publishes.
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.format_automatic)) },
+                    supportingContent = { Text(stringResource(R.string.format_automatic_detail)) },
+                    leadingContent = { RadioButton(selected = format == null, onClick = null) },
+                    modifier = Modifier.fillMaxWidth().selectable(selected = format == null, role = Role.RadioButton, onClick = { onFormat(null) }),
+                )
                 StreamFormat.entries.forEach { option ->
                     // Absent from the station's `mounts[]` means the operator has not switched
                     // that encoder on. Shown and disabled rather than hidden, so the list is the

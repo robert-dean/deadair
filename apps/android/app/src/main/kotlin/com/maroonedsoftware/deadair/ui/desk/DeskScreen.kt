@@ -70,8 +70,8 @@ import com.maroonedsoftware.deadair.ui.theme.Gutter
 @Composable
 fun DeskScreen(
     playout: PlayoutState,
-    /** This phone's format, for the listeners line. */
-    format: StreamFormat,
+    /** This phone's format, for the listeners line, or `null` for Automatic. */
+    format: StreamFormat?,
     artUrlFor: (String?) -> String?,
     /** An action is in flight, so every control waits for it. */
     busy: Boolean,

@@ -147,6 +147,14 @@ validate. The wait has its own fifteen-minute limit and ends in the same `stop`.
 handover faster: a socket left hanging on the old network still fails on the read timeout, and
 reconnecting the moment the default network CHANGES is separate work.
 
+**The format nobody chose is Automatic, and it is the absence of a choice.** `ListenerSettings.format`
+is `null` for it and the store keeps nothing, so an install from before it existed that never chose
+is Automatic now and one that chose MP3 keeps it. `chooseMount` plays HLS where the station
+publishes it and MP3 where it does not, and neither is a fallback. The price is HLS's: several
+seconds further behind the live edge, and no ICY title, so with the display dark the lock screen
+moves on the thirty-second poll as described above. Accepted, because a handover that cuts the
+stream is worse than a title that changes late.
+
 **HLS listeners are counted per IP and User-Agent**, from playlist re-fetches inside a 15-second
 window. So there is one agent string (`UserAgent.VALUE`), and it reaches every request from one of
 two places: an interceptor on the shared OkHttp client, which the SDK and the image loader both go

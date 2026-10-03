@@ -147,7 +147,8 @@ class PlaybackConductor(
         }
 
     private var station: StationUrl? = null
-    private var format: StreamFormat = StreamFormat.MP3
+    /** The format chosen, or `null` for Automatic. */
+    private var format: StreamFormat? = null
     private var mounts: List<NowPlayingMount> = emptyList()
     private var current: MountChoice? = null
 

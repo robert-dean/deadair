@@ -133,6 +133,14 @@ describe('what survives', () => {
         expect(speakableScript('Tonight: rain, and a lot of it.', { perform: PRESENTER_CUES, speakers: ['Iris'] })).toBe(
             'Tonight: rain, and a lot of it.',
         );
+        // Capitalised after the colon too, which the rule by shape alone used to take off.
+        expect(spoken('Tonight: Rain, and a lot of it.')).toBe('Tonight: Rain, and a lot of it.');
+        expect(spoken('Coming up: The Cure.')).toBe('Coming up: The Cure.');
+    });
+
+    it('drops a role word in any case and with French spacing, with nobody named', () => {
+        expect(spoken('DJ : bonsoir.')).toBe('bonsoir.');
+        expect(spoken('Presenter: Here we go.')).toBe('Here we go.');
     });
 
     it('answers nothing when there was nothing but notation', () => {

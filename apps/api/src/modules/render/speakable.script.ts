@@ -97,23 +97,41 @@ export const afterThinking = (text: string): string => text.replace(/^[\s\S]*<\/
  */
 const NAMED_LABEL = /^\s*([\p{L}][\p{L}\p{M} .'’-]{0,39}?)\s*:\s*/u;
 
-/** A label by shape alone, for a script whose speakers nobody named. */
-const SHAPED_LABEL = /^\s*[A-Z][A-Za-z ]{0,20}:\s*(?=[A-Z"'“])/;
+/**
+ * The words a model uses for whoever is speaking when it does not use a name, as normalised forms.
+ *
+ * A closed list rather than any capitalised word: an opening like `Tonight: …` or `Coming up: …` is
+ * the script, and the old rule by shape alone took it off.
+ */
+const ROLE_LABELS = new Set([
+    'dj',
+    'host',
+    'presenter',
+    'announcer',
+    'narrator',
+    'newsreader',
+    'anchor',
+    'radio host',
+    'radio dj',
+    'speaker',
+    'voice',
+]);
 
 /**
  * The script without a speaker label in front of it.
  *
- * A label naming one of `speakers` goes whatever follows it. Otherwise the older rule by shape
- * applies: a capitalised run and a colon in front of a capital.
+ * A label goes when it names one of `speakers` or is a role word ({@link ROLE_LABELS}), whatever
+ * follows it. Anything else in front of a colon is the script's own words.
  */
 function withoutSpeakerLabel(script: string, speakers: readonly string[]): string {
     const named = NAMED_LABEL.exec(script);
-    if (named !== null && speakers.length > 0) {
-        const label = normalize(named[1] ?? '');
-        if (label !== '' && speakers.some(speaker => normalize(speaker) === label)) return script.slice(named[0].length);
-    }
+    if (named === null) return script;
 
-    return script.replace(SHAPED_LABEL, '');
+    const label = normalize(named[1] ?? '');
+    if (label === '') return script;
+
+    const isSpeaker = ROLE_LABELS.has(label) || speakers.some(speaker => normalize(speaker) === label);
+    return isSpeaker ? script.slice(named[0].length) : script;
 }
 
 /**

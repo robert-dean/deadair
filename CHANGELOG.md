@@ -9,6 +9,20 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.40.0] — 2026-10-03
+
+- A character can now be auditioned over the station's own playlists and over charts, as well as over a provider's playlist. The picker on Voice, Auditions is renamed "Records from" and lists the station's playlists first, then the providers' playlists, then the charts, the same way the programme picker does. A station playlist is read with its placeholders, because a record the library does not hold yet is still one the host can talk about. A chart is read from the top, and its entries are never looked up at a provider, because nothing in an audition airs. An entry the library already holds still brings its facts. In the API, `POST /personas/{id}/auditions` takes `stationPlaylistId` or `chartId` instead of `pluginId` and `playlistId`, and answers 422 unless exactly one source is named. An audition's `source` now carries whichever of the three it was.
+- The Speakers plugin plays the station on BluOS players (Bluesound, NAD) too, added by their address, with the same rules the desktop app's BluOS output learned: a stream starting reads as starting, a player on another source is left alone.
+- The Speakers plugin finds Chromecasts, BluOS players and UPnP renderers on your network by itself, so most speakers need no address typed in, and the desk's menu says which kind each one is. A speaker you add by hand still wins over one found at the same address. Finding them needs the station on the host's network rather than a Docker bridge network; speakers added by address work either way.
+- A new bundled plugin, Speakers, plays the station on anything with Chromecast built in: Google's speakers, many televisions and AV receivers. Add each speaker by its address on your network; the speaker fetches the stream itself from the station's public address.
+- The Speakers plugin plays the station on a Sonos and on UPnP/DLNA renderers too: AV receivers, televisions and networked speakers. A Sonos is added by its address; any other renderer by its description address. Each renderer is offered only the station's streams it says it plays.
+- The desk has a **Play on a speaker** menu under the transport: the speakers the station is playing on, each with how it is doing and a Stop, and the ones it could play on. A speaker that takes more than one of the station's streams offers each by format.
+- Plugins can look for devices on the station's network (`host.discover`, by mDNS or SSDP) without binding any multicast port themselves, and reach what they find. When the station has never found anything that way, which on Docker usually means a bridge network, the desk's speaker menu says so once.
+- A new kind of plugin, `output`, for putting the station on a speaker somewhere else: a Chromecast, a Sonos, a BluOS player. The speaker fetches the stream itself, so nothing about how the station sounds changes. Plugin cards show it as "Plays on speakers".
+- The station can be put on a speaker from the API: `GET /outputs/devices` lists every speaker an `output` plugin offers, with the station's mounts each one can play, and `POST /outputs/casts` starts one. The station keeps it playing through a dropped stream or a restart until `DELETE /outputs/casts/{pluginId}/{deviceId}` stops it, or somebody at the speaker plays something else. Speakers are handed the station's public address, so `stream.publicUrl` has to be one they can reach.
+- Plugins can open a TLS connection to a device on your network (`host.tls`), under the same allowlist, rate limits and clean-up as their web requests. It is what a plugin needs to control a Chromecast, which speaks its own protocol over TLS rather than HTTP.
+- The late-night soul singer, Sonny, is sultrier on a fresh install. He talks about touch and closeness (a hand on the small of a back, breath on a neck, the space on a sofa closing) where he used to stop at lamps and rain, and he admits what he is thinking about rather than only inviting the listener. He still never names a body part or describes sex. He has more room to talk, sighs where the engine can perform it, varies how he signs off, and stays warm rather than wistful. A station that already has him keeps its own copy; edit him on the personas page to take any of this.
+
 ## [0.39.1] — 2026-10-03
 
 - The Rhapsode plugin's homepage link now goes to rhapsode.dev.
@@ -1016,7 +1030,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.39.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.40.0...HEAD
+[0.40.0]: https://github.com/robert-dean/deadair/compare/v0.39.1...v0.40.0
 [0.39.1]: https://github.com/robert-dean/deadair/compare/v0.39.0...v0.39.1
 [0.39.0]: https://github.com/robert-dean/deadair/compare/v0.38.2...v0.39.0
 [0.38.2]: https://github.com/robert-dean/deadair/compare/v0.38.1...v0.38.2

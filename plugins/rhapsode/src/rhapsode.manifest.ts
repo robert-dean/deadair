@@ -115,7 +115,7 @@ export const rhapsodeManifest: PluginManifest = {
     capabilities: [PLUGIN_CAPABILITY_SPEECH],
     apiVersion: '^1.0.0',
     description: 'Gives the station a voice through a Rhapsode server, which holds several speech engines at once and says what each of them can do.',
-    homepage: 'https://github.com/MaroonedSoftware/rhapsode',
+    homepage: 'https://rhapsode.dev/',
     permissions: {
         // The operator names the address, so there is no hostname to write down here. An unset or
         // unparseable `baseUrl` contributes no entry at all, which refuses the call exactly as an

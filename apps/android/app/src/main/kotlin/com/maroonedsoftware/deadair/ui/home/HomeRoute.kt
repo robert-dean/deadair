@@ -97,6 +97,8 @@ fun HomeRoute(
     onScripts: (segmentId: String?) -> Unit,
     /** Open the Manage page: the station's controls, gathered. */
     onManage: () -> Unit,
+    /** Open the request page: search the station's records and ask for one. */
+    onRequest: () -> Unit,
 ) {
     // Back returns to the tab this app opens on before it leaves, which is what an Android
     // listener expects of a bottom bar. The display handles back for the stack above this; this
@@ -164,9 +166,16 @@ fun HomeRoute(
     val dropped = stringResource(R.string.dropped)
     val putItBack = stringResource(R.string.put_it_back)
 
-    // Up next's one action, in its own header: Manage for the operator, where every control now is,
-    // and for a signed-in listener the one read they have. Nothing for anybody signed out.
+    // Up next's actions, in its own header: Manage for the operator, where every control now is, and
+    // for a signed-in listener the one read they have. Request is anybody's who is signed in, the
+    // operator included: a request is asked of the station and may be said on air, which is not what
+    // the operator's own Play next does. Nothing for anybody signed out.
     val upNextActions: @Composable RowScope.() -> Unit = {
+        if (session is SessionState.SignedIn) {
+            IconButton(onClick = onRequest) {
+                Icon(painterResource(R.drawable.ic_playlist_add), contentDescription = stringResource(R.string.request_a_record))
+            }
+        }
         when {
             isOperator ->
                 FilledTonalButton(onClick = onManage, contentPadding = PaddingValues(start = 12.dp, end = 16.dp)) {

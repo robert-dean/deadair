@@ -81,8 +81,9 @@ struct UpNextScreen: View {
         }
     }
 
-    /// The header's one action: Done while rows are being moved, Manage for the operator, where every
-    /// station-wide control is, and for a signed-in listener the one read they have.
+    /// The header's actions: Done while rows are being moved; otherwise Request for anybody signed in,
+    /// beside Manage for the operator, where every station-wide control is, and beside the one read a
+    /// signed-in listener has.
     @ViewBuilder
     private var actions: some View {
         if editMode.isEditing {
@@ -90,21 +91,40 @@ struct UpNextScreen: View {
                 .font(.body.weight(.semibold))
                 .padding(.horizontal, 12)
         } else if model.isOperator {
-            NavigationLink(value: PageRoute.manage) {
-                Label(String(localized: "Manage"), systemImage: "slider.horizontal.3")
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.leading, 12)
-                    .padding(.trailing, 16)
-                    .padding(.vertical, 10)
-                    .background(Capsule().fill(.tint.opacity(0.18)))
+            HStack(spacing: 4) {
+                requestLink
+                manageLink
             }
-            .buttonStyle(.plain)
         } else if model.signedIn {
-            NavigationLink(value: PageRoute.scripts(segmentId: nil)) {
-                Image(systemName: "quote.bubble").font(.title3).frame(width: 48, height: 48)
+            HStack(spacing: 0) {
+                requestLink
+                NavigationLink(value: PageRoute.scripts(segmentId: nil)) {
+                    Image(systemName: "quote.bubble").font(.title3).frame(width: 48, height: 48)
+                }
+                .accessibilityLabel(Text("What it said"))
             }
-            .accessibilityLabel(Text("What it said"))
         }
+    }
+
+    /// Request is anybody's who is signed in, the operator included: a request is asked of the station
+    /// and may be said on air, which is not what the operator's own Play next does.
+    private var requestLink: some View {
+        NavigationLink(value: PageRoute.request) {
+            Image(systemName: "text.badge.plus").font(.title3).frame(width: 48, height: 48)
+        }
+        .accessibilityLabel(Text(String(localized: "Request a record")))
+    }
+
+    private var manageLink: some View {
+        NavigationLink(value: PageRoute.manage) {
+            Label(String(localized: "Manage"), systemImage: "slider.horizontal.3")
+                .font(.subheadline.weight(.semibold))
+                .padding(.leading, 12)
+                .padding(.trailing, 16)
+                .padding(.vertical, 10)
+                .background(Capsule().fill(.tint.opacity(0.18)))
+        }
+        .buttonStyle(.plain)
     }
 
     /// The cover on air, through the same public reading Now playing draws.

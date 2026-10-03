@@ -2,6 +2,7 @@ package com.maroonedsoftware.deadair.ui.text
 
 import com.maroonedsoftware.deadair.auth.Notice
 import com.maroonedsoftware.deadair.sdk.models.PlayoutChartInputChartOrder
+import com.maroonedsoftware.deadair.sdk.models.RequestStatus
 import com.maroonedsoftware.deadair.sdk.models.ScriptOutcome
 import com.maroonedsoftware.deadair.sdk.models.SilenceCause
 import com.maroonedsoftware.deadair.sdk.models.StationItemState
@@ -262,6 +263,22 @@ sealed interface Message {
     data object EraOutOfRange : Message
 
     data object EraBackwards : Message
+
+    // ── Requests ──────────────────────────────────────────────────────────────────────────
+    /** A request is in, and an operator decides on it before it goes anywhere. */
+    data class RequestWaiting(val title: String) : Message
+
+    /** A request is in and the station is finding it a place. */
+    data class RequestOnItsWay(val title: String) : Message
+
+    /** The station turned a request down. `reason` is the station's own sentence, and absent for a plain no. */
+    data class RequestRefused(val reason: String?) : Message
+
+    /** Who a request is dedicated to, in the listener's own words. */
+    data class RequestFor(val name: String) : Message
+
+    /** Where one of the listener's requests has got to. */
+    data class RequestState(val status: RequestStatus) : Message
 
     // ── A stale reading ───────────────────────────────────────────────────────────────────
     data object LastSaid : Message

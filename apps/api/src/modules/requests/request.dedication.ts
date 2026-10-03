@@ -16,7 +16,10 @@ function tidy(text: string | undefined, max: number): string | undefined {
     if (text === undefined) return undefined;
     // Control characters, and format characters: zero-width joiners and the bidi overrides that make a
     // name read one way on screen and another in a log.
-    const cleaned = text.replace(/[\p{Cc}\p{Cf}]/gu, ' ').replace(/\s+/g, ' ').trim();
+    const cleaned = text
+        .replace(/[\p{Cc}\p{Cf}]/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
     if (cleaned === '') return undefined;
     return cleaned.length > max ? cleaned.slice(0, max).trimEnd() : cleaned;
 }

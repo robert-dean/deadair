@@ -4,6 +4,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { RequestAiredWatch } from './request.aired.watch.js';
 import { RequestDesk } from './request.desk.js';
 import { RequestsRepository } from './requests.repository.js';
+import { RequestProviderSearch } from './request.provider.search.js';
 import { RequestsService } from './requests.service.js';
 
 /**
@@ -21,6 +22,7 @@ export const RequestsModule: ServerKitModule = {
     setup: async (registry: Registry, _: AppConfig) => {
         registry.register(RequestsRepository).useClass(RequestsRepository).asScoped();
         registry.register(RequestDesk).useClass(RequestDesk).asScoped();
+        registry.register(RequestProviderSearch).useClass(RequestProviderSearch).asScoped();
         registry.register(RequestsService).useClass(RequestsService).asScoped();
         registry.register(RequestAiredWatch).useClass(RequestAiredWatch).asSingleton();
         // `RequestsTickJob` is registered by `JobsModule`, which walks `JobMappings`, like every job.

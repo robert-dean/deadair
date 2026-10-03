@@ -10,6 +10,7 @@ import androidx.compose.ui.res.stringResource
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.auth.Notice
 import com.maroonedsoftware.deadair.sdk.models.PlayoutChartInputChartOrder
+import com.maroonedsoftware.deadair.sdk.models.RequestStatus
 import com.maroonedsoftware.deadair.sdk.models.ScriptOutcome
 import com.maroonedsoftware.deadair.sdk.models.SilenceCause
 import com.maroonedsoftware.deadair.sdk.models.StationItemState
@@ -176,6 +177,21 @@ fun Message.resolve(): String =
                     StationItemState.SKIPPED -> R.string.item_skipped
                     StationItemState.UNAVAILABLE -> R.string.item_unavailable
                     StationItemState.REMOVED -> R.string.item_removed
+                },
+            )
+        is Message.RequestWaiting -> stringResource(R.string.request_waiting, title)
+        is Message.RequestOnItsWay -> stringResource(R.string.request_on_its_way, title)
+        is Message.RequestRefused -> reason ?: stringResource(R.string.request_refused)
+        is Message.RequestFor -> stringResource(R.string.request_for, name)
+        is Message.RequestState ->
+            stringResource(
+                when (status) {
+                    RequestStatus.WAITING -> R.string.request_state_waiting
+                    RequestStatus.PENDING -> R.string.request_state_pending
+                    RequestStatus.QUEUED -> R.string.request_state_queued
+                    RequestStatus.AIRED -> R.string.request_state_aired
+                    RequestStatus.DECLINED -> R.string.request_state_declined
+                    RequestStatus.EXPIRED -> R.string.request_state_expired
                 },
             )
         is Message.Field ->

@@ -260,7 +260,10 @@ screens use that form throughout.
 ## The session
 
 **Listening is accountless and stays that way.** A session buys `platform.view` reads and, for the
-`admin`, the operator's verbs; nothing about hearing the station. The credentials are the operator's.
+`admin`, the operator's verbs; nothing about hearing the station. In practice the credentials are the
+operator's: a `listener` account is made only by signing in through an identity provider, which leaves it
+with no password, and this app signs in with one. Request is drawn for any signed-in account for that
+reason, and is verified with the operator's.
 
 **The refresh is single-flight, and that is not tidiness.** Refresh tokens are single-use and
 rotating, and presenting a spent one revokes every token descended from that sign-in. The manager
@@ -310,8 +313,9 @@ swift build --package-path packages/sdk-swift -Xswiftc -warnings-as-errors
 
 **Debug builds take `-start_tab` and `-start_page` launch arguments** (`AppModel.startTab`,
 `PageRoute.start`): `-start_tab upNext|whatsOn|settings` opens on a tab, and `-start_page history`,
-`scripts`, `desk`, `manage`, `addRecord`, `signIn`, or `track:<id>`, `album:<id>`, `artist:<id>`
-opens Settings with that page pushed. They exist so a screen can be screenshotted on a simulator with
+`scripts`, `desk`, `manage`, `addRecord`, `request`, `signIn`, or `track:<id>`, `album:<id>`, `artist:<id>`
+opens that page pushed on Settings (pass `-start_tab settings` with it, or the page is pushed on a tab
+nobody is looking at). They exist so a screen can be screenshotted on a simulator with
 `simctl launch` and no tap at all, which is the only safe way to look at a screen that acts on air
 (see the recast above). Release builds ignore both.
 

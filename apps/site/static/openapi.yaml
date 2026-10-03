@@ -4312,7 +4312,7 @@ paths:
         get:
             operationId: search
             summary: 'Search requestable records'
-            description: 'Records the station could be asked to play, matching a title or an artist'
+            description: 'Records the station could be asked to play, matching a title or an artist. When the station holds few, the music providers are asked too'
             parameters:
                 - name: q
                   in: query
@@ -12071,13 +12071,35 @@ components:
                     default: original
                     description: 'A purpose the station interprets rather than a format the caller picks, so what `share` means can change without any caller changing'
             required: [rendition]
+        RequestableSource:
+            type: object
+            properties:
+                pluginId:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'The plugin that carries it'
+                externalId:
+                    type: string
+                    minLength: 1
+                    maxLength: 400
+                    description: "That plugin's own id for the record"
+            required: [pluginId, externalId]
+            description: "A music provider's copy of a record the station has not taken in yet"
         RequestableTrack:
             type: object
             properties:
                 trackId:
                     type: string
                     format: uuid
-                    description: 'What to send as `trackId` to make the request'
+                    description: 'What to send as `trackId` to make the request. Absent for a record from a provider, which is asked for by `source` instead'
+                source:
+                    '$ref': '#/components/schemas/RequestableSource'
+                    description: 'Where a record the station does not hold yet comes from. Send it as `source` to ask for it'
+                sourceName:
+                    type: string
+                    maxLength: 200
+                    description: 'The provider, as the station names it, for a record from one'
                 title:
                     type: string
                     maxLength: 400
@@ -12090,8 +12112,8 @@ components:
                     maxLength: 400
                 year:
                     type: integer
-            required: [trackId, title, artist]
-            description: 'A record the station holds and could be asked for'
+            required: [title, artist]
+            description: 'A record the station could be asked for: one it holds, or one a music provider carries'
         RequestableTrackList:
             type: object
             properties:
@@ -12100,7 +12122,7 @@ components:
                     items:
                         '$ref': '#/components/schemas/RequestableTrack'
             required: [tracks]
-            description: 'Records matching a search, best matches first'
+            description: "Records matching a search, best matches first, the station's own before any a provider carries"
         RequestStatus:
             type: string
             enum: [waiting, pending, queued, aired, declined, expired]
@@ -12167,7 +12189,10 @@ components:
                 trackId:
                     type: string
                     format: uuid
-                    description: 'A record from the request search'
+                    description: 'A record from the request search that the station holds. Send this or `source`, never both'
+                source:
+                    '$ref': '#/components/schemas/RequestableSource'
+                    description: 'A record from the request search that a provider carries. The station takes it in, then decides on the request as usual'
                 name:
                     type: string
                     minLength: 1
@@ -12183,7 +12208,6 @@ components:
                     minLength: 1
                     maxLength: 200
                     description: 'A few words to go with it. The presenter may put them in their own words on air, and leaves out anything unfit to broadcast; the words themselves are never read out'
-            required: [trackId]
             description: 'Ask the station to play a record'
         ListenerRequestDecline:
             type: object

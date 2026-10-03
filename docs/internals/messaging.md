@@ -152,6 +152,23 @@ with (`platform.manage`: list, grant, decline), so the Android, iOS and desktop 
 this module knowing they exist. A chat's `/request` reaches the same `RequestDesk.submit`, so one person
 cannot get round the rules by asking from the other side.
 
+**The Android and iOS apps call it**, from a Request button on Up next for any signed-in account. The
+search is `GET /requests/search`, never the library's, so a listener is never offered a record the
+desk would refuse at the door, and the page lists `GET /requests/mine` every fifteen seconds while it
+shows. That poll is the only way an app learns a request moved on: `tell` reaches chat requesters only,
+and nothing is pushed to a phone. A refusal arrives as a 201 with `declined` and a `reason`, so both apps
+decide what to say from the status and never from the code.
+
+**The app search reaches records the station does not hold, and the chat search does not.** When the
+library has fewer than three matches, `GET /requests/search` adds what the music providers carry
+(`RequestProviderSearch`, described in `programming.md` beside the model's search tool). Such a row has a
+`source` (plugin and the provider's own id) and no `trackId`, and `POST /requests` takes exactly one of
+the two: a `source` is taken into the library through `ProviderCopyResolver` first, as `discovered`, and the
+request then goes to `RequestDesk.submit` like any other, which is where the repeat window and the rest
+of the station's rules are applied. A record taken in stays in the library whatever becomes of the
+request. Chat stays library-only because its buttons carry a track id; giving them a source is the
+change that would extend it.
+
 **The arbitration is a pure function**, `request.arbiter.ts`, because it is the part that is policy:
 [#76](https://github.com/robert-dean/deadair/discussions/76) says the design problem is arbitration, not
 intake. One open request per person (the key is the account, or the platform's user id), a cooldown after

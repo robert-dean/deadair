@@ -53,6 +53,7 @@ import com.maroonedsoftware.deadair.ui.nav.Destination
 import com.maroonedsoftware.deadair.ui.nav.NavConfiguration
 import com.maroonedsoftware.deadair.ui.manage.ManageRoute
 import com.maroonedsoftware.deadair.ui.plan.PlanRoute
+import com.maroonedsoftware.deadair.ui.request.RequestRoute
 import com.maroonedsoftware.deadair.ui.scripts.ScriptsRoute
 import com.maroonedsoftware.deadair.ui.settings.SignInScreen
 import com.maroonedsoftware.deadair.ui.settings.SettingsScreen
@@ -337,6 +338,7 @@ private fun Listener(
                             onHistory = { backStack.add(Destination.History) },
                             onScripts = { segmentId -> backStack.add(Destination.Scripts(segmentId)) },
                             onManage = { backStack.add(Destination.Manage) },
+                            onRequest = { backStack.add(Destination.Request) },
                         )
                     }
                     entry<Destination.Plan> { key ->
@@ -407,6 +409,9 @@ private fun Listener(
                     }
                     entry<Destination.AddRecord> {
                         AddRecordRoute(graph = graph, onBack = { backStack.removeLastOrNull() })
+                    }
+                    entry<Destination.Request> {
+                        RequestRoute(graph = graph, onBack = { backStack.removeLastOrNull() })
                     }
                     // Airing something ends the errand: the stack unwinds to Home, where the
                     // transport shows what just happened.

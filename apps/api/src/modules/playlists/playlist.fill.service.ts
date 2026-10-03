@@ -1,15 +1,11 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import type { ProviderTrack } from '@deadair/plugin-sdk';
 import { CatalogPlaceholderRepository } from '#modules/catalog/ingest/catalog.placeholder.repository.js';
 import { CatalogResolverRepository } from '#modules/catalog/ingest/catalog.resolver.repository.js';
-import { CatalogResolverService } from '#modules/catalog/ingest/catalog.resolver.service.js';
+import { ProviderCopyResolver } from '#modules/catalog/ingest/provider.copy.resolver.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
 import { ProviderTrackLookup } from '#modules/director/provider.track.lookup.js';
-import { asCatalogPlugin } from '#modules/plugins/plugin.capabilities.js';
-import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
-import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { StationPlaylistsRepository, type PlaylistPlaceholderRow } from './station.playlists.repository.js';
@@ -62,10 +58,8 @@ export class PlaylistFillService {
         private readonly playlists: StationPlaylistsRepository,
         private readonly placeholders: CatalogPlaceholderRepository,
         private readonly library: CatalogResolverRepository,
-        private readonly ingest: CatalogResolverService,
+        private readonly copies: ProviderCopyResolver,
         private readonly lookup: ProviderTrackLookup,
-        private readonly registry: PluginRegistry,
-        private readonly invoker: PluginInvoker,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -107,42 +101,19 @@ export class PlaylistFillService {
                 if (held !== undefined) return held;
             }
 
-            const copy = row.origin === undefined ? undefined : await this.providerCopy(row.origin.pluginId, row.origin.externalId);
-            if (copy !== undefined) return await this.take(copy.pluginId, copy.track);
+            const copy =
+                row.origin === undefined ? undefined : await this.copies.copy(row.origin.pluginId, row.origin.externalId, 'playlists.fill.getTrack');
+            if (copy !== undefined) return await this.copies.take(copy.pluginId, copy.track);
 
             const lead = row.snapshot?.artists[0];
             if (row.snapshot === undefined || lead === undefined) return undefined;
             const found = await this.lookup.find(row.snapshot.title, lead);
-            return found === undefined ? undefined : await this.take(found.pluginId, found.track);
+            return found === undefined ? undefined : await this.copies.take(found.pluginId, found.track);
         } catch (error) {
             // One row that could not be found is a miss rather than a failed fill: the rest of the
             // playlist is still worth trying, and this row is still a placeholder to try again.
             this.logger.warn('playlists: could not fill a placeholder', { row: row.id, error: errorText(error) });
             return undefined;
         }
-    }
-
-    /**
-     * The copy a row was cloned from, as that plugin describes it now, or nothing when the plugin is
-     * not here, cannot be asked for one track, or no longer has it.
-     */
-    private async providerCopy(pluginId: string, externalId: string): Promise<{ pluginId: string; track: ProviderTrack } | undefined> {
-        const record = this.registry.get(pluginId);
-        const catalog = record === undefined ? undefined : asCatalogPlugin(record);
-        if (catalog === undefined || typeof catalog.instance.getTrack !== 'function') return undefined;
-
-        try {
-            const track = await this.invoker.invoke(pluginId, 'playlists.fill.getTrack', async () => await catalog.instance.getTrack!(externalId));
-            return track === undefined ? undefined : { pluginId, track };
-        } catch (error) {
-            this.logger.info(`playlists: ${pluginId} could not be asked for a copy a playlist named (${errorText(error)})`);
-            return undefined;
-        }
-    }
-
-    /** Ingest a found copy as `discovered`, which is what keeps the sync's sweep off it. */
-    private async take(pluginId: string, track: ProviderTrack): Promise<string | undefined> {
-        const result = await this.ingest.ingestTrack(pluginId, track, 'discovered');
-        return result.status === 'skipped' ? undefined : result.trackId;
     }
 }

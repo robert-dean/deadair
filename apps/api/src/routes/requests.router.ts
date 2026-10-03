@@ -17,7 +17,7 @@ import { parseAndValidate } from '@maroonedsoftware/zod';
 export const RequestsRouter = ServerKitRouter();
 
 /**
- * Records the station could be asked to play, matching a title or an artist
+ * Records the station could be asked to play, matching a title or an artist. When the station holds few, the music providers are asked too
  * from [requests.ck](../../data/contracts/requests/requests.ck#L17)
  */
 RequestsRouter.get('/requests/search', requirePolicy({ policy: 'platform.view' }), async ctx => {

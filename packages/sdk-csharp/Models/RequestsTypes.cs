@@ -11,27 +11,16 @@ using MaroonedSoftware.Deadair.Sdk.Runtime;
 
 namespace MaroonedSoftware.Deadair.Sdk.Models;
 
-/// <summary>A record the station holds and could be asked for</summary>
-public sealed record RequestableTrack
+/// <summary>A music provider's copy of a record the station has not taken in yet</summary>
+public sealed record RequestableSource
 {
-    /// <summary>What to send as `trackId` to make the request</summary>
-    [JsonPropertyName("trackId")]
-    public required Guid TrackId { get; init; }
+    /// <summary>The plugin that carries it</summary>
+    [JsonPropertyName("pluginId")]
+    public required string PluginId { get; init; }
 
-    [JsonPropertyName("title")]
-    public required string Title { get; init; }
-
-    /// <summary>The lead artist</summary>
-    [JsonPropertyName("artist")]
-    public required string Artist { get; init; }
-
-    [JsonPropertyName("album")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Album { get; init; }
-
-    [JsonPropertyName("year")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public long? Year { get; init; }
+    /// <summary>That plugin's own id for the record</summary>
+    [JsonPropertyName("externalId")]
+    public required string ExternalId { get; init; }
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<RequestStatus>))]
@@ -66,12 +55,61 @@ public enum RequestSource
     Chat,
 }
 
+/// <summary>Turn a request down</summary>
+public sealed record ListenerRequestDecline
+{
+    /// <summary>What to tell the listener. Omit for a plain no</summary>
+    [JsonPropertyName("reason")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Reason { get; init; }
+}
+
+/// <summary>A record the station could be asked for: one it holds, or one a music provider carries</summary>
+public sealed record RequestableTrack
+{
+    /// <summary>What to send as `trackId` to make the request. Absent for a record from a provider, which is asked for by `source` instead</summary>
+    [JsonPropertyName("trackId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? TrackId { get; init; }
+
+    /// <summary>Where a record the station does not hold yet comes from. Send it as `source` to ask for it</summary>
+    [JsonPropertyName("source")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RequestableSource? Source { get; init; }
+
+    /// <summary>The provider, as the station names it, for a record from one</summary>
+    [JsonPropertyName("sourceName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourceName { get; init; }
+
+    [JsonPropertyName("title")]
+    public required string Title { get; init; }
+
+    /// <summary>The lead artist</summary>
+    [JsonPropertyName("artist")]
+    public required string Artist { get; init; }
+
+    [JsonPropertyName("album")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Album { get; init; }
+
+    [JsonPropertyName("year")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Year { get; init; }
+}
+
 /// <summary>Ask the station to play a record</summary>
 public sealed record ListenerRequestCreate
 {
-    /// <summary>A record from the request search</summary>
+    /// <summary>A record from the request search that the station holds. Send this or `source`, never both</summary>
     [JsonPropertyName("trackId")]
-    public required Guid TrackId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? TrackId { get; init; }
+
+    /// <summary>A record from the request search that a provider carries. The station takes it in, then decides on the request as usual</summary>
+    [JsonPropertyName("source")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RequestableSource? Source { get; init; }
 
     /// <summary>What the station should call you. Omitted, you are "a listener": your account's email address is never shown or read out</summary>
     [JsonPropertyName("name")]
@@ -87,22 +125,6 @@ public sealed record ListenerRequestCreate
     [JsonPropertyName("message")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Message { get; init; }
-}
-
-/// <summary>Turn a request down</summary>
-public sealed record ListenerRequestDecline
-{
-    /// <summary>What to tell the listener. Omit for a plain no</summary>
-    [JsonPropertyName("reason")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Reason { get; init; }
-}
-
-/// <summary>Records matching a search, best matches first</summary>
-public sealed record RequestableTrackList
-{
-    [JsonPropertyName("tracks")]
-    public required List<RequestableTrack> Tracks { get; init; }
 }
 
 /// <summary>A record somebody asked the station to play, and what became of it</summary>
@@ -153,6 +175,13 @@ public sealed record ListenerRequest
     [JsonPropertyName("message")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Message { get; init; }
+}
+
+/// <summary>Records matching a search, best matches first, the station's own before any a provider carries</summary>
+public sealed record RequestableTrackList
+{
+    [JsonPropertyName("tracks")]
+    public required List<RequestableTrack> Tracks { get; init; }
 }
 
 /// <summary>Requests, newest first</summary>

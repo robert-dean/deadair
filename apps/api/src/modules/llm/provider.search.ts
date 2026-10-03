@@ -51,6 +51,14 @@ export interface FoundTrack {
     /** Which plugin can play it, so a caller can act on the answer rather than only read it. */
     source: string;
     /**
+     * That plugin's own id for the record, so a caller can take this exact copy in
+     * (`ProviderCopyResolver`) rather than search for it again by name. Never shown to a model: an id
+     * is not a name, and a model told to copy rows back would copy it.
+     */
+    externalId: string;
+    durationMs?: number;
+    year?: number;
+    /**
      * How well known the provider says it is, 0 to 100, when it has an opinion.
      *
      * The one field on the row that says whether a record is a hit or an obscurity, without which a
@@ -103,8 +111,16 @@ export class ProviderSearch {
      * A query is not required: a period is a complete search on its own. What the caller must supply
      * is one of the two, and enforcing that is the caller's job rather than this one's — a tool has a
      * sentence to give the model, and this has an empty list.
+     *
+     * `operation` names the caller in the invoker's log and failure count, so a provider quarantined
+     * by a run of failed searches says whose searches they were.
      */
-    async search(query: string, filters: ProviderSearchFilters, limit: number): Promise<{ tracks: FoundTrack[]; searched: number }> {
+    async search(
+        query: string,
+        filters: ProviderSearchFilters,
+        limit: number,
+        operation = 'llm.tool.searchTracks',
+    ): Promise<{ tracks: FoundTrack[]; searched: number }> {
         const catalogs = this.catalogs();
         const found: FoundTrack[] = [];
 
@@ -112,7 +128,7 @@ export class ProviderSearch {
             try {
                 const tracks = await this.pluginInvoker.invoke(
                     plugin.record.id,
-                    'llm.tool.searchTracks',
+                    operation,
                     // Non-null because `catalogs()` filtered on `searchesTracks`, which is the same
                     // declaration-and-implementation rule the rest of the host applies.
                     async () => (await plugin.instance.searchTracks!(query, { limit: PER_PROVIDER_LIMIT, ...filters })) ?? [],
@@ -132,6 +148,9 @@ export class ProviderSearch {
                         ...(featuring.length === 0 ? {} : { featuring }),
                         ...(track.album === undefined ? {} : { album: track.album }),
                         source: plugin.record.id,
+                        externalId: track.id,
+                        ...(track.durationMs === undefined ? {} : { durationMs: track.durationMs }),
+                        ...(track.year === undefined ? {} : { year: track.year }),
                         ...(track.popularity === undefined ? {} : { popularity: track.popularity }),
                     });
                 }

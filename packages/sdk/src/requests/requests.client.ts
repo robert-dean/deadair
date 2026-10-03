@@ -15,7 +15,7 @@ export class RequestsClient {
 
     /**
      * @name Search requestable records
-     * @description Records the station could be asked to play, matching a title or an artist
+     * @description Records the station could be asked to play, matching a title or an artist. When the station holds few, the music providers are asked too
      */
     async searchRequestableRecords(query: { q: string; limit?: number }): Promise<RequestableTrackList> {
         const qs = buildQueryString(query);

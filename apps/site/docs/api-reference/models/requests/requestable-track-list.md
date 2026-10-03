@@ -1,11 +1,11 @@
 ---
 title: 'RequestableTrackList'
-sidebar_position: 2
+sidebar_position: 3
 mdx:
     format: 'md'
 ---
 
-> Records matching a search, best matches first
+> Records matching a search, best matches first, the station's own before any a provider carries
 
 <details>
 <summary>Attributes (1)</summary>

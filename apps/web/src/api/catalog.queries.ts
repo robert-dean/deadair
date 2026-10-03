@@ -1,5 +1,5 @@
 import { keepPreviousData, queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { Album, Artist, CatalogSort, Rating, TrackSort, TrackState } from '@deadair/sdk';
+import type { Album, Artist, CatalogSort, Rating, TrackSort, TrackState, VocalMarkersDetail, VocalMarkersInput } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -170,6 +170,15 @@ export function catalogTrackEnrichmentOptions(id: string) {
     });
 }
 
+/** Where the singing starts and stops on one record. Its own read, because an operator correcting it should not refetch the whole record. */
+export function catalogTrackVocalMarkersOptions(id: string) {
+    return queryOptions({
+        queryKey: queryKeys.catalog.trackVocalMarkers(id),
+        queryFn: () => sdk.catalog.getVocalMarkers(id),
+        staleTime: TRACK_DETAIL_STALE_TIME,
+    });
+}
+
 export function catalogTracksOptions(input: CatalogTrackPageInput) {
     return queryOptions({
         queryKey: queryKeys.catalog.tracks(input.page, input.search, input.state, order(input)),
@@ -290,4 +299,17 @@ export function useRateTrack() {
             void queryClient.invalidateQueries({ queryKey: queryKeys.director.order() });
         },
     });
+}
+
+/**
+ * Correct where the singing is on a record, or drop the correction. Both answer with the markers as
+ * they now stand, which is written straight into the read rather than refetched.
+ */
+export function useVocalMarkers(id: string) {
+    const queryClient = useQueryClient();
+    const settle = (detail: VocalMarkersDetail) => queryClient.setQueryData(queryKeys.catalog.trackVocalMarkers(id), detail);
+    return {
+        set: useMutation({ mutationFn: (input: VocalMarkersInput) => sdk.catalog.setVocalMarkers(id, input), onSuccess: settle }),
+        clear: useMutation({ mutationFn: () => sdk.catalog.clearVocalMarkers(id), onSuccess: settle }),
+    };
 }

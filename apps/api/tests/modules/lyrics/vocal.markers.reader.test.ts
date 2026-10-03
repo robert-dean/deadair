@@ -8,7 +8,7 @@ import { VocalMarkersReader } from '../../../src/modules/lyrics/vocal.markers.re
 import { settingsConfig } from '../../utils/settings.config.js';
 
 const build = (rows: StoredTiming[], settings: Record<string, string> = {}) => {
-    const repository = { timingsForTracks: vi.fn(async () => rows) };
+    const repository = { timingsForTracks: vi.fn(async () => rows), overridesForTracks: vi.fn(async () => new Map()) };
     return { reader: new VocalMarkersReader(repository as never, settingsConfig(settings).config), repository };
 };
 

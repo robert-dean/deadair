@@ -1074,6 +1074,15 @@ export interface DeadairTrackSources {
   uri: string | null;
 }
 
+export interface DeadairTrackVocalOverrides {
+  createdAt: Generated<DateTime>;
+  endMs: number | null;
+  instrumental: Generated<boolean>;
+  onsetMs: number | null;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface SchemaMigrations {
   version: string;
 }
@@ -1155,5 +1164,6 @@ export interface DB {
   "deadair.trackLyrics": DeadairTrackLyrics;
   "deadair.tracks": DeadairTracks;
   "deadair.trackSources": DeadairTrackSources;
+  "deadair.trackVocalOverrides": DeadairTrackVocalOverrides;
   schemaMigrations: SchemaMigrations;
 }

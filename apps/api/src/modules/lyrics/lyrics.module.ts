@@ -4,6 +4,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { LyricsRepository } from './lyrics.repository.js';
 import { LyricsService } from './lyrics.service.js';
 import { VocalMarkersReader } from './vocal.markers.reader.js';
+import { VocalMarkersService } from './vocal.markers.service.js';
 
 /**
  * The words of the station's records, which it reads and never says.
@@ -19,5 +20,7 @@ export const LyricsModule: ServerKitModule = {
         registry.register(LyricsRepository).useClass(LyricsRepository).asScoped();
         // What the director asks: where the singing is on the records it is about to talk over.
         registry.register(VocalMarkersReader).useClass(VocalMarkersReader).asScoped();
+        // The operator's side of the same markers, behind `/catalog/tracks/{id}/vocal-markers`.
+        registry.register(VocalMarkersService).useClass(VocalMarkersService).asScoped();
     },
 };

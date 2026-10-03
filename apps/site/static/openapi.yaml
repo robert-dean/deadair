@@ -733,6 +733,67 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/TrackClearResult'
+    '/catalog/tracks/{id}/vocal-markers':
+        get:
+            operationId: getVocalMarkers
+            summary: 'Get vocal markers'
+            description: "Where the singing starts and stops on one record, from an operator's correction or its timed lyrics"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/VocalMarkersDetail'
+        put:
+            operationId: setVocalMarkers
+            summary: 'Set vocal markers'
+            description: 'Correct where the singing starts and stops, over whatever the lyrics say'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/VocalMarkersInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/VocalMarkersDetail'
+        delete:
+            operationId: clearVocalMarkers
+            summary: 'Clear vocal markers'
+            description: "Drop the correction, so the record's timed lyrics decide again"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/VocalMarkersDetail'
     '/catalog/tracks/{id}/retry':
         post:
             operationId: retryAudio
@@ -6601,6 +6662,51 @@ components:
                     description: 'What happened, in the words the console shows'
             required: [trackId, cleared, detail]
             description: "What a clear actually did.\n\nA count rather than a bare 204, because the interesting answers are the small ones: clearing the\naudio of a record with three copies and being told `1` is the station saying two of them were\nnever here — which is a fact about the record and not about the button."
+        VocalMarkersDetail:
+            type: object
+            properties:
+                trackId:
+                    type: string
+                    format: uuid
+                    readOnly: true
+                kind:
+                    type: string
+                    enum: [instrumental, ranges, unknown]
+                    readOnly: true
+                    description: 'Nobody sings on it; where the singing is; or nothing to go on'
+                onsetMs:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'Where the first sung word lands, when kind is ranges'
+                endMs:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'Where the singing stops, when it is known'
+                source:
+                    type: string
+                    enum: [override, lyrics, none]
+                    readOnly: true
+                    description: "An operator's correction, the record's timed lyrics, or neither"
+            required: [trackId, kind, source]
+            description: "Where the singing starts and stops on one record, and which answer that is. Times are milliseconds\nfrom the start of the file, the timeline a lyric's timings use. Never the words themselves."
+        VocalMarkersInput:
+            type: object
+            properties:
+                instrumental:
+                    type: boolean
+                    default: false
+                    description: 'Nobody sings on this record, whatever its lyrics say'
+                onsetMs:
+                    type: integer
+                    minimum: 0
+                    description: 'Where the first sung word lands, from the start of the file. Required unless instrumental'
+                endMs:
+                    type: integer
+                    minimum: 0
+                    description: 'Where the singing stops. Optional, and after the onset'
+            description: "An operator's correction: either the record is instrumental, or the singing starts at `onsetMs`."
         ClearEnrichmentQuery:
             type: object
             properties:

@@ -118,6 +118,31 @@ public final class CatalogClient: Sendable {
         return try http.decodeJSON(TrackClearResult.self, from: response)
     }
 
+    /// Get vocal markers
+    /// Where the singing starts and stops on one record, from an operator's correction or its timed lyrics
+    public func getVocalMarkers(id: UUID) async throws -> VocalMarkersDetail {
+        let request = try SdkRequest(method: "GET", path: ["catalog", "tracks", http.segment(id), "vocal-markers"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(VocalMarkersDetail.self, from: response)
+    }
+
+    /// Set vocal markers
+    /// Correct where the singing starts and stops, over whatever the lyrics say
+    public func setVocalMarkers(id: UUID, body: VocalMarkersInput) async throws -> VocalMarkersDetail {
+        var request = try SdkRequest(method: "PUT", path: ["catalog", "tracks", http.segment(id), "vocal-markers"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(VocalMarkersDetail.self, from: response)
+    }
+
+    /// Clear vocal markers
+    /// Drop the correction, so the record's timed lyrics decide again
+    public func clearVocalMarkers(id: UUID) async throws -> VocalMarkersDetail {
+        let request = try SdkRequest(method: "DELETE", path: ["catalog", "tracks", http.segment(id), "vocal-markers"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(VocalMarkersDetail.self, from: response)
+    }
+
     /// Retry track audio
     /// Try this record's copies again now, rather than when the backoff says
     public func retryTrackAudio(id: UUID) async throws -> TrackClearResult {

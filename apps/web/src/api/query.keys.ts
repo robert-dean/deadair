@@ -340,5 +340,6 @@ export const queryKeys = {
          */
         track: (id: string) => ['catalog', 'track', id] as const,
         trackEnrichment: (id: string) => ['catalog', 'track', id, 'enrichment'] as const,
+        trackVocalMarkers: (id: string) => ['catalog', 'track', id, 'vocalMarkers'] as const,
     },
 } as const;

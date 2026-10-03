@@ -23,6 +23,7 @@ import { CATALOG_TRACK_DEFAULTS } from './catalog.page.params';
 import { EnrichmentPanel } from './enrichment.panel';
 import { RatingControl } from './rating.control';
 import { TrackClearMenu } from './track.clear.menu';
+import { VocalMarkersCard } from './vocal.markers.card';
 
 /** A moment, to the minute. These are all "when did this last happen" rather than dates on a calendar. */
 const moment = (iso: Moment | undefined): string => formatMomentMinute(iso, { fallback: '—' });
@@ -157,6 +158,7 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
 
             <BindingsCard detail={detail} phone={phone} />
             <MeasurementCard detail={detail} />
+            <VocalMarkersCard trackId={trackId} />
             <AiringsCard detail={detail} />
 
             <EnrichmentPanel

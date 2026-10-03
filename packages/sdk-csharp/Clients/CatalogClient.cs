@@ -191,6 +191,46 @@ public sealed class CatalogClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Get vocal markers
+    /// Where the singing starts and stops on one record, from an operator's correction or its timed lyrics
+    /// </summary>
+    public async Task<VocalMarkersDetail> GetVocalMarkersAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("catalog", "tracks", http.Segment(id), "vocal-markers"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<VocalMarkersDetail>(response);
+    }
+
+    /// <summary>
+    /// Set vocal markers
+    /// Correct where the singing starts and stops, over whatever the lyrics say
+    /// </summary>
+    public async Task<VocalMarkersDetail> SetVocalMarkersAsync(Guid id, VocalMarkersInput body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Put,
+            http.Path("catalog", "tracks", http.Segment(id), "vocal-markers"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<VocalMarkersDetail>(response);
+    }
+
+    /// <summary>
+    /// Clear vocal markers
+    /// Drop the correction, so the record's timed lyrics decide again
+    /// </summary>
+    public async Task<VocalMarkersDetail> ClearVocalMarkersAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Delete,
+            http.Path("catalog", "tracks", http.Segment(id), "vocal-markers"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<VocalMarkersDetail>(response);
+    }
+
+    /// <summary>
     /// Retry track audio
     /// Try this record's copies again now, rather than when the backoff says
     /// </summary>

@@ -1,17 +1,17 @@
 ---
-title: 'Retry track audio'
-sidebar_label: 'Retry track audio'
-sidebar_position: 17
+title: 'Clear vocal markers'
+sidebar_label: 'Clear vocal markers'
+sidebar_position: 16
 mdx:
     format: 'md'
 ---
 
-Try this record's copies again now, rather than when the backoff says
+Drop the correction, so the record's timed lyrics decide again
 
-**`POST`** `/catalog/tracks/{id}/retry`
+**`DELETE`** `/catalog/tracks/{id}/vocal-markers`
 
 :::note
-SDK method: `retryTrackAudio`
+SDK method: `clearVocalMarkers`
 Security: authenticated (policy: platform.manage)
 :::
 
@@ -28,4 +28,4 @@ Security: authenticated (policy: platform.manage)
 
 ## Response
 
-`200 OK` — Returns a [TrackClearResult](../models/catalog/track-clear-result.md) object.
+`200 OK` — Returns a [VocalMarkersDetail](../models/catalog/vocal-markers-detail.md) object.

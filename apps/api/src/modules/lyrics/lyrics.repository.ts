@@ -30,6 +30,9 @@ export interface StoredTiming {
     synced?: LyricLine[];
 }
 
+/** An operator's correction: the record is instrumental, or its singing starts at `onsetMs` (and stops at `endMs`). */
+export type VocalOverride = { instrumental: true } | { instrumental: false; onsetMs: number; endMs?: number };
+
 const nullable = <T>(value: T | null | undefined): T | undefined => (value == null ? undefined : value);
 
 /**
@@ -159,6 +162,48 @@ export class LyricsRepository extends DataRepository {
             instrumental: row.instrumental,
             ...(row.synced == null ? {} : { synced: row.synced as unknown as LyricLine[] }),
         }));
+    }
+
+    /** An operator's correction of where the singing is on each of these records, by track id. */
+    async overridesForTracks(trackIds: readonly string[]): Promise<Map<string, VocalOverride>> {
+        if (trackIds.length === 0) return new Map();
+
+        const rows = await this.db
+            .selectFrom('deadair.trackVocalOverrides')
+            .select(['trackId', 'instrumental', 'onsetMs', 'endMs'])
+            .where('trackId', 'in', [...trackIds])
+            .execute();
+
+        return new Map(
+            rows.map(row => [
+                row.trackId,
+                row.instrumental
+                    ? { instrumental: true }
+                    : { instrumental: false, onsetMs: row.onsetMs ?? 0, ...(row.endMs == null ? {} : { endMs: row.endMs }) },
+            ]),
+        );
+    }
+
+    /** Sets an operator's correction, replacing any before it. */
+    async saveOverride(trackId: string, override: VocalOverride): Promise<void> {
+        const row = {
+            trackId,
+            instrumental: override.instrumental,
+            onsetMs: override.instrumental ? null : override.onsetMs,
+            endMs: override.instrumental ? null : (override.endMs ?? null),
+        };
+
+        await this.db
+            .insertInto('deadair.trackVocalOverrides')
+            .values(row)
+            .onConflict(oc => oc.column('trackId').doUpdateSet(row))
+            .execute();
+    }
+
+    /** Drops an operator's correction. Answers how many rows went, which is zero or one. */
+    async clearOverride(trackId: string): Promise<number> {
+        const result = await this.db.deleteFrom('deadair.trackVocalOverrides').where('trackId', '=', trackId).executeTakeFirst();
+        return Number(result.numDeletedRows);
     }
 
     /**

@@ -8,6 +8,12 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-10-03
+
+- A new format, Automatic, is now what the app plays unless you pick one: HLS where the station publishes it, so moving between wifi and mobile data does not cut the stream, and MP3 where it does not. If you never chose a format you are on Automatic after updating; if you chose one, you keep it. HLS sits a few seconds further behind live than MP3, and with the screen off the lock screen's title can take up to half a minute to change.
+- Moving between wifi and mobile data no longer leaves the stream on the network it started on. An MP3, AAC, Opus or FLAC stream is reconnected over the new network the moment the phone switches, instead of going silent until the old connection times out, and a reconnect that was already waiting is made at once. HLS, which fetches each piece of audio afresh, is left as it is.
+- A stream that drops while the phone has no network now waits for one instead of retrying against nothing. It used to give up and stop after five minutes, even when the signal came back seconds later; now it reconnects the moment a network is back, starting again from a short wait, and stops only after fifteen minutes without one.
+
 ## [0.12.0] — 2026-10-03
 
 - Save a talk break as well as sharing it. Every row in "What it said" that has a share button now has a save button beside it, which fetches the same small copy and opens the system's save dialog, so the clip can be kept in Downloads, on Drive or wherever you pick, under a name you can change. It asks for no storage permission. Dismissing the dialog saves nothing and says nothing.
@@ -180,7 +186,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.12.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.13.0...HEAD
+[0.13.0]: https://github.com/robert-dean/deadair/compare/android-v0.12.0...android-v0.13.0
 [0.12.0]: https://github.com/robert-dean/deadair/compare/android-v0.11.2...android-v0.12.0
 [0.11.2]: https://github.com/robert-dean/deadair/compare/android-v0.11.1...android-v0.11.2
 [0.11.1]: https://github.com/robert-dean/deadair/compare/android-v0.11.0...android-v0.11.1

@@ -76,7 +76,10 @@
                            Text="{Binding Title, FallbackValue='Nothing on air'}"
                            TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
                 <TextBlock Text="{Binding Artist}" Classes="secondary" FontSize="17"
+                           IsVisible="{Binding HasArtist}"
                            TextWrapping="Wrap" MaxLines="2" />
+                <TextBlock Text="{Binding HostLine}" Classes="secondary"
+                           IsVisible="{Binding HasHostLine}" TextTrimming="CharacterEllipsis" />
                 <TextBlock Text="{Binding Album}" Classes="dimmed" TextTrimming="CharacterEllipsis" />
 
                 <!-- Off air is the ordinary resting state of an audience-gated station, so it gets a

@@ -184,7 +184,11 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(NowPlayingLine))]
+    [NotifyPropertyChangedFor(nameof(HasArtist))]
     private string? _artist;
+
+    /// <summary>A break's artist is empty, and an empty line still takes a line's height.</summary>
+    public bool HasArtist => !string.IsNullOrEmpty(Artist);
 
     /// <summary>The record in one line, for the menu-bar icon, where there is room for nothing else.</summary>
     public string NowPlayingLine => Title is null
@@ -197,6 +201,13 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
     [ObservableProperty]
     private string? _album;
+
+    /// <summary>Who is presenting: "with Cass", or "Cass is on the mic" during a break. Null for nobody to name.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasHostLine))]
+    private string? _hostLine;
+
+    public bool HasHostLine => HostLine is not null;
 
     [ObservableProperty]
     private Bitmap? _artwork;
@@ -447,6 +458,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         Title = null;
         Artist = null;
         Album = null;
+        HostLine = null;
         Artwork = null;
         CoverPalette = null;
         OnAir = false;
@@ -670,6 +682,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         Title = track?.Title;
         Artist = track?.Artist;
         Album = track?.Album;
+        HostLine = Core.NowPlaying.HostLine.For(track, now.Show);
         OnPropertyChanged(nameof(Initial));
 
         Duration = Playhead.Duration(track)?.TotalSeconds ?? 0;

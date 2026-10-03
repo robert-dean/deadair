@@ -506,6 +506,13 @@ a progress bar that is confidently wrong is worse than one that is absent.
 request timed out throws away something true and still useful. It is the station's own rule read from
 the other side: a failed reading of the listener count is "could not say", never zero.
 
+**Who is presenting is one line, in the Android app's words** (`Core/NowPlaying/HostLine`): "with
+Cass" under a record, "Cass is on the mic" during a break. It reads `show.host` from `/nowplaying`,
+which the station leaves out when nobody on air has an on-air name, and a record with nobody to name
+says nothing rather than "with the host". A break falls back to "The host is on the mic", because
+then the line is the only thing saying the station is talking rather than playing. A break's artist
+is empty, so the credit line is hidden on `HasArtist` rather than drawn as a blank line's height.
+
 **The sleep timer stops the listener and nothing else, and matters more here than in a music app.**
 A connection is an audience to an audience-gated station, so somebody asleep with the app playing
 keeps the station on air for as long as the Mac is awake. `Core/Playback/SleepTimer` is only the
@@ -986,6 +993,9 @@ permission — so a layout was the one thing going unverified.
 dotnet run --project apps/desktop/tools/Shots -- artifacts/shots dark
 dotnet run --project apps/desktop/tools/Shots -- artifacts/shots light
 ```
+
+A third argument renders only the frames whose names start with it (`shell-desk`, `studio`), since
+drawing every frame takes minutes and looking at one page should not.
 
 It asserts nothing and cannot fail meaningfully. A layout is judged by looking at it, which is the
 thing an assertion cannot do; the value is entirely in the picture.

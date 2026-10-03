@@ -42,7 +42,14 @@
                 <TextBlock Classes="h2" Text="{Binding Listener.Title, FallbackValue='Nothing on air'}"
                            TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
                 <TextBlock Classes="secondary" Text="{Binding Listener.Artist}"
+                           IsVisible="{Binding Listener.HasArtist}"
                            TextTrimming="CharacterEllipsis" />
+                <!-- Quieter than the credit and under it, as on Android: the record is the news,
+                     the host is who brought it. -->
+                <TextBlock Text="{Binding Listener.HostLine}" FontSize="12"
+                           IsVisible="{Binding Listener.HasHostLine}"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource DaTextDimmedBrush}" />
             </StackPanel>
 
             <!-- An operator's: what the station says about itself, then what is coming up. -->

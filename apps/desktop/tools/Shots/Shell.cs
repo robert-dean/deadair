@@ -131,6 +131,7 @@ internal static class Fakes
         listener.StationName = "Deadair";
         listener.Title = "Alive";
         listener.Artist = "Pearl Jam";
+        listener.HostLine = "with Cass";
 
         // A cover's colours as the sampler would give them, so the page's wash is in frame: a shot
         // has no cover to sample, and without these every frame drew the page with none.
@@ -183,6 +184,16 @@ internal static class Fakes
         }
     }
 
+    /// <summary>The station talking between two records: no artist, and the host's line saying who.</summary>
+    public static void OnTheMic(ListenerViewModel listener)
+    {
+        listener.Title = "Talk break";
+        listener.Artist = string.Empty;
+        listener.Album = null;
+        listener.HostLine = "Cass is on the mic";
+        WithoutAPlayhead(listener);
+    }
+
     /// <summary>The station cannot say where the record is up to, which is ordinary.</summary>
     public static void WithoutAPlayhead(ListenerViewModel listener)
     {
@@ -209,6 +220,7 @@ internal static class Fakes
         listener.Title = null;
         listener.Artist = null;
         listener.Album = null;
+        listener.HostLine = null;
         listener.OnAir = false;
         listener.Listeners = 0;
         listener.ListenersLabel = ListenerCount.Label(0);

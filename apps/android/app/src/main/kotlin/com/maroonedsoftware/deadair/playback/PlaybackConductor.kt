@@ -55,6 +55,11 @@ class PlaybackConductor(
      * A dark display is the one state where it is certain nobody is reading any of them.
      */
     private val displayOn: Flow<Boolean> = flowOf(false),
+    /**
+     * Whether the phone has a network at all. A drop with none waits for one rather than spending
+     * the reconnect budget retrying against nothing; see `ReconnectPolicy.onNetwork`.
+     */
+    private val network: Flow<Boolean> = flowOf(true),
     /** Where the sleep timer's state goes, for a screen to show. */
     publishSleep: (SleepState) -> Unit = {},
     /** Called after the sleep timer has stopped the station, for the service to tidy itself away. */
@@ -157,6 +162,7 @@ class PlaybackConductor(
         player.addListener(policy)
         player.addListener(playWhenReadyListener)
         player.addListener(metadataListener)
+        network.onEach(policy::onNetwork).launchIn(scope)
 
         // The settings and the station's own answer are read together, because the mount to play
         // is a function of both: which format the listener chose, and which paths the station says

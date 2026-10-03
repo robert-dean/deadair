@@ -200,6 +200,14 @@ tile is what the listener presses. The tile survives suspension but not terminat
 `MediaButtonReceiver`, so a play press in a car cannot start an app that has been swiped away.
 CarPlay and an `AudioPlaybackIntent` are the two real routes to that, and neither is built.
 
+**With no network, a drop waits for one instead of spending the backoff.** `Platform.observeNetwork`
+(an `NWPathMonitor`, satisfied rather than internet-reaching, for a home station) feeds
+`PlaybackConductor.networkChanged`: a failure while there is none schedules nothing, and the
+network's return makes the retry due at once from a fresh backoff. The wait holds the background
+task as a timed retry does, so an ordinary handover between wifi and mobile data is covered; a
+longer one outlives it and the app is suspended like any other silent app. After fifteen minutes the
+conductor says unreachable through `onGaveUpWaiting`, because no player reading would.
+
 **A `deadair://` link proposes a station; it never switches to one.** Android's rule and the
 desktop's grammar (`StationLink`, whose tests are theirs case for case). With no station kept, setup
 opens straight on the field with the address in it. With one kept, a sheet asks over the app, and

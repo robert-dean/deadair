@@ -32,6 +32,7 @@ class ReconnectPolicyTest {
         reconnect: () -> Unit = {},
         stop: () -> Unit = {},
         backoff: Backoff = Backoff(),
+        offlineLimitMs: Long = 15 * 60_000L,
     ) = ReconnectPolicy(
         backoff = backoff,
         // `.let` rather than a `{ job.cancel() }` on a line of its own, which Kotlin reads as a
@@ -40,6 +41,7 @@ class ReconnectPolicyTest {
         wantsPlay = wantsPlay,
         reconnect = reconnect,
         stop = stop,
+        offlineLimitMs = offlineLimitMs,
     )
 
     @Test
@@ -271,6 +273,138 @@ class ReconnectPolicyTest {
 
         policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE)
 
+        assertEquals(0, stops)
+    }
+
+    @Test
+    fun `with no network a drop waits for one rather than retrying`() = runTest {
+        var reconnects = 0
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 }, stop = { stops += 1 })
+
+        policy.onNetwork(false)
+        // Errors one after another, as a player retrying nothing would make them: none is retried
+        // and none spends the budget, so ten minutes of them stops nothing.
+        repeat(20) {
+            policy.onPlayerError(error())
+            advanceTimeBy(30_000)
+        }
+
+        assertEquals(0, reconnects)
+        assertEquals(0, stops)
+    }
+
+    @Test
+    fun `the network coming back retries at once`() = runTest {
+        var reconnects = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 })
+
+        policy.onNetwork(false)
+        policy.onPlayerError(error())
+        advanceTimeBy(60_000)
+        policy.onNetwork(true)
+
+        assertEquals(1, reconnects)
+    }
+
+    @Test
+    fun `the network coming back starts the backoff again from a second`() = runTest {
+        var reconnects = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 })
+
+        // Most of the budget spent before the network went.
+        repeat(5) {
+            policy.onPlayerError(error())
+            advanceTimeBy(30_001)
+        }
+        assertEquals(5, reconnects)
+
+        policy.onNetwork(false)
+        policy.onPlayerError(error())
+        policy.onNetwork(true)
+        assertEquals(6, reconnects)
+
+        // The attempt made on the network's return failed too; it waits a second, not thirty.
+        policy.onPlayerError(error())
+        advanceTimeBy(1_001)
+        assertEquals(7, reconnects)
+    }
+
+    @Test
+    fun `losing the network holds a retry that was already scheduled`() = runTest {
+        var reconnects = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 })
+
+        policy.onPlayerError(error())
+        policy.onNetwork(false)
+        advanceTimeBy(60_000)
+        assertEquals(0, reconnects)
+
+        policy.onNetwork(true)
+        assertEquals(1, reconnects)
+    }
+
+    @Test
+    fun `losing the network while playing does nothing until the player fails`() = runTest {
+        var reconnects = 0
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 }, stop = { stops += 1 })
+
+        // A handover with audio still in the buffer, and the new network up before it ran out.
+        policy.onNetwork(false)
+        policy.onNetwork(true)
+        advanceTimeBy(60_000)
+
+        assertEquals(0, reconnects)
+        assertEquals(0, stops)
+    }
+
+    @Test
+    fun `a retry that already fired is not held when the network goes`() = runTest {
+        var reconnects = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 })
+
+        policy.onPlayerError(error())
+        advanceTimeBy(1_001)
+        assertEquals(1, reconnects)
+
+        // The attempt is connecting when the network goes, and connects anyway on the next one:
+        // nothing failed, so the network's return has nothing to retry.
+        policy.onNetwork(false)
+        policy.onNetwork(true)
+        assertEquals(1, reconnects)
+    }
+
+    @Test
+    fun `waiting for the network ends in a stop after its own limit`() = runTest {
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, stop = { stops += 1 }, offlineLimitMs = 60_000)
+
+        policy.onNetwork(false)
+        policy.onPlayerError(error())
+        advanceTimeBy(30_000)
+        // A second error while already waiting does not start the limit again.
+        policy.onPlayerError(error())
+        advanceTimeBy(29_999)
+        assertEquals(0, stops)
+
+        advanceTimeBy(2)
+        assertEquals(1, stops)
+    }
+
+    @Test
+    fun `the listener stopping ends the wait for the network`() = runTest {
+        var reconnects = 0
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 }, stop = { stops += 1 }, offlineLimitMs = 60_000)
+
+        policy.onNetwork(false)
+        policy.onPlayerError(error())
+        policy.onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+        advanceTimeBy(120_000)
+        policy.onNetwork(true)
+
+        assertEquals(0, reconnects)
         assertEquals(0, stops)
     }
 }

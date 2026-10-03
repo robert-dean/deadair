@@ -263,7 +263,8 @@ export class ScheduleService {
      * with the grid.
      */
     async current(): Promise<ScheduleNow> {
-        const clock = readClock(Date.now(), stationZone(this.config));
+        const zone = stationZone(this.config);
+        const clock = readClock(Date.now(), zone);
         const today: StationDate = { year: clock.year, month: clock.month, day: clock.day, weekday: clock.weekday };
         const now = stamp(today, clock.hour * 60 + clock.minute, clock.second);
 
@@ -279,6 +280,7 @@ export class ScheduleService {
 
         return {
             now,
+            timezone: zone,
             ...(inForce === undefined ? {} : { slotId: inForce.id }),
             ...(airing === undefined ? {} : { airingSlotId: airing }),
             upcoming,

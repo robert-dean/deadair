@@ -140,6 +140,32 @@ export class LyricsRepository extends DataRepository {
     }
 
     /**
+     * The words of each of these records, from whichever source holds them, plain preferred.
+     *
+     * For a DERIVATION or a GUARD and nothing else: the break writer's guard compares a script against
+     * these lines, and nothing that reads them may put them on the wire or in a prompt.
+     */
+    async textForDerivation(trackIds: readonly string[]): Promise<Map<string, string>> {
+        if (trackIds.length === 0) return new Map();
+
+        const rows = await this.db
+            .selectFrom('deadair.trackLyrics')
+            .select(['trackId', 'plain', 'synced'])
+            .where('trackId', 'in', [...trackIds])
+            .where(eb => eb.or([eb('plain', 'is not', null), eb('synced', 'is not', null)]))
+            .orderBy('fetchedAt', 'asc')
+            .execute();
+
+        const words = new Map<string, string>();
+        for (const row of rows) {
+            const text = row.plain ?? ((row.synced ?? []) as unknown as LyricLine[]).map(line => line.text).join('\n');
+            // Plain beats synced, and the first source stored keeps its place.
+            if (row.plain != null || !words.has(row.trackId)) words.set(row.trackId, text);
+        }
+        return words;
+    }
+
+    /**
      * The timing evidence for a set of records: every row that has timed lines or says instrumental.
      *
      * The timed lines carry their text because the only way to tell a sung line from the blank one

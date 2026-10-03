@@ -44,6 +44,10 @@ import { errorText } from '#modules/shared/error.text.js';
 import { VocalMarkersReader } from '#modules/lyrics/vocal.markers.reader.js';
 import { runwayFor } from '#modules/lyrics/vocal.runway.js';
 import { resolveTalkUp, talkUpBudget } from './talk.up.js';
+import { ABOUT_THE_RECORD_DEFAULT, ABOUT_THE_RECORD_KEYS } from './about.the.record.js';
+import { LyricLabelsRepository } from '#modules/lyrics/lyric.labels.repository.js';
+import { LyricsRepository } from '#modules/lyrics/lyrics.repository.js';
+import { lyricLines } from '#modules/lyrics/lyric.subject.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { rotationOf } from '#modules/shared/rotation.js';
 
@@ -199,6 +203,9 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly plays: PlayHistoryRepository,
         /** Where the singing starts on the record a talk link leads into. See {@link talkUp}. */
         private readonly vocalMarkers: VocalMarkersReader,
+        /** What each record is about, and its words for the guard. See {@link aboutTheRecords}. */
+        private readonly lyricLabels: LyricLabelsRepository,
+        private readonly lyrics: LyricsRepository,
         private readonly identity: StationIdentity,
         private readonly speech: SpeechService,
         private readonly activity: ActivityRecorder,
@@ -299,6 +306,9 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // After the persona too, since how much a record brings is partly who is presenting: a
         // presenter keen on the story behind a record is handed more of it. See `factBudget`.
         await this.attachFacts(segmentId, neighbours, factBudget(persona, segment.kind));
+        // Beside the facts and the same kind of thing: what the records are about, for a talk link,
+        // with the records' own words kept back for the guard. Empty unless `breaks.aboutTheRecord` is on.
+        const lyricGuard = await this.aboutTheRecords(segment.kind, neighbours);
 
         // What this break is about. Read off the row rather than carried in the payload, for the
         // reason the neighbours are: the row is the record, and a job re-sent after a restart has to
@@ -390,6 +400,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),
             ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
             ...(await this.talkUp(lineup, segment.kind, neighbours.next)),
+            ...lyricGuard,
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
             ...(await this.memory(segment.kind)),
             // Read here rather than held by any writer, for the reason the facts above are: the
@@ -664,6 +675,39 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             return budget === undefined ? {} : { talkUp: budget };
         } catch (error) {
             this.logger.warn('write break: could not read where the singing starts on the next record', { error: errorText(error) });
+            return {};
+        }
+    }
+
+    /**
+     * Stamps what each neighbour is about onto it, and answers the neighbours' lyric lines for the guard.
+     *
+     * Only for a talk link and only with `breaks.aboutTheRecord` on. The lines go to
+     * `BreakWriteRequest.lyricLines`, which nothing renders: the writer sees the subject, the guard sees
+     * the words. Best-effort like the facts: a read that fails costs the subject AND the guard together,
+     * so a break is never shown a subject it is not also guarded against quoting from.
+     */
+    private async aboutTheRecords(kind: string, neighbours: Neighbours): Promise<Partial<Pick<BreakWriteRequest, 'lyricLines'>>> {
+        if (kind !== TALK_BREAK_KIND || !settingIsOn(this.config, ABOUT_THE_RECORD_KEYS.enabled, ABOUT_THE_RECORD_DEFAULT)) return {};
+
+        const sides = [neighbours.previous, neighbours.next].filter((side): side is Neighbour => side?.track.trackId !== undefined);
+        if (sides.length === 0) return {};
+        const ids = sides.map(side => side.track.trackId!);
+
+        try {
+            const [subjects, words] = await Promise.all([this.lyricLabels.subjectsForTracks(ids), this.lyrics.textForDerivation(ids)]);
+            for (const side of sides) {
+                const about = subjects.get(side.track.trackId!);
+                if (about !== undefined) side.track = { ...side.track, about };
+            }
+            const lines = ids.flatMap(id => (words.has(id) ? lyricLines(words.get(id)!) : []));
+            return lines.length === 0 ? {} : { lyricLines: lines };
+        } catch (error) {
+            for (const side of sides) {
+                const { about: _, ...rest } = side.track;
+                side.track = rest;
+            }
+            this.logger.warn('write break: could not read what the records are about', { error: errorText(error) });
             return {};
         }
     }

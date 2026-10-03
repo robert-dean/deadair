@@ -18,6 +18,7 @@ import type { SpokenWeather } from '../../../src/modules/weather/weather.words.j
 import type { ScriptWrite } from '../../../src/modules/render/script.history.repository.js';
 import type { VocalMarkers } from '../../../src/modules/lyrics/vocal.ranges.js';
 import { TALK_UP_KEYS } from '../../../src/modules/director/talk.up.js';
+import { ABOUT_THE_RECORD_KEYS } from '../../../src/modules/director/about.the.record.js';
 
 vi.mock('../../../src/modules/jobs/job.authorization.js', () => ({ overrideJobActor: vi.fn() }));
 
@@ -93,6 +94,10 @@ function harness(
         programmes?: Segment[];
         /** Where the singing starts on each record, keyed by track id, for the talk-up budget. */
         vocalMarkers?: Record<string, VocalMarkers>;
+        /** What each record is about, keyed by track id. */
+        subjects?: Map<string, string>;
+        /** Each record's lyric, keyed by track id, for the guard. */
+        lyricTexts?: Map<string, string>;
     } = {},
 ) {
     const segments = {
@@ -198,6 +203,8 @@ function harness(
     // unless a test asks otherwise, which is the state every other assertion here was written
     // against.
     const plays = { duringBroadcast: vi.fn(async () => options.played ?? []) };
+    const lyricLabels = { subjectsForTracks: vi.fn(async () => options.subjects ?? new Map<string, string>()) };
+    const lyricTexts = { textForDerivation: vi.fn(async () => options.lyricTexts ?? new Map<string, string>()) };
     const vocalMarkers = {
         forTracks: vi.fn(
             async (ids: readonly string[]) =>
@@ -230,6 +237,8 @@ function harness(
         tellings as never,
         plays as never,
         vocalMarkers as never,
+        lyricLabels as never,
+        lyricTexts as never,
         identity as never,
         speech as never,
         activity as never,
@@ -319,6 +328,47 @@ describe('WriteBreakJob', () => {
 
         expect(planted.requests.findById).not.toHaveBeenCalled();
         expect(planted.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ context: expect.anything() }));
+    });
+
+    describe('what the records are about', () => {
+        const withTrackIds = async () => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Solid Air', 'John Martyn', 't-solid'), track('Pink Moon', 'Nick Drake', 't-pink')]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+            return lineup;
+        };
+        const on = { [ABOUT_THE_RECORD_KEYS.enabled]: 'true' };
+
+        it('shows the writer each subject and hands the guard the words, never the prompt', async () => {
+            const { job, writers } = harness({
+                lineup: await withTrackIds(),
+                subjects: new Map([['t-pink', 'Watching the night sky arrive for everyone.']]),
+                lyricTexts: new Map([['t-pink', 'Pink, pink, pink, pink moon\nSaw it written and I saw it say']]),
+                settings: on,
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    next: expect.objectContaining({ about: 'Watching the night sky arrive for everyone.' }),
+                    lyricLines: ['Pink, pink, pink, pink moon', 'Saw it written and I saw it say'],
+                }),
+            );
+        });
+
+        it('shows nothing with the switch stored as the string false', async () => {
+            const { job, writers } = harness({
+                lineup: await withTrackIds(),
+                subjects: new Map([['t-pink', 'About the moon.']]),
+                settings: { [ABOUT_THE_RECORD_KEYS.enabled]: 'false' },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ lyricLines: expect.anything() }));
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ next: expect.not.objectContaining({ about: expect.anything() }) }));
+        });
     });
 
     describe('the intro of the record coming up', () => {

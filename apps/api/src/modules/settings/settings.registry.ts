@@ -108,6 +108,7 @@ import {
     LYRICS_KEYS,
 } from '#modules/lyrics/lyrics.keys.js';
 import { DEFAULT_TALK_UP_SAFETY_MS, TALK_UP_DEFAULT, TALK_UP_KEYS, TALK_UP_SAFETY_RANGE } from '#modules/director/talk.up.js';
+import { ABOUT_THE_RECORD_DEFAULT, ABOUT_THE_RECORD_KEYS } from '#modules/director/about.the.record.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { TRANSCODE_PLUGIN_KEY } from '#modules/render/transcode.settings.js';
 import { SHARE_COPY_DAYS_DEFAULT, SHARE_COPY_DAYS_KEY, SHARE_COPY_DAYS_MAX, SHARE_COPY_DAYS_MIN } from '#modules/render/segment.share.settings.js';
@@ -879,6 +880,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: TALK_UP_DEFAULT,
         dependsOn: ROTATION_KEYS.breaks,
         help: 'When a link is short enough to finish before the singing starts on the next record, the presenter says it over that record’s intro instead of in the gap, landing the last word just before the first sung one. Where the singing starts comes from the record’s timed lyrics, so this does nothing until lyrics are switched on under Measurement, and a record with none is introduced in the gap as before. You can correct where the singing starts on any record’s page.',
+    },
+    {
+        group: 'breaks',
+        key: ABOUT_THE_RECORD_KEYS.enabled,
+        label: 'Tell the presenter what each record is about',
+        type: 'boolean',
+        default: ABOUT_THE_RECORD_DEFAULT,
+        dependsOn: ROTATION_KEYS.breaks,
+        help: 'Shows the writer of a link the one-sentence summary a model wrote of each record, so the presenter can say something about the song rather than only its name. The presenter is never shown the lyrics themselves, and a link that quotes six words of them in a row is thrown away and written again. Needs saying what each record is about switched on under Words.',
     },
     {
         group: 'breaks',

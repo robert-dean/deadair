@@ -271,6 +271,9 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // ones it was shown. Taken from the same two fields the prompt was built from, so a
             // break is only ever refused for failing to name something it was actually given.
             ...(TALK_BREAK_SHAPE.mustNameRecord === true ? { names: [request.previous, request.next] } : {}),
+            // Only with `breaks.aboutTheRecord` on, which is when the job loads them: the records'
+            // own words, so a script reading one aloud is refused.
+            ...(request.lyricLines === undefined ? {} : { lyrics: request.lyricLines }),
             // The same two records kept APART, so a cue can be judged against the side it is on.
             // Unconditional where `names` is gated on the shape, because cueing the wrong record is
             // wrong for any kind that has both — there is no shape that would want it excused — and

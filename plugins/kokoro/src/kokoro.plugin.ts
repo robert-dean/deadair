@@ -210,7 +210,8 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
         const mapping = this.resolveVoice(request.voice);
         const voice = mapping.engine;
 
-        const response = await this.host.fetch(`${this.baseUrl}/audio/speech`, {
+        const endpoint = `${this.baseUrl}/audio/speech`;
+        const response = await this.host.fetch(endpoint, {
             method: 'POST',
             headers: { 'content-type': 'application/json', ...this.authHeaders() },
             body: JSON.stringify({
@@ -230,7 +231,7 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
             // Nobody else is going to read this, and an error body is small
             // enough that letting the socket go is the whole of the cleanup.
             await response.body?.cancel().catch(() => {});
-            throw new PluginError(`kokoro answered HTTP ${response.status} for voice "${voice}"`)
+            throw new PluginError(`kokoro answered HTTP ${response.status} for voice "${voice}" at ${endpoint}${redirectNote(response)}`)
                 .withCode(response.status === 401 || response.status === 403 ? 'auth' : 'upstream')
                 .withUpstreamStatus(response.status);
         }
@@ -269,6 +270,22 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
         return this.apiKey ? { authorization: `Bearer ${this.apiKey}` } : {};
     }
 }
+
+/**
+ * Where a refused request actually ended up, when that was somewhere other than where it was sent.
+ *
+ * The address is in the refusal at all because it is the field the operator has to fix, and the
+ * voice beside it is almost never the problem. Measured on this station: four rounds of quarantine
+ * on `HTTP 405 for voice "am_echo"` against a server where that exact request answers 200, and the
+ * 405 is only reachable two ways — a server URL pointing at the engine's `/web` page, or a redirect.
+ * The host follows a 301, 302 or 303 by switching to GET and dropping the body, as fetch does, so
+ * the engine sees `GET /audio/speech` and refuses the method. Nothing in the old message could tell
+ * those two apart, so the redirect says so when there was one.
+ */
+const redirectNote = (response: Response): string =>
+    response.redirected && response.url.length > 0
+        ? `, after a redirect to ${response.url} (a redirect can turn the POST into a GET; set the server URL to the address that answers without one)`
+        : '';
 
 const isResponseFormat = (value: unknown): value is ResponseFormat => typeof value === 'string' && Object.hasOwn(RESPONSE_FORMATS, value);
 

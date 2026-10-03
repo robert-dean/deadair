@@ -282,7 +282,7 @@ export class PlayoutPusher {
      *   and there was nothing left to cut. `false` only for a skip the stream did not take, which
      *   should not be reported as one that happened.
      */
-    async skipCurrent(itemId?: string): Promise<boolean> {
+    async skipCurrent(itemId?: string, options: { fadeMs?: number } = {}): Promise<boolean> {
         const took = await this.exclusively(async () => {
             await this.pass();
 
@@ -292,11 +292,15 @@ export class PlayoutPusher {
             // Aimed at the player too, which closes the round trip this check cannot: the item may
             // still end between here and the handler. A cut the player declined answers with a
             // reading that names some other item, and there is no boundary of ours to wait for.
-            const reading = await this.control.skip(itemId);
+            const reading = await this.control.skip(itemId, options);
             if (!reading) return false;
 
             this.rundown.reconcile(reading);
             if (itemId !== undefined && reading.onAir !== itemId) return true;
+            // A faded cut lands when the ramp reaches the bottom, seconds from now. Waiting for it here
+            // would hold the transport for the whole fade, so the next tick's reading confirms it
+            // instead, as it confirms every other boundary.
+            if (itemId !== undefined && (options.fadeMs ?? 0) > 0) return true;
             await this.confirmBoundary(before);
             return true;
         });

@@ -539,6 +539,18 @@ playout_bed = amplify(1., override="liq_amplify", playout_bed)
 # an operator sees in `/control/status` is still exactly what the app sent.
 playout_bed = metadata.map(update=true, strip=true, fun (_) -> [("liq_amplify", "")], playout_bed)
 
+# A fade the app can ask for before a cut, so a record cut at a show boundary goes out on a ramp
+# rather than mid-bar. One factor for the whole queue, 1.0 except while `playout_fade_skip` (below,
+# with the skip handler) is running it down. BEFORE `cross`, so the record being cut fades and the
+# next one starts at full level whatever the transition does.
+#
+# `override=null` is the point of the second argument rather than a formality: without it this
+# operator would read `liq_amplify` like every other `amplify`, and that key is stripped one line up
+# precisely so nothing after the stamp applies it again.
+playout_fade_gain = ref(1.)
+playout_queue.on_track(synchronous=true, fun (_) -> playout_fade_gain := 1.)
+playout_bed = amplify(override=null, {playout_fade_gain()}, playout_bed)
+
 # The mic chain's compressor, for the half of the breaks that never reach the mic chain.
 #
 # A break has two routes to the mount and until now only one of them was processed. Over a record it
@@ -1094,11 +1106,49 @@ end
 #
 #   x-skip-item  optional. The item the cut is for, as it appears in `onAir`. Absent, the item on
 #                air is cut whatever it is, which is what an item the app cannot name needs.
+#
+#   x-fade-ms    optional. Fade the item out over this many milliseconds and cut it at the bottom,
+#                rather than cutting at once. The answer comes back immediately with the item still
+#                on air; the cut follows the ramp. Only an AIMED cut fades, because the ramp checks
+#                on every step that the item it was asked about is still the one airing: a record
+#                that ends on its own mid-ramp stops the ramp and puts the level back, rather than
+#                fading and cutting whatever came next.
+playout_fade_step = 0.05
+
+def playout_fade_skip(item, ms) =
+  steps = max(1, int_of_float(float_of_int(ms) / 1000. / playout_fade_step))
+  done = ref(0)
+  def step() =
+    done := done() + 1
+    if not playout_queue.is_ready() or on_air_item() != item then
+      playout_fade_gain := 1.
+      (-1.)
+    elsif done() >= steps then
+      # Left at the bottom rather than put back here: the skip lands a frame or more later, and
+      # restoring the level first played a fifth of a second of the cut record at full volume. The
+      # next track puts it back as it starts. See the `on_track` below.
+      playout_fade_gain := 0.
+      playout_queue.skip()
+      (-1.)
+    else
+      # Linear in amplitude, which is a log curve to the ear: most of the fall is heard at the end.
+      playout_fade_gain := 1. - float_of_int(done()) / float_of_int(steps)
+      playout_fade_step
+    end
+  end
+  thread.run.recurrent(fast=true, on_error=fun (_) -> begin playout_fade_gain := 1. (-1.) end, step)
+end
+
 def control_skip(req) =
   if control_authorized(req) then
     item = string.trim(list.assoc(default="", "x-skip-item", req.headers))
+    fade_ms = int_of_string(default=0, string.trim(list.assoc(default="0", "x-fade-ms", req.headers)))
     if item == "" or (playout_queue.is_ready() and item == on_air_item()) then
-      playout_queue.skip()
+      if item != "" and fade_ms > 0 then
+        playout_fade_skip(item, fade_ms)
+      else
+        playout_queue.skip()
+      end
     end
     control_json('{' ^ playout_reading() ^ '}')
   else

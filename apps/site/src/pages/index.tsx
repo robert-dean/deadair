@@ -41,7 +41,7 @@ const tour: TourStop[] = [
 
 /** What the station can use for words, a voice, facts and music, as the plugins that ship with it reach them. */
 const models = ['Ollama', 'vLLM', 'OpenAI', 'Groq', 'Mistral', 'OpenRouter', 'Anthropic', 'Gemini', 'Any OpenAI-compatible server'];
-const voices = ['Kokoro', 'Chatterbox', 'Rhapsode', 'Any OpenAI-compatible speech server'];
+const voices = ['Kokoro', 'Chatterbox', 'Rhapsode', 'ElevenLabs', 'Any OpenAI-compatible speech server'];
 const sources = [
     'MusicBrainz',
     'Last.fm',

@@ -9,8 +9,8 @@ Read the ones covering whatever you are about to change. The always-loaded index
 
 ## Speech, voices and cues
 
-**The station's voice is a plugin, and there are three of them now.** `speech` capability, `plugins/kokoro`,
-`plugins/chatterbox` and `plugins/rhapsode`. A voice is an opaque station-level id (`host`, `newsreader`, or a persona's own key)
+**The station's voice is a plugin, and there are four of them now.** `speech` capability, `plugins/kokoro`,
+`plugins/chatterbox`, `plugins/rhapsode` and `plugins/elevenlabs`. A voice is an opaque station-level id (`host`, `newsreader`, or a persona's own key)
 that the PLUGIN maps in its own config; the host never interprets it, and engine-specific knobs stay with the
 engine. That map is a `list` config field with a station name, an ENGINE voice and an optional speed — it was
 a single-line box of `host = af_heart` entries, which is why this station had 68 voicepacks installed and a
@@ -79,6 +79,34 @@ field quietly ignored.
 **An engine that does not lazily reload is a plugin that must load it back, and the unload rides the stream's own end.** `plugins/chatterbox` is the case: after `/api/unload`, synthesis 503s until `/restart_server` is called (which hot-swaps the engine rather than killing the process, despite the name), so `ensureLoaded` runs before EVERY synthesis rather than once at startup — the previous render's unload may have emptied the server and nothing else will notice. Three things about it are load-bearing. A load that fails **unloads before retrying once**, because a CUDA OOM strands its own partial allocations (3.5 GiB measured on a 16 GiB card) and an immediate retry throws itself at a GPU it just filled. It fails as **`unavailable` rather than `upstream`**, which is what makes a cold start that ran out of budget keep the segment's words on the row instead of writing the break off. And the unload fires from the **audio stream's end** rather than from `speak`, which returns long before the audio does — all three endings count once (drained, cancelled, refused as implausible), and `SpeechGate` serializing the engine is why this needs no in-flight counter the way the previous station's renderer did. `unloadAfterRender` is **off** by default: an unload reclaims roughly 70% of what the model held, because the graphics runtime keeps the rest until the server exits, so it buys a few gigabytes at the price of a load before the next break and is worth it only on a genuinely contended card. The same argument applies to the OTHER model on that card and `plugins/llm` has no equivalent; see [station-intelligence](https://github.com/robert-dean/deadair/discussions/37).
 
 **The same plugin also lets the model go on its own once the station has been quiet.** `unloadAfterIdleMinutes` (default 15, `0` = never) arms a timer after every synthesis ends (the same moment `unloadAfterRender` would fire, and skipped when that setting is on, since the model is already gone by then) and clears it the moment the next `speak` starts. The next break pays for a cold start, exactly as it would after any other unload. This is a plugin guessing at "quiet" from its own idle time rather than the host telling it the station stood down; see [render-plugin-readiness](https://github.com/robert-dean/deadair/discussions/29) for why that hook does not exist yet and why the timer is enough for now.
+
+**`plugins/elevenlabs` is the one engine on somebody else's computer, and it ships no map for rhapsode's reason
+one step further.** A row names an ElevenLabs `voice_id`, and which voices an account holds is the account's
+business: a shipped id the account lacks is `voice_not_found` on every break. So unmapped voices read in
+`defaultVoice` (one of ElevenLabs' own defaults, on every account), and the voice column autocompletes from the
+account's `/v1/voices`. Three things are load-bearing.
+
+**What a model can do is a TABLE, not a request** (`elevenlabs.models.ts`). `GET /v1/models` reports languages
+and a ceiling and says nothing about the two things that break a line: which `voice_settings` a model reads
+(Eleven v4, the default, reads stability and similarity only, and its docs say so) and which audio tags it
+performs. A row's `style` and `speed` are sent only where the table lists them, on rhapsode's dial rule, and
+cues are claimed only where ElevenLabs LISTS a tag for that model: on v4 `[laughs]`, `[sighs]`, `[gasps]` and
+`[clears throat]`, with `hushed` and `frantic` as a leading `[hushed]` or `[rushed]`. Chuckle, cough, sniff and
+groan have no listed tag and are not claimed, because a guessed spelling read aloud is the one failure
+`listCues` can cause. A model the table does not know is still spoken by and credited with nothing. The
+languages are the exception and ARE asked, once, because v4 lists ninety. `language_code` goes only to Flash
+v2.5, the one model documented to enforce one; the API refuses a code a model does not take, and a refused line
+is a lost break.
+
+**An empty quota is `forbidden`, not `upstream` and not `auth`.** ElevenLabs answers both a bad key and a spent
+month with a 401, so `elevenlabs.errors.ts` reads `detail.status` rather than the code. `upstream` is
+retryable, and three of them quarantine an engine whose key is fine; `auth` sends the operator to re-enter a
+key that is not wrong. Test connection reads `/v1/user/subscription` for the same reason, and a restricted key
+that may not read its own quota still passes, since it can still speak.
+
+**The mime is fixed at `audio/mpeg`** rather than read off the response as rhapsode's is: every format this
+plugin asks for is MP3 (`pcm_*` has nowhere to go in `SEGMENT_CONTENT_TYPES`, on rhapsode's argument), so the
+header could only differ by naming MP3 a way the store has no extension for.
 
 **A voice PREVIEW is keyed on what the voice currently IS, not on what it is called.** `VoiceSampleStore.keyFor` folds in `SpeechVoice.spec`, an opaque token a plugin changes whenever the rendering would (`engineVoice@speed`), because the station voice id is exactly the part that does NOT change when an operator edits the mapping under it — the file claimed a remap minted a new key for as long as it existed and could not deliver it. The other half is the HEADER: `/voices/{id}/sample` revalidates instead of carrying a day of `max-age`, since the URL names a station voice and a browser answering the next click out of its own cache means the request never arrives. Measured — with the key fixed and the header not, a remap still played the old voice and the API logged no second render. `/segments/{id}/audio` keeps its `max-age`, where the id really does identify the bytes. A speech preview asked for with a delivery folds that in as well, but only a delivery the engine performs NOW: keyed on the word that was asked for, an ordinary reading rendered by an engine that dropped it would be filed under `frantic` and served back after the operator switched to a model that performs it, with the plugin, the voice and its spec all unchanged.
 

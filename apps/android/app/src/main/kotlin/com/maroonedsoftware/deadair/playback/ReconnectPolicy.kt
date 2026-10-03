@@ -22,6 +22,13 @@ typealias Cancel = () -> Unit
  * and then retries at once, from a fresh backoff: the failures before it were the missing network,
  * not the station. The wait has its own, longer limit ([offlineLimitMs]), after which it stops for
  * the same reason the budget does.
+ *
+ * **A stream held on one connection moves with the network.** An Icecast mount is a single socket,
+ * bound to whichever network was the default when it connected, and a handover leaves it on the
+ * old one: dead outright when wifi fades, or running on until Android tears the lingering mobile
+ * network down. Waiting for it to fail cost up to the read timeout in silence, so a change of
+ * network [restart]s it at once instead. HLS is a request per segment, each on the network of the
+ * moment, and is left alone ([heldConnection]).
  */
 class ReconnectPolicy(
     private val backoff: Backoff,
@@ -29,6 +36,10 @@ class ReconnectPolicy(
     private val wantsPlay: () -> Boolean,
     private val reconnect: () -> Unit,
     private val stop: () -> Unit,
+    /** Connect again from scratch, for a stream that has not failed but is on the wrong network. */
+    private val restart: () -> Unit = reconnect,
+    /** Whether the stream rides one long connection, which a change of network leaves behind. */
+    private val heldConnection: () -> Boolean = { true },
     private val offlineLimitMs: Long = OFFLINE_LIMIT_MS,
 ) : Player.Listener {
     private var pending: Cancel? = null
@@ -36,31 +47,51 @@ class ReconnectPolicy(
     /** Whether the phone has a network to reach the station over. Assumed until told otherwise. */
     private var online = true
 
+    /** The last network the phone was on, kept through a spell with none, so a return can be told from a move. */
+    private var lastNetwork: Long? = null
+
     /** The give-up timer of a drop that is waiting for the network to come back, or `null` when none is. */
     private var awaitingNetwork: Cancel? = null
 
     /**
-     * The phone gained or lost its network.
+     * The phone's default network, by an identity that tells one network from another, or `null`
+     * for none.
      *
      * Losing it does nothing to a stream that is still playing out of its buffer: the player says
      * so itself when it fails, and only then is there a drop to hold. It does cancel a retry that
      * is already scheduled, which would otherwise fire against nothing and spend budget doing it.
+     *
+     * A DIFFERENT network than the last one, with or without a spell of none between them, is a
+     * move: a scheduled retry is made now rather than at the end of its wait, and a held connection
+     * that has not failed yet is restarted, because it is on a network that is going or gone. The
+     * SAME network coming back is not a move, and a connection that survived the blip is left be.
      */
-    fun onNetwork(available: Boolean) {
-        if (available == online) return
-        online = available
-        if (!available) {
+    fun onNetwork(network: Long?) {
+        if (network == null) {
+            if (!online) return
+            online = false
             if (pending != null) {
                 cancelRetry()
                 waitForNetwork()
             }
             return
         }
+        val moved = lastNetwork != null && network != lastNetwork
+        val returned = !online
+        lastNetwork = network
+        online = true
+        if (!moved && !returned) return
+
         val waiting = awaitingNetwork != null
+        val retrying = pending != null
         cancel()
-        if (waiting && wantsPlay()) {
-            backoff.reset()
-            reconnect()
+        if (!wantsPlay()) return
+        when {
+            waiting || retrying -> {
+                backoff.reset()
+                reconnect()
+            }
+            moved && heldConnection() -> restart()
         }
     }
 

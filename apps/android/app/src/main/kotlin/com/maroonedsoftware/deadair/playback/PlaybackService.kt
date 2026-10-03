@@ -86,8 +86,9 @@ class PlaybackService : MediaLibraryService() {
         }
 
     /**
-     * Whether the phone has a default network, for `ReconnectPolicy` to hold a drop until there is
-     * one rather than spend its budget retrying against nothing.
+     * The phone's default network, by handle, or `null` for none: for `ReconnectPolicy` to hold a
+     * drop until there is one rather than spend its budget retrying against nothing, and to move a
+     * mount's connection when the default network changes under it.
      *
      * Any default network, not a VALIDATED one: a station on the home network is reached over a
      * wifi that may have no internet behind it, and Android never validates that wifi. The network
@@ -95,19 +96,15 @@ class PlaybackService : MediaLibraryService() {
      * the old one's `onLost`, and that late `onLost` must not report a phone that is online as off.
      * Callbacks arrive on the system's connectivity thread; the flow is what carries them to main.
      */
-    private val networkUp = MutableStateFlow(true)
-    @Volatile private var defaultNetwork: Network? = null
+    private val defaultNetwork = MutableStateFlow<Long?>(null)
     private val networkWatcher =
         object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                defaultNetwork = network
-                networkUp.value = true
+                defaultNetwork.value = network.networkHandle
             }
 
             override fun onLost(network: Network) {
-                if (network != defaultNetwork) return
-                defaultNetwork = null
-                networkUp.value = false
+                defaultNetwork.compareAndSet(network.networkHandle, null)
             }
         }
 
@@ -134,8 +131,7 @@ class PlaybackService : MediaLibraryService() {
         )
 
         getSystemService(ConnectivityManager::class.java)?.let { connectivity ->
-            defaultNetwork = connectivity.activeNetwork
-            networkUp.value = defaultNetwork != null
+            defaultNetwork.value = connectivity.activeNetwork?.networkHandle
             connectivity.registerDefaultNetworkCallback(networkWatcher)
         }
 
@@ -223,7 +219,7 @@ class PlaybackService : MediaLibraryService() {
                 graph,
                 words,
                 displayOn = displayOn,
-                network = networkUp,
+                network = defaultNetwork,
                 publishSleep = { session?.setSessionExtras(SleepCommands.extras(it)) },
                 // A timer that fires after the task was swiped away would otherwise leave an idle
                 // service and its notification behind: `onTaskRemoved` only stops one that is quiet.

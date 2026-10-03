@@ -107,4 +107,27 @@ export async function fetchSegmentAudio(id: string): Promise<string> {
     return URL.createObjectURL(result.data);
 }
 
+/** The station's small copy of a break, as it arrived: the bytes, their type and the name it offered. */
+export interface SegmentShareCopy {
+    data: Blob;
+    contentType: string;
+    contentDisposition?: string;
+}
+
+/**
+ * Fetches the copy of one segment that is made for sending on: `rendition=share`, AAC sized for a text
+ * message rather than the rendered original, which is often a wav at three megabytes a minute.
+ *
+ * The station makes the copy and decides what `share` means; this only asks for it. Through the SDK
+ * for the reason {@link fetchSegmentAudio} gives.
+ */
+export async function fetchSegmentShare(id: string): Promise<SegmentShareCopy> {
+    const result = await sdk.render.getSegmentAudio(id, { rendition: 'share' });
+
+    // As above: no validator is sent, so a 304 has nothing to stand for.
+    if (result.status !== 200) throw new Error(`that segment came back with no audio (${result.status})`);
+
+    return { data: result.data, contentType: result.contentType, contentDisposition: result.headers.contentDisposition };
+}
+
 export type { Segment, SegmentList };

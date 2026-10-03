@@ -13,6 +13,7 @@ import {
     asMixerPlugin,
     asTranscodePlugin,
     asNarrationPlugin,
+    asOutputPlugin,
     asPodcastPlugin,
     asSpeechPlugin,
     asStreamPlugin,
@@ -284,6 +285,39 @@ describe('asPodcastPlugin', () => {
     it('refuses a plugin that is not running', () => {
         for (const status of ['discovered', 'disabled', 'misconfigured', 'failed'] as const) {
             expect(asPodcastPlugin(record(['podcast'], podcastMethods, status))).toBeUndefined();
+        }
+    });
+});
+
+describe('asOutputPlugin', () => {
+    /** The five methods `output` requires, as bare stubs. */
+    const outputMethods = {
+        listDevices: async () => [],
+        play: async () => {},
+        updateMetadata: async () => {},
+        stop: async () => {},
+        status: async () => ({ deviceId: 'a', phase: 'idle' }),
+    };
+
+    it('accepts a plugin that can list, start, stop and report on speakers', () => {
+        expect(asOutputPlugin(record(['output'], outputMethods))).toBeDefined();
+    });
+
+    it('refuses a plugin that can start a speaker and never wrote stop', () => {
+        // A speaker left playing holds the station's audience open, so starting one the station
+        // cannot stop again is the one half of this capability that is worse than none of it.
+        const { stop, ...withoutStop } = outputMethods;
+        void stop;
+        expect(asOutputPlugin(record(['output'], withoutStop))).toBeUndefined();
+    });
+
+    it('refuses a plugin that implements the methods and never declared the capability', () => {
+        expect(asOutputPlugin(record(['steer'], outputMethods))).toBeUndefined();
+    });
+
+    it('refuses a plugin that is not running', () => {
+        for (const status of ['discovered', 'disabled', 'misconfigured', 'failed'] as const) {
+            expect(asOutputPlugin(record(['output'], outputMethods, status))).toBeUndefined();
         }
     });
 });

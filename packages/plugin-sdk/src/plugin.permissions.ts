@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import type { DiscoveryQuery } from './plugin.host.js';
+
 /** The pacing knobs, shared by both kinds of entry. */
 interface NetworkPermissionPacing {
     /**
@@ -182,6 +184,22 @@ export interface PluginPermissions {
     sockets?: boolean;
 
     /**
+     * Whether the plugin may use `host.tls` (an outbound TLS connection carrying
+     * a device's own protocol, held to the same {@link network} allowlist).
+     *
+     * Optional and a disclosure for `sockets`' reasons: only a plugin talking to
+     * something that is neither HTTP nor a WebSocket wants one.
+     */
+    tls?: boolean;
+
+    /**
+     * What the plugin may look for with `host.discover`: each mDNS service type or SSDP search
+     * target, exactly. Optional, and absent means none: a plugin that is told its devices' addresses
+     * never needs to look for them.
+     */
+    discovery?: DiscoveryQuery[];
+
+    /**
      * Capabilities this plugin is ASKING for, each with the reason an operator
      * reads before deciding. See {@link PluginGrantRequest}.
      *
@@ -223,5 +241,14 @@ export const pluginPermissionsSchema = z.object({
     oauth: z.boolean(),
     trackFetcher: z.boolean().optional(),
     sockets: z.boolean().optional(),
+    tls: z.boolean().optional(),
+    discovery: z
+        .array(
+            z.union([
+                z.object({ protocol: z.literal('mdns'), service: z.string().min(1) }),
+                z.object({ protocol: z.literal('ssdp'), searchTarget: z.string().min(1) }),
+            ]),
+        )
+        .optional(),
     grants: z.array(grantRequestSchema).optional(),
 });

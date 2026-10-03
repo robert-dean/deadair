@@ -27,6 +27,7 @@ A plugin extends deadair by declaring capabilities:
 | `almanac`    | say what happened on a date: a month and a day in, entries out |
 | `scrobble`   | report what the station played to somebody else's service      |
 | `messaging`  | talk to people on a chat platform: messages in, messages out   |
+| `output`     | play the station on a speaker: a mount's URL in, a device plays |
 | `oauth`      | hold operator tokens, obtained through the host's redirect     |
 
 There is no second axis. `capabilities` is the whole declaration, and the host
@@ -450,6 +451,57 @@ your own client in a `register` disposer anyway; the host's close is the backsto
 is a heartbeat timer, and a listener that throws is logged rather than allowed to
 reach the event loop. The socket is the shape ServerKit's Socket Mode and Gateway
 clients call `SocketLike`, so `connect: url => host.socket(url)` is all either needs.
+
+## When your device speaks its own protocol
+
+Some devices are neither HTTP nor a WebSocket: a Chromecast is driven over a TLS
+connection to port 8009 carrying its own length-prefixed messages. `host.tls`
+opens one, under the same policy again:
+
+```ts
+const conn = await host.tls('tls://192.168.1.20:8009', { verifyCertificate: false });
+conn.onData(bytes => this.reader.push(bytes));       // bytes, not frames: reassemble your own
+conn.onClose(reason => this.reconnectLater(reason));
+conn.send(frame);
+```
+
+Requires the `tls` permission. The URL is `tls://host:port` and the port is
+required, since `tls:` has no default. The host is checked against
+`permissions.network` as the `https:` URL on the same host and port, and a
+connect costs one token from that host's rate bucket.
+
+`verifyCertificate: false` is for a device on the operator's own network that
+presents a certificate no public root signs. It is honoured only for an address
+that came from your settings (a `{ fromConfig }` entry), because that is the
+operator saying "this device is mine". For a host your manifest names, or one
+reached through `network.open`, it is refused with `forbidden`.
+
+Like a socket, the connection outlives the call that opened it: a plugin may hold
+only a limited number at once (more than sockets, since a speaker plugin holds one
+per device), and disposing the plugin closes every one without calling your close
+listeners. `send` after a close does nothing, and a listener that throws is logged.
+
+## When you need to find devices on the network
+
+A plugin that drives devices on the operator's network can look for them rather
+than asking for every address. `host.discover` runs an mDNS or SSDP query from the
+host, which owns the multicast sockets so no plugin binds those ports itself:
+
+```ts
+const casts = await host.discover({ protocol: 'mdns', service: '_googlecast._tcp' });
+// [{ name, address: '192.168.1.148', port: 8009, txt: { fn: 'Kitchen speaker', md: 'Google Home Mini' } }]
+const renderers = await host.discover({ protocol: 'ssdp', searchTarget: 'urn:schemas-upnp-org:device:MediaRenderer:1' });
+// [{ name: 'uuid:...', address: '192.168.1.176', location: 'http://192.168.1.176:44667/description.xml', server: '...' }]
+```
+
+Each query must be listed exactly in `permissions.discovery`. Every address that
+answers (and the host of an SSDP `location`) is then reachable by `fetch`, `socket`
+and `tls` as though the operator had typed it in, including `verifyCertificate:
+false`, until the plugin is reinitialised.
+
+An empty answer is normal: a station in a container on a bridge network cannot see
+multicast at all. Keep working from the addresses you were given, and do not
+report "nothing found" as a fault.
 
 ## When your audio needs a helper to fetch it
 
@@ -895,6 +947,49 @@ buttons renders them as text or drops them.
 takesArgs }`) each time the host starts listening on your plugin, for a platform
 that lists commands in its own interface; overwrite, don't append. Leave it out
 and people type the commands as they always could.
+
+## Playing the station on a speaker
+
+An `output` plugin puts the station on a Chromecast, a Sonos, a BluOS player or
+anything else that can be told a URL and will fetch it. Five methods:
+
+```ts
+async listDevices(): Promise<OutputDevice[]> {
+    return this.configured.map(row => ({
+        id: row.address.toLowerCase(), name: row.name, address: row.address,
+        accepts: ['audio/mpeg', 'audio/aac'], followsMetadata: true,
+    }));
+}
+
+async play({ deviceId, url, contentType, metadata }: OutputPlayRequest): Promise<void> {
+    await this.device(deviceId).load(url, contentType, metadata);   // resolves when accepted
+}
+```
+
+`updateMetadata`, `stop` and `status` complete it. Four things are easy to get wrong.
+
+**The speaker fetches the stream.** You are handed the mount's URL and its
+content type and pass them on. Never build a station URL and never pick a format:
+the host chooses the mount from what your device `accepts`, so list only what it
+really plays (a Sonos takes MP3 and AAC for a radio URL and nothing else).
+
+**The host owns retrying.** It remembers every cast it started, asks `status`
+how each is doing, and plays one again when a device drops it. So `play`
+resolves when the device ACCEPTED the command, not when sound comes out, and
+you never reconnect a stream on your own.
+
+**Warming up is not failing.** A live stream takes seconds to start. Report it
+as `opening` or `buffering`, and a device that does not answer as `unreachable`
+from `status` rather than a throw. List a configured device that does not
+answer anyway: the operator asked for it by name.
+
+**Stop means stop.** A speaker playing the station is a listener, and one left
+playing holds the station's audience open. `stop` is idempotent: answer it for
+a device that was not playing ours.
+
+A device that only speaks a protocol where the sender streams the audio itself
+(AirPlay audio, Bluetooth) cannot be an output: there is no URL to hand it, and
+the station encodes nothing in its own process.
 
 ## Music providers
 

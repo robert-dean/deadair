@@ -24,6 +24,10 @@ services:
             # stream itself at /live.mp3, so a tunnel or reverse proxy in front needs this port
             # and no other.
             - '${HTTP_PORT:-8080}:80'
+        # To let the Speakers plugin find speakers on your network by itself, use the host's network
+        # instead of `ports:` above, which a bridge network cannot give it multicast for. The station
+        # then listens on the host's port 80, which must be free. See README.md, "Finding speakers".
+        # network_mode: host
         volumes:
             # What the station IS: settings, presenters, the schedule, your own recordings,
             # rendered speech, logs, the stream's own config and state, installed plugins, and —

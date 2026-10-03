@@ -70,6 +70,7 @@ import type {
     MessagingSender,
     OutboundMessage,
 } from './capabilities/messaging.js';
+import type { OutputDevice, OutputMetadata, OutputMetadataRequest, OutputPlayRequest, OutputStatus } from './capabilities/output.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
 import type { SearchQuery, SearchResult } from './capabilities/search.js';
 import type { ArtistTrack, SimilarArtist } from './capabilities/similarity.js';
@@ -97,7 +98,16 @@ import type {
 import type { LlmMessage, LlmModelInfo, LlmRequest, LlmResult, LlmToolCall, LlmToolDeclaration, LlmUsage } from './capabilities/llm.js';
 import type { SpeechLimits, SpeechRequest, SpeechVoice } from './capabilities/speech.js';
 import type { ConfigField, ConfigFieldColumn, ConfigFieldOption, ConfigFieldPreset } from './plugin.config.fields.js';
-import type { PlaylistTracksRequest, PluginSocketOptions, TrackFetchRequest, TrackFetchSession } from './plugin.host.js';
+import type {
+    DiscoveredService,
+    DiscoveryOptions,
+    DiscoveryQuery,
+    PlaylistTracksRequest,
+    PluginSocketOptions,
+    PluginTlsOptions,
+    TrackFetchRequest,
+    TrackFetchSession,
+} from './plugin.host.js';
 import type { PluginConnectionResult } from './plugin.lifecycle.js';
 import type { PluginManifest } from './plugin.manifest.js';
 import type { NetworkPermissionFromConfig, NetworkPermissionHost, PluginGrantRequest, PluginPermissions } from './plugin.permissions.js';
@@ -185,6 +195,11 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     TrackFetchRequest: IsJsonSafe<TrackFetchRequest>;
     PlaylistTracksRequest: IsJsonSafe<PlaylistTracksRequest>;
     PluginSocketOptions: IsJsonSafe<PluginSocketOptions>;
+    PluginTlsOptions: IsJsonSafe<PluginTlsOptions>;
+    // A type alias rather than an interface, so it is checked here and not listed below.
+    DiscoveryQuery: IsJsonSafe<DiscoveryQuery>;
+    DiscoveryOptions: IsJsonSafe<DiscoveryOptions>;
+    DiscoveredService: IsJsonSafe<DiscoveredService>;
     SearchTracksOptions: IsJsonSafe<SearchTracksOptions>;
     ListPlaylistsOptions: IsJsonSafe<ListPlaylistsOptions>;
     GetPlaylistTracksOptions: IsJsonSafe<GetPlaylistTracksOptions>;
@@ -258,6 +273,11 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     MessagingSendResult: IsJsonSafe<MessagingSendResult>;
     MessagingAnnounceTarget: IsJsonSafe<MessagingAnnounceTarget>;
     MessagingCommand: IsJsonSafe<MessagingCommand>;
+    OutputDevice: IsJsonSafe<OutputDevice>;
+    OutputMetadata: IsJsonSafe<OutputMetadata>;
+    OutputPlayRequest: IsJsonSafe<OutputPlayRequest>;
+    OutputMetadataRequest: IsJsonSafe<OutputMetadataRequest>;
+    OutputStatus: IsJsonSafe<OutputStatus>;
     SpeechLimits: IsJsonSafe<SpeechLimits>;
 }>;
 
@@ -284,6 +304,9 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'TrackFetchRequest',
     'PlaylistTracksRequest',
     'PluginSocketOptions',
+    'PluginTlsOptions',
+    'DiscoveryOptions',
+    'DiscoveredService',
     'SearchTracksOptions',
     'ListPlaylistsOptions',
     'GetPlaylistTracksOptions',
@@ -357,6 +380,11 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'MessagingSendResult',
     'MessagingAnnounceTarget',
     'MessagingCommand',
+    'OutputDevice',
+    'OutputMetadata',
+    'OutputPlayRequest',
+    'OutputMetadataRequest',
+    'OutputStatus',
     'SpeechLimits',
 ] as const;
 
@@ -378,6 +406,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'PluginEvents',
     'PluginTrackFetcher',
     'PluginSocket',
+    'PluginTlsSocket',
     'PluginHost',
     'PluginLifecycle',
     'MusicProviderCatalog',
@@ -401,6 +430,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'AlmanacProvider',
     'ScrobbleProvider',
     'MessagingProvider',
+    'OutputProvider',
 ] as const;
 
 /**

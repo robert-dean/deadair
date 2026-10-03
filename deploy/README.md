@@ -226,6 +226,19 @@ container speaks plain HTTP and trusts the forwarded headers.
 The mount is not authenticated. Anybody who can reach that address can listen, which for a radio
 station is usually the point, but it is worth knowing before you publish it.
 
+## Finding speakers on your network
+
+The **Speakers** plugin can find Chromecasts, BluOS players and UPnP renderers by itself, but only
+when the container can see your network's multicast, which a Docker bridge network (the default
+here, and on Unraid) does not carry. On a bridge network, add each speaker by its address in the
+plugin's settings instead; that works on any network, and the desk's speaker menu says when the
+station has never found anything on its own.
+
+To let it look, run the container on the host's network: replace `ports:` with
+`network_mode: host` in `docker-compose.yml`. The container then answers on the host's port 80
+directly, since it always listens on 80, so that port has to be free on the host, and `HTTP_PORT`
+no longer applies.
+
 ## Two kinds of thing, and two disks
 
 Everything above keeps one directory, which is right until the library gets big. But the station

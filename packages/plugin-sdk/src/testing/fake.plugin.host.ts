@@ -1,6 +1,17 @@
 import { vi } from 'vitest';
 
-import type { HostFetchInit, HostFetchMethod, PluginHost, PluginSocket, ProviderStream, ProviderTrack } from '../index.js';
+import type {
+    DiscoveredService,
+    DiscoveryQuery,
+    HostFetchInit,
+    HostFetchMethod,
+    PluginHost,
+    PluginSocket,
+    PluginTlsOptions,
+    PluginTlsSocket,
+    ProviderStream,
+    ProviderTrack,
+} from '../index.js';
 
 /**
  * Shipped from the SDK rather than copied into each plugin, which three of them
@@ -47,6 +58,24 @@ export interface FakePluginSocket extends PluginSocket {
 }
 
 /**
+ * One `host.tls` connection the plugin opened, driven from the test: bytes the plugin wrote are in
+ * `sent`, and `receive` / `closeFromServer` play the device.
+ */
+export interface FakePluginTlsSocket extends PluginTlsSocket {
+    readonly url: string;
+    /** The options the plugin opened it with. */
+    readonly options: PluginTlsOptions | undefined;
+    /** Every write the plugin made, in order, one entry per `send`. */
+    readonly sent: Uint8Array[];
+    /** Whether either end has closed it. */
+    readonly closed: boolean;
+    /** Deliver one chunk to the plugin's data listeners. */
+    receive(bytes: Uint8Array): void;
+    /** Close it from the far end, telling the plugin's close listeners. */
+    closeFromServer(reason?: string): void;
+}
+
+/**
  * A `PluginHost` for tests. `fetch` replays a queue of scripted
  * `Response`s (FIFO, one per call) — or a custom handler installed
  * with `setFetchImpl`, for call-count-driven scenarios like a 401-then-200
@@ -90,6 +119,20 @@ export interface FakePluginHost extends PluginHost {
     readonly sockets: FakePluginSocket[];
     /** Make every later `host.socket` reject with `error`; `undefined` lets them open again. */
     refuseSockets(error: Error | undefined): void;
+    /** Every connection `host.tls` opened, in order, closed ones included. */
+    readonly tlsSockets: FakePluginTlsSocket[];
+    /** Make every later `host.tls` reject with `error`; `undefined` lets them open again. */
+    refuseTls(error: Error | undefined): void;
+    /**
+     * Called with each connection as `host.tls` opens it, before the plugin sees it, so a test can
+     * script the device's answers to whatever the plugin writes.
+     */
+    onTlsOpen(listener: ((socket: FakePluginTlsSocket) => void) | undefined): void;
+    /**
+     * What `host.discover` answers from now on: a fixed list, or one worked out per query. Nothing
+     * is found until a test says otherwise, which is what a station on a bridge network sees.
+     */
+    seedDiscovery(found: DiscoveredService[] | ((query: DiscoveryQuery) => DiscoveredService[])): void;
 }
 
 /**
@@ -181,6 +224,42 @@ export function createFakePluginSocket(url: string): FakePluginSocket {
     };
 }
 
+/** A TLS connection that is open until either end closes it. Exported for a test that wants one on its own. */
+export function createFakePluginTlsSocket(url: string, options?: PluginTlsOptions): FakePluginTlsSocket {
+    const dataListeners: ((bytes: Uint8Array) => void)[] = [];
+    const closeListeners: ((reason?: string) => void)[] = [];
+    const sent: Uint8Array[] = [];
+    let closed = false;
+
+    const shut = (reason: string | undefined): void => {
+        if (closed) return;
+        closed = true;
+        for (const listener of closeListeners) listener(reason);
+    };
+
+    return {
+        url,
+        options,
+        sent,
+        get closed() {
+            return closed;
+        },
+        send: vi.fn((bytes: Uint8Array) => {
+            if (!closed) sent.push(bytes);
+        }),
+        close: vi.fn(() => shut(undefined)),
+        onData: listener => void dataListeners.push(listener),
+        onClose: listener => void closeListeners.push(listener),
+        receive(bytes) {
+            if (closed) throw new Error(`fake plugin tls socket: ${url} is closed`);
+            for (const listener of dataListeners) listener(bytes);
+        },
+        closeFromServer(reason) {
+            shut(reason);
+        },
+    };
+}
+
 export function createFakePluginHost(): FakePluginHost {
     const calls: RecordedFetchCall[] = [];
     const queue: Response[] = [];
@@ -197,6 +276,10 @@ export function createFakePluginHost(): FakePluginHost {
     let fetchedPlaylist: ProviderTrack[] | Error | undefined;
     const sockets: FakePluginSocket[] = [];
     let socketRefusal: Error | undefined;
+    const tlsSockets: FakePluginTlsSocket[] = [];
+    let tlsRefusal: Error | undefined;
+    let tlsOpened: ((socket: FakePluginTlsSocket) => void) | undefined;
+    let discovered: (query: DiscoveryQuery) => DiscoveredService[] = () => [];
 
     const fetchImpl = vi.fn(async (url: string, init?: HostFetchInit): Promise<Response> => {
         calls.push({ url, method: init?.method, headers: init?.headers, body: init?.body });
@@ -215,6 +298,14 @@ export function createFakePluginHost(): FakePluginHost {
             sockets.push(socket);
             return socket;
         }),
+        tls: vi.fn(async (url: string, options?: PluginTlsOptions) => {
+            if (tlsRefusal !== undefined) throw tlsRefusal;
+            const socket = createFakePluginTlsSocket(url, options);
+            tlsSockets.push(socket);
+            tlsOpened?.(socket);
+            return socket;
+        }),
+        discover: vi.fn(async (query: DiscoveryQuery) => discovered(query)),
         // Never aborts: these tests are about what a plugin does with a reply,
         // not about being cancelled half way through one.
         signal: new AbortController().signal,
@@ -250,6 +341,16 @@ export function createFakePluginHost(): FakePluginHost {
         sockets,
         refuseSockets(error) {
             socketRefusal = error;
+        },
+        tlsSockets,
+        refuseTls(error) {
+            tlsRefusal = error;
+        },
+        onTlsOpen(listener) {
+            tlsOpened = listener;
+        },
+        seedDiscovery(found) {
+            discovered = typeof found === 'function' ? found : () => found;
         },
         seedRemainingMs(ms) {
             remainingMs = ms;

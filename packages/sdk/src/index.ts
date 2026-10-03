@@ -31,6 +31,8 @@ export * from './oauth/oauth.client.js';
 export * from './oauth/types/index.js';
 export * from './onboarding/onboarding.client.js';
 export * from './onboarding/types/index.js';
+export * from './outputs/outputs.client.js';
+export * from './outputs/types/index.js';
 export * from './personas/personas.client.js';
 export * from './personas/types/index.js';
 export * from './playlists/playlists.client.js';

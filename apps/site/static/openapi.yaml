@@ -1639,6 +1639,70 @@ paths:
                                 type: array
                                 items:
                                     '$ref': '#/components/schemas/OnboardingRequirement'
+    '/outputs/devices':
+        get:
+            operationId: listDevices
+            summary: 'List output devices'
+            description: 'Every speaker the station can play on, from every `output` plugin, with the mounts each can take'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/OutputDeviceList'
+    '/outputs/casts':
+        get:
+            operationId: listCasts
+            summary: 'List casts'
+            description: 'Every speaker the station is meant to be playing on, each asked how it is doing now'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/OutputCastList'
+        post:
+            operationId: startCast
+            summary: 'Start cast'
+            description: 'Play the station on a speaker, replacing whatever it was playing. The station keeps it playing, through a dropped stream or a restart, until it is stopped here or somebody plays something else on it'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/OutputCastRequest'
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/OutputCast'
+    '/outputs/casts/{pluginId}/{deviceId}':
+        delete:
+            operationId: stopCast
+            summary: 'Stop cast'
+            description: 'Stop the station on a speaker. Answers 204 when it was not playing too'
+            parameters:
+                - name: pluginId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                - name: deviceId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 400
+            responses:
+                '204':
+                    description: 'No content'
     '/personas/{id}/auditions':
         get:
             operationId: list
@@ -8378,6 +8442,142 @@ components:
                   required: [key, value]
         OnboardingRequirement:
             '$ref': '#/components/schemas/AdminAccountOnboardingRequirement'
+        OutputMount:
+            type: object
+            properties:
+                format:
+                    type: string
+                    enum: [mp3, opus, aac, flac, hls]
+                path:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'Same-origin path, leading slash included, as `/nowplaying` gives it'
+            required: [format, path]
+            description: "One of the station's mounts a speaker can play"
+        OutputDevice:
+            type: object
+            properties:
+                pluginId:
+                    type: string
+                    maxLength: 200
+                    description: 'The plugin that drives it, for example `deadair.cast`'
+                deviceId:
+                    type: string
+                    maxLength: 400
+                    description: "The plugin's own id for the speaker. Stable across restarts"
+                name:
+                    type: string
+                    maxLength: 200
+                    description: 'What the operator calls it'
+                model:
+                    type: string
+                    maxLength: 200
+                    description: 'The make or model, where the speaker says'
+                address:
+                    type: string
+                    maxLength: 400
+                    description: 'How the plugin reaches it, for recognising rather than dialling'
+                protocol:
+                    type: string
+                    maxLength: 50
+                    description: 'How it is driven, for a plugin that speaks several: `chromecast`, `upnp`, `bluos`'
+                mounts:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/OutputMount'
+                    description: "The station's mounts this speaker can play, MP3 first. Empty when it plays none of the ones switched on"
+                casting:
+                    type: boolean
+                    description: 'Whether the station is meant to be playing on it now. `/outputs/casts` says how that is going'
+            required: [pluginId, deviceId, name, address, mounts, casting]
+            description: 'A speaker the station can play on, as an `output` plugin listed it'
+        OutputProblem:
+            type: object
+            properties:
+                pluginId:
+                    type: string
+                    maxLength: 200
+                message:
+                    type: string
+                    maxLength: 1000
+            required: [pluginId, message]
+            description: 'A plugin that could not list its speakers'
+        OutputDeviceList:
+            type: object
+            properties:
+                devices:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/OutputDevice'
+                problems:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/OutputProblem'
+                    description: 'Plugins that did not answer. Their speakers are missing from `devices` rather than the whole list failing'
+                discoverySeesNothing:
+                    type: boolean
+                    description: 'True when the station has looked for speakers on its network and never found one, which on a container usually means its network cannot carry multicast (a bridge network). Speakers added by address still work'
+            required: [devices, problems, discoverySeesNothing]
+            description: 'Every speaker every `output` plugin can play the station on'
+        OutputCast:
+            type: object
+            properties:
+                pluginId:
+                    type: string
+                    maxLength: 200
+                deviceId:
+                    type: string
+                    maxLength: 400
+                deviceName:
+                    type: string
+                    maxLength: 200
+                    description: 'What the speaker was called when the cast started'
+                mountPath:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'Which mount it plays'
+                startedAt:
+                    type: string
+                    format: date-time
+                phase:
+                    type: string
+                    enum: [idle, opening, buffering, playing, stopped, unreachable]
+                    description: "As the speaker reports it now. `opening` and `buffering` are a stream starting, not a failure; `stopped` with the station's stream still loaded is played again on its own; `unreachable` is a speaker that did not answer, which the station waits out"
+                detail:
+                    type: string
+                    maxLength: 1000
+                    description: 'A sentence about the phase when it needs one, such as why a speaker is unreachable'
+            required: [pluginId, deviceId, deviceName, mountPath, startedAt, phase]
+            description: 'A speaker the station is meant to be playing on, and how it is doing'
+        OutputCastList:
+            type: object
+            properties:
+                casts:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/OutputCast'
+            required: [casts]
+            description: 'Every speaker the station is meant to be playing on'
+        OutputCastRequest:
+            type: object
+            properties:
+                pluginId:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                deviceId:
+                    type: string
+                    minLength: 1
+                    maxLength: 400
+                mountPath:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: "Which mount, from the speaker's `mounts`. Absent means its first, which is MP3 wherever the speaker takes it"
+            required: [pluginId, deviceId]
+            description: 'Play the station on a speaker'
         Persona:
             type: object
             properties:

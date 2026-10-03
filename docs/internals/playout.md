@@ -353,6 +353,17 @@ left streaming is a listener this station keeps counting with nothing left to en
 also the two-agents-one-client double count measured above, arriving deliberately rather than by
 accident.
 
+**A speaker the STATION casts to is a listener too, and that is the point rather than a leak.** The
+outputs module (`POST /outputs/casts`, through an `output` plugin such as `plugins/cast`) hands a
+Chromecast or a Sonos the public mount URL, and from here it is one more anonymous connection that
+holds an audience-gated station on air for as long as it plays. So the two directions of the
+desktop's rule are owned here instead: a cast is stopped by `DELETE`, which forgets it BEFORE telling
+the speaker so the supervisor cannot put it back, and the supervisor forgets a cast the moment the
+speaker goes idle or moves to something else, so a speaker somebody switched over at the device is
+not counted, or replayed, forever. The one thing it deliberately does not do is stop speakers at
+shutdown: a deploy would otherwise silence every room, and the supervisor's first look after boot
+puts an idle speaker back on the station instead.
+
 ## Why it is quiet
 
 **Every gate that can silence the station says so, in ONE ordered answer.** `silence.diagnosis.ts` is eleven

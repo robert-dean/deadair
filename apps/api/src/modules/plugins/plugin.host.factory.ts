@@ -1,8 +1,13 @@
+import { isIP } from 'node:net';
+import { connect as connectTls } from 'node:tls';
 import { Container, Injectable } from 'injectkit';
 import { RateLimiterMemory, RateLimiterQueue, RateLimiterQueueError } from 'rate-limiter-flexible';
 import { PluginError, isPluginError, parseRows } from '@deadair/plugin-sdk';
 import type {
     ConfigField,
+    DiscoveredService,
+    DiscoveryOptions,
+    DiscoveryQuery,
     ConfigFieldColumn,
     HostFetchInit,
     HostFetchMethod,
@@ -17,11 +22,14 @@ import type {
     PluginSocket,
     PluginSocketOptions,
     PluginStorage,
+    PluginTlsOptions,
+    PluginTlsSocket,
     PluginTrackFetcher,
     ProviderTrack,
 } from '@deadair/plugin-sdk';
 import { SpotifyShimClient, type FetchedPlaylistTrack } from '#modules/stream/spotify.shim.client.js';
 import { PluginConfigService } from './plugin.config.service.js';
+import { DISCOVERY_DEFAULT_TIMEOUT_MS, DISCOVERY_MAX_TIMEOUT_MS, SystemDiscoverer, type NetworkDiscoverer } from './plugin.discovery.js';
 import { invocationRemainingMs, invocationSignal } from './plugin.invocation.deadline.js';
 import { PLUGIN_INVOKE_TIMEOUT_MS } from './plugin.invoker.js';
 import { PluginLog } from './plugin.log.js';
@@ -153,6 +161,49 @@ export type HostWebSocketOpener = (url: string) => HostWebSocket;
 const platformWebSocket: HostWebSocketOpener = url => new WebSocket(url) as unknown as HostWebSocket;
 
 /**
+ * How many `host.tls` connections one plugin may hold open at once.
+ *
+ * Counted apart from {@link PLUGIN_SOCKET_MAX_OPEN} and higher, because the shape differs: a chat
+ * platform is one socket, while a plugin driving speakers holds one per device it is playing on. This
+ * is a room's worth and a reconnect, not a building's.
+ */
+export const PLUGIN_TLS_MAX_OPEN = 16;
+
+/**
+ * The part of a `node:tls` connection the host drives, so tests can hand it a double.
+ *
+ * Events rather than a stream interface: the host only ever reads `data`, and the four events are the
+ * whole of what it reacts to.
+ */
+export interface HostTlsConnection {
+    write(bytes: Uint8Array): void;
+    destroy(): void;
+    on(event: 'secureConnect' | 'close', listener: () => void): void;
+    on(event: 'data', listener: (bytes: Uint8Array) => void): void;
+    on(event: 'error', listener: (error: Error) => void): void;
+}
+
+/** What {@link HostTlsOpener} is asked to connect to, once the URL has passed the policy. */
+export interface HostTlsTarget {
+    host: string;
+    port: number;
+    /** Whether the certificate must chain and name the host. */
+    verifyCertificate: boolean;
+}
+
+/** Opens a {@link HostTlsConnection}. `node:tls` unless a test says otherwise. */
+export type HostTlsOpener = (target: HostTlsTarget) => HostTlsConnection;
+
+const platformTls: HostTlsOpener = ({ host, port, verifyCertificate }) =>
+    connectTls({
+        host,
+        port,
+        rejectUnauthorized: verifyCertificate,
+        // SNI is for names; sending an address as one is a protocol error some servers answer.
+        ...(isIP(host) === 0 ? { servername: host } : {}),
+    }) as unknown as HostTlsConnection;
+
+/**
  * Where the host's own OAuth redirect endpoint lives. Constructor-injected
  * exactly like the loader's options so the factory never touches `AppConfig`.
  */
@@ -168,6 +219,10 @@ export class PluginHostFactoryOptions {
         readonly resolveAddresses: AddressResolver = systemResolver,
         /** How `host.socket` opens a WebSocket once the URL has passed the policy. */
         readonly openWebSocket: HostWebSocketOpener = platformWebSocket,
+        /** How `host.tls` opens a connection once the URL has passed the policy. */
+        readonly openTls: HostTlsOpener = platformTls,
+        /** How `host.discover` looks for devices. One per process, since it owns the multicast sockets. */
+        readonly discoverer: NetworkDiscoverer = new SystemDiscoverer(),
     ) {}
 }
 
@@ -181,6 +236,8 @@ interface SocketRegistry {
     closed: boolean;
     /** Each open socket's way of being closed by the host. */
     sockets: Set<() => void>;
+    /** The same for each `host.tls` connection, counted apart because its cap is. */
+    tls: Set<() => void>;
 }
 
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
@@ -226,6 +283,12 @@ interface NetworkEntry {
     bucket: string;
     /** Absent means the host default. */
     ratePerSecond?: number;
+    /**
+     * Whether the address came from the operator's config (a `fromConfig` entry) rather than the
+     * manifest. Only such an address may be reached by `host.tls` without verifying its certificate:
+     * the operator typed in a device on their own network, which is what the exemption is for.
+     */
+    operator?: true;
 }
 
 /**
@@ -408,7 +471,7 @@ const normalizeNetwork = (network: PluginPermissions['network'], config: Record<
             config[entry.fromConfig],
             fields.find(field => field.key === entry.fromConfig),
         )) {
-            entries.push({ pattern: hostname, bucket: entry.bucket ?? hostname, ratePerSecond: entry.ratePerSecond });
+            entries.push({ pattern: hostname, bucket: entry.bucket ?? hostname, ratePerSecond: entry.ratePerSecond, operator: true });
         }
     }
 
@@ -832,13 +895,25 @@ export class PluginHostFactory {
 
         // Per instance for the same reason, and marked closed rather than dropped on dispose, so a
         // socket asked for through a host that outlived its plugin is refused.
-        const sockets: SocketRegistry = { closed: false, sockets: new Set() };
+        const sockets: SocketRegistry = { closed: false, sockets: new Set(), tls: new Set() };
         this.openSockets.set(manifest.id, sockets);
+
+        // What `host.discover` has found for this plugin, which it may then reach as though the
+        // operator had typed it in. Per instance, so a config save starts the plugin over from what
+        // it was told rather than from everything it ever saw.
+        const found = new Set<string>();
+        const declared = entries;
+        const reachable = async (): Promise<NetworkEntry[]> => [
+            ...(await declared()),
+            ...[...found].map((hostname): NetworkEntry => ({ pattern: hostname, bucket: hostname, operator: true })),
+        ];
 
         return {
             logger,
-            fetch: (url, init) => this.hostFetch(manifest, entries, buckets, logger, bodies, url, init),
-            socket: (url, options) => this.hostSocket(manifest, entries, buckets, logger, sockets, url, options),
+            fetch: (url, init) => this.hostFetch(manifest, reachable, buckets, logger, bodies, url, init),
+            socket: (url, options) => this.hostSocket(manifest, reachable, buckets, logger, sockets, url, options),
+            tls: (url, options) => this.hostTls(manifest, reachable, buckets, logger, sockets, url, options),
+            discover: (query, options) => this.hostDiscover(manifest, found, query, options),
             // A getter, not a captured value: the host object outlives every
             // invocation made through it, so it has to read the ambient one at
             // the moment the plugin asks rather than whichever was running when
@@ -1236,7 +1311,7 @@ export class PluginHostFactory {
     }
 
     /**
-     * Closes every socket a plugin still has open, and refuses it any more.
+     * Closes every socket and TLS connection a plugin still has open, and refuses it any more.
      *
      * The socket twin of {@link cancelOpenBodies}, called beside it once a plugin is disposed. The
      * plugin's close listeners are NOT told: a client told its socket closed reconnects, and there
@@ -1250,7 +1325,7 @@ export class PluginHostFactory {
         if (registry === undefined) return;
 
         registry.closed = true;
-        for (const close of [...registry.sockets]) close();
+        for (const close of [...registry.sockets, ...registry.tls]) close();
     }
 
     /**
@@ -1435,6 +1510,244 @@ export class PluginHostFactory {
             raw.addEventListener('close', event => settleClosed(event.code, event.reason));
             // An error is always followed by a close, which is where it is reported.
             raw.addEventListener('error', () => logger.debug('plugin socket error', { hostname }));
+        });
+    }
+
+    /**
+     * Whether network discovery has been tried and has never found anything, which on a container
+     * means its network cannot carry multicast to the station. For the console to say once.
+     */
+    discoverySeesNothing(): boolean {
+        return this.options.discoverer.seesNothing();
+    }
+
+    /**
+     * `host.discover`: a query the manifest named, run by the host's one discoverer, with every
+     * address that answered admitted to this plugin's allowlist as an operator-supplied one. That is
+     * what lets a plugin reach a device it found without the `network.open` grant, and without
+     * certificate checks over `host.tls`, exactly as it could one the operator typed in: a device
+     * that answered on the station's own network is the operator's device.
+     */
+    private async hostDiscover(
+        manifest: PluginManifest,
+        found: Set<string>,
+        query: DiscoveryQuery,
+        options: DiscoveryOptions | undefined,
+    ): Promise<DiscoveredService[]> {
+        const allowed = (manifest.permissions.discovery ?? []).some(entry =>
+            entry.protocol === 'mdns' && query.protocol === 'mdns'
+                ? entry.service === query.service
+                : entry.protocol === 'ssdp' && query.protocol === 'ssdp' && entry.searchTarget === query.searchTarget,
+        );
+        if (!allowed) {
+            const what = query.protocol === 'mdns' ? query.service : query.searchTarget;
+            throw new PluginError(`plugin "${manifest.id}" does not declare discovery of ${query.protocol} "${what}"`).withCode('internal');
+        }
+
+        const timeoutMs = Math.max(250, Math.min(options?.timeoutMs ?? DISCOVERY_DEFAULT_TIMEOUT_MS, DISCOVERY_MAX_TIMEOUT_MS));
+        const services = await this.options.discoverer.discover(query, timeoutMs);
+        for (const service of services) {
+            found.add(service.address.toLowerCase());
+            if (service.location === undefined) continue;
+            try {
+                found.add(new URL(service.location).hostname.toLowerCase());
+            } catch {
+                // A location that is not a URL admits nothing.
+            }
+        }
+        return services;
+    }
+
+    /**
+     * `host.tls`: the socket policy applied to a raw TLS connection.
+     *
+     * Policed as the `https:` URL on the same host and port, so the one allowlist governs fetch,
+     * sockets and this. Two things differ from {@link hostSocket}. It carries bytes rather than text
+     * frames, so there is no frame cap: Node reads at most a TLS record at a time, and what a plugin
+     * buffers on top of that is its own protocol's business. And it may skip verifying the peer's
+     * certificate, which a Chromecast needs, but only for an address the operator typed in: a
+     * device on their own network, which is the one case where no public root vouching for it is
+     * normal rather than a warning.
+     */
+    private async hostTls(
+        manifest: PluginManifest,
+        networkEntries: () => Promise<NetworkEntry[]>,
+        buckets: Map<string, RateBucket>,
+        logger: PluginLogger,
+        registry: SocketRegistry,
+        url: string,
+        options: PluginTlsOptions | undefined,
+    ): Promise<PluginTlsSocket> {
+        // `internal` for the storage guard's reason.
+        if (!manifest.permissions.tls) {
+            throw new PluginError(`plugin "${manifest.id}" does not declare the "tls" permission`).withCode('internal');
+        }
+
+        let target: URL;
+        try {
+            target = new URL(url);
+        } catch {
+            throw new PluginError(`plugin "${manifest.id}" asked for a TLS connection to an unparseable URL`).withCode('config');
+        }
+        if (target.protocol !== 'tls:') {
+            throw new PluginError(`plugin "${manifest.id}" may only open tls: connections, got "${target.protocol}"`).withCode('config');
+        }
+        const port = Number(target.port);
+        if (target.port === '' || !Number.isInteger(port) || port < 1 || port > 65_535) {
+            throw new PluginError(`plugin "${manifest.id}" asked for a TLS connection with no port; tls: URLs have no default`).withCode('config');
+        }
+
+        const refuseClosed = (): never => {
+            throw new PluginError(`plugin "${manifest.id}" was disposed; it may not open a TLS connection`).withCode('unavailable');
+        };
+        if (registry.closed) refuseClosed();
+        if (registry.tls.size >= PLUGIN_TLS_MAX_OPEN) {
+            throw new PluginError(`plugin "${manifest.id}" already holds ${PLUGIN_TLS_MAX_OPEN} open TLS connections, the most it may`).withCode(
+                'internal',
+            );
+        }
+
+        // `new URL` on a non-special scheme keeps an IPv6 literal bracketed; the policy wants it the
+        // way an https: URL would hold it, and the connect wants it bare.
+        const hostname = target.hostname.toLowerCase();
+        const policed = new URL(`https://${hostname}:${port}/`);
+        const entries = await networkEntries();
+        const { entry, open } = this.assertAllowed(manifest, entries, logger, policed.toString());
+        if (open) await this.assertPublicAddress(manifest, logger, policed);
+
+        const verifyCertificate = options?.verifyCertificate ?? true;
+        if (!verifyCertificate && (open || entry.operator !== true)) {
+            throw new PluginError(
+                `plugin "${manifest.id}" may skip verifying "${hostname}"'s certificate only for an address from its own settings`,
+            ).withCode('forbidden');
+        }
+
+        const timeoutMs = Math.min(options?.connectTimeoutMs ?? PLUGIN_SOCKET_CONNECT_TIMEOUT_MS, PLUGIN_SOCKET_CONNECT_TIMEOUT_MS);
+        const deadlineAt = Date.now() + timeoutMs;
+        await this.consumeRateLimit(manifest, buckets, entry, deadlineAt);
+        if (registry.closed) refuseClosed();
+
+        const bare = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
+        let raw: HostTlsConnection;
+        try {
+            raw = this.options.openTls({ host: bare, port, verifyCertificate });
+        } catch (error) {
+            throw new PluginError(`plugin "${manifest.id}" could not open a TLS connection to "${hostname}": ${errorText(error)}`).withCode(
+                'upstream',
+            );
+        }
+
+        return new Promise<PluginTlsSocket>((resolve, reject) => {
+            const dataListeners: ((bytes: Uint8Array) => void)[] = [];
+            const closeListeners: ((reason?: string) => void)[] = [];
+            let state: 'connecting' | 'open' | 'closed' = 'connecting';
+            let closedWith: string | undefined;
+            let lastError: string | undefined;
+            let muted = false;
+
+            const safely = (what: string, fn: () => void): void => {
+                try {
+                    fn();
+                } catch (error) {
+                    logger.warn(`plugin tls ${what} listener threw`, { hostname, error: errorText(error) });
+                }
+            };
+
+            const destroy = (): void => {
+                try {
+                    raw.destroy();
+                } catch {
+                    // Already gone.
+                }
+            };
+
+            const release = (): void => {
+                muted = true;
+                destroy();
+                settleClosed(undefined);
+            };
+
+            const settleClosed = (reason: string | undefined): void => {
+                if (state === 'closed') return;
+                const wasConnecting = state === 'connecting';
+                state = 'closed';
+                closedWith = reason;
+                clearTimeout(timer);
+                registry.tls.delete(release);
+                if (wasConnecting) {
+                    reject(
+                        new PluginError(
+                            `plugin "${manifest.id}" TLS connection to "${hostname}" closed before the handshake finished${reason === undefined ? '' : `: ${reason}`}`,
+                        ).withCode('upstream'),
+                    );
+                    return;
+                }
+                if (muted) return;
+                for (const listener of closeListeners) safely('close', () => listener(closedWith));
+            };
+
+            const timer = setTimeout(() => {
+                if (state !== 'connecting') return;
+                destroy();
+                state = 'closed';
+                registry.tls.delete(release);
+                reject(
+                    new PluginError(`plugin "${manifest.id}" TLS connection to "${hostname}" did not open within ${timeoutMs}ms`).withCode('timeout'),
+                );
+            }, timeoutMs);
+
+            const socket: PluginTlsSocket = {
+                send: bytes => {
+                    if (state !== 'open') {
+                        logger.debug('plugin tls send after close ignored', { hostname });
+                        return;
+                    }
+                    try {
+                        raw.write(bytes);
+                    } catch (error) {
+                        logger.debug('plugin tls send failed', { hostname, error: errorText(error) });
+                    }
+                },
+                close: () => {
+                    destroy();
+                    settleClosed(undefined);
+                },
+                onData: listener => void dataListeners.push(listener),
+                onClose: listener => {
+                    closeListeners.push(listener);
+                    // Registered after it closed: told on the next turn, so no listener waits forever.
+                    if (state === 'closed' && !muted) {
+                        const reason = closedWith;
+                        queueMicrotask(() => safely('close', () => listener(reason)));
+                    }
+                },
+            };
+
+            registry.tls.add(release);
+
+            raw.on('secureConnect', () => {
+                if (state !== 'connecting') return;
+                if (registry.closed) {
+                    release();
+                    return;
+                }
+                state = 'open';
+                clearTimeout(timer);
+                resolve(socket);
+            });
+
+            raw.on('data', bytes => {
+                if (state !== 'open') return;
+                for (const listener of dataListeners) safely('data', () => listener(bytes));
+            });
+
+            // An error is always followed by a close, which is where it is reported, with the error
+            // as its reason: a refused handshake and a device that hung up are different fixes.
+            raw.on('error', error => {
+                lastError = errorText(error);
+                logger.debug('plugin tls error', { hostname, error: lastError });
+            });
+            raw.on('close', () => settleClosed(lastError));
         });
     }
 

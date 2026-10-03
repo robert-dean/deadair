@@ -5,6 +5,7 @@ import type { MessagingProvider } from './capabilities/messaging.js';
 import type { MusicProviderCatalog, MusicProviderOAuth, MusicProviderSteer, MusicProviderStream } from './capabilities/music.provider.js';
 import type { NarrationProvider } from './capabilities/narration.js';
 import type { NewsProvider } from './capabilities/news.js';
+import type { OutputProvider } from './capabilities/output.js';
 import type { PodcastProvider } from './capabilities/podcast.js';
 import type { ScrobbleProvider } from './capabilities/scrobble.js';
 import type { SearchProvider } from './capabilities/search.js';
@@ -74,6 +75,9 @@ export type ScrobblePluginInstance = PluginLifecycle & ScrobbleProvider;
 
 /** Instance shape for a `messaging` plugin. */
 export type MessagingPluginInstance = PluginLifecycle & MessagingProvider;
+
+/** Instance shape for an `output` plugin. */
+export type OutputPluginInstance = PluginLifecycle & OutputProvider;
 
 /**
  * Pairs a manifest with its factory and returns the object a plugin package

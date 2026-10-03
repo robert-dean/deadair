@@ -205,6 +205,7 @@ export const plugins = {
         podcast: 'Podcasts',
         almanac: 'On this day',
         charts: 'Charts',
+        output: 'Plays on speakers',
         oauth: 'Sign-in',
     },
     roles: {

@@ -74,6 +74,16 @@ It is built from source with .NET 10. The bundle it produces is not notarised, s
 
 Apart from your station, the one thing the desktop app talks to is GitHub: at launch it asks once whether there is a newer desktop release, sending nothing but its own name and version, and offers a link if there is. Turn it off under **Settings**, **Updates**.
 
+## On a speaker or a television
+
+The station can put itself on a speaker on your network: anything with Chromecast built in (Google's own speakers, many televisions and a good few AV receivers), a Sonos, a BluOS player, or any UPnP/DLNA renderer. Turn on the **Speakers** plugin and use **Play on a speaker** under the transport on the **Desk**. The plugin looks for speakers on your network by itself, which works when the station can see your network's multicast: running on the host's network rather than a Docker bridge network, as [the install guide](../install.md#finding-speakers-on-your-network) explains (on Unraid, see [its page](../unraid.md#finding-speakers)). Where it cannot, add each speaker in the plugin's settings. A Chromecast, a Sonos or a BluOS player is added by the address your router gave it. Any other renderer is added by the address of its description, an `http://` URL ending in `.xml` that a UPnP browser shows, and some renderers move it when they restart.
+
+The speaker fetches the stream itself, from the station's public address (**Settings**, **Stream**, **Public URL**), so that address has to be one the speaker can reach. A speaker playing the station is a listener like any other, and holds it on air while it plays. The station keeps it playing: if the stream drops, or the station restarts, it plays it again on its own. It lets go when you stop it from the same menu, or when somebody at the speaker stops it there or plays something else on it, and it never plays the station over whatever they chose.
+
+The speaker shows the station's name and the programme rather than each record, because a Chromecast's own player cannot be told what changed without starting the stream again. A Sonos and a BluOS player read the record from the stream itself.
+
+Some UPnP renderers, Samsung televisions among them, cannot play an `https://` stream at all and refuse it with error 716. For those the public address has to be a plain `http://` one they can reach.
+
 ## In the console
 
-The console does not play the station, deliberately: it is the desk, and the listening surfaces are the mount and the three apps. Which formats are published, and whether HLS is on, are under **Settings**, **Stream**. What puts the station on air is under **Settings**, **Playout**, and on the **Desk** under **Why is it not on air?**. The listener count and the published mounts are on **Check-up**, **Machinery**.
+The console does not play the station itself, deliberately: it is the desk, and the listening surfaces are the mount, the three apps and the speakers it casts to. Which formats are published, and whether HLS is on, are under **Settings**, **Stream**. What puts the station on air is under **Settings**, **Playout**, and on the **Desk** under **Why is it not on air?**. The listener count and the published mounts are on **Check-up**, **Machinery**.

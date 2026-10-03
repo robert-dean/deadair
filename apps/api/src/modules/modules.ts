@@ -44,6 +44,7 @@ import { withBoundedShutdown } from './shared/shutdown.guard.js';
 import { OAuthModule } from './oauth/oauth.module.js';
 import { McpModule } from './mcp/mcp.module.js';
 import { MessagingModule } from './messaging/messaging.module.js';
+import { OutputsModule } from './outputs/outputs.module.js';
 import { RequestsModule } from './requests/requests.module.js';
 
 // Registered in dependency order: infrastructure (data, shared, messaging,
@@ -285,6 +286,9 @@ const ordered: ServerKitModule[] = [
     // After the plugins it polls and everything a chat command reaches (now playing, the director),
     // so its poller lets go of every platform before any of those tear down. Nothing resolves it.
     MessagingModule,
+    // After the plugins it calls and the now playing it reads, so its supervisor stops before either
+    // tears down. Nothing resolves it.
+    OutputsModule,
     // Last: nothing resolves it, and once it serves tools it composes everything above. See the module.
     McpModule,
 ];

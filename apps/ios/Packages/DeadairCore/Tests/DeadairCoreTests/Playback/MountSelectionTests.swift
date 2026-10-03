@@ -59,4 +59,18 @@ struct MountSelectionTests {
             #expect(StreamFormat(wire: format.wire) == format)
         }
     }
+
+    @Test func automaticPlaysHlsWhereTheStationPublishesIt() {
+        #expect(chooseMount(published, wanted: nil) == MountChoice(path: "/live.m3u8", format: .hls, fellBack: false))
+    }
+
+    @Test func automaticPlaysMp3WhereThereIsNoHlsAndThatIsNotAFallback() {
+        let noHls = published.filter { $0.format != .hls }
+        // Nothing was asked for that the station failed to give, so there is nothing to tell anybody.
+        #expect(chooseMount(noHls, wanted: nil) == MountChoice(path: "/live.mp3", format: .mp3, fellBack: false))
+    }
+
+    @Test func automaticGuessesTheDefaultMountQuietlyBeforeTheStationHasAnswered() {
+        #expect(chooseMount([], wanted: nil) == MountChoice(path: "/live.mp3", format: .mp3, fellBack: false))
+    }
 }

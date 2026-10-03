@@ -1,3 +1,4 @@
+using MaroonedSoftware.Deadair.Desktop.Core.Programme;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Core.Voicing;
 using MaroonedSoftware.Deadair.Sdk.Models;
@@ -25,6 +26,16 @@ public class AuditionTextTests
         Assert.Equal(unsettled, AuditionText.Unsettled(state));
 
     [Fact]
+    public void EachKindOfSourceSaysWhatItWas()
+    {
+        Assert.Equal("Late night · deadair.spotify", AuditionText.Describe(new() { PluginId = "deadair.spotify", PlaylistId = "pl1", Name = "Late night" }));
+        Assert.Equal(
+            "Sunday soul · a station playlist",
+            AuditionText.Describe(new() { StationPlaylistId = Guid.Parse("7b0c1a52-9a3e-4f43-8b1e-3d6f0f4a9c11"), Name = "Sunday soul" }));
+        Assert.Equal("lastfm:top · a chart", AuditionText.Describe(new() { ChartId = "lastfm:top" }));
+    }
+
+    [Fact]
     public void ACancelledRunIsOff_NotAFault()
     {
         Assert.Equal(StatusTone.Off, AuditionText.Tone(PersonaAuditionSummaryState.Cancelled));
@@ -48,13 +59,45 @@ public class AuditionTextTests
     }
 
     [Fact]
-    public void AHiddenPlaylistOrOneWhoseTracksCannotBeReadIsNotOffered()
+    public void TheStationsPlaylistsAndTheChartsAreOfferedBesideTheProviders_ButNothingIsNot()
     {
-        CatalogPlaylist Playlist(bool? hidden = null, List<PlaylistPermission>? permissions = null) =>
-            new() { PluginId = "p", PluginName = "P", Id = "1", Name = "n", Hidden = hidden, Permissions = permissions };
+        var owned = Guid.Parse("7b0c1a52-9a3e-4f43-8b1e-3d6f0f4a9c11");
+        var sources = AuditionText.Sources(
+            [new() { Id = owned.ToString(), Name = "Sunday soul", Prompt = "", TrackCount = 3, ResolvedCount = 3, CreatedAt = DateTimeOffset.UnixEpoch, UpdatedAt = DateTimeOffset.UnixEpoch }],
+            [
+                new() { PluginId = "p", PluginName = "P", Id = "1", Name = "Late night" },
+                new() { PluginId = "p", PluginName = "P", Id = "2", Name = "Hidden", Hidden = true },
+                new() { PluginId = "p", PluginName = "P", Id = "3", Name = "Unreadable", Permissions = [PlaylistPermission.Edit] },
+            ],
+            [new() { Id = "lastfm:top", PluginId = "lastfm", Name = "Top tracks" }],
+            chosen: null);
 
-        Assert.True(AuditionText.Offerable(Playlist()));
-        Assert.False(AuditionText.Offerable(Playlist(hidden: true)));
-        Assert.False(AuditionText.Offerable(Playlist(permissions: [PlaylistPermission.Edit])));
+        // An audition with no source has nothing to read, so the timetable's "nothing" is not offered.
+        Assert.Equal(["Sunday soul", "Late night", "Top tracks"], sources.Select(choice => choice.Label));
+        Assert.Equal(new ProgrammeSource.Station(owned), sources[0].Source);
+        Assert.Equal(new ProgrammeSource.Chart("lastfm:top"), sources[2].Source);
+    }
+
+    [Fact]
+    public void ARequestNamesTheSourcePickedAndNoOther()
+    {
+        var owned = Guid.Parse("7b0c1a52-9a3e-4f43-8b1e-3d6f0f4a9c11");
+
+        var station = AuditionText.Request(new SourceChoice("Sunday soul", "The station's", new ProgrammeSource.Station(owned)), 10);
+        Assert.Equal(owned, station.StationPlaylistId);
+        Assert.Null(station.PluginId);
+        Assert.Null(station.ChartId);
+        // The station reads a playlist of its own's name for itself.
+        Assert.Null(station.Name);
+
+        var chart = AuditionText.Request(new SourceChoice("Top tracks", "Chart · lastfm", new ProgrammeSource.Chart("lastfm:top")), 5);
+        Assert.Equal("lastfm:top", chart.ChartId);
+        Assert.Equal("Top tracks", chart.Name);
+        Assert.Null(chart.PlaylistId);
+        Assert.Equal(5, chart.Limit);
+
+        var playlist = AuditionText.Request(new SourceChoice("Late night", "P", new ProgrammeSource.Playlist("p", "1")), 10);
+        Assert.Equal(("p", "1", "Late night"), (playlist.PluginId, playlist.PlaylistId, playlist.Name));
+        Assert.Null(playlist.StationPlaylistId);
     }
 }

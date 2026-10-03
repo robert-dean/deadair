@@ -1726,7 +1726,7 @@ paths:
         post:
             operationId: start
             summary: 'Start persona audition'
-            description: 'Asks the station to put this character through a playlist. It is queued, not written'
+            description: 'Asks the station to put this character through a playlist or a chart. It is queued, not written'
             parameters:
                 - name: id
                   in: path
@@ -9441,23 +9441,32 @@ components:
                     type: string
                     minLength: 1
                     maxLength: 200
-                    description: 'Which catalog plugin the playlist belongs to'
+                    description: 'Which catalog plugin the playlist belongs to. Required alongside `playlistId`'
                 playlistId:
                     type: string
                     minLength: 1
                     maxLength: 400
+                stationPlaylistId:
+                    type: string
+                    format: uuid
+                    description: 'A playlist the station owns to audition over instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`. A row the library does not hold yet is still a record the host can talk about, so it is kept'
+                chartId:
+                    type: string
+                    minLength: 1
+                    maxLength: 400
+                    description: 'A published chart to audition over instead, as `pluginId:chartId`, from its top. An ALTERNATIVE to the other sources. Its entries are never looked up at a provider, since nothing in an audition airs'
                 name:
                     type: string
                     maxLength: 400
-                    description: 'What the playlist is called, kept as a caption for the run. The console already holds it, and a run whose playlist is later renamed or deleted stays readable'
+                    description: 'What the source is called, kept as a caption for the run. The console already holds it, and a run whose source is later renamed or deleted stays readable'
                 limit:
                     type: integer
                     minimum: 1
                     maximum: 50
                     default: 10
-                    description: 'How many breaks to write. One more record than this is taken off the playlist, since a break sits between two'
-            required: [pluginId, playlistId, limit]
-            description: "What an operator asks for when they put a character through a playlist. The playlist is READ at the\nmoment of asking and its records are stored on the run, so a list edited at the provider afterwards\ndoes not change what was measured"
+                    description: 'How many breaks to write. One more record than this is taken off the source, since a break sits between two'
+            required: [limit]
+            description: "What an operator asks for when they put a character through a playlist or a chart. Exactly one\nsource: a provider's playlist, a playlist the station owns, or a published chart. It is READ at the\nmoment of asking and its records are stored on the run, so a list edited afterwards does not change\nwhat was measured"
         PersonaAuditionSource:
             type: object
             properties:
@@ -9465,15 +9474,24 @@ components:
                     type: string
                     minLength: 1
                     maxLength: 200
+                    description: 'The plugin whose playlist it was. Present exactly when `playlistId` is'
                 playlistId:
                     type: string
                     minLength: 1
                     maxLength: 400
+                stationPlaylistId:
+                    type: string
+                    format: uuid
+                    description: 'A playlist the station owns'
+                chartId:
+                    type: string
+                    minLength: 1
+                    maxLength: 400
+                    description: 'A published chart, as `pluginId:chartId`'
                 name:
                     type: string
                     maxLength: 400
-            required: [pluginId, playlistId]
-            description: "Where the records came from. A snapshot of the name rather than a reference, so a playlist renamed\nor deleted at the provider leaves a finished audition readable"
+            description: "Where the records came from: exactly one of the provider's pair, `stationPlaylistId` or `chartId`.\nA snapshot of the name rather than a reference, so a source renamed or deleted afterwards leaves a\nfinished audition readable"
         PersonaAuditionRecord:
             type: object
             properties:

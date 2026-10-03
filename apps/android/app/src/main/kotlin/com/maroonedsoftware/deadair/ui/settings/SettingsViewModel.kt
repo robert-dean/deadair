@@ -139,7 +139,7 @@ class SettingsViewModel(
 
     private fun keptEntry(kept: StationUrl?) = kept?.let { StationEntryState.typing(it.origin, stored = it.origin) } ?: StationEntryState()
 
-    fun setFormat(format: StreamFormat) {
+    fun setFormat(format: StreamFormat?) {
         viewModelScope.launch { store.setFormat(format) }
     }
 

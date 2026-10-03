@@ -610,12 +610,14 @@ internal static class Fakes
     private static void Auditions(AuditionsViewModel auditions)
     {
         auditions.PresentHosts(Roster());
-        auditions.PresentPlaylists(
-        [
-            new() { PluginId = "deadair.navidrome", PluginName = "Navidrome", Id = "p1", Name = "Late-night guitar records nobody asked for" },
-            new() { PluginId = "deadair.spotify", PluginName = "Spotify", Id = "p2", Name = "Hidden", Hidden = true },
-        ]);
-        auditions.Playlist = auditions.Playlists[0];
+        auditions.PresentSources(
+            [],
+            [
+                new() { PluginId = "deadair.navidrome", PluginName = "Navidrome", Id = "p1", Name = "Late-night guitar records nobody asked for" },
+                new() { PluginId = "deadair.spotify", PluginName = "Spotify", Id = "p2", Name = "Hidden", Hidden = true },
+            ],
+            []);
+        auditions.Source = auditions.Sources[0];
 
         var source = new PersonaAuditionSource { PluginId = "deadair.navidrome", PlaylistId = "p1", Name = "Late-night guitar records nobody asked for" };
         auditions.PresentRuns(

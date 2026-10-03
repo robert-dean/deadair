@@ -35,7 +35,7 @@ public sealed class PersonasAuditionsClient(SdkHttp http)
 
     /// <summary>
     /// Start persona audition
-    /// Asks the station to put this character through a playlist. It is queued, not written
+    /// Asks the station to put this character through a playlist or a chart. It is queued, not written
     /// </summary>
     public async Task<PersonaAudition> StartPersonaAuditionAsync(string id, PersonaAuditionRequest body, CancellationToken cancellationToken = default)
     {

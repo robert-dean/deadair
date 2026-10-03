@@ -1,6 +1,7 @@
 import DeadairCore
 import DeadairSdk
 import Foundation
+import Network
 import Observation
 
 /// Listening to the station: the player, what its phases mean, and what the lock screen says.
@@ -17,7 +18,8 @@ import Observation
 ///   minutes would otherwise keep the station on air for an empty room.
 /// - **A pending reconnect holds background time.** iOS suspends an app that has stopped producing
 ///   audio about thirty seconds after it leaves the screen; the backoff's first waits fit inside
-///   that, and after it the lock-screen tile is what the listener presses.
+///   that, and after it the lock-screen tile is what the listener presses. A drop waiting for the
+///   network holds it too, which covers the ordinary handover between wifi and mobile data.
 @MainActor
 @Observable
 final class Listening {
@@ -35,6 +37,7 @@ final class Listening {
     @ObservationIgnored private let artwork: ArtworkLoader
     @ObservationIgnored private var lease: PollLease?
     @ObservationIgnored private var audioObservers: [NSObjectProtocol] = []
+    @ObservationIgnored private var network: NWPathMonitor?
     @ObservationIgnored private var resumeAfterInterruption = false
     @ObservationIgnored private var endBackgroundWork: (@MainActor () -> Void)?
     @ObservationIgnored private var skipping = false
@@ -65,11 +68,19 @@ final class Listening {
         player.onPhase = { [weak self] phase in self?.observed(phase) }
         player.onTitle = { [weak self] title in self?.gate.onTitle(title) }
         conductor.onRetryDue = { [weak self] in self?.retarget(force: true) }
+        conductor.onTimedOut = { [weak self] in self?.conductorMoved() }
         system.onPlay = { [weak self] in self?.play() }
         system.onStop = { [weak self] in self?.stop() }
         system.onSkip = { [weak self] in self?.skipFromSystem() }
         system.isPlaying = { [weak self] in self?.conductor.wantsToPlay ?? false }
         audioObservers = Platform.observeAudio { [weak self] event in self?.audio(event) }
+        network = Platform.observeNetwork { [weak self] network in
+            guard let self else { return }
+            // HLS fetches every segment afresh, on whatever network is up; only a mount is left
+            // behind on the old one.
+            self.conductor.networkChanged(network, heldConnection: self.choice?.format != .hls)
+            self.conductorMoved()
+        }
         watchReadings()
     }
 
@@ -133,7 +144,13 @@ final class Listening {
 
     private func observed(_ phase: PlayerPhase) {
         conductor.observed(phase)
-        if conductor.retryIn != nil { holdBackgroundTime() } else { releaseBackgroundTime() }
+        conductorMoved()
+    }
+
+    /// Keep the app awake while a retry is coming, whether it is on a timer or waiting for the
+    /// network, and take the station off the lock screen once there is no retry coming at all.
+    private func conductorMoved() {
+        if conductor.retryIn != nil || conductor.awaitingNetwork { holdBackgroundTime() } else { releaseBackgroundTime() }
         if conductor.state == .unreachable { system.clear() }
     }
 

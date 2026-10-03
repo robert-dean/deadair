@@ -140,6 +140,8 @@
     <string name="section_station">Station</string>
     <string name="section_format">Format</string>
     <string name="section_account">Account</string>
+    <string name="format_automatic">Automatic</string>
+    <string name="format_automatic_detail">HLS where the station has it, so moving between wifi and mobile data does not cut out. MP3 otherwise</string>
     <string name="format_mp3">Always available</string>
     <string name="format_hls">Survives moving between wifi and mobile data</string>
     <string name="format_aac">Smaller than MP3 at the same quality</string>

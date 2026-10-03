@@ -52,7 +52,7 @@ export class ListPersonaAuditionsMcpTool implements McpToolHandler {
 export class StartPersonaAuditionMcpTool implements McpToolHandler {
     readonly definition: Tool = {
         name: 'start_persona_audition',
-        description: 'Asks the station to put this character through a playlist. It is queued, not written',
+        description: 'Asks the station to put this character through a playlist or a chart. It is queued, not written',
         inputSchema: z.toJSONSchema(StartPersonaAuditionArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PersonaAudition, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },

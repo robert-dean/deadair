@@ -185,8 +185,7 @@ const before = await watermarks();
 const run = await auditions.open({
     personaId: host.id,
     personaKey: host.key,
-    sourcePluginId: 'smoke',
-    sourcePlaylistId: 'audition.smoke',
+    source: { pluginId: 'smoke', playlistId: 'audition.smoke' },
     sourceName: 'the smoke script',
     records: RECORDS,
 });
@@ -225,8 +224,7 @@ check(carried[0] === written.at(-1)?.script, 'the newest script comes first, as 
 const stopped = await auditions.open({
     personaId: host.id,
     personaKey: host.key,
-    sourcePluginId: 'smoke',
-    sourcePlaylistId: 'audition.smoke.cancelled',
+    source: { pluginId: 'smoke', playlistId: 'audition.smoke.cancelled' },
     records: RECORDS,
 });
 await auditions.cancel(stopped.id);

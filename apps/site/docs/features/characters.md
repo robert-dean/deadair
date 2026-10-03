@@ -56,7 +56,7 @@ That is safe to try because it can be undone. Every time a character carries one
 
 ## Hearing one before it airs
 
-"Hear a rehearsal" writes and speaks one break from the saved sheet, against the same invented pair of records every time, so two readings a minute apart are comparable. Voice, Auditions runs a character over one of your provider playlists instead, one break per transition, up to fifty. Nothing airs and nothing is spent: the notebook, stories and claims are read and left as they were. A run fills in slowly, since each break waits behind the station's own work. The card tallies what the model wrote against what it declined: the reading to judge a sheet edit by.
+"Hear a rehearsal" writes and speaks one break from the saved sheet, against the same invented pair of records every time, so two readings a minute apart are comparable. Voice, Auditions runs a character over real records instead: one of the station's own playlists, a provider's playlist or a chart, one break per transition, up to fifty. A chart is read from the top. Records the library does not hold yet are still used, though they come with fewer facts. Nothing airs and nothing is spent: the notebook, stories and claims are read and left as they were. A run fills in slowly, since each break waits behind the station's own work. The card tallies what the model wrote against what it declined: the reading to judge a sheet edit by.
 
 ## In the console
 

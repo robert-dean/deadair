@@ -19,7 +19,7 @@ extension Message {
         case .quietUntilSomeoneTunesIn: String(localized: "The station is quiet until somebody tunes in. Press play to put it on air.")
         case .comingOnAir: String(localized: "The station is taking the air. The first seconds are quiet.")
         case .showingLastSaid: String(localized: "Showing what it said last.")
-        case .listeners(let count, let format): String(localized: "\(count) listening · \(format.label)")
+        case .listeners(let count, let format): String(localized: "\(count) listening · \(format?.label ?? StreamFormat.automaticLabel)")
         case .fellBackToMp3(let wanted): String(localized: "This station does not publish \(wanted.label), so you are hearing MP3.")
         case .onTheMic(let host?): String(localized: "\(host) is on the mic")
         case .onTheMic(nil): String(localized: "The host is on the mic")
@@ -318,6 +318,14 @@ extension ListeningState {
 }
 
 extension StreamFormat {
+    /// The name of the choice that is no format in particular; see `chooseMount`.
+    static var automaticLabel: String { String(localized: "Automatic") }
+
+    /// What Automatic is for, under its name in Settings.
+    static var automaticPurpose: String {
+        String(localized: "HLS where the station has it, so moving between wifi and mobile data does not cut out. MP3 otherwise")
+    }
+
     /// What each format is for, under its name in Settings.
     var purpose: String {
         switch self {

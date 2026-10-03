@@ -46,15 +46,35 @@ Saved as 24-bit PNG, because Play refuses an alpha channel. The cover art is wha
 was playing. Commercial artwork in a store screenshot can draw an intellectual-property rejection,
 and a set taken while something else is on air is the fix if one arrives.
 
-Seven, listener first: Now playing, background playback, then the four a signed-in operator sees
-(Up next, Played, a record page, the transport), then the format picker. The operator signs in on
-the emulator by hand, never from a script, and nothing in the operator shots is pressed: the
-transport's buttons and the running order's menus act on the live station. What's on is left out
-while the station has nothing scheduled, because an empty card sells nothing.
+Eight, listener first: Now playing, background playback, then the five a signed-in operator sees
+(Up next, What it said from its Manage page, the history from its "Everything the station has
+played" link, a record page, Now playing with the operator's controls), then the format picker.
+The operator signs in on the emulator by hand, never from a script, and nothing in the operator
+shots is pressed: the transport's buttons and the running order's menus act on the live station.
+What's on is left out while the station has nothing scheduled, because an empty card sells
+nothing. The history is scrolled to a stretch with nothing in a title a store reviewer would
+flag, since the station's library decides what is on it.
 
 An emulator booted from its quickboot snapshot comes back with whatever was installed when the
 snapshot was taken, not the build last installed. Check `dumpsys package` for `lastUpdateTime`
 before shooting, or the screenshots show an old build.
+
+The screenshots were last retaken on 2026-10-03, for 0.13.0.
+
+## Production releases
+
+What went to production, newest first, so the next release knows what its notes cover since. The
+build's own notes are `whatsnew/` at the commit it was built from, and what changed is in the
+listener's [CHANGELOG](../CHANGELOG.md).
+
+| Date | Version | Version code | Rollout | Notes cover |
+| --- | --- | --- | --- | --- |
+| 2026-10-03 | 0.13.0 | 1902 | `completed`, straight to everybody | 0.10.0 to 0.13.0 |
+
+**2026-10-03, 0.13.0.** Build 1895 (0.12.0) had reached internal with the 0.7 widget's notes
+still in `whatsnew/`, and promotion carries a build's notes with it, so it was not promoted. The
+notes were rewritten and 1902 was published from main and promoted instead. It went out at
+`completed` rather than the staged `inProgress` at 0.2 that the app's README recommends, by choice.
 
 ## Store settings
 

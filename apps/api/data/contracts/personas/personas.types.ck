@@ -294,21 +294,27 @@ contract PersonaRehearsal: {
     reason?: string(max=1000) # Why there are no words, when every writer had nothing. Not a fault: a break nothing could write is one the station does not take
 }
 
-# What an operator asks for when they put a character through a playlist. The playlist is READ at the
-# moment of asking and its records are stored on the run, so a list edited at the provider afterwards
-# does not change what was measured
+# What an operator asks for when they put a character through a playlist or a chart. Exactly one
+# source: a provider's playlist, a playlist the station owns, or a published chart. It is READ at the
+# moment of asking and its records are stored on the run, so a list edited afterwards does not change
+# what was measured
 contract PersonaAuditionRequest: {
-    pluginId: string(min=1, max=200) # Which catalog plugin the playlist belongs to
-    playlistId: string(min=1, max=400)
-    name?: string(max=400) # What the playlist is called, kept as a caption for the run. The console already holds it, and a run whose playlist is later renamed or deleted stays readable
-    limit: int(min=1, max=50) = 10 # How many breaks to write. One more record than this is taken off the playlist, since a break sits between two
+    pluginId?: string(min=1, max=200) # Which catalog plugin the playlist belongs to. Required alongside `playlistId`
+    playlistId?: string(min=1, max=400)
+    stationPlaylistId?: uuid # A playlist the station owns to audition over instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`. A row the library does not hold yet is still a record the host can talk about, so it is kept
+    chartId?: string(min=1, max=400) # A published chart to audition over instead, as `pluginId:chartId`, from its top. An ALTERNATIVE to the other sources. Its entries are never looked up at a provider, since nothing in an audition airs
+    name?: string(max=400) # What the source is called, kept as a caption for the run. The console already holds it, and a run whose source is later renamed or deleted stays readable
+    limit: int(min=1, max=50) = 10 # How many breaks to write. One more record than this is taken off the source, since a break sits between two
 }
 
-# Where the records came from. A snapshot of the name rather than a reference, so a playlist renamed
-# or deleted at the provider leaves a finished audition readable
+# Where the records came from: exactly one of the provider's pair, `stationPlaylistId` or `chartId`.
+# A snapshot of the name rather than a reference, so a source renamed or deleted afterwards leaves a
+# finished audition readable
 contract PersonaAuditionSource: {
-    pluginId: string(min=1, max=200)
-    playlistId: string(min=1, max=400)
+    pluginId?: string(min=1, max=200) # The plugin whose playlist it was. Present exactly when `playlistId` is
+    playlistId?: string(min=1, max=400)
+    stationPlaylistId?: uuid # A playlist the station owns
+    chartId?: string(min=1, max=400) # A published chart, as `pluginId:chartId`
     name?: string(max=400)
 }
 

@@ -28,8 +28,21 @@ struct ListenerSettingsTests {
         #expect(read.format == .hls)
     }
 
-    @Test func readsAFormatThisBuildDoesNotKnowAsMp3() {
-        #expect(ListenerSettings(stationText: nil, nameText: nil, formatText: "wav").format == .mp3)
+    @Test func readsAFormatThisBuildDoesNotKnowAsAutomatic() {
+        #expect(ListenerSettings(stationText: nil, nameText: nil, formatText: "wav").format == nil)
+    }
+
+    @Test func startsOnAutomaticAndStoresItAsNothing() {
+        #expect(ListenerSettings().format == nil)
+        #expect(ListenerSettings().formatText == nil)
+    }
+
+    @Test func forgetsAStoredMp3FromBeforeAutomaticAndKeepsAnyOtherChoice() {
+        // Every save wrote the format until now, so a stored MP3 says nothing about a choice.
+        #expect(ListenerSettings.formatTextFromBeforeAutomatic("mp3") == nil)
+        #expect(ListenerSettings.formatTextFromBeforeAutomatic("hls") == "hls")
+        #expect(ListenerSettings.formatTextFromBeforeAutomatic("flac") == "flac")
+        #expect(ListenerSettings.formatTextFromBeforeAutomatic(nil) == nil)
     }
 
     @Test func startsWithNothingKept() {

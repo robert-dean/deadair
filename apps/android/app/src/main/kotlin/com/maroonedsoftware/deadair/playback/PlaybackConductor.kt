@@ -55,6 +55,12 @@ class PlaybackConductor(
      * A dark display is the one state where it is certain nobody is reading any of them.
      */
     private val displayOn: Flow<Boolean> = flowOf(false),
+    /**
+     * The phone's default network, by handle, or `null` for none. A drop with none waits for one
+     * rather than spending the reconnect budget, and a move to another network restarts a mount
+     * that would otherwise be left on the old one; see `ReconnectPolicy.onNetwork`.
+     */
+    private val network: Flow<Long?> = emptyFlow(),
     /** Where the sleep timer's state goes, for a screen to show. */
     publishSleep: (SleepState) -> Unit = {},
     /** Called after the sleep timer has stopped the station, for the service to tidy itself away. */
@@ -90,6 +96,17 @@ class PlaybackConductor(
                 player.play()
             },
             stop = { player.stop() },
+            // The same item set again, which ExoPlayer treats as a new source and so a new
+            // connection, made on whatever network is the default now. Not `stop()` and
+            // `prepare()`: `LivePlayer.stop` is the listener's stop and drops `playWhenReady`.
+            restart = {
+                player.currentMediaItem?.let { item ->
+                    player.setMediaItem(item)
+                    player.prepare()
+                    player.play()
+                }
+            },
+            heldConnection = { current?.format != StreamFormat.HLS },
         )
     /**
      * Mirrors `player.playWhenReady`, so the poll below can be gated on it. A separate listener
@@ -142,7 +159,8 @@ class PlaybackConductor(
         }
 
     private var station: StationUrl? = null
-    private var format: StreamFormat = StreamFormat.MP3
+    /** The format chosen, or `null` for Automatic. */
+    private var format: StreamFormat? = null
     private var mounts: List<NowPlayingMount> = emptyList()
     private var current: MountChoice? = null
 
@@ -157,6 +175,7 @@ class PlaybackConductor(
         player.addListener(policy)
         player.addListener(playWhenReadyListener)
         player.addListener(metadataListener)
+        network.onEach(policy::onNetwork).launchIn(scope)
 
         // The settings and the station's own answer are read together, because the mount to play
         // is a function of both: which format the listener chose, and which paths the station says

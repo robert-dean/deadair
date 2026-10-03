@@ -4,7 +4,7 @@ import type { DateTime } from 'luxon';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { toJsonb } from '#modules/data/jsonb.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
-import type { Audition, AuditionAttempt, AuditionBreak, AuditionRecord, AuditionState } from './persona.audition.js';
+import type { Audition, AuditionAttempt, AuditionBreak, AuditionRecord, AuditionSource, AuditionState } from './persona.audition.js';
 
 /**
  * How many of this run's own scripts a transition is shown.
@@ -56,8 +56,7 @@ export class PersonaAuditionRepository extends DataRepository {
     async open(input: {
         personaId: string;
         personaKey: string;
-        sourcePluginId: string;
-        sourcePlaylistId: string;
+        source: AuditionSource;
         sourceName?: string;
         records: readonly AuditionRecord[];
         actorId?: string;
@@ -68,8 +67,11 @@ export class PersonaAuditionRepository extends DataRepository {
                 stationKey: this.station.stationKey,
                 personaId: input.personaId,
                 personaKey: input.personaKey,
-                sourcePluginId: input.sourcePluginId,
-                sourcePlaylistId: input.sourcePlaylistId,
+                // Exactly one of the three, which the table's check holds it to as well.
+                sourcePluginId: 'pluginId' in input.source ? input.source.pluginId : null,
+                sourcePlaylistId: 'playlistId' in input.source ? input.source.playlistId : null,
+                sourceStationPlaylistId: 'stationPlaylistId' in input.source ? input.source.stationPlaylistId : null,
+                sourceChartId: 'chartId' in input.source ? input.source.chartId : null,
                 sourceName: input.sourceName ?? null,
                 records: toJsonb([...input.records]),
                 // One break per transition, so one fewer than the records. The column carries it
@@ -324,8 +326,7 @@ function toAudition(row: Record<string, unknown>): Audition {
         stationKey: String(row.stationKey),
         personaId: String(row.personaId),
         personaKey: String(row.personaKey),
-        sourcePluginId: String(row.sourcePluginId),
-        sourcePlaylistId: String(row.sourcePlaylistId),
+        source: toSource(row),
         ...(row.sourceName == null ? {} : { sourceName: String(row.sourceName) }),
         records: (row.records ?? []) as AuditionRecord[],
         transitions: Number(row.transitions),
@@ -337,6 +338,18 @@ function toAudition(row: Record<string, unknown>): Audition {
         ...(row.actorId == null ? {} : { actorId: String(row.actorId) }),
         createdAt: millisOf(row.createdAt as DateTime | null) ?? 0,
     };
+}
+
+/**
+ * A run's source back out of its four columns.
+ *
+ * The provider's pair is the fallback rather than a third test, because a row written before
+ * migration 0059 holds nothing else and the table's check allows no row that holds none of them.
+ */
+function toSource(row: Record<string, unknown>): AuditionSource {
+    if (row.sourceStationPlaylistId != null) return { stationPlaylistId: String(row.sourceStationPlaylistId) };
+    if (row.sourceChartId != null) return { chartId: String(row.sourceChartId) };
+    return { pluginId: String(row.sourcePluginId), playlistId: String(row.sourcePlaylistId) };
 }
 
 /** One break as the rest of the app reads it. */

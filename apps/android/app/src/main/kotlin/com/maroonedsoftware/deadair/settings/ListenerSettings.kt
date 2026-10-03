@@ -20,7 +20,8 @@ import com.maroonedsoftware.deadair.widget.WidgetFollows
 data class ListenerSettings(
     val station: StationUrl? = null,
     val stationName: String? = null,
-    val format: StreamFormat = StreamFormat.MP3,
+    /** The format the listener chose, or `null` for Automatic, which is what nobody choosing gets; see `chooseMount`. */
+    val format: StreamFormat? = null,
     /** Colors from the wallpaper where the phone offers them, or the station's own. On by default, because a listener's palette is a better default than ours. */
     val dynamicColor: Boolean = true,
     /** Start the station when the app opens. Off by default: opening an app is not always wanting to hear it. */

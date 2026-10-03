@@ -47,7 +47,7 @@ sealed interface Message {
     data object ShowingLastSaid : Message
 
     /** "N listening · MP3", with the count spelled the way the language counts. */
-    data class Listeners(val count: Long, val format: StreamFormat) : Message
+    data class Listeners(val count: Long, val format: StreamFormat?) : Message
 
     /**
      * The title while the station talks between records: "Cass is on the mic". `host` is the name

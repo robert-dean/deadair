@@ -525,9 +525,11 @@ export interface DeadairPersonaAuditions {
   personaId: string;
   personaKey: string;
   records: Json;
+  sourceChartId: string | null;
   sourceName: string | null;
-  sourcePlaylistId: string;
-  sourcePluginId: string;
+  sourcePlaylistId: string | null;
+  sourcePluginId: string | null;
+  sourceStationPlaylistId: string | null;
   state: Generated<"queued" | "running" | "done" | "failed" | "cancelled">;
   stationKey: Generated<string>;
   transitions: number;

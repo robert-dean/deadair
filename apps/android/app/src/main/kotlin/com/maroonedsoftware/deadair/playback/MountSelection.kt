@@ -23,8 +23,17 @@ data class MountChoice(
  * never empty and MP3 is first. So a format the operator has turned off degrades to something
  * audible rather than to silence — but it says so, because a listener who chose FLAC and is
  * quietly given 128k MP3 has been lied to.
+ *
+ * `wanted` is `null` for Automatic, which is what a listener who never chose has: HLS where the
+ * station publishes it, because a phone moves between wifi and mobile data and HLS, a request per
+ * segment, survives that where a mount's one long connection does not; MP3 where it does not. Never
+ * a fallback, because nothing was asked for that the station failed to give.
  */
-fun chooseMount(mounts: List<NowPlayingMount>, wanted: StreamFormat): MountChoice {
+fun chooseMount(mounts: List<NowPlayingMount>, wanted: StreamFormat?): MountChoice {
+    if (wanted == null) {
+        mounts.firstOrNull { it.format == StreamFormat.HLS.wire }?.let { return MountChoice(it.path, StreamFormat.HLS, fellBack = false) }
+        return chooseMount(mounts, StreamFormat.MP3).copy(fellBack = false)
+    }
     // Before the first reading there is nothing to choose from. `/live.mp3` is where every
     // current station publishes MP3, so it is the best guess available, and it is marked as a fallback whenever
     // it is not what was asked for.

@@ -2,6 +2,7 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:programme="using:MaroonedSoftware.Deadair.Desktop.Core.Programme"
     xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.VoiceAuditionsTab"
     x:DataType="vm:AuditionsViewModel">
@@ -23,13 +24,17 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                 </StackPanel>
-                <StackPanel Spacing="3" Width="280">
-                    <TextBlock Text="Playlist, read once when you press Start" FontSize="12" Classes="secondary" />
-                    <ComboBox ItemsSource="{Binding Playlists}" SelectedItem="{Binding Playlist}" HorizontalAlignment="Stretch"
-                              PlaceholderText="Choose a playlist">
+                <StackPanel Spacing="3" Width="320">
+                    <TextBlock Text="A playlist or a chart, read once when you press Start" FontSize="12" Classes="secondary" />
+                    <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding Source}" HorizontalAlignment="Stretch"
+                              PlaceholderText="Choose a playlist or a chart">
                         <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:ChoiceViewModel">
-                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                            <DataTemplate x:DataType="programme:SourceChoice">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Group}" Classes="dimmed" FontSize="11"
+                                               VerticalAlignment="Center" />
+                                </Grid>
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>

@@ -2037,7 +2037,14 @@ describe('DirectorConsoleService and a record left over from the last programme'
 
         expect(await service.cutOverrun('on-air')).toBe(true);
         // The id goes with the cut, because the check here runs before the transport's own wait.
-        expect(pusher.skipCurrent).toHaveBeenCalledWith('on-air');
+        expect(pusher.skipCurrent).toHaveBeenCalledWith('on-air', {});
+    });
+
+    it('asks the transport to fade the record out when the cut has a fade', async () => {
+        const { service, pusher } = build({ order: scheduled(), airing: true });
+
+        expect(await service.cutOverrun('on-air', 4000)).toBe(true);
+        expect(pusher.skipCurrent).toHaveBeenCalledWith('on-air', { fadeMs: 4000 });
     });
 
     // The record may have ended on its own since the tick named it, and a cut then would take the

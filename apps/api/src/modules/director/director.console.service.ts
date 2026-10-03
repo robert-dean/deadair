@@ -1128,15 +1128,17 @@ export class DirectorConsoleService {
      * Nothing moves in the running order: the record being cut is in none, so this is the transport's
      * half alone, outside the mailbox for {@link skipToOrderItem}'s reason.
      *
+     * @param fadeMs - Fade the record out over this long and cut at the bottom, rather than cutting at
+     *   once. See `LiquidsoapControl.skip`.
      * @returns whether the stream took the cut. Nothing to cut is `false` too, and the caller only
      *   ever asks the next minute either way.
      */
-    async cutOverrun(itemId: string): Promise<boolean> {
+    async cutOverrun(itemId: string, fadeMs: number = 0): Promise<boolean> {
         if (this.rundown.nowPlaying()?.item.id !== itemId) return false;
 
         // The check above is only the cheap early answer. `skipCurrent` waits for the transport and
         // runs a top-up pass before it cuts, so the id goes with it and is checked again there.
-        return await this.pusher.skipCurrent(itemId);
+        return await this.pusher.skipCurrent(itemId, fadeMs > 0 ? { fadeMs } : {});
     }
 
     /**

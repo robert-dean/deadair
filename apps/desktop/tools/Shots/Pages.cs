@@ -46,6 +46,11 @@ internal static class Pages
         yield return ("shell-desk-quiet", Shell(operatorSignedIn: true, desk: Fakes.Quiet), 1180, 720);
         yield return ("shell-min", Shell(operatorSignedIn: true), 820, 520);
         yield return ("shell-desk-live", Shell(operatorSignedIn: false, Fakes.WithoutAPlayhead), 1180, 720);
+        yield return ("studio", Studio(), 1180, 720);
+        yield return ("studio-break", Studio(Fakes.OnTheMic), 1180, 720);
+        yield return ("studio-off-air", Studio(Fakes.OffAir), 1180, 720);
+        yield return ("studio-min", Studio(), 820, 520);
+        yield return ("studio-screen", Studio(), 1728, 1117);
         yield return ("studio-backdrop", Backdrop(), 1180, 720);
         yield return ("studio-backdrop-no-cover", new StudioBackdrop { Phase = 0.3 }, 1180, 720);
         yield return ("shell-desk-break", Shell(operatorSignedIn: false, Fakes.OnTheMic), 1180, 720);
@@ -846,6 +851,17 @@ internal static class Pages
         Fakes.Fill(shell, destination);
         shell.StationSettings.AttachPlugins();
         shell.Navigation.Show(destination);
+
+        return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>Studio up over the shell, as a listener sees it. The shell is under it, as it is in the app.</summary>
+    private static MainWindowContent Studio(Action<ListenerViewModel>? pose = null)
+    {
+        var shell = Fakes.Shell(operatorSignedIn: false);
+        Fakes.PutOnAir(shell.Listener);
+        pose?.Invoke(shell.Listener);
+        shell.IsStudio = true;
 
         return new MainWindowContent { Shell = shell };
     }

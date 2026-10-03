@@ -225,6 +225,33 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private bool _needsStation = true;
 
     /// <summary>
+    /// Whether Studio is up: the record on air across the whole window, over everything but a dialog.
+    /// </summary>
+    /// <remarks>
+    /// Not remembered. Studio is somewhere somebody goes to sit back, and opening the app straight
+    /// into it would hide everything they came to the app to do.
+    /// </remarks>
+    [ObservableProperty]
+    private bool _isStudio;
+
+    /// <summary>Into Studio, or back out of it: the bar's button, the Window menu, and F.</summary>
+    [RelayCommand]
+    private void ToggleStudio() => IsStudio = !IsStudio && !NeedsStation;
+
+    /// <summary>Out of Studio: its own close button, and Escape.</summary>
+    [RelayCommand]
+    private void LeaveStudio() => IsStudio = false;
+
+    // An app with no station has nothing to show in Studio, and the setup screen must not be under it.
+    partial void OnNeedsStationChanged(bool value)
+    {
+        if (value)
+        {
+            IsStudio = false;
+        }
+    }
+
+    /// <summary>
     /// Whether a station is attached. False on a first run until the setup screen's address answers,
     /// and false again for the moment between letting one station go and attaching the next.
     /// </summary>

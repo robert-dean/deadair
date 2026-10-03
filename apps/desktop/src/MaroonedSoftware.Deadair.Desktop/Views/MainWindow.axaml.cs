@@ -236,7 +236,8 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The rail's letters, without a modifier, as the web console has them, and Space for Listen and Stop.
+    /// The rail's letters, without a modifier, as the web console has them, Space for Listen and Stop,
+    /// and F for Studio.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -263,6 +264,26 @@ public partial class MainWindow : Window
         // page it was asked about. Its own buttons take Return and Escape.
         if (shell.Dialogs.IsOpen)
         {
+            return;
+        }
+
+        // Studio keeps three keys and lends none of the rest: a letter that navigated, or a palette
+        // that opened a page, would be moving a page nobody can see. F and Escape leave it, and Space
+        // is Listen and Stop there as everywhere. Before the text-box rule below, because Studio took
+        // the focus when it opened.
+        if (shell.IsStudio)
+        {
+            if (e.KeyModifiers == KeyModifiers.None && e.Key is Key.Escape or Key.F)
+            {
+                shell.LeaveStudioCommand.Execute(null);
+                e.Handled = true;
+            }
+            else if (e.KeyModifiers == KeyModifiers.None && e.Key == Key.Space)
+            {
+                shell.Listener.ToggleCommand.Execute(null);
+                e.Handled = true;
+            }
+
             return;
         }
 
@@ -293,6 +314,14 @@ public partial class MainWindow : Window
         if (e.Key == Key.Space)
         {
             shell.Listener.ToggleCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        // F for Studio, which no page's letter takes.
+        if (e.Key == Key.F)
+        {
+            shell.ToggleStudioCommand.Execute(null);
             e.Handled = true;
             return;
         }

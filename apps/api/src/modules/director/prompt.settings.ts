@@ -43,3 +43,19 @@ export function languageGuard(config: AppConfig): Pick<AnswerGuard, 'language'> 
     const language = stationLanguage(config);
     return language === undefined ? {} : { language };
 }
+
+/**
+ * Who may be named in front of a script as its speaker, as a field on an answer guard.
+ *
+ * The presenter's on-air name and console label, the station's own name for its presenter, and, at a
+ * changeover, the outgoing host's: a model writing a handover as a scene is the one most likely to
+ * put a name and a colon in front of it. See `SpeakableOptions.speakers`.
+ */
+export function speakerGuard(config: AppConfig, request: Pick<BreakWriteRequest, 'persona' | 'changeover'>): Pick<AnswerGuard, 'speakers'> {
+    const outgoing = request.changeover?.outgoing;
+    const names = [request.persona?.djName, request.persona?.label, config.get(TEMPLATE_KEYS.djName, ''), outgoing?.djName, outgoing?.label]
+        .map(name => name?.trim() ?? '')
+        .filter(name => name !== '');
+
+    return names.length === 0 ? {} : { speakers: [...new Set(names)] };
+}

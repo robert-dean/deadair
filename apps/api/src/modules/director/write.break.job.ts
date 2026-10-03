@@ -35,6 +35,7 @@ import { AlmanacSource } from './almanac.source.js';
 import type { BreakTrack, PlayedRecord, WrittenBreak } from './break.writer.js';
 import { CLOCK_KEYS, dayGreeting, dayPart, NAMES_THE_TIME_DEFAULT, roughTime, stationZone } from './clock.words.js';
 import { BreakWriterRegistry, declineText, isWritten, type BreakWriteResult } from './break.writer.registry.js';
+import { BreakFloorWatch } from './break.floor.watch.js';
 import { TALK_BREAK_SHAPE } from './break.prompt.js';
 import { DETERMINISTIC_WRITER, TALK_BREAK_KIND } from './talk.break.writer.js';
 import { STORY_KIND, STORY_SHAPE } from './story.break.writer.js';
@@ -197,6 +198,9 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly identity: StationIdentity,
         private readonly speech: SpeechService,
         private readonly activity: ActivityRecorder,
+        // Outlives this job, which is scoped: whether the model has been failing for an hour is a run
+        // across many writes. See `BreakFloorWatch`.
+        private readonly floorWatch: BreakFloorWatch,
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
         context: JobContext,
@@ -535,6 +539,10 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
                 },
             });
         }
+
+        // The row above is one break. Whether the MODEL has been gone for an hour is a run across many,
+        // and only the watch can see it. See `BreakFloorWatch`.
+        this.floorWatch.observe(result, this.writers.writersFor(segment.kind));
     }
 
     /**

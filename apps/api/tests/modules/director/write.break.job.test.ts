@@ -120,7 +120,10 @@ function harness(
         writer,
         attempts: [{ writer, outcome: 'written', written: { script, label }, durationMs: 1 }],
     });
-    const writers = { write: vi.fn(async () => options.written ?? wrote('talking', 'Talk break: one into two', options.writer ?? 'deterministic')) };
+    const writers = {
+        write: vi.fn(async () => options.written ?? wrote('talking', 'Talk break: one into two', options.writer ?? 'deterministic')),
+        writersFor: vi.fn(() => ['model', 'deterministic']),
+    };
     const enrichment = {
         factsForTracks: vi.fn(async (_ids: readonly string[], _rotate?: number) =>
             options.factsThrow ? Promise.reject(new Error('the enrichment tables are gone')) : (options.facts ?? new Map<string, string[]>()),
@@ -202,6 +205,8 @@ function harness(
     // written against.
     const speech = { cues: vi.fn(async () => options.cues ?? []), deliveries: vi.fn(async () => options.deliveries ?? []) };
 
+    const floorWatch = { observe: vi.fn() };
+
     const job = new WriteBreakJob(
         lineups as never,
         segments as never,
@@ -222,6 +227,7 @@ function harness(
         identity as never,
         speech as never,
         activity as never,
+        floorWatch as never,
         jobs as never,
         config as never,
         { id: 'job-1' } as never,
@@ -231,6 +237,7 @@ function harness(
 
     return {
         job,
+        floorWatch,
         segments,
         pads,
         lineups,
@@ -269,6 +276,15 @@ describe('WriteBreakJob', () => {
             pads: [],
         });
         expect(jobs.send).toHaveBeenCalledWith('render.segment', { segmentId: 'seg-1' });
+    });
+
+    it('tells the floor watch who wrote the break and which writers its kind has', async () => {
+        const { job, floorWatch, writers } = harness({ lineup: await lineupWithBreak() });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.writersFor).toHaveBeenCalledWith('talkbreak');
+        expect(floorWatch.observe).toHaveBeenCalledWith(expect.objectContaining({ writer: 'deterministic' }), ['model', 'deterministic']);
     });
 
     it('hands the writers whoever is on air, and nothing when nobody is', async () => {

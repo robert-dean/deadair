@@ -10,7 +10,9 @@ import Testing
 struct PlaybackConductorTests {
     private let clock = ManualClock()
 
-    private func conductor() -> PlaybackConductor { PlaybackConductor(schedule: clock.schedule) }
+    private func conductor(offlineLimit: Duration = .seconds(15 * 60)) -> PlaybackConductor {
+        PlaybackConductor(schedule: clock.schedule, offlineLimit: offlineLimit)
+    }
 
     @Test func saysWarmingUpBeforeAnyAudioArrives() {
         let conductor = conductor()
@@ -170,5 +172,141 @@ struct PlaybackConductorTests {
         #expect(fired == 0)
         clock.advance(by: .milliseconds(1))
         #expect(fired == 1)
+    }
+
+    @Test func withNoNetworkADropWaitsForOneRatherThanSpendingTheBackoff() {
+        let conductor = conductor()
+        var fired = 0
+        conductor.onRetryDue = { fired += 1 }
+        conductor.requested()
+        conductor.observed(.playing)
+
+        conductor.networkChanged(available: false)
+        // Ten minutes of failures, twice the backoff's budget, and none of them is retried or
+        // gives up: there is nothing to retry against.
+        for _ in 0..<20 {
+            conductor.observed(.failed)
+            clock.advance(by: .seconds(30))
+        }
+
+        #expect(fired == 0)
+        #expect(conductor.state == .reconnecting)
+        #expect(conductor.awaitingNetwork)
+        #expect(conductor.retryIn == nil)
+    }
+
+    @Test func theNetworkComingBackMakesTheRetryDueAtOnce() {
+        let conductor = conductor()
+        var fired = 0
+        conductor.onRetryDue = { fired += 1 }
+        conductor.requested()
+        conductor.observed(.playing)
+        conductor.networkChanged(available: false)
+        conductor.observed(.failed)
+
+        clock.advance(by: .seconds(60))
+        conductor.networkChanged(available: true)
+
+        #expect(fired == 1)
+        #expect(!conductor.awaitingNetwork)
+    }
+
+    @Test func theNetworkComingBackStartsTheBackoffAgainFromASecond() {
+        let conductor = conductor()
+        conductor.requested()
+        conductor.observed(.playing)
+        for _ in 0..<5 { conductor.observed(.failed) }
+        #expect(conductor.retryIn == .seconds(16))
+
+        conductor.networkChanged(available: false)
+        conductor.observed(.failed)
+        conductor.networkChanged(available: true)
+        // The attempt made on the network's return failed too: a second, not thirty.
+        conductor.observed(.failed)
+
+        #expect(conductor.retryIn == .seconds(1))
+    }
+
+    @Test func losingTheNetworkHoldsARetryThatWasAlreadyScheduled() {
+        let conductor = conductor()
+        var fired = 0
+        conductor.onRetryDue = { fired += 1 }
+        conductor.requested()
+        conductor.observed(.playing)
+        conductor.observed(.failed)
+
+        conductor.networkChanged(available: false)
+        clock.advance(by: .seconds(60))
+        #expect(fired == 0)
+        #expect(conductor.awaitingNetwork)
+
+        conductor.networkChanged(available: true)
+        #expect(fired == 1)
+    }
+
+    @Test func losingTheNetworkWhilePlayingDoesNothingUntilThePlayerFails() {
+        // A handover with audio still in the buffer, and the new network up before it ran out.
+        let conductor = conductor()
+        var fired = 0
+        conductor.onRetryDue = { fired += 1 }
+        conductor.requested()
+        conductor.observed(.playing)
+
+        conductor.networkChanged(available: false)
+        conductor.networkChanged(available: true)
+        clock.advance(by: .seconds(60))
+
+        #expect(fired == 0)
+        #expect(conductor.state == .playing)
+        #expect(!conductor.awaitingNetwork)
+    }
+
+    @Test func aFailureBeforeAnyAudioWithNoNetworkIsStillWarmUp() {
+        let conductor = conductor()
+        conductor.networkChanged(available: false)
+        conductor.requested()
+        conductor.observed(.failed)
+
+        #expect(conductor.state == .warmingUp)
+        #expect(conductor.awaitingNetwork)
+    }
+
+    @Test func waitingForTheNetworkEndsUnreachableAfterItsOwnLimit() {
+        let conductor = conductor(offlineLimit: .seconds(60))
+        var gaveUp = 0
+        conductor.onGaveUpWaiting = { gaveUp += 1 }
+        conductor.requested()
+        conductor.observed(.playing)
+        conductor.networkChanged(available: false)
+        conductor.observed(.failed)
+
+        clock.advance(by: .seconds(30))
+        // A second failure while already waiting does not start the limit again.
+        conductor.observed(.failed)
+        clock.advance(by: .milliseconds(29_999))
+        #expect(conductor.state == .reconnecting)
+
+        clock.advance(by: .milliseconds(1))
+        #expect(conductor.state == .unreachable)
+        #expect(!conductor.awaitingNetwork)
+        #expect(gaveUp == 1)
+    }
+
+    @Test func stoppingEndsTheWaitForTheNetwork() {
+        let conductor = conductor(offlineLimit: .seconds(60))
+        var fired = 0
+        conductor.onRetryDue = { fired += 1 }
+        conductor.requested()
+        conductor.observed(.playing)
+        conductor.networkChanged(available: false)
+        conductor.observed(.failed)
+
+        conductor.released()
+        clock.advance(by: .seconds(120))
+        conductor.networkChanged(available: true)
+
+        #expect(fired == 0)
+        #expect(conductor.state == .stopped)
+        #expect(clock.scheduled == 0)
     }
 }

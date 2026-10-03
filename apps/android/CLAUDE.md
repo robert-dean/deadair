@@ -139,6 +139,14 @@ when the POLL fails, so the bad case is a mount that has lost its source while t
 normally: retries end after five minutes and the requests do not end at all. The budget running out
 now calls the same `stop` the audio-focus cases use.
 
+**With no network, a drop waits for one instead of spending that budget.** `PlaybackService`
+tracks the default network and `ReconnectPolicy.onNetwork` hears it: a failure while there is none
+schedules nothing, and a network coming back retries at once from a fresh backoff. Any default
+network, never a VALIDATED one, because a home station is reached over a wifi Android may never
+validate. The wait has its own fifteen-minute limit and ends in the same `stop`. It does not make a
+handover faster: a socket left hanging on the old network still fails on the read timeout, and
+reconnecting the moment the default network CHANGES is separate work.
+
 **HLS listeners are counted per IP and User-Agent**, from playlist re-fetches inside a 15-second
 window. So there is one agent string (`UserAgent.VALUE`), and it reaches every request from one of
 two places: an interceptor on the shared OkHttp client, which the SDK and the image loader both go

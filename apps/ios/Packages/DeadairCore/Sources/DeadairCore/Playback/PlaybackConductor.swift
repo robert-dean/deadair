@@ -47,6 +47,13 @@ public enum ListeningState: Equatable, Sendable {
 /// fault.** Both because the station may be waking up, and because a listener who has just pressed
 /// play has no use for an error they cannot act on. Only after audio has been heard does losing it
 /// become reconnecting, and only after the backoff gives up does it become unreachable.
+///
+/// **With no network, a drop waits for one instead of spending the backoff.** A phone in a lift or
+/// a tunnel used to retry against nothing for five minutes and then give up, even when the signal
+/// came back seconds later. Now a drop with no network schedules nothing until `networkChanged`
+/// says one is up, and then the retry is due at once, from a fresh backoff: the failures before it
+/// were the missing network, not the station. The wait has its own, longer limit, after which it is
+/// unreachable for the same reason the backoff gives up.
 @MainActor
 @Observable
 public final class PlaybackConductor {
@@ -55,18 +62,34 @@ public final class PlaybackConductor {
     public private(set) var wantsToPlay = false
     /// How long until the next attempt, or `nil` when none is due.
     public private(set) var retryIn: Duration?
+    /// Whether a drop is being held until the phone has a network again. No attempt is scheduled
+    /// while it is, so `retryIn` is `nil`, but a retry is still coming.
+    public private(set) var awaitingNetwork = false
 
     /// Called once `retryIn` has elapsed and the listener still wants to be playing.
     @ObservationIgnored public var onRetryDue: (@MainActor () -> Void)?
+
+    /// Called when a drop held for the network has waited as long as it is going to, and the state
+    /// has become `unreachable` with no reading from the player to say so.
+    @ObservationIgnored public var onGaveUpWaiting: (@MainActor () -> Void)?
 
     @ObservationIgnored private var backoff: Backoff
     @ObservationIgnored private var heardAudio = false
     @ObservationIgnored private var pendingRetry: Cancel?
     @ObservationIgnored private let schedule: Schedule
+    @ObservationIgnored private let offlineLimit: Duration
+    /// Whether the phone has a network to reach the station over. Assumed until told otherwise.
+    @ObservationIgnored private var online = true
+    @ObservationIgnored private var offlineGiveUp: Cancel?
 
-    public init(backoff: Backoff = Backoff(), schedule: @escaping Schedule = Scheduling.tasks) {
+    /// `offlineLimit` is how long a drop waits for the network before it is unreachable. Longer than
+    /// the backoff, because waiting costs nothing (no request is made), and a stretch of underground
+    /// between two stations is longer than five minutes. Not for ever, because a station that
+    /// starts playing out of a pocket half an hour after it went quiet is a surprise, not a feature.
+    public init(backoff: Backoff = Backoff(), schedule: @escaping Schedule = Scheduling.tasks, offlineLimit: Duration = .seconds(15 * 60)) {
         self.backoff = backoff
         self.schedule = schedule
+        self.offlineLimit = offlineLimit
     }
 
     /// The listener pressed play.
@@ -77,6 +100,7 @@ public final class PlaybackConductor {
         retryIn = nil
         state = .warmingUp
         disarm()
+        stopWaitingForNetwork()
     }
 
     /// The listener pressed stop, or something the listener would count as stop happened: a call
@@ -88,6 +112,30 @@ public final class PlaybackConductor {
         retryIn = nil
         state = .stopped
         disarm()
+        stopWaitingForNetwork()
+    }
+
+    /// The phone gained or lost its network.
+    ///
+    /// Losing it does nothing to a stream still playing out of its buffer: the player says so
+    /// itself when it fails, and only then is there a drop to hold. It does take back a retry that
+    /// is already scheduled, which would otherwise fire against nothing and spend backoff doing it.
+    public func networkChanged(available: Bool) {
+        guard available != online else { return }
+        online = available
+        if !available {
+            if pendingRetry != nil {
+                disarm()
+                retryIn = nil
+                waitForNetwork()
+            }
+            return
+        }
+        guard awaitingNetwork else { return }
+        stopWaitingForNetwork()
+        guard wantsToPlay else { return }
+        backoff.reset()
+        onRetryDue?()
     }
 
     /// A reading from the player.
@@ -105,6 +153,7 @@ public final class PlaybackConductor {
             retryIn = nil
             state = .playing
             disarm()
+            stopWaitingForNetwork()
 
         case .opening, .buffering:
             retryIn = nil
@@ -124,6 +173,13 @@ public final class PlaybackConductor {
     }
 
     private func retryAfterDrop(fromWarmUp: Bool) {
+        state = fromWarmUp ? .warmingUp : .reconnecting
+        guard online else {
+            disarm()
+            retryIn = nil
+            waitForNetwork()
+            return
+        }
         // Unreachable on the attempt whose wait spends the budget, not one attempt later.
         guard let wait = backoff.next(), !backoff.exhausted else {
             // Given up. Arming another timer here would retry forever under a banner that says
@@ -134,7 +190,6 @@ public final class PlaybackConductor {
             return
         }
         retryIn = wait
-        state = fromWarmUp ? .warmingUp : .reconnecting
         // Only the most recent failure's wait is worth honouring.
         disarm()
         pendingRetry = schedule(wait) { [weak self] in
@@ -144,6 +199,27 @@ public final class PlaybackConductor {
             // in the moment between the timer being armed and it firing.
             if self.wantsToPlay, self.state != .playing { self.onRetryDue?() }
         }
+    }
+
+    /// Hold the drop until the network is back, for at most `offlineLimit` from when the wait
+    /// began: a second failure while already waiting does not start the limit again.
+    private func waitForNetwork() {
+        awaitingNetwork = true
+        guard offlineGiveUp == nil else { return }
+        offlineGiveUp = schedule(offlineLimit) { [weak self] in
+            guard let self else { return }
+            self.offlineGiveUp = nil
+            self.awaitingNetwork = false
+            guard self.wantsToPlay else { return }
+            self.state = .unreachable
+            self.onGaveUpWaiting?()
+        }
+    }
+
+    private func stopWaitingForNetwork() {
+        awaitingNetwork = false
+        offlineGiveUp?()
+        offlineGiveUp = nil
     }
 
     private func disarm() {

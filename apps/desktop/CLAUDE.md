@@ -897,6 +897,15 @@ the bar's TV button, the Window menu's Studio, or F, and it is left by its close
   draws at 20 frames a second, which on a slow drift is the same picture as 60 for a third of the
   work, and its clock runs only while its OWN `IsVisible` is true: Avalonia tells a control when it is
   hidden and not when a parent is, so the view binds it on the backdrop itself.
+- **It holds still for Reduce Motion and stops drawing while it cannot be seen** (`Core/Ui/IScreenFacts`,
+  `Player.Mac/MacScreenFacts`). Reduce Motion is read each time the backdrop starts, so a change in
+  System Settings applies the next time Studio opens, and with it on there is no clock at all. While
+  no part of the window is on screen (`NSWindow.occlusionState`; another app's Space in front, for
+  one) a tick draws nothing and keeps its place. Both are two property reads through `objc_msgSend`
+  rather than through the native shim, which is the player's. Measured on 2026-10-03 with a trace:
+  switching to another app's Space read not seen, and coming back read seen. The backdrop reaches
+  them through a static `Facts`, set in `App` beside `ArtworkLoader.Shared` and for the same reason;
+  a headless render leaves it null and nothing changes.
 - **It takes the screen, and gives back only what it took** (`Core/Ui/StudioScreen`, wired in
   `MainWindow`). Opening Studio puts the window full screen; leaving puts it back as it was, but only
   if Studio made it full screen. A window already full screen stays so, and somebody who leaves full

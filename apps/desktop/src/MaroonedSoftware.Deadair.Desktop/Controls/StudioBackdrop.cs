@@ -1,8 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using MaroonedSoftware.Deadair.Desktop.Core.NowPlaying;
+using MaroonedSoftware.Deadair.Desktop.Core.Ui;
 
 namespace MaroonedSoftware.Deadair.Desktop.Controls;
 
@@ -21,6 +23,14 @@ namespace MaroonedSoftware.Deadair.Desktop.Controls;
 /// Twenty frames a second, not the display's rate: a patch goes round its path once in a minute and a
 /// half, which at 20 Hz is a pixel or two a frame on a large screen. Drawing it sixty times a second would
 /// be the same picture for three times the work, on a screen that may be left on all evening.
+/// </para>
+/// <para>
+/// It holds still, with no clock at all, for somebody who has asked their Mac for less motion, read
+/// each time it starts so a change in System Settings applies the next time Studio opens. And it draws
+/// nothing while no part of its window can be seen (another app full screen over it, the window hidden
+/// or on another Space), keeping its place so it carries on from where it was rather than jumping.
+/// Both answers come from <see cref="Facts"/>, which is null in a headless render and then changes
+/// nothing.
 /// </para>
 /// </remarks>
 public sealed class StudioBackdrop : Control
@@ -48,6 +58,10 @@ public sealed class StudioBackdrop : Control
     private IReadOnlyList<uint> _from = [];
     private IReadOnlyList<uint> _to = [];
     private double _fade = 1;
+
+    /// <summary>What the system says about motion and about the window being seen. Set once by the app.</summary>
+    /// <remarks>Static for the reason <c>ArtworkLoader.Shared</c> is: XAML builds controls and can hand them nothing.</remarks>
+    public static IScreenFacts? Facts { get; set; }
 
     public StudioBackdrop()
     {
@@ -140,6 +154,10 @@ public sealed class StudioBackdrop : Control
 
     private bool IsRunning => _timer is not null;
 
+    /// <summary>The platform's own window, where the platform has one to give.</summary>
+    private nint Window() =>
+        TopLevel.GetTopLevel(this)?.TryGetPlatformHandle() is IMacOSTopLevelPlatformHandle mac ? mac.NSWindow : 0;
+
     private void Run(bool run)
     {
         if (run == IsRunning)
@@ -154,6 +172,12 @@ public sealed class StudioBackdrop : Control
             return;
         }
 
+        if (Facts?.ReduceMotion == true)
+        {
+            InvalidateVisual();
+            return;
+        }
+
         _last = DateTimeOffset.UtcNow;
         _timer = new DispatcherTimer { Interval = Frame };
         _timer.Tick += (_, _) => Step();
@@ -165,6 +189,11 @@ public sealed class StudioBackdrop : Control
         var now = DateTimeOffset.UtcNow;
         var elapsed = now - _last;
         _last = now;
+
+        if (Facts?.IsSeen(Window()) == false)
+        {
+            return;
+        }
 
         _speed = StudioDrift.Ease(_speed, Moving ? 1 : StoppedSpeed, elapsed, SpeedRamp);
         _phase = StudioDrift.Advance(_phase, elapsed * _speed, PlayingPeriod);

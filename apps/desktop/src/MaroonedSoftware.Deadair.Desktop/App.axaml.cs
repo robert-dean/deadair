@@ -3,6 +3,8 @@ using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using MaroonedSoftware.Deadair.Desktop.Controls;
+using MaroonedSoftware.Deadair.Desktop.Core.Ui;
 using Avalonia.Markup.Xaml;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
@@ -28,9 +30,10 @@ public partial class App : Application
             // Every way out passes through here, including the ones that never return to Program.
             desktop.Exit += (_, _) => ReleaseOnExit();
 
-            // Where the controls find it. A control is built by XAML and can be handed nothing, so
-            // this is the one thing the app reaches for statically, set once from the container.
+            // Where the controls find them. A control is built by XAML and can be handed nothing, so
+            // these are the things the app reaches for statically, each set once from the container.
             ArtworkLoader.Shared = _services.GetRequiredService<ArtworkLoader>();
+            StudioBackdrop.Facts = _services.GetRequiredService<IScreenFacts>();
 
             var shell = _services.GetRequiredService<ShellViewModel>();
 

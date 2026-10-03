@@ -106,6 +106,8 @@ extension Message {
         case .shareCannotCopy: String(localized: "The station can't make a copy to send right now.")
         case .shareCouldNotReach: String(localized: "Couldn't reach the station to get that break.")
         case .shareFailed: String(localized: "Couldn't get that break ready to send.")
+        case .saveBreak: String(localized: "Save this break")
+        case .breakSaved: String(localized: "Break saved.")
 
         case .silenceLabel(let cause): cause.label
         case .silenceTitle(let cause): cause.title

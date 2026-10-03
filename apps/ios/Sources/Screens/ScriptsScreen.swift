@@ -26,6 +26,9 @@ struct ScriptsScreen: View {
         .sheet(item: Binding(get: { sharer.ready }, set: { sharer.ready = $0 })) { copy in
             ShareSheet(url: copy.url).presentationDetents([.medium, .large])
         }
+        .sheet(item: Binding(get: { sharer.saving }, set: { sharer.saving = $0 })) { copy in
+            SaveSheet(url: copy.url) { model.toasts.say(.breakSaved) }
+        }
         .task(id: model.session.stored?.email) {
             // One feed per page, narrowed to the break it was opened for, and a new one for a new account.
             let session = model.session
@@ -95,22 +98,31 @@ private struct AttemptRow: View {
                 // Only where there is audio to send: words were written and the segment is still known.
                 if BreakShare.shareable(attempt) {
                     Spacer()
-                    // A fixed frame, so the row does not reflow when the button turns into a spinner and back.
+                    // A fixed frame, so the row does not reflow when the buttons turn into a spinner and back.
+                    // Either button can be what is busy, so the one spinner stands in for both.
                     Group {
                         if sharer.busyId == attempt.id {
                             ProgressView()
                         } else {
-                            Button {
-                                sharer.share(attempt, with: model)
-                            } label: {
-                                Image(systemName: "square.and.arrow.up")
+                            HStack(spacing: 8) {
+                                Button {
+                                    sharer.save(attempt, with: model)
+                                } label: {
+                                    Image(systemName: "square.and.arrow.down")
+                                }
+                                .accessibilityLabel(Text(Message.saveBreak.words))
+                                Button {
+                                    sharer.share(attempt, with: model)
+                                } label: {
+                                    Image(systemName: "square.and.arrow.up")
+                                }
+                                .accessibilityLabel(Text(Message.shareBreak.words))
                             }
                             .buttonStyle(.borderless)
                             .disabled(sharer.busyId != nil)
-                            .accessibilityLabel(Text(Message.shareBreak.words))
                         }
                     }
-                    .frame(width: 32, height: 24)
+                    .frame(width: 64, height: 24)
                 }
             }
             Text(ui.line)

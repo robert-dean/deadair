@@ -188,6 +188,57 @@ const withoutTimes = (script: string, language?: string): string => {
     return english.replace(/\b\d{1,2}[.h]\d{2}\b/g, ' ').replace(/\b\d{1,2}\.(?=\s)/g, ' ');
 };
 
+/**
+ * What a script reported about the weather when it was given no reading at all, or `undefined`.
+ *
+ * The third question in this file and the strict sibling of {@link mentionsWeather}. That one leans
+ * toward yes because a false yes there costs nothing; here a yes REFUSES a break, so the list is the
+ * opposite kind: whole words only, and only the ones nobody says about anything but the sky. `storm`
+ * goes (a record takes the charts by storm), `grey` and `clear` go (a mood, a choice), `rain` goes as
+ * a bare noun (rain or shine). What stays is a presenter describing the weather outside: sunny,
+ * raining, overcast, a downpour, and a temperature in degrees.
+ *
+ * Read against a script with the record names already taken out by the caller, so "Sunny" and
+ * "Here Comes The Rain Again" are titles rather than claims.
+ *
+ * English only, like the vocabulary it sits beside: outside English it answers `undefined` rather
+ * than refusing a break for a word list it cannot read.
+ */
+export function unofferedWeather(script: string, language?: string): string | undefined {
+    if (language !== undefined) return undefined;
+
+    return WEATHER_CLAIM.exec(script)?.[0];
+}
+
+/**
+ * The words a presenter only uses about the weather outside, as whole words, plus a figure in
+ * degrees. A figure here is a claim by itself: with no reading behind it, any temperature is made up.
+ */
+const WEATHER_WORDS = [
+    'sunny',
+    'raining',
+    'rainy',
+    'drizzle',
+    'drizzly',
+    'drizzling',
+    'downpours?',
+    'snowing',
+    'snowy',
+    'snowfall',
+    'foggy',
+    'overcast',
+    'cloudy',
+    'thunderstorms?',
+    'sleet',
+    'sleeting',
+    'hailstorms?',
+    'blue skies',
+    'clear skies',
+    'gr[ae]y skies',
+];
+
+const WEATHER_CLAIM = new RegExp(String.raw`\b(?:${WEATHER_WORDS.join('|')})\b|-?\b\d+\s*(?:°|degrees?\b)`, 'i');
+
 /** Every word that would count as reporting this reading's sky, across the conditions it names. */
 function conditionVocabulary(weather: SpokenWeather): string[] {
     const conditions = [weather.current.condition, ...(weather.days ?? []).map(day => day.condition)];

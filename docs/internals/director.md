@@ -177,6 +177,18 @@ station had already conceded it: `set.prompt.ts` tells the model never to write 
 `CandidatesRepository.sample` narrowing on it, so a station asked for a decade keeps playing one with
 `llm.setGenerator` off entirely — which prose can never do, since prose reaches a model and nothing else.
 
+**A MOOD is the second exception, and it changed what "right about mood" meant.** The paragraph above
+says a mood dropdown is strictly weaker than prose, and it was, while nothing knew what mood a record was
+in: a mood column could only have been matched against a vocabulary nothing filled. Once a model has
+judged each record (`deadair.track_lyric_labels`, with `lyrics.moods` on), "comfort" is a share every
+judged record carries, and the floor can lean on it with nothing reading prose. So `station_lineup.mood`
+and `schedule_slots.mood` (0064) ride beside the period, copied at a changeover and read on every refill,
+and reach `SetInputs.mood`. It differs from the period in one way that matters: it LEANS and never
+narrows, because a mood read off lyrics is wrong often enough that keeping a record off the air for it
+would be the station acting on a guess. See `director/mood.lean.ts`. A broadcast put on by hand can carry
+one through `PutOnAirInput.mood`; the sustaining hours and the console's put-on-air form do not offer one
+yet.
+
 **Every binding in the chain narrows on it, and the two in the middle do so for a reason that is not
 efficiency**: `PickResolver` drops an out-of-period pick whatever named it, so a generator that names one
 turns its whole share of the batch into NOTHING, where declining lets `SetGeneratorChain` top up from a floor

@@ -50,6 +50,7 @@ export class StationLineupRepository extends DataRepository {
                 'brief',
                 'eraFrom',
                 'eraTo',
+                'mood',
                 'personaId',
                 'slotId',
                 'placedBy',
@@ -81,6 +82,7 @@ export class StationLineupRepository extends DataRepository {
                 // "1990 onwards" with nothing said about the other end.
                 ...(row.eraFrom == null ? {} : { eraFrom: row.eraFrom }),
                 ...(row.eraTo == null ? {} : { eraTo: row.eraTo }),
+                ...(row.mood == null ? {} : { mood: row.mood }),
                 // Null means the station's own active persona, so an absent host and a station that
                 // was never told who is presenting are the same thing everywhere above.
                 ...(row.personaId == null ? {} : { personaId: row.personaId }),
@@ -127,6 +129,7 @@ export class StationLineupRepository extends DataRepository {
             brief: snapshot.brief ?? '',
             eraFrom: snapshot.eraFrom ?? null,
             eraTo: snapshot.eraTo ?? null,
+            mood: snapshot.mood ?? null,
             personaId: snapshot.personaId ?? null,
             slotId: snapshot.slotId ?? null,
             placedBy: snapshot.placedBy ?? 'operator',

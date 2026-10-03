@@ -139,6 +139,7 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
                 // period holds for the whole broadcast rather than for one batch, and it is the one
                 // part of the instruction the deterministic floor can honour on its own.
                 ...(lineup.era === undefined ? {} : { era: lineup.era }),
+                ...(lineup.mood === undefined ? {} : { mood: lineup.mood }),
                 // **The whole difference between this and a shuffle.** The keys cover the tail that is
                 // about to be discarded, so the generator cannot hand most of it straight back:
                 // `play_history` only knows what actually aired, and none of these records has.

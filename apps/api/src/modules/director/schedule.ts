@@ -36,6 +36,7 @@
  * fact about the schedule that only the code knew.
  */
 
+import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import type { ChartOrder } from './chart.picks.js';
 import { readClock } from './clock.bands.js';
 import type { StationLineupMode, StationLineupOnEnd } from './station.lineup.js';
@@ -118,6 +119,11 @@ export interface ScheduleSlot {
      * does not know is eligible for any period.
      */
     era?: { from?: number; to?: number };
+    /**
+     * The mood this stretch of the day leans into, copied onto the running order at a changeover
+     * beside {@link era}. A lean and never a filter: see `director/mood.lean.ts`.
+     */
+    mood?: LyricMood;
     /**
      * Whether somebody phones in during this stretch of the day.
      *

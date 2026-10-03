@@ -1,3 +1,4 @@
+import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import { randomUUID } from 'node:crypto';
 import type { AiringResult, LiveOrder } from '#modules/playout/live.order.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
@@ -335,6 +336,12 @@ export interface StationLineupBinding {
     eraFrom?: number;
     eraTo?: number;
     /**
+     * The mood this broadcast leans into: one the model has judged records by, or absent for no lean.
+     * Rides the running order beside the period for the period's reason, and like the period it is
+     * something the deterministic draw can honour on its own. See `director/mood.lean.ts`.
+     */
+    mood?: LyricMood;
+    /**
      * Who is HOSTING this broadcast, as distinct from who the station is when nobody said.
      *
      * It rides the running order for the same reason {@link brief} does: `onEnd: 'extend'` keeps
@@ -610,6 +617,11 @@ export class StationLineup implements LiveOrder {
         if (eraFrom === undefined && eraTo === undefined) return undefined;
 
         return { ...(eraFrom === undefined ? {} : { from: eraFrom }), ...(eraTo === undefined ? {} : { to: eraTo }) };
+    }
+
+    /** The mood this broadcast leans into, or `undefined` for none. */
+    get mood(): LyricMood | undefined {
+        return this.binding.mood;
     }
 
     // ── reading ────────────────────────────────────────────────────────────────

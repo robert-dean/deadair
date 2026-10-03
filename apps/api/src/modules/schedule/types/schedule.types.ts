@@ -60,6 +60,12 @@ export const ScheduleSlot = z.strictObject({
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1900).max(2100))
         .optional()
         .describe('The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone'),
+    mood: z
+        .enum(['love', 'happiness', 'comfort', 'sadness', 'loneliness', 'anger', 'fear'])
+        .optional()
+        .describe(
+            'The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean',
+        ),
     callins: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
@@ -132,6 +138,12 @@ export const ScheduleSlotInput = z.strictObject({
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1900).max(2100))
         .optional()
         .describe('The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone'),
+    mood: z
+        .enum(['love', 'happiness', 'comfort', 'sadness', 'loneliness', 'anger', 'fear'])
+        .optional()
+        .describe(
+            'The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean',
+        ),
     callins: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
@@ -151,7 +163,7 @@ export type ScheduleSlotInput = z.infer<typeof ScheduleSlotInput>;
 
 /**
  * A window of the station's day to draw
- * generated from [ScheduleTimetableQuery](../../../../data/contracts/schedule/schedule.types.ck#L34)
+ * generated from [ScheduleTimetableQuery](../../../../data/contracts/schedule/schedule.types.ck#L35)
  */
 export const ScheduleTimetableQuery = z.strictObject({
     from: z
@@ -171,7 +183,7 @@ export type ScheduleTimetableQuery = z.infer<typeof ScheduleTimetableQuery>;
 
 /**
  * One block: this slot, on this day, between these two times
- * generated from [ScheduleOccurrence](../../../../data/contracts/schedule/schedule.types.ck#L47)
+ * generated from [ScheduleOccurrence](../../../../data/contracts/schedule/schedule.types.ck#L48)
  */
 export const ScheduleOccurrence = z.strictObject({
     slotId: z.string().min(1).max(100),
@@ -188,7 +200,7 @@ export const ScheduleOccurrence = z.strictObject({
 export type ScheduleOccurrence = z.infer<typeof ScheduleOccurrence>;
 
 /**
- * generated from [ScheduleSlotList](../../../../data/contracts/schedule/schedule.types.ck#L29)
+ * generated from [ScheduleSlotList](../../../../data/contracts/schedule/schedule.types.ck#L30)
  */
 export const ScheduleSlotList = z.strictObject({
     slots: z.array(ScheduleSlot),
@@ -202,7 +214,7 @@ export type ScheduleSlotListInput = z.infer<typeof ScheduleSlotListInput>;
 
 /**
  * The station's day as blocks, ready to draw
- * generated from [ScheduleTimetable](../../../../data/contracts/schedule/schedule.types.ck#L40)
+ * generated from [ScheduleTimetable](../../../../data/contracts/schedule/schedule.types.ck#L41)
  */
 export const ScheduleTimetable = z.strictObject({
     from: z
@@ -219,7 +231,7 @@ export type ScheduleTimetable = z.infer<typeof ScheduleTimetable>;
 
 /**
  * Which slot the clock says should be on right now, and what follows it
- * generated from [ScheduleNow](../../../../data/contracts/schedule/schedule.types.ck#L55)
+ * generated from [ScheduleNow](../../../../data/contracts/schedule/schedule.types.ck#L56)
  */
 export const ScheduleNow = z.strictObject({
     now: z

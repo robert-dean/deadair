@@ -29,6 +29,8 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var eraFrom: Int?
     /// The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone
     public var eraTo: Int?
+    /// The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean
+    public var mood: ScheduleSlotMood?
     /// Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says
     public var callins: Bool?
     /// Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says
@@ -36,7 +38,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: ScheduleSlotMood? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.id = id
         self.label = label
         self.startsAtMinutes = startsAtMinutes
@@ -51,6 +53,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.brief = brief
         self.eraFrom = eraFrom
         self.eraTo = eraTo
+        self.mood = mood
         self.callins = callins
         self.mixInSimilar = mixInSimilar
         self.mode = mode
@@ -72,6 +75,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         case brief = "brief"
         case eraFrom = "eraFrom"
         case eraTo = "eraTo"
+        case mood = "mood"
         case callins = "callins"
         case mixInSimilar = "mixInSimilar"
         case mode = "mode"
@@ -94,6 +98,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
         self.eraFrom = try container.decodeIfPresent(Int.self, forKey: .eraFrom)
         self.eraTo = try container.decodeIfPresent(Int.self, forKey: .eraTo)
+        self.mood = try container.decodeIfPresent(ScheduleSlotMood.self, forKey: .mood)
         self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
         self.mixInSimilar = try container.decodeIfPresent(Bool.self, forKey: .mixInSimilar)
         self.mode = try container.decode(ScheduleSlotMode.self, forKey: .mode)
@@ -116,6 +121,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.brief, forKey: .brief)
         try container.encodeIfPresent(self.eraFrom, forKey: .eraFrom)
         try container.encodeIfPresent(self.eraTo, forKey: .eraTo)
+        try container.encodeIfPresent(self.mood, forKey: .mood)
         try container.encodeIfPresent(self.callins, forKey: .callins)
         try container.encodeIfPresent(self.mixInSimilar, forKey: .mixInSimilar)
         try container.encode(self.mode, forKey: .mode)
@@ -150,6 +156,8 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var eraFrom: Int?
     /// The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone
     public var eraTo: Int?
+    /// The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean
+    public var mood: ScheduleSlotMood?
     /// Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says
     public var callins: Bool?
     /// Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says
@@ -157,7 +165,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: ScheduleSlotMood? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.label = label
         self.startsAtMinutes = startsAtMinutes
         self.endsAtMinutes = endsAtMinutes
@@ -171,6 +179,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.brief = brief
         self.eraFrom = eraFrom
         self.eraTo = eraTo
+        self.mood = mood
         self.callins = callins
         self.mixInSimilar = mixInSimilar
         self.mode = mode
@@ -191,6 +200,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         case brief = "brief"
         case eraFrom = "eraFrom"
         case eraTo = "eraTo"
+        case mood = "mood"
         case callins = "callins"
         case mixInSimilar = "mixInSimilar"
         case mode = "mode"
@@ -212,6 +222,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
         self.eraFrom = try container.decodeIfPresent(Int.self, forKey: .eraFrom)
         self.eraTo = try container.decodeIfPresent(Int.self, forKey: .eraTo)
+        self.mood = try container.decodeIfPresent(ScheduleSlotMood.self, forKey: .mood)
         self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
         self.mixInSimilar = try container.decodeIfPresent(Bool.self, forKey: .mixInSimilar)
         self.mode = try container.decode(ScheduleSlotMode.self, forKey: .mode)
@@ -233,6 +244,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.brief, forKey: .brief)
         try container.encodeIfPresent(self.eraFrom, forKey: .eraFrom)
         try container.encodeIfPresent(self.eraTo, forKey: .eraTo)
+        try container.encodeIfPresent(self.mood, forKey: .mood)
         try container.encodeIfPresent(self.callins, forKey: .callins)
         try container.encodeIfPresent(self.mixInSimilar, forKey: .mixInSimilar)
         try container.encode(self.mode, forKey: .mode)
@@ -435,6 +447,17 @@ public enum ScheduleSlotSourceChartOrder: String, Codable, CaseIterable, Sendabl
     case countdown = "countdown"
     case ranked = "ranked"
     case unordered = "unordered"
+}
+
+/// The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean
+public enum ScheduleSlotMood: String, Codable, CaseIterable, Sendable {
+    case love = "love"
+    case happiness = "happiness"
+    case comfort = "comfort"
+    case sadness = "sadness"
+    case loneliness = "loneliness"
+    case anger = "anger"
+    case fear = "fear"
 }
 
 public enum ScheduleSlotMode: String, Codable, CaseIterable, Sendable {

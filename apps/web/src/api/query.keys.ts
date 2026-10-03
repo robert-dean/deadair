@@ -220,6 +220,12 @@ export const queryKeys = {
         /** The transport. One key: there is only ever one station, and it is polled rather than paged. */
         status: () => ['playout', 'status'] as const,
     },
+    /** Speakers the station can be cast to, and the casts it is keeping up. */
+    outputs: {
+        all: () => ['outputs'] as const,
+        devices: () => ['outputs', 'devices'] as const,
+        casts: () => ['outputs', 'casts'] as const,
+    },
     /**
      * What the station has been doing. Keyed on the filter, not on the page: the pages of one
      * filtered feed live inside a single infinite query, and a filter change is a different feed

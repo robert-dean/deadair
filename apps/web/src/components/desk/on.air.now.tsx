@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import type { PlayoutStatus, StationOrder } from '@deadair/sdk';
 
 import { useHoldAgainstSchedule, useSetAirMode } from '../../api/director.queries';
+import { useStartCast, useStopCast } from '../../api/outputs.queries';
 import { useStartPlayout, useStopPlayout, useSkipCurrent } from '../../api/playout.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { usePlayhead } from '../playout/playhead';
@@ -18,6 +19,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { formatDuration } from '../shared/format.duration';
 import { usePhone } from '../shared/use.phone';
 import { HostOnAir } from '../onair/host.on.air';
+import { CastMenu } from './cast.menu';
 import { formatClock } from '../../i18n/format.locale';
 
 export interface OnAirNowProps {
@@ -127,6 +129,8 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
     const stop = useStopPlayout();
     const start = useStartPlayout();
     const setAirMode = useSetAirMode();
+    const startCast = useStartCast();
+    const stopCast = useStopCast();
     const stopping = useArmedStop(() => stop.mutate());
 
     const { nowPlaying, upNext, queuedCount, silence } = status;
@@ -141,6 +145,8 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
         skip.isError ? apiErrorMessage(skip.error, t('onAir.skipFailed')) : undefined,
         stop.isError ? apiErrorMessage(stop.error, t('onAir.stopFailed')) : undefined,
         start.isError ? apiErrorMessage(start.error, t('onAir.startFailed')) : undefined,
+        startCast.isError ? apiErrorMessage(startCast.error, t('onAir.cast.startFailed')) : undefined,
+        stopCast.isError ? apiErrorMessage(stopCast.error, t('onAir.cast.stopFailed')) : undefined,
     ].filter((message): message is string => message !== undefined);
 
     return (
@@ -394,6 +400,11 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                 two words either side of itself. */}
                             {reading.live ? t('onAir.whyOnAir') : t('onAir.whyNotOnAir')}
                         </Button>
+                        <CastMenu
+                            onStart={request => startCast.mutate(request)}
+                            onStop={(pluginId, deviceId) => stopCast.mutate({ pluginId, deviceId })}
+                            busy={startCast.isPending || stopCast.isPending}
+                        />
                     </Stack>
                 </Group>
             </Card>

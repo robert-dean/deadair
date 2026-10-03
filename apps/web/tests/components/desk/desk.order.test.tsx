@@ -57,6 +57,13 @@ vi.mock('../../../src/api/client', () => ({
         catalog: { rateTrack: (...args: unknown[]) => rateTrack(...args) },
         station: { readStationAttention: () => Promise.resolve({ items: [] }) },
         personas: { listPersonas: () => Promise.resolve({ personas: [] }) },
+        // The cast menu under the transport polls its casts on every desk; nothing is casting here.
+        outputs: {
+            listCasts: () => Promise.resolve({ casts: [] }),
+            listOutputDevices: () => Promise.resolve({ devices: [], problems: [] }),
+            startCast: () => Promise.resolve({}),
+            stopCast: () => Promise.resolve(),
+        },
     },
 }));
 

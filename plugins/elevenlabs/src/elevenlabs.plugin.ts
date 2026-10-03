@@ -5,6 +5,7 @@ import {
     Plugin,
     PluginError,
     tryJsonBody,
+    type ConfigFieldOption,
     type PluginConnectionResult,
     type PluginHost,
     type SpeechHandle,
@@ -23,8 +24,8 @@ import {
     isOutputFormat,
     type OutputFormat,
 } from './elevenlabs.manifest.js';
-import { DEFAULT_MODEL, settingsOf } from './elevenlabs.models.js';
-import { VOICES_FIELD, voiceMapOf, type VoiceMap, type VoiceMapping, type VoiceSettings } from './elevenlabs.voices.js';
+import { DEFAULT_MODEL, MODELS, settingsOf, type ModelTraits } from './elevenlabs.models.js';
+import { VOICE_VOICE_COLUMN, VOICES_FIELD, voiceMapOf, type VoiceMap, type VoiceMapping, type VoiceSettings } from './elevenlabs.voices.js';
 
 export { elevenlabsManifest };
 
@@ -69,18 +70,24 @@ export class ElevenLabsPlugin extends Plugin implements SpeechPluginInstance {
     }
 
     /**
-     * Whether the key works, as an ANSWER rather than as a throw.
+     * Whether the key works, and how much of the plan is left, as an ANSWER rather than as a throw.
      *
      * `plugins/kokoro`'s contract: a throw here is a failed call, and three presses of Test connection
      * would quarantine a plugin the station was still using.
+     *
+     * The quota is the one number an operator of a hosted engine actually wants from this button,
+     * since a key that works and a month that is spent fail the same way on air. It is read from a
+     * second route that a restricted key may not be allowed, so failing to read it is said rather
+     * than treated as a failed connection: the key that cannot read its own quota can still speak.
      */
     async testConnection(): Promise<PluginConnectionResult> {
         const host = this.host;
+        const headers = this.authHeaders();
         if (this.apiKey === undefined) return { ok: false, message: 'No API key set.' };
 
         let response: Response;
         try {
-            response = await host.fetch(`${API_BASE}/v1/voices`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+            response = await host.fetch(`${API_BASE}/v1/voices`, { headers, timeoutMs: PROBE_TIMEOUT_MS });
         } catch (error) {
             return { ok: false, message: `Could not reach ElevenLabs: ${errorText(error)}` };
         }
@@ -90,9 +97,43 @@ export class ElevenLabsPlugin extends Plugin implements SpeechPluginInstance {
             return { ok: false, message: failure.message };
         }
 
-        const body = await tryJsonBody<{ voices?: unknown[] }>(response).catch(() => undefined);
-        const count = Array.isArray(body?.voices) ? body.voices.length : undefined;
-        return { ok: true, message: count === undefined ? 'Connected.' : `Connected. ${count} voices on this account.` };
+        const voices = voicesIn(await tryJsonBody<unknown>(response).catch(() => undefined));
+        const quota = await readQuota(host, headers);
+
+        return { ok: true, message: `Connected. ${voices.length} voices on this account. ${quota}` };
+    }
+
+    /**
+     * What the settings form should offer: the account's voices for the voice column and the default,
+     * and the models this plugin knows for the model field.
+     *
+     * The voice list is what makes the table fillable, since nobody knows a 20-character voice id by
+     * heart. Every choice is a suggestion over free text: a voice added in ElevenLabs since the last
+     * refresh, and a model released since this was written, both stay typeable. Answers the models
+     * alone rather than throwing when the account cannot be read, because an operator fixing a bad
+     * key needs the form.
+     */
+    async suggestConfigOptions(): Promise<Record<string, ConfigFieldOption[]>> {
+        const host = this.host;
+        const models = (Object.entries(MODELS) as [string, ModelTraits][]).map(([value, traits]) => ({ value, label: traits.label }));
+        if (this.apiKey === undefined) return { model: models };
+
+        let voices: AccountVoice[] = [];
+        try {
+            const response = await host.fetch(`${API_BASE}/v1/voices`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+            if (response.ok) voices = voicesIn(await tryJsonBody<unknown>(response));
+            else await response.body?.cancel().catch(() => {});
+        } catch (error) {
+            host.logger.debug('elevenlabs could not suggest voices', { error: errorText(error) });
+        }
+
+        if (voices.length === 0) return { model: models };
+
+        const options = voices.map(voice => ({
+            value: voice.id,
+            label: voice.category === undefined ? voice.name : `${voice.name} (${voice.category})`,
+        }));
+        return { model: models, [`${VOICES_FIELD}.${VOICE_VOICE_COLUMN}`]: options, defaultVoice: options };
     }
 
     /**
@@ -195,6 +236,62 @@ export class ElevenLabsPlugin extends Plugin implements SpeechPluginInstance {
 
     private authHeaders(): Record<string, string> {
         return this.apiKey === undefined ? {} : { 'xi-api-key': this.apiKey };
+    }
+}
+
+/** One voice on the account, as `/v1/voices` lists it. */
+interface AccountVoice {
+    id: string;
+    name: string;
+    /** `premade`, `cloned`, `generated` or `professional`, where the service says. */
+    category?: string;
+}
+
+/** The voices in a `/v1/voices` answer. Anything misshapen is no voices rather than a throw. */
+const voicesIn = (body: unknown): AccountVoice[] => {
+    const listed: unknown = body !== null && typeof body === 'object' ? (body as { voices?: unknown }).voices : undefined;
+    if (!Array.isArray(listed)) return [];
+
+    return listed.flatMap((entry: unknown) => {
+        if (entry === null || typeof entry !== 'object') return [];
+        const { voice_id: id, name, category } = entry as { voice_id?: unknown; name?: unknown; category?: unknown };
+        if (typeof id !== 'string' || id.trim().length === 0) return [];
+
+        return [
+            {
+                id: id.trim(),
+                name: typeof name === 'string' && name.trim().length > 0 ? name.trim() : id.trim(),
+                ...(typeof category === 'string' && category.length > 0 ? { category } : {}),
+            },
+        ];
+    });
+};
+
+/**
+ * The quota as a sentence: how much of this period's characters are spent, and when they reset.
+ *
+ * Never throws, and never fails the test it is part of. See `testConnection`.
+ */
+async function readQuota(host: PluginHost, headers: Record<string, string>): Promise<string> {
+    const unread = 'The character quota could not be read; the key may not have the User permission.';
+
+    try {
+        const response = await host.fetch(`${API_BASE}/v1/user/subscription`, { headers, timeoutMs: PROBE_TIMEOUT_MS });
+        if (!response.ok) {
+            await response.body?.cancel().catch(() => {});
+            return unread;
+        }
+
+        const body = await tryJsonBody<{ character_count?: unknown; character_limit?: unknown; next_character_count_reset_unix?: unknown }>(response);
+        const used = body?.character_count;
+        const limit = body?.character_limit;
+        if (typeof used !== 'number' || typeof limit !== 'number') return unread;
+
+        const reset = body?.next_character_count_reset_unix;
+        const resets = typeof reset === 'number' && reset > 0 ? `, resetting ${new Date(reset * 1000).toISOString().slice(0, 10)}` : '';
+        return `${used.toLocaleString('en-US')} of ${limit.toLocaleString('en-US')} characters used this period${resets}.`;
+    } catch {
+        return unread;
     }
 }
 

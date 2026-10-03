@@ -34,6 +34,8 @@ interface FakeHostOptions {
     voicesBody?: unknown;
     /** Throw from `host.fetch` for the voices list, as an unreachable host does. */
     voicesThrow?: boolean;
+    subscriptionStatus?: number;
+    subscriptionBody?: unknown;
 }
 
 function fakeHost(options: FakeHostOptions = {}) {
@@ -63,6 +65,15 @@ function fakeHost(options: FakeHostOptions = {}) {
             return new Response(JSON.stringify(options.voicesBody ?? { voices: [{ voice_id: 'a' }, { voice_id: 'b' }] }), {
                 status: options.voicesStatus ?? 200,
             });
+        }
+
+        if (url.endsWith('/v1/user/subscription')) {
+            return new Response(
+                JSON.stringify(
+                    options.subscriptionBody ?? { character_count: 1234, character_limit: 10000, next_character_count_reset_unix: 1_791_331_200 },
+                ),
+                { status: options.subscriptionStatus ?? 200 },
+            );
         }
 
         return new Response('not here', { status: 404 });
@@ -253,11 +264,23 @@ describe('ElevenLabsPlugin.listVoices', () => {
 });
 
 describe('ElevenLabsPlugin.testConnection', () => {
-    it('reports the number of voices on the account', async () => {
+    it('reports the number of voices on the account and the quota', async () => {
         const { plugin, calls } = await started();
 
-        expect(await plugin.testConnection()).toEqual({ ok: true, message: 'Connected. 2 voices on this account.' });
-        expect(calls[0]?.headers?.['xi-api-key']).toBe(KEY);
+        expect(await plugin.testConnection()).toEqual({
+            ok: true,
+            message: 'Connected. 2 voices on this account. 1,234 of 10,000 characters used this period, resetting 2026-10-07.',
+        });
+        expect(calls.map(c => c.headers?.['xi-api-key'])).toEqual([KEY, KEY]);
+    });
+
+    it('still passes, and says so, when the key may not read its quota', async () => {
+        const { plugin } = await started({ subscriptionStatus: 401 });
+
+        const result = await plugin.testConnection();
+
+        expect(result.ok).toBe(true);
+        expect(result.message).toContain('quota could not be read');
     });
 
     it('answers rather than throwing when there is no key', async () => {
@@ -282,5 +305,42 @@ describe('ElevenLabsPlugin.testConnection', () => {
 
         expect(result.ok).toBe(false);
         expect(result.message).toContain('Invalid API key');
+    });
+});
+
+describe('ElevenLabsPlugin.suggestConfigOptions', () => {
+    it("offers the account's voices for the voice column and the default, and the known models", async () => {
+        const { plugin } = await started({
+            voicesBody: { voices: [{ voice_id: 'v1', name: 'George', category: 'premade' }, { voice_id: 'v2', name: 'Mine' }, { name: 'no id' }] },
+        });
+
+        const options = await plugin.suggestConfigOptions();
+
+        const voices = [
+            { value: 'v1', label: 'George (premade)' },
+            { value: 'v2', label: 'Mine' },
+        ];
+        expect(options['voices.voice']).toEqual(voices);
+        expect(options.defaultVoice).toEqual(voices);
+        expect(options.model?.map(o => o.value)).toEqual([
+            'eleven_v4',
+            'eleven_v4_turbo',
+            'eleven_v3',
+            'eleven_multilingual_v2',
+            'eleven_flash_v2_5',
+        ]);
+    });
+
+    it('offers the models alone, rather than throwing, when the account cannot be read', async () => {
+        const { plugin } = await started({ voicesThrow: true });
+
+        expect(Object.keys(await plugin.suggestConfigOptions())).toEqual(['model']);
+    });
+
+    it('offers the models alone without a key, and asks nothing', async () => {
+        const { plugin, calls } = await started({ apiKey: undefined });
+
+        expect(Object.keys(await plugin.suggestConfigOptions())).toEqual(['model']);
+        expect(calls).toHaveLength(0);
     });
 });

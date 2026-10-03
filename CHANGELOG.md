@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.41.0] — 2026-10-03
+
+- A listener can now ask for a record the station does not hold yet. When the station's own library has fewer than three matches, the request search also asks the music providers (Spotify, Navidrome, YouTube Music) and offers what they carry, leaving out anything already shown, anything the station holds, and anything by an artist it dislikes. Such a record comes back with a `source` instead of a `trackId`, and a request sends that `source`: the station takes the record into its library, then decides on the request exactly as it would any other. Nothing is reached while `rotation.discover` is off, and each search term's provider answer is reused for a minute. Chat requests still search the library alone.
+
 ## [0.40.0] — 2026-10-03
 
 - A character can now be auditioned over the station's own playlists and over charts, as well as over a provider's playlist. The picker on Voice, Auditions is renamed "Records from" and lists the station's playlists first, then the providers' playlists, then the charts, the same way the programme picker does. A station playlist is read with its placeholders, because a record the library does not hold yet is still one the host can talk about. A chart is read from the top, and its entries are never looked up at a provider, because nothing in an audition airs. An entry the library already holds still brings its facts. In the API, `POST /personas/{id}/auditions` takes `stationPlaylistId` or `chartId` instead of `pluginId` and `playlistId`, and answers 422 unless exactly one source is named. An audition's `source` now carries whichever of the three it was.
@@ -1030,7 +1034,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.40.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.41.0...HEAD
+[0.41.0]: https://github.com/robert-dean/deadair/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/robert-dean/deadair/compare/v0.39.1...v0.40.0
 [0.39.1]: https://github.com/robert-dean/deadair/compare/v0.39.0...v0.39.1
 [0.39.0]: https://github.com/robert-dean/deadair/compare/v0.38.2...v0.39.0

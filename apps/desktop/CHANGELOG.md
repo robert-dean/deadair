@@ -8,6 +8,11 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-10-03
+
+- Studio: the record on air across the whole window, to sit back from. It takes the screen, and leaving puts the window back as it was. The cover large, the title, who is presenting and the playhead, over the cover's own colours drifting slowly, with Listen and Stop and nothing else. Open it with the TV button in the bar, Window › Studio, or F; leave it with Escape, F or its close button. The controls and the pointer fade after a few seconds of stillness, the backdrop holds still if Reduce Motion is on, and it stops drawing while the window cannot be seen. Space still starts and stops the station, and the bar's play button now says so.
+- The desk and the Now playing panel now say who is presenting: "with Cass" under a record, and "Cass is on the mic" during a break, in the Android app's words. A break no longer leaves a blank line where its artist would be.
+
 ## [0.5.0] — 2026-10-03
 
 - The Auditions tab can put a character through the station's own playlists and through charts, as well as a provider's playlist. The picker offers the same sources as the timetable, each with its kind beside it, and a run's line says which kind it came from.
@@ -76,7 +81,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.5.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.6.0...HEAD
+[0.6.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.5.0...desktop-v0.6.0
 [0.5.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.4.1...desktop-v0.5.0
 [0.4.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.4.0...desktop-v0.4.1
 [0.4.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.3.0...desktop-v0.4.0

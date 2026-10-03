@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { isPluginError, type PluginManifest } from '@deadair/plugin-sdk';
+import { isPluginError, type DiscoveredService, type PluginManifest } from '@deadair/plugin-sdk';
 import { createFakePluginHost } from '@deadair/plugin-sdk/testing';
 
 import { castManifest } from '../src/cast.manifest.js';
@@ -147,5 +147,100 @@ describe('CastPlugin', () => {
         await instance.dispose();
 
         for (const driver of drivers) expect(driver.dispose).toHaveBeenCalledOnce();
+    });
+});
+
+describe('CastPlugin, finding speakers on the network', () => {
+    const CAST_QUERY = { protocol: 'mdns', service: '_googlecast._tcp' } as const;
+
+    /** A stub driver that also looks for its devices, reading an answer's TXT `fn` as the name. */
+    function lookingDriver(protocol = 'chromecast') {
+        return {
+            ...stubDriver(protocol),
+            discovery: CAST_QUERY,
+            found: vi.fn((service: DiscoveredService) => ({
+                key: service.txt?.id ?? service.name,
+                name: service.txt?.fn ?? service.name,
+                address: `${service.address}:8009`,
+            })),
+        } satisfies SpeakerDriver;
+    }
+
+    const kitchen: DiscoveredService = { name: 'Kitchen-123', address: '10.0.0.5', port: 8009, txt: { id: 'abc123', fn: 'Kitchen speaker' } };
+
+    async function looking(devices: string, discover: unknown = undefined) {
+        const host = createFakePluginHost();
+        host.seedConfig({ devices, ...(discover === undefined ? {} : { discover }) });
+        host.seedDiscovery([kitchen]);
+        const driver = lookingDriver();
+        const instance = new CastPlugin([driver]);
+        await instance.init(host);
+        return { host, driver, instance };
+    }
+
+    it('declares exactly the queries its drivers look with', () => {
+        expect(manifest.permissions.discovery).toEqual([
+            { protocol: 'mdns', service: '_googlecast._tcp' },
+            { protocol: 'ssdp', searchTarget: 'urn:schemas-upnp-org:device:MediaRenderer:1' },
+            { protocol: 'mdns', service: '_musc._tcp' },
+        ]);
+    });
+
+    it('lists a speaker it found, by the id it announced rather than its address', async () => {
+        const { instance } = await looking(rows());
+
+        await expect(instance.listDevices()).resolves.toEqual([
+            expect.objectContaining({ id: 'chromecast:abc123', name: 'Kitchen speaker', address: '10.0.0.5:8009' }),
+        ]);
+    });
+
+    it('lets a typed row win over a found speaker at the same address', async () => {
+        const { instance } = await looking(rows({ name: 'Mine', protocol: 'chromecast', address: '10.0.0.5' }));
+
+        const devices = await instance.listDevices();
+
+        expect(devices.map(device => device.name)).toEqual(['Mine']);
+    });
+
+    it('does not look when the operator switched looking off, whichever way the setting is stored', async () => {
+        for (const off of [false, 'false']) {
+            const { host, instance } = await looking(rows(), off);
+            await instance.listDevices();
+            expect(host.discover).not.toHaveBeenCalled();
+        }
+    });
+
+    it('finds a speaker again for a call that names it, as after a restart', async () => {
+        const { driver, instance } = await looking(rows());
+
+        await instance.stop('chromecast:abc123');
+
+        expect(driver.stop).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ address: '10.0.0.5:8009' }));
+    });
+
+    it('reports a found speaker that has gone quiet as unreachable, so the host waits for it', async () => {
+        const { host, instance } = await looking(rows());
+        host.seedDiscovery([]);
+
+        await expect(instance.status('chromecast:gone')).resolves.toEqual({
+            deviceId: 'chromecast:gone',
+            phase: 'unreachable',
+            detail: 'not found on the network',
+        });
+    });
+
+    it('keeps the finds of one kind when another kind’s looking fails', async () => {
+        const host = createFakePluginHost();
+        host.seedConfig({ devices: rows() });
+        const working = lookingDriver('chromecast');
+        const broken = { ...lookingDriver('bluos'), discovery: { protocol: 'mdns', service: '_musc._tcp' } as const };
+        vi.mocked(host.discover).mockImplementation(async query => {
+            if (query.protocol === 'mdns' && query.service === '_musc._tcp') throw new Error('no socket');
+            return [kitchen];
+        });
+        const instance = new CastPlugin([working, broken]);
+        await instance.init(host);
+
+        await expect(instance.listDevices()).resolves.toHaveLength(1);
     });
 });

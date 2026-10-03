@@ -12,6 +12,10 @@ export { CastPlugin, castManifest };
 /** One fresh set of drivers per instance, since each holds the connections of the instance that made it. */
 const drivers = (): SpeakerDriver[] => [new ChromecastDriver(), new UpnpDriver(), new BluOsDriver()];
 
-export const manifest = castManifest(drivers().map(driver => ({ value: driver.protocol, label: driver.label })));
+const kinds = drivers();
+export const manifest = castManifest(
+    kinds.map(driver => ({ value: driver.protocol, label: driver.label })),
+    kinds.flatMap(driver => (driver.discovery === undefined ? [] : [driver.discovery])),
+);
 
 export default definePlugin(manifest, () => new CastPlugin(drivers()));

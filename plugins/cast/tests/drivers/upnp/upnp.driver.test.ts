@@ -310,3 +310,25 @@ describe('UpnpDriver', () => {
         expect(host.calls.filter(call => call.method !== 'POST')).toHaveLength(2);
     });
 });
+
+describe('UpnpDriver.found', () => {
+    it('reads a renderer by its unique name and description, leaving its name to the description', () => {
+        expect(
+            new UpnpDriver().found({
+                name: 'uuid:renderer-1::urn:schemas-upnp-org:device:MediaRenderer:1',
+                address: '192.168.1.176',
+                location: 'http://192.168.1.176:44667/description.xml',
+            }),
+        ).toEqual({ key: 'uuid:renderer-1', name: '192.168.1.176', address: 'http://192.168.1.176:44667/description.xml' });
+    });
+
+    it('passes over an answer with no description to read', () => {
+        expect(new UpnpDriver().found({ name: 'uuid:x', address: '192.168.1.9' })).toBeUndefined();
+    });
+
+    it('names a found renderer by what its description calls it', async () => {
+        const { host, target, driver } = setup();
+
+        await expect(driver.describe(host, target)).resolves.toMatchObject({ name: 'Living room receiver' });
+    });
+});

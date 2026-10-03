@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Menu, Text, Tooltip } from '@mantine/core';
 import { IconCast } from '@tabler/icons-react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import type { OutputCastRequest, OutputDevice } from '@deadair/sdk';
 
@@ -112,6 +113,11 @@ export function CastMenu({ onStart, onStop, busy }: CastMenuProps) {
 /** One speaker: a single item when it plays one of the station's mounts, one per mount when it plays several. */
 function DeviceItems({ device, onStart }: { device: OutputDevice; onStart: CastMenuProps['onStart'] }) {
     const { t } = useTranslation('desk');
+    // The kind as well as the model, since one television with both Chromecast and DLNA is listed
+    // once for each, and the two entries must not look the same.
+    const kind = device.protocol === undefined ? undefined : kindLabel(device.protocol, t);
+    const detail =
+        kind === undefined ? device.model : device.model === undefined ? kind : t('onAir.cast.kindAndModel', { kind, model: device.model });
 
     if (device.mounts.length === 0) {
         return (
@@ -137,11 +143,18 @@ function DeviceItems({ device, onStart }: { device: OutputDevice; onStart: CastM
             }
         >
             <Text size="sm">{device.name}</Text>
-            {device.model === undefined ? null : (
+            {detail === undefined ? null : (
                 <Text size="xs" c="dimmed">
-                    {device.model}
+                    {detail}
                 </Text>
             )}
         </Menu.Item>
     ));
+}
+
+const KNOWN_KINDS = ['chromecast', 'upnp', 'bluos'] as const;
+
+/** The kind in the console's words, or the plugin's own word for one this console has not heard of. */
+function kindLabel(protocol: string, t: TFunction<'desk'>): string {
+    return (KNOWN_KINDS as readonly string[]).includes(protocol) ? t(`onAir.cast.kind.${protocol as (typeof KNOWN_KINDS)[number]}`) : protocol;
 }

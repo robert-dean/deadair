@@ -1,6 +1,6 @@
-import { toPluginError, type OutputMetadata, type OutputPlayRequest, type PluginHost } from '@deadair/plugin-sdk';
+import { toPluginError, type DiscoveredService, type OutputMetadata, type OutputPlayRequest, type PluginHost } from '@deadair/plugin-sdk';
 
-import type { SpeakerDriver, SpeakerStatus, SpeakerTarget, SpeakerTraits } from '../speaker.driver.js';
+import type { FoundSpeaker, SpeakerDriver, SpeakerStatus, SpeakerTarget, SpeakerTraits } from '../speaker.driver.js';
 import { readRenderer, sinkContentTypes, soap, type UpnpRenderer } from './upnp.device.js';
 import { escapeXml, text } from '../xml.js';
 
@@ -36,9 +36,20 @@ interface Played {
 export class UpnpDriver implements SpeakerDriver {
     readonly protocol = 'upnp';
     readonly label = 'UPnP / DLNA (Sonos, receivers, televisions)';
+    readonly discovery = { protocol: 'ssdp', searchTarget: 'urn:schemas-upnp-org:device:MediaRenderer:1' } as const;
 
     private readonly renderers = new Map<string, UpnpRenderer>();
     private readonly played = new Map<string, Played>();
+
+    /**
+     * A renderer announces where its description is, and its unique name. Its friendly name is only
+     * in the description, which {@link describe} reads and answers with.
+     */
+    found(service: DiscoveredService): FoundSpeaker | undefined {
+        if (service.location === undefined) return undefined;
+        const key = service.name.split('::')[0] ?? service.name;
+        return { key, name: service.address, address: service.location };
+    }
 
     async describe(host: PluginHost, target: SpeakerTarget): Promise<SpeakerTraits> {
         let renderer: UpnpRenderer;
@@ -49,7 +60,12 @@ export class UpnpDriver implements SpeakerDriver {
         }
 
         const model = [renderer.manufacturer, renderer.model].filter(Boolean).join(' ') || undefined;
-        const traits = (accepts: string[]): SpeakerTraits => ({ accepts, followsMetadata: false, ...(model === undefined ? {} : { model }) });
+        const traits = (accepts: string[]): SpeakerTraits => ({
+            accepts,
+            followsMetadata: false,
+            ...(model === undefined ? {} : { model }),
+            ...(renderer.friendlyName === undefined ? {} : { name: renderer.friendlyName }),
+        });
         if (renderer.sonos || renderer.connectionManager === undefined) return traits(renderer.sonos ? SONOS_ACCEPTS : FALLBACK_ACCEPTS);
 
         try {

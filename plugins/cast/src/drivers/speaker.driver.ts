@@ -1,4 +1,4 @@
-import type { OutputMetadata, OutputPhase, OutputPlayRequest, PluginHost } from '@deadair/plugin-sdk';
+import type { DiscoveredService, DiscoveryQuery, OutputMetadata, OutputPhase, OutputPlayRequest, PluginHost } from '@deadair/plugin-sdk';
 
 /** One speaker as the operator configured it: a row of the `devices` list. */
 export interface SpeakerTarget {
@@ -16,6 +16,20 @@ export interface SpeakerTraits {
     followsMetadata: boolean;
     /** The make or model, where the device says. */
     model?: string;
+    /** What the device calls itself, where asking it is the only way to learn it (a UPnP renderer). */
+    name?: string;
+}
+
+/** A device a driver recognised in a discovery answer. */
+export interface FoundSpeaker {
+    /**
+     * Stable across the device's address changing: its own id where it announces one. The plugin
+     * prefixes the protocol, so it only has to be unique within this driver.
+     */
+    key: string;
+    name: string;
+    /** Where to reach it now, in the form {@link SpeakerTarget.address} takes for this driver. */
+    address: string;
 }
 
 /** How a device is doing, before the plugin adds which device it was. */
@@ -41,6 +55,10 @@ export interface SpeakerDriver {
     readonly protocol: string;
     /** What the operator picks from, in the protocol column. */
     readonly label: string;
+    /** How devices of this kind announce themselves, when they do. */
+    readonly discovery?: DiscoveryQuery;
+    /** Reads one discovery answer as a speaker, or `undefined` when it is not one this driver can play on. */
+    found?(service: DiscoveredService): FoundSpeaker | undefined;
     /**
      * What the device can do. A driver may ask the device, and must answer anyway when it does not
      * reply: a configured speaker is listed whether or not it is switched on, so this falls back to

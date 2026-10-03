@@ -1,6 +1,6 @@
-import { PluginError, type OutputMetadata, type OutputPlayRequest, type PluginHost } from '@deadair/plugin-sdk';
+import { PluginError, type DiscoveredService, type OutputMetadata, type OutputPlayRequest, type PluginHost } from '@deadair/plugin-sdk';
 
-import type { SpeakerDriver, SpeakerStatus, SpeakerTarget, SpeakerTraits } from '../speaker.driver.js';
+import type { FoundSpeaker, SpeakerDriver, SpeakerStatus, SpeakerTarget, SpeakerTraits } from '../speaker.driver.js';
 import { CAST_NS, CAST_RECEIVER_ID, CastChannel, type CastPayload } from './cast.channel.js';
 
 /** Google's Default Media Receiver: the app every Cast device has, which plays a URL it is given. */
@@ -50,9 +50,16 @@ interface ReceiverApp {
 export class ChromecastDriver implements SpeakerDriver {
     readonly protocol = 'chromecast';
     readonly label = 'Chromecast (Google Cast)';
+    readonly discovery = { protocol: 'mdns', service: '_googlecast._tcp' } as const;
 
     private readonly channels = new Map<string, Promise<CastChannel>>();
     private readonly sessions = new Map<string, CastSession>();
+
+    /** A Cast device announces its id, friendly name and model in its TXT record (`id`, `fn`, `md`). */
+    found(service: DiscoveredService): FoundSpeaker | undefined {
+        const txt = service.txt ?? {};
+        return { key: txt.id ?? service.name, name: txt.fn ?? service.name, address: `${service.address}:${service.port ?? CAST_PORT}` };
+    }
 
     async describe(): Promise<SpeakerTraits> {
         // MP3 and AAC, the formats every Cast device plays from a plain HTTP stream. Opus and FLAC

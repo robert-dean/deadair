@@ -161,6 +161,17 @@ The page Spotify sends your browser to **will not load**, and that is expected r
 failing: it is an address on the station itself, which your browser cannot reach. Copy it out of the
 address bar and paste it back into the console, which finishes the job.
 
+## Finding speakers
+
+The template runs the container on Unraid's bridge network, which does not carry the multicast the
+**Speakers** plugin uses to find Chromecasts, BluOS players and UPnP renderers by itself. Add each
+speaker by its address in the plugin's settings instead: that works on a bridge network, and the
+desk's speaker menu says when the station has never found anything on its own.
+
+Switching the container to the **Host** network type lets it look, but the station then listens on
+the server's own port 80, which is where Unraid's web interface already is, so leave it on bridge
+unless you have moved Unraid's interface to another port.
+
 ## Upgrading, and moving
 
 Upgrading is Unraid's own **Check for Updates** on the Docker page. The three tags follow `main` and

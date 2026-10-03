@@ -154,3 +154,13 @@ describe('BluOsDriver', () => {
         expect((error as Error).message).toContain('Unsupported stream');
     });
 });
+
+describe('BluOsDriver.found', () => {
+    it('reads a player’s name and port from its mDNS answer', () => {
+        expect(new BluOsDriver().found({ name: 'Office', address: '192.168.1.234', port: 11000 })).toEqual({
+            key: 'Office',
+            name: 'Office',
+            address: '192.168.1.234:11000',
+        });
+    });
+});

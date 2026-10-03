@@ -87,6 +87,12 @@ export const desk = {
                 stopped: 'Stopped',
                 unreachable: 'Not answering',
             },
+            kind: {
+                chromecast: 'Chromecast',
+                upnp: 'UPnP',
+                bluos: 'BluOS',
+            },
+            kindAndModel: '{{kind}} · {{model}}',
             format: {
                 mp3: 'MP3',
                 opus: 'Opus',

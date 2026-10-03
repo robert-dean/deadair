@@ -199,3 +199,16 @@ describe('ChromecastDriver', () => {
         await vi.waitFor(() => expect(host.tlsSockets[0]!.closed).toBe(true));
     });
 });
+
+describe('ChromecastDriver.found', () => {
+    it('reads a Cast device’s id, friendly name and port from its mDNS answer', () => {
+        const found = new ChromecastDriver().found({
+            name: 'Google-Home-Mini-c225',
+            address: '192.168.1.148',
+            port: 8009,
+            txt: { id: 'c22507636f0794e5', fn: 'Kitchen speaker', md: 'Google Home Mini' },
+        });
+
+        expect(found).toEqual({ key: 'c22507636f0794e5', name: 'Kitchen speaker', address: '192.168.1.148:8009' });
+    });
+});

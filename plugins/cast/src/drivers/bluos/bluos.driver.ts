@@ -1,6 +1,13 @@
-import { PluginError, toPluginError, type OutputMetadata, type OutputPlayRequest, type PluginHost } from '@deadair/plugin-sdk';
+import {
+    PluginError,
+    toPluginError,
+    type DiscoveredService,
+    type OutputMetadata,
+    type OutputPlayRequest,
+    type PluginHost,
+} from '@deadair/plugin-sdk';
 
-import type { SpeakerDriver, SpeakerStatus, SpeakerTarget, SpeakerTraits } from '../speaker.driver.js';
+import type { FoundSpeaker, SpeakerDriver, SpeakerStatus, SpeakerTarget, SpeakerTraits } from '../speaker.driver.js';
 import { attribute, text } from '../xml.js';
 
 /** The port every BluOS player answers its HTTP API on. */
@@ -33,9 +40,17 @@ export type StreamMatch = 'ours' | 'other' | 'absent';
 export class BluOsDriver implements SpeakerDriver {
     readonly protocol = 'bluos';
     readonly label = 'BluOS (Bluesound, NAD)';
+    // mDNS rather than the LSDP broadcast the desktop uses, since mDNS is what the host's
+    // discoverer speaks; a player announces both.
+    readonly discovery = { protocol: 'mdns', service: '_musc._tcp' } as const;
 
     /** The URL last played on each player, for telling the station's stream from somebody else's. */
     private readonly played = new Map<string, string>();
+
+    /** A player announces its own name as the instance name; that is what its owner called it. */
+    found(service: DiscoveredService): FoundSpeaker | undefined {
+        return { key: service.name, name: service.name, address: `${service.address}:${service.port ?? BLUOS_PORT}` };
+    }
 
     async describe(host: PluginHost, target: SpeakerTarget): Promise<SpeakerTraits> {
         const traits: SpeakerTraits = { accepts: BLUOS_ACCEPTS, followsMetadata: false };

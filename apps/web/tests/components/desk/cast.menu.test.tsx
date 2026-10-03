@@ -68,7 +68,8 @@ describe('CastMenu', () => {
         const user = setupUser();
 
         await user.click(await screen.findByRole('button', { name: 'Play on a speaker' }));
-        await user.click(await screen.findByRole('menuitem', { name: /Kitchen/ }));
+        // Named with its kind, so a television listed once for Chromecast and once for DLNA reads as two things.
+        await user.click(await screen.findByRole('menuitem', { name: /Kitchen.*Chromecast/ }));
 
         expect(onStart).toHaveBeenCalledWith({ pluginId: 'deadair.cast', deviceId: 'chromecast:10.0.0.5', mountPath: '/live.mp3' });
     });

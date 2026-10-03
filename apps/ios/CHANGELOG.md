@@ -8,6 +8,13 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-10-03
+
+- A new format, Automatic, is now what the app plays unless you pick one: HLS where the station publishes it, so moving between wifi and mobile data does not cut the stream, and MP3 where it does not. After updating, an app that was on MP3 moves to Automatic once, because the app never recorded whether MP3 was chosen or just the default; pick MP3 again under Settings to keep it. Any other format you chose is kept.
+- Moving between wifi and mobile data no longer leaves the stream on the network it started on. An MP3, AAC, Opus or FLAC stream is reconnected over the new network the moment the phone switches, and a reconnect that was already waiting is made at once. HLS, which fetches each piece of audio afresh, is left as it is.
+- A stream that stops delivering audio without the player reporting a failure is now reconnected. It used to wait indefinitely while the app said it was playing; now ten seconds of silence after audio has been heard (thirty while the station is starting up) counts as a dropped stream, and it is retried as one.
+- A stream that drops while the phone has no network now waits for one instead of retrying against nothing. It used to say it could not reach the stream after five minutes, even when the signal came back seconds later; now it reconnects the moment a network is back, starting again from a short wait, and gives up only after fifteen minutes without one.
+
 ## [0.4.0] — 2026-10-03
 
 - Save a talk break as well as sharing it. Every row in "What it said" that has a share button now has a save button beside it, which fetches the same small copy and opens the Files save dialog, so the clip can be kept on the phone, in iCloud Drive or wherever you pick. It asks for no permission.

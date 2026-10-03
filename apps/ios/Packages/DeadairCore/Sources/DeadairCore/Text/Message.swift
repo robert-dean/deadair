@@ -169,6 +169,19 @@ public enum Message: Equatable, Sendable {
     case searchNotShown(Int)
     case chartUnavailable
 
+    // MARK: Requests
+
+    /// A request is in, and an operator decides on it before it goes anywhere.
+    case requestWaiting(String)
+    /// A request is in and the station is finding it a place.
+    case requestOnItsWay(String)
+    /// The station turned a request down. The reason is the station's own sentence, and absent for a plain no.
+    case requestRefused(String?)
+    /// Who a request is dedicated to, in the listener's own words.
+    case requestFor(String)
+    /// Where one of the listener's requests has got to.
+    case requestState(RequestStatus)
+
     // MARK: The operator
 
     /// What an operator action came back with.

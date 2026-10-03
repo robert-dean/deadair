@@ -142,6 +142,12 @@ extension Message {
         case .searchNotShown(let count): String(localized: "\(count) more matches. Type more of the title to narrow them.")
         case .chartUnavailable: String(localized: "This chart is unavailable.")
 
+        case .requestWaiting(let title): String(localized: "“\(title)” is in. The station’s operator will look at it.")
+        case .requestOnItsWay(let title): String(localized: "“\(title)” is on its way.")
+        case .requestRefused(let reason): reason ?? String(localized: "The station turned that one down.")
+        case .requestFor(let name): String(localized: "For \(name)")
+        case .requestState(let status): status.words
+
         case .operatorNotice(let notice): notice.words
         }
     }
@@ -334,6 +340,20 @@ extension StreamFormat {
         case .aac: String(localized: "Smaller than MP3 at the same quality")
         case .opus: String(localized: "Smallest of all, and the newest")
         case .flac: String(localized: "Lossless. Uses the most data")
+        }
+    }
+}
+
+extension RequestStatus {
+    /// Where one of the listener's requests has got to, in a couple of words.
+    var words: String {
+        switch self {
+        case .waiting: String(localized: "Waiting for the operator")
+        case .pending: String(localized: "On its way")
+        case .queued: String(localized: "Coming up")
+        case .aired: String(localized: "Played")
+        case .declined: String(localized: "Turned down")
+        case .expired: String(localized: "Not played")
         }
     }
 }

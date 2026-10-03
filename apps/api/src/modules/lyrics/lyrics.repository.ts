@@ -22,6 +22,14 @@ export interface StoredWords {
     providerRef?: string;
 }
 
+/** One source's timing evidence for one record: the timed lines and the instrumental flag, and nothing else. */
+export interface StoredTiming {
+    trackId: string;
+    provider: string;
+    instrumental: boolean;
+    synced?: LyricLine[];
+}
+
 const nullable = <T>(value: T | null | undefined): T | undefined => (value == null ? undefined : value);
 
 /**
@@ -125,6 +133,31 @@ export class LyricsRepository extends DataRepository {
             isrc: nullable(row.isrc),
             mbid: nullable(row.mbid),
             outstanding: row.outstanding,
+        }));
+    }
+
+    /**
+     * The timing evidence for a set of records: every row that has timed lines or says instrumental.
+     *
+     * The timed lines carry their text because the only way to tell a sung line from the blank one
+     * that marks where singing stops is to look. The caller is `VocalMarkersReader`, which turns them
+     * into markers and hands on nothing else.
+     */
+    async timingsForTracks(trackIds: readonly string[]): Promise<StoredTiming[]> {
+        if (trackIds.length === 0) return [];
+
+        const rows = await this.db
+            .selectFrom('deadair.trackLyrics')
+            .select(['trackId', 'provider', 'instrumental', 'synced'])
+            .where('trackId', 'in', [...trackIds])
+            .where(eb => eb.or([eb('synced', 'is not', null), eb('instrumental', '=', true)]))
+            .execute();
+
+        return rows.map(row => ({
+            trackId: row.trackId,
+            provider: row.provider,
+            instrumental: row.instrumental,
+            ...(row.synced == null ? {} : { synced: row.synced as unknown as LyricLine[] }),
         }));
     }
 

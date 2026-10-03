@@ -145,6 +145,7 @@ extension Message {
         case .requestWaiting(let title): String(localized: "“\(title)” is in. The station’s operator will look at it.")
         case .requestOnItsWay(let title): String(localized: "“\(title)” is on its way.")
         case .requestRefused(let reason): reason ?? String(localized: "The station turned that one down.")
+        case .requestRecordGone: String(localized: "The station cannot play that record any more.")
         case .requestFor(let name): String(localized: "For \(name)")
         case .requestState(let status): status.words
 

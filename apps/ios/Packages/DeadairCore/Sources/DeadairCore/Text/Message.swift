@@ -177,6 +177,8 @@ public enum Message: Equatable, Sendable {
     case requestOnItsWay(String)
     /// The station turned a request down. The reason is the station's own sentence, and absent for a plain no.
     case requestRefused(String?)
+    /// The record went from the station between the search and the send.
+    case requestRecordGone
     /// Who a request is dedicated to, in the listener's own words.
     case requestFor(String)
     /// Where one of the listener's requests has got to.

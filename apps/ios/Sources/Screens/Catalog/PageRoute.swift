@@ -24,6 +24,8 @@ enum PageRoute: Hashable {
     case chart(id: String, name: String)
     /// A record from the library, into the running order.
     case addRecord
+    /// Asking the station to play a record, and the listener's own requests.
+    case request
     /// Everything the station has played.
     case history
     /// Signing in as the station's operator.
@@ -35,7 +37,7 @@ enum PageRoute: Hashable {
     }
 
     /// Debug builds open Settings on the page named by `-start_page` (history, scripts, desk, manage,
-    /// addRecord, or track:, album:, artist: with an id), so a pushed page can be looked at on a
+    /// addRecord, request, or track:, album:, artist: with an id), so a pushed page can be looked at on a
     /// simulator without a tap that might land on something live.
     static var start: [PageRoute] {
         #if DEBUG
@@ -48,6 +50,7 @@ enum PageRoute: Hashable {
         case "desk": return [.desk]
         case "manage": return [.manage]
         case "addRecord": return [.addRecord]
+        case "request": return [.request]
         case "signIn": return [.signIn]
         case "track": return id.map { [.track($0)] } ?? []
         case "album": return id.map { [.album($0)] } ?? []
@@ -76,6 +79,7 @@ extension View {
             case .playlist(let pluginId, let playlistId, let name): PlaylistScreen(pluginId: pluginId, playlistId: playlistId, name: name)
             case .chart(let id, let name): ChartScreen(chartId: id, name: name)
             case .addRecord: AddRecordScreen()
+            case .request: RequestScreen()
             case .history: HistoryScreen()
             case .signIn: SignInScreen()
             }

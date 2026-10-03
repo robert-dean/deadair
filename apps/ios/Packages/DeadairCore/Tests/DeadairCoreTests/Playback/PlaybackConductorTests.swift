@@ -13,7 +13,7 @@ struct PlaybackConductorTests {
     private let cell = "pdp_ip0"
 
     private func conductor(offlineLimit: Duration = .seconds(15 * 60)) -> PlaybackConductor {
-        PlaybackConductor(schedule: clock.schedule, offlineLimit: offlineLimit)
+        PlaybackConductor(schedule: clock.schedule, offlineLimit: offlineLimit, stallLimit: .seconds(10), warmUpLimit: .seconds(30))
     }
 
     @Test func saysWarmingUpBeforeAnyAudioArrives() {
@@ -276,7 +276,7 @@ struct PlaybackConductorTests {
     @Test func waitingForTheNetworkEndsUnreachableAfterItsOwnLimit() {
         let conductor = conductor(offlineLimit: .seconds(60))
         var gaveUp = 0
-        conductor.onGaveUpWaiting = { gaveUp += 1 }
+        conductor.onTimedOut = { gaveUp += 1 }
         conductor.requested()
         conductor.observed(.playing)
         conductor.networkChanged(nil)
@@ -410,5 +410,117 @@ struct PlaybackConductorTests {
         conductor.networkChanged(cell)
 
         #expect(fired == 0)
+    }
+
+    @Test func aStallThatOutlastsTheLimitIsADrop() {
+        let conductor = conductor()
+        var fired = 0
+        var timedOut = 0
+        conductor.onRetryDue = { fired += 1 }
+        conductor.onTimedOut = { timedOut += 1 }
+        conductor.requested()
+        conductor.observed(.playing)
+        conductor.observed(.buffering)
+
+        clock.advance(by: .milliseconds(9_999))
+        #expect(conductor.state == .playing)
+
+        clock.advance(by: .milliseconds(1))
+        #expect(conductor.state == .reconnecting)
+        #expect(conductor.retryIn == .seconds(1))
+        #expect(timedOut == 1)
+
+        clock.advance(by: .seconds(1))
+        #expect(fired == 1)
+    }
+
+    @Test func audioArrivingInTimeEndsTheWatch() {
+        let conductor = conductor()
+        conductor.requested()
+        conductor.observed(.playing)
+        conductor.observed(.buffering)
+        clock.advance(by: .seconds(9))
+        conductor.observed(.playing)
+
+        clock.advance(by: .seconds(60))
+
+        #expect(conductor.state == .playing)
+        #expect(clock.scheduled == 0)
+    }
+
+    @Test func eachStallGetsTheWholeLimitAgain() {
+        // Two short stalls a few seconds apart are two hiccups, not one long one.
+        let conductor = conductor()
+        conductor.requested()
+        conductor.observed(.playing)
+        conductor.observed(.buffering)
+        clock.advance(by: .seconds(8))
+        conductor.observed(.playing)
+        conductor.observed(.buffering)
+        clock.advance(by: .seconds(8))
+
+        #expect(conductor.state == .playing)
+    }
+
+    @Test func warmUpGetsTheLongerLimit() {
+        let conductor = conductor()
+        conductor.requested()
+        conductor.observed(.opening)
+
+        clock.advance(by: .seconds(29))
+        #expect(conductor.state == .warmingUp)
+        #expect(conductor.retryIn == nil)
+
+        clock.advance(by: .seconds(1))
+        // Still warm-up to the listener, but an attempt is now coming.
+        #expect(conductor.state == .warmingUp)
+        #expect(conductor.retryIn == .seconds(1))
+    }
+
+    @Test func aReconnectThatHangsWhileOpeningIsCaughtToo() {
+        // The retry's fresh item reports opening, and with audio already heard that reads as
+        // playing; a connection that never answers would otherwise say so for ever.
+        let conductor = conductor()
+        conductor.requested()
+        conductor.observed(.playing)
+        conductor.observed(.failed)
+        clock.advance(by: .seconds(1))
+        conductor.observed(.opening)
+
+        clock.advance(by: .seconds(10))
+
+        #expect(conductor.state == .reconnecting)
+        #expect(conductor.retryIn == .seconds(2))
+    }
+
+    @Test func aStallWithNoNetworkWaitsForOne() {
+        let conductor = conductor()
+        var fired = 0
+        conductor.onRetryDue = { fired += 1 }
+        conductor.requested()
+        conductor.observed(.playing)
+        conductor.networkChanged(wifi)
+        conductor.networkChanged(nil)
+        conductor.observed(.buffering)
+
+        clock.advance(by: .seconds(10))
+        #expect(conductor.awaitingNetwork)
+        #expect(fired == 0)
+
+        conductor.networkChanged(wifi)
+        #expect(fired == 1)
+    }
+
+    @Test func stoppingDuringAStallEndsTheWatch() {
+        let conductor = conductor()
+        conductor.requested()
+        conductor.observed(.playing)
+        conductor.observed(.buffering)
+
+        conductor.released()
+        clock.advance(by: .seconds(60))
+
+        #expect(conductor.state == .stopped)
+        #expect(clock.scheduled == 0)
     }
 }

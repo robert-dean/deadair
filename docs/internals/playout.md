@@ -26,6 +26,12 @@ it. The count is polled from Icecast, which is the truth, off whichever stats en
 `/admin/` is a role decision an operator can tighten) or `/status-json.xsl` on a 2.4 (which 2.5 deprecates).
 Whichever answers is cached, so the other is probed once per re-probe rather than once per poll.
 
+**Background work that would fetch a record follows the same gate.** The hourly measurement walk
+(`AnalysisService.analysePending`) measures copies the station already holds whatever the audience, but while
+`gateOpen()` is false it stops at the first track that would need a provider download. Off air the station
+reaches for nothing, and on a library kept on spinning disks a fetch every hour is what keeps the array from
+ever sleeping. The gate is read per track, so a listener arriving mid-run lets the rest of it fetch.
+
 **The two documents carry the same facts in different shapes, and neither matches what upstream's source
 suggests** — `listenersByMount` is where that lives, and [icecast-2.5](https://github.com/robert-dean/deadair/discussions/17) records both measured
 payloads.

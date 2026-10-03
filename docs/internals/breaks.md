@@ -529,6 +529,18 @@ the weather writer, after the answer had already been judged, which was fine whi
 handed a reading and became two copies of one question when two could. It is not retryable, matching
 `invented-year`: a fabricated measurement is not the class of mistake a nudge fixes.
 
+**A break handed NO reading is asked the other question: did it describe the weather anyway.** Every
+kind but the weather break, and a talk break with `rotation.weatherInTalk` off, is told not to reach
+for the weather to set a scene, and a model will still open with "sunny out there" in a storm. So
+`unofferedWeather` (`weather.figures.ts`) runs whenever `AnswerGuard.weather` is absent, beside the
+figure check in both orders, as the `unoffered-weather` fault. It is the strict sibling of
+`mentionsWeather`, because a yes here refuses a break where a yes there only stamps one: whole words,
+only ones nobody says about anything but the sky (sunny, raining, overcast, a downpour) plus a figure in
+degrees, and never `storm`, `clear` or a bare `rain`. Record names are out of the script first, so
+"Sunny" by Bobby Hebb is a title. English only. Unlike `invented-figure` it IS retryable: the model was
+not wrong about something it was given, it set a scene the prompt said not to, which is
+`wrong-daypart`'s kind of mistake.
+
 ## The date
 
 **A break about the date is the bulletin's shape with the evidence rule turned all the way up.** A

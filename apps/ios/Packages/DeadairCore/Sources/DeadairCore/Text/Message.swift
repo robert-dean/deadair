@@ -123,6 +123,9 @@ public enum Message: Equatable, Sendable {
     case shareCannotCopy
     case shareCouldNotReach
     case shareFailed
+    case saveBreak
+    /// The copy reached the folder the person picked.
+    case breakSaved
 
     // MARK: The desk
 

@@ -68,8 +68,8 @@ import kotlinx.coroutines.launch
 /** The operator's opinion of a break. `null` for anyone else. */
 data class ScriptRatingHandler(val busyId: String?, val onRate: (attemptId: String, ScriptRating) -> Unit)
 
-/** Sending a break on. For anyone signed in; `busyId` is the row whose copy is being fetched. */
-data class BreakShareHandler(val busyId: String?, val onShare: (ScriptAttempt) -> Unit)
+/** Sending a break on, or keeping it. For anyone signed in; `busyId` is the row whose copy is being fetched. */
+data class BreakShareHandler(val busyId: String?, val onShare: (ScriptAttempt) -> Unit, val onSave: (ScriptAttempt) -> Unit)
 
 /**
  * What the station said between the records, newest first, and what came of trying.
@@ -183,7 +183,11 @@ private fun AttemptRow(attempt: ScriptAttempt, nowEpochMs: Long, zone: ZoneId, r
             ui.copyText?.let { words -> CopyButton(words) }
             // Only where there is audio to send: words were written and the segment is still known.
             if (sharing != null && BreakShare.shareable(attempt)) {
-                ShareButton(busy = sharing.busyId == attempt.id, enabled = sharing.busyId == null) { sharing.onShare(attempt) }
+                // Either button can be what is busy, so the spinner stands in for both: which one was
+                // pressed is not worth a second state, and the row must not offer the other meanwhile.
+                val busy = sharing.busyId == attempt.id
+                CopyActionButton(R.drawable.ic_download, Message.SaveBreak, busy = busy, enabled = sharing.busyId == null) { sharing.onSave(attempt) }
+                CopyActionButton(R.drawable.ic_share, Message.ShareBreak, busy = busy, enabled = sharing.busyId == null) { sharing.onShare(attempt) }
             }
         }
         Text(
@@ -257,16 +261,16 @@ private fun CopyButton(words: String) {
 /** How long the copy button shows its tick before it can be read as a copy button again. */
 private const val COPIED_TICK_MS = 1_500L
 
-/** The row's share button, or a spinner in its place while the station makes the copy. */
+/** The row's share or save button, or a spinner in its place while the station makes the copy. */
 @Composable
-private fun ShareButton(busy: Boolean, enabled: Boolean, onClick: () -> Unit) {
+private fun CopyActionButton(icon: Int, label: Message, busy: Boolean, enabled: Boolean, onClick: () -> Unit) {
     // A fixed box, so the row does not reflow when the button turns into a spinner and back.
     Box(modifier = Modifier.size(32.dp), contentAlignment = Alignment.Center) {
         if (busy) {
             CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
         } else {
             IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(32.dp)) {
-                Icon(painterResource(R.drawable.ic_share), contentDescription = Message.ShareBreak.resolve(), modifier = Modifier.size(18.dp))
+                Icon(painterResource(icon), contentDescription = label.resolve(), modifier = Modifier.size(18.dp))
             }
         }
     }

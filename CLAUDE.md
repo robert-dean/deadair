@@ -133,7 +133,8 @@ plugins/*             bundled plugins: spotify, navidrome, ytmusic (YouTube Musi
                       deezer (who sounds like whom, with no API key, so a fresh install has a
                       similarity source at all),
                       wikipedia (the prose the station's facts are extracted from, and what happened
-                      on today's date), rss, websearch
+                      on today's date), lrclib (the words of records and the timing of their lines,
+                      read by the host and never said), rss, websearch
                       (SearXNG, Brave or Tavily, whichever the operator points it at), weather
                       (Open-Meteo, the US National Weather Service or OpenWeatherMap), podcast (the
                       shows the station carries, read from their feeds), telegram, discord and

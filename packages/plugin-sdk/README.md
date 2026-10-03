@@ -948,6 +948,44 @@ takesArgs }`) each time the host starts listening on your plugin, for a platform
 that lists commands in its own interface; overwrite, don't append. Leave it out
 and people type the commands as they always could.
 
+## Finding the words of a record
+
+A `lyrics` plugin answers one question, the words of one record and the timing
+of its lines:
+
+```ts
+async lyricsFor(ref: TrackRef): Promise<TrackLyrics> {
+    if (ref.durationMs === undefined) return {};          // no length, no strict match
+    const found = await this.lookup(ref.artist, ref.title, ref.album, ref.durationMs);
+    if (!found) return {};
+    if (found.instrumental) return { instrumental: true, providerRef: found.id };
+    return { plain: found.text, synced: found.lines, providerRef: found.id };   // lines: { atMs, text }
+}
+```
+
+Four things are easy to get wrong.
+
+**The host reads them and never says them.** A lyric is somebody's
+copyrighted text in full, so the host keeps it in a table of its own, never
+serves it, never extracts a fact from it and never shows it in the console.
+What the station uses is when the singing starts and stops, and later labels
+derived from the words. That is why this is not an enrichment field: enrichment
+is merged, served and shown.
+
+**Match strictly, and answer a near miss with `{}`.** A lyric matched to the
+wrong recording does not fail; it gives the station a confident wrong timing.
+Send the record's length wherever your source keys on one, and do not fall back
+to a looser search.
+
+**A refusal is a throw, not `{}`.** A source that refuses your client and reads
+as a miss is a station whose lyrics count stays at zero with nothing in the log
+saying why.
+
+**Leave `endMs` unset unless your source states it.** The host derives a line's
+end from the next line's start, and a blank timed line (which LRC uses to mark
+where singing stops) is kept as one. An `instrumental` answer is an answer: the
+host stops asking and treats the record as one nobody sings on.
+
 ## Playing the station on a speaker
 
 An `output` plugin puts the station on a Chromecast, a Sonos, a BluOS player or

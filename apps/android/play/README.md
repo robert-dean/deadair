@@ -59,6 +59,23 @@ An emulator booted from its quickboot snapshot comes back with whatever was inst
 snapshot was taken, not the build last installed. Check `dumpsys package` for `lastUpdateTime`
 before shooting, or the screenshots show an old build.
 
+The screenshots were last retaken on 2026-10-03, for 0.13.0.
+
+## Production releases
+
+What went to production, newest first, so the next release knows what its notes cover since. The
+build's own notes are `whatsnew/` at the commit it was built from, and what changed is in the
+listener's [CHANGELOG](../CHANGELOG.md).
+
+| Date | Version | Version code | Rollout | Notes cover |
+| --- | --- | --- | --- | --- |
+| 2026-10-03 | 0.13.0 | 1902 | `completed`, straight to everybody | 0.10.0 to 0.13.0 |
+
+**2026-10-03, 0.13.0.** Build 1895 (0.12.0) had reached internal with the 0.7 widget's notes
+still in `whatsnew/`, and promotion carries a build's notes with it, so it was not promoted. The
+notes were rewritten and 1902 was published from main and promoted instead. It went out at
+`completed` rather than the staged `inProgress` at 0.2 that the app's README recommends, by choice.
+
 ## Store settings
 
 | Field | Value |

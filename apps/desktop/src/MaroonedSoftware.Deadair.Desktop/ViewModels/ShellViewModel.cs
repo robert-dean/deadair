@@ -704,8 +704,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private void ShowWindow() => Window?.Show();
 
     /// <summary>The Window menu's Close: hides, since closing is not quitting.</summary>
+    /// <remarks>
+    /// Studio goes with it. A window brought back from the Dock should come back as the app, not as a
+    /// full-screen Studio somebody closed an hour ago.
+    /// </remarks>
     [RelayCommand]
-    private void HideWindow() => Window?.Hide();
+    private void HideWindow()
+    {
+        IsStudio = false;
+        Window?.Hide();
+    }
 
     [RelayCommand]
     private void MinimizeWindow() => Window?.Minimize();

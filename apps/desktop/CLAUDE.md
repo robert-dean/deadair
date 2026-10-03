@@ -897,6 +897,20 @@ the bar's TV button, the Window menu's Studio, or F, and it is left by its close
   draws at 20 frames a second, which on a slow drift is the same picture as 60 for a third of the
   work, and its clock runs only while its OWN `IsVisible` is true: Avalonia tells a control when it is
   hidden and not when a parent is, so the view binds it on the backdrop itself.
+- **It takes the screen, and gives back only what it took** (`Core/Ui/StudioScreen`, wired in
+  `MainWindow`). Opening Studio puts the window full screen; leaving puts it back as it was, but only
+  if Studio made it full screen. A window already full screen stays so, and somebody who leaves full
+  screen by hand while Studio is up has the screen back: leaving Studio then touches nothing. All of
+  that measured on 2026-10-03 against a `dotnet run`, reading `AXFullScreen` and the frame through
+  System Events. The full-screen frame is never saved, because `TakeFrame` already refuses one.
+- **⌘W from full-screen Studio used to leave the window on screen for good**, measured the same day.
+  `HideWindow` takes Studio down, which starts macOS animating the window out of full screen, and the
+  hide that followed landed mid-animation: Avalonia marked the window hidden, the animation put it
+  back, and every later hide did nothing because Avalonia thought it already had. `WindowKeeper.Hide`
+  now takes a full-screen window out first and waits a second after any exit from full screen before
+  hiding. A fixed allowance, because `WindowState` reads Normal the moment it is set and nothing is
+  raised when the animation ends; a Show while a hide is waiting cancels it. Checked against the
+  window server's own list of on-screen windows, since System Events lists a hidden window too.
 - **Stopping does not leave Studio.** A station on a spare screen should stay up saying Listen.
 - **The close and play buttons fade after three seconds of a still pointer**, and the pointer goes
   with them; they are not pressable while faded, so the first click after a rest wakes them rather

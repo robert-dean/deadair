@@ -1027,6 +1027,12 @@ export interface DeadairTrackLyricLabels {
     moodsError: string | null;
     moodsRetryAt: DateTime | null;
     moodsVersion: string | null;
+    subject: string | null;
+    subjectAt: DateTime | null;
+    subjectAttempts: Generated<number>;
+    subjectError: string | null;
+    subjectRetryAt: DateTime | null;
+    subjectVersion: string | null;
     trackId: string;
     updatedAt: Generated<DateTime>;
 }

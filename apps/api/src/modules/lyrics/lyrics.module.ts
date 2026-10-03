@@ -3,6 +3,7 @@ import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { LyricLabelsRepository } from './lyric.labels.repository.js';
 import { LyricMoodsService } from './lyric.moods.service.js';
+import { LyricSubjectsService } from './lyric.subjects.service.js';
 import { LyricsRepository } from './lyrics.repository.js';
 import { LyricsService } from './lyrics.service.js';
 import { VocalMarkersReader } from './vocal.markers.reader.js';
@@ -23,6 +24,7 @@ export const LyricsModule: ServerKitModule = {
         // What the station derives from the words, and the walk that derives it.
         registry.register(LyricLabelsRepository).useClass(LyricLabelsRepository).asScoped();
         registry.register(LyricMoodsService).useClass(LyricMoodsService).asScoped();
+        registry.register(LyricSubjectsService).useClass(LyricSubjectsService).asScoped();
         // What the director asks: where the singing is on the records it is about to talk over.
         registry.register(VocalMarkersReader).useClass(VocalMarkersReader).asScoped();
         // The operator's side of the same markers, behind `/catalog/tracks/{id}/vocal-markers`.

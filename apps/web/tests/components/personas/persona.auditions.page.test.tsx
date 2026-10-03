@@ -4,13 +4,15 @@
 // only exists once the breaks have been fetched.
 //
 // The other half is the pair of pickers. A caller is cast into a production and never presents, so
-// offering one here would be measuring something the station will never ask it to do.
+// offering one here would be measuring something the station will never ask it to do. And a run can
+// be written over any of the three sources a broadcast can be built from, so the source picker offers
+// the station's own playlists and the charts beside the providers' playlists.
 
 import { describe, expect, it, vi } from 'vitest';
 import type { PersonaAudition, PersonaAuditionSummary } from '@deadair/sdk';
 
 import { PersonaAuditionsPage } from '../../../src/components/personas/persona.auditions.page';
-import { render, screen } from '../../utils/render';
+import { render, screen, setupUser, waitFor } from '../../utils/render';
 
 const summary = (over: Partial<PersonaAuditionSummary> = {}): PersonaAuditionSummary =>
     ({
@@ -53,6 +55,7 @@ const run = (over: Partial<PersonaAudition> = {}): PersonaAudition =>
     }) as unknown as PersonaAudition;
 
 const listed: PersonaAuditionSummary[] = [];
+const startPersonaAudition = vi.fn(async (_body: unknown) => run());
 let detail: PersonaAudition = run();
 
 vi.mock('../../../src/api/client', () => ({
@@ -83,10 +86,18 @@ vi.mock('../../../src/api/client', () => ({
                 }),
             listPersonaAuditions: () => Promise.resolve({ auditions: listed }),
             getPersonaAudition: () => Promise.resolve(detail),
+            startPersonaAudition: (_id: string, body: unknown) => startPersonaAudition(body),
         },
         playlists: {
             listImportablePlaylists: () =>
                 Promise.resolve({ playlists: [{ pluginId: 'spotify', pluginName: 'Spotify', id: 'pl1', name: 'Late night' }], errors: [] }),
+            listStationPlaylists: () =>
+                Promise.resolve({
+                    playlists: [{ id: '7b0c1a52-9a3e-4f43-8b1e-3d6f0f4a9c11', name: 'Sunday soul', prompt: '', trackCount: 3, resolvedCount: 3 }],
+                }),
+        },
+        charts: {
+            listCharts: () => Promise.resolve({ charts: [{ id: 'lastfm:top', pluginId: 'lastfm', name: 'Top tracks' }] }),
         },
     },
 }));
@@ -191,5 +202,34 @@ describe('the audition page', () => {
 
         expect(await screen.findByText('the model host is unreachable')).toBeInTheDocument();
         expect(await screen.findByText('Stopped by a fault')).toBeInTheDocument();
+    });
+
+    it('offers the station’s own playlists and the charts beside the providers’ playlists', async () => {
+        show();
+        const user = setupUser();
+
+        await user.click(await screen.findByRole('combobox', { name: 'Records from' }));
+
+        expect(await screen.findByRole('option', { name: 'Sunday soul' })).toBeInTheDocument();
+        expect(await screen.findByRole('option', { name: 'Late night — Spotify' })).toBeInTheDocument();
+        expect(await screen.findByRole('option', { name: 'Top tracks — lastfm' })).toBeInTheDocument();
+    });
+
+    it.each([
+        ['Sunday soul', { stationPlaylistId: '7b0c1a52-9a3e-4f43-8b1e-3d6f0f4a9c11' }],
+        ['Top tracks — lastfm', { chartId: 'lastfm:top', name: 'Top tracks' }],
+        ['Late night — Spotify', { pluginId: 'spotify', playlistId: 'pl1', name: 'Late night' }],
+    ])('starts a run over %s by naming that source alone', async (option, expected) => {
+        startPersonaAudition.mockClear();
+        show();
+        const user = setupUser();
+
+        await user.click(await screen.findByRole('combobox', { name: 'Records from' }));
+        await user.click(await screen.findByRole('option', { name: option }));
+        await user.click(screen.getByRole('button', { name: 'Start' }));
+
+        // Exactly one source, which is what the station refuses anything else over. A station
+        // playlist goes without a caption because the station reads its name for itself.
+        await waitFor(() => expect(startPersonaAudition).toHaveBeenCalledWith({ ...expected, limit: 10 }));
     });
 });

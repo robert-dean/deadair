@@ -119,13 +119,20 @@ export function splitSource(value: string | null | undefined): ProgrammeSource |
  * `stationPlaylists` adds the playlists the station OWNS, first, for the callers whose write can store
  * one. They are read from the station's own library rather than from a provider, which is what makes
  * them the right pool for a scheduled block: a long provider playlist has to be read in full at the
- * moment the block starts.
+ * moment the block starts. An audition reads one too, for the opposite reason: it fetches nothing, so
+ * the station's own list is as good a sample of what it plays as any provider's.
+ *
+ * `label`, `clearLabel` and `w` are for a caller that is not putting anything on air, whose words
+ * for the same choice are its own.
  */
 export function SourceField({
     description,
     stationPlaylists = false,
+    label,
+    clearLabel,
+    w,
     ...input
-}: GetInputPropsReturnType & { description?: string; stationPlaylists?: boolean }) {
+}: GetInputPropsReturnType & { description?: string; stationPlaylists?: boolean; label?: string; clearLabel?: string; w?: number }) {
     const { t } = useTranslation('programme');
     const playlists = useQuery(playlistsListOptions);
     const charts = useQuery(chartsListOptions);
@@ -158,15 +165,16 @@ export function SourceField({
 
     return (
         <Select
-            label={t('source.label')}
+            label={label ?? t('source.label')}
             description={description ?? t('source.description')}
             data={data}
             searchable
             clearable
-            clearButtonProps={{ 'aria-label': t('source.clear') }}
+            clearButtonProps={{ 'aria-label': clearLabel ?? t('source.clear') }}
             nothingFoundMessage={
                 playlists.isPending || charts.isPending || (stationPlaylists && owned.isPending) ? t('source.reading') : t('source.nothing')
             }
+            {...(w === undefined ? {} : { w })}
             {...input}
         />
     );

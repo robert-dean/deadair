@@ -405,14 +405,23 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
     public var enriched: Int
     public var benched: Int
     public var failing: Int
+    /// A lyrics source has the words of it. The words themselves are never served
+    public var lyrics: Int
+    /// A lyrics source has the timing of its lines, which says when the singing starts
+    public var synced: Int
+    /// A lyrics source says nobody sings on it
+    public var instrumental: Int
 
-    public init(total: Int, cached: Int, measured: Int, enriched: Int, benched: Int, failing: Int) {
+    public init(total: Int, cached: Int, measured: Int, enriched: Int, benched: Int, failing: Int, lyrics: Int, synced: Int, instrumental: Int) {
         self.total = total
         self.cached = cached
         self.measured = measured
         self.enriched = enriched
         self.benched = benched
         self.failing = failing
+        self.lyrics = lyrics
+        self.synced = synced
+        self.instrumental = instrumental
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -422,6 +431,9 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
         case enriched = "enriched"
         case benched = "benched"
         case failing = "failing"
+        case lyrics = "lyrics"
+        case synced = "synced"
+        case instrumental = "instrumental"
     }
 
     public init(from decoder: Decoder) throws {
@@ -432,6 +444,9 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
         self.enriched = try container.decode(Int.self, forKey: .enriched)
         self.benched = try container.decode(Int.self, forKey: .benched)
         self.failing = try container.decode(Int.self, forKey: .failing)
+        self.lyrics = try container.decode(Int.self, forKey: .lyrics)
+        self.synced = try container.decode(Int.self, forKey: .synced)
+        self.instrumental = try container.decode(Int.self, forKey: .instrumental)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -442,6 +457,9 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
         try container.encode(self.enriched, forKey: .enriched)
         try container.encode(self.benched, forKey: .benched)
         try container.encode(self.failing, forKey: .failing)
+        try container.encode(self.lyrics, forKey: .lyrics)
+        try container.encode(self.synced, forKey: .synced)
+        try container.encode(self.instrumental, forKey: .instrumental)
     }
 }
 

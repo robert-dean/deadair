@@ -108,6 +108,39 @@ const isEnriched = (eb: TrackScope) =>
     );
 
 /**
+ * Some lyrics source has the words of it. A miss row holds none, so this looks at the text, as
+ * {@link isEnriched} looks at the payload. Only ever COUNTED: the words themselves are never read here.
+ */
+const hasLyrics = (eb: TrackScope) =>
+    eb.exists(
+        eb
+            .selectFrom('deadair.trackLyrics as ly')
+            .select('ly.id')
+            .whereRef('ly.trackId', '=', 'deadair.tracks.id')
+            .where(w => w.or([w('ly.plain', 'is not', null), w('ly.synced', 'is not', null)])),
+    );
+
+/** Some lyrics source has the timing of its lines, which is what says when the singing starts. */
+const hasSyncedLyrics = (eb: TrackScope) =>
+    eb.exists(
+        eb
+            .selectFrom('deadair.trackLyrics as ly')
+            .select('ly.id')
+            .whereRef('ly.trackId', '=', 'deadair.tracks.id')
+            .where('ly.synced', 'is not', null),
+    );
+
+/** Some lyrics source says nobody sings on it. */
+const isInstrumental = (eb: TrackScope) =>
+    eb.exists(
+        eb
+            .selectFrom('deadair.trackLyrics as ly')
+            .select('ly.id')
+            .whereRef('ly.trackId', '=', 'deadair.tracks.id')
+            .where('ly.instrumental', '=', true),
+    );
+
+/**
  * Every copy written off, which is the one state that means the record CANNOT air.
  *
  * Two halves, and the first is what stops it swallowing a different fact: there has to BE a copy.
@@ -331,9 +364,9 @@ export class TracksRepository extends DataRepository {
     /**
      * How much of the library is in each state, over the same set the page was drawn from.
      *
-     * One query with five conditional counts rather than five queries, because they are all the same
+     * One query with its conditional counts rather than one query each, because they are all the same
      * scan: the aggregate an operator reads first is "N of M measured", and asking the database five
-     * times for one sentence would be five sequential scans of the catalog per page view.
+     * times for one sentence would be that many sequential scans of the catalog per page view.
      *
      * It honours `search` and the album narrowing and deliberately IGNORES `state`: the counts are
      * what the filter is chosen FROM, so filtering them by the current choice would answer "of the
@@ -354,6 +387,9 @@ export class TracksRepository extends DataRepository {
                 eb.fn.count<number>(eb.case().when(isEnriched(eb)).then(1).end()).as('enriched'),
                 eb.fn.count<number>(eb.case().when(isBenched(eb)).then(1).end()).as('benched'),
                 eb.fn.count<number>(eb.case().when(isFailing(eb)).then(1).end()).as('failing'),
+                eb.fn.count<number>(eb.case().when(hasLyrics(eb)).then(1).end()).as('lyrics'),
+                eb.fn.count<number>(eb.case().when(hasSyncedLyrics(eb)).then(1).end()).as('synced'),
+                eb.fn.count<number>(eb.case().when(isInstrumental(eb)).then(1).end()).as('instrumental'),
             ])
             .executeTakeFirstOrThrow();
 
@@ -364,6 +400,9 @@ export class TracksRepository extends DataRepository {
             enriched: Number(counted.enriched),
             benched: Number(counted.benched),
             failing: Number(counted.failing),
+            lyrics: Number(counted.lyrics),
+            synced: Number(counted.synced),
+            instrumental: Number(counted.instrumental),
         };
     }
 

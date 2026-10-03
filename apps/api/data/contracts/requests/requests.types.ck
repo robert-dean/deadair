@@ -4,15 +4,22 @@ options {
     }
 }
 
-contract RequestableTrack: { # A record the station holds and could be asked for
-    trackId: uuid # What to send as `trackId` to make the request
+contract RequestableSource: { # A music provider's copy of a record the station has not taken in yet
+    pluginId: string(min=1, max=200) # The plugin that carries it
+    externalId: string(min=1, max=400) # That plugin's own id for the record
+}
+
+contract RequestableTrack: { # A record the station could be asked for: one it holds, or one a music provider carries
+    trackId?: uuid # What to send as `trackId` to make the request. Absent for a record from a provider, which is asked for by `source` instead
+    source?: RequestableSource # Where a record the station does not hold yet comes from. Send it as `source` to ask for it
+    sourceName?: string(max=200) # The provider, as the station names it, for a record from one
     title: string(max=400)
     artist: string(max=400) # The lead artist
     album?: string(max=400)
     year?: int
 }
 
-contract RequestableTrackList: { # Records matching a search, best matches first
+contract RequestableTrackList: { # Records matching a search, best matches first, the station's own before any a provider carries
     tracks: array(RequestableTrack)
 }
 
@@ -39,7 +46,8 @@ contract ListenerRequestList: { # Requests, newest first
 }
 
 contract ListenerRequestCreate: { # Ask the station to play a record
-    trackId: uuid # A record from the request search
+    trackId?: uuid # A record from the request search that the station holds. Send this or `source`, never both
+    source?: RequestableSource # A record from the request search that a provider carries. The station takes it in, then decides on the request as usual
     name?: string(min=1, max=60) # What the station should call you. Omitted, you are "a listener": your account's email address is never shown or read out
     dedicateTo?: string(min=1, max=60) # Dedicate it to somebody. The station may say this name on air
     message?: string(min=1, max=200) # A few words to go with it. The presenter may put them in their own words on air, and leaves out anything unfit to broadcast; the words themselves are never read out

@@ -34,15 +34,15 @@ struct RequestUiStateTests {
         )
     }
 
-    @Test func aRowCarriesAlbumAndYearWhenTheStationKnowsThem() {
-        let row = RequestRow(RequestableTrack(trackId: trackId, title: "Blue Monday", artist: "New Order", album: "Power, Corruption & Lies", year: 1983))
+    @Test func aRowCarriesAlbumAndYearWhenTheStationKnowsThem() throws {
+        let row = try #require(RequestRow(RequestableTrack(trackId: trackId, title: "Blue Monday", artist: "New Order", album: "Power, Corruption & Lies", year: 1983)))
         #expect(row.id == trackId)
         #expect(row.detail == "Power, Corruption & Lies · 1983")
     }
 
     @Test func aRowWithNeitherAlbumNorYearHasNoDetailLine() {
-        #expect(RequestRow(RequestableTrack(trackId: trackId, title: "Song", artist: "Band")).detail == nil)
-        #expect(RequestRow(RequestableTrack(trackId: trackId, title: "Song", artist: "Band", year: 1983)).detail == "1983")
+        #expect(RequestRow(RequestableTrack(trackId: trackId, title: "Song", artist: "Band"))?.detail == nil)
+        #expect(RequestRow(RequestableTrack(trackId: trackId, title: "Song", artist: "Band", year: 1983))?.detail == "1983")
     }
 
     @Test func blankFieldsAreLeftOutRatherThanSentEmpty() {

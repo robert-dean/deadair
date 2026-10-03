@@ -6,7 +6,7 @@ mdx:
     format: 'md'
 ---
 
-Records the station could be asked to play, matching a title or an artist
+Records the station could be asked to play, matching a title or an artist. When the station holds few, the music providers are asked too
 
 **`GET`** `/requests/search`
 

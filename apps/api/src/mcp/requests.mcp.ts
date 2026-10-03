@@ -49,7 +49,7 @@ export class SearchRequestableRecordsMcpTool implements McpToolHandler {
     readonly definition: Tool = {
         name: 'search_requestable_records',
         description:
-            'Finds records listeners can ask the station to play, by title, artist or both. Use it before create_request to get the trackId; it answers at most 25.',
+            'Finds records listeners can ask the station to play, by title, artist or both. Use it before create_request: a record the station holds carries a trackId, and one only a music provider carries comes with a source instead. It answers at most 25.',
         inputSchema: z.toJSONSchema(SearchRequestableRecordsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(RequestableTrackList, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -99,7 +99,7 @@ export class CreateRequestMcpTool implements McpToolHandler {
     readonly definition: Tool = {
         name: 'create_request',
         description:
-            'Asks the station to play a record, as a listener would, with an optional name, dedication and message. Get the trackId from search_requestable_records first. It always answers with the request: a refused one says why in reason, and a waiting one plays once an operator lets it through.',
+            'Asks the station to play a record, as a listener would, with an optional name, dedication and message. Send the trackId or the source that search_requestable_records gave for the record, never both. It always answers with the request: a refused one says why in reason, and a waiting one plays once an operator lets it through.',
         inputSchema: z.toJSONSchema(CreateRequestArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(ListenerRequest, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },

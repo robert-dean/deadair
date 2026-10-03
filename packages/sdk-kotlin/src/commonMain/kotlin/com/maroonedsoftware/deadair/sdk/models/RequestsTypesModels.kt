@@ -9,16 +9,13 @@ import kotlin.uuid.Uuid
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** A record the station holds and could be asked for */
+/** A music provider's copy of a record the station has not taken in yet */
 @Serializable
-data class RequestableTrack(
-    /** What to send as `trackId` to make the request */
-    val trackId: Uuid,
-    val title: String,
-    /** The lead artist */
-    val artist: String,
-    val album: String? = null,
-    val year: Long? = null,
+data class RequestableSource(
+    /** The plugin that carries it */
+    val pluginId: String,
+    /** That plugin's own id for the record */
+    val externalId: String,
 )
 
 @Serializable
@@ -45,19 +42,6 @@ enum class RequestSource {
     CHAT,
 }
 
-/** Ask the station to play a record */
-@Serializable
-data class ListenerRequestCreate(
-    /** A record from the request search */
-    val trackId: Uuid,
-    /** What the station should call you. Omitted, you are "a listener": your account's email address is never shown or read out */
-    val name: String? = null,
-    /** Dedicate it to somebody. The station may say this name on air */
-    val dedicateTo: String? = null,
-    /** A few words to go with it. The presenter may put them in their own words on air, and leaves out anything unfit to broadcast; the words themselves are never read out */
-    val message: String? = null,
-)
-
 /** Turn a request down */
 @Serializable
 data class ListenerRequestDecline(
@@ -65,10 +49,35 @@ data class ListenerRequestDecline(
     val reason: String? = null,
 )
 
-/** Records matching a search, best matches first */
+/** A record the station could be asked for: one it holds, or one a music provider carries */
 @Serializable
-data class RequestableTrackList(
-    val tracks: List<RequestableTrack>,
+data class RequestableTrack(
+    /** What to send as `trackId` to make the request. Absent for a record from a provider, which is asked for by `source` instead */
+    val trackId: Uuid? = null,
+    /** Where a record the station does not hold yet comes from. Send it as `source` to ask for it */
+    val source: RequestableSource? = null,
+    /** The provider, as the station names it, for a record from one */
+    val sourceName: String? = null,
+    val title: String,
+    /** The lead artist */
+    val artist: String,
+    val album: String? = null,
+    val year: Long? = null,
+)
+
+/** Ask the station to play a record */
+@Serializable
+data class ListenerRequestCreate(
+    /** A record from the request search that the station holds. Send this or `source`, never both */
+    val trackId: Uuid? = null,
+    /** A record from the request search that a provider carries. The station takes it in, then decides on the request as usual */
+    val source: RequestableSource? = null,
+    /** What the station should call you. Omitted, you are "a listener": your account's email address is never shown or read out */
+    val name: String? = null,
+    /** Dedicate it to somebody. The station may say this name on air */
+    val dedicateTo: String? = null,
+    /** A few words to go with it. The presenter may put them in their own words on air, and leaves out anything unfit to broadcast; the words themselves are never read out */
+    val message: String? = null,
 )
 
 /** A record somebody asked the station to play, and what became of it */
@@ -94,6 +103,12 @@ data class ListenerRequest(
     val dedicateTo: String? = null,
     /** What the listener asked to have said with it, in their own words */
     val message: String? = null,
+)
+
+/** Records matching a search, best matches first, the station's own before any a provider carries */
+@Serializable
+data class RequestableTrackList(
+    val tracks: List<RequestableTrack>,
 )
 
 /** Requests, newest first */

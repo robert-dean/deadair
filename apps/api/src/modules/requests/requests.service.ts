@@ -1,9 +1,14 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
+import { AppConfig } from '@maroonedsoftware/appconfig';
+import { ProviderCopyResolver } from '#modules/catalog/ingest/provider.copy.resolver.js';
+import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { RequestDesk } from './request.desk.js';
 import { dedicationOf } from './request.dedication.js';
+import { RequestProviderSearch } from './request.provider.search.js';
 import { RequestsRepository, type RequestRow } from './requests.repository.js';
 import type {
     ListenerRequest,
@@ -11,6 +16,7 @@ import type {
     ListenerRequestDecline,
     ListenerRequestList,
     RequestStatus,
+    RequestableTrack,
     RequestableTrackList,
 } from './types/requests.types.js';
 
@@ -50,21 +56,54 @@ export class RequestsService {
         private readonly desk: RequestDesk,
         private readonly repository: RequestsRepository,
         private readonly identity: StationIdentity,
+        private readonly providers: RequestProviderSearch,
+        private readonly copies: ProviderCopyResolver,
+        private readonly config: AppConfig,
     ) {}
 
+    /**
+     * The station's own records first, then, when it holds few, records a music provider carries.
+     * A provider that cannot be reached costs its rows and nothing else.
+     */
     async search(query: { q: string; limit?: number }): Promise<RequestableTrackList> {
-        return { tracks: await this.repository.search(query.q, query.limit ?? DEFAULT_SEARCH_LIMIT) };
+        const limit = query.limit ?? DEFAULT_SEARCH_LIMIT;
+        const library: RequestableTrack[] = await this.repository.search(query.q, limit);
+        if (library.length >= limit || !this.providers.reaches(library.length)) return { tracks: library };
+
+        const reached = await this.providers.search(query.q, library, limit - library.length);
+        return { tracks: [...library, ...reached] };
     }
 
     async create(body: ListenerRequestCreate): Promise<ListenerRequest> {
         const { actorId } = this.authz.requireUser();
-        const record = await this.repository.findRequestable(body.trackId);
+        const trackId = await this.trackFor(body);
+        const record = await this.repository.findRequestable(trackId);
         if (record === undefined) throw httpError(404).withDetails({ message: 'the station has no record it could play by that id' });
 
         const name = body.name?.trim() || UNNAMED_REQUESTER;
         const dedication = dedicationOf(body.dedicateTo, body.message);
         const row = await this.desk.submit({ key: `user:${actorId}`, name, actorId }, record, dedication);
         return toListenerRequest(row);
+    }
+
+    /**
+     * The library record a request names: its `trackId`, or the provider copy its `source` names,
+     * taken in first. A record taken in stays in the library whatever becomes of the request, as one
+     * a playlist fill finds does.
+     */
+    private async trackFor(body: ListenerRequestCreate): Promise<string> {
+        if ((body.trackId === undefined) === (body.source === undefined)) {
+            throw httpError(400).withDetails({ message: 'name the record by trackId or by source, not both and not neither' });
+        }
+        if (body.trackId !== undefined) return body.trackId;
+
+        const { pluginId, externalId } = body.source!;
+        if (!settingIsOn(this.config, DISCOVER_KEY, DISCOVER_DEFAULT)) {
+            throw httpError(404).withDetails({ message: 'the station is not taking records in from its providers' });
+        }
+        const trackId = await this.copies.resolve(pluginId, externalId, 'requests.create.getTrack');
+        if (trackId === undefined) throw httpError(404).withDetails({ message: 'that provider has no record by that id the station could take in' });
+        return trackId;
     }
 
     async mine(): Promise<ListenerRequestList> {

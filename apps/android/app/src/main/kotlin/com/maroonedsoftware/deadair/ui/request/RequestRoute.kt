@@ -53,7 +53,7 @@ fun RequestRoute(graph: AppGraph, onBack: () -> Unit) {
         searching = true
         try {
             val list = graph.sessions.withSession { it.requests.searchRequestableRecords(SearchRequestableRecordsQuery(q = term, limit = REQUEST_SEARCH_LIMIT)) }
-            results = LoadState.Loaded(list.tracks.map(RequestRow::of))
+            results = LoadState.Loaded(list.tracks.mapNotNull(RequestRow::of))
         } catch (error: CancellationException) {
             throw error
         } catch (error: NotSignedInException) {

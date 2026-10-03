@@ -33,10 +33,11 @@ const val MY_REQUESTS_POLL_MS = 15_000L
  */
 data class RequestRow(val id: String, val title: String, val artist: String, val detail: String?) {
     companion object {
+        /** `null` for a record only a provider carries, which this page does not offer yet. */
         @OptIn(ExperimentalUuidApi::class)
-        fun of(track: RequestableTrack) =
+        fun of(track: RequestableTrack): RequestRow? =
             RequestRow(
-                id = track.trackId.toString(),
+                id = track.trackId?.toString() ?: return null,
                 title = track.title,
                 artist = track.artist,
                 detail = listOfNotNull(track.album, track.year?.toString()).joinToString(" · ").ifEmpty { null },

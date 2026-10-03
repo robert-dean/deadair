@@ -10,7 +10,7 @@ public final class RequestsClient: Sendable {
     }
 
     /// Search requestable records
-    /// Records the station could be asked to play, matching a title or an artist
+    /// Records the station could be asked to play, matching a title or an artist. When the station holds few, the music providers are asked too
     public func searchRequestableRecords(query: SearchRequestableRecordsQuery) async throws -> RequestableTrackList {
         var request = SdkRequest(method: "GET", path: ["requests", "search"])
         try http.addQuery(&request, query)

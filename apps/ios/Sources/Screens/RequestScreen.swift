@@ -64,7 +64,7 @@ struct RequestScreen: View {
             searching = true
             defer { searching = false }
             let query = SearchRequestableRecordsQuery(q: term, limit: RequestRules.searchLimit)
-            if let read = await model.read({ deadair in try await deadair.requests.searchRequestableRecords(query: query).tracks.map(RequestRow.init) }) {
+            if let read = await model.read({ deadair in try await deadair.requests.searchRequestableRecords(query: query).tracks.compactMap(RequestRow.init) }) {
                 results = read
             }
         }

@@ -43,15 +43,15 @@ class RequestUiStateTest {
 
     @Test
     fun `a row carries album and year when the station knows them`() {
-        val row = RequestRow.of(RequestableTrack(Uuid.parse(trackId), "Blue Monday", "New Order", "Power, Corruption & Lies", 1983))
+        val row = RequestRow.of(RequestableTrack(trackId = Uuid.parse(trackId), title = "Blue Monday", artist = "New Order", album = "Power, Corruption & Lies", year = 1983))!!
         assertEquals(trackId, row.id)
         assertEquals("Power, Corruption & Lies · 1983", row.detail)
     }
 
     @Test
     fun `a row with neither album nor year has no detail line rather than an empty one`() {
-        assertNull(RequestRow.of(RequestableTrack(Uuid.parse(trackId), "Song", "Band")).detail)
-        assertEquals("1983", RequestRow.of(RequestableTrack(Uuid.parse(trackId), "Song", "Band", year = 1983)).detail)
+        assertNull(RequestRow.of(RequestableTrack(trackId = Uuid.parse(trackId), title = "Song", artist = "Band"))!!.detail)
+        assertEquals("1983", RequestRow.of(RequestableTrack(trackId = Uuid.parse(trackId), title = "Song", artist = "Band", year = 1983))!!.detail)
     }
 
     @Test

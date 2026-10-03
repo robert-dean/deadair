@@ -44,8 +44,10 @@ public struct RequestRow: Equatable, Sendable, Identifiable {
     public let artist: String
     public let detail: String?
 
-    public init(_ track: RequestableTrack) {
-        id = track.trackId
+    /// `nil` for a record only a provider carries, which this page does not offer yet.
+    public init?(_ track: RequestableTrack) {
+        guard let trackId = track.trackId else { return nil }
+        id = trackId
         title = track.title
         artist = track.artist
         let parts = [track.album, track.year.map(String.init)].compactMap { $0 }

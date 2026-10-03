@@ -7,11 +7,47 @@ const _ZodDatetime = z.preprocess(
 );
 
 /**
- * A record the station holds and could be asked for
- * generated from [RequestableTrack](../../../../data/contracts/requests/requests.types.ck#L7)
+ * A music provider's copy of a record the station has not taken in yet
+ * generated from [RequestableSource](../../../../data/contracts/requests/requests.types.ck#L7)
+ */
+export const RequestableSource = z.strictObject({
+    pluginId: z.string().min(1).max(200).describe('The plugin that carries it'),
+    externalId: z.string().min(1).max(400).describe("That plugin's own id for the record"),
+});
+export type RequestableSource = z.infer<typeof RequestableSource>;
+
+/**
+ * generated from [RequestStatus](../../../../data/contracts/requests/requests.types.ck#L26)
+ */
+export const RequestStatus = z.enum(['waiting', 'pending', 'queued', 'aired', 'declined', 'expired']);
+export type RequestStatus = z.infer<typeof RequestStatus>;
+
+/**
+ * generated from [RequestSource](../../../../data/contracts/requests/requests.types.ck#L28)
+ */
+export const RequestSource = z.enum(['app', 'chat']);
+export type RequestSource = z.infer<typeof RequestSource>;
+
+/**
+ * Turn a request down
+ * generated from [ListenerRequestDecline](../../../../data/contracts/requests/requests.types.ck#L56)
+ */
+export const ListenerRequestDecline = z.strictObject({
+    reason: z.string().max(400).optional().describe('What to tell the listener. Omit for a plain no'),
+});
+export type ListenerRequestDecline = z.infer<typeof ListenerRequestDecline>;
+
+/**
+ * A record the station could be asked for: one it holds, or one a music provider carries
+ * generated from [RequestableTrack](../../../../data/contracts/requests/requests.types.ck#L12)
  */
 export const RequestableTrack = z.strictObject({
-    trackId: z.uuid().describe('What to send as `trackId` to make the request'),
+    trackId: z
+        .uuid()
+        .optional()
+        .describe('What to send as `trackId` to make the request. Absent for a record from a provider, which is asked for by `source` instead'),
+    source: RequestableSource.optional().describe('Where a record the station does not hold yet comes from. Send it as `source` to ask for it'),
+    sourceName: z.string().max(200).optional().describe('The provider, as the station names it, for a record from one'),
     title: z.string().max(400),
     artist: z.string().max(400).describe('The lead artist'),
     album: z.string().max(400).optional(),
@@ -20,23 +56,14 @@ export const RequestableTrack = z.strictObject({
 export type RequestableTrack = z.infer<typeof RequestableTrack>;
 
 /**
- * generated from [RequestStatus](../../../../data/contracts/requests/requests.types.ck#L19)
- */
-export const RequestStatus = z.enum(['waiting', 'pending', 'queued', 'aired', 'declined', 'expired']);
-export type RequestStatus = z.infer<typeof RequestStatus>;
-
-/**
- * generated from [RequestSource](../../../../data/contracts/requests/requests.types.ck#L21)
- */
-export const RequestSource = z.enum(['app', 'chat']);
-export type RequestSource = z.infer<typeof RequestSource>;
-
-/**
  * Ask the station to play a record
- * generated from [ListenerRequestCreate](../../../../data/contracts/requests/requests.types.ck#L41)
+ * generated from [ListenerRequestCreate](../../../../data/contracts/requests/requests.types.ck#L48)
  */
 export const ListenerRequestCreate = z.strictObject({
-    trackId: z.uuid().describe('A record from the request search'),
+    trackId: z.uuid().optional().describe('A record from the request search that the station holds. Send this or `source`, never both'),
+    source: RequestableSource.optional().describe(
+        'A record from the request search that a provider carries. The station takes it in, then decides on the request as usual',
+    ),
     name: z
         .string()
         .min(1)
@@ -56,26 +83,8 @@ export const ListenerRequestCreate = z.strictObject({
 export type ListenerRequestCreate = z.infer<typeof ListenerRequestCreate>;
 
 /**
- * Turn a request down
- * generated from [ListenerRequestDecline](../../../../data/contracts/requests/requests.types.ck#L48)
- */
-export const ListenerRequestDecline = z.strictObject({
-    reason: z.string().max(400).optional().describe('What to tell the listener. Omit for a plain no'),
-});
-export type ListenerRequestDecline = z.infer<typeof ListenerRequestDecline>;
-
-/**
- * Records matching a search, best matches first
- * generated from [RequestableTrackList](../../../../data/contracts/requests/requests.types.ck#L15)
- */
-export const RequestableTrackList = z.strictObject({
-    tracks: z.array(RequestableTrack),
-});
-export type RequestableTrackList = z.infer<typeof RequestableTrackList>;
-
-/**
  * A record somebody asked the station to play, and what became of it
- * generated from [ListenerRequest](../../../../data/contracts/requests/requests.types.ck#L23)
+ * generated from [ListenerRequest](../../../../data/contracts/requests/requests.types.ck#L30)
  */
 export const ListenerRequest = z.strictObject({
     id: z.uuid(),
@@ -95,8 +104,17 @@ export const ListenerRequest = z.strictObject({
 export type ListenerRequest = z.infer<typeof ListenerRequest>;
 
 /**
+ * Records matching a search, best matches first, the station's own before any a provider carries
+ * generated from [RequestableTrackList](../../../../data/contracts/requests/requests.types.ck#L22)
+ */
+export const RequestableTrackList = z.strictObject({
+    tracks: z.array(RequestableTrack),
+});
+export type RequestableTrackList = z.infer<typeof RequestableTrackList>;
+
+/**
  * Requests, newest first
- * generated from [ListenerRequestList](../../../../data/contracts/requests/requests.types.ck#L37)
+ * generated from [ListenerRequestList](../../../../data/contracts/requests/requests.types.ck#L44)
  */
 export const ListenerRequestList = z.strictObject({
     requests: z.array(ListenerRequest),

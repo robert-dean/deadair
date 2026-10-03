@@ -215,6 +215,15 @@ sealed interface Message {
     /** The share button on a row, for TalkBack. */
     data object ShareBreak : Message
 
+    /** The save button on a row, for TalkBack. */
+    data object SaveBreak : Message
+
+    /** The copy reached the place the person picked in the save dialog. */
+    data object BreakSaved : Message
+
+    /** The copy was fetched but could not be written where the person picked. */
+    data object SaveFailed : Message
+
     /** The copy button on a row, for TalkBack, before and after it has copied. */
     data object CopyWhatItSaid : Message
 

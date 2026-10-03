@@ -448,6 +448,9 @@
     <string name="share_cannot_copy">The station can\'t make a copy to send right now.</string>
     <string name="share_could_not_reach">Couldn\'t reach the station to get that break.</string>
     <string name="share_failed">Couldn\'t get that break ready to send.</string>
+    <string name="save_break">Save this break</string>
+    <string name="save_done">Break saved.</string>
+    <string name="save_failed">Couldn\'t save that break there.</string>
     <string name="outcome_written">Written</string>
     <!-- Not a fault: a model that declined and let the floor write is the station working as designed -->
     <string name="outcome_declined">Declined</string>

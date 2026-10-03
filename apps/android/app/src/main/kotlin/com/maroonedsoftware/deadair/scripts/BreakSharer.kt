@@ -3,6 +3,7 @@ package com.maroonedsoftware.deadair.scripts
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.core.content.FileProvider
 import com.maroonedsoftware.deadair.auth.NotSignedInException
 import com.maroonedsoftware.deadair.auth.OperatorSession
@@ -18,16 +19,19 @@ import kotlin.uuid.Uuid
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** What came of getting a break ready to send. */
+/** The station's small copy of a break, written to the cache and ready to send or save. */
+data class BreakCopy(val file: File, val mime: String)
+
+/** What came of fetching a break's copy. */
 sealed interface BreakShareOutcome {
-    /** A chooser to start, holding the copy and permission to read it. */
-    data class Ready(val chooser: Intent) : BreakShareOutcome
+    data class Ready(val copy: BreakCopy) : BreakShareOutcome
 
     data class Failed(val why: Message) : BreakShareOutcome
 }
 
 /**
- * Fetches the station's shareable copy of a break and hands it to the share sheet.
+ * Fetches the station's shareable copy of a break, then hands it to the share sheet or saves it
+ * wherever the person picks.
  *
  * The copy is written under `cacheDir/shared/` and offered through a `FileProvider`, which is the
  * only way to hand another app a file this one owns. **That directory never holds more than one**:
@@ -38,7 +42,8 @@ sealed interface BreakShareOutcome {
  */
 @OptIn(ExperimentalUuidApi::class)
 class BreakSharer(private val context: Context, private val session: OperatorSession) {
-    suspend fun prepare(segmentId: String, chooserTitle: String): BreakShareOutcome {
+    /** Fetches the copy and writes it to the cache, where [chooser] and [saveTo] both read it. */
+    suspend fun fetch(segmentId: String): BreakShareOutcome {
         val copy =
             try {
                 session.withSession { it.render.getSegmentAudio(Uuid.parse(segmentId), SegmentAudioQuery(rendition = SegmentAudioRendition.SHARE)) }
@@ -73,18 +78,44 @@ class BreakSharer(private val context: Context, private val session: OperatorSes
                 return BreakShareOutcome.Failed(Message.ShareFailed)
             }
 
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}$AUTHORITY_SUFFIX", file)
+        return BreakShareOutcome.Ready(BreakCopy(file, mime))
+    }
+
+    /** A chooser holding the copy and permission to read it. */
+    fun chooser(copy: BreakCopy, chooserTitle: String): Intent {
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}$AUTHORITY_SUFFIX", copy.file)
         val send =
             Intent(Intent.ACTION_SEND).apply {
-                type = mime
+                type = copy.mime
                 putExtra(Intent.EXTRA_STREAM, uri)
                 // ClipData as well as the extra: it is what carries the read grant through the chooser
                 // to whichever app is picked.
-                clipData = ClipData.newRawUri(file.name, uri)
+                clipData = ClipData.newRawUri(copy.file.name, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-        return BreakShareOutcome.Ready(Intent.createChooser(send, chooserTitle).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+        return Intent.createChooser(send, chooserTitle).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
+
+    /**
+     * Copies the copy into the document the person created through the system's save dialog, and
+     * answers whether it got there.
+     *
+     * The save dialog rather than writing into Downloads ourselves: it needs no storage permission on
+     * any version this app runs on (writing to shared storage before Android 10 does), and the person
+     * chooses the folder and the name rather than finding the file wherever the app decided.
+     */
+    suspend fun saveTo(copy: BreakCopy, destination: Uri): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                val out = context.contentResolver.openOutputStream(destination) ?: return@withContext false
+                out.use { copy.file.inputStream().use { input -> input.copyTo(it) } }
+                true
+            } catch (_: IOException) {
+                false
+            } catch (_: SecurityException) {
+                false
+            }
+        }
 
     private data class Received(val data: ByteArray, val mime: String, val extension: String, val disposition: String?)
 

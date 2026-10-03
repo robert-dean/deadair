@@ -60,6 +60,13 @@ public enum ListeningState: Equatable, Sendable {
 /// wifi fades, or running on over mobile data the listener would rather not spend. So a move to
 /// another network makes the retry due at once, for a stream that has not failed as much as for
 /// one that has. HLS is a request per segment, each on the network of the moment, and is left alone.
+///
+/// **A wait that never ends is a drop.** `AVPlayer` reports a dead connection as a failure only
+/// some of the time; the rest it sits waiting for bytes that are not coming, and a stall after
+/// audio reads as `playing` above, so the screen said playing over silence for as long as it was
+/// left. Now a wait that outlasts `stallLimit` (after audio has been heard) or `warmUpLimit`
+/// (before, where a waking station is legitimately quiet for five seconds) is treated as the
+/// failure the player did not report, and retried as one.
 @MainActor
 @Observable
 public final class PlaybackConductor {
@@ -75,9 +82,9 @@ public final class PlaybackConductor {
     /// Called once `retryIn` has elapsed and the listener still wants to be playing.
     @ObservationIgnored public var onRetryDue: (@MainActor () -> Void)?
 
-    /// Called when a drop held for the network has waited as long as it is going to, and the state
-    /// has become `unreachable` with no reading from the player to say so.
-    @ObservationIgnored public var onGaveUpWaiting: (@MainActor () -> Void)?
+    /// Called when the state moved on a timer rather than on a reading from the player: a stall
+    /// outlasted its limit and became a drop, or a drop held for the network gave up waiting.
+    @ObservationIgnored public var onTimedOut: (@MainActor () -> Void)?
 
     @ObservationIgnored private var backoff: Backoff
     @ObservationIgnored private var heardAudio = false
@@ -90,15 +97,32 @@ public final class PlaybackConductor {
     /// from a move.
     @ObservationIgnored private var lastNetwork: String?
     @ObservationIgnored private var offlineGiveUp: Cancel?
+    @ObservationIgnored private let stallLimit: Duration
+    @ObservationIgnored private let warmUpLimit: Duration
+    /// The timer on a wait for audio, armed while the player is opening or buffering.
+    @ObservationIgnored private var stallWatch: Cancel?
 
     /// `offlineLimit` is how long a drop waits for the network before it is unreachable. Longer than
     /// the backoff, because waiting costs nothing (no request is made), and a stretch of underground
     /// between two stations is longer than five minutes. Not for ever, because a station that
     /// starts playing out of a pocket half an hour after it went quiet is a surprise, not a feature.
-    public init(backoff: Backoff = Backoff(), schedule: @escaping Schedule = Scheduling.tasks, offlineLimit: Duration = .seconds(15 * 60)) {
+    ///
+    /// `stallLimit` is how long a wait for audio may run once audio has been heard: long enough for
+    /// the ordinary hiccup on mobile data, short of the point where a listener has given up on it.
+    /// `warmUpLimit` is the same before the first audio, several times the five seconds a waking
+    /// station takes.
+    public init(
+        backoff: Backoff = Backoff(),
+        schedule: @escaping Schedule = Scheduling.tasks,
+        offlineLimit: Duration = .seconds(15 * 60),
+        stallLimit: Duration = .seconds(10),
+        warmUpLimit: Duration = .seconds(30)
+    ) {
         self.backoff = backoff
         self.schedule = schedule
         self.offlineLimit = offlineLimit
+        self.stallLimit = stallLimit
+        self.warmUpLimit = warmUpLimit
     }
 
     /// The listener pressed play.
@@ -110,6 +134,7 @@ public final class PlaybackConductor {
         state = .warmingUp
         disarm()
         stopWaitingForNetwork()
+        stopWatchingStall()
     }
 
     /// The listener pressed stop, or something the listener would count as stop happened: a call
@@ -122,6 +147,7 @@ public final class PlaybackConductor {
         state = .stopped
         disarm()
         stopWaitingForNetwork()
+        stopWatchingStall()
     }
 
     /// The phone's network, by an identity that tells one network from another, or `nil` for none.
@@ -172,9 +198,12 @@ public final class PlaybackConductor {
         guard wantsToPlay else {
             state = .stopped
             retryIn = nil
+            stopWatchingStall()
             return
         }
 
+        // Every reading ends the wait the last one started; a fresh wait below starts its own.
+        stopWatchingStall()
         switch phase {
         case .playing:
             heardAudio = true
@@ -189,6 +218,7 @@ public final class PlaybackConductor {
             // Buffering after audio has been heard is an ordinary hiccup and stays "playing", so a
             // two-second stall does not flash a reconnecting banner at somebody.
             state = heardAudio ? .playing : .warmingUp
+            watchStall()
 
         case .ended, .failed:
             retryAfterDrop(fromWarmUp: !heardAudio)
@@ -230,6 +260,22 @@ public final class PlaybackConductor {
         }
     }
 
+    /// Treat the wait for audio as a drop if it runs past its limit.
+    private func watchStall() {
+        stallWatch = schedule(heardAudio ? stallLimit : warmUpLimit) { [weak self] in
+            guard let self else { return }
+            self.stallWatch = nil
+            guard self.wantsToPlay else { return }
+            self.retryAfterDrop(fromWarmUp: !self.heardAudio)
+            self.onTimedOut?()
+        }
+    }
+
+    private func stopWatchingStall() {
+        stallWatch?()
+        stallWatch = nil
+    }
+
     /// Hold the drop until the network is back, for at most `offlineLimit` from when the wait
     /// began: a second failure while already waiting does not start the limit again.
     private func waitForNetwork() {
@@ -241,7 +287,7 @@ public final class PlaybackConductor {
             self.awaitingNetwork = false
             guard self.wantsToPlay else { return }
             self.state = .unreachable
-            self.onGaveUpWaiting?()
+            self.onTimedOut?()
         }
     }
 

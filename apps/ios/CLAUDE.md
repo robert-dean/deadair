@@ -83,7 +83,11 @@ so the first seconds after play are WARM-UP: the lease, the first record, the en
 measured first audio on the MP3 mount at about five seconds on the same AVFoundation stack.
 `PlaybackConductor` treats a failure before the first audio as warm-up, not as a fault; only after
 audio has been heard is a drop `reconnecting`, and only after the backoff is spent is it
-`unreachable`. `airState` separates off air from warming up by whether this app is asking for audio,
+`unreachable`. A wait for audio that never ends is a drop too: `AVPlayer` reports a dead
+connection as a failure only some of the time, and otherwise waits for ever under a screen saying
+playing, so the conductor gives a wait ten seconds once audio has been heard and thirty before
+(`stallLimit`, `warmUpLimit`), then retries it as the failure the player did not report. Not yet
+seen happen on a phone; the limits are reasoned, not measured. `airState` separates off air from warming up by whether this app is asking for audio,
 because the station answers `onAir: false` to both.
 
 **Never probe the mounts.** A connection, however brief, is an audience for the five-minute linger.
@@ -206,7 +210,7 @@ CarPlay and an `AudioPlaybackIntent` are the two real routes to that, and neithe
 network's return makes the retry due at once from a fresh backoff. The wait holds the background
 task as a timed retry does, so an ordinary handover between wifi and mobile data is covered; a
 longer one outlives it and the app is suspended like any other silent app. After fifteen minutes the
-conductor says unreachable through `onGaveUpWaiting`, because no player reading would. A
+conductor says unreachable through `onTimedOut`, because no player reading would. A
 different network is a move, and makes the retry due at once (a fresh item, on the new interface)
 for a mount that has not failed as well as one that has; HLS is left alone. The identity is the
 path's first interface name, since a path has no network handle, so two wifi networks look the same

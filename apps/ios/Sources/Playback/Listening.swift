@@ -68,7 +68,7 @@ final class Listening {
         player.onPhase = { [weak self] phase in self?.observed(phase) }
         player.onTitle = { [weak self] title in self?.gate.onTitle(title) }
         conductor.onRetryDue = { [weak self] in self?.retarget(force: true) }
-        conductor.onGaveUpWaiting = { [weak self] in self?.conductorMoved() }
+        conductor.onTimedOut = { [weak self] in self?.conductorMoved() }
         system.onPlay = { [weak self] in self?.play() }
         system.onStop = { [weak self] in self?.stop() }
         system.onSkip = { [weak self] in self?.skipFromSystem() }

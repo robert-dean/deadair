@@ -109,7 +109,7 @@ struct RequestScreen: View {
     private func send(_ row: RequestRow) {
         guard !sending else { return }
         sending = true
-        let body = form.body(trackId: row.id)
+        let body = form.body(for: row)
         Task {
             defer { sending = false }
             switch await model.read({ deadair in try await deadair.requests.createRequest(body: body) }) {
@@ -147,6 +147,10 @@ struct RequestScreen: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(row.title).lineLimit(1)
                     Text([row.artist, row.detail].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    // A record the station would take in first says where from.
+                    if let from = row.sourceName {
+                        Text(String(localized: "From \(from)")).font(.caption2).foregroundStyle(.secondary)
+                    }
                 }
                 Spacer()
                 Image(systemName: "text.badge.plus").foregroundStyle(.tint)

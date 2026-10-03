@@ -28,6 +28,21 @@ struct RequestsDecodeTests {
         #expect(list.tracks[1].year == nil)
     }
 
+    @Test func decodesARecordOnlyAProviderCarriesWhichHasASourceAndNoTrackId() throws {
+        let list = try decode(RequestableTrackList.self, #"""
+            {
+              "tracks": [
+                { "source": { "pluginId": "deadair.spotify", "externalId": "4u7EnebtmKWzUH433cf5Qv" }, "sourceName": "Spotify", "title": "Blueberry Hill", "artist": "Fats Domino", "year": 1956 }
+              ]
+            }
+            """#)
+        let track = try #require(list.tracks.first)
+        #expect(track.trackId == nil)
+        #expect(track.source?.pluginId == "deadair.spotify")
+        #expect(track.source?.externalId == "4u7EnebtmKWzUH433cf5Qv")
+        #expect(track.sourceName == "Spotify")
+    }
+
     @Test func decodesARefusalWhichIsARequestLikeAnyOther() throws {
         let request = try decode(ListenerRequest.self, #"""
             {

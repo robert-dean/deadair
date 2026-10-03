@@ -38,16 +38,34 @@ public enum RequestRules {
 /// Every row is requestable: the station's search leaves out anything it could not play or that
 /// somebody has disliked. A request can still be refused, by the station's rules rather than the
 /// record's.
+///
+/// A row is one of two kinds. A record the station holds is asked for by its `trackId`; one only a
+/// music provider carries has none yet and is asked for by its `source`, which the station takes in
+/// first. `sourceName` is said under such a row. `id` is unique across both kinds, for the list.
 public struct RequestRow: Equatable, Sendable, Identifiable {
-    public let id: UUID
+    public let id: String
     public let title: String
     public let artist: String
     public let detail: String?
+    public let trackId: UUID?
+    public let source: RequestableSource?
+    public let sourceName: String?
 
-    /// `nil` for a record only a provider carries, which this page does not offer yet.
+    /// `nil` for a row that names its record neither way, which the station never sends.
     public init?(_ track: RequestableTrack) {
-        guard let trackId = track.trackId else { return nil }
-        id = trackId
+        if let trackId = track.trackId {
+            id = trackId.uuidString
+            self.trackId = trackId
+            source = nil
+            sourceName = nil
+        } else if let source = track.source {
+            id = "\(source.pluginId):\(source.externalId)"
+            trackId = nil
+            self.source = source
+            sourceName = track.sourceName ?? source.pluginId
+        } else {
+            return nil
+        }
         title = track.title
         artist = track.artist
         let parts = [track.album, track.year.map(String.init)].compactMap { $0 }
@@ -70,9 +88,11 @@ public struct RequestForm: Equatable, Sendable {
         self.message = message
     }
 
-    public func body(trackId: UUID) -> ListenerRequestCreate {
+    /// The request for `row`, naming its record whichever way the row can be named: never both.
+    public func body(for row: RequestRow) -> ListenerRequestCreate {
         ListenerRequestCreate(
-            trackId: trackId,
+            trackId: row.trackId,
+            source: row.source,
             name: Self.sent(name, max: RequestRules.nameMax),
             dedicateTo: Self.sent(dedicateTo, max: RequestRules.dedicateMax),
             message: Self.sent(message, max: RequestRules.messageMax)

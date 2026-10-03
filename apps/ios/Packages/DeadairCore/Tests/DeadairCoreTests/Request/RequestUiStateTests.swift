@@ -36,7 +36,7 @@ struct RequestUiStateTests {
 
     @Test func aRowCarriesAlbumAndYearWhenTheStationKnowsThem() throws {
         let row = try #require(RequestRow(RequestableTrack(trackId: trackId, title: "Blue Monday", artist: "New Order", album: "Power, Corruption & Lies", year: 1983)))
-        #expect(row.id == trackId)
+        #expect(row.trackId == trackId)
         #expect(row.detail == "Power, Corruption & Lies · 1983")
     }
 
@@ -46,18 +46,41 @@ struct RequestUiStateTests {
     }
 
     @Test func blankFieldsAreLeftOutRatherThanSentEmpty() {
-        let body = RequestForm(name: "  ", dedicateTo: "", message: "\n").body(trackId: trackId)
+        let body = RequestForm(name: "  ", dedicateTo: "", message: "\n").body(for: held)
         #expect(body.trackId == trackId)
+        #expect(body.source == nil)
         #expect(body.name == nil)
         #expect(body.dedicateTo == nil)
         #expect(body.message == nil)
     }
 
     @Test func fieldsAreSentTrimmedAndWithinTheStationsCaps() {
-        let body = RequestForm(name: " Sam ", dedicateTo: String(repeating: "x", count: 80), message: String(repeating: "y", count: 250)).body(trackId: trackId)
+        let body = RequestForm(name: " Sam ", dedicateTo: String(repeating: "x", count: 80), message: String(repeating: "y", count: 250)).body(for: held)
         #expect(body.name == "Sam")
         #expect(body.dedicateTo?.count == RequestRules.dedicateMax)
         #expect(body.message?.count == RequestRules.messageMax)
+    }
+
+    private var held: RequestRow { RequestRow(RequestableTrack(trackId: trackId, title: "Song", artist: "Band"))! }
+
+    @Test func aRecordOnlyAProviderCarriesIsAskedForByItsSourceAndSaysWhereFrom() throws {
+        let source = RequestableSource(pluginId: "deadair.spotify", externalId: "sp-1")
+        let row = try #require(RequestRow(RequestableTrack(source: source, sourceName: "Spotify", title: "Blueberry Hill", artist: "Fats Domino")))
+        #expect(row.id == "deadair.spotify:sp-1")
+        #expect(row.sourceName == "Spotify")
+        let body = RequestForm().body(for: row)
+        #expect(body.trackId == nil)
+        #expect(body.source == source)
+    }
+
+    @Test func aRecordTheStationHoldsIsAskedForByItsIdAloneAndSaysNothingAboutWhereFrom() throws {
+        let row = try #require(RequestRow(RequestableTrack(trackId: trackId, source: RequestableSource(pluginId: "deadair.spotify", externalId: "sp-1"), sourceName: "Spotify", title: "Song", artist: "Band")))
+        #expect(row.sourceName == nil)
+        #expect(RequestForm().body(for: row).source == nil)
+    }
+
+    @Test func aRowNamingItsRecordNeitherWayIsNotDrawn() {
+        #expect(RequestRow(RequestableTrack(title: "Song", artist: "Band")) == nil)
     }
 
     @Test func aRefusalIsSaidInTheStationsWordsWhateverTheCodeWas() {

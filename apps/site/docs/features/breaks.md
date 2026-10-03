@@ -26,6 +26,7 @@ The ceiling is forty words, about fifteen seconds, and it is a ceiling rather th
 A failed check sends the break to the floor rather than back for another draft:
 
 - A talk break naming neither record it was shown is declined: it sounded like the character, and nobody knew what was playing.
+- **About the station** and **What is going on at the station**, under Settings, Station, are told to every presenter as background: who the station is, and anything true right now (an anniversary, a fundraiser, a move). The second is offered as something to know rather than to say, so it comes up where it fits instead of in every link. Clear it when it stops being true.
 - The model is told which part of the day it is, and "tonight" at nine in the morning is declined. This rests on "Station timezone" under Settings, Station; left empty, it is the container's clock, often UTC.
 - When the station knows nothing about a record beyond its listing, the model is told so, and told to state no dates, labels or pressings. Before that rule the station invented catalogue numbers.
 - A script that runs long is cut at the last whole sentence that fits.

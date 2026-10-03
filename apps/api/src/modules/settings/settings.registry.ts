@@ -62,6 +62,7 @@ import {
     MIN_BREAK_WORDS,
     MIN_STORY_WORDS,
 } from '#modules/director/break.words.js';
+import { STATION_CONTEXT_KEY, STATION_IDENTITY_KEY } from '#modules/director/prompt.settings.js';
 import { DEFAULT_MAX_WORDS } from '#modules/director/break.prompt.js';
 import { SUSTAINING_KEYS } from '#modules/schedule/schedule.service.js';
 import {
@@ -250,6 +251,28 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         default: STREAM_DEFAULTS.title,
         help: 'What players and directories show. Icecast advertises it on the mount.',
+    },
+    {
+        group: 'station',
+        key: STATION_IDENTITY_KEY,
+        label: 'About the station',
+        type: 'text',
+        default: '',
+        placeholder: 'An independent station in Atlanta playing soul, funk and the records around them, for people who stay up late.',
+        help:
+            'Who the station is, in a sentence or two: what it plays, who it is for, what it stands for. Every presenter is told it as background, ' +
+            'above whichever show is on. Leave empty and they know only the station’s name.',
+    },
+    {
+        group: 'station',
+        key: STATION_CONTEXT_KEY,
+        label: 'What is going on at the station',
+        type: 'text',
+        default: '',
+        placeholder: 'It is our tenth birthday this week. The studio is snowed in.',
+        help:
+            'Anything true right now that a presenter would know: an anniversary, a fundraiser, a move. Told to every break as something to know ' +
+            'rather than to say, so it comes up where it fits instead of in every link. Clear it when it stops being true.',
     },
     {
         group: 'station',

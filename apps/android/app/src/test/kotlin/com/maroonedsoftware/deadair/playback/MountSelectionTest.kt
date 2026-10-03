@@ -85,4 +85,33 @@ class MountSelectionTest {
         assertEquals("/only.flac", choice.path)
         assertTrue(choice.fellBack)
     }
+
+    @Test
+    fun `Automatic plays HLS where the station publishes it`() {
+        val choice = chooseMount(published, null)
+
+        assertEquals("/live.m3u8", choice.path)
+        assertEquals(StreamFormat.HLS, choice.format)
+        assertFalse(choice.fellBack)
+    }
+
+    @Test
+    fun `Automatic plays MP3 where there is no HLS, and that is not a fallback`() {
+        val noHls = listOf(mount(NowPlayingMountFormat.MP3, "/live.mp3", 128), mount(NowPlayingMountFormat.AAC, "/live.aac", 192))
+
+        val choice = chooseMount(noHls, null)
+
+        assertEquals("/live.mp3", choice.path)
+        assertEquals(StreamFormat.MP3, choice.format)
+        // Nothing was asked for that the station failed to give, so there is nothing to tell anybody.
+        assertFalse(choice.fellBack)
+    }
+
+    @Test
+    fun `Automatic guesses the default mount before the station has answered, quietly`() {
+        val choice = chooseMount(emptyList(), null)
+
+        assertEquals("/live.mp3", choice.path)
+        assertFalse(choice.fellBack)
+    }
 }

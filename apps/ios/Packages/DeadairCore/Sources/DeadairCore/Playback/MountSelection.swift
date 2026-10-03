@@ -22,9 +22,21 @@ public let defaultMount = "/live.mp3"
 /// audible rather than to silence, and it says so, because a listener who chose FLAC and is
 /// quietly given 128k MP3 has been lied to.
 ///
+/// `wanted` is `nil` for Automatic, which is what a listener who never chose has: HLS where the
+/// station publishes it, because a phone moves between wifi and mobile data and HLS, a request per
+/// segment, survives that where a mount's one long connection does not; MP3 where it does not.
+/// Never a fallback, because nothing was asked for that the station failed to give.
+///
 /// Nothing here connects to a mount to find out. Under `playout.airMode: audience` a connection is
 /// an audience for the five-minute linger, so a probe would put a silent station on air.
-public func chooseMount(_ mounts: [NowPlayingMount], wanted: StreamFormat) -> MountChoice {
+public func chooseMount(_ mounts: [NowPlayingMount], wanted: StreamFormat?) -> MountChoice {
+    guard let wanted else {
+        if let hls = mounts.first(where: { $0.format == .hls }) {
+            return MountChoice(path: hls.path, format: .hls, fellBack: false)
+        }
+        let mp3 = chooseMount(mounts, wanted: .mp3)
+        return MountChoice(path: mp3.path, format: mp3.format, fellBack: false)
+    }
     // Before the first reading there is nothing to choose from, and `/live.mp3` is where every
     // current station publishes MP3.
     guard !mounts.isEmpty else { return MountChoice(path: defaultMount, format: .mp3, fellBack: wanted != .mp3) }

@@ -156,6 +156,14 @@ fresh wifi socket after about two seconds of buffering, no player error. Look fo
 `ss -tni` under `adb root`, and match on the local address rather than the peer: the station's
 Cloudflare address differs between the two networks.
 
+**The format nobody chose is Automatic, and it is the absence of a choice.** `ListenerSettings.format`
+is `null` for it and the store keeps nothing, so an install from before it existed that never chose
+is Automatic now and one that chose MP3 keeps it. `chooseMount` plays HLS where the station
+publishes it and MP3 where it does not, and neither is a fallback. The price is HLS's: several
+seconds further behind the live edge, and no ICY title, so with the display dark the lock screen
+moves on the thirty-second poll as described above. Accepted, because a handover that cuts the
+stream is worse than a title that changes late.
+
 **HLS listeners are counted per IP and User-Agent**, from playlist re-fetches inside a 15-second
 window. So there is one agent string (`UserAgent.VALUE`), and it reaches every request from one of
 two places: an interceptor on the shared OkHttp client, which the SDK and the image loader both go

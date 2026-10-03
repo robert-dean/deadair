@@ -216,6 +216,15 @@ for a mount that has not failed as well as one that has; HLS is left alone. The 
 path's first interface name, since a path has no network handle, so two wifi networks look the same
 and a move between them falls back to failing and being retried. Not yet measured on a phone.
 
+**The format nobody chose is Automatic, and it is the absence of a choice**: `format` is `nil`,
+stored as no key at all, and `chooseMount` plays HLS where the station publishes it and MP3 where
+it does not, never as a fallback. Every save used to write the format whichever setting changed,
+so a stored `mp3` from before says nothing about a choice; `SettingsStore` forgets it once, behind
+the `format_automatic_read` marker, and keeps any other format. Checked on the simulator by editing
+the container's plist: restart `cfprefsd` (`launchctl kickstart -k
+user/foreground/com.apple.cfprefsd.xpc.daemon` through `simctl spawn`) before reading the file or
+writing it, or the file and the app disagree and the test proves nothing.
+
 **A `deadair://` link proposes a station; it never switches to one.** Android's rule and the
 desktop's grammar (`StationLink`, whose tests are theirs case for case). With no station kept, setup
 opens straight on the field with the address in it. With one kept, a sheet asks over the app, and

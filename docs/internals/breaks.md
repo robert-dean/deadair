@@ -158,6 +158,17 @@ duck's 300ms ramp after the last word as part of the link, allows for Liquidsoap
 about 3.5% slow (measured beside `on_air_elapsed` in `radio.liq`), and on an intro of 18s or more
 starts two seconds in rather than hanging silent until the post.
 
+**The writer is told the intro's length as an offer, never as a tighter ceiling.** `WriteBreakJob.talkUp`
+reads the next record's runway through the same `runwayFor`, and `talkUpBudget` turns it into a word
+count at `WORDS_PER_SECOND` after the same safety, ramp and clock allowances; `breakPrompt` says the
+singing starts about N seconds in and that a link of that many words or fewer goes out over the intro,
+and that a longer one is fine. Only inside the band where a runway binds (2.5s to 18s): past it any
+link fits, and below it a link airs in the gap, where it clashes with nothing, so there is nothing
+worth saying. A station that always talks over a record's head needs a "the vocal starts at once,
+say nothing" warning and a hard trim; this one does not, because the hand-over decides on the real
+length and a link that ran long simply airs where it always did. `talkUp` is `not-spoken` in
+`break.freshness.ts` for the same reason.
+
 **A talked-up link BECOMES a talk-over on the order**, `over` and all (`StationLineup.handOverTalkingUp`),
 rather than only being handled as one by the director. `markAiring` reads that field to know that a
 handed cue in front of the record now starting has not been missed; a link carried as a cue without it

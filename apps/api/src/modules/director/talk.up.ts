@@ -2,6 +2,8 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { numberOr } from '#modules/shared/setting.numbers.js';
 import { RUNWAY_CEILING_MS, RUNWAY_FLOOR_MS, type Runway } from '#modules/lyrics/vocal.runway.js';
+import { DUCK_FADE_MS } from '#modules/stream/stream.service.js';
+import { WORDS_PER_SECOND } from './break.prompt.js';
 
 /**
  * Talking up to the post: airing a link over the start of the next record, so the last word lands
@@ -89,4 +91,24 @@ export function talkUpAt({ voiceMs, runway, safetyMs, duckFadeMs }: TalkUpQuesti
     if (latest < 0) return undefined;
 
     return runway.ms >= RUNWAY_CEILING_MS ? Math.min(latest, SETTLE_MS) : latest;
+}
+
+/** Below this many words there is no link worth offering to fit, so the writer is told nothing. */
+export const MIN_TALK_UP_WORDS = 4;
+
+/**
+ * What the writer of a link is told about the record after it: how far in its singing starts, and
+ * how many words would fit in front of it. `undefined` when there is nothing useful to say.
+ *
+ * Advice and nothing more. The placement at hand-over is what decides, on the clip's real length, so
+ * a link that runs long simply airs in the gap. That is also why nothing is said about a record whose
+ * singing starts almost at once: a link written for it airs in the gap, where it clashes with nothing.
+ * Only a runway inside the band where it binds is worth a sentence; past the ceiling any link fits.
+ */
+export function talkUpBudget(runway: Runway, safetyMs: number): { runwayMs: number; words: number } | undefined {
+    if (runway.kind !== 'ms' || runway.ms < RUNWAY_FLOOR_MS || runway.ms >= RUNWAY_CEILING_MS) return undefined;
+
+    const spokenMs = (runway.ms - safetyMs - DUCK_FADE_MS) / (1 + CUE_CLOCK_DRIFT);
+    const words = Math.floor((spokenMs / 1000) * WORDS_PER_SECOND);
+    return words < MIN_TALK_UP_WORDS ? undefined : { runwayMs: runway.ms, words };
 }

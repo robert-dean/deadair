@@ -272,6 +272,14 @@ export interface BreakWriteRequest {
     previous?: BreakTrack;
     /** The record this break leads into, when it leads into one. Absent at the end of an order. */
     next?: BreakTrack;
+    /**
+     * How long the intro of {@link next} runs before its singing, and how many words would fit over it.
+     *
+     * Present only for a talk break, with talking up switched on, before a record whose timed lyrics
+     * say where the singing starts. Advice to a writer that can use it; the floor ignores it, and the
+     * decision is taken at hand-over on the rendered length either way. See `talk.up.ts`.
+     */
+    talkUp?: { runwayMs: number; words: number };
     /** What the station calls itself, from `stream.title`. Absent when the operator has not said. */
     station?: string;
     /**

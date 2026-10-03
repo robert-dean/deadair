@@ -640,7 +640,7 @@ export interface PersonaCharacter extends PersonaSheet {
 export const DEFAULT_MAX_WORDS = 40;
 
 /** Roughly how fast a voice reads, for turning a word ceiling into a length a model understands. */
-const WORDS_PER_SECOND = 2.6;
+export const WORDS_PER_SECOND = 2.6;
 
 /**
  * The rung in force for this prompt, or `undefined` for the station's ordinary discipline.
@@ -1022,6 +1022,18 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         // loses itself to a drift it never promised anything about.
         parts.push(
             'You do not have to mention both records. One of them, handed over the way only you would say it, is better than both said flatly.',
+        );
+    }
+
+    // The record coming up has an intro the presenter could talk over, and this is how much of it
+    // there is. Advice only: whether the link actually goes over the intro is decided at hand-over on
+    // its real length (`talk.up.ts`), and one that runs long simply airs before the record instead.
+    // So it is an offer and says so, never a tighter ceiling.
+    if (request.next && request.talkUp !== undefined) {
+        parts.push(
+            `The singing on the record coming up starts about ${Math.floor(request.talkUp.runwayMs / 1000)} seconds in. ` +
+                `Say this in ${request.talkUp.words} words or fewer and it goes out over that intro, finishing just before the singer comes in. ` +
+                'Anything longer is said before the record starts, which is fine too.',
         );
     }
 

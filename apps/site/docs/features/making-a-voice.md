@@ -6,7 +6,7 @@ description: Giving a character a voice of its own, designed with Claude and Ele
 
 Every character ships with a voice, but the stock voices are somebody's guess at what a character
 sounds like. This page makes one that fits: design it from a description, clone it into the speech
-server, and point the character at it. The example uses [Rhapsode](https://maroonedsoftware.github.io/rhapsode/)
+server, and point the character at it. The example uses [Rhapsode](https://rhapsode.dev/)
 with its Chatterbox engine, which clones from a short clip, and ElevenLabs connected to Claude for the
 design. Any engine that clones from a clip works the same way. Only the upload step changes.
 

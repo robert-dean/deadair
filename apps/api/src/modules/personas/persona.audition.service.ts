@@ -119,8 +119,7 @@ export class PersonaAuditionService {
         const audition = await this.auditions.open({
             personaId: persona.id,
             personaKey: persona.key,
-            sourcePluginId: body.pluginId,
-            sourcePlaylistId: body.playlistId,
+            source: { pluginId: body.pluginId, playlistId: body.playlistId },
             ...(body.name === undefined ? {} : { sourceName: body.name }),
             records,
             ...(this.actor() === undefined ? {} : { actorId: this.actor()! }),
@@ -258,9 +257,10 @@ export class PersonaAuditionService {
             id: run.id,
             personaId: run.personaId,
             personaKey: run.personaKey,
+            // Phase-one shape: only a provider's playlist is written yet, so a row from either other
+            // source cannot exist until the contract can describe it.
             source: {
-                pluginId: run.sourcePluginId,
-                playlistId: run.sourcePlaylistId,
+                ...('pluginId' in run.source ? { pluginId: run.source.pluginId, playlistId: run.source.playlistId } : { pluginId: '', playlistId: '' }),
                 ...(run.sourceName === undefined ? {} : { name: run.sourceName }),
             },
             state: run.state,

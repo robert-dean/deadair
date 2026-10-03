@@ -34,13 +34,17 @@ export const isAuditionSettled = (state: AuditionState): boolean => SETTLED.has(
  * whose records were re-read per transition would be two different measurements in one row.
  *
  * The fields are exactly what a writer can be told about a record — see `BreakTrack` — plus the
- * binding that identifies the copy. `artist` is the LEAD rather than the display credit, on
- * `toRundownTracks`' rule: a provider's `artists` array really does have the lead first, which is
- * not true of the catalog's own `artists` column.
+ * binding that identifies the copy, when there is one. `artist` is the LEAD rather than the display
+ * credit, on `toRundownTracks`' rule: a provider's `artists` array really does have the lead first,
+ * which is not true of the catalog's own `artists` column.
  */
 export interface AuditionRecord {
-    pluginId: string;
-    externalId: string;
+    /**
+     * The copy a provider's playlist named. Absent for a station playlist's row or a chart's entry,
+     * which name a RECORD rather than a copy: nothing here fetches or plays it, so none is needed.
+     */
+    pluginId?: string;
+    externalId?: string;
     title: string;
     artist: string;
     /** The catalog row, when the station holds this copy. What everything interesting hangs off. */
@@ -102,15 +106,24 @@ export interface AuditionBreak {
     createdAt: number;
 }
 
+/**
+ * Where a run's records came from: a provider's playlist, a playlist the station owns, or a published
+ * chart. The three a broadcast can be built from, as `ScheduleSlotSource` spells them, and exactly one
+ * of them, as migration 0059's check holds the row to.
+ *
+ * Provenance only. The records were copied onto the run when it was asked for, so nothing reads the
+ * source again and a playlist deleted afterwards leaves the run as it was.
+ */
+export type AuditionSource = { pluginId: string; playlistId: string } | { stationPlaylistId: string } | { chartId: string };
+
 /** A run as it is read back. */
 export interface Audition {
     id: string;
     stationKey: string;
     personaId: string;
     personaKey: string;
-    sourcePluginId: string;
-    sourcePlaylistId: string;
-    /** What the playlist was called when the run started. A snapshot, for the console. */
+    source: AuditionSource;
+    /** What the source was called when the run started. A snapshot, for the console. */
     sourceName?: string;
     records: AuditionRecord[];
     /** How many breaks this run writes: one per transition, so one fewer than the records. */

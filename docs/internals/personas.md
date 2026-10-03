@@ -416,9 +416,9 @@ against a fixed invented pair — no `trackId` so no facts, `recent: []`, the sa
 that is the right shape for the question it answers, which is what one sheet EDIT changed: the substrate has
 to be pinned or two readings a minute apart are not comparable. What it cannot answer is whether a character
 holds up over real material, and that was previously knowable only by switching the station over and waiting
-an evening. `POST /personas/{id}/auditions` (migration 0024, `PersonaAuditionJob`, and the Auditions tab on
-Voice) is the half in between: one host, one provider playlist, one talk break per transition, and nothing
-airs. Six things are load-bearing, and every one of them is about not measuring the wrong thing.
+an evening. `POST /personas/{id}/auditions` (migrations 0024 and 0059, `PersonaAuditionJob`, and the Auditions tab on
+Voice) is the half in between: one host, one source, one talk break per transition, and nothing airs. Seven
+things are load-bearing, and every one of them is about not measuring the wrong thing.
 
 **It is a chain of jobs over one row, never a request.** Each transition is a generation at the `preview`
 tier, which queues behind everything the station does for itself and is preempted the moment a real break
@@ -457,6 +457,17 @@ that is the reading the whole feature exists to collect. It is recorded with the
 `attempts[].refused` on the break's row, whatever `llm.captureWrites` says: a reason such as "read a sample
 line back" cannot be acted on without knowing which line, and a measurement should not depend on a debugging
 switch being on. The row keeps them and the console does not draw them yet.
+
+**The source is any of the three a broadcast can be built from, and is read for RECORDS, never copies.** A
+provider's playlist, a playlist the station owns, or a published chart, exactly one of them, which the
+service refuses anything else over and 0059's check holds the row to. Airing a station playlist leaves out
+the rows the library does not hold, and airing a chart looks every entry up at a provider and ingests it,
+because both have to fetch what they air. An audition fetches nothing, so it does neither: a placeholder
+and an unmatched chart entry are still a title and a lead artist the host can introduce. A chart entry is
+matched to the library by `CandidatesRepository.findByName`, the resolver's own first step without the
+provider lookup after it, so a record the station holds still brings its facts. Reaching for
+`DirectorConsoleService`'s source readers instead would have run the veto and the discovery path over
+a run that airs nothing, and dropped exactly the records an operator auditioning a new chart wanted heard.
 
 **It is the before-the-fact half of `scripts/break.declines.ts`.** That report counts decline rates and marker
 recall out of `script_history`, which means a sheet change is judged an evening after it ships; the tally on

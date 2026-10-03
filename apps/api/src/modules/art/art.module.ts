@@ -9,6 +9,7 @@ import { ArtRepository } from './art.repository.js';
 import { ArtService } from './art.service.js';
 import { ArtStore } from './art.store.js';
 import { BreakArtworkService } from './break.artwork.service.js';
+import { PersonaArtworkService } from './persona.artwork.service.js';
 
 /** Where cached art is written when `ART_DIR` is unset. Alongside `logs/`, and gitignored with it. */
 const DEFAULT_ART_DIR = './media/art';
@@ -86,6 +87,9 @@ export const ArtModule: ServerKitModule = {
                 container => new BreakArtworkService(container.get(ArtRepository), container.get(ArtStore), breakArtAssetsDir, container.get(Logger)),
             )
             .asScoped();
+
+        // Scoped for the same reason: it writes through `ArtRepository`. Nothing shipped, so no directory.
+        registry.register(PersonaArtworkService).useClass(PersonaArtworkService).asScoped();
     },
 
     /**

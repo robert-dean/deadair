@@ -181,6 +181,67 @@ paths:
                                 type: string
                 '304':
                     description: 'Response 304'
+    '/art/personas':
+        get:
+            operationId: listPortraits
+            summary: 'List persona portraits'
+            description: 'Every persona that has a portrait'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaPortraitList'
+    '/art/personas/{personaId}':
+        post:
+            operationId: replacePortrait
+            summary: 'Replace persona portrait'
+            description: 'Puts a picture on a persona. A persona that already had one keeps its URL, so a player holding it picks up the new picture'
+            parameters:
+                - name: personaId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'multipart/form-data':
+                        schema:
+                            '$ref': '#/components/schemas/PersonaPortraitUpload'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaPortraitList'
+                '400':
+                    description: 'Bad request'
+                '413':
+                    description: 'Response 413'
+                '415':
+                    description: 'Response 415'
+        delete:
+            operationId: removePortrait
+            summary: 'Remove persona portrait'
+            description: "Takes a persona's picture away. A player shows the record's cover instead"
+            parameters:
+                - name: personaId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaPortraitList'
     '/auth/apikeys':
         get:
             operationId: list
@@ -5047,6 +5108,37 @@ components:
                     description: 'The image itself. jpeg, png, webp or gif, decided by its BYTES rather than by its name or its declared type, and at most 4 MB'
             required: [file]
             description: "A picture arriving from the browser, as multipart form parts.\n\nDocumentation rather than validation: a multipart body reaches the service as the raw parser and\nthe generated client types the body as `FormData`, so nothing checks this shape. It says what to\nsend"
+        PersonaPortrait:
+            type: object
+            properties:
+                personaId:
+                    type: string
+                    format: uuid
+                    description: 'The persona it belongs to'
+                url:
+                    type: string
+                    maxLength: 2000
+                    description: "Where the station serves it, as a path under the API root. The same shape and the same route a record's cover uses"
+            required: [personaId, url]
+            description: "A presenter's picture, which a listener's player shows while that persona is on air"
+        PersonaPortraitList:
+            type: object
+            properties:
+                portraits:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PersonaPortrait'
+            required: [portraits]
+            description: 'Every persona that has a portrait'
+        PersonaPortraitUpload:
+            type: object
+            properties:
+                file:
+                    type: string
+                    format: binary
+                    description: 'The image itself. jpeg, png, webp or gif, decided by its BYTES, and at most 4 MB'
+            required: [file]
+            description: "A portrait arriving from the browser, as multipart form parts. Documentation rather than validation, as for a break's picture"
         AuthenticationGrantType:
             type: string
             enum:
@@ -8115,6 +8207,10 @@ components:
                     type: string
                     maxLength: 200
                     description: "Who is presenting, by the name they go by on air. Absent when there is no name to give: no persona on air with one, and no station-wide presenter name set. Never the persona's console label"
+                hostArtUrl:
+                    type: string
+                    maxLength: 2000
+                    description: "A picture of whoever is presenting, when the operator gave their persona one. A path under the API root, like a cover's. Absent for a persona with no picture, which a player answers by showing the record's cover as before"
             required: [name]
             description: 'The programme on air, as a listener would be told it'
         NowPlaying:

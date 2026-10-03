@@ -3,6 +3,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { ArtRepository } from './art.repository.js';
 import { ART_SERVED_TYPES, ArtStore, type ArtContentType } from './art.store.js';
 import { isBreakArtKey } from './break.art.js';
+import { isPersonaArtKey } from './persona.art.js';
 
 /**
  * How long a browser may reuse a cached image before asking again.
@@ -73,7 +74,7 @@ export class ArtService {
             contentType: ART_SERVED_TYPES[asset.ext],
             body: bytes,
             headers: {
-                cacheControl: isBreakArtKey(asset.sourceUrl) ? REPLACEABLE_CACHE_CONTROL : CACHE_CONTROL,
+                cacheControl: isReplaceable(asset.sourceUrl) ? REPLACEABLE_CACHE_CONTROL : CACHE_CONTROL,
                 etag: `"${asset.checksum}"`,
             },
         };
@@ -98,3 +99,6 @@ export class ArtService {
         return this.getArt(id);
     }
 }
+
+/** A picture the station keeps under a stable id and an operator can replace: a break's, or a persona's. */
+const isReplaceable = (sourceUrl: string): boolean => isBreakArtKey(sourceUrl) || isPersonaArtKey(sourceUrl);

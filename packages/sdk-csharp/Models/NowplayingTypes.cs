@@ -76,6 +76,11 @@ public sealed record NowPlayingShow
     [JsonPropertyName("host")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Host { get; init; }
+
+    /// <summary>A picture of whoever is presenting, when the operator gave their persona one. A path under the API root, like a cover's. Absent for a persona with no picture, which a player answers by showing the record's cover as before</summary>
+    [JsonPropertyName("hostArtUrl")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? HostArtUrl { get; init; }
 }
 
 /// <summary>What the station is playing, for anything that wants to display it</summary>

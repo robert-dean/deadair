@@ -60,7 +60,11 @@ export class NowPlayingService {
         const broadcast = this.rundown.broadcast();
         if (!broadcast) return undefined;
         const host = broadcast.host ?? this.presenterName();
-        return { name: broadcast.name, ...(host === undefined ? {} : { host }) };
+        return {
+            name: broadcast.name,
+            ...(host === undefined ? {} : { host }),
+            ...(broadcast.hostArtUrl === undefined ? {} : { hostArtUrl: broadcast.hostArtUrl }),
+        };
     }
 
     /**

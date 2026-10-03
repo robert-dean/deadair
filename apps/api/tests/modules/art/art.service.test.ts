@@ -63,6 +63,15 @@ describe('ArtService.getArt', () => {
         expect(response.headers.etag).toBe(`"${CHECKSUM}"`);
     });
 
+    it('treats a presenter portrait the same way, since it is replaced under one id too', async () => {
+        const { service: art } = service({
+            asset: { id: ID, sourceUrl: 'deadair:persona-art/22222222-2222-4222-8222-222222222222', checksum: CHECKSUM, ext: 'png' },
+            bytes: BYTES,
+        });
+
+        expect((await art.getArt(ID)).headers.cacheControl).toBe('no-cache');
+    });
+
     it('404s an id nobody has cached', async () => {
         const { service: art, read } = service({ asset: undefined });
 

@@ -443,6 +443,16 @@ export interface DeadairOauthGrants {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairOutputCasts {
+  deviceId: string;
+  deviceName: string;
+  mountPath: string;
+  pluginId: string;
+  startedAt: Generated<DateTime>;
+  startedBy: string | null;
+  stationKey: Generated<string>;
+}
+
 export interface DeadairPads {
   audioChecksum: string;
   audioExt: string;
@@ -1083,6 +1093,7 @@ export interface DB {
   "deadair.narrationPieces": DeadairNarrationPieces;
   "deadair.oauthClients": DeadairOauthClients;
   "deadair.oauthGrants": DeadairOauthGrants;
+  "deadair.outputCasts": DeadairOutputCasts;
   "deadair.pads": DeadairPads;
   "deadair.padSetMembers": DeadairPadSetMembers;
   "deadair.padSets": DeadairPadSets;

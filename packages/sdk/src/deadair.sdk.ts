@@ -14,6 +14,7 @@ import { NewsClient } from './news/news.client.js';
 import { NowplayingClient } from './nowplaying/nowplaying.client.js';
 import { OauthClient } from './oauth/oauth.client.js';
 import { OnboardingClient } from './onboarding/onboarding.client.js';
+import { OutputsClient } from './outputs/outputs.client.js';
 import { PersonasClient } from './personas/personas.client.js';
 import { PlaylistsClient } from './playlists/playlists.client.js';
 import { PlayoutClient } from './playout/playout.client.js';
@@ -44,6 +45,7 @@ export class DeadairSdk {
     readonly nowplaying: NowplayingClient;
     readonly oauth: OauthClient;
     readonly onboarding: OnboardingClient;
+    readonly outputs: OutputsClient;
     readonly personas: PersonasClient;
     readonly playlists: PlaylistsClient;
     readonly playout: PlayoutClient;
@@ -75,6 +77,7 @@ export class DeadairSdk {
         this.nowplaying = new NowplayingClient(sdkFetch);
         this.oauth = new OauthClient(sdkFetch);
         this.onboarding = new OnboardingClient(sdkFetch);
+        this.outputs = new OutputsClient(sdkFetch);
         this.personas = new PersonasClient(sdkFetch);
         this.playlists = new PlaylistsClient(sdkFetch);
         this.playout = new PlayoutClient(sdkFetch);

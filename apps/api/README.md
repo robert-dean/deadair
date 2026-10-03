@@ -152,6 +152,7 @@ so.
 | **Station**     | [modules/station](src/modules/station)           | The station about itself, composed across everything else: what needs somebody, and the machinery underneath it. Last, because it reads playout's silence diagnosis, the director's running order, the catalog's state and the plugin host, and nothing resolves it back. It owns no table and writes nothing. It is not a health check: several of the states it composes describe a healthy process doing what it was told, so only faults reach the list. |
 | **Requests**    | [modules/requests](src/modules/requests)         | Listener requests, from an app or a chat: the arbitration (one per person, a cooldown, a cap), the station's own rules through `PickResolver`, and placement through the director's `insertRequested` only once the audio is local. A cron retries and lapses; a listener on the aired edge marks a request heard. Before Messaging, whose `/request` calls it. |
 | **Messaging**   | [modules/messaging](src/modules/messaging)       | The station on chat platforms, through whatever `messaging` plugins are installed. The one capability consumer that owns a LOOP: a plugin cannot push, and somebody who typed `/now` is waiting, so a poller started in `ready` long-polls each platform with a cursor kept in `messaging_cursors`. Late in the list so it lets go of every platform before the director and the plugins tear down. See [`docs/internals/messaging.md`](../../docs/internals/messaging.md). |
+| **Outputs**     | [modules/outputs](src/modules/outputs)           | The station on speakers, through whatever `output` plugins are installed: the speakers they offer, the casts the operator started (`output_casts`), and a supervisor started in `ready` that plays a speaker again when it drops the stream, and forgets a cast when somebody at the speaker moves on. The speaker fetches the public mount URL itself, so no audio passes through here. After Messaging, so it stops before the plugins and playout tear down. |
 
 ### The plugin subsystem
 [modules/plugins](src/modules/plugins) is registered late, because a plugin's host reaches into the
@@ -219,6 +220,7 @@ Never hand-edit a router.
 | `languages`               | `GET /console/languages` and `GET /console/languages/{locale}`, both public; `PUT` and `DELETE /console/languages/{locale}`, `platform.manage` |
 | `storage`                 | `GET /storage` — what is on disk, per store, against what the database says should be there |
 | `onboarding`              | `GET /onboarding`, `POST /onboarding` — anonymous, since the first-run caller has no account yet |
+| `outputs`                 | `GET /outputs/devices`, `GET /outputs/casts` (`platform.view`); `POST /outputs/casts`, `DELETE /outputs/casts/{pluginId}/{deviceId}` (`platform.manage`, since a speaker playing the station is a listener holding it on air) |
 
 Every router registered in [routes.setup.ts](src/routes/routes.setup.ts) is above, in registration
 order. That file stays the source of truth; `health` is deliberately first in it, answering out of

@@ -65,6 +65,12 @@ describe('the module list', () => {
         expect(tearsDownBefore('Messaging', 'NowPlaying')).toBe(true);
     });
 
+    it('stops keeping speakers on the station before the plugins it calls and the playout it serves tear down', () => {
+        expect(tearsDownBefore('Outputs', 'Plugins')).toBe(true);
+        expect(tearsDownBefore('Outputs', 'Playout')).toBe(true);
+        expect(tearsDownBefore('Outputs', 'NowPlaying')).toBe(true);
+    });
+
     it('registers requests after the director that places them and before the chat commands that make them', () => {
         expect(tearsDownBefore('Requests', 'Director')).toBe(true);
         expect(tearsDownBefore('Requests', 'Playout')).toBe(true);

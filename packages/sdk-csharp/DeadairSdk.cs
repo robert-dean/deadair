@@ -38,6 +38,7 @@ public sealed class DeadairSdk : IDisposable
         Nowplaying = new NowplayingClient(Http);
         Oauth = new OauthClient(Http);
         Onboarding = new OnboardingClient(Http);
+        Outputs = new OutputsClient(Http);
         PersonasAuditions = new PersonasAuditionsClient(Http);
         Personas = new PersonasClient(Http);
         Playlists = new PlaylistsClient(Http);
@@ -97,6 +98,8 @@ public sealed class DeadairSdk : IDisposable
     public OauthClient Oauth { get; }
 
     public OnboardingClient Onboarding { get; }
+
+    public OutputsClient Outputs { get; }
 
     public PersonasAuditionsClient PersonasAuditions { get; }
 

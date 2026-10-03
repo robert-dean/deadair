@@ -34,6 +34,8 @@ interface FakeHostOptions {
     chunks?: Uint8Array[];
     /** Status the `/audio/speech` call answers with. */
     speakStatus?: number;
+    /** Where the `/audio/speech` call says it landed, as the host reports a followed redirect. */
+    speakRedirectedTo?: string;
     fetchResponse?: Partial<{ status: number; body: string }>;
 }
 
@@ -51,6 +53,11 @@ function fakeHost(options: FakeHostOptions = {}) {
             const response = new Response(ok ? streamOf(options.chunks ?? [audioChunk()]) : streamOf([Buffer.from('{"detail":"nope"}')]), {
                 status,
             });
+
+            if (options.speakRedirectedTo !== undefined) {
+                Object.defineProperty(response, 'url', { value: options.speakRedirectedTo });
+                Object.defineProperty(response, 'redirected', { value: true });
+            }
 
             // Wrapped so a test can assert the plugin let go of a body it was
             // never going to read, which is the only cleanup `speak` owns.
@@ -227,6 +234,22 @@ describe('KokoroPlugin.speak', () => {
 
         expect(await rejectionCode(denied.plugin.speak({ text: 'hello' }))).toBe('auth');
         expect(await rejectionCode(broken.plugin.speak({ text: 'hello' }))).toBe('upstream');
+    });
+
+    it('names the address it was refused at, since that is the field to fix', async () => {
+        const { plugin } = await started({ speakStatus: 405 });
+
+        await expect(plugin.speak({ text: 'hello' })).rejects.toHaveProperty(
+            'message',
+            `kokoro answered HTTP 405 for voice "af_heart" at ${BASE_URL}/audio/speech`,
+        );
+    });
+
+    it('says where a redirect took the request, because a redirect is how a POST becomes a 405', async () => {
+        const landed = 'https://kokoro.test/v1/audio/speech';
+        const { plugin } = await started({ speakStatus: 405, speakRedirectedTo: landed });
+
+        await expect(plugin.speak({ text: 'hello' })).rejects.toThrow(`at ${BASE_URL}/audio/speech, after a redirect to ${landed} (`);
     });
 
     it('lets go of the socket when the server refuses, since nothing will be reading it', async () => {

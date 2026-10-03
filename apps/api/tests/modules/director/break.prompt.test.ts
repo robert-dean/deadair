@@ -2676,3 +2676,28 @@ describe('readAnswer on a station that does not broadcast in English', () => {
         expect(yearsIn('1984, and then nineteen ninety')).toEqual([1984, 1990]);
     });
 });
+
+describe('weather from a break that was given no reading', () => {
+    const sunny = { title: 'Sunny', artist: 'Bobby Hebb' };
+
+    it('is refused, with the word it used', () => {
+        const script = 'Sunny out there this afternoon, so keep the windows down for this one.';
+
+        expect(readAnswer(script, {})).toBeUndefined();
+        const declined = writeDecline(script, {});
+        expect(declined?.fault).toBe('unoffered-weather');
+        expect(declined?.reason).toMatch(/no reading/i);
+        expect(declined?.reason).toContain('"Sunny"');
+    });
+
+    it('lets a record that is called the weather be named', () => {
+        const script = 'That was Sunny by Bobby Hebb, and it still sounds like the summer.';
+
+        expect(readAnswer(script, { names: [sunny] })).toBe(script);
+        expect(writeDecline(script, { names: [sunny] })).toBeUndefined();
+    });
+
+    it('asks nothing of a station that does not broadcast in English', () => {
+        expect(readAnswer('Draußen ist es sonnig und warm.', { language: 'de' })).toBeDefined();
+    });
+});

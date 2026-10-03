@@ -427,6 +427,18 @@
     <string name="air_confirm_detail">This replaces what every listener hears.</string>
     <string name="air_it">Air it</string>
 
+    <!-- Asking the station to play a record -->
+    <string name="request_waiting">“%1$s” is in. The station\'s operator will look at it.</string>
+    <string name="request_on_its_way">“%1$s” is on its way.</string>
+    <string name="request_refused">The station turned that one down.</string>
+    <string name="request_for">For %1$s</string>
+    <string name="request_state_waiting">Waiting for the operator</string>
+    <string name="request_state_pending">On its way</string>
+    <string name="request_state_queued">Coming up</string>
+    <string name="request_state_aired">Played</string>
+    <string name="request_state_declined">Turned down</string>
+    <string name="request_state_expired">Not played</string>
+
     <!-- What it said -->
     <string name="what_it_said">What it said</string>
     <!-- The Manage page: the station's controls from Up next, in three groups. -->

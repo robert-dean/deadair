@@ -3,6 +3,7 @@ package com.maroonedsoftware.deadair.ui.request
 import com.maroonedsoftware.deadair.sdk.models.ListenerRequest
 import com.maroonedsoftware.deadair.sdk.models.RequestSource
 import com.maroonedsoftware.deadair.sdk.models.RequestStatus
+import com.maroonedsoftware.deadair.sdk.models.RequestableSource
 import com.maroonedsoftware.deadair.sdk.models.RequestableTrack
 import com.maroonedsoftware.deadair.ui.text.AiredLabel
 import com.maroonedsoftware.deadair.ui.text.Clock
@@ -56,8 +57,9 @@ class RequestUiStateTest {
 
     @Test
     fun `blank fields are left out rather than sent empty`() {
-        val body = RequestForm(name = "  ", dedicateTo = "", message = "\n").body(trackId)
+        val body = RequestForm(name = "  ", dedicateTo = "", message = "\n").body(held)
         assertEquals(trackId, body.trackId.toString())
+        assertNull(body.source)
         assertNull(body.name)
         assertNull(body.dedicateTo)
         assertNull(body.message)
@@ -65,10 +67,39 @@ class RequestUiStateTest {
 
     @Test
     fun `fields are sent trimmed and within the station's caps`() {
-        val body = RequestForm(name = " Sam ", dedicateTo = "x".repeat(80), message = "y".repeat(250)).body(trackId)
+        val body = RequestForm(name = " Sam ", dedicateTo = "x".repeat(80), message = "y".repeat(250)).body(held)
         assertEquals("Sam", body.name)
         assertEquals(REQUEST_DEDICATE_MAX, body.dedicateTo?.length)
         assertEquals(REQUEST_MESSAGE_MAX, body.message?.length)
+    }
+
+    private val held get() = RequestRow.of(RequestableTrack(trackId = Uuid.parse(trackId), title = "Song", artist = "Band"))!!
+
+    @Test
+    fun `a record only a provider carries is asked for by its source, and says where from`() {
+        val source = RequestableSource(pluginId = "deadair.spotify", externalId = "sp-1")
+        val row = RequestRow.of(RequestableTrack(source = source, sourceName = "Spotify", title = "Blueberry Hill", artist = "Fats Domino"))!!
+
+        assertEquals("deadair.spotify:sp-1", row.id)
+        assertEquals("Spotify", row.sourceName)
+        val body = RequestForm().body(row)
+        assertNull(body.trackId)
+        assertEquals(source, body.source)
+    }
+
+    @Test
+    fun `a record the station holds is asked for by its id alone, and says nothing about where from`() {
+        val row = RequestRow.of(
+            RequestableTrack(trackId = Uuid.parse(trackId), source = RequestableSource("deadair.spotify", "sp-1"), sourceName = "Spotify", title = "Song", artist = "Band"),
+        )!!
+
+        assertNull(row.sourceName)
+        assertNull(RequestForm().body(row).source)
+    }
+
+    @Test
+    fun `a row naming its record neither way is not drawn`() {
+        assertNull(RequestRow.of(RequestableTrack(title = "Song", artist = "Band")))
     }
 
     @Test

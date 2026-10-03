@@ -439,6 +439,8 @@
     <string name="request_message">A message</string>
     <string name="request_message_hint">The presenter may put it in their own words</string>
     <string name="request_send">Send request</string>
+    <!-- Under a search result the station does not hold yet: "From Spotify". The station fetches it first. -->
+    <string name="request_from_provider">From %1$s</string>
     <string name="request_record_gone">The station cannot play that record any more.</string>
     <string name="my_requests">Your requests</string>
     <string name="my_requests_none">You have not asked for anything yet.</string>

@@ -3,6 +3,7 @@ package com.maroonedsoftware.deadair.ui.request
 import com.maroonedsoftware.deadair.sdk.models.ListenerRequest
 import com.maroonedsoftware.deadair.sdk.models.ListenerRequestCreate
 import com.maroonedsoftware.deadair.sdk.models.RequestStatus
+import com.maroonedsoftware.deadair.sdk.models.RequestableSource
 import com.maroonedsoftware.deadair.sdk.models.RequestableTrack
 import com.maroonedsoftware.deadair.ui.history.airedLabel
 import com.maroonedsoftware.deadair.ui.text.Message
@@ -30,18 +31,37 @@ const val MY_REQUESTS_POLL_MS = 15_000L
  * Every row is requestable: the station's search leaves out anything it could not play or that
  * somebody has disliked, so there is no "cannot be asked for" row to draw. A request can still be
  * refused, by the station's rules rather than the record's.
+ *
+ * A row is one of two kinds. A record the station holds is asked for by its `trackId`; one only a
+ * music provider carries has none yet and is asked for by its `source`, which the station takes in
+ * first. `sourceName` is said under such a row, because "the station will fetch this" is worth
+ * knowing before asking. `id` is unique across both kinds, for the list's keys.
  */
-data class RequestRow(val id: String, val title: String, val artist: String, val detail: String?) {
+@OptIn(ExperimentalUuidApi::class)
+data class RequestRow(
+    val id: String,
+    val title: String,
+    val artist: String,
+    val detail: String?,
+    val trackId: Uuid?,
+    val source: RequestableSource?,
+    val sourceName: String?,
+) {
     companion object {
-        /** `null` for a record only a provider carries, which this page does not offer yet. */
+        /** `null` for a row that names its record neither way, which the station never sends. */
         @OptIn(ExperimentalUuidApi::class)
-        fun of(track: RequestableTrack): RequestRow? =
-            RequestRow(
-                id = track.trackId?.toString() ?: return null,
+        fun of(track: RequestableTrack): RequestRow? {
+            val id = track.trackId?.toString() ?: track.source?.let { "${it.pluginId}:${it.externalId}" } ?: return null
+            return RequestRow(
+                id = id,
                 title = track.title,
                 artist = track.artist,
                 detail = listOfNotNull(track.album, track.year?.toString()).joinToString(" · ").ifEmpty { null },
+                trackId = track.trackId,
+                source = if (track.trackId == null) track.source else null,
+                sourceName = if (track.trackId == null) track.sourceName ?: track.source?.pluginId else null,
             )
+        }
     }
 }
 
@@ -52,10 +72,12 @@ data class RequestRow(val id: String, val title: String, val artist: String, val
  * an omitted name is "a listener", which is the right answer for somebody who left it blank.
  */
 data class RequestForm(val name: String = "", val dedicateTo: String = "", val message: String = "") {
+    /** The request for `row`, naming its record whichever way the row can be named: never both. */
     @OptIn(ExperimentalUuidApi::class)
-    fun body(trackId: String) =
+    fun body(row: RequestRow) =
         ListenerRequestCreate(
-            trackId = Uuid.parse(trackId),
+            trackId = row.trackId,
+            source = row.source,
             name = name.sent(REQUEST_NAME_MAX),
             dedicateTo = dedicateTo.sent(REQUEST_DEDICATE_MAX),
             message = message.sent(REQUEST_MESSAGE_MAX),

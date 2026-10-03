@@ -118,7 +118,17 @@ fun RequestScreen(
                                 ListItem(
                                     headlineContent = { Text(row.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                     supportingContent = {
-                                        Text(listOfNotNull(row.artist, row.detail).joinToString(" · "), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Column {
+                                            Text(listOfNotNull(row.artist, row.detail).joinToString(" · "), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            // A record the station would take in first says where from.
+                                            row.sourceName?.let {
+                                                Text(
+                                                    stringResource(R.string.request_from_provider, it),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                        }
                                     },
                                     trailingContent = { Icon(painterResource(R.drawable.ic_playlist_add), contentDescription = null) },
                                     modifier =

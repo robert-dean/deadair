@@ -115,7 +115,7 @@ fun RequestRoute(graph: AppGraph, onBack: () -> Unit) {
         sending = true
         scope.launch {
             try {
-                val request = graph.sessions.withSession { it.requests.createRequest(form.body(row.id)) }
+                val request = graph.sessions.withSession { it.requests.createRequest(form.body(row)) }
                 chosen = null
                 // The name is who the listener is, so it stays for the next one; the rest was for this record.
                 form = RequestForm(name = form.name)

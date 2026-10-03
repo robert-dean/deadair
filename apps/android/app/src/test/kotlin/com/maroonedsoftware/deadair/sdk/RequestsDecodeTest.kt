@@ -42,6 +42,25 @@ class RequestsDecodeTest {
     }
 
     @Test
+    fun `decodes a record only a provider carries, which has a source and no trackId`() {
+        val json =
+            """
+            {
+              "tracks": [
+                { "source": { "pluginId": "deadair.spotify", "externalId": "4u7EnebtmKWzUH433cf5Qv" }, "sourceName": "Spotify", "title": "Blueberry Hill", "artist": "Fats Domino", "year": 1956 }
+              ]
+            }
+            """.trimIndent()
+
+        val track = SdkJson.decodeFromString(RequestableTrackList.serializer(), json).tracks.single()
+
+        assertNull(track.trackId)
+        assertEquals("deadair.spotify", track.source?.pluginId)
+        assertEquals("4u7EnebtmKWzUH433cf5Qv", track.source?.externalId)
+        assertEquals("Spotify", track.sourceName)
+    }
+
+    @Test
     fun `decodes a refusal, which is a request like any other`() {
         val json =
             """

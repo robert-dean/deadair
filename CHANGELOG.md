@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.39.1] — 2026-10-03
+
+- The Rhapsode plugin's homepage link now goes to rhapsode.dev.
+
 ## [0.39.0] — 2026-10-03
 
 - Share a talk break from the console's Scripts page, as the Android app already can. Every written break whose audio the station still has gets a share button, which asks the station for its small copy (sized for a text message) and opens the browser's share sheet with it. Where there is no share sheet, which includes most desktop browsers and any console opened over plain HTTP, the copy is saved as a download instead. If the station no longer has the audio, cannot make a copy, or cannot be reached, the row says which.
@@ -1012,7 +1016,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.39.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.39.1...HEAD
+[0.39.1]: https://github.com/robert-dean/deadair/compare/v0.39.0...v0.39.1
 [0.39.0]: https://github.com/robert-dean/deadair/compare/v0.38.2...v0.39.0
 [0.38.2]: https://github.com/robert-dean/deadair/compare/v0.38.1...v0.38.2
 [0.38.1]: https://github.com/robert-dean/deadair/compare/v0.38.0...v0.38.1

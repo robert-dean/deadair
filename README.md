@@ -57,7 +57,8 @@ station's own event log, so "why was it silent at three in the morning" is a que
 
 ```
                   your provider                    a model             a voice
-              (Spotify / Navidrome)             (local or hosted)  (Kokoro / ElevenLabs)
+              (Spotify / Navidrome)             (local or hosted)   (Kokoro / Rhapsode
+                                                                     / ElevenLabs)
                        │                               │                    │
                        └───────────── plugins ─────────┴────────────────────┘
                                          │

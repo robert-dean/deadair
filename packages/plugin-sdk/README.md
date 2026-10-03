@@ -451,6 +451,35 @@ is a heartbeat timer, and a listener that throws is logged rather than allowed t
 reach the event loop. The socket is the shape ServerKit's Socket Mode and Gateway
 clients call `SocketLike`, so `connect: url => host.socket(url)` is all either needs.
 
+## When your device speaks its own protocol
+
+Some devices are neither HTTP nor a WebSocket: a Chromecast is driven over a TLS
+connection to port 8009 carrying its own length-prefixed messages. `host.tls`
+opens one, under the same policy again:
+
+```ts
+const conn = await host.tls('tls://192.168.1.20:8009', { verifyCertificate: false });
+conn.onData(bytes => this.reader.push(bytes));       // bytes, not frames: reassemble your own
+conn.onClose(reason => this.reconnectLater(reason));
+conn.send(frame);
+```
+
+Requires the `tls` permission. The URL is `tls://host:port` and the port is
+required, since `tls:` has no default. The host is checked against
+`permissions.network` as the `https:` URL on the same host and port, and a
+connect costs one token from that host's rate bucket.
+
+`verifyCertificate: false` is for a device on the operator's own network that
+presents a certificate no public root signs. It is honoured only for an address
+that came from your settings (a `{ fromConfig }` entry), because that is the
+operator saying "this device is mine". For a host your manifest names, or one
+reached through `network.open`, it is refused with `forbidden`.
+
+Like a socket, the connection outlives the call that opened it: a plugin may hold
+only a limited number at once (more than sockets, since a speaker plugin holds one
+per device), and disposing the plugin closes every one without calling your close
+listeners. `send` after a close does nothing, and a listener that throws is logged.
+
 ## When your audio needs a helper to fetch it
 
 Almost every provider answers `resolveStreamUrl` out of its own head: it knows a

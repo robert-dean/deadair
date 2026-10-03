@@ -93,6 +93,54 @@ export interface PluginSocket {
     onClose(listener: (code?: number, reason?: string) => void): void;
 }
 
+/** What {@link PluginHost.tls} may be told. */
+export interface PluginTlsOptions {
+    /**
+     * How long to wait for the handshake to finish, in ms. Clamped to the host's
+     * own ceiling; asking for more buys nothing.
+     */
+    connectTimeoutMs?: number;
+
+    /**
+     * Whether the peer's certificate must chain to a trusted root and name the
+     * host. Absent means it must.
+     *
+     * `false` is for a device on the operator's own network that presents a
+     * certificate no public root signs, which is what a Chromecast does. The host
+     * honours it only for an address the operator supplied (a `fromConfig`
+     * entry); for a host the manifest names, or one reached through
+     * `network.open`, it is refused rather than quietly ignored.
+     */
+    verifyCertificate?: boolean;
+}
+
+/**
+ * An open outbound TLS connection, from {@link PluginHost.tls}.
+ *
+ * Bytes, not frames: TLS is a stream, so `onData` hands over whatever arrived
+ * in one read and the plugin reassembles its own protocol's messages. There is
+ * no `onOpen`: the promise that handed it over resolved when the handshake did.
+ */
+export interface PluginTlsSocket {
+    /**
+     * Write bytes. Does nothing once the connection has closed, rather than
+     * throwing, for {@link PluginSocket.send}'s reason: the likeliest writer is a
+     * heartbeat timer.
+     */
+    send(bytes: Uint8Array): void;
+    /** Close it. Safe to call twice. */
+    close(): void;
+    /** Called with every chunk read. A listener that throws is logged, never propagated. */
+    onData(listener: (bytes: Uint8Array) => void): void;
+    /**
+     * Called once when the connection closes, for any reason but one: a
+     * connection the host closes because the plugin is being disposed tells
+     * nobody, since there is nobody left to reconnect. `reason` is the error that
+     * closed it, when one did.
+     */
+    onClose(listener: (reason?: string) => void): void;
+}
+
 /**
  * Namespaced key/value store, private to this plugin. Values must be
  * JSON-serialisable. Requires the `storage` permission.
@@ -283,6 +331,25 @@ export interface PluginHost {
      * is the backstop, not the plan.
      */
     socket(url: string, options?: PluginSocketOptions): Promise<PluginSocket>;
+
+    /**
+     * Open an outbound TLS connection, for a device that speaks its own protocol
+     * over one (a Chromecast's control channel on port 8009). Requires the `tls`
+     * permission.
+     *
+     * `url` is `tls://host:port`, and the port is required: there is no default
+     * to fall back on. The same policy as {@link socket}: the host must be in
+     * `permissions.network` (checked as the `https:` URL on the same host and
+     * port), a host reached through `network.open` must not resolve to a private
+     * address, and the connect costs one token from the matching rate bucket.
+     * Resolves once the handshake is done; rejects with a `PluginError` when it
+     * is refused or never completes.
+     *
+     * Outlives the call that opened it, like a socket, and is bounded the same
+     * way: a plugin may hold only so many at once, and disposing the plugin
+     * closes every one it still has.
+     */
+    tls(url: string, options?: PluginTlsOptions): Promise<PluginTlsSocket>;
 
     /**
      * Aborts when the host gives up on the call you are currently inside.

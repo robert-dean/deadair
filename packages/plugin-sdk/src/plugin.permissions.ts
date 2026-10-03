@@ -182,6 +182,15 @@ export interface PluginPermissions {
     sockets?: boolean;
 
     /**
+     * Whether the plugin may use `host.tls` (an outbound TLS connection carrying
+     * a device's own protocol, held to the same {@link network} allowlist).
+     *
+     * Optional and a disclosure for `sockets`' reasons: only a plugin talking to
+     * something that is neither HTTP nor a WebSocket wants one.
+     */
+    tls?: boolean;
+
+    /**
      * Capabilities this plugin is ASKING for, each with the reason an operator
      * reads before deciding. See {@link PluginGrantRequest}.
      *
@@ -223,5 +232,6 @@ export const pluginPermissionsSchema = z.object({
     oauth: z.boolean(),
     trackFetcher: z.boolean().optional(),
     sockets: z.boolean().optional(),
+    tls: z.boolean().optional(),
     grants: z.array(grantRequestSchema).optional(),
 });

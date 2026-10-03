@@ -18,7 +18,7 @@ import { ProviderRanking } from './provider.ranking';
  * a ninety-word paragraph under a table header, or nowhere. The words are in the `settings`
  * catalog under `providers.capability`; this is the list of capabilities that have them.
  */
-const WORDED_CAPABILITIES = ['speech', 'llm', 'mixer', 'transcode', 'analysis', 'similarity', 'weather', 'charts', 'enrichment'] as const;
+const WORDED_CAPABILITIES = ['speech', 'llm', 'mixer', 'transcode', 'analysis', 'similarity', 'weather', 'charts', 'enrichment', 'lyrics'] as const;
 type WordedCapability = (typeof WORDED_CAPABILITIES)[number];
 
 function isWorded(capability: string): capability is WordedCapability {

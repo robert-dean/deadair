@@ -4,6 +4,7 @@ export type JobNames =
     | 'playlists.fill'
     | 'catalog.enrich'
     | 'catalog.extract_facts'
+    | 'catalog.fetch_lyrics'
     | 'catalog.cache_art'
     | 'catalog.analyze'
     | 'playout.cache_track'

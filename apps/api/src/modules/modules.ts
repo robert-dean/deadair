@@ -37,6 +37,7 @@ import { EnrichmentModule } from './enrichment/enrichment.module.js';
 import { ProductionsModule } from './productions/productions.module.js';
 import { StationModule } from './station/station.module.js';
 import { AnalysisModule } from './analysis/analysis.module.js';
+import { LyricsModule } from './lyrics/lyrics.module.js';
 import { ArtModule } from './art/art.module.js';
 import { LoggingModule } from '#src/logging/logging.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
@@ -240,6 +241,10 @@ const ordered: ServerKitModule[] = [
     // silence at the head and tail of a record is trimmed before the player ever
     // sees it.
     AnalysisModule,
+    // After PluginsModule, whose registry and invoker the lyrics walk reads, and before
+    // DirectorModule, which reads a record's timings and labels back out of it. It owns no loop and
+    // starts nothing (the walk is a cron job), so this is a dependency order and not a lifecycle one.
+    LyricsModule,
     // After PlayoutModule, CatalogModule and PlaylistsModule: it drives the
     // singleton rundown, and its lineups are built from catalog tracks and from
     // playlists read through the plugin host. Also after AnalysisModule, above.

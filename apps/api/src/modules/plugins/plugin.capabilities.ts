@@ -5,6 +5,7 @@ import {
     PLUGIN_CAPABILITY_CHARTS,
     PLUGIN_CAPABILITY_ENRICHMENT,
     PLUGIN_CAPABILITY_LLM,
+    PLUGIN_CAPABILITY_LYRICS,
     PLUGIN_CAPABILITY_MESSAGING,
     PLUGIN_CAPABILITY_MIXER,
     PLUGIN_CAPABILITY_TRANSCODE,
@@ -25,6 +26,7 @@ import {
     type SimilarityPluginInstance,
     type EnrichmentPluginInstance,
     type LlmPluginInstance,
+    type LyricsPluginInstance,
     type MessagingPluginInstance,
     type MixerProvider,
     type TranscodeProvider,
@@ -648,6 +650,44 @@ export const asOutputPlugin = (record: PluginRecord): OutputPlugin | undefined =
     if (!implementsOutput(record.manifest, record.instance)) return undefined;
 
     return { record, manifest: record.manifest, instance: record.instance as OutputPluginInstance };
+};
+
+/** The one method a lyrics plugin exists to provide. */
+export const LYRICS_METHODS = ['lyricsFor'] as const satisfies ReadonlyArray<keyof LyricsPluginInstance>;
+
+/** Where a lyrics plugin sorts when it declared the capability and no priority. Mid-scale, as {@link DEFAULT_ENRICHMENT_PRIORITY} is. */
+export const DEFAULT_LYRICS_PRIORITY = 500;
+
+/** A plugin narrowed to "can find the words of a record, right now". */
+export interface LyricsPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: LyricsPluginInstance;
+    /** {@link LyricsPluginInstance.priority}, defaulted. Lower is asked first. */
+    priority: number;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `lyrics` capability. */
+export const implementsLyrics = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_LYRICS)) return false;
+    return LYRICS_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/**
+ * The lyrics-capable view of a record, or `undefined` when it is not one.
+ *
+ * Carries `priority` for {@link asEnrichmentPlugin}'s reason: it is the ordering the operator's
+ * `lyrics.providerOrder` falls back to, and reading it once here means one plugin cannot sort two
+ * ways for two callers.
+ */
+export const asLyricsPlugin = (record: PluginRecord): LyricsPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsLyrics(record.manifest, record.instance)) return undefined;
+
+    const instance = record.instance as LyricsPluginInstance;
+    const priority = typeof instance.priority === 'number' && Number.isFinite(instance.priority) ? instance.priority : DEFAULT_LYRICS_PRIORITY;
+
+    return { record, manifest: record.manifest, instance, priority };
 };
 
 /**

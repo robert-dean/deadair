@@ -7,6 +7,7 @@ import { CatalogPlaceholderJob } from '#modules/catalog/ingest/catalog.placehold
 import { CatalogSyncJob } from '#modules/catalog/ingest/catalog.sync.job.js';
 import { PlaylistFillJob } from '#modules/playlists/playlist.fill.job.js';
 import { EnrichmentJob } from '#modules/enrichment/enrichment.job.js';
+import { LyricsJob } from '#modules/lyrics/lyrics.job.js';
 import { FactExtractionJob } from '#modules/enrichment/fact.extraction.job.js';
 import { ArtCacheJob } from '#modules/art/art.cache.job.js';
 import { AnalysisJob } from '#modules/analysis/analysis.job.js';
@@ -136,6 +137,16 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         job: FactExtractionJob,
         cron: '7-59/15 * * * *',
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 6 }) },
+    },
+
+    // Every quarter hour, and off both the hour and the two walks above (`:00` and `:07`), so three
+    // paced walks never start on the same minute. It asks nothing while `lyrics.fetch` is off, which
+    // is the default, so on most stations a run is one settings read. One retry and no dead-letter
+    // queue, on the enrichment walk's reason: a record not reached is simply still outstanding.
+    'catalog.fetch_lyrics': {
+        job: LyricsJob,
+        cron: '11-59/15 * * * *',
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 13 }) },
     },
 
     // Every ten minutes, and also sent by the sync whenever it added tracks, so a new arrival's

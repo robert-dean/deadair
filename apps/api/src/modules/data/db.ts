@@ -1019,6 +1019,23 @@ export interface DeadairTrackEnrichment {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairTrackLyrics {
+  attempts: Generated<number>;
+  createdAt: Generated<DateTime>;
+  expiresAt: DateTime | null;
+  fetchedAt: Generated<DateTime>;
+  id: Generated<string>;
+  instrumental: Generated<boolean>;
+  language: string | null;
+  lastError: string | null;
+  plain: string | null;
+  provider: string;
+  providerRef: string | null;
+  synced: Json | null;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairTracks {
   albumId: string | null;
   artistId: string;
@@ -1135,6 +1152,7 @@ export interface DB {
   "deadair.trackArtists": DeadairTrackArtists;
   "deadair.trackAudio": DeadairTrackAudio;
   "deadair.trackEnrichment": DeadairTrackEnrichment;
+  "deadair.trackLyrics": DeadairTrackLyrics;
   "deadair.tracks": DeadairTracks;
   "deadair.trackSources": DeadairTrackSources;
   schemaMigrations: SchemaMigrations;

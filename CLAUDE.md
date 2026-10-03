@@ -158,7 +158,7 @@ deploy/, unraid/                  how somebody else installs it
 `authentication`, `permissions`, `policy`, `art`, `catalog`, `onboarding`, `settings`, `languages`, `stream`, `mail`,
 `plugins`, `jobs`, `playlists`, `charts`, `similarity`, `news`, `search`, `weather`, `almanac`,
 `podcasts`, `narrations`, `topics`, `scrobble`, `llm`, `personas`, `schedule`, `render`, `playout`,
-`nowplaying`, `analysis`, `director`, `storage`, `activity`, `history`, `enrichment`, `productions`,
+`nowplaying`, `analysis`, `lyrics`, `director`, `storage`, `activity`, `history`, `enrichment`, `productions`,
 `station`, `requests`, `messaging`. **`src/modules/modules.ts` is the source of
 truth and the order is load-bearing** — see [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md). Check it
 before assuming a subsystem exists.

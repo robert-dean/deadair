@@ -244,9 +244,10 @@ fallback — `byPluginId` for all but enrichment, whose fallback is the plugin a
 `priority`. So an unset setting reproduces exactly what the capability did before it had one, which is
 what makes the order safe to add to a capability; and a listed id that nothing answers to is absent
 rather than fatal, because a setting that could silently switch off the only plugin answering a
-capability turns a typo into a station with no similarity, no weather and no facts. Six keys use it:
-`rotation.similarityOrder`, `weather.providerOrder`, `charts.providerOrder`,
-`enrichment.providerOrder`, and the five pick-one keys read through the same table. Capabilities that
+capability turns a typo into a station with no similarity, no weather and no facts. Five ordered keys
+use it: `rotation.similarityOrder`, `weather.providerOrder`, `charts.providerOrder`,
+`enrichment.providerOrder` and `lyrics.providerOrder`, and the five pick-one keys read through the
+same table. Capabilities that
 fan out and MERGE without ranking — search, scrobble, podcast, narration, catalog — are deliberately
 not in the table: order changes nothing about a union, and a knob whose every position is the same is
 worse than no knob.

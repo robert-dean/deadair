@@ -1,5 +1,6 @@
 using System.Net;
 using Avalonia.Controls;
+using MaroonedSoftware.Deadair.Desktop.Controls;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.Director;
 using MaroonedSoftware.Deadair.Desktop.Core.Configuration;
@@ -45,6 +46,8 @@ internal static class Pages
         yield return ("shell-desk-quiet", Shell(operatorSignedIn: true, desk: Fakes.Quiet), 1180, 720);
         yield return ("shell-min", Shell(operatorSignedIn: true), 820, 520);
         yield return ("shell-desk-live", Shell(operatorSignedIn: false, Fakes.WithoutAPlayhead), 1180, 720);
+        yield return ("studio-backdrop", Backdrop(), 1180, 720);
+        yield return ("studio-backdrop-no-cover", new StudioBackdrop { Phase = 0.3 }, 1180, 720);
         yield return ("shell-desk-break", Shell(operatorSignedIn: false, Fakes.OnTheMic), 1180, 720);
         yield return ("shell-desk-warming-up", Shell(operatorSignedIn: false, Fakes.WarmingUp), 1180, 720);
         yield return ("shell-desk-off-air", Shell(operatorSignedIn: false, Fakes.OffAir), 1180, 720);
@@ -846,6 +849,13 @@ internal static class Pages
 
         return new MainWindowContent { Shell = shell };
     }
+
+    /// <summary>Studio's backdrop alone, in the posed cover's colours, part-way round its loop.</summary>
+    private static StudioBackdrop Backdrop() => new()
+    {
+        Palette = [0xFF1C2A3A, 0xFFB8452B, 0xFFE9D8B8],
+        Phase = 0.3,
+    };
 
     private static PlayerBar Bar(Action<ListenerViewModel>? pose = null, bool operatorSignedIn = false)
     {

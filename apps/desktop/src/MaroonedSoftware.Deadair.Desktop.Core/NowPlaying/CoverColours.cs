@@ -89,6 +89,47 @@ public static class CoverColours
         return tint;
     }
 
+    /// <summary>
+    /// The colours Studio's backdrop drifts in, from a cover's colours: up to <paramref name="count"/>,
+    /// most colourful first. Empty for no cover.
+    /// </summary>
+    /// <remarks>
+    /// Studio is always dark, with white type over it, so every colour is placed in a dim band and then
+    /// walked darker until white is what reads on it, for the reason <see cref="HeaderTint"/> walks:
+    /// lightness is not brightness. Greys are kept, as they are for a header, because a backdrop is a
+    /// cover's mood. Two candidates that come out the same are kept as one, so a two-colour cover
+    /// drifts in two colours rather than in a third copy of the first.
+    /// </remarks>
+    public static IReadOnlyList<uint> Backdrop(IReadOnlyList<uint> candidates, int count = 3)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+
+        var placed = new List<uint>();
+        foreach (var candidate in candidates.OrderByDescending(Chroma))
+        {
+            var (hue, saturation, lightness) = Hsl(candidate);
+            var level = Math.Clamp(lightness, 0.12f, 0.3f);
+            var colour = FromHsl(hue, saturation, level);
+            while (ReadableOn(colour) != White && level > 0f)
+            {
+                level = Math.Max(level - 0.02f, 0f);
+                colour = FromHsl(hue, saturation, level);
+            }
+
+            if (!placed.Contains(colour))
+            {
+                placed.Add(colour);
+            }
+
+            if (placed.Count == count)
+            {
+                break;
+            }
+        }
+
+        return placed;
+    }
+
     /// <summary>Black or white, whichever contrasts more with <paramref name="background"/>.</summary>
     public static uint ReadableOn(uint background)
     {

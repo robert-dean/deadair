@@ -28,6 +28,7 @@ const found = (title: string, artist: string, extra: Partial<FoundTrack> = {}): 
     title,
     artist,
     source: 'deadair.provider',
+    externalId: `ext-${title}`,
     ...extra,
 });
 
@@ -128,6 +129,14 @@ describe('MusicSearchTool', () => {
         await run(tool, { query: 'Mitch Murder' });
 
         expect(search).toHaveBeenCalled();
+    });
+
+    it("never shows the model a provider's id, which it would copy back as if it were a name", async () => {
+        const { tool } = build({ library: [], reached: [found('Hurricane', 'Mitch Murder', { durationMs: 200_000, year: 2013 })] });
+
+        const { tracks } = await run(tool, { query: 'Mitch Murder' });
+
+        expect(tracks[0]).not.toHaveProperty('externalId');
     });
 
     it('does not reach them when the library answered well', async () => {

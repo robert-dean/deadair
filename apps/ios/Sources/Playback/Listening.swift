@@ -74,9 +74,11 @@ final class Listening {
         system.onSkip = { [weak self] in self?.skipFromSystem() }
         system.isPlaying = { [weak self] in self?.conductor.wantsToPlay ?? false }
         audioObservers = Platform.observeAudio { [weak self] event in self?.audio(event) }
-        network = Platform.observeNetwork { [weak self] available in
+        network = Platform.observeNetwork { [weak self] network in
             guard let self else { return }
-            self.conductor.networkChanged(available: available)
+            // HLS fetches every segment afresh, on whatever network is up; only a mount is left
+            // behind on the old one.
+            self.conductor.networkChanged(network, heldConnection: self.choice?.format != .hls)
             self.conductorMoved()
         }
         watchReadings()

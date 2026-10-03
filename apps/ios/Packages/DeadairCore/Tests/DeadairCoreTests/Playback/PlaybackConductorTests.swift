@@ -9,6 +9,8 @@ import Testing
 @MainActor
 struct PlaybackConductorTests {
     private let clock = ManualClock()
+    private let wifi = "en0"
+    private let cell = "pdp_ip0"
 
     private func conductor(offlineLimit: Duration = .seconds(15 * 60)) -> PlaybackConductor {
         PlaybackConductor(schedule: clock.schedule, offlineLimit: offlineLimit)
@@ -181,7 +183,7 @@ struct PlaybackConductorTests {
         conductor.requested()
         conductor.observed(.playing)
 
-        conductor.networkChanged(available: false)
+        conductor.networkChanged(nil)
         // Ten minutes of failures, twice the backoff's budget, and none of them is retried or
         // gives up: there is nothing to retry against.
         for _ in 0..<20 {
@@ -201,11 +203,11 @@ struct PlaybackConductorTests {
         conductor.onRetryDue = { fired += 1 }
         conductor.requested()
         conductor.observed(.playing)
-        conductor.networkChanged(available: false)
+        conductor.networkChanged(nil)
         conductor.observed(.failed)
 
         clock.advance(by: .seconds(60))
-        conductor.networkChanged(available: true)
+        conductor.networkChanged(wifi)
 
         #expect(fired == 1)
         #expect(!conductor.awaitingNetwork)
@@ -218,9 +220,9 @@ struct PlaybackConductorTests {
         for _ in 0..<5 { conductor.observed(.failed) }
         #expect(conductor.retryIn == .seconds(16))
 
-        conductor.networkChanged(available: false)
+        conductor.networkChanged(nil)
         conductor.observed(.failed)
-        conductor.networkChanged(available: true)
+        conductor.networkChanged(wifi)
         // The attempt made on the network's return failed too: a second, not thirty.
         conductor.observed(.failed)
 
@@ -235,12 +237,12 @@ struct PlaybackConductorTests {
         conductor.observed(.playing)
         conductor.observed(.failed)
 
-        conductor.networkChanged(available: false)
+        conductor.networkChanged(nil)
         clock.advance(by: .seconds(60))
         #expect(fired == 0)
         #expect(conductor.awaitingNetwork)
 
-        conductor.networkChanged(available: true)
+        conductor.networkChanged(wifi)
         #expect(fired == 1)
     }
 
@@ -252,8 +254,8 @@ struct PlaybackConductorTests {
         conductor.requested()
         conductor.observed(.playing)
 
-        conductor.networkChanged(available: false)
-        conductor.networkChanged(available: true)
+        conductor.networkChanged(nil)
+        conductor.networkChanged(wifi)
         clock.advance(by: .seconds(60))
 
         #expect(fired == 0)
@@ -263,7 +265,7 @@ struct PlaybackConductorTests {
 
     @Test func aFailureBeforeAnyAudioWithNoNetworkIsStillWarmUp() {
         let conductor = conductor()
-        conductor.networkChanged(available: false)
+        conductor.networkChanged(nil)
         conductor.requested()
         conductor.observed(.failed)
 
@@ -277,7 +279,7 @@ struct PlaybackConductorTests {
         conductor.onGaveUpWaiting = { gaveUp += 1 }
         conductor.requested()
         conductor.observed(.playing)
-        conductor.networkChanged(available: false)
+        conductor.networkChanged(nil)
         conductor.observed(.failed)
 
         clock.advance(by: .seconds(30))
@@ -298,15 +300,115 @@ struct PlaybackConductorTests {
         conductor.onRetryDue = { fired += 1 }
         conductor.requested()
         conductor.observed(.playing)
-        conductor.networkChanged(available: false)
+        conductor.networkChanged(nil)
         conductor.observed(.failed)
 
         conductor.released()
         clock.advance(by: .seconds(120))
-        conductor.networkChanged(available: true)
+        conductor.networkChanged(wifi)
 
         #expect(fired == 0)
         #expect(conductor.state == .stopped)
         #expect(clock.scheduled == 0)
+    }
+
+    @Test func aMoveToAnotherNetworkReplacesAHeldConnectionAtOnce() {
+        let conductor = conductor()
+        var fired = 0
+        conductor.onRetryDue = { fired += 1 }
+        conductor.requested()
+        conductor.observed(.playing)
+
+        conductor.networkChanged(wifi)
+        // Wifi fading out: mobile data takes over while the socket is still on wifi and the player
+        // has noticed nothing yet.
+        conductor.networkChanged(cell)
+
+        #expect(fired == 1)
+        // Replaced, not dropped: nothing for the listener to be told.
+        #expect(conductor.state == .playing)
+    }
+
+    @Test func aMoveThroughASpellWithNoNetworkIsStillAMove() {
+        let conductor = conductor()
+        var fired = 0
+        conductor.onRetryDue = { fired += 1 }
+        conductor.requested()
+        conductor.observed(.playing)
+
+        conductor.networkChanged(wifi)
+        conductor.networkChanged(nil)
+        conductor.networkChanged(cell)
+
+        #expect(fired == 1)
+    }
+
+    @Test func theSameNetworkComingBackIsNotAMove() {
+        let conductor = conductor()
+        var fired = 0
+        conductor.onRetryDue = { fired += 1 }
+        conductor.requested()
+        conductor.observed(.playing)
+
+        conductor.networkChanged(wifi)
+        conductor.networkChanged(nil)
+        conductor.networkChanged(wifi)
+
+        #expect(fired == 0)
+    }
+
+    @Test func theFirstNetworkHeardOfIsNotAMove() {
+        let conductor = conductor()
+        var fired = 0
+        conductor.onRetryDue = { fired += 1 }
+        conductor.requested()
+        conductor.observed(.playing)
+
+        conductor.networkChanged(cell)
+
+        #expect(fired == 0)
+    }
+
+    @Test func hlsIsLeftAloneWhenTheNetworkMoves() {
+        let conductor = conductor()
+        var fired = 0
+        conductor.onRetryDue = { fired += 1 }
+        conductor.requested()
+        conductor.observed(.playing)
+
+        conductor.networkChanged(wifi, heldConnection: false)
+        conductor.networkChanged(cell, heldConnection: false)
+
+        #expect(fired == 0)
+    }
+
+    @Test func aMoveMakesAScheduledRetryNowFromAFreshBackoff() {
+        let conductor = conductor()
+        var fired = 0
+        conductor.onRetryDue = { fired += 1 }
+        conductor.requested()
+        conductor.observed(.playing)
+        conductor.networkChanged(wifi)
+        for _ in 0..<5 { conductor.observed(.failed) }
+        #expect(conductor.retryIn == .seconds(16))
+
+        conductor.networkChanged(cell)
+        #expect(fired == 1)
+        #expect(conductor.retryIn == nil)
+        #expect(clock.scheduled == 0)
+
+        conductor.observed(.failed)
+        #expect(conductor.retryIn == .seconds(1))
+    }
+
+    @Test func aMoveWithNobodyListeningDoesNothing() {
+        let conductor = conductor()
+        var fired = 0
+        conductor.onRetryDue = { fired += 1 }
+
+        conductor.networkChanged(wifi)
+        conductor.networkChanged(cell)
+
+        #expect(fired == 0)
     }
 }

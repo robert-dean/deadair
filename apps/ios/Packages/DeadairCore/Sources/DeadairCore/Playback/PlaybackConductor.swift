@@ -54,6 +54,12 @@ public enum ListeningState: Equatable, Sendable {
 /// says one is up, and then the retry is due at once, from a fresh backoff: the failures before it
 /// were the missing network, not the station. The wait has its own, longer limit, after which it is
 /// unreachable for the same reason the backoff gives up.
+///
+/// **A stream held on one connection moves with the network.** A mount is a single socket on
+/// whichever interface carried it when it connected, and a handover leaves it there: dead when
+/// wifi fades, or running on over mobile data the listener would rather not spend. So a move to
+/// another network makes the retry due at once, for a stream that has not failed as much as for
+/// one that has. HLS is a request per segment, each on the network of the moment, and is left alone.
 @MainActor
 @Observable
 public final class PlaybackConductor {
@@ -80,6 +86,9 @@ public final class PlaybackConductor {
     @ObservationIgnored private let offlineLimit: Duration
     /// Whether the phone has a network to reach the station over. Assumed until told otherwise.
     @ObservationIgnored private var online = true
+    /// The last network the phone was on, kept through a spell with none, so a return can be told
+    /// from a move.
+    @ObservationIgnored private var lastNetwork: String?
     @ObservationIgnored private var offlineGiveUp: Cancel?
 
     /// `offlineLimit` is how long a drop waits for the network before it is unreachable. Longer than
@@ -115,15 +124,23 @@ public final class PlaybackConductor {
         stopWaitingForNetwork()
     }
 
-    /// The phone gained or lost its network.
+    /// The phone's network, by an identity that tells one network from another, or `nil` for none.
+    /// `heldConnection` says whether the stream rides one long connection, which a move leaves
+    /// behind.
     ///
     /// Losing it does nothing to a stream still playing out of its buffer: the player says so
     /// itself when it fails, and only then is there a drop to hold. It does take back a retry that
     /// is already scheduled, which would otherwise fire against nothing and spend backoff doing it.
-    public func networkChanged(available: Bool) {
-        guard available != online else { return }
-        online = available
-        if !available {
+    ///
+    /// A DIFFERENT network than the last one, with or without a spell of none between them, is a
+    /// move: a scheduled retry is made now rather than at the end of its wait, and a held
+    /// connection that has not failed yet is replaced, because it is on a network that is going or
+    /// gone. The SAME network coming back is not a move, and a connection that survived the blip is
+    /// left be.
+    public func networkChanged(_ network: String?, heldConnection: Bool = true) {
+        guard let network else {
+            guard online else { return }
+            online = false
             if pendingRetry != nil {
                 disarm()
                 retryIn = nil
@@ -131,11 +148,23 @@ public final class PlaybackConductor {
             }
             return
         }
-        guard awaitingNetwork else { return }
+        let moved = lastNetwork != nil && network != lastNetwork
+        let returned = !online
+        lastNetwork = network
+        online = true
+        guard moved || returned else { return }
+
+        let held = awaitingNetwork || pendingRetry != nil
         stopWaitingForNetwork()
+        disarm()
+        retryIn = nil
         guard wantsToPlay else { return }
-        backoff.reset()
-        onRetryDue?()
+        if held {
+            backoff.reset()
+            onRetryDue?()
+        } else if moved, heldConnection {
+            onRetryDue?()
+        }
     }
 
     /// A reading from the player.

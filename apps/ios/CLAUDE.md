@@ -206,7 +206,11 @@ CarPlay and an `AudioPlaybackIntent` are the two real routes to that, and neithe
 network's return makes the retry due at once from a fresh backoff. The wait holds the background
 task as a timed retry does, so an ordinary handover between wifi and mobile data is covered; a
 longer one outlives it and the app is suspended like any other silent app. After fifteen minutes the
-conductor says unreachable through `onGaveUpWaiting`, because no player reading would.
+conductor says unreachable through `onGaveUpWaiting`, because no player reading would. A
+different network is a move, and makes the retry due at once (a fresh item, on the new interface)
+for a mount that has not failed as well as one that has; HLS is left alone. The identity is the
+path's first interface name, since a path has no network handle, so two wifi networks look the same
+and a move between them falls back to failing and being retried. Not yet measured on a phone.
 
 **A `deadair://` link proposes a station; it never switches to one.** Android's rule and the
 desktop's grammar (`StationLink`, whose tests are theirs case for case). With no station kept, setup

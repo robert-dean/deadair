@@ -72,6 +72,27 @@ public static class AuditionText
     }
 
     /// <summary>
+    /// Where a run's records came from, in one line. Exactly one kind of id is present, so which one
+    /// says what the source was, and the id stands in for a caption the run was never given.
+    /// </summary>
+    public static string Describe(PersonaAuditionSource source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        if (source.StationPlaylistId is { } owned)
+        {
+            return $"{source.Name ?? owned.ToString()} · a station playlist";
+        }
+
+        if (source.ChartId is { } chart)
+        {
+            return $"{source.Name ?? chart} · a chart";
+        }
+
+        return $"{source.Name ?? source.PlaylistId} · {source.PluginId}";
+    }
+
+    /// <summary>
     /// Whether a playlist can be auditioned: one that is not hidden and whose tracks can be read. A
     /// playlist that says nothing about permissions can be read, as the console reads it.
     /// </summary>

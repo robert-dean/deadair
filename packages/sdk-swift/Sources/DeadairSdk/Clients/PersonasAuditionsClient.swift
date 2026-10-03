@@ -18,7 +18,7 @@ public final class PersonasAuditionsClient: Sendable {
     }
 
     /// Start persona audition
-    /// Asks the station to put this character through a playlist. It is queued, not written
+    /// Asks the station to put this character through a playlist or a chart. It is queued, not written
     public func startPersonaAudition(id: String, body: PersonaAuditionRequest) async throws -> PersonaAudition {
         var request = try SdkRequest(method: "POST", path: ["personas", http.segment(id), "auditions"])
         try http.setJSONBody(&request, body, contentType: "application/json")

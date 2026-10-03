@@ -25,6 +25,16 @@ public class AuditionTextTests
         Assert.Equal(unsettled, AuditionText.Unsettled(state));
 
     [Fact]
+    public void EachKindOfSourceSaysWhatItWas()
+    {
+        Assert.Equal("Late night · deadair.spotify", AuditionText.Describe(new() { PluginId = "deadair.spotify", PlaylistId = "pl1", Name = "Late night" }));
+        Assert.Equal(
+            "Sunday soul · a station playlist",
+            AuditionText.Describe(new() { StationPlaylistId = Guid.Parse("7b0c1a52-9a3e-4f43-8b1e-3d6f0f4a9c11"), Name = "Sunday soul" }));
+        Assert.Equal("lastfm:top · a chart", AuditionText.Describe(new() { ChartId = "lastfm:top" }));
+    }
+
+    [Fact]
     public void ACancelledRunIsOff_NotAFault()
     {
         Assert.Equal(StatusTone.Off, AuditionText.Tone(PersonaAuditionSummaryState.Cancelled));

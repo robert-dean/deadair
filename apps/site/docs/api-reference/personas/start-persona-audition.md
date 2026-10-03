@@ -6,7 +6,7 @@ mdx:
     format: 'md'
 ---
 
-Asks the station to put this character through a playlist. It is queued, not written
+Asks the station to put this character through a playlist or a chart. It is queued, not written
 
 **`POST`** `/personas/{id}/auditions`
 

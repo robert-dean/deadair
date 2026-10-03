@@ -629,40 +629,67 @@ public sealed record PersonaRehearsalAttempt
 }
 
 /// <summary>
-/// What an operator asks for when they put a character through a playlist. The playlist is READ at the
-/// moment of asking and its records are stored on the run, so a list edited at the provider afterwards
-/// does not change what was measured
+/// What an operator asks for when they put a character through a playlist or a chart. Exactly one
+/// source: a provider's playlist, a playlist the station owns, or a published chart. It is READ at the
+/// moment of asking and its records are stored on the run, so a list edited afterwards does not change
+/// what was measured
 /// </summary>
 public sealed record PersonaAuditionRequest
 {
-    /// <summary>Which catalog plugin the playlist belongs to</summary>
+    /// <summary>Which catalog plugin the playlist belongs to. Required alongside `playlistId`</summary>
     [JsonPropertyName("pluginId")]
-    public required string PluginId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PluginId { get; init; }
 
     [JsonPropertyName("playlistId")]
-    public required string PlaylistId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PlaylistId { get; init; }
 
-    /// <summary>What the playlist is called, kept as a caption for the run. The console already holds it, and a run whose playlist is later renamed or deleted stays readable</summary>
+    /// <summary>A playlist the station owns to audition over instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`. A row the library does not hold yet is still a record the host can talk about, so it is kept</summary>
+    [JsonPropertyName("stationPlaylistId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? StationPlaylistId { get; init; }
+
+    /// <summary>A published chart to audition over instead, as `pluginId:chartId`, from its top. An ALTERNATIVE to the other sources. Its entries are never looked up at a provider, since nothing in an audition airs</summary>
+    [JsonPropertyName("chartId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ChartId { get; init; }
+
+    /// <summary>What the source is called, kept as a caption for the run. The console already holds it, and a run whose source is later renamed or deleted stays readable</summary>
     [JsonPropertyName("name")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Name { get; init; }
 
-    /// <summary>How many breaks to write. One more record than this is taken off the playlist, since a break sits between two</summary>
+    /// <summary>How many breaks to write. One more record than this is taken off the source, since a break sits between two</summary>
     [JsonPropertyName("limit")]
     public long Limit { get; init; } = 10L;
 }
 
 /// <summary>
-/// Where the records came from. A snapshot of the name rather than a reference, so a playlist renamed
-/// or deleted at the provider leaves a finished audition readable
+/// Where the records came from: exactly one of the provider's pair, `stationPlaylistId` or `chartId`.
+/// A snapshot of the name rather than a reference, so a source renamed or deleted afterwards leaves a
+/// finished audition readable
 /// </summary>
 public sealed record PersonaAuditionSource
 {
+    /// <summary>The plugin whose playlist it was. Present exactly when `playlistId` is</summary>
     [JsonPropertyName("pluginId")]
-    public required string PluginId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PluginId { get; init; }
 
     [JsonPropertyName("playlistId")]
-    public required string PlaylistId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PlaylistId { get; init; }
+
+    /// <summary>A playlist the station owns</summary>
+    [JsonPropertyName("stationPlaylistId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? StationPlaylistId { get; init; }
+
+    /// <summary>A published chart, as `pluginId:chartId`</summary>
+    [JsonPropertyName("chartId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ChartId { get; init; }
 
     [JsonPropertyName("name")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

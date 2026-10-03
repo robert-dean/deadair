@@ -1072,21 +1072,28 @@ public struct PersonaRehearsalAttempt: Codable, Equatable, Sendable {
     }
 }
 
-/// What an operator asks for when they put a character through a playlist. The playlist is READ at the
-/// moment of asking and its records are stored on the run, so a list edited at the provider afterwards
-/// does not change what was measured
+/// What an operator asks for when they put a character through a playlist or a chart. Exactly one
+/// source: a provider's playlist, a playlist the station owns, or a published chart. It is READ at the
+/// moment of asking and its records are stored on the run, so a list edited afterwards does not change
+/// what was measured
 public struct PersonaAuditionRequest: Codable, Equatable, Sendable {
-    /// Which catalog plugin the playlist belongs to
-    public var pluginId: String
-    public var playlistId: String
-    /// What the playlist is called, kept as a caption for the run. The console already holds it, and a run whose playlist is later renamed or deleted stays readable
+    /// Which catalog plugin the playlist belongs to. Required alongside `playlistId`
+    public var pluginId: String?
+    public var playlistId: String?
+    /// A playlist the station owns to audition over instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`. A row the library does not hold yet is still a record the host can talk about, so it is kept
+    public var stationPlaylistId: UUID?
+    /// A published chart to audition over instead, as `pluginId:chartId`, from its top. An ALTERNATIVE to the other sources. Its entries are never looked up at a provider, since nothing in an audition airs
+    public var chartId: String?
+    /// What the source is called, kept as a caption for the run. The console already holds it, and a run whose source is later renamed or deleted stays readable
     public var name: String?
-    /// How many breaks to write. One more record than this is taken off the playlist, since a break sits between two
+    /// How many breaks to write. One more record than this is taken off the source, since a break sits between two
     public var limit: Int
 
-    public init(pluginId: String, playlistId: String, name: String? = nil, limit: Int = 10) {
+    public init(pluginId: String? = nil, playlistId: String? = nil, stationPlaylistId: UUID? = nil, chartId: String? = nil, name: String? = nil, limit: Int = 10) {
         self.pluginId = pluginId
         self.playlistId = playlistId
+        self.stationPlaylistId = stationPlaylistId
+        self.chartId = chartId
         self.name = name
         self.limit = limit
     }
@@ -1094,57 +1101,77 @@ public struct PersonaAuditionRequest: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case pluginId = "pluginId"
         case playlistId = "playlistId"
+        case stationPlaylistId = "stationPlaylistId"
+        case chartId = "chartId"
         case name = "name"
         case limit = "limit"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.pluginId = try container.decode(String.self, forKey: .pluginId)
-        self.playlistId = try container.decode(String.self, forKey: .playlistId)
+        self.pluginId = try container.decodeIfPresent(String.self, forKey: .pluginId)
+        self.playlistId = try container.decodeIfPresent(String.self, forKey: .playlistId)
+        self.stationPlaylistId = try container.decodeIfPresent(UUID.self, forKey: .stationPlaylistId)
+        self.chartId = try container.decodeIfPresent(String.self, forKey: .chartId)
         self.name = try container.decodeIfPresent(String.self, forKey: .name)
         self.limit = try container.decodeIfPresent(Int.self, forKey: .limit) ?? 10
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.pluginId, forKey: .pluginId)
-        try container.encode(self.playlistId, forKey: .playlistId)
+        try container.encodeIfPresent(self.pluginId, forKey: .pluginId)
+        try container.encodeIfPresent(self.playlistId, forKey: .playlistId)
+        try container.encodeIfPresent(self.stationPlaylistId, forKey: .stationPlaylistId)
+        try container.encodeIfPresent(self.chartId, forKey: .chartId)
         try container.encodeIfPresent(self.name, forKey: .name)
         try container.encode(self.limit, forKey: .limit)
     }
 }
 
-/// Where the records came from. A snapshot of the name rather than a reference, so a playlist renamed
-/// or deleted at the provider leaves a finished audition readable
+/// Where the records came from: exactly one of the provider's pair, `stationPlaylistId` or `chartId`.
+/// A snapshot of the name rather than a reference, so a source renamed or deleted afterwards leaves a
+/// finished audition readable
 public struct PersonaAuditionSource: Codable, Equatable, Sendable {
-    public var pluginId: String
-    public var playlistId: String
+    /// The plugin whose playlist it was. Present exactly when `playlistId` is
+    public var pluginId: String?
+    public var playlistId: String?
+    /// A playlist the station owns
+    public var stationPlaylistId: UUID?
+    /// A published chart, as `pluginId:chartId`
+    public var chartId: String?
     public var name: String?
 
-    public init(pluginId: String, playlistId: String, name: String? = nil) {
+    public init(pluginId: String? = nil, playlistId: String? = nil, stationPlaylistId: UUID? = nil, chartId: String? = nil, name: String? = nil) {
         self.pluginId = pluginId
         self.playlistId = playlistId
+        self.stationPlaylistId = stationPlaylistId
+        self.chartId = chartId
         self.name = name
     }
 
     private enum CodingKeys: String, CodingKey {
         case pluginId = "pluginId"
         case playlistId = "playlistId"
+        case stationPlaylistId = "stationPlaylistId"
+        case chartId = "chartId"
         case name = "name"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.pluginId = try container.decode(String.self, forKey: .pluginId)
-        self.playlistId = try container.decode(String.self, forKey: .playlistId)
+        self.pluginId = try container.decodeIfPresent(String.self, forKey: .pluginId)
+        self.playlistId = try container.decodeIfPresent(String.self, forKey: .playlistId)
+        self.stationPlaylistId = try container.decodeIfPresent(UUID.self, forKey: .stationPlaylistId)
+        self.chartId = try container.decodeIfPresent(String.self, forKey: .chartId)
         self.name = try container.decodeIfPresent(String.self, forKey: .name)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.pluginId, forKey: .pluginId)
-        try container.encode(self.playlistId, forKey: .playlistId)
+        try container.encodeIfPresent(self.pluginId, forKey: .pluginId)
+        try container.encodeIfPresent(self.playlistId, forKey: .playlistId)
+        try container.encodeIfPresent(self.stationPlaylistId, forKey: .stationPlaylistId)
+        try container.encodeIfPresent(self.chartId, forKey: .chartId)
         try container.encodeIfPresent(self.name, forKey: .name)
     }
 }

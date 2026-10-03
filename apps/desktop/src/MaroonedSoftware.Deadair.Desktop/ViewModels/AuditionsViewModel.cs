@@ -47,7 +47,7 @@ public sealed partial class AuditionRunViewModel(PersonaAuditionSummary run) : O
 
     public string Progress => $"{Run.Written} / {Run.Transitions}";
 
-    public string Source => $"{Run.Source.Name ?? Run.Source.PlaylistId} · {Run.Source.PluginId}";
+    public string Source => AuditionText.Describe(Run.Source);
 
     public string? Error => Run.Error;
 

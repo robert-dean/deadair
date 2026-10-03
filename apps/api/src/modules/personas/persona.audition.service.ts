@@ -6,7 +6,11 @@ import { DateTime } from 'luxon';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { PlaylistsService } from '#modules/playlists/playlists.service.js';
+import { StationPlaylistsRepository } from '#modules/playlists/station.playlists.repository.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
+import { ChartsService } from '#modules/charts/charts.service.js';
+import { splitChartId } from '#modules/charts/chart.ids.js';
+import { CandidatesRepository } from '#modules/director/candidates.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
 import type {
@@ -16,7 +20,7 @@ import type {
     PersonaAuditionRequest,
     PersonaAuditionSummary,
 } from './types/personas.types.js';
-import type { Audition, AuditionBreak, AuditionRecord } from './persona.audition.js';
+import type { Audition, AuditionBreak, AuditionRecord, AuditionSource } from './persona.audition.js';
 import { PersonaAuditionRepository } from './persona.audition.repository.js';
 import { PersonaRepository } from './persona.repository.js';
 
@@ -35,18 +39,27 @@ const KEEP_PER_PERSONA = 30;
  *
  * ## Asking for one QUEUES it, and that is load-bearing
  *
- * {@link start} resolves the playlist, writes a row and sends the first job. It writes no break and
+ * {@link start} resolves the source, writes a row and sends the first job. It writes no break and
  * waits for none. Every transition is a generation at the `preview` tier — behind everything the
  * station does for itself, and preempted the moment a real break wants the model — so a run of
  * twenty is minutes to hours. A request that ran them inline would hold a connection and a browser
  * for the length of it, which is the console making the station worse by being looked at.
  *
- * ## The playlist is read HERE and never in the job
+ * ## The source is read HERE and never in the job
  *
  * `PlaylistsService` is scoped over the access control the operator's session carries, and a job
  * runs as nobody. So the plugin call happens inside the request, as the person who asked, and what
  * lands on the row is the resolved list. That also makes the run a measurement: a playlist reordered
- * at the provider half way through cannot change what is being measured underneath it.
+ * at the provider half way through cannot change what is being measured underneath it. A station
+ * playlist and a chart are read here for the second reason alone.
+ *
+ * ## A run needs records, never copies
+ *
+ * A broadcast built from a station playlist leaves out the rows the library does not hold, and one
+ * built from a chart looks every entry up at a provider and ingests it, because both have to FETCH
+ * what they air. An audition airs nothing, so neither applies: a placeholder and an unmatched chart
+ * entry are still a title and an artist a host can introduce. What the catalog adds is the `trackId`
+ * the facts hang off, read where the station already has it and never gone looking for.
  */
 @Injectable()
 export class PersonaAuditionService {
@@ -59,6 +72,11 @@ export class PersonaAuditionService {
         // What the station knows about the copies the playlist named. Best-effort: a run against
         // records the catalog has never seen is an ordinary run with less to say about them.
         private readonly tracks: TracksRepository,
+        private readonly stationPlaylists: StationPlaylistsRepository,
+        private readonly charts: ChartsService,
+        // The library matched by title and lead artist, which is the only way a chart's entry finds
+        // the row it is about. The resolver's own first step, without the provider lookup after it.
+        private readonly candidates: CandidatesRepository,
         // The SCOPED broker, so the row and the job it sends commit together: a run whose insert
         // rolled back must not leave a job looking for it.
         private readonly jobs: JobBroker,
@@ -93,24 +111,25 @@ export class PersonaAuditionService {
     }
 
     /**
-     * Put a character through a playlist.
+     * Put a character through a playlist or a chart.
      *
-     * Refused rather than truncated when the playlist cannot make a single transition: a break sits
+     * Refused rather than truncated when the source cannot make a single transition: a break sits
      * BETWEEN two records, so a playlist of one has nothing to write about and an empty run reported
      * as `done` would be a measurement that never happened.
      */
     async start(id: string, body: PersonaAuditionRequest): Promise<PersonaAuditionView> {
         const persona = await this.require(id);
+        const source = sourceOf(body);
 
-        const playlist = await this.playlists.getPlaylistTracks(body.pluginId, body.playlistId);
         // One more record than the breaks asked for, because a break sits between two.
         const wanted = body.limit + 1;
-        const records = await this.recordsOf(body.pluginId, playlist.tracks.slice(0, wanted));
+        const { records, name } = await this.read(source, wanted);
 
         if (records.length < 2)
             throw httpError(422).withDetails({
-                message: 'that playlist does not hold two records, so there is no transition to write a break for',
+                message: `that ${'chartId' in source ? 'chart' : 'playlist'} does not hold two records, so there is no transition to write a break for`,
             });
+        const sourceName = body.name ?? name;
 
         // Before the insert rather than after, so the bound is what the table holds rather than what
         // it held a moment ago.
@@ -119,8 +138,8 @@ export class PersonaAuditionService {
         const audition = await this.auditions.open({
             personaId: persona.id,
             personaKey: persona.key,
-            source: { pluginId: body.pluginId, playlistId: body.playlistId },
-            ...(body.name === undefined ? {} : { sourceName: body.name }),
+            source,
+            ...(sourceName === undefined ? {} : { sourceName }),
             records,
             ...(this.actor() === undefined ? {} : { actorId: this.actor()! }),
         });
@@ -131,7 +150,7 @@ export class PersonaAuditionService {
         this.logger.info('personas: an operator started an audition', {
             audition: audition.id,
             persona: persona.key,
-            plugin: body.pluginId,
+            source,
             transitions: audition.transitions,
         });
         void this.activity.record({
@@ -140,7 +159,7 @@ export class PersonaAuditionService {
             // "Programming", and who the station sounds like belongs there.
             module: 'director',
             kind: 'persona.audition.started',
-            detail: `${persona.label} was put through a playlist: ${audition.transitions} breaks.`,
+            detail: `${persona.label} was put through ${'chartId' in source ? 'a chart' : 'a playlist'}: ${audition.transitions} breaks.`,
             data: { auditionId: audition.id, personaKey: persona.key, transitions: audition.transitions },
             ...(this.actor() === undefined ? {} : { actorId: this.actor()! }),
         });
@@ -196,6 +215,113 @@ export class PersonaAuditionService {
         if (run === undefined || run.personaId !== id) throw httpError(404).withDetails({ message: `audition "${auditionId}" does not exist` });
 
         return run;
+    }
+
+    /** The first `wanted` records of whichever source was asked for, and what it is called if it says. */
+    private async read(source: AuditionSource, wanted: number): Promise<{ records: AuditionRecord[]; name?: string }> {
+        if ('stationPlaylistId' in source) return await this.stationPlaylistRecords(source.stationPlaylistId, wanted);
+        if ('chartId' in source) return { records: await this.chartRecords(source.chartId, wanted) };
+
+        const playlist = await this.playlists.getPlaylistTracks(source.pluginId, source.playlistId);
+        return { records: await this.recordsOf(source.pluginId, playlist.tracks.slice(0, wanted)) };
+    }
+
+    /**
+     * A playlist the station owns, placeholders included.
+     *
+     * @throws 404 for an id this station does not hold.
+     */
+    private async stationPlaylistRecords(id: string, wanted: number): Promise<{ records: AuditionRecord[]; name: string }> {
+        const playlist = await this.stationPlaylists.find(id);
+        if (playlist === undefined) throw httpError(404).withDetails({ message: `station playlist "${id}" does not exist` });
+
+        const rows = (await this.stationPlaylists.tracks(id)).slice(0, wanted);
+        const records = rows.map((row): AuditionRecord => ({
+            title: row.title,
+            // `track_artists` in credit order, so the lead is first here as it is on a provider's.
+            artist: row.artists[0] ?? '',
+            ...(row.trackId === undefined ? {} : { trackId: row.trackId }),
+            ...(row.album === undefined ? {} : { album: row.album }),
+            ...(row.durationMs === undefined ? {} : { durationMs: row.durationMs }),
+        }));
+
+        return { records: await this.withYears(records), name: playlist.name };
+    }
+
+    /**
+     * A chart's entries from the top, each matched to the library where it already holds the record.
+     *
+     * From the top rather than as a countdown: an audition is a sample of the material, and the top
+     * of a chart is what an operator means by "this week's chart".
+     *
+     * @throws 422 when the id names no chart, or when nothing could read one.
+     */
+    private async chartRecords(chartId: string, wanted: number): Promise<AuditionRecord[]> {
+        if (splitChartId(chartId) === undefined) {
+            throw httpError(422).withDetails({ message: 'that is not a chart id; it names a plugin and one of its charts, as `plugin:chart`' });
+        }
+
+        // `ChartsService` answers every way of failing with an empty list, which on a page is "a
+        // chart with nothing on it". Here it is a run that cannot start, and is said as one.
+        const entries = [...(await this.charts.fetchChart(chartId, wanted))].sort((a, b) => a.rank - b.rank).slice(0, wanted);
+        if (entries.length === 0) throw httpError(422).withDetails({ message: 'that chart could not be read, so there is nothing to audition over' });
+
+        const records = await Promise.all(
+            entries.map(async (entry): Promise<AuditionRecord> => {
+                const found = await this.matched(entry.title, entry.artist);
+                return {
+                    title: entry.title,
+                    artist: entry.artist,
+                    ...(found === undefined ? {} : { trackId: found }),
+                    ...(entry.year === undefined ? {} : { year: entry.year }),
+                    ...(entry.album === undefined ? {} : { album: entry.album }),
+                };
+            }),
+        );
+
+        return await this.withYears(records);
+    }
+
+    /** The library's row for a named record, or nothing. Best-effort, on {@link recordsOf}'s rule. */
+    private async matched(title: string, artist: string): Promise<string | undefined> {
+        try {
+            return (await this.candidates.findByName(title, artist))?.trackId;
+        } catch (error) {
+            this.logger.warn('personas: could not match a chart entry to the library for an audition; taking it as it came', {
+                track: `${artist} — ${title}`,
+                error: errorText(error),
+            });
+            return undefined;
+        }
+    }
+
+    /**
+     * The year and album the catalog holds for records that name a row and lack them. Best-effort, on
+     * {@link recordsOf}'s rule: a record with no year is an ordinary record with less to say.
+     */
+    private async withYears(records: AuditionRecord[]): Promise<AuditionRecord[]> {
+        const ids = records.flatMap(record =>
+            record.trackId !== undefined && (record.year === undefined || record.album === undefined) ? [record.trackId] : [],
+        );
+        if (ids.length === 0) return records;
+
+        let known: Awaited<ReturnType<TracksRepository['findByIds']>>;
+        try {
+            known = await this.tracks.findByIds(ids);
+        } catch (error) {
+            this.logger.warn('personas: could not read catalog metadata for an audition; taking the records as they came', {
+                error: errorText(error),
+            });
+            return records;
+        }
+
+        return records.map(record => {
+            const row = record.trackId === undefined ? undefined : known.get(record.trackId);
+            if (row === undefined) return record;
+            const year = record.year ?? row.year;
+            const album = record.album ?? row.album;
+            return { ...record, ...(year === undefined ? {} : { year }), ...(album === undefined ? {} : { album }) };
+        });
     }
 
     /**
@@ -257,12 +383,7 @@ export class PersonaAuditionService {
             id: run.id,
             personaId: run.personaId,
             personaKey: run.personaKey,
-            // Phase-one shape: only a provider's playlist is written yet, so a row from either other
-            // source cannot exist until the contract can describe it.
-            source: {
-                ...('pluginId' in run.source ? { pluginId: run.source.pluginId, playlistId: run.source.playlistId } : { pluginId: '', playlistId: '' }),
-                ...(run.sourceName === undefined ? {} : { name: run.sourceName }),
-            },
+            source: { ...run.source, ...(run.sourceName === undefined ? {} : { name: run.sourceName }) },
             state: run.state,
             transitions: run.transitions,
             written: count,
@@ -272,6 +393,32 @@ export class PersonaAuditionService {
             createdAt: iso(run.createdAt),
         };
     }
+}
+
+/**
+ * The one source a request names, or a 422.
+ *
+ * The contract makes all four ids optional because it cannot say "exactly one of these", so it is
+ * said here: two sources is an operator's choice the station would have to make for them, and none
+ * is a run with nothing to read.
+ */
+function sourceOf(body: PersonaAuditionRequest): AuditionSource {
+    const sources: AuditionSource[] = [];
+    if (body.pluginId !== undefined || body.playlistId !== undefined) {
+        if (body.pluginId === undefined || body.playlistId === undefined) {
+            throw httpError(422).withDetails({ message: 'a provider playlist is named by `pluginId` and `playlistId` together' });
+        }
+        sources.push({ pluginId: body.pluginId, playlistId: body.playlistId });
+    }
+    if (body.stationPlaylistId !== undefined) sources.push({ stationPlaylistId: body.stationPlaylistId });
+    if (body.chartId !== undefined) sources.push({ chartId: body.chartId });
+
+    if (sources.length !== 1) {
+        throw httpError(422).withDetails({
+            message: 'name exactly one source: a provider playlist (`pluginId` and `playlistId`), a `stationPlaylistId`, or a `chartId`',
+        });
+    }
+    return sources[0]!;
 }
 
 /** Epoch millis as the ISO-8601 string this area's contracts carry. */

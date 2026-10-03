@@ -326,35 +326,46 @@ export interface PersonaRehearsalAttempt {
 }
 
 /**
- * What an operator asks for when they put a character through a playlist. The playlist is READ at the
- * moment of asking and its records are stored on the run, so a list edited at the provider afterwards
- * does not change what was measured
- * generated from [PersonaAuditionRequest](../../../../../apps/api/data/contracts/personas/personas.types.ck#L300)
+ * What an operator asks for when they put a character through a playlist or a chart. Exactly one
+ * source: a provider's playlist, a playlist the station owns, or a published chart. It is READ at the
+ * moment of asking and its records are stored on the run, so a list edited afterwards does not change
+ * what was measured
+ * generated from [PersonaAuditionRequest](../../../../../apps/api/data/contracts/personas/personas.types.ck#L301)
  */
 export interface PersonaAuditionRequest {
-    /** Which catalog plugin the playlist belongs to */
-    pluginId: string;
-    playlistId: string;
-    /** What the playlist is called, kept as a caption for the run. The console already holds it, and a run whose playlist is later renamed or deleted stays readable */
+    /** Which catalog plugin the playlist belongs to. Required alongside `playlistId` */
+    pluginId?: string;
+    playlistId?: string;
+    /** A playlist the station owns to audition over instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`. A row the library does not hold yet is still a record the host can talk about, so it is kept */
+    stationPlaylistId?: string;
+    /** A published chart to audition over instead, as `pluginId:chartId`, from its top. An ALTERNATIVE to the other sources. Its entries are never looked up at a provider, since nothing in an audition airs */
+    chartId?: string;
+    /** What the source is called, kept as a caption for the run. The console already holds it, and a run whose source is later renamed or deleted stays readable */
     name?: string;
-    /** How many breaks to write. One more record than this is taken off the playlist, since a break sits between two */
+    /** How many breaks to write. One more record than this is taken off the source, since a break sits between two */
     limit?: number;
 }
 
 /**
- * Where the records came from. A snapshot of the name rather than a reference, so a playlist renamed
- * or deleted at the provider leaves a finished audition readable
- * generated from [PersonaAuditionSource](../../../../../apps/api/data/contracts/personas/personas.types.ck#L309)
+ * Where the records came from: exactly one of the provider's pair, `stationPlaylistId` or `chartId`.
+ * A snapshot of the name rather than a reference, so a source renamed or deleted afterwards leaves a
+ * finished audition readable
+ * generated from [PersonaAuditionSource](../../../../../apps/api/data/contracts/personas/personas.types.ck#L313)
  */
 export interface PersonaAuditionSource {
-    pluginId: string;
-    playlistId: string;
+    /** The plugin whose playlist it was. Present exactly when `playlistId` is */
+    pluginId?: string;
+    playlistId?: string;
+    /** A playlist the station owns */
+    stationPlaylistId?: string;
+    /** A published chart, as `pluginId:chartId` */
+    chartId?: string;
     name?: string;
 }
 
 /**
  * One record, exactly as the writers were shown it
- * generated from [PersonaAuditionRecord](../../../../../apps/api/data/contracts/personas/personas.types.ck#L316)
+ * generated from [PersonaAuditionRecord](../../../../../apps/api/data/contracts/personas/personas.types.ck#L322)
  */
 export interface PersonaAuditionRecord {
     title: string;
@@ -371,7 +382,7 @@ export interface PersonaAuditionRecord {
  * One time a character actually told one of its own stories. What the timeline lists, and what a
  * rollback is chosen from: the moment on each row is the exact string the station compares against,
  * not a rounding of it
- * generated from [PersonaTelling](../../../../../apps/api/data/contracts/personas/personas.types.ck#L366)
+ * generated from [PersonaTelling](../../../../../apps/api/data/contracts/personas/personas.types.ck#L372)
  */
 export interface PersonaTelling {
     id: string;
@@ -399,7 +410,7 @@ export interface PersonaTellingInput {}
 /**
  * What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview
  * cannot promise one thing and do another
- * generated from [PersonaMemoryChange](../../../../../apps/api/data/contracts/personas/personas.types.ck#L386)
+ * generated from [PersonaMemoryChange](../../../../../apps/api/data/contracts/personas/personas.types.ck#L392)
  */
 export interface PersonaMemoryChange {
     /** Tellings forgotten. Every one, whatever wrote it: a telling is a record of something the station did rather than a claim somebody made */
@@ -418,7 +429,7 @@ export interface PersonaMemoryChange {
 
 /**
  * Undo what this character accumulated on its own
- * generated from [PersonaMemoryRollback](../../../../../apps/api/data/contracts/personas/personas.types.ck#L395)
+ * generated from [PersonaMemoryRollback](../../../../../apps/api/data/contracts/personas/personas.types.ck#L401)
  */
 export interface PersonaMemoryRollback {
     /** The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset */
@@ -566,7 +577,7 @@ export interface PersonaRehearsal {
 
 /**
  * A run of one character over one playlist, without its breaks: what a list draws
- * generated from [PersonaAuditionSummary](../../../../../apps/api/data/contracts/personas/personas.types.ck#L340)
+ * generated from [PersonaAuditionSummary](../../../../../apps/api/data/contracts/personas/personas.types.ck#L346)
  */
 export interface PersonaAuditionSummary {
     id: string;
@@ -594,7 +605,7 @@ export interface PersonaAuditionSummary {
  * One transition, and everything the writers said about it. Every writer asked is reported and not
  * only the one that won, on the rehearsal's own argument: a model that declined and a floor that
  * covered for it are two facts
- * generated from [PersonaAuditionBreak](../../../../../apps/api/data/contracts/personas/personas.types.ck#L328)
+ * generated from [PersonaAuditionBreak](../../../../../apps/api/data/contracts/personas/personas.types.ck#L334)
  */
 export interface PersonaAuditionBreak {
     /** Which transition, from 0 */
@@ -616,7 +627,7 @@ export interface PersonaAuditionBreak {
 
 /**
  * What one character has told, newest first
- * generated from [PersonaMemoryTimeline](../../../../../apps/api/data/contracts/personas/personas.types.ck#L379)
+ * generated from [PersonaMemoryTimeline](../../../../../apps/api/data/contracts/personas/personas.types.ck#L385)
  */
 export interface PersonaMemoryTimeline {
     personaId: string;
@@ -630,7 +641,7 @@ export interface PersonaMemoryTimelineInput {
 
 /**
  * What was undone, and where the timeline stands now
- * generated from [PersonaMemory](../../../../../apps/api/data/contracts/personas/personas.types.ck#L400)
+ * generated from [PersonaMemory](../../../../../apps/api/data/contracts/personas/personas.types.ck#L406)
  */
 export interface PersonaMemory {
     personaId: string;
@@ -695,7 +706,7 @@ export interface PersonaImportPlan {
 export interface PersonaImportPlanInput {}
 
 /**
- * generated from [PersonaAuditionList](../../../../../apps/api/data/contracts/personas/personas.types.ck#L359)
+ * generated from [PersonaAuditionList](../../../../../apps/api/data/contracts/personas/personas.types.ck#L365)
  */
 export interface PersonaAuditionList {
     auditions: PersonaAuditionSummary[];
@@ -703,7 +714,7 @@ export interface PersonaAuditionList {
 
 /**
  * The same run with every break it has written so far, in order
- * generated from [PersonaAudition](../../../../../apps/api/data/contracts/personas/personas.types.ck#L355)
+ * generated from [PersonaAudition](../../../../../apps/api/data/contracts/personas/personas.types.ck#L361)
  */
 export interface PersonaAudition extends PersonaAuditionSummary {
     breaks: PersonaAuditionBreak[];

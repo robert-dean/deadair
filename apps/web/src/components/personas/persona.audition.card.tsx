@@ -1,7 +1,7 @@
 import { Badge, Button, Card, Collapse, Group, Stack, Text } from '@mantine/core';
 import { ActionIcon } from '@mantine/core';
 import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
-import type { PersonaAuditionBreak, PersonaAuditionSummary } from '@deadair/sdk';
+import type { PersonaAuditionBreak, PersonaAuditionSource, PersonaAuditionSummary } from '@deadair/sdk';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
@@ -14,7 +14,7 @@ import { type StatusTone } from '../shared/status';
 import { Attempt } from './persona.rehearsal';
 
 /**
- * One run of a character through a playlist.
+ * One run of a character through a playlist or a chart.
  *
  * Closed, it is a progress line: how far along, where the records came from, and a way to stop it.
  * Open, it is the thing an operator came for — the breaks in order, each with every writer that was
@@ -61,7 +61,7 @@ export function PersonaAuditionCard({
                             {run.written > 0 ? <Tally breaks={detail.data?.breaks ?? []} /> : undefined}
                         </Group>
                         <Text size="xs" c="dimmed">
-                            {run.source.name ?? run.source.playlistId} — {run.source.pluginId}
+                            {describeSource(run.source, t)}
                         </Text>
                     </Stack>
 
@@ -200,6 +200,16 @@ function Tally({ breaks }: { breaks: readonly PersonaAuditionBreak[] }) {
  * `cancelled` is `off` rather than a fault: somebody chose it, and what it wrote is still worth
  * reading. Only `failed` is something to go and look at.
  */
+/**
+ * Where a run's records came from, in one line. The kind is told apart by which id the source
+ * carries, since exactly one is present, and the id stands in for a caption the run was never given.
+ */
+export function describeSource(source: PersonaAuditionSource, t: TFunction<'personas'>): string {
+    if (source.stationPlaylistId !== undefined) return t('audition.source.station', { name: source.name ?? source.stationPlaylistId });
+    if (source.chartId !== undefined) return t('audition.source.chart', { name: source.name ?? source.chartId });
+    return t('audition.source.playlist', { name: source.name ?? source.playlistId ?? '', from: source.pluginId ?? '' });
+}
+
 function toneFor(state: string): StatusTone {
     if (state === 'running') return 'live';
     if (state === 'done') return 'ok';

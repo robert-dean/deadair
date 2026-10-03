@@ -23,7 +23,7 @@ class PersonasAuditionsClient(private val http: SdkHttp) {
 
     /**
      * Start persona audition
-     * Asks the station to put this character through a playlist. It is queued, not written
+     * Asks the station to put this character through a playlist or a chart. It is queued, not written
      */
     suspend fun startPersonaAudition(id: String, body: PersonaAuditionRequest): PersonaAudition {
         val response = http.execute(HttpMethod.Post) {

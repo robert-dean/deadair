@@ -553,6 +553,11 @@ export const personas = {
         queued: 'Queued. Each break waits for the model behind everything the station is doing for itself, so this fills in slowly.',
         readError: 'Could not read this audition',
         hear: 'Hear break {{number}}',
+        source: {
+            playlist: '{{name}} — {{from}}',
+            station: '{{name}} — a station playlist',
+            chart: '{{name}} — a chart',
+        },
         tally: {
             model: '{{model}} by the model',
             declined: '{{declined}} declined',

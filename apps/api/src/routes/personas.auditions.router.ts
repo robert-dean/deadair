@@ -30,7 +30,7 @@ PersonasAuditionsRouter.get('/personas/:id/auditions', requirePolicy({ policy: '
 });
 
 /**
- * Asks the station to put this character through a playlist. It is queued, not written
+ * Asks the station to put this character through a playlist or a chart. It is queued, not written
  * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck#L55)
  */
 PersonasAuditionsRouter.post('/personas/:id/auditions', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {

@@ -730,6 +730,26 @@ export class StationLineup implements LiveOrder {
     }
 
     /**
+     * The record this line is directly in front of, or `undefined` when something else airs first.
+     *
+     * Narrower than {@link nextTrackAfter}, which walks past segments: a link talked up over a
+     * record has to be the last thing before it, or a jingle between them would air in the gap and
+     * the link would then talk over the record after the jingle, in the wrong order. Lines that will
+     * never air (skipped, unavailable, removed) are passed over, since nothing is heard from them.
+     */
+    trackRightAfter(itemId: string): StationLineupTrackItem | undefined {
+        const at = this.itemList.findIndex(item => item.id === itemId);
+        if (at < 0) return undefined;
+
+        for (let index = at + 1; index < this.itemList.length; index++) {
+            const item = this.itemList[index]!;
+            if (item.state === 'skipped' || item.state === 'unavailable' || item.state === 'removed') continue;
+            return item.kind === 'track' ? item : undefined;
+        }
+        return undefined;
+    }
+
+    /**
      * The nearest record before this line that actually aired, as the order stands right now.
      *
      * {@link nextTrackAfter}'s mirror, for a break's BACKWARD claim: it named a line when it was
@@ -799,6 +819,24 @@ export class StationLineup implements LiveOrder {
      */
     markHanded(itemId: string): boolean {
         return this.transition(itemId, 'planned', 'handed');
+    }
+
+    /**
+     * Hand a link over as a talk-over of the record after it: the talk-up, decided at hand-over.
+     *
+     * It BECOMES a talk-over here, `over` and all, rather than merely being treated as one by the
+     * director, because every other rule about talk-overs reads that field: {@link markAiring} must
+     * not count it as passed over when its record starts, the console shows it riding the record,
+     * and the order as stored says what actually aired. A link handled as a cue without being marked
+     * as one would be swept as skipped the moment its own record began.
+     */
+    handOverTalkingUp(itemId: string, atMs: number): boolean {
+        const item = this.itemList.find(candidate => candidate.id === itemId);
+        if (item?.kind !== 'segment' || item.state !== 'planned' || item.over !== undefined) return false;
+
+        item.over = { atMs };
+        item.state = 'handed';
+        return true;
     }
 
     /**
@@ -1117,7 +1155,10 @@ export class StationLineup implements LiveOrder {
         const lines: StationLineupItem[] =
             dedication === undefined
                 ? [item]
-                : [{ id: randomUUID(), kind: 'segment', state: 'planned', segmentId: dedication.segmentId, segmentKind: dedication.segmentKind }, item];
+                : [
+                      { id: randomUUID(), kind: 'segment', state: 'planned', segmentId: dedication.segmentId, segmentKind: dedication.segmentKind },
+                      item,
+                  ];
         this.itemList.splice(gap, 0, ...lines);
         return OK;
     }

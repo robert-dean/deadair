@@ -135,6 +135,38 @@ known limit is the welcome's:** a changeover landing in the last seconds of a re
 slot, `toPlayerItems` skips it, and the new show starts unannounced. Silence on one boundary beats a
 late greeting.
 
+## Talking up to the post
+
+**A link that fits inside the next record's intro is said over it, ending just before the first sung
+word, and is decided at HAND-OVER rather than when the break is planted.** `breaks.talkUp`, off. A
+planted break is put in the order first and written and spoken afterwards, so at planting its length
+is not a fact; at hand-over it is audio and `segments.duration_ms` is. So `DirectorService.toPlayerItems`
+asks `talkUpRunways` for the runway of the record DIRECTLY after each ready talk link
+(`StationLineup.trackRightAfter`, which refuses a link with a jingle between it and its record, or the
+link would talk over the record after the jingle), and `talkUpAt` (`director/talk.up.ts`) answers
+where in that record to start, or nothing. Nothing is a link in the gap, exactly as before: an
+instrumental, a record with no timed lyrics, a runway under 2.5s, a link that does not fit. **A link is
+never trimmed or rendered again to make it fit**; it simply airs where it always did.
+
+**The post is the first sung line, moved onto the timeline the record AIRS on.** The lyric's timings
+count from the top of the file and the record airs from its measured cue-in, so an 8s first line on a
+record with 6s of leading silence is 2s of runway on air. `lyrics/vocal.runway.ts` is the one place
+that shift is made, and both readers (this and the writer's budget) go through it: a comparable
+station had three call sites spelling it three ways, and the prompt and the timing then disagreed
+about one clip. `talkUpAt` then ends the link `breaks.talkUpSafetyMs` before the post, counts the
+duck's 300ms ramp after the last word as part of the link, allows for Liquidsoap's cue clock running
+about 3.5% slow (measured beside `on_air_elapsed` in `radio.liq`), and on an intro of 18s or more
+starts two seconds in rather than hanging silent until the post.
+
+**A talked-up link BECOMES a talk-over on the order**, `over` and all (`StationLineup.handOverTalkingUp`),
+rather than only being handled as one by the director. `markAiring` reads that field to know that a
+handed cue in front of the record now starting has not been missed; a link carried as a cue without it
+was swept as skipped the moment its own record began.
+
+The markers come from the record's timed lyrics, or from an operator's correction on the record's
+page, which wins until it is cleared. No audio is cut or joined for any of this: the mixer does exactly
+what it does for an interrupting talk-over ([`playout.md`](playout.md) § "What decides a blend").
+
 ## A claim needs its evidence
 
 **A FACT is a claim with its evidence attached, and it is not a plugin's payload.** `deadair.facts` holds one

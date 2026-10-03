@@ -100,6 +100,7 @@ import {
 import { CHARTS_KEYS } from '#modules/charts/charts.keys.js';
 import { ENRICHMENT_KEYS } from '#modules/enrichment/enrichment.keys.js';
 import { LYRICS_FETCH_DEFAULT, LYRICS_KEYS } from '#modules/lyrics/lyrics.keys.js';
+import { DEFAULT_TALK_UP_SAFETY_MS, TALK_UP_DEFAULT, TALK_UP_KEYS, TALK_UP_SAFETY_RANGE } from '#modules/director/talk.up.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { TRANSCODE_PLUGIN_KEY } from '#modules/render/transcode.settings.js';
 import { SHARE_COPY_DAYS_DEFAULT, SHARE_COPY_DAYS_KEY, SHARE_COPY_DAYS_MAX, SHARE_COPY_DAYS_MIN } from '#modules/render/segment.share.settings.js';
@@ -862,6 +863,26 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         step: 10,
         control: 'slider',
         help: 'How long the presenter may talk between two records. Forty is about fifteen seconds, which is a link rather than a monologue — and it is a ceiling rather than a target, so raising it lets a character run where it has something to say instead of making every break longer. A persona given latitude of its own still gets whichever is the greater.',
+    },
+    {
+        group: 'breaks',
+        key: TALK_UP_KEYS.enabled,
+        label: 'Talk up to the post',
+        type: 'boolean',
+        default: TALK_UP_DEFAULT,
+        dependsOn: ROTATION_KEYS.breaks,
+        help: 'When a link is short enough to finish before the singing starts on the next record, the presenter says it over that record’s intro instead of in the gap, landing the last word just before the first sung one. Where the singing starts comes from the record’s timed lyrics, so this does nothing until lyrics are switched on under Measurement, and a record with none is introduced in the gap as before. You can correct where the singing starts on any record’s page.',
+    },
+    {
+        group: 'breaks',
+        key: TALK_UP_KEYS.safetyMs,
+        label: 'Room left before the singing (ms)',
+        type: 'number',
+        default: DEFAULT_TALK_UP_SAFETY_MS,
+        dependsOn: TALK_UP_KEYS.enabled,
+        min: TALK_UP_SAFETY_RANGE.min,
+        max: TALK_UP_SAFETY_RANGE.max,
+        help: 'How long before the first sung word the presenter has to have finished. Lyric timings are typed by people and can be a little early or late, so the default leaves a second and a half.',
     },
     {
         group: 'breaks',

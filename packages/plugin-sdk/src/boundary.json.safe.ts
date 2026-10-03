@@ -70,6 +70,7 @@ import type {
     MessagingSender,
     OutboundMessage,
 } from './capabilities/messaging.js';
+import type { OutputDevice, OutputMetadata, OutputMetadataRequest, OutputPlayRequest, OutputStatus } from './capabilities/output.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
 import type { SearchQuery, SearchResult } from './capabilities/search.js';
 import type { ArtistTrack, SimilarArtist } from './capabilities/similarity.js';
@@ -259,6 +260,11 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     MessagingSendResult: IsJsonSafe<MessagingSendResult>;
     MessagingAnnounceTarget: IsJsonSafe<MessagingAnnounceTarget>;
     MessagingCommand: IsJsonSafe<MessagingCommand>;
+    OutputDevice: IsJsonSafe<OutputDevice>;
+    OutputMetadata: IsJsonSafe<OutputMetadata>;
+    OutputPlayRequest: IsJsonSafe<OutputPlayRequest>;
+    OutputMetadataRequest: IsJsonSafe<OutputMetadataRequest>;
+    OutputStatus: IsJsonSafe<OutputStatus>;
     SpeechLimits: IsJsonSafe<SpeechLimits>;
 }>;
 
@@ -359,6 +365,11 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'MessagingSendResult',
     'MessagingAnnounceTarget',
     'MessagingCommand',
+    'OutputDevice',
+    'OutputMetadata',
+    'OutputPlayRequest',
+    'OutputMetadataRequest',
+    'OutputStatus',
     'SpeechLimits',
 ] as const;
 
@@ -404,6 +415,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'AlmanacProvider',
     'ScrobbleProvider',
     'MessagingProvider',
+    'OutputProvider',
 ] as const;
 
 /**

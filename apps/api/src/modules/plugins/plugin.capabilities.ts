@@ -10,6 +10,7 @@ import {
     PLUGIN_CAPABILITY_TRANSCODE,
     PLUGIN_CAPABILITY_NARRATION,
     PLUGIN_CAPABILITY_NEWS,
+    PLUGIN_CAPABILITY_OUTPUT,
     PLUGIN_CAPABILITY_PODCAST,
     PLUGIN_CAPABILITY_SCROBBLE,
     PLUGIN_CAPABILITY_SEARCH,
@@ -30,6 +31,7 @@ import {
     type MusicProviderPluginInstance,
     type NarrationPluginInstance,
     type NewsPluginInstance,
+    type OutputPluginInstance,
     type PodcastPluginInstance,
     type PluginManifest,
     type SearchPluginInstance,
@@ -615,6 +617,37 @@ export const asMessagingPlugin = (record: PluginRecord): MessagingPlugin | undef
         announces: typeof (instance as unknown as Record<string, unknown>).announceTargets === 'function',
         listsCommands: typeof (instance as unknown as Record<string, unknown>).commands === 'function',
     };
+};
+
+/** The methods that earn the `output` capability: every one, since a speaker that cannot be stopped is not one to start. */
+export const OUTPUT_METHODS = ['listDevices', 'play', 'updateMetadata', 'stop', 'status'] as const satisfies ReadonlyArray<
+    keyof OutputPluginInstance
+>;
+
+/** A plugin narrowed to "can put the station on a speaker, right now". */
+export interface OutputPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: OutputPluginInstance;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `output` capability. */
+export const implementsOutput = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_OUTPUT)) return false;
+    return OUTPUT_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/**
+ * The output-capable view of a record, or `undefined` when it is not one.
+ *
+ * No choosing between them, for {@link asMessagingPlugin}'s reason: two speaker plugins are two
+ * sets of speakers, and every one of them is listed.
+ */
+export const asOutputPlugin = (record: PluginRecord): OutputPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsOutput(record.manifest, record.instance)) return undefined;
+
+    return { record, manifest: record.manifest, instance: record.instance as OutputPluginInstance };
 };
 
 /**

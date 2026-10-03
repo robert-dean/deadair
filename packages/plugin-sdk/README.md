@@ -27,6 +27,7 @@ A plugin extends deadair by declaring capabilities:
 | `almanac`    | say what happened on a date: a month and a day in, entries out |
 | `scrobble`   | report what the station played to somebody else's service      |
 | `messaging`  | talk to people on a chat platform: messages in, messages out   |
+| `output`     | play the station on a speaker: a mount's URL in, a device plays |
 | `oauth`      | hold operator tokens, obtained through the host's redirect     |
 
 There is no second axis. `capabilities` is the whole declaration, and the host
@@ -924,6 +925,49 @@ buttons renders them as text or drops them.
 takesArgs }`) each time the host starts listening on your plugin, for a platform
 that lists commands in its own interface; overwrite, don't append. Leave it out
 and people type the commands as they always could.
+
+## Playing the station on a speaker
+
+An `output` plugin puts the station on a Chromecast, a Sonos, a BluOS player or
+anything else that can be told a URL and will fetch it. Five methods:
+
+```ts
+async listDevices(): Promise<OutputDevice[]> {
+    return this.configured.map(row => ({
+        id: row.address.toLowerCase(), name: row.name, address: row.address,
+        accepts: ['audio/mpeg', 'audio/aac'], followsMetadata: true,
+    }));
+}
+
+async play({ deviceId, url, contentType, metadata }: OutputPlayRequest): Promise<void> {
+    await this.device(deviceId).load(url, contentType, metadata);   // resolves when accepted
+}
+```
+
+`updateMetadata`, `stop` and `status` complete it. Four things are easy to get wrong.
+
+**The speaker fetches the stream.** You are handed the mount's URL and its
+content type and pass them on. Never build a station URL and never pick a format:
+the host chooses the mount from what your device `accepts`, so list only what it
+really plays (a Sonos takes MP3 and AAC for a radio URL and nothing else).
+
+**The host owns retrying.** It remembers every cast it started, asks `status`
+how each is doing, and plays one again when a device drops it. So `play`
+resolves when the device ACCEPTED the command, not when sound comes out, and
+you never reconnect a stream on your own.
+
+**Warming up is not failing.** A live stream takes seconds to start. Report it
+as `opening` or `buffering`, and a device that does not answer as `unreachable`
+from `status` rather than a throw. List a configured device that does not
+answer anyway: the operator asked for it by name.
+
+**Stop means stop.** A speaker playing the station is a listener, and one left
+playing holds the station's audience open. `stop` is idempotent: answer it for
+a device that was not playing ours.
+
+A device that only speaks a protocol where the sender streams the audio itself
+(AirPlay audio, Bluetooth) cannot be an output: there is no URL to hand it, and
+the station encodes nothing in its own process.
 
 ## Music providers
 

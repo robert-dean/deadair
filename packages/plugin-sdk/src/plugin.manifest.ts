@@ -212,6 +212,14 @@ export const PLUGIN_CAPABILITY_SCROBBLE = 'scrobble';
  */
 export const PLUGIN_CAPABILITY_MESSAGING = 'messaging';
 
+/**
+ * Puts the station on a speaker somewhere else: the plugin is told a mount's
+ * URL and a device, and the device fetches the stream itself. Separate from
+ * `steer`, which hands a music provider's OWN player the records; this hands a
+ * speaker the station. `capabilities/output.ts` says why it carries no audio.
+ */
+export const PLUGIN_CAPABILITY_OUTPUT = 'output';
+
 export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_CATALOG,
     PLUGIN_CAPABILITY_STREAM,
@@ -233,6 +241,7 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_ALMANAC,
     PLUGIN_CAPABILITY_SCROBBLE,
     PLUGIN_CAPABILITY_MESSAGING,
+    PLUGIN_CAPABILITY_OUTPUT,
 ] as const;
 
 export type KnownPluginCapability = (typeof KNOWN_PLUGIN_CAPABILITIES)[number];

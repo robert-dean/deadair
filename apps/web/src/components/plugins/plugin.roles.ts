@@ -29,6 +29,7 @@ export const KNOWN_CAPABILITIES = [
     'podcast',
     'almanac',
     'charts',
+    'output',
     'oauth',
 ] as const;
 

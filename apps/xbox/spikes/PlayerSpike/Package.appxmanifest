@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+    xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+    xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
+    xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+    xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+    IgnorableNamespaces="uap uap3 mp">
+
+    <Identity Name="MaroonedSoftware.Deadair.XboxPlayerSpike" Publisher="CN=Marooned Software" Version="0.0.1.0" />
+
+    <mp:PhoneIdentity PhoneProductId="6f1c5a3e-2b7d-4c8e-9a41-0d7e5b3f9c12" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
+
+    <Properties>
+        <DisplayName>deadair player spike</DisplayName>
+        <PublisherDisplayName>Marooned Software</PublisherDisplayName>
+        <Logo>Assets\StoreLogo.png</Logo>
+    </Properties>
+
+    <Dependencies>
+        <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+    </Dependencies>
+
+    <Resources>
+        <Resource Language="x-generate" />
+    </Resources>
+
+    <Applications>
+        <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="PlayerSpike.App">
+            <uap:VisualElements
+                DisplayName="deadair player spike"
+                Square150x150Logo="Assets\Square150x150Logo.png"
+                Square44x44Logo="Assets\Square44x44Logo.png"
+                Description="Measures whether the station plays on Xbox, in the foreground and behind a game."
+                BackgroundColor="#111111">
+                <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+                <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#111111" />
+            </uap:VisualElements>
+        </Application>
+    </Applications>
+
+    <Capabilities>
+        <Capability Name="internetClient" />
+        <!-- Without this the console suspends the app, and the audio with it, the moment a game takes the screen. -->
+        <uap3:Capability Name="backgroundMediaPlayback" />
+    </Capabilities>
+</Package>

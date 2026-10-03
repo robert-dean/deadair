@@ -1,0 +1,42 @@
+<!--
+    The Xbox go/no-go. A UWP app on modern .NET, which Microsoft supports on Windows and has never
+    said anything about on the console, referencing the generated C# SDK and playing the station
+    through the platform's own MediaPlayer. See README.md for what it has to show and how to run it.
+
+    Native AOT is not a choice: it is the only way a modern .NET UWP app is accepted by the Store, so
+    a Release build is the one that answers the question and a Debug build only answers half of it.
+    Reflection-based System.Text.Json is off by default under AOT and the SDK uses it, which is the
+    second thing this measures rather than something to switch on quietly.
+
+    No lock file and no warnings-as-errors, unlike apps/desktop: this is a measuring instrument and a
+    trim warning is one of its readings.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+        <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+        <UseUwp>true</UseUwp>
+        <UseUwpTools>true</UseUwpTools>
+        <EnableMsixTooling>true</EnableMsixTooling>
+        <!-- Xbox takes x64 or neutral packages and nothing else. -->
+        <Platforms>x64</Platforms>
+        <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+        <PublishAot>true</PublishAot>
+        <DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <RootNamespace>PlayerSpike</RootNamespace>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Content Include="Assets\*.png" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../../../../packages/sdk-csharp/DeadairSdk.csproj" />
+    </ItemGroup>
+
+</Project>

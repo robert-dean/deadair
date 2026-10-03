@@ -1,0 +1,31 @@
+<Page
+    x:Class="PlayerSpike.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="#111111">
+
+    <!-- 48/27 is the TV safe area on a 1920x1080 layout at the console's 150% scale. -->
+    <Grid Padding="48,27">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12">
+            <TextBox x:Name="Origin" Width="420" PlaceholderText="https://radio.example.com" />
+            <Button x:Name="ReadButton" Content="Read station" Click="OnRead" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12" Margin="0,12,0,12">
+            <Button Content="Play MP3" Click="OnPlayMp3" />
+            <Button Content="Play HLS" Click="OnPlayHls" />
+            <Button Content="Stop" Click="OnStop" />
+            <CheckBox x:Name="DropUi" Content="Drop the page in the background" Checked="OnDropUiChanged" Unchecked="OnDropUiChanged" />
+        </StackPanel>
+
+        <ScrollViewer x:Name="Scroller" Grid.Row="2">
+            <TextBlock x:Name="Log" FontFamily="Consolas" FontSize="14" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+        </ScrollViewer>
+    </Grid>
+</Page>

@@ -2,7 +2,7 @@ import { toPluginError, type OutputMetadata, type OutputPlayRequest, type Plugin
 
 import type { SpeakerDriver, SpeakerStatus, SpeakerTarget, SpeakerTraits } from '../speaker.driver.js';
 import { readRenderer, sinkContentTypes, soap, type UpnpRenderer } from './upnp.device.js';
-import { escapeXml, text } from './upnp.xml.js';
+import { escapeXml, text } from '../xml.js';
 
 /** What a Sonos plays from a radio URL, and what any renderer is assumed to play when it will not say. */
 const SONOS_ACCEPTS = ['audio/mpeg', 'audio/aac'];

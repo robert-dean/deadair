@@ -41,7 +41,7 @@ describe('the cast manifest', () => {
         const devices = manifest.configFields.find(field => field.key === 'devices');
         const protocol = devices?.columns?.find(column => column.key === 'protocol');
 
-        expect(protocol?.options?.map(option => option.value)).toEqual(['chromecast', 'upnp']);
+        expect(protocol?.options?.map(option => option.value)).toEqual(['chromecast', 'upnp', 'bluos']);
     });
 
     it('declares its address column as a url, which is what puts it on the allowlist', () => {

@@ -6,7 +6,7 @@ import { createFakePluginHost, fakeHostFetchResponse } from '@deadair/plugin-sdk
 import type { SpeakerTarget } from '../../../src/drivers/speaker.driver.js';
 import { descriptionUrl, parseDescription, sinkContentTypes } from '../../../src/drivers/upnp/upnp.device.js';
 import { UPNP_OPENING_GRACE_MS, UpnpDriver, didl, fromTransportUri, sonosUri } from '../../../src/drivers/upnp/upnp.driver.js';
-import { text, unescapeXml } from '../../../src/drivers/upnp/upnp.xml.js';
+import { text, unescapeXml } from '../../../src/drivers/xml.js';
 
 const fixture = (name: string): string => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
 

@@ -1,0 +1,18 @@
+<!--
+    The seconds after a /Play with a url. MEASURED against the Office M10 V2 on BluOS 4.16.22,
+    2026-09-08: connecting, secs zero, and the station re-filed from TuneIn to a raw https stream.
+
+    It carries a streamUrl, and that settles the guess this file used to be written on. The earlier
+    probe had only ever seen one for a station added through the controller app, so the phase table
+    was written to treat an absent streamUrl as ours; the player reports the bare URL on this path
+    too, so that row is now defensive rather than expected. It stayed at `connecting` for six
+    seconds against a station that had to wake up.
+-->
+<status etag="85acf97831f85c80aec3b20377a4012e">
+    <service>https</service>
+    <streamUrl>https://radio.example.com/live.mp3</streamUrl>
+    <title1>Deadair</title1>
+    <secs>0</secs>
+    <state>connecting</state>
+    <volume>20</volume>
+</status>

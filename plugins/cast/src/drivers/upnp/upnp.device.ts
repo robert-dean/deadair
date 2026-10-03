@@ -1,6 +1,6 @@
 import { PluginError, type PluginHost } from '@deadair/plugin-sdk';
 
-import { elements, escapeXml, text } from './upnp.xml.js';
+import { elements, escapeXml, text } from '../xml.js';
 
 /** The port a Sonos serves its description on, and the path. */
 export const SONOS_PORT = 1400;

@@ -78,6 +78,8 @@ const auditionRow = (over: Record<string, unknown> = {}) => ({
     personaKey: 'latenight',
     sourcePluginId: 'spotify',
     sourcePlaylistId: 'playlist-1',
+    sourceStationPlaylistId: null,
+    sourceChartId: null,
     sourceName: null,
     records: [record(), record({ externalId: 'track-2', title: "Ain't No Sunshine" })],
     transitions: 1,
@@ -97,8 +99,7 @@ describe('PersonaAuditionRepository.open', () => {
         await repositoryOver(fakeDb([auditionRow()], captured)).open({
             personaId: 'persona-1',
             personaKey: 'latenight',
-            sourcePluginId: 'spotify',
-            sourcePlaylistId: 'playlist-1',
+            source: { pluginId: 'spotify', playlistId: 'playlist-1' },
             records: [record(), record({ externalId: 'b' }), record({ externalId: 'c' })],
         });
 
@@ -113,8 +114,7 @@ describe('PersonaAuditionRepository.open', () => {
         await repositoryOver(fakeDb([auditionRow()], captured)).open({
             personaId: 'persona-1',
             personaKey: 'latenight',
-            sourcePluginId: 'spotify',
-            sourcePlaylistId: 'playlist-1',
+            source: { pluginId: 'spotify', playlistId: 'playlist-1' },
             records: [record(), record({ externalId: 'b' })],
         });
 
@@ -125,13 +125,43 @@ describe('PersonaAuditionRepository.open', () => {
         expect(JSON.parse(String(json))).toHaveLength(2);
     });
 
+    it('writes a station playlist as its own column, leaving the provider pair empty', async () => {
+        const captured: Captured = { statements: [] };
+        await repositoryOver(fakeDb([auditionRow()], captured)).open({
+            personaId: 'persona-1',
+            personaKey: 'latenight',
+            source: { stationPlaylistId: 'owned-1' },
+            records: [record(), record({ externalId: 'b' })],
+        });
+
+        // Every source column is in the insert, so the table's exactly-one check is what judges it
+        // rather than whichever columns a branch happened to name.
+        const statement = captured.statements[0];
+        expect(statement?.sql).toContain('"source_station_playlist_id"');
+        expect(statement?.sql).toContain('"source_plugin_id"');
+        expect(statement?.parameters).toContain('owned-1');
+        expect(statement?.parameters).not.toContain('spotify');
+    });
+
+    it('writes a chart as its own column', async () => {
+        const captured: Captured = { statements: [] };
+        await repositoryOver(fakeDb([auditionRow()], captured)).open({
+            personaId: 'persona-1',
+            personaKey: 'latenight',
+            source: { chartId: 'lastfm:top' },
+            records: [record(), record({ externalId: 'b' })],
+        });
+
+        expect(captured.statements[0]?.sql).toContain('"source_chart_id"');
+        expect(captured.statements[0]?.parameters).toContain('lastfm:top');
+    });
+
     it('stamps the station it belongs to', async () => {
         const captured: Captured = { statements: [] };
         await repositoryOver(fakeDb([auditionRow()], captured)).open({
             personaId: 'persona-1',
             personaKey: 'latenight',
-            sourcePluginId: 'spotify',
-            sourcePlaylistId: 'playlist-1',
+            source: { pluginId: 'spotify', playlistId: 'playlist-1' },
             records: [record(), record({ externalId: 'b' })],
         });
 
@@ -288,6 +318,18 @@ describe('PersonaAuditionRepository row mapping', () => {
         expect(audition?.sourceName).toBe('Late night');
         expect(audition?.error).toBe('the model was unreachable');
         expect(audition?.state).toBe('failed');
+    });
+
+    it('reads each kind of source back as the one it was', async () => {
+        const repository = (over: Record<string, unknown>) => repositoryOver(fakeDb([auditionRow(over)])).findById('audition-1');
+
+        expect((await repository({}))?.source).toEqual({ pluginId: 'spotify', playlistId: 'playlist-1' });
+        expect((await repository({ sourcePluginId: null, sourcePlaylistId: null, sourceStationPlaylistId: 'owned-1' }))?.source).toEqual({
+            stationPlaylistId: 'owned-1',
+        });
+        expect((await repository({ sourcePluginId: null, sourcePlaylistId: null, sourceChartId: 'lastfm:top' }))?.source).toEqual({
+            chartId: 'lastfm:top',
+        });
     });
 
     it('reads the records back as the shapes they were stored as', async () => {

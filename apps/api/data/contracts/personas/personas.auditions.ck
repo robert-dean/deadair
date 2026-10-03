@@ -26,7 +26,7 @@ options {
 # what the floor sounds like when it covers. That was previously only knowable by putting the
 # character on air and waiting an evening.
 #
-# So an audition is a RUN: one persona, one playlist, one talk break per transition, written one at a
+# So an audition is a RUN: one persona, one playlist or chart, one talk break per transition, written one at a
 # time and airing nothing.
 
 # Asking for one QUEUES it, exactly as commissioning a production does, and for a sharper version of
@@ -52,7 +52,7 @@ operation /personas/{id}/auditions: {
             }
         }
     }
-    post: { # Asks the station to put this character through a playlist. It is queued, not written
+    post: { # Asks the station to put this character through a playlist or a chart. It is queued, not written
         name: Start persona audition
         service: PersonaAuditionService.start
         request: {

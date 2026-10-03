@@ -41,7 +41,7 @@ export class PersonasClient {
 
     /**
      * @name Start persona audition
-     * @description Asks the station to put this character through a playlist. It is queued, not written
+     * @description Asks the station to put this character through a playlist or a chart. It is queued, not written
      */
     async startPersonaAudition(id: string, body: PersonaAuditionRequest): Promise<PersonaAudition> {
         const result = await this.fetch(`/personas/${encodeURIComponent(id)}/auditions`, {

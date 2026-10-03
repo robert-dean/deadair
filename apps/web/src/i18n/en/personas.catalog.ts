@@ -527,8 +527,9 @@ export const personas = {
     auditions: {
         character: 'Character',
         onAir: '{{label}} (on air)',
-        playlist: 'Playlist',
-        playlistDescription: 'Read once, when you press Start.',
+        source: 'Records from',
+        sourceDescription: 'A playlist or a chart, read once when you press Start.',
+        sourceClear: 'Choose no playlist or chart',
         breaks: 'Breaks',
         start: 'Start',
         note: "Nothing here airs, and nothing is spent: the character's notebook and stories are read for each break and left where they are. Each break waits for the model behind everything the station is doing for itself, so a run fills in over minutes.",
@@ -543,7 +544,7 @@ export const personas = {
         empty: {
             title: '{{label}} has not been auditioned yet',
             titleUnknown: 'This character has not been auditioned yet',
-            body: 'Pick a playlist above and press Start. Ten breaks is about an hour of radio, and you can read them as they land.',
+            body: 'Pick a playlist or a chart above and press Start. Ten breaks is about an hour of radio, and you can read them as they land.',
         },
     },
     audition: {
@@ -553,6 +554,11 @@ export const personas = {
         queued: 'Queued. Each break waits for the model behind everything the station is doing for itself, so this fills in slowly.',
         readError: 'Could not read this audition',
         hear: 'Hear break {{number}}',
+        source: {
+            playlist: '{{name}} — {{from}}',
+            station: '{{name}} — a station playlist',
+            chart: '{{name}} — a chart',
+        },
         tally: {
             model: '{{model}} by the model',
             declined: '{{declined}} declined',

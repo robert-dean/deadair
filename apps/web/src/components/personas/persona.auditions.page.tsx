@@ -5,12 +5,12 @@ import { useTranslation } from 'react-i18next';
 
 import { usePersonas } from '../../api/personas.queries';
 import { playlistsListOptions } from '../../api/playlists.queries';
+import { chartsListOptions } from '../../api/charts.queries';
 import { useCancelPersonaAudition, usePersonaAuditions, useStartPersonaAudition } from '../../api/persona.auditions.queries';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
-import { splitSource, sourceValue } from '../programme/programme.fields';
-import { offerablePlaylists } from '../playlists/playlist.offerable';
+import { SourceField, splitSource, type ProgrammeSource } from '../programme/programme.fields';
 import { PersonaAuditionCard } from './persona.audition.card';
 import { presents } from './persona.kind';
 
@@ -26,7 +26,8 @@ const DEFAULT_BREAKS = 10;
  * hold up over real material? Does it repeat itself by the fourth break? Does the model start
  * declining once there are facts in front of it?
  *
- * So this runs the same writers over a playlist, one break per transition, and airs none of it.
+ * So this runs the same writers over a playlist or a chart, one break per transition, and airs none
+ * of it.
  *
  * ## It fills in slowly, and says so
  *
@@ -37,7 +38,10 @@ const DEFAULT_BREAKS = 10;
  */
 export function PersonaAuditionsPage({ persona }: { persona?: string }) {
     const personas = usePersonas();
+    // Read here as well as in the picker, for the name a run is captioned with. The same queries, so
+    // the picker's reads answer these.
     const playlists = useQuery(playlistsListOptions);
+    const charts = useQuery(chartsListOptions);
     const { t } = useTranslation('personas');
 
     // Hosts only. A caller is cast into a production and never presents, so auditioning one over a
@@ -61,10 +65,7 @@ export function PersonaAuditionsPage({ persona }: { persona?: string }) {
     const cancel = useCancelPersonaAudition(personaId);
 
     const picked = splitSource(source);
-    const playlist = picked?.kind === 'playlist' ? picked : undefined;
-    const named = (playlists.data?.playlists ?? []).find(
-        one => playlist !== undefined && one.pluginId === playlist.pluginId && one.id === playlist.playlistId,
-    );
+    const name = captionOf(picked, playlists.data?.playlists ?? [], charts.data?.charts ?? []);
 
     return (
         <Stack gap="lg">
@@ -82,18 +83,13 @@ export function PersonaAuditionsPage({ persona }: { persona?: string }) {
                         searchable
                         w={240}
                     />
-                    <Select
-                        label={t('auditions.playlist')}
-                        description={t('auditions.playlistDescription')}
-                        data={offerablePlaylists(playlists.data?.playlists ?? [], playlist).map(one => ({
-                            value: sourceValue(one.pluginId, one.id),
-                            label: `${one.name} — ${one.pluginName}`,
-                        }))}
+                    <SourceField
+                        label={t('auditions.source')}
+                        description={t('auditions.sourceDescription')}
+                        clearLabel={t('auditions.sourceClear')}
+                        stationPlaylists
                         value={source}
                         onChange={setSource}
-                        disabled={playlists.isLoading}
-                        searchable
-                        clearable
                         w={320}
                     />
                     <NumberInput
@@ -107,15 +103,10 @@ export function PersonaAuditionsPage({ persona }: { persona?: string }) {
                     />
                     <Button
                         loading={start.isPending}
-                        disabled={playlist === undefined || personaId === ''}
+                        disabled={picked === undefined || personaId === ''}
                         onClick={() => {
-                            if (playlist === undefined) return;
-                            start.mutate({
-                                pluginId: playlist.pluginId,
-                                playlistId: playlist.playlistId,
-                                limit: breaks,
-                                ...(named === undefined ? {} : { name: named.name }),
-                            });
+                            if (picked === undefined) return;
+                            start.mutate({ ...requestSource(picked), limit: breaks, ...(name === undefined ? {} : { name }) });
                         }}
                     >
                         {t('auditions.start')}
@@ -159,4 +150,25 @@ export function PersonaAuditionsPage({ persona }: { persona?: string }) {
             </Stack>
         </Stack>
     );
+}
+
+/** The picked source as the request names it: exactly one of the three, as the station requires. */
+function requestSource(picked: ProgrammeSource) {
+    if (picked.kind === 'station') return { stationPlaylistId: picked.stationPlaylistId };
+    if (picked.kind === 'chart') return { chartId: picked.chartId };
+    return { pluginId: picked.pluginId, playlistId: picked.playlistId };
+}
+
+/**
+ * What the run is captioned with, from the listing the picker drew it from. Absent for a station
+ * playlist, whose name the station reads for itself, and for anything the listing no longer holds.
+ */
+function captionOf(
+    picked: ProgrammeSource | undefined,
+    playlists: readonly { pluginId: string; id: string; name: string }[],
+    charts: readonly { id: string; name: string }[],
+): string | undefined {
+    if (picked?.kind === 'playlist') return playlists.find(one => one.pluginId === picked.pluginId && one.id === picked.playlistId)?.name;
+    if (picked?.kind === 'chart') return charts.find(one => one.id === picked.chartId)?.name;
+    return undefined;
 }

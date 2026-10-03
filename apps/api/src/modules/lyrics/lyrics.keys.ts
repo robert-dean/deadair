@@ -22,3 +22,20 @@ export const LYRICS_KEYS = {
 
 /** OFF. See {@link LYRICS_KEYS.fetch}. */
 export const LYRICS_FETCH_DEFAULT = false;
+
+/** The settings the mood walk reads. Declared in `settings.registry.ts`, read in `LyricMoodsService`. */
+export const LYRIC_MOODS_KEYS = {
+    /**
+     * Whether the station has a model judge what mood each record is in.
+     *
+     * OFF: it walks the whole library through the model, a generation (and a search, where the
+     * station can search) per record, at the lowest priority behind everything that airs. An operator
+     * turning it on is accepting days of background work, as with the model's fact extraction.
+     */
+    enabled: 'lyrics.moods',
+    /** Which model judges, `provider:model`. Empty for the plugin's default. */
+    model: 'llm.moodModel',
+} as const;
+
+/** OFF. See {@link LYRIC_MOODS_KEYS.enabled}. */
+export const LYRIC_MOODS_DEFAULT = false;

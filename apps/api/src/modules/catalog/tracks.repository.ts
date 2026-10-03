@@ -130,6 +130,19 @@ const hasSyncedLyrics = (eb: TrackScope) =>
             .where('ly.synced', 'is not', null),
     );
 
+/**
+ * A model has judged what mood it is in. The one way anything here asks, so a record that was judged
+ * and could not be placed (a row with no moods) is never counted as labelled.
+ */
+const hasMoods = (eb: TrackScope) =>
+    eb.exists(
+        eb
+            .selectFrom('deadair.trackLyricLabels as ll')
+            .select('ll.trackId')
+            .whereRef('ll.trackId', '=', 'deadair.tracks.id')
+            .where('ll.moods', 'is not', null),
+    );
+
 /** Some lyrics source says nobody sings on it. */
 const isInstrumental = (eb: TrackScope) =>
     eb.exists(
@@ -390,6 +403,7 @@ export class TracksRepository extends DataRepository {
                 eb.fn.count<number>(eb.case().when(hasLyrics(eb)).then(1).end()).as('lyrics'),
                 eb.fn.count<number>(eb.case().when(hasSyncedLyrics(eb)).then(1).end()).as('synced'),
                 eb.fn.count<number>(eb.case().when(isInstrumental(eb)).then(1).end()).as('instrumental'),
+                eb.fn.count<number>(eb.case().when(hasMoods(eb)).then(1).end()).as('moods'),
             ])
             .executeTakeFirstOrThrow();
 
@@ -403,6 +417,7 @@ export class TracksRepository extends DataRepository {
             lyrics: Number(counted.lyrics),
             synced: Number(counted.synced),
             instrumental: Number(counted.instrumental),
+            moods: Number(counted.moods),
         };
     }
 

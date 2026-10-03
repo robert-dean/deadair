@@ -25,7 +25,7 @@ const airing = {
 };
 
 /** A library with records in it and nothing benched, so the only row under test is the fetcher's. */
-const counts = { total: 900, cached: 900, measured: 900, enriched: 900, benched: 0, failing: 0, lyrics: 0, synced: 0, instrumental: 0 };
+const counts = { total: 900, cached: 900, measured: 900, enriched: 900, benched: 0, failing: 0, lyrics: 0, synced: 0, instrumental: 0, moods: 0 };
 
 /**
  * One installed plugin, as the plugins service summarises it.

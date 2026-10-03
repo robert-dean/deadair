@@ -229,6 +229,7 @@ export function TrackStateFilter({ counts, value, onChange }: TrackStateFilterPr
                             synced: formatCount(counts.synced),
                             instrumental: formatCount(counts.instrumental),
                         })}
+                        {counts.moods > 0 ? ` ${t('stateFilter.moods', { count: counts.moods, moods: formatCount(counts.moods) })}` : ''}
                     </Text>
                 ) : undefined}
             </Stack>

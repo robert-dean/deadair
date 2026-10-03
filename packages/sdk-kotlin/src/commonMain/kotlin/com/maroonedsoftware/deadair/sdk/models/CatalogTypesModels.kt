@@ -286,6 +286,8 @@ data class TrackStateCounts(
     val synced: Long,
     /** A lyrics source says nobody sings on it */
     val instrumental: Long,
+    /** A model has judged what mood it is in */
+    val moods: Long,
 )
 
 /**

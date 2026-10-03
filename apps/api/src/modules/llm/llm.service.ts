@@ -179,6 +179,16 @@ export interface LlmConverseOptions extends LlmCallOptions {
     /** Set `false` for a conversation that must not call anything. Absent means offer what there is. */
     tools?: boolean;
 
+    /**
+     * Offer only the tools with these names, out of what there is.
+     *
+     * For a background job that needs one capability and must not wander: a walk labelling records
+     * may search the web about a record and has no business searching the catalog or reading the
+     * news. A name nothing offers right now is simply absent, so the conversation goes ahead with
+     * whatever of the list there is, which may be nothing.
+     */
+    onlyTools?: readonly string[];
+
     /** Override {@link MAX_TOOL_STEPS} for one conversation. */
     maxToolSteps?: number;
 
@@ -523,7 +533,9 @@ export class LlmService {
             return new Map();
         }
 
-        return await this.tools.tools();
+        const offered = await this.tools.tools();
+        if (options.onlyTools === undefined) return offered;
+        return new Map([...offered].filter(([name]) => options.onlyTools!.includes(name)));
     }
 
     /** The loop itself, inside the gate. */

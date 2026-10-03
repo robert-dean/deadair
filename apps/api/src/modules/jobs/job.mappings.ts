@@ -8,6 +8,7 @@ import { CatalogSyncJob } from '#modules/catalog/ingest/catalog.sync.job.js';
 import { PlaylistFillJob } from '#modules/playlists/playlist.fill.job.js';
 import { EnrichmentJob } from '#modules/enrichment/enrichment.job.js';
 import { LyricsJob } from '#modules/lyrics/lyrics.job.js';
+import { LyricMoodsJob } from '#modules/lyrics/lyric.moods.job.js';
 import { FactExtractionJob } from '#modules/enrichment/fact.extraction.job.js';
 import { ArtCacheJob } from '#modules/art/art.cache.job.js';
 import { AnalysisJob } from '#modules/analysis/analysis.job.js';
@@ -146,6 +147,15 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'catalog.fetch_lyrics': {
         job: LyricsJob,
         cron: '11-59/15 * * * *',
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 13 }) },
+    },
+
+    // Every quarter hour, off the minutes the three walks above start on. It asks nothing while
+    // `lyrics.moods` is off, and when it is on it holds the model only at the lowest priority, so a
+    // break or a refill always gets in first and a pass that cannot get in simply stops.
+    'catalog.label_moods': {
+        job: LyricMoodsJob,
+        cron: '13-59/15 * * * *',
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 13 }) },
     },
 

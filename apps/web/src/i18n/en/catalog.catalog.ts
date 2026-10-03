@@ -49,6 +49,8 @@ export const catalog = {
         ready_other: '<cached>{{cached}}</cached> of <total>{{total}}</total> records are ready to air right now.',
         rest: 'The rest are fetched when the station wants them.',
         lyrics_one: 'Lyrics for {{lyrics}} record, {{synced}} with the timing of each line, and {{instrumental}} known to be instrumental.',
+        moods_one: 'A model has judged the mood of {{moods}} record.',
+        moods_other: 'A model has judged the mood of {{moods}} records.',
         lyrics_other: 'Lyrics for {{lyrics}} records, {{synced}} with the timing of each line, and {{instrumental}} known to be instrumental.',
         bar: {
             ready: 'Fetched and measured: ready to air.',

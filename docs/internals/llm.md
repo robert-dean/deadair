@@ -109,6 +109,12 @@ words: everything above it answers out of a list somebody assembled and is cheap
 right from, so an open search is the fallback rather than the opening move. Order is otherwise only a
 tie-break on duplicate names, which these do not have.
 
+**A background job can narrow the list to the one tool its question needs.** `LlmConverseOptions.onlyTools`
+filters what the registry offers by name, and a name nothing offers right now is simply absent. The mood walk
+(`lyrics/lyric.moods.service.ts`) is the case it exists for: judging one record's mood may search the web
+about that record and has no business with the catalog, the charts or the news, and a model offered all
+seven spends its few steps wandering. It still holds the slot only at `background` priority.
+
 **Four of the seven sources are plugin-backed and three are not, and the line between them is not about
 difficulty.** [tool-plugins](https://github.com/robert-dean/deadair/discussions/44)'s rule: a tool is a plugin when the thing it talks to is somebody
 else's service (charts, similar artists, news, web search), and a host-side source when it talks to deadair

@@ -70,6 +70,7 @@ const counts = (overrides: Record<string, number> = {}) => ({
     lyrics: 0,
     synced: 0,
     instrumental: 0,
+    moods: 0,
     ...overrides,
 });
 

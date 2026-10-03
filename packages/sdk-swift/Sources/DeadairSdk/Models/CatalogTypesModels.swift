@@ -509,8 +509,10 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
     public var synced: Int
     /// A lyrics source says nobody sings on it
     public var instrumental: Int
+    /// A model has judged what mood it is in
+    public var moods: Int
 
-    public init(total: Int, cached: Int, measured: Int, enriched: Int, benched: Int, failing: Int, lyrics: Int, synced: Int, instrumental: Int) {
+    public init(total: Int, cached: Int, measured: Int, enriched: Int, benched: Int, failing: Int, lyrics: Int, synced: Int, instrumental: Int, moods: Int) {
         self.total = total
         self.cached = cached
         self.measured = measured
@@ -520,6 +522,7 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
         self.lyrics = lyrics
         self.synced = synced
         self.instrumental = instrumental
+        self.moods = moods
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -532,6 +535,7 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
         case lyrics = "lyrics"
         case synced = "synced"
         case instrumental = "instrumental"
+        case moods = "moods"
     }
 
     public init(from decoder: Decoder) throws {
@@ -545,6 +549,7 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
         self.lyrics = try container.decode(Int.self, forKey: .lyrics)
         self.synced = try container.decode(Int.self, forKey: .synced)
         self.instrumental = try container.decode(Int.self, forKey: .instrumental)
+        self.moods = try container.decode(Int.self, forKey: .moods)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -558,6 +563,7 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
         try container.encode(self.lyrics, forKey: .lyrics)
         try container.encode(self.synced, forKey: .synced)
         try container.encode(self.instrumental, forKey: .instrumental)
+        try container.encode(self.moods, forKey: .moods)
     }
 }
 

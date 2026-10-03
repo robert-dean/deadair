@@ -14,12 +14,12 @@
         An AI radio station: it picks the records, writes what the presenter says between them,
         speaks it, and streams the result.
 
-        Everything is in this one container — the station, its console, the audio chain and the
+        Everything is in this one container: the station, its console, the audio chain and the
         stream server. Pick the tag that matches what your server already runs:
 
-        deadair/deadair:latest — a voice is included; point it at your own PostgreSQL and Redis.
-        deadair/deadair:full — brings its own database and cache as well. Nothing else needed.
-        deadair/deadair:slim — no voice either; for pointing at a speech server on another machine.
+        deadair/deadair:full brings everything: PostgreSQL, Redis and a voice. Nothing else needed.
+        deadair/deadair:latest includes a voice. Point it at your own PostgreSQL and Redis.
+        deadair/deadair:slim is the station alone, for pointing at a speech server on another machine.
 
         Everything it keeps lives under one path, so backing it up is backing up one share.
 
@@ -30,8 +30,8 @@
         On Spotify there are TWO authorizations on the plugin page, and the station needs both.
         The connection lets the plugin read your library; the playback authorization below it lets
         the station fetch the audio. With only the first, your playlists list perfectly and nothing
-        ever plays. The page Spotify sends your browser to will not load — that is expected, not a
-        failure — so copy that address out of the bar and paste it back into the console.
+        ever plays. The page Spotify sends your browser to will not load. That is expected, not a
+        failure, so copy that address out of the bar and paste it back into the console.
     </Overview>
     <Category>MediaApp:Music MediaServer:Music</Category>
     <Requires>
@@ -66,11 +66,11 @@
         Type="Port" Display="always" Required="true" Mask="false">8080</Config>
 
     <Config Name="Data" Target="/data" Default="/mnt/user/appdata/deadair" Mode="rw"
-        Description="What the station IS: its settings, presenters, schedule, pronunciations and ratings, installed plugins, the stream's own credentials, the audio you recorded yourself, logs — and, on the full tag, the database holding most of it. Small, authored, and the thing to back up. Belongs on the cache pool."
+        Description="What the station IS: its settings, presenters, schedule, pronunciations and ratings, installed plugins, the stream's own credentials, the audio you recorded yourself, logs, and, on the full tag, the database holding most of it. Small, authored, and the thing to back up. Belongs on the cache pool."
         Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/deadair</Config>
 
     <Config Name="Media" Target="/media" Default="" Mode="rw"
-        Description="Optional, and only about size. What the station HOLDS rather than what it is: records downloaded before they air, cover art, the speech it rendered, voice previews, the speech model's weights. All of it can be produced again by running the station, and it grows to roughly the size of the library you play — so put it on the array and leave it out of your backups. Blank keeps it under Data, which is fine until the library gets big."
+        Description="Optional, and only about size. What the station HOLDS rather than what it is: records downloaded before they air, cover art, the speech it rendered, voice previews, the speech model's weights. All of it can be produced again by running the station, and it grows to roughly the size of the library you play, so put it on the array and leave it out of your backups. Blank keeps it under Data, which is fine until the library gets big."
         Type="Path" Display="always" Required="false" Mask="false"></Config>
 
     <Config Name="Public address" Target="APP_BASE_URL" Default="" Mode=""
@@ -82,15 +82,15 @@
         Type="Variable" Display="always" Required="true" Mask="false"></Config>
 
     <Config Name="Timezone" Target="TZ" Default="Etc/UTC" Mode=""
-        Description="An IANA zone name such as America/New_York or Europe/London. The station reads the clock in this when it says the time and when it works out what half of the day it is; left unset a container reports UTC, which is a presenter saying &quot;tonight&quot; through your afternoon. Only the fallback — the station's own &quot;Where the station is&quot; setting, on the settings page, wins over it, because a station is a place and its listeners are in it rather than wherever the server happens to sit."
+        Description="An IANA zone name such as America/New_York or Europe/London. The station reads the clock in this when it says the time and when it works out what half of the day it is; left unset a container reports UTC, which is a presenter saying &quot;tonight&quot; through your afternoon. Only the fallback: the station's own &quot;Where the station is&quot; setting, on the settings page, wins over it, because a station is a place and its listeners are in it rather than wherever the server happens to sit."
         Type="Variable" Display="always" Required="false" Mask="false">Etc/UTC</Config>
 
     <Config Name="Secret key" Target="KMS_LOCAL_ROOT_KEY" Default="" Mode=""
-        Description="Encrypts every credential the station stores, including your music provider's. Generate once with: openssl rand -hex 32 — it must be hex, and keep it. Losing it means entering all of them again."
+        Description="Encrypts every credential the station stores, including your music provider's. Generate once with: openssl rand -hex 32 (it must be hex), and keep it. Losing it means entering all of them again."
         Type="Variable" Display="always" Required="true" Mask="true"></Config>
 
     <Config Name="Session key" Target="AUTHENTICATION_SESSION_JWT_PRIVATE_KEY" Default="" Mode=""
-        Description="Signs sessions, RS256, so it must be an RSA key. Generate one with: openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | base64 -w0 — a key is several lines and this field is one, so base64 it and paste that. Losing it signs everybody out and nothing worse."
+        Description="Signs sessions, RS256, so it must be an RSA key. Generate one with: openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | base64 -w0. A key is several lines and this field is one, so base64 it and paste that. Losing it signs everybody out and nothing worse."
         Type="Variable" Display="always" Required="true" Mask="true"></Config>
 
     <Config Name="Database host" Target="DATABASE_HOST" Default="" Mode=""
@@ -112,7 +112,7 @@
         Description="" Type="Variable" Display="always" Required="false" Mask="true"></Config>
 
     <Config Name="Runtime database user" Target="DATABASE_APP_USER" Default="" Mode=""
-        Description="Optional, and both this and the password below have to be filled in for either to take effect. A second, non-owner role for the request path, holding DML grants only, so a request cannot alter the schema — migrations still run as the owner above. Leave both empty to run everything as the owner, which is what happens today."
+        Description="Optional, and both this and the password below have to be filled in for either to take effect. A second, non-owner role for the request path, holding DML grants only, so a request cannot alter the schema. Migrations still run as the owner above. Leave both empty to run everything as the owner, which is what happens today."
         Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
 
     <Config Name="Runtime database password" Target="DATABASE_APP_PASSWORD" Default="" Mode=""
@@ -141,7 +141,7 @@
         Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
 
     <Config Name="Proxy in front" Target="REAL_IP_FROM" Default="" Mode=""
-        Description="Leave empty unless a tunnel or a reverse proxy sits in front of this station. When one does, every listener reaches the station as THAT, so they all share one rate limit and the listener count collapses to however many different players are tuned in. Naming the proxy here — an address or a CIDR, and 172.16.0.0/12 covers another container on this box — lets the station see who actually asked. Only name something you put there yourself: it means believing an address that arrives in a header."
+        Description="Leave empty unless a tunnel or a reverse proxy sits in front of this station. When one does, every listener reaches the station as THAT, so they all share one rate limit and the listener count collapses to however many different players are tuned in. Naming the proxy here (an address or a CIDR, and 172.16.0.0/12 covers another container on this box) lets the station see who actually asked. Only name something you put there yourself: it means believing an address that arrives in a header."
         Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
 
     <Config Name="Proxy address header" Target="REAL_IP_HEADER" Default="X-Forwarded-For" Mode=""

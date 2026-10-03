@@ -208,6 +208,15 @@ task as a timed retry does, so an ordinary handover between wifi and mobile data
 longer one outlives it and the app is suspended like any other silent app. After fifteen minutes the
 conductor says unreachable through `onGaveUpWaiting`, because no player reading would.
 
+**The format nobody chose is Automatic, and it is the absence of a choice**: `format` is `nil`,
+stored as no key at all, and `chooseMount` plays HLS where the station publishes it and MP3 where
+it does not, never as a fallback. Every save used to write the format whichever setting changed,
+so a stored `mp3` from before says nothing about a choice; `SettingsStore` forgets it once, behind
+the `format_automatic_read` marker, and keeps any other format. Checked on the simulator by editing
+the container's plist: restart `cfprefsd` (`launchctl kickstart -k
+user/foreground/com.apple.cfprefsd.xpc.daemon` through `simctl spawn`) before reading the file or
+writing it, or the file and the app disagree and the test proves nothing.
+
 **A `deadair://` link proposes a station; it never switches to one.** Android's rule and the
 desktop's grammar (`StationLink`, whose tests are theirs case for case). With no station kept, setup
 opens straight on the field with the address in it. With one kept, a sheet asks over the app, and

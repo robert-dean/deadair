@@ -65,30 +65,20 @@ struct FormatSection: View {
     var body: some View {
         let available = availableFormats(model.nowPlaying.state.latest?.value.mounts)
         Section {
+            // Automatic first, because it is what nobody choosing gets, and never greyed, because it
+            // resolves to something every station publishes.
+            FormatRow(label: StreamFormat.automaticLabel, purpose: StreamFormat.automaticPurpose, chosen: model.settings.settings.format == nil, published: true) {
+                model.settings.choose(nil)
+            }
             // A row per format, each saying what it is for, and one the station does not publish
             // greyed with the reason, Android's radio rows.
             ForEach(StreamFormat.allCases, id: \.self) { format in
-                let published = available[format] != false
-                let chosen = model.settings.settings.format == format
-                Button {
+                FormatRow(
+                    label: format.label, purpose: format.purpose, chosen: model.settings.settings.format == format,
+                    published: available[format] != false
+                ) {
                     model.settings.choose(format)
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: chosen ? "largecircle.fill.circle" : "circle")
-                            .font(.title3)
-                            .foregroundStyle(chosen ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(format.label).foregroundStyle(published ? .primary : .secondary)
-                            Text(published ? format.purpose : String(localized: "Not published by this station"))
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .disabled(!published && !chosen)
-                .accessibilityAddTraits(chosen ? .isSelected : [])
             }
             // Said here, beside the choice it is about, and only while something is playing.
             if let note = model.nowPlayingUi.fallbackNote {
@@ -98,6 +88,35 @@ struct FormatSection: View {
             Text("Format")
         }
         .task { await model.nowPlaying.hold() }
+    }
+}
+
+/// One row of the format list: a radio, the name, and what it is for, or why it cannot be had.
+private struct FormatRow: View {
+    let label: String
+    let purpose: String
+    let chosen: Bool
+    let published: Bool
+    let choose: () -> Void
+
+    var body: some View {
+        Button(action: choose) {
+            HStack(spacing: 12) {
+                Image(systemName: chosen ? "largecircle.fill.circle" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(chosen ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label).foregroundStyle(published ? .primary : .secondary)
+                    Text(published ? purpose : String(localized: "Not published by this station"))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!published && !chosen)
+        .accessibilityAddTraits(chosen ? .isSelected : [])
     }
 }
 

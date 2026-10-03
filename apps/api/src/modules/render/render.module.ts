@@ -146,7 +146,12 @@ export const RenderModule: ServerKitModule = {
         registry
             .register(SegmentLibrary)
             .useFactory(
-                container => new SegmentLibrary(container.get(SegmentStore), container.get(SegmentRepository), libraryDir, container.get(Logger)),
+                container =>
+                    new SegmentLibrary(container.get(SegmentStore), container.get(SegmentRepository), libraryDir, container.get(Logger), {
+                        analysis: container.get(AnalysisService),
+                        config,
+                        signer: container.get(AudioUrlSigner),
+                    }),
             )
             .asScoped();
 

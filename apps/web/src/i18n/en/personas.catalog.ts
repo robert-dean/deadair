@@ -7,6 +7,20 @@
  * as i18next variables.
  */
 export const personas = {
+    portrait: {
+        label: 'Picture',
+        description:
+            'Shown in listeners’ apps while this presenter is on air, in place of the record’s cover. Saved as soon as you drop it, not with the rest of this sheet.',
+        alt: 'A picture of {{name}}',
+        readFailed: 'The picture could not be read',
+        replaceFailed: 'The picture could not be saved',
+        removeFailed: 'The picture could not be removed',
+        drop: {
+            add: 'Drop a picture here, or click to choose one. JPEG, PNG, WebP or GIF, up to 4 MB.',
+            replace: 'Drop another picture to replace it.',
+        },
+        remove: 'Remove',
+    },
     shared: {
         done: 'Done',
         change: 'Change',

@@ -23,6 +23,7 @@ import { useForm } from '@mantine/form';
 import type { Persona, PersonaDraftView, PersonaInput } from '@deadair/sdk';
 import type { TFunction } from 'i18next';
 import { Trans, useTranslation } from 'react-i18next';
+import { PersonaPortrait } from './persona.portrait';
 
 import { useGeneratePersona, usePersonas, useRehearsePersona } from '../../api/personas.queries';
 import { usePads } from '../../api/pads.queries';
@@ -293,6 +294,10 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                             }}
                         />
                     </SimpleGrid>
+
+                    {/* Only a host that exists: a caller never presents, and a persona not saved yet
+                        has no id for a picture to belong to. */}
+                    {persona !== undefined && !caller ? <PersonaPortrait personaId={persona.id} name={persona.label} /> : undefined}
 
                     <Textarea
                         label={t('editor.field.style.label')}

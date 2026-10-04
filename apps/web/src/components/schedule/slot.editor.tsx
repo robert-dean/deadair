@@ -13,6 +13,8 @@ import {
     EraNote,
     HostField,
     MixInSimilarField,
+    MoodField,
+    type Mood,
     ShapeFields,
     ShapeNote,
     SourceField,
@@ -102,6 +104,7 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             // bound on its own is "this year onwards".
             ...(typeof values.eraFrom === 'number' ? { eraFrom: values.eraFrom } : {}),
             ...(typeof values.eraTo === 'number' ? { eraTo: values.eraTo } : {}),
+            ...(values.mood ? { mood: values.mood } : {}),
             // Sent only when it is ON. Absent is no calls, as it is for `putOnAir`.
             ...(values.callins ? { callins: true } : {}),
             // The same three-way, and only beside a playlist, the station's own or a provider's:
@@ -196,6 +199,8 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                     <EraFields from={form.getInputProps('eraFrom')} to={form.getInputProps('eraTo')} />
 
                     <EraNote />
+
+                    <MoodField {...form.getInputProps('mood')} />
 
                     <ShapeFields mode={form.getInputProps('mode')} onEnd={form.getInputProps('onEnd')} />
 
@@ -292,6 +297,8 @@ interface FormValues {
     /** Empty string is Mantine's "nothing typed" for a NumberInput, and it means no bound. */
     eraFrom: number | string;
     eraTo: number | string;
+    /** Empty string is the Select cleared, which is no lean. */
+    mood: Mood | '';
     /** Ticked sends `true`; unticked sends nothing, which is no calls. See `CallinsField`. */
     callins: boolean;
     /** Ticked sends `true`; unticked sends nothing, which leaves `rotation.mixInSimilar` standing. Drawn only for a playlist. */
@@ -326,6 +333,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         brief: slot?.brief ?? '',
         eraFrom: slot?.eraFrom ?? '',
         eraTo: slot?.eraTo ?? '',
+        mood: slot?.mood ?? '',
         callins: slot?.callins ?? false,
         mixInSimilar: slot?.mixInSimilar ?? false,
         mode: slot?.mode ?? 'rotation',

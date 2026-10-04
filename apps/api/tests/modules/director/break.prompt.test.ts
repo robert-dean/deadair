@@ -53,6 +53,62 @@ const prompt = (request: BreakWriteRequest, settings: PromptSettings = {}) => br
 const system = (messages: ReturnType<typeof prompt>) => messages.find(message => message.role === 'system')?.content ?? '';
 const user = (messages: ReturnType<typeof prompt>) => messages.find(message => message.role === 'user')?.content ?? '';
 
+describe('what a record is about, and its words', () => {
+    const lyrics = ['Pink, pink, pink, pink moon', 'Saw it written and I saw it say', 'Pink moon is on its way'];
+
+    it('shows the subject in the station’s own words, and asks for no quoting', () => {
+        const words = user(prompt({ kind: 'talkbreak', previous, next: { ...next, about: 'Night falling on everyone alike.' } }));
+
+        expect(words).toContain('- What it is about: Night falling on everyone alike.');
+        expect(words).toContain('Never quote the words of a song');
+    });
+
+    it('says nothing about quoting when no subject was shown', () => {
+        expect(user(prompt({ kind: 'talkbreak', previous, next }))).not.toContain('Never quote the words');
+    });
+
+    it('refuses a script that reads six words of a lyric aloud, in both readers', () => {
+        const script = 'Nick Drake now: saw it written and I saw it say, here is Pink Moon.';
+
+        expect(readAnswer(script, { lyrics })).toBeUndefined();
+        expect(writeDecline(script, { lyrics })?.fault).toBe('quoted-lyric');
+    });
+
+    it('never puts the quoted words in the reason it stores', () => {
+        const declined = writeDecline('Saw it written and I saw it say, that was Nick Drake.', { lyrics });
+
+        expect(declined?.reason).not.toContain('saw it');
+        expect(declined?.reason).not.toContain('Saw it');
+    });
+
+    it('lets a script name the record, whose title is a short line of its lyric', () => {
+        expect(readAnswer('That was Pink Moon by Nick Drake, and here is something warmer.', { lyrics })).toBeDefined();
+    });
+
+    it('asks nothing when it was given no lyric', () => {
+        expect(readAnswer('Saw it written and I saw it say, that was Nick Drake.', {})).toBeDefined();
+    });
+});
+
+describe('the intro of the record coming up', () => {
+    it('offers a word budget for talking over it, as an offer rather than a ceiling', () => {
+        const words = user(prompt({ kind: 'talkbreak', previous, next, talkUp: { runwayMs: 15_400, words: 33 } }));
+
+        expect(words).toContain('starts about 15 seconds in');
+        expect(words).toContain('33 words or fewer');
+        expect(words).toContain('which is fine too');
+    });
+
+    it('says nothing about an intro when it has not been told one', () => {
+        expect(user(prompt({ kind: 'talkbreak', previous, next }))).not.toContain('seconds in');
+    });
+
+    it('leaves the ceiling where it was', () => {
+        const told = system(prompt({ kind: 'talkbreak', previous, next, talkUp: { runwayMs: 15_000, words: 12 } }));
+        expect(told).toContain(`Keep it under ${system(prompt({ kind: 'talkbreak', previous, next })).match(/Keep it under (\d+)/)![1]} words`);
+    });
+});
+
 describe('breakPrompt', () => {
     it('is a system turn and a user turn, in that order', () => {
         const messages = prompt({ kind: 'talkbreak', previous });
@@ -2674,6 +2730,32 @@ describe('readAnswer on a station that does not broadcast in English', () => {
     it('checks digit years and leaves spoken ones alone', () => {
         expect(yearsIn('Neunzehnhundertvierundachtzig, oder 1984 und nineteen ninety', 'de')).toEqual([1984]);
         expect(yearsIn('1984, and then nineteen ninety')).toEqual([1984, 1990]);
+    });
+});
+
+describe('the station in its own words', () => {
+    const talk = { kind: 'talkbreak' as const, previous: { title: 'Move On Up', artist: 'Curtis Mayfield' } };
+
+    it('tells the presenter who the station is, after its name and before its character', () => {
+        const rules = system(prompt(talk, { station: 'Night Owl', stationIdentity: 'A soul station for people who stay up late.' }));
+
+        expect(rules).toContain('About the station: A soul station for people who stay up late.');
+        expect(rules.indexOf('called Night Owl')).toBeLessThan(rules.indexOf('About the station'));
+    });
+
+    it('offers what is going on as something to know, not something to say every break', () => {
+        const rules = system(prompt(talk, { stationContext: 'It is our tenth birthday this week.' }));
+
+        expect(rules).toContain('It is our tenth birthday this week.');
+        expect(rules).toMatch(/to know rather than to announce/);
+        expect(rules).toMatch(/never in every break/);
+    });
+
+    it('says nothing about either when the station wrote neither', () => {
+        const rules = system(prompt(talk, {}));
+
+        expect(rules).not.toContain('About the station');
+        expect(rules).not.toContain('true at the station right now');
     });
 });
 

@@ -7,7 +7,7 @@ import type { ProviderCapabilityState } from '@deadair/sdk';
 import { usePluginProviders } from '../../api/plugins.queries';
 
 /** The same station vocabulary the Providers section uses, for the jobs a plugin can hold. */
-const JOBS = ['speech', 'llm', 'mixer', 'transcode', 'analysis', 'similarity', 'weather', 'charts', 'enrichment'] as const;
+const JOBS = ['speech', 'llm', 'mixer', 'transcode', 'analysis', 'similarity', 'weather', 'charts', 'enrichment', 'lyrics'] as const;
 type Job = (typeof JOBS)[number];
 
 function isJob(capability: string): capability is Job {

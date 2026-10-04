@@ -37,6 +37,8 @@ data class ScheduleSlot(
     val eraFrom: Long? = null,
     /** The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone */
     val eraTo: Long? = null,
+    /** The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean */
+    val mood: ScheduleSlotMood? = null,
     /** Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says */
     val callins: Boolean? = null,
     /** Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says */
@@ -73,6 +75,8 @@ data class ScheduleSlotInput(
     val eraFrom: Long? = null,
     /** The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone */
     val eraTo: Long? = null,
+    /** The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean */
+    val mood: ScheduleSlotMood? = null,
     /** Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says */
     val callins: Boolean? = null,
     /** Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says */
@@ -144,6 +148,25 @@ enum class ScheduleSlotSourceChartOrder {
     RANKED,
     @SerialName("unordered")
     UNORDERED,
+}
+
+/** The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean */
+@Serializable
+enum class ScheduleSlotMood {
+    @SerialName("love")
+    LOVE,
+    @SerialName("happiness")
+    HAPPINESS,
+    @SerialName("comfort")
+    COMFORT,
+    @SerialName("sadness")
+    SADNESS,
+    @SerialName("loneliness")
+    LONELINESS,
+    @SerialName("anger")
+    ANGER,
+    @SerialName("fear")
+    FEAR,
 }
 
 @Serializable

@@ -24,8 +24,16 @@ export interface PlayoutStationPlaylistInput {
 }
 
 /**
+ * An album the library holds, to play whole
+ * generated from [PlayoutAlbumInput](../../../../../apps/api/data/contracts/playout/playout.types.ck#L20)
+ */
+export interface PlayoutAlbumInput {
+    albumId: string;
+}
+
+/**
  * The published chart to build the running order from
- * generated from [PlayoutChartInput](../../../../../apps/api/data/contracts/playout/playout.types.ck#L20)
+ * generated from [PlayoutChartInput](../../../../../apps/api/data/contracts/playout/playout.types.ck#L24)
  */
 export interface PlayoutChartInput {
     /** As `pluginId:chartId`, which is how `GET /charts` lists them */
@@ -38,7 +46,7 @@ export interface PlayoutChartInput {
 
 /**
  * One item in the running order, as the console sees it
- * generated from [PlayoutItem](../../../../../apps/api/data/contracts/playout/playout.types.ck#L26)
+ * generated from [PlayoutItem](../../../../../apps/api/data/contracts/playout/playout.types.ck#L30)
  */
 export interface PlayoutItem {
     /** deadair's own id for this item, not the provider's: a playlist may hold the same track twice */
@@ -65,7 +73,7 @@ export interface PlayoutItem {
  * re-rendered — so a reseeded secret leaves a process holding credentials that match nothing,
  * and the symptom names something else entirely (every listener refused, or no mount at all).
  * The app cannot restart a sibling container and should not be able to, so it reports.
- * generated from [StreamConfigWarning](../../../../../apps/api/data/contracts/playout/playout.types.ck#L50)
+ * generated from [StreamConfigWarning](../../../../../apps/api/data/contracts/playout/playout.types.ck#L54)
  */
 export interface StreamConfigWarning {
     /** Which one is behind */
@@ -79,7 +87,7 @@ export interface StreamConfigWarning {
 /**
  * Which gate is keeping the station quiet, or `airing` when none of them is. Ordered by cause: a
  * stalled transport loop makes every reading under it stale, so it is ruled out first
- * generated from [SilenceCause](../../../../../apps/api/data/contracts/playout/playout.types.ck#L58)
+ * generated from [SilenceCause](../../../../../apps/api/data/contracts/playout/playout.types.ck#L62)
  */
 export type SilenceCause =
     | 'airing'
@@ -99,13 +107,13 @@ export type SilenceCause =
  * How one gate is doing. `waiting` is its own state rather than a mild fault, because a station
  * idling for want of a listener and a station that cannot reach its stream are both silent and only
  * one of them is something to go and fix
- * generated from [SilenceState](../../../../../apps/api/data/contracts/playout/playout.types.ck#L76)
+ * generated from [SilenceState](../../../../../apps/api/data/contracts/playout/playout.types.ck#L80)
  */
 export type SilenceState = 'ok' | 'waiting' | 'fault';
 
 /**
  * One mount the station is publishing right now
- * generated from [PlayoutMount](../../../../../apps/api/data/contracts/playout/playout.types.ck#L93)
+ * generated from [PlayoutMount](../../../../../apps/api/data/contracts/playout/playout.types.ck#L97)
  */
 export interface PlayoutMount {
     format: 'mp3' | 'opus' | 'aac' | 'flac';
@@ -117,7 +125,7 @@ export interface PlayoutMount {
 
 /**
  * Which rundown item Liquidsoap has just started playing
- * generated from [PlayoutAiredQuery](../../../../../apps/api/data/contracts/playout/playout.types.ck#L113)
+ * generated from [PlayoutAiredQuery](../../../../../apps/api/data/contracts/playout/playout.types.ck#L117)
  */
 export interface PlayoutAiredQuery {
     /** The id the app put on the pushed uri's `annotate:` metadata */
@@ -126,7 +134,7 @@ export interface PlayoutAiredQuery {
 
 /**
  * Which way the running order went, and how long it had been that way
- * generated from [PlayoutStarveQuery](../../../../../apps/api/data/contracts/playout/playout.types.ck#L117)
+ * generated from [PlayoutStarveQuery](../../../../../apps/api/data/contracts/playout/playout.types.ck#L121)
  */
 export interface PlayoutStarveQuery {
     /** `starved`: the queue stopped producing while deadair was driving, so the mount fell through to the local bed. `recovered`: it is producing again */
@@ -137,7 +145,7 @@ export interface PlayoutStarveQuery {
 
 /**
  * What the PLAYER says is airing, which is not the same as what was last handed to it
- * generated from [PlayoutNowPlaying](../../../../../apps/api/data/contracts/playout/playout.types.ck#L39)
+ * generated from [PlayoutNowPlaying](../../../../../apps/api/data/contracts/playout/playout.types.ck#L43)
  */
 export interface PlayoutNowPlaying {
     item: PlayoutItem;
@@ -149,7 +157,7 @@ export interface PlayoutNowPlaying {
 
 /**
  * One gate's answer about itself
- * generated from [SilenceCheck](../../../../../apps/api/data/contracts/playout/playout.types.ck#L78)
+ * generated from [SilenceCheck](../../../../../apps/api/data/contracts/playout/playout.types.ck#L82)
  */
 export interface SilenceCheck {
     /** Never `airing`, which is the absence of a blocking gate rather than a gate */
@@ -163,7 +171,7 @@ export interface SilenceCheck {
 
 /**
  * Why the station cannot be heard, as one answer
- * generated from [StationSilence](../../../../../apps/api/data/contracts/playout/playout.types.ck#L85)
+ * generated from [StationSilence](../../../../../apps/api/data/contracts/playout/playout.types.ck#L89)
  */
 export interface StationSilence {
     /** Whether the station believes its programme is reaching the mount. NOT whether anybody is hearing it: a station can be audible with no listeners in `always` mode, and can have listeners while airing the local bed */
@@ -177,7 +185,7 @@ export interface StationSilence {
 
 /**
  * The station's transport, as one reading
- * generated from [PlayoutStatus](../../../../../apps/api/data/contracts/playout/playout.types.ck#L99)
+ * generated from [PlayoutStatus](../../../../../apps/api/data/contracts/playout/playout.types.ck#L103)
  */
 export interface PlayoutStatus {
     /** Whether Liquidsoap's control API is answering at all. False means nothing can air, whatever the running order holds */

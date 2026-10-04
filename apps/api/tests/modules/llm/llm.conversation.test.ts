@@ -126,6 +126,15 @@ describe('a conversation with no tools involved', () => {
         expect(asked[0]?.tools).toBeUndefined();
     });
 
+    it('offers only the tools the caller named, out of what there is', async () => {
+        const { record, asked } = scriptedPlugin([{ text: 'done' }]);
+        const { service } = serviceFor(record, [tool('search_web', async () => 'found'), tool('search_music', async () => 'found')]);
+
+        await service.converse(ask(), { onlyTools: ['search_web', 'not_offered'] });
+
+        expect(asked[0]?.tools?.map(declared => declared.name)).toEqual(['search_web']);
+    });
+
     it('offers none when the caller said not to', async () => {
         const { record, asked } = scriptedPlugin([{ text: 'done' }]);
         const { service } = serviceFor(record, [tool('search', async () => 'found')]);

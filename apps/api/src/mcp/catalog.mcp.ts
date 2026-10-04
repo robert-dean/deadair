@@ -10,6 +10,7 @@ import { AlbumsService } from '#src/modules/catalog/albums.service.js';
 import { ArtistsService } from '#src/modules/catalog/artists.service.js';
 import { EnrichmentReadService } from '#src/modules/enrichment/enrichment.read.service.js';
 import { TracksService } from '#src/modules/catalog/tracks.service.js';
+import { VocalMarkersService } from '#src/modules/lyrics/vocal.markers.service.js';
 import {
     Album,
     AlbumEnrichmentDetail,
@@ -26,6 +27,8 @@ import {
     TrackEnrichmentDetail,
     TrackPage,
     TrackQueryInput,
+    VocalMarkersDetail,
+    VocalMarkersInput,
 } from '../modules/catalog/types/catalog.types.js';
 
 /** The request's scoped container, which a tool resolving per call reads its service and policies from. */
@@ -49,6 +52,9 @@ const RateAlbumArgs = z.object({ id: z.uuid(), body: RateInput });
 const GetTrackArgs = z.object({ id: z.uuid() });
 const ClearTrackAudioArgs = z.object({ id: z.uuid() });
 const ClearTrackAnalysisArgs = z.object({ id: z.uuid() });
+const GetVocalMarkersArgs = z.object({ id: z.uuid() });
+const SetVocalMarkersArgs = z.object({ id: z.uuid(), body: VocalMarkersInput });
+const ClearVocalMarkersArgs = z.object({ id: z.uuid() });
 const RetryTrackAudioArgs = z.object({ id: z.uuid() });
 const OfferTrackCopiesAgainArgs = z.object({ id: z.uuid() });
 const GetTrackEnrichmentArgs = z.object({ id: z.uuid() });
@@ -57,7 +63,7 @@ const ListTracksArgs = z.object({ query: TrackQueryInput.optional() });
 const RateTrackArgs = z.object({ id: z.uuid(), body: RateInput });
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L29)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L30)
  */
 @Injectable()
 export class ListArtistsMcpTool implements McpToolHandler {
@@ -80,7 +86,7 @@ export class ListArtistsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L45)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L46)
  */
 @Injectable()
 export class GetArtistMcpTool implements McpToolHandler {
@@ -103,7 +109,7 @@ export class GetArtistMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L60)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L61)
  */
 @Injectable()
 export class GetArtistEnrichmentMcpTool implements McpToolHandler {
@@ -126,7 +132,7 @@ export class GetArtistEnrichmentMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L75)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L76)
  */
 @Injectable()
 export class ListArtistAlbumsMcpTool implements McpToolHandler {
@@ -152,7 +158,7 @@ export class ListArtistAlbumsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L91)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L92)
  */
 @Injectable()
 export class RateArtistMcpTool implements McpToolHandler {
@@ -175,7 +181,7 @@ export class RateArtistMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L112)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L113)
  */
 @Injectable()
 export class ListAlbumsMcpTool implements McpToolHandler {
@@ -197,7 +203,7 @@ export class ListAlbumsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L128)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L129)
  */
 @Injectable()
 export class GetAlbumMcpTool implements McpToolHandler {
@@ -219,7 +225,7 @@ export class GetAlbumMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L143)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L144)
  */
 @Injectable()
 export class GetAlbumEnrichmentMcpTool implements McpToolHandler {
@@ -242,7 +248,7 @@ export class GetAlbumEnrichmentMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L158)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L159)
  */
 @Injectable()
 export class ListAlbumTracksMcpTool implements McpToolHandler {
@@ -268,7 +274,7 @@ export class ListAlbumTracksMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L174)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L175)
  */
 @Injectable()
 export class RateAlbumMcpTool implements McpToolHandler {
@@ -291,7 +297,7 @@ export class RateAlbumMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L196)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L197)
  */
 @Injectable()
 export class GetTrackMcpTool implements McpToolHandler {
@@ -314,7 +320,7 @@ export class GetTrackMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L222)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L223)
  */
 @Injectable()
 export class ClearTrackAudioMcpTool implements McpToolHandler {
@@ -337,7 +343,7 @@ export class ClearTrackAudioMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L245)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L246)
  */
 @Injectable()
 export class ClearTrackAnalysisMcpTool implements McpToolHandler {
@@ -360,7 +366,76 @@ export class ClearTrackAnalysisMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L263)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L264)
+ */
+@Injectable()
+export class GetVocalMarkersMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'get_vocal_markers',
+        description: "Where the singing starts and stops on one record, from an operator's correction or its timed lyrics",
+        inputSchema: z.toJSONSchema(GetVocalMarkersArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(VocalMarkersDetail, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.view' });
+        const { id } = await parseAndValidate(args, GetVocalMarkersArgs);
+        const result = await container.get(VocalMarkersService).getVocalMarkers(id);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L273)
+ */
+@Injectable()
+export class SetVocalMarkersMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'set_vocal_markers',
+        description: 'Correct where the singing starts and stops, over whatever the lyrics say',
+        inputSchema: z.toJSONSchema(SetVocalMarkersArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(VocalMarkersDetail, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { id, body } = await parseAndValidate(args, SetVocalMarkersArgs);
+        const result = await container.get(VocalMarkersService).setVocalMarkers(id, body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L290)
+ */
+@Injectable()
+export class ClearVocalMarkersMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'clear_vocal_markers',
+        description: "Drop the correction, so the record's timed lyrics decide again",
+        inputSchema: z.toJSONSchema(ClearVocalMarkersArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(VocalMarkersDetail, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { id } = await parseAndValidate(args, ClearVocalMarkersArgs);
+        const result = await container.get(VocalMarkersService).clearVocalMarkers(id);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L308)
  */
 @Injectable()
 export class RetryTrackAudioMcpTool implements McpToolHandler {
@@ -383,7 +458,7 @@ export class RetryTrackAudioMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L293)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L338)
  */
 @Injectable()
 export class OfferTrackCopiesAgainMcpTool implements McpToolHandler {
@@ -406,7 +481,7 @@ export class OfferTrackCopiesAgainMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L311)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L356)
  */
 @Injectable()
 export class GetTrackEnrichmentMcpTool implements McpToolHandler {
@@ -429,7 +504,7 @@ export class GetTrackEnrichmentMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L320)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L365)
  */
 @Injectable()
 export class ClearTrackEnrichmentMcpTool implements McpToolHandler {
@@ -455,7 +530,7 @@ export class ClearTrackEnrichmentMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L336)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L381)
  */
 @Injectable()
 export class ListTracksMcpTool implements McpToolHandler {
@@ -478,7 +553,7 @@ export class ListTracksMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L352)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L397)
  */
 @Injectable()
 export class RateTrackMcpTool implements McpToolHandler {
@@ -515,6 +590,9 @@ export function registerCatalogMcpCatalog(map: McpToolHandlerMap, container: Con
     map.set('get_track', container.get(GetTrackMcpTool));
     map.set('clear_track_audio', container.get(ClearTrackAudioMcpTool));
     map.set('clear_track_analysis', container.get(ClearTrackAnalysisMcpTool));
+    map.set('get_vocal_markers', container.get(GetVocalMarkersMcpTool));
+    map.set('set_vocal_markers', container.get(SetVocalMarkersMcpTool));
+    map.set('clear_vocal_markers', container.get(ClearVocalMarkersMcpTool));
     map.set('retry_track_audio', container.get(RetryTrackAudioMcpTool));
     map.set('offer_track_copies_again', container.get(OfferTrackCopiesAgainMcpTool));
     map.set('get_track_enrichment', container.get(GetTrackEnrichmentMcpTool));
@@ -538,6 +616,9 @@ export function registerCatalogMcpToolClasses(registry: Registry): void {
     registry.register(GetTrackMcpTool).useClass(GetTrackMcpTool).asSingleton();
     registry.register(ClearTrackAudioMcpTool).useClass(ClearTrackAudioMcpTool).asSingleton();
     registry.register(ClearTrackAnalysisMcpTool).useClass(ClearTrackAnalysisMcpTool).asSingleton();
+    registry.register(GetVocalMarkersMcpTool).useClass(GetVocalMarkersMcpTool).asSingleton();
+    registry.register(SetVocalMarkersMcpTool).useClass(SetVocalMarkersMcpTool).asSingleton();
+    registry.register(ClearVocalMarkersMcpTool).useClass(ClearVocalMarkersMcpTool).asSingleton();
     registry.register(RetryTrackAudioMcpTool).useClass(RetryTrackAudioMcpTool).asSingleton();
     registry.register(OfferTrackCopiesAgainMcpTool).useClass(OfferTrackCopiesAgainMcpTool).asSingleton();
     registry.register(GetTrackEnrichmentMcpTool).useClass(GetTrackEnrichmentMcpTool).asSingleton();

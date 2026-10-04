@@ -278,6 +278,11 @@ under a voice that was not in the mix when the blend was decided. This is a mixe
 rather than something `blendFor` could catch, because at the time it runs for the outgoing item the
 break that will follow does not exist yet.
 
+**A link talked up to the post is a talk-over, and the mixer cannot tell the difference.** It arrives
+as a `voice` cue on the record it rides, armed with `X-Voice-At-Ms` like an interrupting one, so the
+bed ducks under it and nothing is faded into speech. Where the cue lands and why is
+[`breaks.md`](breaks.md) § "Talking up to the post".
+
 **Somebody else's programme is spoken word too, and differs in three places only.** An episode of a podcast
 the station carries is a segment, so the mixer never fades into it either; `RundownItem.programme` is what
 gives it its own title and show on the mount, a `record` on `/nowplaying`, and a gain assumed from a

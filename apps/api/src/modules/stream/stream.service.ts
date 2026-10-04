@@ -55,7 +55,8 @@ import type {
  */
 const TALK_OVER_TRACKS = true;
 const DUCK_GAIN_DB = -12;
-const DUCK_FADE_MS = 300;
+/** Exported for the talk-up, which has to allow for the bed coming back up after the last word. */
+export const DUCK_FADE_MS = 300;
 
 /**
  * The operator's trim on the DJ voice, on top of the gain the app decides for

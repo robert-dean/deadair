@@ -13,10 +13,16 @@
 // a plugin's entire catalog.
 
 import { describe, expect, it, vi } from 'vitest';
-import type { Kysely } from 'kysely';
+import { Kysely, PostgresDialect, DummyDriver } from 'kysely';
+import type { DatabaseConnection, Dialect, Driver, QueryResult } from 'kysely';
+import { KyselyDefaultPlugins } from '@maroonedsoftware/kysely';
 import type { Logger } from '@maroonedsoftware/logger';
 
-import { CatalogResolverRepository, chooseTrackCandidate } from '../../../../src/modules/catalog/ingest/catalog.resolver.repository.js';
+import {
+    CatalogResolverRepository,
+    chooseTrackCandidate,
+    usablePosition,
+} from '../../../../src/modules/catalog/ingest/catalog.resolver.repository.js';
 import type { DB } from '../../../../src/modules/data/db.js';
 
 const stubLogger = (): Logger => ({
@@ -199,5 +205,77 @@ describe('markMissingTrackSources', () => {
 
         await expect(repository.markMissingTrackSources('deadair.navidrome', ['a'], 50)).resolves.toEqual({ kind: 'swept', swept: 3 });
         expect(updated()).toBe(true);
+    });
+});
+
+interface Captured {
+    statements: { sql: string; parameters: readonly unknown[] }[];
+}
+
+/**
+ * A database that compiles the statements for real and answers with rows somebody chose.
+ *
+ * Every statement is kept rather than only the last, because two of these methods send two — the
+ * insert and the cursor advance — and the point of the pair is that both went.
+ */
+function compilingDb(rows: unknown[], captured: Captured = { statements: [] }): Kysely<DB> {
+    const postgres = new PostgresDialect({ pool: {} as never });
+
+    const connection: DatabaseConnection = {
+        executeQuery: async compiled => {
+            captured.statements.push({ sql: compiled.sql, parameters: compiled.parameters });
+            return { rows } as QueryResult<never>;
+        },
+        streamQuery: () => {
+            throw new Error('nothing here streams');
+        },
+    };
+
+    const driver: Driver = Object.assign(new DummyDriver(), { acquireConnection: async () => connection });
+
+    const dialect: Dialect = {
+        createAdapter: () => postgres.createAdapter(),
+        createIntrospector: db => postgres.createIntrospector(db),
+        createQueryCompiler: () => postgres.createQueryCompiler(),
+        createDriver: () => driver,
+    };
+
+    return new Kysely<DB>({ dialect, plugins: [...KyselyDefaultPlugins] });
+}
+
+describe('where a record sits on its album', () => {
+    it('keeps a whole number from one and nothing else', () => {
+        expect(usablePosition(3)).toBe(3);
+        expect(usablePosition(0)).toBeUndefined();
+        expect(usablePosition(2.5)).toBeUndefined();
+        expect(usablePosition(undefined)).toBeUndefined();
+    });
+
+    it('fills it on an existing row only from a copy on that row’s own album, and only while blank', async () => {
+        const captured: Captured = { statements: [] };
+        // Every read answers one row, so the isrc lookup finds an existing track.
+        const repository = new CatalogResolverRepository(compilingDb([{ id: 'track-1', mergedIntoId: null }], captured), stubLogger());
+
+        await repository.resolveTrack('artist-1', 'album-1', {
+            title: 'Roads',
+            artists: ['Portishead'],
+            isrc: 'GB123',
+            trackNumber: 3,
+            discNumber: 1,
+        });
+
+        const position = captured.statements.find(statement => statement.sql.includes('"track_number" ='));
+        expect(position?.sql).toMatch(/"album_id" = \$\d+/);
+        expect(position?.sql).toMatch(/"track_number" is null/);
+        expect(position?.parameters).toEqual(expect.arrayContaining([3, 'track-1', 'album-1']));
+    });
+
+    it('asks nothing about a position for a copy with no album, which has nothing to sit on', async () => {
+        const captured: Captured = { statements: [] };
+        const repository = new CatalogResolverRepository(compilingDb([{ id: 'track-1', mergedIntoId: null }], captured), stubLogger());
+
+        await repository.resolveTrack('artist-1', undefined, { title: 'Roads', artists: ['Portishead'], isrc: 'GB123', trackNumber: 3 });
+
+        expect(captured.statements.some(statement => statement.sql.includes('"track_number"'))).toBe(false);
     });
 });

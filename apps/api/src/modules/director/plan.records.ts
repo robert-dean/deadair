@@ -8,6 +8,7 @@
  * are the records", and nothing either side of that.
  */
 
+import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import type { PickBroadcast, PickResolver } from './pick.resolver.js';
 import { artistKey, songKey } from './rotation.keys.js';
@@ -38,6 +39,8 @@ export interface PlanRequest {
     brief?: string;
     /** The period it plays, read off the running order beside the brief and for the same reason. */
     era?: { from?: number; to?: number };
+    /** The mood the broadcast leans into, read off the running order beside the period. */
+    mood?: LyricMood;
     /** Songs not to choose again: what the order already holds, or what it is about to stop holding. */
     avoidSongKeys: ReadonlySet<string>;
     /**
@@ -122,6 +125,7 @@ export const planRecords = async (
             rules: request.rules,
             ...(request.brief ? { brief: request.brief } : {}),
             ...(request.era === undefined ? {} : { era: request.era }),
+            ...(request.mood === undefined ? {} : { mood: request.mood }),
             avoidSongKeys: request.avoidSongKeys,
             ...(request.avoidArtistKeys === undefined ? {} : { avoidArtistKeys: request.avoidArtistKeys }),
         });

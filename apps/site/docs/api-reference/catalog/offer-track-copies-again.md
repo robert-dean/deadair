@@ -1,7 +1,7 @@
 ---
 title: 'Offer track copies again'
 sidebar_label: 'Offer track copies again'
-sidebar_position: 15
+sidebar_position: 18
 mdx:
     format: 'md'
 ---

@@ -9,6 +9,17 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.42.0] — 2026-10-04
+
+- "Start shows on time" now fades the record out instead of cutting it. When a record from the last show is still playing past the limit you set, it fades away over four seconds by default, and the new show starts at full level. The fade length is a new setting beside the limit on the Programme page, under At a boundary; zero cuts the record at once, the way Skip does. The cut is aimed at that one record, so if it ends on its own partway through the fade, the fade stops and nothing else is touched.
+- A station can now have a newsreader. Add one with "New newsreader" on the Characters page, and every news bulletin is written in its character and read in its voice, whoever is hosting. Without one, the host reads the news exactly as before. A station has at most one newsreader, it can never present a show, and changing the host no longer rewrites bulletins the newsreader has already read.
+- A presenter can now have a picture. Drop one onto a host's character sheet on the Personas page (JPEG, PNG, WebP or GIF, up to 4 MB), and it is saved straight away. While that presenter is on air, the station's now-playing answer carries the picture as `show.hostArtUrl`, so listener apps can show who is talking. Replacing a picture keeps its address, so a player already showing it picks up the new one. A presenter with no picture is unchanged.
+- The clock in the console's header now shows the station's own time beside yours when the two differ, for an operator looking after a station in another timezone. The schedule and everything a presenter says about the time run on the station's clock, which until now you had to work out in your head. When the station keeps the same time as you, the header is unchanged. The schedule's "now" answer also says which timezone the station's clock is in.
+- The station now says when its model is the problem. The check-up page has a Model section showing whether the model is free, what it is working on and for how long, and how many requests are waiting for it, and warns when one answer has held it for longer than any answer takes. And when breaks have been written in the station's own fallback phrasing for an hour because the model kept failing to answer, the activity feed says so once, "Needs you" lists it until the model is back, and the feed says so again when it is. Before this, the fallback kept the station talking and nothing told an operator the model had gone.
+- Idents and other recordings dropped into the segment inbox or uploaded in the console are now measured for loudness when they are imported, and ones imported earlier are measured on the next library scan. Until now they never were, so the station levelled them as though they were raw synthesised speech and turned them up by about 11.5 dB, which made a professionally mastered ident far louder than the records either side of it. A station with no analyzer still takes every recording as before.
+- A break that was given no weather reading can no longer describe the weather. Most breaks are told not to reach for the weather to set a scene, but a model would still open with "sunny out there" during a storm, and nothing stopped it. Such a script is now refused and asked for once more without the weather, and falls back to the station's own phrasing if it does it again. Only words that describe the sky itself count (sunny, raining, overcast, a temperature in degrees), never "storm" or "clear", and a record called "Sunny" can still be named. English-language stations only.
+- When a model writes a break or a call-in turn as a script, with the speaker's name and a colon in front of it, the station now takes that label off before the voice reads it, whatever alphabet the name is in and however it is spaced: "Solène:" and "Iris : bonsoir" go as surely as "Host:". It recognises the label by who it names (the presenter, the station's presenter name, an outgoing host, or a production's cast) or by a role word like DJ or Presenter, so an opening that only looks like a label, such as "Tonight: Rain all week", is no longer cut.
+
 ## [0.41.0] — 2026-10-04
 
 - A listener can now ask for a record the station does not hold yet. When the station's own library has fewer than three matches, the request search also asks the music providers (Spotify, Navidrome, YouTube Music) and offers what they carry, leaving out anything already shown, anything the station holds, and anything by an artist it dislikes. Such a record comes back with a `source` instead of a `trackId`, and a request sends that `source`: the station takes the record into its library, then decides on the request exactly as it would any other. Nothing is reached while `rotation.discover` is off, and each search term's provider answer is reused for a minute. Chat requests still search the library alone.
@@ -1036,7 +1047,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.41.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.42.0...HEAD
+[0.42.0]: https://github.com/robert-dean/deadair/compare/v0.41.0...v0.42.0
 [0.41.0]: https://github.com/robert-dean/deadair/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/robert-dean/deadair/compare/v0.39.1...v0.40.0
 [0.39.1]: https://github.com/robert-dean/deadair/compare/v0.39.0...v0.39.1

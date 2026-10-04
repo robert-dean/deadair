@@ -794,6 +794,67 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/TrackClearResult'
+    '/catalog/tracks/{id}/vocal-markers':
+        get:
+            operationId: getVocalMarkers
+            summary: 'Get vocal markers'
+            description: "Where the singing starts and stops on one record, from an operator's correction or its timed lyrics"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/VocalMarkersDetail'
+        put:
+            operationId: setVocalMarkers
+            summary: 'Set vocal markers'
+            description: 'Correct where the singing starts and stops, over whatever the lyrics say'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/VocalMarkersInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/VocalMarkersDetail'
+        delete:
+            operationId: clearVocalMarkers
+            summary: 'Clear vocal markers'
+            description: "Drop the correction, so the record's timed lyrics decide again"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/VocalMarkersDetail'
     '/catalog/tracks/{id}/retry':
         post:
             operationId: retryAudio
@@ -3136,6 +3197,24 @@ paths:
                     'application/json':
                         schema:
                             '$ref': '#/components/schemas/PlayoutStationPlaylistInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PlayoutStatus'
+    '/playout/album':
+        post:
+            operationId: playAlbum
+            summary: 'Play an album'
+            description: "Plays an album the library holds, whole and in the order it was made: by disc, then by track. A feature, so no breaks and no blends between its records, and what is on air finishes rather than being cut off. It stops at the end of the album, or when the schedule's next block starts"
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PlayoutAlbumInput'
             responses:
                 '200':
                     description: 'Successful response'
@@ -6809,6 +6888,51 @@ components:
                     description: 'What happened, in the words the console shows'
             required: [trackId, cleared, detail]
             description: "What a clear actually did.\n\nA count rather than a bare 204, because the interesting answers are the small ones: clearing the\naudio of a record with three copies and being told `1` is the station saying two of them were\nnever here — which is a fact about the record and not about the button."
+        VocalMarkersDetail:
+            type: object
+            properties:
+                trackId:
+                    type: string
+                    format: uuid
+                    readOnly: true
+                kind:
+                    type: string
+                    enum: [instrumental, ranges, unknown]
+                    readOnly: true
+                    description: 'Nobody sings on it; where the singing is; or nothing to go on'
+                onsetMs:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'Where the first sung word lands, when kind is ranges'
+                endMs:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'Where the singing stops, when it is known'
+                source:
+                    type: string
+                    enum: [override, lyrics, none]
+                    readOnly: true
+                    description: "An operator's correction, the record's timed lyrics, or neither"
+            required: [trackId, kind, source]
+            description: "Where the singing starts and stops on one record, and which answer that is. Times are milliseconds\nfrom the start of the file, the timeline a lyric's timings use. Never the words themselves."
+        VocalMarkersInput:
+            type: object
+            properties:
+                instrumental:
+                    type: boolean
+                    default: false
+                    description: 'Nobody sings on this record, whatever its lyrics say'
+                onsetMs:
+                    type: integer
+                    minimum: 0
+                    description: 'Where the first sung word lands, from the start of the file. Required unless instrumental'
+                endMs:
+                    type: integer
+                    minimum: 0
+                    description: 'Where the singing stops. Optional, and after the onset'
+            description: "An operator's correction: either the record is instrumental, or the singing starts at `onsetMs`."
         ClearEnrichmentQuery:
             type: object
             properties:
@@ -6876,7 +7000,37 @@ components:
                     type: integer
                     minimum: 0
                     readOnly: true
-            required: [total, cached, measured, enriched, benched, failing]
+                lyrics:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'A lyrics source has the words of it. The words themselves are never served'
+                synced:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'A lyrics source has the timing of its lines, which says when the singing starts'
+                instrumental:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'A lyrics source says nobody sings on it'
+                moods:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'A model has judged what mood it is in'
+            required:
+                - total
+                - cached
+                - measured
+                - enriched
+                - benched
+                - failing
+                - lyrics
+                - synced
+                - instrumental
+                - moods
             description: "How much of the library is in each state, over the whole filtered set rather than this page.\n\nThe aggregate is what an operator reads first — \"13 of 581 measured\" is the sentence that made\n[analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the\nsame number as `meta.total` when nothing is filtered, and is repeated here so the counts can be\nread as N of M without reaching into the pager."
         TrackRow:
             allOf:
@@ -7703,6 +7857,10 @@ components:
                     type: string
                     enum: [countdown, ranked, unordered]
                     description: "Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId`"
+                albumId:
+                    type: string
+                    format: uuid
+                    description: 'An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends'
                 stationPlaylistId:
                     type: string
                     format: uuid
@@ -7731,6 +7889,10 @@ components:
                     minimum: 1900
                     maximum: 2100
                     description: 'The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone'
+                mood:
+                    type: string
+                    enum: [love, happiness, comfort, sadness, loneliness, anger, fear]
+                    description: 'The mood this broadcast leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean'
                 callins:
                     type: boolean
                     description: 'Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent is no calls: there is no station-wide default behind it'
@@ -10553,6 +10715,14 @@ components:
                     description: 'Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it'
             required: [stationPlaylistId]
             description: 'A playlist the station owns, to load into the running order'
+        PlayoutAlbumInput:
+            type: object
+            properties:
+                albumId:
+                    type: string
+                    format: uuid
+            required: [albumId]
+            description: 'An album the library holds, to play whole'
         PlayoutChartInput:
             type: object
             properties:
@@ -12606,6 +12776,10 @@ components:
                     minimum: 1900
                     maximum: 2100
                     description: 'The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone'
+                mood:
+                    type: string
+                    enum: [love, happiness, comfort, sadness, loneliness, anger, fear]
+                    description: 'The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean'
                 callins:
                     type: boolean
                     description: 'Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says'

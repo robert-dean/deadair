@@ -1,3 +1,6 @@
+import { LyricLabelsRepository } from '#modules/lyrics/lyric.labels.repository.js';
+import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
+import { moodFits } from './mood.lean.js';
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { DateTime } from 'luxon';
@@ -64,8 +67,20 @@ export class CatalogSetGenerator extends SetGenerator {
         private readonly config: AppConfig,
         private readonly watch: AdvisoryWatch,
         private readonly eraWatch: EraWatch,
+        /** What mood each record was judged to be in, for a broadcast that leans into one. */
+        private readonly labels: LyricLabelsRepository,
     ) {
         super();
+    }
+
+    /** The sampled records a model judged to be in this mood. Empty when nothing could be read. */
+    private async fittingMood(trackIds: readonly string[], mood: LyricMood): Promise<Set<string>> {
+        try {
+            const moods = await this.labels.moodsForTracks(trackIds);
+            return new Set(trackIds.filter(id => moodFits(moods.get(id), mood)));
+        } catch {
+            return new Set();
+        }
     }
 
     async generate(inputs: SetInputs): Promise<TrackPick[]> {
@@ -116,12 +131,27 @@ export class CatalogSetGenerator extends SetGenerator {
         // the whole library in one batch, the fix is ordering the SQL by a randomised function of
         // the age rather than raising the ceiling (the same note #30 makes about a play count).
         const now = DateTime.utc();
+        // The broadcast's mood, the period's sibling: a number the model already stored, so the floor
+        // can lean on it with nothing reading prose. Read only when a mood is named, for the sampled
+        // records only, and a failed read costs the lean and never the batch.
+        const fitting =
+            inputs.mood === undefined
+                ? new Set<string>()
+                : await this.fittingMood(
+                      sampled.map(track => track.trackId),
+                      inputs.mood,
+                  );
         const scored = sampled.map(track => {
             const candidate = toRotationCandidate(
                 track,
                 smartShuffle.enabled ? { lastAired, now, horizonDays: smartShuffle.horizonDays } : undefined,
             );
-            return leans?.has(track.trackId) ? { ...candidate, lean: STEER_LEAN } : candidate;
+            // The mood and the genre steer are two leans and both can hold: each multiplies in.
+            return {
+                ...candidate,
+                ...(fitting.has(track.trackId) ? { moodFit: true as const } : {}),
+                ...(leans?.has(track.trackId) ? { lean: STEER_LEAN } : {}),
+            };
         });
 
         // The same rules `PickResolver` applies to every pick from every generator, applied

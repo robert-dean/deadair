@@ -281,6 +281,7 @@ describe('SetGeneratorChain with the real bindings', () => {
             config,
             watch,
             eraWatch,
+            { moodsForTracks: async () => new Map() } as never,
         );
     }
 

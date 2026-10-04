@@ -14,6 +14,7 @@ import { stubPhoneMedia } from '../../utils/phone';
 
 const getTrack = vi.fn();
 const getTrackEnrichment = vi.fn();
+const getVocalMarkers = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     BASE_URL: '/api',
@@ -21,6 +22,7 @@ vi.mock('../../../src/api/client', () => ({
         catalog: {
             getTrack: (...args: unknown[]) => getTrack(...args),
             getTrackEnrichment: (...args: unknown[]) => getTrackEnrichment(...args),
+            getVocalMarkers: (...args: unknown[]) => getVocalMarkers(...args),
         },
     },
 }));
@@ -61,6 +63,7 @@ const detail = (overrides: Partial<TrackDetail> = {}): TrackDetail =>
 
 beforeEach(() => {
     getTrackEnrichment.mockResolvedValue({ trackId: TRACK_ID, merged: {}, sources: [], claims: [] });
+    getVocalMarkers.mockResolvedValue({ trackId: TRACK_ID, kind: 'unknown', source: 'none' });
 });
 
 afterEach(() => {

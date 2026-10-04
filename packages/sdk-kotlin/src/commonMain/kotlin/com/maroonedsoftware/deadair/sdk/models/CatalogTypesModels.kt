@@ -147,6 +147,41 @@ data class TrackClearResult(
 class TrackClearResultInput
 
 /**
+ * Where the singing starts and stops on one record, and which answer that is. Times are milliseconds
+ * from the start of the file, the timeline a lyric's timings use. Never the words themselves.
+ */
+@Serializable
+data class VocalMarkersDetail(
+    val trackId: Uuid,
+    /** Nobody sings on it; where the singing is; or nothing to go on */
+    val kind: VocalMarkersDetailKind,
+    /** Where the first sung word lands, when kind is ranges */
+    val onsetMs: Long? = null,
+    /** Where the singing stops, when it is known */
+    val endMs: Long? = null,
+    /** An operator's correction, the record's timed lyrics, or neither */
+    val source: VocalMarkersDetailSource,
+)
+
+/**
+ * Where the singing starts and stops on one record, and which answer that is. Times are milliseconds
+ * from the start of the file, the timeline a lyric's timings use. Never the words themselves.
+ */
+@Serializable
+class VocalMarkersDetailInput
+
+/** An operator's correction: either the record is instrumental, or the singing starts at `onsetMs`. */
+@Serializable
+data class VocalMarkersInput(
+    /** Nobody sings on this record, whatever its lyrics say */
+    val instrumental: Boolean? = false,
+    /** Where the first sung word lands, from the start of the file. Required unless instrumental */
+    val onsetMs: Long? = null,
+    /** Where the singing stops. Optional, and after the onset */
+    val endMs: Long? = null,
+)
+
+/**
  * Narrow a clear to one provider's answer, for the case where one source is wrong and the rest are
  * not. Absent clears every provider's.
  */
@@ -245,6 +280,14 @@ data class TrackStateCounts(
     val enriched: Long,
     val benched: Long,
     val failing: Long,
+    /** A lyrics source has the words of it. The words themselves are never served */
+    val lyrics: Long,
+    /** A lyrics source has the timing of its lines, which says when the singing starts */
+    val synced: Long,
+    /** A lyrics source says nobody sings on it */
+    val instrumental: Long,
+    /** A model has judged what mood it is in */
+    val moods: Long,
 )
 
 /**
@@ -831,3 +874,25 @@ data class AlbumEnrichmentDetailInput(
     val sources: List<AlbumEnrichmentSourceInput>,
     val claims: List<FactClaimInput>,
 )
+
+/** Nobody sings on it; where the singing is; or nothing to go on */
+@Serializable
+enum class VocalMarkersDetailKind {
+    @SerialName("instrumental")
+    INSTRUMENTAL,
+    @SerialName("ranges")
+    RANGES,
+    @SerialName("unknown")
+    UNKNOWN,
+}
+
+/** An operator's correction, the record's timed lyrics, or neither */
+@Serializable
+enum class VocalMarkersDetailSource {
+    @SerialName("override")
+    OVERRIDE,
+    @SerialName("lyrics")
+    LYRICS,
+    @SerialName("none")
+    NONE,
+}

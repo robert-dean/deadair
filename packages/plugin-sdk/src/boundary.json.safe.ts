@@ -70,6 +70,7 @@ import type {
     MessagingSender,
     OutboundMessage,
 } from './capabilities/messaging.js';
+import type { LyricLine, TrackLyrics } from './capabilities/lyrics.js';
 import type { OutputDevice, OutputMetadata, OutputMetadataRequest, OutputPlayRequest, OutputStatus } from './capabilities/output.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
 import type { SearchQuery, SearchResult } from './capabilities/search.js';
@@ -278,6 +279,8 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     OutputPlayRequest: IsJsonSafe<OutputPlayRequest>;
     OutputMetadataRequest: IsJsonSafe<OutputMetadataRequest>;
     OutputStatus: IsJsonSafe<OutputStatus>;
+    LyricLine: IsJsonSafe<LyricLine>;
+    TrackLyrics: IsJsonSafe<TrackLyrics>;
     SpeechLimits: IsJsonSafe<SpeechLimits>;
 }>;
 
@@ -385,6 +388,8 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'OutputPlayRequest',
     'OutputMetadataRequest',
     'OutputStatus',
+    'LyricLine',
+    'TrackLyrics',
     'SpeechLimits',
 ] as const;
 
@@ -431,6 +436,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'ScrobbleProvider',
     'MessagingProvider',
     'OutputProvider',
+    'LyricsProvider',
 ] as const;
 
 /**

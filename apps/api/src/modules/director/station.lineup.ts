@@ -1,3 +1,4 @@
+import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import { randomUUID } from 'node:crypto';
 import type { AiringResult, LiveOrder } from '#modules/playout/live.order.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
@@ -335,6 +336,12 @@ export interface StationLineupBinding {
     eraFrom?: number;
     eraTo?: number;
     /**
+     * The mood this broadcast leans into: one the model has judged records by, or absent for no lean.
+     * Rides the running order beside the period for the period's reason, and like the period it is
+     * something the deterministic draw can honour on its own. See `director/mood.lean.ts`.
+     */
+    mood?: LyricMood;
+    /**
      * Who is HOSTING this broadcast, as distinct from who the station is when nobody said.
      *
      * It rides the running order for the same reason {@link brief} does: `onEnd: 'extend'` keeps
@@ -612,6 +619,11 @@ export class StationLineup implements LiveOrder {
         return { ...(eraFrom === undefined ? {} : { from: eraFrom }), ...(eraTo === undefined ? {} : { to: eraTo }) };
     }
 
+    /** The mood this broadcast leans into, or `undefined` for none. */
+    get mood(): LyricMood | undefined {
+        return this.binding.mood;
+    }
+
     // ── reading ────────────────────────────────────────────────────────────────
 
     /** The whole order, including what has already been heard. */
@@ -730,6 +742,26 @@ export class StationLineup implements LiveOrder {
     }
 
     /**
+     * The record this line is directly in front of, or `undefined` when something else airs first.
+     *
+     * Narrower than {@link nextTrackAfter}, which walks past segments: a link talked up over a
+     * record has to be the last thing before it, or a jingle between them would air in the gap and
+     * the link would then talk over the record after the jingle, in the wrong order. Lines that will
+     * never air (skipped, unavailable, removed) are passed over, since nothing is heard from them.
+     */
+    trackRightAfter(itemId: string): StationLineupTrackItem | undefined {
+        const at = this.itemList.findIndex(item => item.id === itemId);
+        if (at < 0) return undefined;
+
+        for (let index = at + 1; index < this.itemList.length; index++) {
+            const item = this.itemList[index]!;
+            if (item.state === 'skipped' || item.state === 'unavailable' || item.state === 'removed') continue;
+            return item.kind === 'track' ? item : undefined;
+        }
+        return undefined;
+    }
+
+    /**
      * The nearest record before this line that actually aired, as the order stands right now.
      *
      * {@link nextTrackAfter}'s mirror, for a break's BACKWARD claim: it named a line when it was
@@ -799,6 +831,24 @@ export class StationLineup implements LiveOrder {
      */
     markHanded(itemId: string): boolean {
         return this.transition(itemId, 'planned', 'handed');
+    }
+
+    /**
+     * Hand a link over as a talk-over of the record after it: the talk-up, decided at hand-over.
+     *
+     * It BECOMES a talk-over here, `over` and all, rather than merely being treated as one by the
+     * director, because every other rule about talk-overs reads that field: {@link markAiring} must
+     * not count it as passed over when its record starts, the console shows it riding the record,
+     * and the order as stored says what actually aired. A link handled as a cue without being marked
+     * as one would be swept as skipped the moment its own record began.
+     */
+    handOverTalkingUp(itemId: string, atMs: number): boolean {
+        const item = this.itemList.find(candidate => candidate.id === itemId);
+        if (item?.kind !== 'segment' || item.state !== 'planned' || item.over !== undefined) return false;
+
+        item.over = { atMs };
+        item.state = 'handed';
+        return true;
     }
 
     /**
@@ -1117,7 +1167,10 @@ export class StationLineup implements LiveOrder {
         const lines: StationLineupItem[] =
             dedication === undefined
                 ? [item]
-                : [{ id: randomUUID(), kind: 'segment', state: 'planned', segmentId: dedication.segmentId, segmentKind: dedication.segmentKind }, item];
+                : [
+                      { id: randomUUID(), kind: 'segment', state: 'planned', segmentId: dedication.segmentId, segmentKind: dedication.segmentKind },
+                      item,
+                  ];
         this.itemList.splice(gap, 0, ...lines);
         return OK;
     }

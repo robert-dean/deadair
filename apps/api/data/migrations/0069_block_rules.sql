@@ -7,8 +7,6 @@
 -- and an absent one means "always", so an unscoped rule needs no null branch in the reader. Seeds
 -- nothing: an empty table is a station with no rules, which is every station until somebody writes one.
 --
--- Numbered 0063 because 0062 is taken by the album position migration on another branch; dbmate
--- applies any version it has not recorded, in order, so they can land either way round.
 create table deadair.block_rules (
     id uuid primary key default gen_random_uuid(),
     -- Present for the reason it is on every other station-owned table.

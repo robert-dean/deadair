@@ -41,6 +41,7 @@ export const bundledPluginDirs: string[] = [
     resolveBundledPluginDir('plugins/lastfm'),
     resolveBundledPluginDir('plugins/deezer'),
     resolveBundledPluginDir('plugins/wikipedia'),
+    resolveBundledPluginDir('plugins/lrclib'),
     resolveBundledPluginDir('plugins/kokoro'),
     resolveBundledPluginDir('plugins/chatterbox'),
     resolveBundledPluginDir('plugins/rhapsode'),

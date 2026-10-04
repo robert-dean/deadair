@@ -1,3 +1,4 @@
+import { MOOD_BOOST } from './mood.lean.js';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { StationLineupMode, StationLineupRules } from './station.lineup.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
@@ -436,9 +437,17 @@ export interface RotationCandidate {
      */
     freshness?: number;
     /**
+     * Whether a model judged this record to be in the mood the broadcast leans into. Only ever
+     * `true` or absent: a mismatch and an unjudged record weigh the same, because the judgement is a
+     * lean and never a reason to play something less. See `mood.lean.ts`.
+     */
+    moodFit?: true;
+    /**
      * How strongly the station is leaning toward this record right now, as a multiplier on its weight.
      * Absent weighs like `1`. Set only by a draw that read a genre steer (`genre.steer.ts`), and only
-     * ever a lean: it changes how often a record is drawn and never whether it may be.
+     * ever a lean: it changes how often a record is drawn and never whether it may be. It multiplies
+     * with {@link moodFit}'s boost rather than replacing it: a record in both the mood and the genre
+     * is leaned toward twice.
      */
     lean?: number;
 }
@@ -492,7 +501,7 @@ export const rejectDisliked = <T extends RotationCandidate>(candidates: readonly
  * that aired yesterday still come up, just less often than one nobody has heard in a fortnight.
  */
 export const weightOf = (candidate: RotationCandidate): number =>
-    (candidate.rating === 1 ? 2 : 1) * freshWeight(candidate.freshness) * (candidate.lean ?? 1);
+    (candidate.rating === 1 ? 2 : 1) * freshWeight(candidate.freshness) * (candidate.moodFit === true ? MOOD_BOOST : 1) * (candidate.lean ?? 1);
 
 /**
  * The share of its full weight a record that has JUST aired keeps under smart shuffle.

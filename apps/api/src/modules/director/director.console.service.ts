@@ -406,6 +406,8 @@ export class DirectorConsoleService {
             // is already a four-digit year, and either end may stand alone.
             ...(input.eraFrom === undefined ? {} : { eraFrom: input.eraFrom }),
             ...(input.eraTo === undefined ? {} : { eraTo: input.eraTo }),
+            // The mood the broadcast leans into, beside the period. A lean on the draw, never a filter.
+            ...(input.mood === undefined ? {} : { mood: input.mood }),
             // Not validated against the persona table here, and deliberately: the resolver behind
             // it already falls back to the station's own host for an id that names nothing, which
             // is the same answer a persona deleted mid-broadcast gets. Refusing to go on air over a
@@ -521,6 +523,7 @@ export class DirectorConsoleService {
         if (input.chartId !== undefined) return await this.chartTracks(input.chartId, input.chartOrder, this.era(input), broadcastOf(input));
         if (input.stationPlaylistId !== undefined)
             return await this.stationPlaylistTracks(input.stationPlaylistId, this.era(input), broadcastOf(input));
+        if (input.albumId !== undefined) return await this.albumTracks(input.albumId, this.era(input), broadcastOf(input));
         if (input.pluginId === undefined || input.playlistId === undefined) return [];
 
         const { tracks } = await this.playlists.getPlaylistTracks(input.pluginId, input.playlistId);
@@ -620,6 +623,34 @@ export class DirectorConsoleService {
             });
         }
 
+        return await this.libraryTracks(held, era, 'that playlist', broadcast);
+    }
+
+    /**
+     * An album the library holds, in the order it was made, on {@link stationPlaylistTracks}' terms:
+     * the same library rows, the same bindings, and the same veto, read off the album rather than off
+     * a playlist. A record the station will not play is left out of the album rather than refusing
+     * all of it, exactly as a playlist's would be.
+     */
+    private async albumTracks(albumId: string, era: EraWindow, broadcast: PickBroadcast): Promise<RundownTrack[]> {
+        const { name, tracks } = await this.tracks.inAlbumOrder(albumId);
+        if (name === undefined) throw httpError(404).withDetails({ message: `album "${albumId}" does not exist` });
+        if (tracks.length === 0) throw httpError(422).withDetails({ message: 'that album has no records in the library to play' });
+
+        return await this.libraryTracks(tracks, era, 'that album', broadcast);
+    }
+
+    /**
+     * Library records as a running order: each from whichever provider serves a copy, with the
+     * catalog's art and year, and run through the veto. Shared by a station playlist and an album,
+     * which differ only in where the list of records comes from. `source` names it in a refusal.
+     */
+    private async libraryTracks(
+        held: readonly { trackId: string; title: string; artists: string[]; album?: string; durationMs?: number }[],
+        era: EraWindow,
+        source: string,
+        broadcast: PickBroadcast,
+    ): Promise<RundownTrack[]> {
         const trackIds = held.map(row => row.trackId);
         const [bindings, catalog] = await Promise.all([
             this.candidates.bindingsFor(trackIds, [], advisoryPolicy(this.config)),
@@ -648,13 +679,13 @@ export class DirectorConsoleService {
             ];
         });
         if (tracks.length === 0) {
-            throw httpError(422).withDetails({ message: 'no provider currently serves a copy of any record on that playlist' });
+            throw httpError(422).withDetails({ message: `no provider currently serves a copy of any record on ${source}` });
         }
 
         const vetted = await this.resolver.vet(tracks, { era, broadcast });
         if (vetted.length === 0) {
             throw httpError(422).withDetails({
-                message: 'every record on that playlist is one this station will not play: a dislike, the period, the advisory policy, or its length',
+                message: `every record on ${source} is one this station will not play: a dislike, the period, the advisory policy, or its length`,
             });
         }
         return vetted;
@@ -679,6 +710,10 @@ export class DirectorConsoleService {
         // `sourceTracks` because it is one row by primary key and a label rather than a decision.
         if (input.stationPlaylistId !== undefined && input.chartId === undefined) {
             return (await this.stationPlaylists.find(input.stationPlaylistId))?.name ?? 'A station playlist';
+        }
+        // "Dummy by Portishead", read again here for the playlist's reason: one row, and a label.
+        if (input.albumId !== undefined && input.chartId === undefined) {
+            return (await this.tracks.inAlbumOrder(input.albumId)).name ?? 'An album';
         }
 
         const plugin = pluginOf(input);
@@ -1582,6 +1617,8 @@ function sourceOf(input: PutOnAirInput): string {
     // A playlist the station owns is an import too: a list somebody made and the station cloned,
     // which is what the mix-in keys on (`DirectorService.mixInIfAsked`).
     if (input.stationPlaylistId !== undefined) return 'import';
+    // An album is a list somebody made too, read off the library rather than a provider.
+    if (input.albumId !== undefined) return 'import';
     return input.pluginId === undefined ? 'director' : 'import';
 }
 
@@ -1609,7 +1646,7 @@ const broadcastOf = (input: PutOnAirInput): PickBroadcast => ({ mode: input.mode
 function pluginOf(input: PutOnAirInput): string | undefined {
     if (input.chartId !== undefined) return splitChartId(input.chartId)?.pluginId;
     // No one plugin: each of its records airs from whichever provider serves a copy.
-    if (input.stationPlaylistId !== undefined) return undefined;
+    if (input.stationPlaylistId !== undefined || input.albumId !== undefined) return undefined;
     return input.pluginId;
 }
 

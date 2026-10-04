@@ -297,6 +297,33 @@ export function EraNote() {
     );
 }
 
+/** The moods a stretch of the day can lean into: the seven a model judges each record by. */
+export const MOODS = ['love', 'happiness', 'comfort', 'sadness', 'loneliness', 'anger', 'fear'] as const;
+
+export type Mood = (typeof MOODS)[number];
+
+/**
+ * The mood it leans into, or none.
+ *
+ * Beside the period and for a similar reason: a mood the station's model has already judged every
+ * record by is a number the record draw can lean on with nothing reading prose. Only a LEAN: the
+ * description says so, because a judgement read off lyrics is wrong often enough that it must never
+ * keep a record off the air, and an operator who picks "sadness" should not expect a wall of it.
+ */
+export function MoodField(input: GetInputPropsReturnType) {
+    const { t } = useTranslation('programme');
+    return (
+        <Select
+            label={t('mood.label')}
+            description={t('mood.description')}
+            placeholder={t('mood.none')}
+            data={MOODS.map(mood => ({ value: mood, label: t(`mood.options.${mood}`) }))}
+            clearable
+            {...input}
+        />
+    );
+}
+
 /** What a broadcast is, and what happens when it reaches the end of what it holds. */
 export function ShapeFields({ mode, onEnd }: { mode: GetInputPropsReturnType; onEnd: GetInputPropsReturnType }) {
     const { t } = useTranslation('programme');

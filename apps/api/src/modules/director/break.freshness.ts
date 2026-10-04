@@ -59,6 +59,13 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     previous: 'timeless',
     // The record coming up, which is the original claim and the reason the whole mechanism exists.
     next: 'claims-item',
+    // How long the next record's intro runs. Never spoken: it shapes how LONG the link is and nothing
+    // it says. Stale costs nothing either, because whether the link goes over the intro is decided
+    // again at hand-over, against the record that is actually next and the clip's real length.
+    talkUp: 'not-spoken',
+    // The lyric lines of the records either side. Never spoken: read only by the guard, to refuse a
+    // script that quotes one.
+    lyricLines: 'not-spoken',
 
     // The station's own name. It changes when an operator changes it, which is not a gap this is
     // about, and a break saying the old one for one boundary is not a fact about the world.

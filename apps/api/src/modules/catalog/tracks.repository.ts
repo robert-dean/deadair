@@ -108,6 +108,52 @@ const isEnriched = (eb: TrackScope) =>
     );
 
 /**
+ * Some lyrics source has the words of it. A miss row holds none, so this looks at the text, as
+ * {@link isEnriched} looks at the payload. Only ever COUNTED: the words themselves are never read here.
+ */
+const hasLyrics = (eb: TrackScope) =>
+    eb.exists(
+        eb
+            .selectFrom('deadair.trackLyrics as ly')
+            .select('ly.id')
+            .whereRef('ly.trackId', '=', 'deadair.tracks.id')
+            .where(w => w.or([w('ly.plain', 'is not', null), w('ly.synced', 'is not', null)])),
+    );
+
+/** Some lyrics source has the timing of its lines, which is what says when the singing starts. */
+const hasSyncedLyrics = (eb: TrackScope) =>
+    eb.exists(
+        eb
+            .selectFrom('deadair.trackLyrics as ly')
+            .select('ly.id')
+            .whereRef('ly.trackId', '=', 'deadair.tracks.id')
+            .where('ly.synced', 'is not', null),
+    );
+
+/**
+ * A model has judged what mood it is in. The one way anything here asks, so a record that was judged
+ * and could not be placed (a row with no moods) is never counted as labelled.
+ */
+const hasMoods = (eb: TrackScope) =>
+    eb.exists(
+        eb
+            .selectFrom('deadair.trackLyricLabels as ll')
+            .select('ll.trackId')
+            .whereRef('ll.trackId', '=', 'deadair.tracks.id')
+            .where('ll.moods', 'is not', null),
+    );
+
+/** Some lyrics source says nobody sings on it. */
+const isInstrumental = (eb: TrackScope) =>
+    eb.exists(
+        eb
+            .selectFrom('deadair.trackLyrics as ly')
+            .select('ly.id')
+            .whereRef('ly.trackId', '=', 'deadair.tracks.id')
+            .where('ly.instrumental', '=', true),
+    );
+
+/**
  * Every copy written off, which is the one state that means the record CANNOT air.
  *
  * Two halves, and the first is what stops it swallowing a different fact: there has to BE a copy.
@@ -240,6 +286,12 @@ export interface PlayableSearchOptions {
      * ordering to reason about.
      */
     seed?: string;
+    /**
+     * What the record is about, matched as words against the one-line subject a model wrote for it
+     * (`deadair.track_lyric_labels.subject`, full-text over the `simple` configuration). A record with
+     * no subject is not found by this, which is why `search_music` says how many records have one.
+     */
+    about?: string;
 }
 
 /** `titleKey` is a match key for ingest and never read out; the two names are joined in below. */
@@ -331,9 +383,9 @@ export class TracksRepository extends DataRepository {
     /**
      * How much of the library is in each state, over the same set the page was drawn from.
      *
-     * One query with five conditional counts rather than five queries, because they are all the same
+     * One query with its conditional counts rather than one query each, because they are all the same
      * scan: the aggregate an operator reads first is "N of M measured", and asking the database five
-     * times for one sentence would be five sequential scans of the catalog per page view.
+     * times for one sentence would be that many sequential scans of the catalog per page view.
      *
      * It honours `search` and the album narrowing and deliberately IGNORES `state`: the counts are
      * what the filter is chosen FROM, so filtering them by the current choice would answer "of the
@@ -354,6 +406,10 @@ export class TracksRepository extends DataRepository {
                 eb.fn.count<number>(eb.case().when(isEnriched(eb)).then(1).end()).as('enriched'),
                 eb.fn.count<number>(eb.case().when(isBenched(eb)).then(1).end()).as('benched'),
                 eb.fn.count<number>(eb.case().when(isFailing(eb)).then(1).end()).as('failing'),
+                eb.fn.count<number>(eb.case().when(hasLyrics(eb)).then(1).end()).as('lyrics'),
+                eb.fn.count<number>(eb.case().when(hasSyncedLyrics(eb)).then(1).end()).as('synced'),
+                eb.fn.count<number>(eb.case().when(isInstrumental(eb)).then(1).end()).as('instrumental'),
+                eb.fn.count<number>(eb.case().when(hasMoods(eb)).then(1).end()).as('moods'),
             ])
             .executeTakeFirstOrThrow();
 
@@ -364,6 +420,10 @@ export class TracksRepository extends DataRepository {
             enriched: Number(counted.enriched),
             benched: Number(counted.benched),
             failing: Number(counted.failing),
+            lyrics: Number(counted.lyrics),
+            synced: Number(counted.synced),
+            instrumental: Number(counted.instrumental),
+            moods: Number(counted.moods),
         };
     }
 
@@ -501,6 +561,17 @@ export class TracksRepository extends DataRepository {
      * @param options - The period to narrow to, and the seed the arbitrary ordering is drawn from.
      *   See {@link PlayableSearchOptions}.
      */
+    /** How many records have a subject, and how many records there are, for `search_music` to be honest about coverage. */
+    async subjectCoverage(): Promise<{ withSubject: number; total: number }> {
+        const row = await this.db
+            .selectFrom('deadair.tracks')
+            .leftJoin('deadair.trackLyricLabels as ll', 'll.trackId', 'deadair.tracks.id')
+            .select(eb => [eb.fn.countAll<number>().as('total'), eb.fn.count<number>('ll.subject').as('withSubject')])
+            .where('deadair.tracks.mergedIntoId', 'is', null)
+            .executeTakeFirstOrThrow();
+        return { withSubject: Number(row.withSubject), total: Number(row.total) };
+    }
+
     async searchPlayable(search: string, limit: number, cleanOnly = false, options: PlayableSearchOptions = {}) {
         const pattern = likeContains(search);
         // A period alone is a complete search: `search_music` may be called with nothing but a pair
@@ -560,6 +631,19 @@ export class TracksRepository extends DataRepository {
             // test and the text match all became optional, and the search answered with records from
             // the wrong decade AND records nothing can play. Caught by `library.search.smoke.ts`,
             // which is the only thing that runs this SQL.
+            .$if(options.about !== undefined && options.about.trim().length > 0, qb =>
+                qb.where(eb =>
+                    eb.exists(
+                        eb
+                            .selectFrom('deadair.trackLyricLabels as ll')
+                            .select('ll.trackId')
+                            .whereRef('ll.trackId', '=', 'deadair.tracks.id')
+                            .where(
+                                sql<boolean>`to_tsvector('simple', coalesce(ll.subject, '')) @@ websearch_to_tsquery('simple', ${options.about!.trim()})`,
+                            ),
+                    ),
+                ),
+            )
             .$if(options.yearFrom !== undefined, qb => qb.where(sql<boolean>`(${released} is null or ${released} >= ${options.yearFrom!})`))
             .$if(options.yearTo !== undefined, qb => qb.where(sql<boolean>`(${released} is null or ${released} <= ${options.yearTo!})`))
             .where(eb =>
@@ -790,6 +874,54 @@ export class TracksRepository extends DataRepository {
      *
      * Ids the catalog does not hold are simply absent from the result.
      */
+    /**
+     * An album's records in the order it was made: by disc, then by track, with anything the provider
+     * never numbered after the numbered ones and by title among themselves. Merged rows are left out,
+     * as everywhere. `name` is the album's and its artist's, for a broadcast to be called by; absent
+     * for an album that does not exist or was merged away.
+     */
+    async inAlbumOrder(
+        albumId: string,
+    ): Promise<{ name?: string; tracks: { trackId: string; title: string; artists: string[]; album: string; durationMs?: number }[] }> {
+        const album = await this.db
+            .selectFrom('deadair.albums')
+            .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.albums.artistId')
+            .select(['deadair.albums.name as album', 'deadair.artists.name as artist'])
+            .where('deadair.albums.id', '=', albumId)
+            .where('deadair.albums.mergedIntoId', 'is', null)
+            .executeTakeFirst();
+        if (album === undefined) return { tracks: [] };
+
+        const rows = await this.db
+            .selectFrom('deadair.tracks')
+            .select(['deadair.tracks.id', 'deadair.tracks.title', 'deadair.tracks.artists as credit', 'deadair.tracks.durationMs'])
+            .select(eb => [
+                eb
+                    .selectFrom('deadair.trackArtists as ta')
+                    .innerJoin('deadair.artists as a', 'a.id', 'ta.artistId')
+                    .select(sql<string[]>`array_agg(a.name order by ta.position)`.as('names'))
+                    .whereRef('ta.trackId', '=', 'deadair.tracks.id')
+                    .as('artistNames'),
+            ])
+            .where('deadair.tracks.albumId', '=', albumId)
+            .where('deadair.tracks.mergedIntoId', 'is', null)
+            .orderBy(sql`${sql.ref('deadair.tracks.discNumber')} asc nulls last`)
+            .orderBy(sql`${sql.ref('deadair.tracks.trackNumber')} asc nulls last`)
+            .orderBy('deadair.tracks.title', 'asc')
+            .execute();
+
+        return {
+            name: `${album.album} by ${album.artist}`,
+            tracks: rows.map(row => ({
+                trackId: row.id,
+                title: row.title,
+                artists: row.artistNames != null && row.artistNames.length > 0 ? row.artistNames : [row.credit],
+                album: album.album,
+                ...(row.durationMs == null ? {} : { durationMs: row.durationMs }),
+            })),
+        };
+    }
+
     async findByIds(trackIds: readonly string[]) {
         if (trackIds.length === 0) return new Map<string, { title: string; credit: string; album?: string; year?: number; artworkUrl?: string }>();
 

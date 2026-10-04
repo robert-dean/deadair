@@ -193,7 +193,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
         <Drawer
             opened={opened}
             onClose={requestClose}
-            title={titleFor(persona, caller, t)}
+            title={titleFor(persona, kind, t)}
             position="right"
             size={phone ? '100%' : 620}
             styles={{
@@ -993,8 +993,14 @@ const VALIDATED = ['label', 'key', 'style'] as const;
 const linesOf = (values: string[] | undefined): string => (values ?? []).join('\n');
 
 /** What the modal is called: which kind is being written, or which character is being edited. */
-const titleFor = (persona: Persona | undefined, caller: boolean, t: TFunction<'personas'>): string =>
-    persona === undefined ? (caller ? t('editor.title.newCaller') : t('editor.title.newHost')) : t('editor.title.edit', { label: persona.label });
+const titleFor = (persona: Persona | undefined, kind: PersonaKind, t: TFunction<'personas'>): string =>
+    persona !== undefined
+        ? t('editor.title.edit', { label: persona.label })
+        : kind === 'caller'
+          ? t('editor.title.newCaller')
+          : kind === 'newsreader'
+            ? t('editor.title.newNewsreader')
+            : t('editor.title.newHost');
 
 /**
  * A saved persona or a generated draft, as the form's values.

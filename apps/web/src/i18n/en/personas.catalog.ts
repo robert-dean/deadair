@@ -53,6 +53,7 @@ export const personas = {
         import: 'Import',
         restore: 'Restore built-ins',
         newCaller: 'New caller',
+        newNewsreader: 'New newsreader',
         newHost: 'New host',
         loadError: {
             title: 'Personas could not be loaded',
@@ -74,6 +75,7 @@ export const personas = {
         noMatch: 'No character here matches that. Clear the box to see the whole roster again.',
         heading: {
             hosts: 'Hosts',
+            newsreader: 'Newsreader',
             callers: 'Callers',
         },
     },
@@ -119,6 +121,7 @@ export const personas = {
     editor: {
         title: {
             newCaller: 'New caller',
+            newNewsreader: 'New newsreader',
             newHost: 'New host',
             edit: 'Edit {{label}}',
         },
@@ -403,6 +406,7 @@ export const personas = {
             stories: 'Stories',
         },
         caller: 'Caller',
+        newsreader: 'Newsreader',
         outcome: {
             create: 'New',
             update: 'Rewrite',

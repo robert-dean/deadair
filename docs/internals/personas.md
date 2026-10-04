@@ -58,6 +58,22 @@ and the next prompt rather than by a listener. It also asks for no `{{clock.roug
 templates, since the station fills those in English and a phrasing that names one is never used. The marker
 check is loosened for the language rather than translated; see `breaks.md` § "The station's language".
 
+## The newsreader
+
+**A bulletin is read by the newsreader when the station has one, whoever is hosting.** `newsreader` is
+the third `kind` (migration 0061), and the station has at most one, enforced by
+`personas_one_newsreader_idx` rather than a flag: it is the only one, not a default of anything. The
+existing `personas_caller_not_default_check` keeps it from ever being the station's host without a word
+changed. `PersonaRepository.presentingFor(kind, lineupPersonaId)` is the one place the precedence lives: a
+kind in `NEWSREADER_READS` (the bulletin, `news`, and nothing else; the weather and the time of day stay the
+presenter's) answers the newsreader when there is one, and everything else answers `presenting`.
+`WriteBreakJob` reads its single persona through it, so the model's sheet, the floor's phrasing and the voice
+stamp cannot disagree: a declined bulletin is never the host's words in the newsreader's voice. A show that
+names its own host does not move the news, because a host is not a newsreader. A recast leaves the
+newsreader's bulletins alone (`SegmentRepository.reopening`), since a change of host does not change who
+reads them. This is [personas](https://github.com/robert-dean/deadair/discussions/25) §1, with one change
+from its sketch: one newsreader per station rather than a default per kind.
+
 ## A pasted character
 
 **A pasted character is not a character**, which is the newest half and the one measured on air: of seventeen

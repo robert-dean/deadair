@@ -2,7 +2,16 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
-import { annotateUri, blendOutOf, itemAnnotations, listenerArtist, listenerArtwork, listenerTitle, voiceAnnotations } from './annotate.js';
+import {
+    annotateUri,
+    blendOutOf,
+    duckAnnotations,
+    itemAnnotations,
+    listenerArtist,
+    listenerArtwork,
+    listenerTitle,
+    voiceAnnotations,
+} from './annotate.js';
 import { AudienceWatch } from './audience.watch.js';
 import { DEFAULT_LEVELING_ENABLED, LEVELING_ENABLED_KEY, SPEECH_TRIM_KEY, TARGET_LUFS_KEY, resolveSpeechTrimDb, resolveTargetLufs } from './gain.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
@@ -465,9 +474,13 @@ export class PlayoutPusher {
                     //
                     // Against the segment's own measurement where it has one, and the assumed speech
                     // level where it does not; `voiceAnnotations` is what both routes agree through.
+                    // And with the level the bed ducks to under it, which only a talk-over needs.
                     const measured = pulled.voice.loudnessLufs;
                     const uri = annotateUri(
-                        voiceAnnotations(measured === undefined ? {} : { loudnessLufs: measured }, this.targetLufs(), this.speechTrimDb()),
+                        {
+                            ...voiceAnnotations(measured === undefined ? {} : { loudnessLufs: measured }, this.targetLufs(), this.speechTrimDb()),
+                            ...duckAnnotations(this.targetLufs(), this.speechTrimDb()),
+                        },
                         pulled.voice.url,
                     );
                     void this.control.armVoice(uri, pulled.item.id, pulled.voice.atMs).catch(() => undefined);

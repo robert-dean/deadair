@@ -180,10 +180,21 @@ export interface StreamPlayoutConfig {
      * radio.liq at startup, so a change needs a Liquidsoap restart.
      */
     talkOverTracks: boolean;
-    /** How far the bed drops under the voice, in dB (negative). */
+    /**
+     * The DEEPEST the bed drops under the voice, in dB (negative). The duck lands the bed at a
+     * level rather than dropping it by this much; this bounds how far it may go to get there.
+     */
     duckGainDb: number;
     /** How long the duck ramp takes, in ms. */
     duckFadeMs: number;
+    /** The SHALLOWEST the bed drops under the voice, in dB (negative), however quiet it already is. */
+    duckMinDb: number;
+    /**
+     * Where the bed sits under the voice, in LUFS, for a cue that does not carry its own figure.
+     * The app stamps every cue it arms (`duckBedLufsFor` in `playout/gain.ts`), so this is the
+     * fallback rather than the setting.
+     */
+    duckBedLufs: number;
     /**
      * Trim on the DJ voice, in dB, applied after the mic chain in `radio.liq`.
      *
@@ -526,6 +537,11 @@ export function writeStreamConfig({
             // been every output in that file gone, both mounts included, on any station that had
             // not set this. The two changes belong to one another.
             `LOG_LEVEL=${shell(String(settings.logLevel))}`,
+            // The duck's other two figures, appended for the reason LOG_LEVEL is: a duck that lands
+            // the bed at a level needs that level and a shallowest depth beside DUCK_GAIN_DB, which
+            // became the deepest. Read at startup with the rest of the duck.
+            `DUCK_MIN_DB=${shell(String(playout.duckMinDb))}`,
+            `DUCK_BED_LUFS=${shell(String(playout.duckBedLufs))}`,
         ].join('\n') + '\n';
 
     // The generation of the file, carried IN the file, so the process that sourced it

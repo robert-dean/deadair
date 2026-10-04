@@ -27,6 +27,8 @@ VOICE_LUFS = -15.0
 # The harness's duck settings, which are `radio.default.env`'s.
 DUCK_BED_LUFS = -25.0
 DUCK_MIN_DB = -3.0
+# What the harness stamps on the last cue, as the app does.
+STAMPED_BED_LUFS = -23.0
 
 
 def amplitude(lufs: float) -> float:
@@ -93,8 +95,9 @@ def main() -> int:
         ("the voice is at its level", all(abs(voice - VOICE_LUFS) < 1.0 for *_, voice, _ in breaks)),
         # Already under the target, so it dips by the shallowest a duck may be and no further.
         ("the quiet bed dips by DUCK_MIN_DB", abs((quiet[2] - quiet[1]) - DUCK_MIN_DB) < 1.0),
-        # Over the target, so it is pulled down to it rather than by a fixed amount.
-        ("the loud bed lands at DUCK_BED_LUFS", abs(loud[2] - DUCK_BED_LUFS) < 1.5),
+        # Over the target, so it is pulled down to it rather than by a fixed amount, and to the
+        # cue's own figure rather than the fallback.
+        ("the loud bed lands at the level stamped on its cue", abs(loud[2] - STAMPED_BED_LUFS) < 1.5),
         # A second after the record kicks in under the voice it is already most of the way down.
         ("a record kicking in under the voice is pulled down within a second", abs(kick[2] - DUCK_BED_LUFS) < 3.0),
         ("the bed comes back up after each break", abs(quiet[4] - quiet[1]) < 1.0 and abs(kick[4] - LOUD_LUFS) < 1.0 and abs(loud[4] - loud[1]) < 1.0),

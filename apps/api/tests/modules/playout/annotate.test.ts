@@ -5,8 +5,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { itemAnnotations, type AnnotationContext } from '../../../src/modules/playout/annotate.js';
-import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, programmeGainFor, speechGainFor } from '../../../src/modules/playout/gain.js';
+import { DUCK_BED_KEY, duckAnnotations, itemAnnotations, type AnnotationContext } from '../../../src/modules/playout/annotate.js';
+import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, duckBedLufsFor, programmeGainFor, speechGainFor } from '../../../src/modules/playout/gain.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import type { RundownItem } from '../../../src/modules/playout/rundown.js';
 
@@ -63,6 +63,19 @@ describe('gainAnnotations, through itemAnnotations', () => {
         const expected = `${speechGainFor({ loudnessLufs: -9 }, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB)} dB`;
         expect(off.liq_amplify).toBe(expected);
         expect(on.liq_amplify).toBe(expected);
+    });
+});
+
+describe('duckAnnotations', () => {
+    it('carries the level the bed ducks to, as a number radio.liq can parse', () => {
+        const annotations = duckAnnotations(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
+
+        expect(annotations[DUCK_BED_KEY]).toBe(String(duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB)));
+        expect(Number.parseFloat(annotations[DUCK_BED_KEY]!)).toBeLessThan(0);
+    });
+
+    it('is not on a break that airs BETWEEN two records, which nothing is ducked under', () => {
+        expect(itemAnnotations(speech(-9), context(true))[DUCK_BED_KEY]).toBeUndefined();
     });
 });
 

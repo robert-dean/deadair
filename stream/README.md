@@ -359,13 +359,15 @@ harbor source is ready, and `add`s the voice on top. `smooth_add` fades the bed 
 back up ([#3714](https://github.com/savonet/liquidsoap/issues/3714)).
 
 **It ducks the bed to a level, not by an amount.** The bed is metered (BS.1770, the louder of
-short-term and momentary) upstream of the duck's gain, and dropped as far as it takes to sit at
-`DUCK_BED_LUFS` while the DJ speaks, never deeper than `DUCK_GAIN_DB` and never shallower than
-`DUCK_MIN_DB`. The defaults (-25, -18, -3) put a record levelled to -13 exactly where the old fixed
+short-term and momentary) upstream of the duck's gain, and dropped as far as it takes to sit at the
+level the cue names while the DJ speaks, never deeper than `DUCK_GAIN_DB` and never shallower than
+`DUCK_MIN_DB`. The app stamps that level on every cue it arms (`deadair_duck_bed_lufs`, ten under
+where the voice is aimed), so the bed follows `playout.targetLufs` and the speech trim with no restart;
+`DUCK_BED_LUFS` is the figure for a cue that does not carry one. The defaults (-25, -18, -3) put a record levelled to -13 exactly where the old fixed
 -12 did, ten under the voice, so only quieter and louder passages move. During a break the depth
 deepens fast, so a record kicking in under a talk-up is pulled down within the second, and releases
 slowly, so the bed cannot pump between phrases. The ramp in and out is `DUCK_FADE_MS` whatever the
-depth. All five are in `radio.env`, read at startup, so tuning them by ear needs a Liquidsoap
+depth. The other four are in `radio.env`, read at startup, so tuning them by ear needs a Liquidsoap
 restart.
 
 The **voice has a mic chain** of its own, between the voice queue and both mixes: a 40 ms `fade.in`,

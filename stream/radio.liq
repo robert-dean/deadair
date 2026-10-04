@@ -136,10 +136,14 @@ talk_over = environment.get("TALK_OVER_TRACKS", default="true") == "true"
 # the bed at a LEVEL under the voice rather than dropping it by an amount, so three of these are
 # that level and the two bounds on how far the bed may move to reach it:
 #
-#   DUCK_BED_LUFS  where the bed sits while the DJ speaks. -25 is ten under where a break lands
-#                  against the default target and trim, which is exactly where the old fixed -12
-#                  put a record levelled to -13. So a record at target ducks as it always did, and
-#                  only quieter and louder passages move.
+#   DUCK_BED_LUFS  where the bed sits while the DJ speaks, for a cue that does not say. The app
+#                  stamps every cue it arms with its own figure (`deadair_duck_bed_lufs`, see
+#                  `duckBedLufsFor` in playout/gain.ts) so the bed follows `playout.targetLufs` and
+#                  the speech trim without a restart; this is the fallback for one that is not
+#                  stamped. -25 is ten under where a break lands against the default target and
+#                  trim, which is exactly where the old fixed -12 put a record levelled to -13. So a
+#                  record at target ducks as it always did, and only quieter and louder passages
+#                  move.
 #   DUCK_GAIN_DB   the DEEPEST the bed goes, however loud it is. It was the whole duck once; now it
 #                  is the bound that stops a brickwalled chorus being pulled to nothing.
 #   DUCK_MIN_DB    the SHALLOWEST. A quiet intro already under the target still dips this far, so a
@@ -1420,7 +1424,7 @@ voice_bus = amplify(lin_of_dB(voice_gain_db), override=null, voice_bus)
 #    be a fixed -12, and a fixed drop only lands the bed in the right place for a bed at one level:
 #    measured with stream/duck.check.py, the voice sat 27 LU over a quiet intro and 5 over a loud
 #    chorus, which are the two complaints a talk-over station gets ("talking over nothing", "can't
-#    hear the DJ"). Now the bed is metered and dropped as far as it takes to sit at `duck_bed_lufs`,
+#    hear the DJ"). Now the bed is metered and dropped as far as it takes to sit at `duck_bed_now`,
 #    bounded by `duck_gain_db` at the deep end and `duck_min_db` at the shallow one.
 #
 #    - The meter is BS.1770 loudness, the same units the app levels records in, read UPSTREAM of
@@ -1450,6 +1454,28 @@ voice_bus = amplify(lin_of_dB(voice_gain_db), override=null, voice_bus)
 duck_attack_db_per_s = 30.
 duck_release_db_per_s = 3.
 
+# The level this break ducks the bed to: the cue's own stamp, else `DUCK_BED_LUFS`. Read as the
+# voice's track starts, which is the moment the duck begins, and through `string.to_float` with the
+# env figure as its default so a cue without the key, or with a malformed one, ducks as configured
+# rather than raising. Set on EVERY track rather than only when the key is present, so a stamp
+# cannot outlive the break it was on.
+#
+# `duck_bed_fresh` says a new figure has arrived that the depth has not jumped to yet. The voice is
+# ready a tick or so before its first frame, so the ramp in can start on the PREVIOUS figure, and
+# without the flag the depth would then slew to the new one at the release rate: measured with
+# duck.check.py, a cue stamped two above the fallback dipped to the fallback and took most of a
+# second to come back.
+duck_bed_now = ref(duck_bed_lufs)
+duck_bed_fresh = ref(false)
+voice.on_track(
+  synchronous=true,
+  fun (m) ->
+    begin
+      duck_bed_now := string.to_float(default=duck_bed_lufs, string.trim(m["deadair_duck_bed_lufs"]))
+      duck_bed_fresh := true
+    end
+)
+
 def ducked(music_bed, dj_voice) =
   metered = lufs(window=3., music_bed)
   tick_s = 0.025
@@ -1464,14 +1490,15 @@ def ducked(music_bed, dj_voice) =
         measured = max(metered.lufs(), metered.lufs_momentary())
         wanted =
           if not (measured >= -50.) then duck_min_db
-          else max(duck_gain_db, min(duck_min_db, duck_bed_lufs - measured))
+          else max(duck_gain_db, min(duck_min_db, duck_bed_now() - measured))
           end
         speaking = dj_voice.is_ready()
         depth_db :=
-          if not speaking then wanted
+          if not speaking or duck_bed_fresh() then wanted
           elsif depth_db() < wanted then min(wanted, depth_db() + release_step_db)
           else max(wanted, depth_db() - attack_step_db)
           end
+        duck_bed_fresh := false
         duck_floor = lin_of_dB(depth_db())
         target = if speaking then duck_floor else 1. end
         # Distance covered per tick so a full sweep between 1.0 and the duck's bottom takes

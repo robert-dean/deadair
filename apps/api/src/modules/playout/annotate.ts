@@ -18,7 +18,7 @@
 import { isRenderItem } from '#modules/render/segment.source.js';
 import { stationArtwork, stationOrigin } from '#modules/stream/stream.settings.js';
 import { blendFor } from './crossfade.js';
-import { gainFor, programmeGainFor, speechGainFor, type MeasuredLoudness } from './gain.js';
+import { duckBedLufsFor, gainFor, programmeGainFor, speechGainFor, type MeasuredLoudness } from './gain.js';
 import type { RundownItem } from './rundown.js';
 
 /** The metadata key carrying the rundown item id. Must match `radio.liq`. */
@@ -39,6 +39,15 @@ export const ITEM_KEY = 'deadair_item';
  * same answer on the reading side, which is what a mixer wants.
  */
 export const SPEECH_KEY = 'deadair_speech';
+
+/**
+ * The metadata key on a talk-over cue carrying the level the bed is ducked to, in LUFS. Must match
+ * `radio.liq`, which falls back to `DUCK_BED_LUFS` from `radio.env` for a cue without one.
+ *
+ * On the cue and nowhere else: a break between two records is not ducked under anything, so the
+ * playout queue never carries it. See `duckBedLufsFor` for why it is not a `radio.env` key.
+ */
+export const DUCK_BED_KEY = 'deadair_duck_bed_lufs';
 
 /**
  * The metadata key Liquidsoap forwards as the ICY `StreamUrl`: its own name for it,
@@ -393,6 +402,16 @@ function gainAnnotations(item: RundownItem, { targetLufs, speechTrimDb, leveling
  */
 export function voiceAnnotations(measured: MeasuredLoudness, targetLufs: number, trimDb: number): Record<string, string> {
     return { liq_amplify: `${speechGainFor(measured, targetLufs, trimDb)} dB` };
+}
+
+/**
+ * {@link DUCK_BED_KEY} for a talk-over cue: where the bed sits under this voice.
+ *
+ * Separate from {@link voiceAnnotations} because that one is shared with the break that airs
+ * BETWEEN two records, which nothing is ducked under. Exported for the pusher, which arms the cue.
+ */
+export function duckAnnotations(targetLufs: number, trimDb: number): Record<string, string> {
+    return { [DUCK_BED_KEY]: String(duckBedLufsFor(targetLufs, trimDb)) };
 }
 
 /**

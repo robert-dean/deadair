@@ -38,14 +38,15 @@ import type {
 } from './types/stream.types.js';
 
 /**
- * How a break sounds: whether the DJ talks over the music or between tracks, how
- * far the bed drops under it, how long that ramp takes, and the trim on the
- * voice itself.
+ * How a break sounds: whether the DJ talks over the music or between tracks, the
+ * deepest and shallowest the bed may drop under it, where it sits for a cue that
+ * does not say (`duckBedLufsFor` stamps every cue the app arms), how long that
+ * ramp takes, and the trim on the voice itself.
  *
  * Constants rather than settings, still: these are the values an operator tunes
  * by ear, and the seam that would hold them (`STREAM_KEYS` in
  * `stream.settings.ts`) is the one every other stream value already goes
- * through. They stay here because `radio.liq` reads all four at STARTUP, so
+ * through. They stay here because `radio.liq` reads all of them at STARTUP, so
  * making them settings without also solving the restart trigger would give the
  * console a knob that silently does nothing until the container bounces. See
  * [mixer-settings-in-db](https://github.com/robert-dean/deadair/discussions/20).
@@ -54,8 +55,10 @@ import type {
  * committed fallback.
  */
 const TALK_OVER_TRACKS = true;
-const DUCK_GAIN_DB = -12;
+const DUCK_GAIN_DB = -18;
 const DUCK_FADE_MS = 300;
+const DUCK_MIN_DB = -3;
+const DUCK_BED_LUFS = -25;
 
 /**
  * The operator's trim on the DJ voice, on top of the gain the app decides for
@@ -326,6 +329,8 @@ export class StreamService {
             talkOverTracks: TALK_OVER_TRACKS,
             duckGainDb: DUCK_GAIN_DB,
             duckFadeMs: DUCK_FADE_MS,
+            duckMinDb: DUCK_MIN_DB,
+            duckBedLufs: DUCK_BED_LUFS,
             voiceGainDb: VOICE_GAIN_DB,
             controlTtlS: CONTROL_TTL_S,
             playoutPrefetch: PLAYOUT_LEAD,

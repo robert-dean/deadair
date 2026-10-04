@@ -68,7 +68,10 @@ import { SUSTAINING_KEYS } from '#modules/schedule/schedule.service.js';
 import {
     CAP_OVERRUN_KEY,
     DEFAULT_CAP_OVERRUN,
+    DEFAULT_OVERRUN_FADE_MS,
     DEFAULT_OVERRUN_MINUTES,
+    OVERRUN_FADE_MS_KEY,
+    OVERRUN_FADE_MS_RANGE,
     OVERRUN_MINUTES_KEY,
     OVERRUN_MINUTES_RANGE,
 } from '#modules/schedule/changeover.overrun.js';
@@ -1646,7 +1649,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: DEFAULT_CAP_OVERRUN,
         help:
             'When a block starts, the record already playing is left to finish, however long it is. Turn this on and a record still going the ' +
-            'number of minutes below into the new block is cut, the way the Skip button cuts, so the show starts close to when the ' +
+            'number of minutes below into the new block is faded out, so the show starts close to when the ' +
             'timetable says. Only the schedule’s own changeovers are affected; a programme you put on by hand always lets the record finish.',
     },
     {
@@ -1658,6 +1661,16 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         min: OVERRUN_MINUTES_RANGE.min,
         max: OVERRUN_MINUTES_RANGE.max,
         help: 'Most records end well inside five minutes, so only the long ones are ever cut. Zero cuts whatever is playing the moment the block starts.',
+    },
+    {
+        group: 'schedule',
+        key: OVERRUN_FADE_MS_KEY,
+        label: 'Fade it out over (milliseconds)',
+        type: 'number',
+        default: DEFAULT_OVERRUN_FADE_MS,
+        min: OVERRUN_FADE_MS_RANGE.min,
+        max: OVERRUN_FADE_MS_RANGE.max,
+        help: 'How long a record that has run past its limit takes to fade away before the show starts. Zero cuts it at once, the way the Skip button does.',
     },
 
     // ── personas ───────────────────────────────────────────────────────────────

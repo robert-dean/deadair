@@ -131,6 +131,18 @@ export interface GatedGeneration<TResult> {
     result: Promise<TResult>;
 }
 
+/**
+ * The gate as an operator would want to see it: how many are waiting, and who has the model.
+ *
+ * `holder` is absent while the model is free. `heldMs` is the number that matters: every generation
+ * is bounded by its budget, so a holder past the ten-minute ceiling in `llm.service.ts` is a stream
+ * that has stopped arriving rather than a long answer.
+ */
+export interface LlmGateSnapshot {
+    depth: number;
+    holder?: { priority: GatePriority; heldMs: number; label?: string };
+}
+
 /** A caller waiting for the one slot. */
 interface Waiter {
     admit: () => void;
@@ -145,6 +157,10 @@ interface Waiter {
 /** Whoever currently holds the slot, and how to ask them to stop. */
 interface Holder {
     priority: GatePriority;
+    /** When the slot was taken, in epoch milliseconds, for how long it has been held. */
+    since: number;
+    /** What is being generated, from {@link LlmGateOptions.label}. */
+    label?: string;
     /** Aborts this holder's own budget signal, which is what preemption actually does. */
     yield: () => void;
 }
@@ -170,6 +186,21 @@ export class LlmGate {
     /** Whether a generation is in flight. */
     generating(): boolean {
         return this.busy;
+    }
+
+    /** The queue and the holder at this moment. See {@link LlmGateSnapshot}. */
+    snapshot(now: number = Date.now()): LlmGateSnapshot {
+        const holder = this.holder;
+        if (holder === undefined) return { depth: this.waiting.length };
+
+        return {
+            depth: this.waiting.length,
+            holder: {
+                priority: holder.priority,
+                heldMs: Math.max(0, now - holder.since),
+                ...(holder.label === undefined ? {} : { label: holder.label }),
+            },
+        };
     }
 
     /**
@@ -263,7 +294,12 @@ export class LlmGate {
      */
     private takeSlot(options: LlmGateOptions): Budget {
         const budget = startBudget(options.budgetMs);
-        this.holder = { priority: options.priority ?? 'air', yield: budget.preempt };
+        this.holder = {
+            priority: options.priority ?? 'air',
+            since: Date.now(),
+            yield: budget.preempt,
+            ...(options.label === undefined ? {} : { label: options.label }),
+        };
 
         return budget;
     }

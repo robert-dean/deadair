@@ -1,7 +1,7 @@
 import { Anchor, Card, Code, Group, Progress, Stack, Table, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import type { PlayoutMount, PluginSummary, StationHeartbeat } from '@deadair/sdk';
+import type { PlayoutMount, PluginSummary, StationHeartbeat, StationModel } from '@deadair/sdk';
 import type { DateTime } from 'luxon';
 import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
@@ -129,6 +129,16 @@ export function CheckupPage() {
                     </Text>
                 ) : (
                     <Loops heartbeats={checkup.data.heartbeats} readAt={checkup.data.readAt} phone={phone} />
+                )}
+            </Section>
+
+            <Section title={t('checkup.section.model')} failed={checkup.isError} pending={checkup.isPending}>
+                {checkup.data?.model === undefined ? (
+                    <Text size="sm" c="dimmed">
+                        {t('checkup.model.unreadable')}
+                    </Text>
+                ) : (
+                    <Model model={checkup.data.model} readAt={checkup.data.readAt} />
                 )}
             </Section>
 
@@ -387,6 +397,44 @@ function Loops({ heartbeats, readAt, phone }: { heartbeats: StationHeartbeat[]; 
                 </Table.Tbody>
             </Table>
         </Table.ScrollContainer>
+    );
+}
+
+/**
+ * Every generation is bounded at ten minutes (`GENERATION_BUDGET_MS` in the API), so a slot held past
+ * this is a stream that stopped arriving rather than a long answer.
+ */
+const STUCK_AFTER_MS = 10 * 60_000;
+
+/** Who has the model and how many are queued behind it. */
+function Model({ model, readAt }: { model: StationModel; readAt: DateTime }) {
+    const { t } = useTranslation('station');
+    const holder = model.holder;
+
+    if (holder === undefined) {
+        return (
+            <Text size="sm" c="dimmed">
+                {model.waiting === 0 ? t('checkup.model.free') : t('checkup.model.freeWaiting', { count: model.waiting })}
+            </Text>
+        );
+    }
+
+    const taken = readAt.toMillis();
+    const stuck = taken - holder.heldSince.toMillis() > STUCK_AFTER_MS;
+
+    return (
+        <Stack gap="xs">
+            <Group gap="lg" wrap="wrap">
+                <Fact label={t('checkup.model.for')} value={t(`checkup.model.priority.${holder.priority}`)} />
+                <Fact label={t('checkup.model.held')} value={ago(t, taken, holder.heldSince)} />
+                <Fact label={t('checkup.model.waiting')} value={formatCount(model.waiting)} />
+            </Group>
+            {stuck && (
+                <Text size="xs" c="yellow.4">
+                    {t('checkup.model.stuck')}
+                </Text>
+            )}
+        </Stack>
     );
 }
 

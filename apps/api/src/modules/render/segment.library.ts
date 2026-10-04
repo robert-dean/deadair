@@ -2,7 +2,11 @@ import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import { AnalysisService } from '#modules/analysis/analysis.service.js';
+import { resolvePlayoutBaseUrl, storedAudioUrl } from '#modules/playout/playout.urls.js';
+import { AudioUrlSigner } from '#modules/playout/audio.url.signer.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
 import { isSegmentExtension, SEGMENT_EXTENSIONS, SegmentStore, subdirectoryIsSafe, type SegmentExtension } from './segment.store.js';
@@ -65,6 +69,10 @@ export class SegmentLibrary {
         private readonly segments: SegmentRepository,
         private readonly root: string,
         private readonly logger: Logger,
+        // How loud a recording came out, which is what keeps it from being levelled as raw speech.
+        // Optional so the class stays testable against a temp directory with nothing behind it; the
+        // module always passes all three. See {@link measure}.
+        private readonly measurer?: { analysis: AnalysisService; config: AppConfig; signer: AudioUrlSigner },
     ) {}
 
     /**
@@ -163,8 +171,8 @@ export class SegmentLibrary {
      * Take one recording into the library, whichever door it arrived through.
      *
      * The scan is one caller and the console is the other. Shorter than `PadLibrary.ingest`'s tail
-     * because a segment joins nothing and is measured by nothing — `durationMs` is a display value
-     * the player works out for itself — so what is shared is the file, the bytes and the row.
+     * because a segment joins nothing — `durationMs` is a display value the player works out for
+     * itself — so what is shared is the file, the bytes, the row and the loudness. See {@link measure}.
      *
      * ## The disk write is the one step here that is NOT best-effort
      *
@@ -204,7 +212,43 @@ export class SegmentLibrary {
             this.logger.info('render: took a new segment into the library', { segment: segment.id, kind: segment.kind, label: segment.label });
         }
 
+        // Asked of a recording that is already in the library too, so one imported before anything
+        // measured on import is measured on the next scan rather than never.
+        if (segment.loudnessLufs === undefined) await this.measure(segment);
+
         return { segment, created };
+    }
+
+    /**
+     * How loud a recording came out, best-effort, written to the row for the gain stamp to read.
+     *
+     * **Without it an imported recording is lifted as though it were raw speech.** Every segment is
+     * levelled by `speechGainFor`, which for an unmeasured one assumes the level a speech engine
+     * produces (`ASSUMED_SPEECH_LUFS`, -26.5) and lifts it to the speech target. That is right for a
+     * break the station spoke and wrong for an ident somebody mastered to -14: lifted by the same
+     * eleven and a half decibels, it reaches whatever sits after the gain in `radio.liq` far hotter
+     * than the records either side of it. A measured one is corrected from what it actually is.
+     *
+     * Never thrown from, on the pad library's rule: a station with no analyzer measures nothing and
+     * still takes every recording.
+     */
+    private async measure(segment: Segment): Promise<void> {
+        if (this.measurer === undefined || segment.audioChecksum === undefined || segment.audioExt === undefined) return;
+        const { analysis, config, signer } = this.measurer;
+
+        try {
+            const url = signer.sign(storedAudioUrl(resolvePlayoutBaseUrl(config), segment.audioChecksum, segment.audioExt));
+            const result = await analysis.measureAudio(segment.id, url);
+            const loudnessLufs = result?.data.integratedLufs;
+            if (typeof loudnessLufs !== 'number' || !Number.isFinite(loudnessLufs)) return;
+
+            await this.segments.recordLoudness(segment.id, loudnessLufs);
+        } catch (error) {
+            this.logger.warn('render: could not measure a recording; it will be levelled as though it were speech', {
+                segment: segment.id,
+                error: errorText(error),
+            });
+        }
     }
 
     /**

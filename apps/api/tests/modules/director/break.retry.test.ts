@@ -19,6 +19,7 @@ describe('worthRetrying', () => {
             'spent-catchphrase',
             'quoted-sample',
             'wrong-daypart',
+            'unoffered-weather',
         ] as WriteFault[]) {
             expect(worthRetrying(fault), fault).toBe(true);
         }

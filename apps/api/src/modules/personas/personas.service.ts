@@ -146,7 +146,12 @@ export class PersonasService {
         const asked = await this.personas.find(id);
         if (asked === undefined) throw httpError(404).withDetails({ message: `persona "${id}" does not exist` });
         if (asked.kind !== DEFAULT_PERSONA_KIND) {
-            throw httpError(400).withDetails({ message: `"${asked.label}" is a caller, and a caller cannot present the station` });
+            throw httpError(400).withDetails({
+                message:
+                    asked.kind === 'newsreader'
+                        ? `"${asked.label}" reads the news, and the newsreader cannot present the station`
+                        : `"${asked.label}" is a caller, and a caller cannot present the station`,
+            });
         }
 
         const host = await this.personas.setDefaultHost(id);
@@ -409,9 +414,23 @@ export class PersonasService {
             return await work();
         } catch (error) {
             if (!isUniqueViolation(error)) throw error;
+            // Two unique rules a write can break, and the operator fixes them in different fields.
+            if (violated(error) === NEWSREADER_INDEX) {
+                throw httpError(409).withDetails({ message: 'this station already has a newsreader, and a station reads the news in one voice' });
+            }
             throw httpError(409).withDetails({ message: `this station already has a persona called "${key}"` });
         }
     }
+}
+
+/** The index that keeps a station to one newsreader (migration 0061). */
+const NEWSREADER_INDEX = 'personas_one_newsreader_idx';
+
+/** Which constraint a violation names, as the driver reports it. */
+function violated(error: unknown): string | undefined {
+    const constraint =
+        typeof error === 'object' && error !== null && 'constraint' in error ? (error as { constraint?: unknown }).constraint : undefined;
+    return typeof constraint === 'string' ? constraint : undefined;
 }
 
 /** Postgres's `unique_violation`. Narrowed by code rather than by message, which is localised. */

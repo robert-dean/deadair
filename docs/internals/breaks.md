@@ -123,7 +123,16 @@ airs between the record that was on when the clock changed over and the one that
 The obvious design was a sign-off planted in the outgoing order ahead of its last record, and it needs
 three things this tree has refused on purpose: an order that knows where its block ENDS (the binding
 carries only `slotId`), a projection of the last record that is only a lower bound, and the schedule
-saying WHEN, which is the director's alone. Being in the new broadcast also means it needs no exemption
+saying WHEN, which is the director's alone. **Anchoring the handover to a forecast final record is a
+known failure, with four shapes, and every one comes from the forecast:** when the record predicted to be
+last is not the one that airs last (a request, a skip, a long record straddling the hour), the handover
+waits for an anchor that never starts and does not air at all; when the anchor is picked early, the
+handover airs that early, by hours in the worst case; when the process restarts between arming and airing,
+the armed state is lost or held forever; and a picker looking ahead to fill up to the boundary crosses into
+the next show's music several records before the clock does. Marking the change after the clock has
+changed has none of these, at the cost of the late start a long outgoing record gives (see the overrun cap
+in `changeover.overrun.ts`). A proposal for an outgoing sign-off has to answer all four first. Being in the
+new broadcast also means it needs no exemption
 from any sweep a changeover runs: its request carries the new `broadcastId`, so `injectReady` does not
 expire it; it is written under the incoming host, so `SegmentRepository.recast` never reads it as out
 of character; and `retireSegments` only touches the outgoing items. Whether the outgoing host is
@@ -537,6 +546,18 @@ the same position**, beside the `invented-year` check it shares a doctrine with.
 the weather writer, after the answer had already been judged, which was fine while one kind could be
 handed a reading and became two copies of one question when two could. It is not retryable, matching
 `invented-year`: a fabricated measurement is not the class of mistake a nudge fixes.
+
+**A break handed NO reading is asked the other question: did it describe the weather anyway.** Every
+kind but the weather break, and a talk break with `rotation.weatherInTalk` off, is told not to reach
+for the weather to set a scene, and a model will still open with "sunny out there" in a storm. So
+`unofferedWeather` (`weather.figures.ts`) runs whenever `AnswerGuard.weather` is absent, beside the
+figure check in both orders, as the `unoffered-weather` fault. It is the strict sibling of
+`mentionsWeather`, because a yes here refuses a break where a yes there only stamps one: whole words,
+only ones nobody says about anything but the sky (sunny, raining, overcast, a downpour) plus a figure in
+degrees, and never `storm`, `clear` or a bare `rain`. Record names are out of the script first, so
+"Sunny" by Bobby Hebb is a title. English only. Unlike `invented-figure` it IS retryable: the model was
+not wrong about something it was given, it set a scene the prompt said not to, which is
+`wrong-daypart`'s kind of mistake.
 
 ## The date
 

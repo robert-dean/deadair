@@ -453,7 +453,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // stage direction is a word in the audio — the first live call-in aired an album
                 // title with the asterisks still round it. The strip spares exactly the cues this
                 // speaker was offered.
-                answer => speakable(answer.text, reactions, board.names, this.language().language),
+                answer => speakable(answer.text, reactions, board.names, this.language().language, casting),
                 {
                     onEmpty: () =>
                         this.logger.info('productions: a beat came back empty, so it is being asked again', {
@@ -634,6 +634,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 reactions,
                 beat.pads.map(hit => hit.name),
                 this.language().language,
+                casting,
             );
             // A re-draft that came back empty leaves the original in place. The first attempt passed
             // enough to be spoken, and a beat with problems is better than no beat at all — which is
@@ -1032,8 +1033,21 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
  * drop between the model answering and the row being written — silently, with the cue gone before
  * anything could resolve it.
  */
-const speakable = (text: string, reactions: readonly SpeechCue[], pads: readonly string[] = [], language?: string): string =>
-    speakableScript(text, { perform: reactions, pads, ...(language === undefined ? {} : { language }) }) ?? '';
+const speakable = (
+    text: string,
+    reactions: readonly SpeechCue[],
+    pads: readonly string[] = [],
+    language?: string,
+    cast: readonly CastMember[] = [],
+): string =>
+    speakableScript(text, {
+        perform: reactions,
+        pads,
+        ...(language === undefined ? {} : { language }),
+        // The whole cast rather than this beat's speaker: a model writing a scene labels the other
+        // voices' lines as readily as its own, and any name in front of a turn is not something to say.
+        speakers: cast.flatMap(member => (member.name === undefined ? [] : [member.name])),
+    }) ?? '';
 
 /**
  * Which of this character's signatures the rest of the programme has already used.

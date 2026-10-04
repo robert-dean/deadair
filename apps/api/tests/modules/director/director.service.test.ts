@@ -41,6 +41,7 @@ import { BreakPlanner } from '../../../src/modules/director/break.planner.js';
 import { BreakRequestRepository } from '../../../src/modules/director/break.request.repository.js';
 import type { StoredBreakRequest } from '../../../src/modules/director/break.request.js';
 import { PersonaRepository } from '../../../src/modules/personas/persona.repository.js';
+import { PersonaArtworkService } from '../../../src/modules/art/persona.artwork.service.js';
 import { SegmentRepository, type Segment } from '../../../src/modules/render/segment.repository.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
@@ -146,6 +147,8 @@ interface Options {
     personas?: { active?: string; known?: string[]; names?: Record<string, string> };
     /** A personas table that cannot be read at all, which must leave the breaks alone. */
     personasFail?: boolean;
+    /** Portraits by persona id, as `PersonaArtworkService.portraitUrl` answers them. */
+    portraits?: Record<string, string>;
     /**
      * Productions still being made, as `ProductionRepository.unfinished` answers them.
      *
@@ -407,39 +410,43 @@ function build(options: Options = {}) {
         }),
     };
 
+    const portraits = { portraitUrl: vi.fn(async (personaId: string) => options.portraits?.[personaId]) };
+
     const scope = {
         get: vi.fn((token: unknown) =>
-            token === PersonaRepository
-                ? personas
-                : token === ProductionRepository
-                  ? productions
-                  : token === BreakRequestRepository
-                    ? requests
-                    : token === StationLineupRepository
-                      ? lineups
-                      : token === StationAirRepository
-                        ? airRepository
-                        : token === SegmentRepository
-                          ? segments
-                          : token === BreakPlanner
-                            ? breaks
-                            : token === CandidatesRepository
-                              ? candidates
-                              : token === ArtRepository
-                                ? art
-                                : token === TrackAudioService
-                                  ? trackAudio
-                                  : token === TrackCachePlanner
-                                    ? cachePlanner
-                                    : token === AnalysisRepository
-                                      ? analysis
-                                      : token === PodcastScheduler
-                                        ? podcastScheduler
-                                        : token === PodcastEpisodeRepository
-                                          ? podcastEpisodes
-                                          : token === PersonaTellingRepository
-                                            ? personaTellings
-                                            : history,
+            token === PersonaArtworkService
+                ? portraits
+                : token === PersonaRepository
+                  ? personas
+                  : token === ProductionRepository
+                    ? productions
+                    : token === BreakRequestRepository
+                      ? requests
+                      : token === StationLineupRepository
+                        ? lineups
+                        : token === StationAirRepository
+                          ? airRepository
+                          : token === SegmentRepository
+                            ? segments
+                            : token === BreakPlanner
+                              ? breaks
+                              : token === CandidatesRepository
+                                ? candidates
+                                : token === ArtRepository
+                                  ? art
+                                  : token === TrackAudioService
+                                    ? trackAudio
+                                    : token === TrackCachePlanner
+                                      ? cachePlanner
+                                      : token === AnalysisRepository
+                                        ? analysis
+                                        : token === PodcastScheduler
+                                          ? podcastScheduler
+                                          : token === PodcastEpisodeRepository
+                                            ? podcastEpisodes
+                                            : token === PersonaTellingRepository
+                                              ? personaTellings
+                                              : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -1650,6 +1657,23 @@ describe('DirectorService telling the transport what is on', () => {
         await director.post({ kind: 'recast', bind: { personaId: 'pirate' } });
 
         expect(rundown.broadcast()).toEqual({ name: 'Afternoons', host: 'Cap Ray' });
+    });
+
+    it('tells the transport the host’s portrait beside their name', async () => {
+        const options = {
+            items: ['a'],
+            personas: { active: 'classic', known: ['classic', 'pirate'], names: { classic: 'Ray', pirate: 'Cap Ray' } },
+            portraits: { pirate: 'art/portrait-1/cover.png' },
+        };
+        const { director, rundown, seed } = build(options);
+        await seed();
+        await director.start();
+        // A host with no picture has none on the broadcast, rather than an empty one.
+        expect(rundown.broadcast()).toEqual({ name: 'Afternoons', host: 'Ray' });
+
+        await director.post({ kind: 'recast', bind: { personaId: 'pirate' } });
+
+        expect(rundown.broadcast()).toEqual({ name: 'Afternoons', host: 'Cap Ray', hostArtUrl: 'art/portrait-1/cover.png' });
     });
 
     it('changes the host when the station itself changes character', async () => {

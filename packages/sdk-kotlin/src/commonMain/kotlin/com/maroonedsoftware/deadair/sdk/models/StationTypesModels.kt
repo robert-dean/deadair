@@ -81,6 +81,33 @@ data class StationBacklog(
 @Serializable
 class StationBacklogInput
 
+/**
+ * Who has the station's one model slot, and how many are waiting for it.
+ *
+ * The model is shared by every break, every programme refill and every production, one generation at
+ * a time, so a slot held for far longer than any generation takes is the station's ability to speak
+ * stuck behind one answer. Nothing else exposes it.
+ */
+@Serializable
+data class StationModelHolder(
+    /** Whose work it is: `breaking` and `air` have a deadline, `background` (a refill, a production) does not, `preview` is an operator trying something */
+    val priority: StationModelHolderPriority,
+    /** When it took the slot. Every generation is bounded at ten minutes, so a holder older than that is a stream that stopped arriving */
+    val heldSince: Instant,
+    /** The model plugin answering it */
+    val plugin: String? = null,
+)
+
+/**
+ * Who has the station's one model slot, and how many are waiting for it.
+ *
+ * The model is shared by every break, every programme refill and every production, one generation at
+ * a time, so a slot held for far longer than any generation takes is the station's ability to speak
+ * stuck behind one answer. Nothing else exposes it.
+ */
+@Serializable
+class StationModelHolderInput
+
 /** One release of the station, in the words its changelog entry used */
 @Serializable
 data class StationRelease(
@@ -117,10 +144,48 @@ data class AttentionItem(
     val evidence: List<AttentionEvidence>? = null,
 )
 
+/** The model slot and its queue */
+@Serializable
+data class StationModel(
+    /** Callers queued behind whoever holds the slot */
+    val waiting: Long,
+    /** Absent while the model is free */
+    val holder: StationModelHolder? = null,
+)
+
+/** The model slot and its queue */
+@Serializable
+class StationModelInput
+
+/** What this build is, and what changed in it */
+@Serializable
+data class StationReleases(
+    /** The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read */
+    val current: String? = null,
+    /** Every release this build contains, newest first */
+    val notes: List<StationRelease>,
+    /** Whether the station asks GitHub for newer releases, which the operator switches under Settings, Station */
+    val checks: Boolean,
+    /** When GitHub last answered. Absent until it has, and while the check is switched off */
+    val checkedAt: Instant? = null,
+    /** Releases newer than this build, newest first, each with its notes and its page. Empty when there are none, while the check is off, and until GitHub has answered */
+    val available: List<StationRelease>,
+)
+
+/** What this build is, and what changed in it */
+@Serializable
+class StationReleasesInput
+
+/** Everything wrong or waiting, worst first */
+@Serializable
+data class StationAttention(
+    val items: List<AttentionItem>,
+)
+
 /**
  * One reading of the machinery, for a page that assembles the station's health.
  *
- * It carries ONLY the two signals nothing else exposes. Everything else a check-up shows — the
+ * It carries ONLY the signals nothing else exposes. Everything else a check-up shows — the
  * silence verdict, the listener count, what needs somebody, the plugin statuses, the disk — is
  * already on a contract the console reads, and composing them again here would be a second answer
  * that can disagree with the first. `/playout/status` in particular is polled every two seconds for
@@ -148,12 +213,13 @@ data class StationCheckup(
     val version: String? = null,
     val heartbeats: List<StationHeartbeat>? = null,
     val backlog: StationBacklog? = null,
+    val model: StationModel? = null,
 )
 
 /**
  * One reading of the machinery, for a page that assembles the station's health.
  *
- * It carries ONLY the two signals nothing else exposes. Everything else a check-up shows — the
+ * It carries ONLY the signals nothing else exposes. Everything else a check-up shows — the
  * silence verdict, the listener count, what needs somebody, the plugin statuses, the disk — is
  * already on a contract the console reads, and composing them again here would be a second answer
  * that can disagree with the first. `/playout/status` in particular is polled every two seconds for
@@ -174,31 +240,6 @@ data class StationCheckup(
 @Serializable
 class StationCheckupInput
 
-/** What this build is, and what changed in it */
-@Serializable
-data class StationReleases(
-    /** The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read */
-    val current: String? = null,
-    /** Every release this build contains, newest first */
-    val notes: List<StationRelease>,
-    /** Whether the station asks GitHub for newer releases, which the operator switches under Settings, Station */
-    val checks: Boolean,
-    /** When GitHub last answered. Absent until it has, and while the check is switched off */
-    val checkedAt: Instant? = null,
-    /** Releases newer than this build, newest first, each with its notes and its page. Empty when there are none, while the check is off, and until GitHub has answered */
-    val available: List<StationRelease>,
-)
-
-/** What this build is, and what changed in it */
-@Serializable
-class StationReleasesInput
-
-/** Everything wrong or waiting, worst first */
-@Serializable
-data class StationAttention(
-    val items: List<AttentionItem>,
-)
-
 /** `failure` is the station not doing its job, `warning` is something failing beside a station that is working, and `notice` is a thing nobody has set up yet. A notice is not a fault and must not be drawn as one */
 @Serializable
 enum class AttentionItemSeverity {
@@ -208,4 +249,17 @@ enum class AttentionItemSeverity {
     WARNING,
     @SerialName("notice")
     NOTICE,
+}
+
+/** Whose work it is: `breaking` and `air` have a deadline, `background` (a refill, a production) does not, `preview` is an operator trying something */
+@Serializable
+enum class StationModelHolderPriority {
+    @SerialName("breaking")
+    BREAKING,
+    @SerialName("air")
+    AIR,
+    @SerialName("background")
+    BACKGROUND,
+    @SerialName("preview")
+    PREVIEW,
 }

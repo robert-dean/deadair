@@ -35,6 +35,7 @@ import { AlmanacSource } from './almanac.source.js';
 import type { BreakTrack, PlayedRecord, WrittenBreak } from './break.writer.js';
 import { CLOCK_KEYS, dayGreeting, dayPart, NAMES_THE_TIME_DEFAULT, roughTime, stationZone } from './clock.words.js';
 import { BreakWriterRegistry, declineText, isWritten, type BreakWriteResult } from './break.writer.registry.js';
+import { BreakFloorWatch } from './break.floor.watch.js';
 import { TALK_BREAK_SHAPE } from './break.prompt.js';
 import { DETERMINISTIC_WRITER, TALK_BREAK_KIND } from './talk.break.writer.js';
 import { STORY_KIND, STORY_SHAPE } from './story.break.writer.js';
@@ -197,6 +198,9 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly identity: StationIdentity,
         private readonly speech: SpeechService,
         private readonly activity: ActivityRecorder,
+        // Outlives this job, which is scoped: whether the model has been failing for an hour is a run
+        // across many writes. See `BreakFloorWatch`.
+        private readonly floorWatch: BreakFloorWatch,
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
         context: JobContext,
@@ -281,10 +285,12 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // nothing for and a presenter has the most to say about; see `dayPart`.
         const part = segment.airsAt === undefined ? undefined : dayPart(segment.airsAt, zone);
 
-        // This broadcast's own host where it named one, and the station's behind it. `undefined` is
-        // an ordinary answer: a station that has chosen no persona writes exactly what it wrote
-        // before personas existed.
-        const persona = await this.personas.presenting(lineup.personaId);
+        // This broadcast's own host where it named one, and the station's behind it, except that a
+        // bulletin is the newsreader's where the station has one. `undefined` is an ordinary answer:
+        // a station that has chosen no persona writes exactly what it wrote before personas existed.
+        // Everything below reads this one persona (the sheet, the phrasing pool, the voice), which
+        // is what keeps a declined bulletin from coming out in the host's words and the reader's voice.
+        const persona = await this.personas.presentingFor(segment.kind, lineup.personaId);
 
         // After the claim, so a job that was merely early does no work at all, and for EVERY break
         // rather than only when a model might use them: what the station knows about a record is a
@@ -535,6 +541,10 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
                 },
             });
         }
+
+        // The row above is one break. Whether the MODEL has been gone for an hour is a run across many,
+        // and only the watch can see it. See `BreakFloorWatch`.
+        this.floorWatch.observe(result, this.writers.writersFor(segment.kind));
     }
 
     /**

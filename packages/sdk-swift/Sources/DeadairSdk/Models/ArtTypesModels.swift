@@ -76,6 +76,60 @@ public struct BreakArtworkUpload: Codable, Equatable, Sendable {
     }
 }
 
+/// A presenter's picture, which a listener's player shows while that persona is on air
+public struct PersonaPortrait: Codable, Equatable, Sendable {
+    /// The persona it belongs to
+    public var personaId: UUID
+    /// Where the station serves it, as a path under the API root. The same shape and the same route a record's cover uses
+    public var url: String
+
+    public init(personaId: UUID, url: String) {
+        self.personaId = personaId
+        self.url = url
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case personaId = "personaId"
+        case url = "url"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.personaId = try container.decode(UUID.self, forKey: .personaId)
+        self.url = try container.decode(String.self, forKey: .url)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.personaId, forKey: .personaId)
+        try container.encode(self.url, forKey: .url)
+    }
+}
+
+/// A portrait arriving from the browser, as multipart form parts. Documentation rather than validation, as for a break's picture
+public struct PersonaPortraitUpload: Codable, Equatable, Sendable {
+    /// The image itself. jpeg, png, webp or gif, decided by its BYTES, and at most 4 MB
+    public var file: Data
+
+    public init(file: Data) {
+        self.file = file
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case file = "file"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.file = try container.decode(Data.self, forKey: .file)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.file, forKey: .file)
+    }
+}
+
 /// Every kind the station holds a picture for, kind by kind
 public struct BreakArtworkList: Codable, Equatable, Sendable {
     public var breaks: [BreakArtwork]
@@ -96,6 +150,29 @@ public struct BreakArtworkList: Codable, Equatable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.breaks, forKey: .breaks)
+    }
+}
+
+/// Every persona that has a portrait
+public struct PersonaPortraitList: Codable, Equatable, Sendable {
+    public var portraits: [PersonaPortrait]
+
+    public init(portraits: [PersonaPortrait]) {
+        self.portraits = portraits
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case portraits = "portraits"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.portraits = try container.decode([PersonaPortrait].self, forKey: .portraits)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.portraits, forKey: .portraits)
     }
 }
 

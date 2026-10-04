@@ -626,3 +626,29 @@ describe('withdrawal', () => {
         await expect(subject.hold(async () => 'next')).resolves.toBe('next');
     });
 });
+
+describe('what an operator can see', () => {
+    it('reports a free model as nobody holding it and nobody waiting', () => {
+        expect(gate().snapshot()).toEqual({ depth: 0 });
+    });
+
+    it('reports who holds the model, since when, and how many are queued behind it', async () => {
+        vi.useFakeTimers();
+        try {
+            vi.setSystemTime(new Date('2026-10-03T12:00:00Z'));
+            const subject = gate();
+            const first = manualStream();
+
+            const one = await subject.run(async () => gated(first.stream), { label: 'deadair.llm' });
+            void subject.run(async () => gated(manualStream().stream));
+
+            vi.setSystemTime(new Date('2026-10-03T12:04:00Z'));
+            expect(subject.snapshot()).toEqual({ depth: 1, holder: { priority: 'air', heldMs: 240_000, label: 'deadair.llm' } });
+
+            first.finish();
+            await drain(one.stream);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+});

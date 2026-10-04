@@ -1,6 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { parseJson, readContentType } from '../sdk-options.js';
-import type { BreakArtworkList } from './types/art.types.js';
+import type { BreakArtworkList, PersonaPortraitList } from './types/art.types.js';
 
 export class ArtClient {
     constructor(private fetch: SdkFetch) {}
@@ -96,5 +96,35 @@ export class ArtClient {
                     headers: { cacheControl: result.headers.get('cache-control') ?? undefined, etag: result.headers.get('etag') ?? undefined },
                 };
         }
+    }
+
+    /**
+     * @name List persona portraits
+     * @description Every persona that has a portrait
+     */
+    async listPersonaPortraits(): Promise<PersonaPortraitList> {
+        const result = await this.fetch(`/art/personas`, { method: 'GET' });
+        return await parseJson<PersonaPortraitList>(result);
+    }
+
+    /**
+     * @name Replace persona portrait
+     * @description Puts a picture on a persona. A persona that already had one keeps its URL, so a player holding it picks up the new picture
+     */
+    async replacePersonaPortrait(personaId: string, body: FormData): Promise<PersonaPortraitList> {
+        const result = await this.fetch(`/art/personas/${encodeURIComponent(personaId)}`, {
+            method: 'POST',
+            body: body,
+        });
+        return await parseJson<PersonaPortraitList>(result);
+    }
+
+    /**
+     * @name Remove persona portrait
+     * @description Takes a persona's picture away. A player shows the record's cover instead
+     */
+    async removePersonaPortrait(personaId: string): Promise<PersonaPortraitList> {
+        const result = await this.fetch(`/art/personas/${encodeURIComponent(personaId)}`, { method: 'DELETE' });
+        return await parseJson<PersonaPortraitList>(result);
     }
 }

@@ -181,6 +181,67 @@ paths:
                                 type: string
                 '304':
                     description: 'Response 304'
+    '/art/personas':
+        get:
+            operationId: listPortraits
+            summary: 'List persona portraits'
+            description: 'Every persona that has a portrait'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaPortraitList'
+    '/art/personas/{personaId}':
+        post:
+            operationId: replacePortrait
+            summary: 'Replace persona portrait'
+            description: 'Puts a picture on a persona. A persona that already had one keeps its URL, so a player holding it picks up the new picture'
+            parameters:
+                - name: personaId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'multipart/form-data':
+                        schema:
+                            '$ref': '#/components/schemas/PersonaPortraitUpload'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaPortraitList'
+                '400':
+                    description: 'Bad request'
+                '413':
+                    description: 'Response 413'
+                '415':
+                    description: 'Response 415'
+        delete:
+            operationId: removePortrait
+            summary: 'Remove persona portrait'
+            description: "Takes a persona's picture away. A player shows the record's cover instead"
+            parameters:
+                - name: personaId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaPortraitList'
     '/auth/apikeys':
         get:
             operationId: list
@@ -5047,6 +5108,37 @@ components:
                     description: 'The image itself. jpeg, png, webp or gif, decided by its BYTES rather than by its name or its declared type, and at most 4 MB'
             required: [file]
             description: "A picture arriving from the browser, as multipart form parts.\n\nDocumentation rather than validation: a multipart body reaches the service as the raw parser and\nthe generated client types the body as `FormData`, so nothing checks this shape. It says what to\nsend"
+        PersonaPortrait:
+            type: object
+            properties:
+                personaId:
+                    type: string
+                    format: uuid
+                    description: 'The persona it belongs to'
+                url:
+                    type: string
+                    maxLength: 2000
+                    description: "Where the station serves it, as a path under the API root. The same shape and the same route a record's cover uses"
+            required: [personaId, url]
+            description: "A presenter's picture, which a listener's player shows while that persona is on air"
+        PersonaPortraitList:
+            type: object
+            properties:
+                portraits:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PersonaPortrait'
+            required: [portraits]
+            description: 'Every persona that has a portrait'
+        PersonaPortraitUpload:
+            type: object
+            properties:
+                file:
+                    type: string
+                    format: binary
+                    description: 'The image itself. jpeg, png, webp or gif, decided by its BYTES, and at most 4 MB'
+            required: [file]
+            description: "A portrait arriving from the browser, as multipart form parts. Documentation rather than validation, as for a break's picture"
         AuthenticationGrantType:
             type: string
             enum:
@@ -8115,6 +8207,10 @@ components:
                     type: string
                     maxLength: 200
                     description: "Who is presenting, by the name they go by on air. Absent when there is no name to give: no persona on air with one, and no station-wide presenter name set. Never the persona's console label"
+                hostArtUrl:
+                    type: string
+                    maxLength: 2000
+                    description: "A picture of whoever is presenting, when the operator gave their persona one. A path under the API root, like a cover's. Absent for a persona with no picture, which a player answers by showing the record's cover as before"
             required: [name]
             description: 'The programme on air, as a listener would be told it'
         NowPlaying:
@@ -8593,8 +8689,8 @@ components:
                     description: 'A stable slug, unique per station. What a log line names and what a seeded persona is recognised by'
                 kind:
                     type: string
-                    enum: [host, caller]
-                    description: "What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air. Absent means `host`, so a form written before callers existed still means what it meant"
+                    enum: [host, caller, newsreader]
+                    description: "What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant"
                 label:
                     type: string
                     minLength: 1
@@ -9169,7 +9265,7 @@ components:
                   properties:
                       kind:
                           type: string
-                          enum: [host, caller]
+                          enum: [host, caller, newsreader]
                           description: 'Absent means `host`, as everywhere else'
                       soundboard:
                           type: string
@@ -9286,7 +9382,7 @@ components:
                     readOnly: true
                 kind:
                     type: string
-                    enum: [host, caller]
+                    enum: [host, caller, newsreader]
                     readOnly: true
                 outcome:
                     type: string
@@ -12367,6 +12463,11 @@ components:
                     minLength: 19
                     maxLength: 19
                     description: "What time it is on the station's own clock, in the same zone-naive `YYYY-MM-DD HH:mm:ss` shape as a block's ends. It is here so a caller can say how much of the block is left without knowing the station's timezone: subtracting two readings taken in one frame is arithmetic, deriving one is not"
+                timezone:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: "The IANA zone the station reads its clock in: `station.timezone`, or the machine's own when that is empty. Optional because a station from before it existed does not send it. For a console showing the station's time beside an operator's own when the two differ, which a zone-naive reading cannot tell it"
                 slotId:
                     type: string
                     maxLength: 100
@@ -12702,6 +12803,41 @@ components:
                     readOnly: true
             required: [total, cached, measured]
             description: "How much of the library the station has actually looked at.\n\nThe counts `/catalog/tracks` already answers with, lifted out of a page of rows: a check-up wants\nthe sentence \"13 of 581 measured\" without asking for thirteen tracks to get it."
+        StationModelHolder:
+            type: object
+            properties:
+                priority:
+                    type: string
+                    enum: [breaking, air, background, preview]
+                    readOnly: true
+                    description: 'Whose work it is: `breaking` and `air` have a deadline, `background` (a refill, a production) does not, `preview` is an operator trying something'
+                heldSince:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                    description: 'When it took the slot. Every generation is bounded at ten minutes, so a holder older than that is a stream that stopped arriving'
+                plugin:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    readOnly: true
+                    description: 'The model plugin answering it'
+            required: [priority, heldSince]
+            description: "Who has the station's one model slot, and how many are waiting for it.\n\nThe model is shared by every break, every programme refill and every production, one generation at\na time, so a slot held for far longer than any generation takes is the station's ability to speak\nstuck behind one answer. Nothing else exposes it."
+        StationModel:
+            type: object
+            properties:
+                waiting:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'Callers queued behind whoever holds the slot'
+                holder:
+                    '$ref': '#/components/schemas/StationModelHolder'
+                    readOnly: true
+                    description: 'Absent while the model is free'
+            required: [waiting]
+            description: 'The model slot and its queue'
         StationCheckup:
             type: object
             properties:
@@ -12730,8 +12866,11 @@ components:
                 backlog:
                     '$ref': '#/components/schemas/StationBacklog'
                     readOnly: true
+                model:
+                    '$ref': '#/components/schemas/StationModel'
+                    readOnly: true
             required: [readAt]
-            description: "One reading of the machinery, for a page that assembles the station's health.\n\nIt carries ONLY the two signals nothing else exposes. Everything else a check-up shows — the\nsilence verdict, the listener count, what needs somebody, the plugin statuses, the disk — is\nalready on a contract the console reads, and composing them again here would be a second answer\nthat can disagree with the first. `/playout/status` in particular is polled every two seconds for\nthe transport strip, so asking for it a second way would be a second reading of the same fact.\n\nEach section is OPTIONAL and absent means that reader failed. A page saying what is wrong is the\nworst place for one broken reader to take the whole answer down, which is the rule\n`StationAttentionService` already works to. `revision` is the one exception and says so on its\nown line: it cannot fail, so absent there means something else.\n\nThe revision is on THIS contract rather than composed from `/health`, which also reports it, and\nthat is not the second-answer problem the paragraph above describes. Both read one string from one\nplace at boot, so they cannot disagree. What they differ in is who can reach them: `/health` is\n`operation(internal)`, deliberately, so it generates no SDK method and the console cannot call it\n— which would leave \"which build is this\" answerable only from a shell, the one thing carrying it\nhere exists to fix."
+            description: "One reading of the machinery, for a page that assembles the station's health.\n\nIt carries ONLY the signals nothing else exposes. Everything else a check-up shows — the\nsilence verdict, the listener count, what needs somebody, the plugin statuses, the disk — is\nalready on a contract the console reads, and composing them again here would be a second answer\nthat can disagree with the first. `/playout/status` in particular is polled every two seconds for\nthe transport strip, so asking for it a second way would be a second reading of the same fact.\n\nEach section is OPTIONAL and absent means that reader failed. A page saying what is wrong is the\nworst place for one broken reader to take the whole answer down, which is the rule\n`StationAttentionService` already works to. `revision` is the one exception and says so on its\nown line: it cannot fail, so absent there means something else.\n\nThe revision is on THIS contract rather than composed from `/health`, which also reports it, and\nthat is not the second-answer problem the paragraph above describes. Both read one string from one\nplace at boot, so they cannot disagree. What they differ in is who can reach them: `/health` is\n`operation(internal)`, deliberately, so it generates no SDK method and the console cannot call it\n— which would leave \"which build is this\" answerable only from a shell, the one thing carrying it\nhere exists to fix."
         StationRelease:
             type: object
             properties:

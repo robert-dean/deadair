@@ -331,4 +331,17 @@ describe('NowPlayingService', () => {
             expect(service.getNowPlaying().mounts).toEqual([MP3_MOUNT, { format: 'flac', path: '/live.flac' }]);
         });
     });
+
+    it('carries the host’s portrait when their persona has one', () => {
+        const item = { id: 'item-1', pluginId: 'p', externalId: 'e', title: 'A Record', artist: 'An Artist', artists: ['An Artist'] };
+        const { service } = build(
+            { item, startedAt: 1 },
+            'Station',
+            0,
+            {},
+            { name: 'Afternoons', host: 'Ray', hostArtUrl: 'art/portrait-1/cover.png' },
+        );
+
+        expect(service.getNowPlaying().show).toEqual({ name: 'Afternoons', host: 'Ray', hostArtUrl: 'art/portrait-1/cover.png' });
+    });
 });

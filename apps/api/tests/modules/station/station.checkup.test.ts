@@ -10,12 +10,15 @@ import { StationCheckupService } from '../../../src/modules/station/station.chec
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
 import { BuildRevision } from '../../../src/modules/shared/build.revision.js';
 import type { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
+import type { LlmGate } from '../../../src/modules/llm/llm.gate.js';
 
 const quiet = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
 const counts = { total: 581, cached: 570, measured: 13, enriched: 400, benched: 4, failing: 0 };
 
-function service(over: { all?: () => unknown; trackStateCounts?: () => Promise<unknown>; revision?: string } = {}) {
+function service(
+    over: { all?: () => unknown; trackStateCounts?: () => Promise<unknown>; revision?: string; snapshot?: (now: number) => unknown } = {},
+) {
     const tracks = { trackStateCounts: over.trackStateCounts ?? (() => Promise.resolve(counts)) } as unknown as TracksRepository;
     const heartbeat = {
         all:
@@ -28,7 +31,9 @@ function service(over: { all?: () => unknown; trackStateCounts?: () => Promise<u
             ]),
     } as unknown as Heartbeat;
 
-    return new StationCheckupService(tracks, heartbeat, new BuildRevision(over.revision), quiet);
+    const gate = { snapshot: over.snapshot ?? (() => ({ depth: 0 })) } as unknown as LlmGate;
+
+    return new StationCheckupService(tracks, heartbeat, new BuildRevision(over.revision), gate, quiet);
 }
 
 describe('StationCheckupService.read', () => {
@@ -104,5 +109,35 @@ describe('StationCheckupService.read', () => {
 
         expect(reading.heartbeats).toBeUndefined();
         expect(reading.backlog).toEqual({ total: 581, cached: 570, measured: 13 });
+    });
+});
+
+describe('the model slot', () => {
+    it('says the model is free and nobody is waiting', async () => {
+        expect((await service().read()).model).toEqual({ waiting: 0 });
+    });
+
+    it('says who holds it and since when, as a time rather than a duration', async () => {
+        const reading = await service({
+            snapshot: () => ({ depth: 2, holder: { priority: 'background', heldMs: 240_000, label: 'deadair.llm' } }),
+        }).read();
+
+        expect(reading.model?.waiting).toBe(2);
+        expect(reading.model?.holder?.priority).toBe('background');
+        expect(reading.model?.holder?.plugin).toBe('deadair.llm');
+        const heldFor = reading.readAt.toMillis() - (reading.model?.holder?.heldSince.toMillis() ?? 0);
+        expect(heldFor).toBeGreaterThanOrEqual(239_000);
+        expect(heldFor).toBeLessThanOrEqual(241_000);
+    });
+
+    it('loses only its own section when the gate cannot be read', async () => {
+        const reading = await service({
+            snapshot: () => {
+                throw new Error('boom');
+            },
+        }).read();
+
+        expect(reading.model).toBeUndefined();
+        expect(reading.backlog).toBeDefined();
     });
 });

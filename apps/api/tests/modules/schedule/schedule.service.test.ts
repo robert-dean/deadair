@@ -76,7 +76,11 @@ describe('ScheduleService.current', () => {
     it('answers with the clock and nothing else for a station with no schedule', async () => {
         // `now` is unconditional: it is what makes "an hour left" a subtraction rather than a guess,
         // and a station with no schedule still has a clock.
-        expect(await build().current()).toEqual({ now: '2026-08-19 13:00:00', upcoming: [] });
+        expect(await build().current()).toEqual({ now: '2026-08-19 13:00:00', timezone: 'Europe/London', upcoming: [] });
+    });
+
+    it('names the zone the clock was read in, so a console elsewhere can tell the two apart', async () => {
+        expect((await build({ settings: { 'station.timezone': 'America/New_York' } }).current()).timezone).toBe('America/New_York');
     });
 
     it('reports the same slot twice when the station is airing what is due', async () => {

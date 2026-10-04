@@ -133,6 +133,9 @@ export const queryKeys = {
      * both writes answer with the whole listing, because replacing one kind's picture is a change to
      * the one page that shows all of them.
      */
+    personaPortraits: {
+        list: () => ['personaPortraits', 'list'] as const,
+    },
     breakArtwork: {
         list: () => ['breakArtwork', 'list'] as const,
     },

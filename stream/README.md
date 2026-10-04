@@ -274,6 +274,17 @@ source crosses into the next track at output time `(its start - L)`, and the ove
 begins at that same instant. The counter starts exactly as the record becomes audible. A version that
 added the blend to the due time put a six second talk-up at 14.5 seconds.
 
+`fadeskip.check.liq` checks a cut asked for with a fade (`x-fade-ms` on `/control/skip`, which the
+show-boundary overrun cap sends): that the record falls over the fade, that none of it is heard at full
+level after the cut, and that the next record starts at full level. An earlier version put the level
+back the moment it asked for the skip and played a fifth of a second of the cut record at full volume,
+because the skip lands a frame or more later; the next track's `on_track` restores it now.
+`fadeskip.check.py` writes the tones, runs it in the pinned image and needs no dev stack:
+
+```
+python3 stream/fadeskip.check.py
+```
+
 `liveboundary.check.py` is the third, and it measures the real mount rather than a render: capture
 the stream with a listener connected (the connection is what holds the audience gate open), log
 `GET /nowplaying` alongside it, and it reports the level across each join and how abruptly the

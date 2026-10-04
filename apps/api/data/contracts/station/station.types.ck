@@ -58,9 +58,26 @@ contract StationBacklog: {
     measured: readonly int(min=0)
 }
 
+# Who has the station's one model slot, and how many are waiting for it.
+#
+# The model is shared by every break, every programme refill and every production, one generation at
+# a time, so a slot held for far longer than any generation takes is the station's ability to speak
+# stuck behind one answer. Nothing else exposes it.
+contract StationModelHolder: {
+    priority: readonly enum(breaking, air, background, preview) # Whose work it is: `breaking` and `air` have a deadline, `background` (a refill, a production) does not, `preview` is an operator trying something
+    heldSince: readonly datetime # When it took the slot. Every generation is bounded at ten minutes, so a holder older than that is a stream that stopped arriving
+    plugin?: readonly string(min=1, max=200) # The model plugin answering it
+}
+
+# The model slot and its queue
+contract StationModel: {
+    waiting: readonly int(min=0) # Callers queued behind whoever holds the slot
+    holder?: readonly StationModelHolder # Absent while the model is free
+}
+
 # One reading of the machinery, for a page that assembles the station's health.
 #
-# It carries ONLY the two signals nothing else exposes. Everything else a check-up shows — the
+# It carries ONLY the signals nothing else exposes. Everything else a check-up shows — the
 # silence verdict, the listener count, what needs somebody, the plugin statuses, the disk — is
 # already on a contract the console reads, and composing them again here would be a second answer
 # that can disagree with the first. `/playout/status` in particular is polled every two seconds for
@@ -83,6 +100,7 @@ contract StationCheckup: {
     version?: readonly string(min=1, max=50) # The release this station is, as the image's `org.opencontainers.image.version` label says it. Absent on the same terms as `revision` and for a second reason: only a tagged build carries one, so a station following `latest` reports a commit and no version
     heartbeats?: readonly array(StationHeartbeat)
     backlog?: readonly StationBacklog
+    model?: readonly StationModel
 }
 
 # One release of the station, in the words its changelog entry used

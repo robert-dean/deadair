@@ -57,6 +57,7 @@ const checkup = () => ({
         { name: 'audience.poll', startedAt: DateTime.fromISO('2026-08-25T11:00:00.000Z') },
     ],
     backlog: { total: 581, cached: 570, measured: 13 },
+    model: { waiting: 0 },
 });
 
 /** Everything answering, so a case can break exactly one thing and say what happened. */
@@ -310,5 +311,40 @@ describe('CheckupPage', () => {
 
         expect(await screen.findByText('Spotify')).toBeInTheDocument();
         expect(screen.queryByText(/asked again at/)).not.toBeInTheDocument();
+    });
+
+    it('says the model is free when nobody holds it', async () => {
+        allWell();
+
+        render(<CheckupPage />);
+
+        expect(await screen.findByText('The model is free, and nothing is waiting for it.')).toBeInTheDocument();
+    });
+
+    it('says who holds the model, for how long, and warns once that is longer than any answer takes', async () => {
+        allWell();
+        readStationCheckup.mockResolvedValue({
+            ...checkup(),
+            model: { waiting: 3, holder: { priority: 'background', heldSince: DateTime.fromISO('2026-08-25T11:45:00.000Z'), plugin: 'deadair.llm' } },
+        });
+
+        render(<CheckupPage />);
+
+        expect(await screen.findByText('background work')).toBeInTheDocument();
+        expect(screen.getByText('15m')).toBeInTheDocument();
+        expect(screen.getByText(/stopped part way/)).toBeInTheDocument();
+    });
+
+    it('does not warn about a model that has only just been taken', async () => {
+        allWell();
+        readStationCheckup.mockResolvedValue({
+            ...checkup(),
+            model: { waiting: 0, holder: { priority: 'air', heldSince: DateTime.fromISO('2026-08-25T11:59:40.000Z') } },
+        });
+
+        render(<CheckupPage />);
+
+        expect(await screen.findByText('something going on air')).toBeInTheDocument();
+        expect(screen.queryByText(/stopped part way/)).not.toBeInTheDocument();
     });
 });

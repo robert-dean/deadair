@@ -585,6 +585,7 @@ export class TracksRepository extends DataRepository {
             .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
             .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
             .select([
+                'deadair.tracks.id as trackId',
                 'deadair.tracks.title',
                 'deadair.tracks.year',
                 'deadair.tracks.genre',

@@ -14,6 +14,8 @@ import type {
     StationAir,
     StationOrder,
 } from './types/director.types.js';
+import type { BlockRuleInput, BlockRuleList, GenreSteerInput, GenreSteerReading } from './types/rules.types.js';
+import { reviveBlockRuleList, reviveGenreSteerReading } from './types/rules.types.js';
 
 export class DirectorClient {
     constructor(private fetch: SdkFetch) {}
@@ -229,5 +231,80 @@ export class DirectorClient {
     async skipToARunningOrderItem(itemId: string): Promise<StationOrder> {
         const result = await this.fetch(`/director/air/items/${encodeURIComponent(itemId)}/skip-to`, { method: 'POST' });
         return await parseJson<StationOrder>(result);
+    }
+
+    /**
+     * @name List never-play rules
+     * @description Every never-play rule on this station, newest first, each saying whether it holds right now
+     */
+    async listNeverPlayRules(): Promise<BlockRuleList> {
+        const result = await this.fetch(`/rules`, { method: 'GET' });
+        return reviveBlockRuleList(await parseJson<BlockRuleList>(result));
+    }
+
+    /**
+     * @name Add a never-play rule
+     * @description Adds a rule. It holds from the next record the station chooses
+     */
+    async addANeverPlayRule(body: BlockRuleInput): Promise<BlockRuleList> {
+        const result = await this.fetch(`/rules`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return reviveBlockRuleList(await parseJson<BlockRuleList>(result));
+    }
+
+    /**
+     * @name Read the genre steer
+     * @description The lean in force, if any
+     */
+    async readTheGenreSteer(): Promise<GenreSteerReading> {
+        const result = await this.fetch(`/rules/steer`, { method: 'GET' });
+        return reviveGenreSteerReading(await parseJson<GenreSteerReading>(result));
+    }
+
+    /**
+     * @name Steer toward genres
+     * @description Leans the station toward some genres for a number of hours, replacing any lean already in force
+     */
+    async steerTowardGenres(body: GenreSteerInput): Promise<GenreSteerReading> {
+        const result = await this.fetch(`/rules/steer`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return reviveGenreSteerReading(await parseJson<GenreSteerReading>(result));
+    }
+
+    /**
+     * @name Stop steering
+     * @description Ends the lean now
+     */
+    async stopSteering(): Promise<GenreSteerReading> {
+        const result = await this.fetch(`/rules/steer`, { method: 'DELETE' });
+        return reviveGenreSteerReading(await parseJson<GenreSteerReading>(result));
+    }
+
+    /**
+     * @name Change a never-play rule
+     * @description Replaces a rule
+     */
+    async changeANeverPlayRule(id: string, body: BlockRuleInput): Promise<BlockRuleList> {
+        const result = await this.fetch(`/rules/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return reviveBlockRuleList(await parseJson<BlockRuleList>(result));
+    }
+
+    /**
+     * @name Remove a never-play rule
+     * @description Removes a rule
+     */
+    async removeANeverPlayRule(id: string): Promise<BlockRuleList> {
+        const result = await this.fetch(`/rules/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        return reviveBlockRuleList(await parseJson<BlockRuleList>(result));
     }
 }

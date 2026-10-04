@@ -9,6 +9,8 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
 
+import type { BlockRule } from '../../../src/modules/director/block.rules.js';
+import { NeverPlay } from '../../../src/modules/director/never.play.js';
 import { ADVISORY_KEY } from '../../../src/modules/director/advisory.policy.js';
 import { discoveryCap, DISCOVER_KEY, MAX_DISCOVERIES, MIN_DISCOVERIES, PickResolver } from '../../../src/modules/director/pick.resolver.js';
 import type { ProviderTrackLookup } from '../../../src/modules/director/provider.track.lookup.js';
@@ -42,6 +44,10 @@ const resolve = (resolver: PickResolver, picks: readonly TrackPick[], preference
     resolver.resolve(picks, OPEN_RULES, { preference });
 
 interface Options {
+    /** The station's never-play rules, as the repository answers them. None unless a case says so. */
+    blockRules?: BlockRule[];
+    /** Each track's genres, as `tagsFor` answers them. */
+    tags?: Record<string, string[]>;
     bindings?: Record<string, TrackBinding>;
     metadata?: Record<string, { title: string; credit: string; album?: string; year?: number; artworkUrl?: string }>;
     /**
@@ -91,7 +97,9 @@ const binding = (trackId: string, pluginId = 'deadair.spotify', durationMs?: num
 });
 
 function build(options: Options = {}) {
+    const blockRules = { list: vi.fn(async () => options.blockRules ?? []) } as never;
     const candidates = {
+        tagsFor: vi.fn(async (trackIds: readonly string[]) => new Map(trackIds.flatMap(id => (options.tags?.[id] ? [[id, options.tags[id]!]] : [])))),
         bindingsFor: vi.fn(async (trackIds: readonly string[]) => {
             const found = new Map<string, TrackBinding>();
             for (const id of trackIds) {
@@ -171,7 +179,19 @@ function build(options: Options = {}) {
     const config = { get: (key: string, fallback: unknown) => values[key] ?? fallback } as unknown as AppConfig;
 
     return {
-        resolver: new PickResolver(candidates, tracks, analysis, history, lookup, ingest, activity, new StationIdentity(), config, logger),
+        resolver: new PickResolver(
+            candidates,
+            new NeverPlay(blockRules, candidates, config),
+            tracks,
+            analysis,
+            history,
+            lookup,
+            ingest,
+            activity,
+            new StationIdentity(),
+            config,
+            logger,
+        ),
         candidates,
         tracks,
         analysis,
@@ -1210,5 +1230,57 @@ describe('the period a broadcast plays', () => {
 
         expect(resolved.map(track => track.title)).toEqual(['A', 'B']);
         expect(candidates.yearsFor).not.toHaveBeenCalled();
+    });
+});
+
+describe('never-play rules', () => {
+    const country: BlockRule = { id: 'no-country', field: 'genre', value: 'Country' };
+
+    it('drop a generator’s pick tagged with the genre, or a kind of it, and keep the rest', async () => {
+        const { resolver } = build({
+            blockRules: [country],
+            tags: { 'track-1': ['Country Pop'], 'track-2': ['Countrypolitan'], 'track-3': [] },
+            bindings: { 'track-1': binding('track-1'), 'track-2': binding('track-2'), 'track-3': binding('track-3') },
+        });
+
+        const resolved = await resolve(resolver, [
+            { title: 'One', artist: 'A', trackId: 'track-1' },
+            { title: 'Two', artist: 'B', trackId: 'track-2' },
+            { title: 'Three', artist: 'C', trackId: 'track-3' },
+        ]);
+
+        expect(resolved.map(track => track.trackId)).toEqual(['track-2', 'track-3']);
+    });
+
+    it('hold over a playlist exactly as a dislike does', async () => {
+        const { resolver } = build({
+            blockRules: [country],
+            tags: { 'track-1': ['Country'] },
+            bindings: { 'track-1': binding('track-1'), 'track-2': binding('track-2') },
+        });
+        const one = { pluginId: 'deadair.spotify', externalId: 'e1', title: 'One', artists: ['A'], artist: 'A', trackId: 'track-1' };
+        const two = { ...one, externalId: 'e2', title: 'Two', trackId: 'track-2' };
+
+        expect((await resolver.vet([one, two], {})).map(track => track.trackId)).toEqual(['track-2']);
+    });
+
+    it('judge a mode-scoped rule against the broadcast it is for', async () => {
+        const { resolver } = build({
+            blockRules: [{ ...country, modes: ['rotation'] }],
+            tags: { 'track-1': ['Country'] },
+            bindings: { 'track-1': binding('track-1') },
+        });
+        const one = { pluginId: 'deadair.spotify', externalId: 'e1', title: 'One', artists: ['A'], artist: 'A', trackId: 'track-1' };
+
+        expect(await resolver.vet([one], { broadcast: { mode: 'rotation' } })).toEqual([]);
+        expect(await resolver.vet([one], { broadcast: { mode: 'feature' } })).toHaveLength(1);
+    });
+
+    it('ask nothing about tags when no rule holds', async () => {
+        const { resolver, candidates } = build({ bindings: { 'track-1': binding('track-1') } });
+
+        await resolve(resolver, [{ title: 'One', artist: 'A', trackId: 'track-1' }]);
+
+        expect(candidates.tagsFor).not.toHaveBeenCalled();
     });
 });

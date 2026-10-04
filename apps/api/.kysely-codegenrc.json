@@ -71,7 +71,8 @@
             "deadair.listener_requests.status": "Generated<'waiting' | 'pending' | 'queued' | 'aired' | 'declined' | 'expired'>",
             "deadair.console_languages.direction": "Generated<'ltr' | 'rtl'>",
             "deadair.schedule_slots.mood": "'love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear' | null",
-            "deadair.station_lineup.mood": "'love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear' | null"
+            "deadair.station_lineup.mood": "'love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear' | null",
+            "deadair.block_rules.field": "'genre' | 'tag'"
         }
     },
     "partitions": false,

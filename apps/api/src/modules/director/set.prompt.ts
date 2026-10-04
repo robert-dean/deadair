@@ -177,6 +177,14 @@ export interface SetPromptRequest {
      * the wrong decade. It can only waste the picks it spent on one.
      */
     era?: { from?: number; to?: number };
+    /**
+     * Genres the station is leaning toward for now, from a genre steer.
+     *
+     * Beside the period in the user turn, and put as a lean rather than as a requirement, because it
+     * is one: the station still plays anything else, and a model told "only" would refuse to fill
+     * the hour from a genre the library barely holds.
+     */
+    lean?: readonly string[];
 }
 
 /**
@@ -491,6 +499,14 @@ function userPrompt(request: SetPromptRequest): string {
     // instruction is actionable rather than a fact about the station to be borne in mind.
     const period = periodLine(request.era);
     if (period !== undefined) lines.push('', period);
+
+    if (request.lean !== undefined && request.lean.length > 0) {
+        lines.push(
+            '',
+            `For now the station is leaning toward ${request.lean.join(', ')}. Choose mostly from those, and still choose ` +
+                'something else wherever the library has too little of them to fill the hour well.',
+        );
+    }
 
     if (request.avoid.length > 0) {
         const shown = request.avoid.slice(0, MAX_AVOID_SHOWN);

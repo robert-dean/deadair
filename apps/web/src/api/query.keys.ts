@@ -312,6 +312,8 @@ export const queryKeys = {
         order: () => ['director', 'order'] as const,
         /** The format clock. One key: order is preference, so every write answers with the whole of it. */
         clock: () => ['director', 'clock'] as const,
+        rules: () => ['director', 'rules'] as const,
+        steer: () => ['director', 'steer'] as const,
     },
     /**
      * The station's own catalog, as opposed to `playlists`, which is whatever the enabled plugins

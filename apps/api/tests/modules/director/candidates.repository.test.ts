@@ -109,3 +109,23 @@ describe('CandidatesRepository.ratingsFor', () => {
         expect(statement?.sql).toContain('least');
     });
 });
+
+describe('CandidatesRepository.tagsFor', () => {
+    it('reads the genre arrays at the track and at its artist, guarded against a plugin that wrote no array', async () => {
+        const captured: Captured = { statements: [] };
+        await new CandidatesRepository(fakeDb(captured)).tagsFor(['track-1']);
+
+        const sql = captured.statements[0]?.sql ?? '';
+        expect(sql).toContain('from deadair.track_enrichment e');
+        expect(sql).toContain('from deadair.artist_enrichment e');
+        expect(sql).toContain("jsonb_typeof(e.data -> 'genres') = 'array'");
+        // The array is the data; the promoted scalar is a convenience the rules never read.
+        expect(sql).not.toContain('"genre"');
+    });
+
+    it('asks nothing for no tracks', async () => {
+        const captured: Captured = { statements: [] };
+        expect((await new CandidatesRepository(fakeDb(captured)).tagsFor([])).size).toBe(0);
+        expect(captured.statements).toHaveLength(0);
+    });
+});

@@ -1038,7 +1038,7 @@ describe('DirectorConsoleService.putOnAir', () => {
 
         expect(resolver.vet).toHaveBeenCalledWith(
             expect.arrayContaining([expect.objectContaining({ externalId: 'trk_1' }), expect.objectContaining({ externalId: 'trk_2' })]),
-            { era: { from: 1980, to: 1989 }, preference: ['deadair.spotify'] },
+            { era: { from: 1980, to: 1989 }, preference: ['deadair.spotify'], broadcast: { mode: 'rotation' } },
         );
 
         const [command] = posted();
@@ -1335,6 +1335,7 @@ describe('DirectorConsoleService editing the running order', () => {
             expect(resolver.vet).toHaveBeenCalledWith([expect.objectContaining({ trackId: 'trk-1' })], {
                 era: { from: 1980, to: 1989 },
                 preference: ['deadair.spotify'],
+                broadcast: expect.objectContaining({ mode: expect.any(String) }),
             });
             expect(director.applyEdit).not.toHaveBeenCalled();
         });

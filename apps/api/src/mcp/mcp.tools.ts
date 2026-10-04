@@ -24,6 +24,7 @@ import { registerPodcastsMcpCatalog, registerPodcastsMcpToolClasses } from './po
 import { registerProductionsMcpCatalog, registerProductionsMcpToolClasses } from './productions.mcp.js';
 import { registerRenderMcpCatalog, registerRenderMcpToolClasses } from './render.mcp.js';
 import { registerRequestsMcpTools, registerRequestsMcpCatalog, registerRequestsMcpToolClasses } from './requests.mcp.js';
+import { registerRulesMcpCatalog, registerRulesMcpToolClasses } from './rules.mcp.js';
 import { registerScheduleMcpTools, registerScheduleMcpCatalog, registerScheduleMcpToolClasses } from './schedule.mcp.js';
 import { registerSettingsMcpCatalog, registerSettingsMcpToolClasses } from './settings.mcp.js';
 import { registerStationMcpCatalog, registerStationMcpToolClasses } from './station.mcp.js';
@@ -92,6 +93,7 @@ export function registerMcpCatalog(container: Container): McpToolCatalog {
     registerProductionsMcpCatalog(map, container);
     registerRenderMcpCatalog(map, container);
     registerRequestsMcpCatalog(map, container);
+    registerRulesMcpCatalog(map, container);
     registerScheduleMcpCatalog(map, container);
     registerSettingsMcpCatalog(map, container);
     registerStationMcpCatalog(map, container);
@@ -134,6 +136,7 @@ export function registerMcpToolClasses(registry: Registry): void {
     registerProductionsMcpToolClasses(registry);
     registerRenderMcpToolClasses(registry);
     registerRequestsMcpToolClasses(registry);
+    registerRulesMcpToolClasses(registry);
     registerScheduleMcpToolClasses(registry);
     registerSettingsMcpToolClasses(registry);
     registerStationMcpToolClasses(registry);

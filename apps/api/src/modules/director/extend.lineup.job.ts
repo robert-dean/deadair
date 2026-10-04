@@ -134,6 +134,7 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
                 // period holds for the whole broadcast rather than for one batch, and it is the one
                 // part of the instruction the deterministic floor can honour on its own.
                 ...(lineup.era === undefined ? {} : { era: lineup.era }),
+                ...(lineup.mood === undefined ? {} : { mood: lineup.mood }),
                 // The songs the lineup ALREADY holds, which history knows nothing about: a
                 // track queued ten minutes ago has not aired, so nothing else would stop the
                 // generator choosing it again and putting it in twice.

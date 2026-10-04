@@ -799,6 +799,7 @@ export interface DeadairScheduleSlots {
   label: Generated<string>;
   mixInSimilar: boolean | null;
   mode: Generated<"rotation" | "setlist" | "feature">;
+  mood: "love" | "happiness" | "comfort" | "sadness" | "loneliness" | "anger" | "fear" | null;
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;
   sourceChartId: string | null;
@@ -941,6 +942,7 @@ export interface DeadairStationLineup {
   holdUntil: DateTime | null;
   items: Generated<Json>;
   mode: Generated<"rotation" | "setlist" | "feature">;
+  mood: "love" | "happiness" | "comfort" | "sadness" | "loneliness" | "anger" | "fear" | null;
   name: Generated<string>;
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;
@@ -1015,6 +1017,18 @@ export interface DeadairTrackEnrichment {
   lastError: string | null;
   provider: string;
   providerRef: string | null;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
+}
+
+export interface DeadairTrackLyricLabels {
+  createdAt: Generated<DateTime>;
+  moods: Json | null;
+  moodsAt: DateTime | null;
+  moodsAttempts: Generated<number>;
+  moodsError: string | null;
+  moodsRetryAt: DateTime | null;
+  moodsVersion: string | null;
   trackId: string;
   updatedAt: Generated<DateTime>;
 }
@@ -1163,6 +1177,7 @@ export interface DB {
   "deadair.trackArtists": DeadairTrackArtists;
   "deadair.trackAudio": DeadairTrackAudio;
   "deadair.trackEnrichment": DeadairTrackEnrichment;
+  "deadair.trackLyricLabels": DeadairTrackLyricLabels;
   "deadair.trackLyrics": DeadairTrackLyrics;
   "deadair.tracks": DeadairTracks;
   "deadair.trackSources": DeadairTrackSources;

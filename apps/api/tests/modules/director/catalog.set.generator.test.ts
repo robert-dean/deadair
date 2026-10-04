@@ -18,6 +18,9 @@ import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.
 import { DEFAULT_RULES, resolveRules } from '../../../src/modules/director/rotation.rules.js';
 import { DEFAULT_SMART_SHUFFLE_DAYS, SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
+import type { LyricLabelsRepository } from '../../../src/modules/lyrics/lyric.labels.repository.js';
+import type { MoodDistribution } from '../../../src/modules/lyrics/lyric.moods.js';
+import { MOOD_BOOST } from '../../../src/modules/director/mood.lean.js';
 
 const candidate = (title: string, artist: string, rating = 0): CandidateTrack => ({
     trackId: `id-${artist}-${title}`,
@@ -34,6 +37,10 @@ interface Options {
     /** When each song last aired, as history answers it inside the smart shuffle's horizon. */
     lastAired?: Map<string, DateTime>;
     settings?: Record<string, unknown>;
+    /** What mood a model judged each record to be in, keyed by track id. */
+    moods?: Map<string, MoodDistribution>;
+    /** The judged moods cannot be read at all. */
+    moodsFail?: boolean;
 }
 
 function build(options: Options = {}) {
@@ -54,9 +61,16 @@ function build(options: Options = {}) {
 
     const watch = { starved: vi.fn(), clear: vi.fn() } as unknown as AdvisoryWatch;
     const eraWatch = { starved: vi.fn(), clear: vi.fn() } as unknown as EraWatch;
+    const labels = {
+        moodsForTracks: vi.fn(async () => {
+            if (options.moodsFail) throw new Error('the labels table is gone');
+            return options.moods ?? new Map();
+        }),
+    } as unknown as LyricLabelsRepository;
 
     return {
-        generator: new CatalogSetGenerator(candidates, history, new StationIdentity(), config, watch, eraWatch),
+        generator: new CatalogSetGenerator(candidates, history, new StationIdentity(), config, watch, eraWatch, labels),
+        labels,
         candidates,
         history,
         watch,
@@ -323,5 +337,77 @@ describe('CatalogSetGenerator under smart shuffle', () => {
         const { generator } = build({ sample, lastAired: new Map(sample.map(track => [songKey(track.title, [track.artist]), yesterday()])) });
 
         expect(await generator.generate({ count: 3, rules: rotation })).toHaveLength(3);
+    });
+});
+
+describe('CatalogSetGenerator leaning toward a mood', () => {
+    const judged = (shares: Partial<MoodDistribution>): MoodDistribution => ({
+        love: 0,
+        happiness: 0,
+        comfort: 0,
+        sadness: 0,
+        loneliness: 0,
+        anger: 0,
+        fear: 0,
+        ...shares,
+    });
+    // Pinning the ticket lets the weights decide, as the smart shuffle's cases do.
+    const pinTicket = () => vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const off = { [SMART_SHUFFLE_KEYS.enabled]: 'false' };
+
+    it('draws the record in the mood over one that is not', async () => {
+        const random = pinTicket();
+        const { generator } = build({
+            sample: [candidate('Party', 'One'), candidate('Lullaby', 'Two')],
+            moods: new Map([['id-Two-Lullaby', judged({ comfort: 0.8, love: 0.2 })]]),
+            settings: off,
+        });
+
+        expect((await generator.generate({ count: 1, rules: rotation, mood: 'comfort' })).map(pick => pick.title)).toEqual(['Lullaby']);
+        random.mockRestore();
+    });
+
+    it('asks nothing about moods for a broadcast that names none, and draws as before', async () => {
+        const random = pinTicket();
+        const { generator, labels } = build({ sample: [candidate('Party', 'One'), candidate('Lullaby', 'Two')], settings: off });
+
+        expect((await generator.generate({ count: 1, rules: rotation })).map(pick => pick.title)).toEqual(['Party']);
+        expect(labels.moodsForTracks).not.toHaveBeenCalled();
+        random.mockRestore();
+    });
+
+    it('still draws when the moods cannot be read, as though none was named', async () => {
+        const { generator } = build({ sample: [candidate('Party', 'One')], moodsFail: true, settings: off });
+        expect(await generator.generate({ count: 1, rules: rotation, mood: 'comfort' })).toHaveLength(1);
+    });
+
+    it('never keeps a record off the air: a library of forty plays all forty, leaning or not', async () => {
+        const sample = Array.from({ length: 40 }, (_, index) => candidate(`Song ${index}`, `Artist ${index}`));
+        const { generator } = build({
+            sample,
+            moods: new Map(sample.slice(0, 5).map(track => [track.trackId, judged({ sadness: 1 })])),
+            settings: off,
+        });
+
+        const picks = await generator.generate({ count: 40, rules: { ...rotation, artistCooldownMinutes: 0, repeatWindowDays: 0 }, mood: 'sadness' });
+
+        expect(new Set(picks.map(pick => pick.title)).size).toBe(40);
+    });
+
+    it('makes a fitting record twice as likely, the factor a like gets, and no more', async () => {
+        expect(MOOD_BOOST).toBe(2);
+        const sample = [candidate('Fits', 'One'), candidate('Other', 'Two')];
+        const { generator } = build({ sample, moods: new Map([['id-One-Fits', judged({ fear: 0.5, anger: 0.5 })]]), settings: off });
+
+        let fits = 0;
+        const draws = 3000;
+        for (let index = 0; index < draws; index++) {
+            const [pick] = await generator.generate({ count: 1, rules: rotation, mood: 'fear' });
+            if (pick?.title === 'Fits') fits++;
+        }
+
+        // Two to one is two thirds. A generous band, because this is a draw.
+        expect(fits / draws).toBeGreaterThan(0.6);
+        expect(fits / draws).toBeLessThan(0.73);
     });
 });

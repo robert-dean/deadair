@@ -273,7 +273,9 @@ describe('SetGeneratorChain with the real bindings', () => {
         const watch = { starved: vi.fn(), clear: vi.fn() } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[4];
         const eraWatch = { starved: vi.fn(), clear: vi.fn() } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[5];
 
-        return new CatalogSetGenerator(candidates, history, new StationIdentity(), config, watch, eraWatch);
+        return new CatalogSetGenerator(candidates, history, new StationIdentity(), config, watch, eraWatch, {
+            moodsForTracks: async () => new Map(),
+        } as never);
     }
 
     /** The model binding as an operator who never turned it on has it. */

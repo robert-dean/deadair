@@ -59,7 +59,7 @@ const listRow = (overrides: Record<string, unknown> = {}) => ({ ...trackRow(), h
 /** The counts beside a page. Zeroes unless a test is about them. */
 const trackStateCounts = vi
     .fn()
-    .mockResolvedValue({ total: 0, cached: 0, measured: 0, enriched: 0, benched: 0, failing: 0, lyrics: 0, synced: 0, instrumental: 0 });
+    .mockResolvedValue({ total: 0, cached: 0, measured: 0, enriched: 0, benched: 0, failing: 0, lyrics: 0, synced: 0, instrumental: 0, moods: 0 });
 
 /**
  * A row as the CONSOLE sees it: the repository answers with the column's `-1 / 0 / 1` and the
@@ -265,7 +265,7 @@ describe('TracksService', () => {
         const listTracks = vi.fn().mockResolvedValue({ total: 8, data: [listRow()] });
         const counts = vi
             .fn()
-            .mockResolvedValue({ total: 8, cached: 3, measured: 1, enriched: 5, benched: 0, failing: 2, lyrics: 4, synced: 3, instrumental: 1 });
+            .mockResolvedValue({ total: 8, cached: 3, measured: 1, enriched: 5, benched: 0, failing: 2, lyrics: 4, synced: 3, instrumental: 1, moods: 2 });
         const service = tracksService({ listTracks, trackStateCounts: counts });
 
         const result = await service.listTracks(query({ search: 'vaka' }));
@@ -281,6 +281,7 @@ describe('TracksService', () => {
             lyrics: 4,
             synced: 3,
             instrumental: 1,
+            moods: 2,
         });
     });
 

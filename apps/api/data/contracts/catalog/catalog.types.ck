@@ -220,6 +220,7 @@ contract TrackStateCounts: {
     lyrics: readonly int(min=0) # A lyrics source has the words of it. The words themselves are never served
     synced: readonly int(min=0) # A lyrics source has the timing of its lines, which says when the singing starts
     instrumental: readonly int(min=0) # A lyrics source says nobody sings on it
+    moods: readonly int(min=0) # A model has judged what mood it is in
 }
 
 # A track as a LIST shows it: the record, plus three facts about what the station has of it.

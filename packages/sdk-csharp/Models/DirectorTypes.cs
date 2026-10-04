@@ -278,6 +278,11 @@ public sealed record PutOnAirInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? EraTo { get; init; }
 
+    /// <summary>The mood this broadcast leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean</summary>
+    [JsonPropertyName("mood")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PutOnAirInputMood? Mood { get; init; }
+
     /// <summary>Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent is no calls: there is no station-wide default behind it</summary>
     [JsonPropertyName("callins")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -499,4 +504,30 @@ public enum PutOnAirInputChartOrder
 
     [JsonStringEnumMemberName("unordered")]
     Unordered,
+}
+
+/// <summary>The mood this broadcast leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PutOnAirInputMood>))]
+public enum PutOnAirInputMood
+{
+    [JsonStringEnumMemberName("love")]
+    Love,
+
+    [JsonStringEnumMemberName("happiness")]
+    Happiness,
+
+    [JsonStringEnumMemberName("comfort")]
+    Comfort,
+
+    [JsonStringEnumMemberName("sadness")]
+    Sadness,
+
+    [JsonStringEnumMemberName("loneliness")]
+    Loneliness,
+
+    [JsonStringEnumMemberName("anger")]
+    Anger,
+
+    [JsonStringEnumMemberName("fear")]
+    Fear,
 }

@@ -1,3 +1,4 @@
+import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import type { ResolvedRules } from './rotation.rules.js';
 
 /**
@@ -64,6 +65,15 @@ export interface SetInputs {
      * period; see `0007_director.sql` for why that is the opposite call to `clean-only`.
      */
     era?: { from?: number; to?: number };
+    /**
+     * The mood this broadcast leans into, when it names one.
+     *
+     * The period's sibling and the second structured exception to "a brief is prose": a mood the
+     * model has already judged every record by is a number the floor can multiply a draw by without
+     * reading anything, so `CatalogSetGenerator` leans on it where it stays deaf to the brief. A lean
+     * and never a filter. See `director/mood.lean.ts`.
+     */
+    mood?: LyricMood;
     /** Songs not to choose, beyond whatever history says: what the lineup already holds. */
     avoidSongKeys?: ReadonlySet<string>;
     /** Artists not to choose, for the same reason. */

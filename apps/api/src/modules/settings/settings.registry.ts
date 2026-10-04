@@ -103,7 +103,7 @@ import {
 } from '#modules/analysis/analysis.settings.js';
 import { CHARTS_KEYS } from '#modules/charts/charts.keys.js';
 import { ENRICHMENT_KEYS } from '#modules/enrichment/enrichment.keys.js';
-import { LYRICS_FETCH_DEFAULT, LYRICS_KEYS } from '#modules/lyrics/lyrics.keys.js';
+import { LYRIC_MOODS_DEFAULT, LYRIC_MOODS_KEYS, LYRICS_FETCH_DEFAULT, LYRICS_KEYS } from '#modules/lyrics/lyrics.keys.js';
 import { DEFAULT_TALK_UP_SAFETY_MS, TALK_UP_DEFAULT, TALK_UP_KEYS, TALK_UP_SAFETY_RANGE } from '#modules/director/talk.up.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { TRANSCODE_PLUGIN_KEY } from '#modules/render/transcode.settings.js';
@@ -1484,6 +1484,24 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: '',
         optionsFrom: 'llm.models',
         help: "Reading is the one job here where nothing is waiting, so this is the place a slower and more careful model costs you nothing. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
+    },
+    {
+        group: 'llm',
+        key: LYRIC_MOODS_KEYS.enabled,
+        label: 'Let a model judge what mood each record is in',
+        type: 'boolean',
+        default: LYRIC_MOODS_DEFAULT,
+        help: 'A model reads each record’s lyrics, and where the station can search the web, what is written about it, and judges how much of it is love, happiness, comfort, sadness, loneliness, anger or fear. A schedule slot can then lean toward one of those. A judgement like this is often wrong about a single record, so it only ever makes a fitting record a little more likely to be picked and never keeps one off the air. It runs in the background at the lowest priority, so a talk break always gets the model first, and it will take days rather than minutes to work through a library.',
+    },
+    {
+        group: 'llm',
+        key: LYRIC_MOODS_KEYS.model,
+        label: 'Model for judging moods',
+        type: 'string',
+        dependsOn: LYRIC_MOODS_KEYS.enabled,
+        default: '',
+        optionsFrom: 'llm.models',
+        help: "Nothing is waiting on a mood, so a slower and more careful model costs you nothing here. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
     },
     {
         group: 'llm',

@@ -3,6 +3,7 @@
 // entry is what an EMPTY box works out to, so the stored value is skipped rather than preferred. Ask
 // the resolvers the rest of the app reads and each one answers with the operator's own value, which
 // would put a watermark under a field repeating what is already typed in it.
+import { LYRIC_MOODS_KEYS } from '../../../src/modules/lyrics/lyrics.keys.js';
 
 import { describe, expect, it } from 'vitest';
 
@@ -97,7 +98,7 @@ describe('derivedSettings', () => {
 
 describe('derivedModels', () => {
     it('finds every model setting in the registry, and nothing that is not one', () => {
-        // Read off the registry by the suggestion list the six share, so this is the check that the
+        // Read off the registry by the suggestion list the seven share, so this is the check that the
         // property still picks out exactly them.
         expect([...MODEL_SETTING_KEYS].sort()).toEqual(
             [
@@ -107,6 +108,7 @@ describe('derivedModels', () => {
                 PERSONA_NOTES_KEYS.model,
                 PERSONA_STORIES_KEYS.model,
                 PERSONA_MODEL_KEY,
+                LYRIC_MOODS_KEYS.model,
             ].sort(),
         );
     });

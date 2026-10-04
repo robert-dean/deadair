@@ -406,6 +406,10 @@ public sealed record TrackStateCounts
     /// <summary>A lyrics source says nobody sings on it</summary>
     [JsonPropertyName("instrumental")]
     public required long Instrumental { get; init; }
+
+    /// <summary>A model has judged what mood it is in</summary>
+    [JsonPropertyName("moods")]
+    public required long Moods { get; init; }
 }
 
 /// <summary>

@@ -221,6 +221,15 @@ rather than avoided: every break writer passes `tools: false` today, so no tool 
 
 ## What the prompt says, and what it left out
 
+**The station has two sentences of its own above every show and every persona.** `station.identity` (who
+the station is) and `station.context` (what is true there now) are read per break by `stationPromptSettings`,
+trimmed and capped at `STATION_TEXT_MAX`, and rendered right after the role sentence and before the persona
+sheet, because they are what the character is ON. The second is put as something "to know rather than to
+announce" and "never in every break": a fact every break is TOLD about becomes every break, which is the
+failure a brief already has when it is phrased as an instruction. Both absent leaves the prompt byte for byte
+what it was. They are not on `BreakWriteRequest`, so they carry no freshness decision: they are read when the
+break is written, like the station's name.
+
 **What buys a character room is what the break does not have to say, never the word ceiling.** Measured before
 changing anything: 2 of 137 captured answers reached `DEFAULT_MAX_WORDS` and the median break came in at 28
 words, so the ceiling was never what bounded one — the model stops on its own, and the question is what it

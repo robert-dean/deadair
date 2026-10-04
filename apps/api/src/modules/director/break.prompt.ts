@@ -493,6 +493,10 @@ export interface PromptSettings {
     station?: string;
     /** What it calls its presenter: the active persona's name, or `station.djName` behind it. */
     dj?: string;
+    /** Who the station is, from `station.identity`. Standing background. See `STATION_IDENTITY_KEY`. */
+    stationIdentity?: string;
+    /** What is true at the station now, from `station.context`. Background, never a topic. See `STATION_CONTEXT_KEY`. */
+    stationContext?: string;
     /**
      * Who the station is right now, from `deadair.personas`.
      *
@@ -837,6 +841,16 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
 
     const lines = [
         role,
+        // The station before the character, because it is what the character is on. Both are
+        // background: the second especially is put as something to know rather than to say, or a
+        // fundraiser the operator mentioned once would open every break of the day.
+        ...(settings.stationIdentity === undefined ? [] : [`About the station: ${settings.stationIdentity}`]),
+        ...(settings.stationContext === undefined
+            ? []
+            : [
+                  `What is true at the station right now, for you to know rather than to announce: ${settings.stationContext} ` +
+                      'Mention it only where it genuinely fits what you are saying, and never in every break.',
+              ]),
         // The sheet sits between the role and the rules, which leaves the grounding discipline in
         // the recency position it has always had.
         // The shape's veto is applied HERE rather than by the caller that chose the subject, which

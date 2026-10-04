@@ -333,6 +333,8 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var chartId: String?
     /// Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId`
     public var chartOrder: PutOnAirInputChartOrder?
+    /// An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends
+    public var albumId: UUID?
     /// A playlist the station owns to build from instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`: its records are the library's own, so each airs from whichever provider serves a copy, and a row the library does not hold yet is left out
     public var stationPlaylistId: UUID?
     /// What to call this broadcast. Absent names it after the chart, or after the plugin, since only the surface that listed the source knows its own name for it
@@ -352,11 +354,12 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var mode: StationMode?
     public var onEnd: StationOnEnd?
 
-    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
+    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, albumId: UUID? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
         self.pluginId = pluginId
         self.playlistId = playlistId
         self.chartId = chartId
         self.chartOrder = chartOrder
+        self.albumId = albumId
         self.stationPlaylistId = stationPlaylistId
         self.name = name
         self.brief = brief
@@ -374,6 +377,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         case playlistId = "playlistId"
         case chartId = "chartId"
         case chartOrder = "chartOrder"
+        case albumId = "albumId"
         case stationPlaylistId = "stationPlaylistId"
         case name = "name"
         case brief = "brief"
@@ -392,6 +396,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.playlistId = try container.decodeIfPresent(String.self, forKey: .playlistId)
         self.chartId = try container.decodeIfPresent(String.self, forKey: .chartId)
         self.chartOrder = try container.decodeIfPresent(PutOnAirInputChartOrder.self, forKey: .chartOrder)
+        self.albumId = try container.decodeIfPresent(UUID.self, forKey: .albumId)
         self.stationPlaylistId = try container.decodeIfPresent(UUID.self, forKey: .stationPlaylistId)
         self.name = try container.decodeIfPresent(String.self, forKey: .name)
         self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
@@ -410,6 +415,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.playlistId, forKey: .playlistId)
         try container.encodeIfPresent(self.chartId, forKey: .chartId)
         try container.encodeIfPresent(self.chartOrder, forKey: .chartOrder)
+        try container.encodeIfPresent(self.albumId, forKey: .albumId)
         try container.encodeIfPresent(self.stationPlaylistId, forKey: .stationPlaylistId)
         try container.encodeIfPresent(self.name, forKey: .name)
         try container.encodeIfPresent(self.brief, forKey: .brief)

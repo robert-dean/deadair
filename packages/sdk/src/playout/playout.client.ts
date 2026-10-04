@@ -1,6 +1,12 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
-import type { PlayoutChartInput, PlayoutPlaylistInput, PlayoutStationPlaylistInput, PlayoutStatus } from './types/playout.types.js';
+import type {
+    PlayoutAlbumInput,
+    PlayoutChartInput,
+    PlayoutPlaylistInput,
+    PlayoutStationPlaylistInput,
+    PlayoutStatus,
+} from './types/playout.types.js';
 
 export class PlayoutClient {
     constructor(private fetch: SdkFetch) {}
@@ -33,6 +39,19 @@ export class PlayoutClient {
      */
     async playAStationPlaylist(body: PlayoutStationPlaylistInput): Promise<PlayoutStatus> {
         const result = await this.fetch(`/playout/station-playlist`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PlayoutStatus>(result);
+    }
+
+    /**
+     * @name Play an album
+     * @description Plays an album the library holds, whole and in the order it was made: by disc, then by track. A feature, so no breaks and no blends between its records, and what is on air finishes rather than being cut off. It stops at the end of the album, or when the schedule's next block starts
+     */
+    async playAnAlbum(body: PlayoutAlbumInput): Promise<PlayoutStatus> {
+        const result = await this.fetch(`/playout/album`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),

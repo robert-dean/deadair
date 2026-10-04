@@ -29,6 +29,12 @@ data class PlayoutStationPlaylistInput(
     val callins: Boolean? = null,
 )
 
+/** An album the library holds, to play whole */
+@Serializable
+data class PlayoutAlbumInput(
+    val albumId: Uuid,
+)
+
 /** The published chart to build the running order from */
 @Serializable
 data class PlayoutChartInput(

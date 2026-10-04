@@ -19,6 +19,7 @@ import type {
     PlayoutItem,
     PlayoutChartInput,
     PlayoutStationPlaylistInput,
+    PlayoutAlbumInput,
     PlayoutPlaylistInput,
     PlayoutStarveQuery,
     PlayoutStatus,
@@ -328,6 +329,17 @@ export class PlayoutService {
             ...(input.mixInSimilar === undefined ? {} : { mixInSimilar: input.mixInSimilar }),
             ...(input.callins === undefined ? {} : { callins: input.callins }),
         });
+
+        await this.pusher.reconcile();
+        return this.getStatus();
+    }
+
+    /**
+     * Play an album whole, on {@link playStationPlaylist}'s terms, as a feature: the album in the
+     * order it was made, with no breaks and no blends between its records.
+     */
+    async playAlbum(input: PlayoutAlbumInput): Promise<PlayoutStatus> {
+        await this.director.putOnAir({ albumId: input.albumId, mode: 'feature' });
 
         await this.pusher.reconcile();
         return this.getStatus();

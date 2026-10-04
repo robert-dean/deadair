@@ -2966,6 +2966,24 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/PlayoutStatus'
+    '/playout/album':
+        post:
+            operationId: playAlbum
+            summary: 'Play an album'
+            description: "Plays an album the library holds, whole and in the order it was made: by disc, then by track. A feature, so no breaks and no blends between its records, and what is on air finishes rather than being cut off. It stops at the end of the album, or when the schedule's next block starts"
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PlayoutAlbumInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PlayoutStatus'
     '/playout/chart':
         post:
             operationId: playChart
@@ -7495,6 +7513,10 @@ components:
                     type: string
                     enum: [countdown, ranked, unordered]
                     description: "Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId`"
+                albumId:
+                    type: string
+                    format: uuid
+                    description: 'An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends'
                 stationPlaylistId:
                     type: string
                     format: uuid
@@ -10230,6 +10252,14 @@ components:
                     description: 'Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it'
             required: [stationPlaylistId]
             description: 'A playlist the station owns, to load into the running order'
+        PlayoutAlbumInput:
+            type: object
+            properties:
+                albumId:
+                    type: string
+                    format: uuid
+            required: [albumId]
+            description: 'An album the library holds, to play whole'
         PlayoutChartInput:
             type: object
             properties:

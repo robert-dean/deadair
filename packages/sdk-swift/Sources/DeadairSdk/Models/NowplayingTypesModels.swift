@@ -106,27 +106,33 @@ public struct NowPlayingShow: Codable, Equatable, Sendable {
     public var name: String
     /// Who is presenting, by the name they go by on air. Absent when there is no name to give: no persona on air with one, and no station-wide presenter name set. Never the persona's console label
     public var host: String?
+    /// A picture of whoever is presenting, when the operator gave their persona one. A path under the API root, like a cover's. Absent for a persona with no picture, which a player answers by showing the record's cover as before
+    public var hostArtUrl: String?
 
-    public init(name: String, host: String? = nil) {
+    public init(name: String, host: String? = nil, hostArtUrl: String? = nil) {
         self.name = name
         self.host = host
+        self.hostArtUrl = hostArtUrl
     }
 
     private enum CodingKeys: String, CodingKey {
         case name = "name"
         case host = "host"
+        case hostArtUrl = "hostArtUrl"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.name = try container.decode(String.self, forKey: .name)
         self.host = try container.decodeIfPresent(String.self, forKey: .host)
+        self.hostArtUrl = try container.decodeIfPresent(String.self, forKey: .hostArtUrl)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.name, forKey: .name)
         try container.encodeIfPresent(self.host, forKey: .host)
+        try container.encodeIfPresent(self.hostArtUrl, forKey: .hostArtUrl)
     }
 }
 

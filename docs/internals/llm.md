@@ -98,6 +98,17 @@ think by default. The plugin's own effort setting still wins unless it is Auto, 
 says so. The record-choosing model keeps its own room (`llm.setMaxTokens`) and its own `low`: an hour of
 programming is a research task, and a link is not.
 
+**When the model is the problem, the station says so in two places, because the floor hides it
+otherwise.** Every break falls through to its deterministic writer when the model fails, which keeps the
+station on air and is exactly why a model that has gone quietly can go unnoticed for an evening. So the
+check-up carries the gate itself (`StationCheckup.model`, read from `LlmGate.snapshot`): how many callers
+are waiting and who holds the slot since when, with a warning on the page once that is past the ten-minute
+generation budget, which only a stream that stopped arriving can be. And `BreakFloorWatch` counts breaks the
+floor wrote because a model writer FAILED (threw, timed out, was unavailable; never a content decline, which
+is the model working), records `break.floor` once that run has lasted an hour and three breaks, puts
+`breaksOnFloor` on the attention list for as long as it lasts, and records `break.floorCleared` on the first
+break a model writes.
+
 ## The tool loop
 
 **The source list is ordered, and the order is the only steer a model gets about which question to ask
@@ -117,7 +128,7 @@ seven spends its few steps wandering. It still holds the slot only at `backgroun
 
 **`search_music` can match what a record is ABOUT, and is honest about how much of the library that covers.**
 With `lyrics.subjects` on and at least one subject written, the tool gains an `about` parameter matched as
-words (Postgres full text, `simple` configuration, 0066's index) against the one-line subject a model wrote
+words (Postgres full text, `simple` configuration, 0068's index) against the one-line subject a model wrote
 for each record. It searches the library only and never reaches the providers, which keep no summary and
 would answer the query alone. Its description says how many records have a subject when fewer than half do,
 because three matches in a library a tenth summed up reads to a model as a library with three such records.

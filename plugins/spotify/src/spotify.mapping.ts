@@ -37,6 +37,9 @@ interface SpotifyTrack {
     artists?: SpotifyArtist[];
     album?: SpotifyAlbum;
     duration_ms?: number;
+    /** Where it sits on its album, from 1 within its disc. On full and simplified track objects alike. */
+    track_number?: number;
+    disc_number?: number;
     external_ids?: { isrc?: string };
     /**
      * Spotify's own 0-100 ranking. Present on a full track object, which is what search and
@@ -154,8 +157,13 @@ export function mapTrack(track: SpotifyTrack | null | undefined): ProviderTrack 
         // the one mistake a clean-only station cannot survive, since it would be told the record
         // was vouched for.
         ...(typeof track.explicit === 'boolean' ? { advisory: track.explicit ? ('explicit' as const) : ('clean' as const) } : {}),
+        ...(isPosition(track.track_number) ? { trackNumber: track.track_number } : {}),
+        ...(isPosition(track.disc_number) ? { discNumber: track.disc_number } : {}),
     };
 }
+
+/** A track or disc number worth passing on: a whole number from 1. */
+const isPosition = (value: number | undefined): value is number => typeof value === 'number' && Number.isInteger(value) && value > 0 && value < 1000;
 
 /**
  * The account every playlist Spotify makes itself is owned by: the editorial lists, and the ones it

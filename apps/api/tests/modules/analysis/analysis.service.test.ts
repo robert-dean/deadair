@@ -52,7 +52,9 @@ interface HarnessOptions {
     /** What the station's audio route answers for a binding. Default: a URL for everything. */
     resolveUrl?: (pluginId: string, externalId: string) => Promise<string | undefined>;
     /** Whether `TrackAudioService.has` reports a binding as already on this machine. Default: no. */
-    hasLocalAudio?: (pluginId: string, externalId: string) => Promise<boolean>;
+    hasLocalAudio?: (binding: { pluginId: string; externalId: string }) => Promise<boolean>;
+    /** What `AudienceWatch.gateOpen` answers, read once per track. Default: open. */
+    gateOpen?: () => boolean;
 }
 
 function build(options: HarnessOptions = {}) {
@@ -97,6 +99,10 @@ function build(options: HarnessOptions = {}) {
         has: vi.fn(options.hasLocalAudio ?? (async () => false)),
     };
 
+    // Open unless a test says otherwise, so every test written before the gate existed still sees a
+    // station that may fetch.
+    const audience = { gateOpen: vi.fn(options.gateOpen ?? (() => true)) };
+
     const config = {
         get: vi.fn((key: string, fallback: unknown) => {
             if (key === 'analysis.pluginId') return options.configured ?? '';
@@ -115,6 +121,7 @@ function build(options: HarnessOptions = {}) {
         invoker as never,
         trackAudio as never,
         audioService as never,
+        audience as never,
         config,
         logger,
     );
@@ -453,6 +460,39 @@ describe('pacing', () => {
         // the queue hands over the local tracks first, so what is left all needs a download.
         expect(await remote.analysePending(50, undefined, {}, 2)).toMatchObject({ scanned: 2, measured: 2 });
         expect(remoteAnalyze).toHaveBeenCalledTimes(2);
+    });
+
+    it('measures only copies already here while nobody is listening, and stops at the first that needs a download', async () => {
+        // Off air the station reaches for nothing, and a download every hour is what keeps a music
+        // server's disks from ever sleeping. The queue hands over held copies first, so the first
+        // track that needs fetching marks the end of what this run may do.
+        const { service, analyzeTrack, trackAudio } = build({
+            pending: [track(1), track(2), track(3)],
+            hasLocalAudio: async ({ externalId }) => externalId === 'spotify-1',
+            gateOpen: () => false,
+        });
+
+        expect(await service.analysePending(50, undefined, {}, 15)).toMatchObject({ scanned: 1, measured: 1 });
+        expect(analyzeTrack).toHaveBeenCalledTimes(1);
+        // Never even resolved: the station's audio route is what would have fetched it.
+        expect(trackAudio.resolveBinding).toHaveBeenCalledTimes(1);
+    });
+
+    it('fetches again for the rest of a run once a listener opens the gate', async () => {
+        let open = false;
+        const { service, analyzeTrack } = build({
+            pending: [track(1), track(2)],
+            hasLocalAudio: async ({ externalId }) => externalId === 'spotify-1',
+            gateOpen: () => open,
+            analyze: async () => {
+                // Somebody tunes in while the held copy is being measured.
+                open = true;
+                return measurement();
+            },
+        });
+
+        expect(await service.analysePending(50, undefined, {}, 15)).toMatchObject({ scanned: 2, measured: 2 });
+        expect(analyzeTrack).toHaveBeenCalledTimes(2);
     });
 
     it('does not charge the download pace for a track with no audio url, since nothing was fetched', async () => {

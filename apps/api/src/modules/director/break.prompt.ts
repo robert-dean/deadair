@@ -64,7 +64,7 @@ import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
 import type { AlmanacEntry } from '@deadair/plugin-sdk';
 import { languageName, languageRule } from '#modules/shared/language.name.js';
-import { inventedFigure } from './weather.figures.js';
+import { inventedFigure, unofferedWeather } from './weather.figures.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
 import { contradictsDayPart, namesWrongSky, namesWrongTimeOfDay, type RoughTime } from './clock.words.js';
 import { retryNudge } from './break.retry.js';
@@ -495,6 +495,10 @@ export interface PromptSettings {
     station?: string;
     /** What it calls its presenter: the active persona's name, or `station.djName` behind it. */
     dj?: string;
+    /** Who the station is, from `station.identity`. Standing background. See `STATION_IDENTITY_KEY`. */
+    stationIdentity?: string;
+    /** What is true at the station now, from `station.context`. Background, never a topic. See `STATION_CONTEXT_KEY`. */
+    stationContext?: string;
     /**
      * Who the station is right now, from `deadair.personas`.
      *
@@ -839,6 +843,16 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
 
     const lines = [
         role,
+        // The station before the character, because it is what the character is on. Both are
+        // background: the second especially is put as something to know rather than to say, or a
+        // fundraiser the operator mentioned once would open every break of the day.
+        ...(settings.stationIdentity === undefined ? [] : [`About the station: ${settings.stationIdentity}`]),
+        ...(settings.stationContext === undefined
+            ? []
+            : [
+                  `What is true at the station right now, for you to know rather than to announce: ${settings.stationContext} ` +
+                      'Mention it only where it genuinely fits what you are saying, and never in every break.',
+              ]),
         // The sheet sits between the role and the rules, which leaves the grounding discipline in
         // the recency position it has always had.
         // The shape's veto is applied HERE rather than by the caller that chose the subject, which
@@ -2295,6 +2309,11 @@ export interface AnswerGuard {
      */
     lyrics?: readonly string[];
     /**
+     * Who may be named in front of the script as its speaker, so that label is taken off before the
+     * engine reads it out. Built by `speakerGuard`. See `SpeakableOptions.speakers`.
+     */
+    speakers?: readonly string[];
+    /**
      * The two records this break sits BETWEEN, so a cue can be judged against the right one.
      *
      * Separate from {@link AnswerGuard.names}, which is a flat list because the question it asks —
@@ -2473,6 +2492,10 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // able to refuse. See `inventedFigureIn`.
     if (inventedFigureIn(words, guard) !== undefined) return undefined;
 
+    // And weather from a break that was given none, beside the figure check and in the same position
+    // `writeDecline` asks it. See `unofferedWeatherIn`.
+    if (unofferedWeatherIn(words, guard) !== undefined) return undefined;
+
     // A break that read a line of a record's lyric aloud, which is somebody's copyrighted text and the
     // one thing the station must never say. After the factual checks and in the same position
     // `writeDecline` checks it, on the one-story rule. See `quotedLyricIn`.
@@ -2500,6 +2523,7 @@ const tidyAnswer = (text: string, guard: AnswerGuard = {}): string | undefined =
         perform: PRESENTER_CUES,
         pads: guard.pads ?? [],
         ...(guard.language === undefined ? {} : { language: guard.language }),
+        ...(guard.speakers === undefined ? {} : { speakers: guard.speakers }),
     });
 
 /**
@@ -2936,6 +2960,18 @@ const inventedFigureIn = (script: string, guard: AnswerGuard): string | undefine
 const quotedLyricIn = (script: string, guard: AnswerGuard): string | undefined =>
     guard.lyrics === undefined || guard.lyrics.length === 0 ? undefined : runOf(guard.lyrics, script, SUBJECT_ECHO_WORDS);
 
+/**
+ * The weather a break described when it was given no reading to describe, or `undefined`.
+ *
+ * The other half of {@link inventedFigureIn}: that one asks what a break did with the reading it was
+ * handed, and has nothing to ask of a break handed none, which is every break but a weather break and
+ * a talk break offered one. The prompt already tells those not to reach for the weather to set a
+ * scene; this is where the station stops relying on the model having listened. Record names are out
+ * of the script first, so "Sunny" is a title rather than a forecast.
+ */
+const unofferedWeatherIn = (script: string, guard: AnswerGuard): string | undefined =>
+    guard.weather === undefined ? unofferedWeather(withoutRecordNames(script, guard), guard.language) : undefined;
+
 const inventedYearIn = (script: string, guard: AnswerGuard): string | undefined => {
     if (guard.years === undefined) return undefined;
 
@@ -2998,6 +3034,10 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     // by — a temperature said confidently is acted on.
     'invented-figure': 'the model gave a figure the station was never given, which sounds exactly like one the service measured',
     'quoted-lyric': 'the model quoted a run of a record’s lyrics, which the station never says on air',
+    // Not folded into the row above: there the station had a reading and the model contradicted it,
+    // here it had none and the model described the sky anyway, and the two send an operator to
+    // different places (the service, against the prompt).
+    'unoffered-weather': 'the model described the weather when it was given no reading, so whatever it said about the sky was made up',
     'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
     'retold-verbatim': 'the model repeated what this character said the last time it picked up the same thread, rather than moving it on',
     'spent-catchphrase': 'the model reached for a signature the station had just used',
@@ -3033,6 +3073,7 @@ export type WriteFault =
     | 'invented-year'
     | 'invented-figure'
     | 'quoted-lyric'
+    | 'unoffered-weather'
     | 'character-trimmed';
 
 /**
@@ -3095,6 +3136,10 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     // names are already out of it, so a title full of digits is not a claim about the sky.
     const figure = inventedFigureIn(speakable, guard);
     if (figure !== undefined) return reasoned('invented-figure', figure);
+    // Weather from a break handed no reading, immediately after the figure for the same reason the
+    // figure follows the year.
+    const sky = unofferedWeatherIn(speakable, guard);
+    if (sky !== undefined) return reasoned('unoffered-weather', sky);
     // Without the words that matched, unlike the two above: they are the lyric, and this sentence is
     // stored in `script_history.reason`, which is the second copy of the text the station must not keep.
     if (quotedLyricIn(speakable, guard) !== undefined) return reasoned('quoted-lyric');

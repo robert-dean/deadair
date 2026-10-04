@@ -873,6 +873,54 @@ export class TracksRepository extends DataRepository {
      *
      * Ids the catalog does not hold are simply absent from the result.
      */
+    /**
+     * An album's records in the order it was made: by disc, then by track, with anything the provider
+     * never numbered after the numbered ones and by title among themselves. Merged rows are left out,
+     * as everywhere. `name` is the album's and its artist's, for a broadcast to be called by; absent
+     * for an album that does not exist or was merged away.
+     */
+    async inAlbumOrder(
+        albumId: string,
+    ): Promise<{ name?: string; tracks: { trackId: string; title: string; artists: string[]; album: string; durationMs?: number }[] }> {
+        const album = await this.db
+            .selectFrom('deadair.albums')
+            .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.albums.artistId')
+            .select(['deadair.albums.name as album', 'deadair.artists.name as artist'])
+            .where('deadair.albums.id', '=', albumId)
+            .where('deadair.albums.mergedIntoId', 'is', null)
+            .executeTakeFirst();
+        if (album === undefined) return { tracks: [] };
+
+        const rows = await this.db
+            .selectFrom('deadair.tracks')
+            .select(['deadair.tracks.id', 'deadair.tracks.title', 'deadair.tracks.artists as credit', 'deadair.tracks.durationMs'])
+            .select(eb => [
+                eb
+                    .selectFrom('deadair.trackArtists as ta')
+                    .innerJoin('deadair.artists as a', 'a.id', 'ta.artistId')
+                    .select(sql<string[]>`array_agg(a.name order by ta.position)`.as('names'))
+                    .whereRef('ta.trackId', '=', 'deadair.tracks.id')
+                    .as('artistNames'),
+            ])
+            .where('deadair.tracks.albumId', '=', albumId)
+            .where('deadair.tracks.mergedIntoId', 'is', null)
+            .orderBy(sql`${sql.ref('deadair.tracks.discNumber')} asc nulls last`)
+            .orderBy(sql`${sql.ref('deadair.tracks.trackNumber')} asc nulls last`)
+            .orderBy('deadair.tracks.title', 'asc')
+            .execute();
+
+        return {
+            name: `${album.album} by ${album.artist}`,
+            tracks: rows.map(row => ({
+                trackId: row.id,
+                title: row.title,
+                artists: row.artistNames != null && row.artistNames.length > 0 ? row.artistNames : [row.credit],
+                album: album.album,
+                ...(row.durationMs == null ? {} : { durationMs: row.durationMs }),
+            })),
+        };
+    }
+
     async findByIds(trackIds: readonly string[]) {
         if (trackIds.length === 0) return new Map<string, { title: string; credit: string; album?: string; year?: number; artworkUrl?: string }>();
 

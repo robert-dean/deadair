@@ -28,6 +28,9 @@ export const shell = {
     },
     clock: {
         label: 'Station clock',
+        stationLabel: 'The time where the station is',
+        station: 'station {{time}}',
+        stationZone: 'The time where the station is ({{zone}}). The schedule and everything a presenter says about the time run on this clock.',
     },
     update: {
         title: 'deadair {{version}} is out. See what changed.',

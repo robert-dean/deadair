@@ -272,9 +272,12 @@ export class NavidromePlugin extends Plugin implements MusicProviderPluginInstan
      * would make the rundown re-resolve URLs that never went stale.
      *
      * Not checked against the library first. A `stream` call for an id the server
-     * lost 404s at fetch time, one item is skipped, and the alternative is
-     * spending a round trip per item to learn something that can change between
-     * the check and the fetch anyway.
+     * lost does NOT 404: Subsonic answers 200 with a `status: "failed"` document
+     * instead of audio. The host refuses any answer that is not audio
+     * (`TrackAudioService.download`), retries it with backoff and benches the copy
+     * after a few misses, so one item is skipped rather than aired as silence. The
+     * alternative is spending a round trip per item to learn something that can
+     * change between the check and the fetch anyway.
      */
     async resolveStreamUrl(trackId: string): Promise<ProviderStream | undefined> {
         const format = this.config?.streamFormat ?? 'raw';

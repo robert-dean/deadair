@@ -34,6 +34,7 @@ import { CandidatesRepository } from './candidates.repository.js';
 import { ClockBandRepository } from './clock.band.repository.js';
 import { ClockService } from './clock.service.js';
 import { AdvisoryWatch } from './advisory.watch.js';
+import { BreakFloorWatch } from './break.floor.watch.js';
 import { EraWatch } from './era.watch.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { ChartSetGenerator } from './chart.set.generator.js';
@@ -91,6 +92,9 @@ export const DirectorModule: ServerKitModule = {
         // producer writes on edges — so the flag saying "already said this" has to outlive the
         // per-refill scope the discovery happens in. See `AdvisoryWatch`.
         registry.register(AdvisoryWatch).useClass(AdvisoryWatch).asSingleton();
+        // A singleton for the same reason: the write job that observes it is scoped, and the run it
+        // watches spans many writes. See `BreakFloorWatch`.
+        registry.register(BreakFloorWatch).useClass(BreakFloorWatch).asSingleton();
         // Its sibling, singleton for the same reason and holding a little more: the PERIOD it last
         // reported on, so an operator who narrows a decade after reading the first row is answered
         // again rather than suppressed. See `EraWatch`.

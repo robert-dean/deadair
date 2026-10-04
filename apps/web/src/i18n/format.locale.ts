@@ -68,3 +68,27 @@ const CLOCK_SECONDS = perLocale(
 export function formatClock(date: Date, options?: { seconds?: boolean }): string {
     return (options?.seconds === true ? CLOCK_SECONDS() : CLOCK()).format(date);
 }
+
+/** One formatter per locale and zone, since a zone is fixed for as long as the station keeps it. */
+const ZONED: Map<string, Intl.DateTimeFormat> = new Map();
+
+/**
+ * {@link formatClock} on another zone's clock: the station's, for an operator who is somewhere else.
+ *
+ * Answers `undefined` for a zone this browser does not know, which is a station set to a name its
+ * server knows and the browser does not, rather than throwing out of a header that renders every
+ * second.
+ */
+export function formatClockIn(date: Date, timeZone: string): string | undefined {
+    const key = `${formatLocale()}|${timeZone}`;
+    let formatter = ZONED.get(key);
+    if (formatter === undefined) {
+        try {
+            formatter = new Intl.DateTimeFormat(formatLocale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone });
+        } catch {
+            return undefined;
+        }
+        ZONED.set(key, formatter);
+    }
+    return formatter.format(date);
+}

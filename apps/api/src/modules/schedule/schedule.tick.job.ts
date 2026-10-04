@@ -161,7 +161,8 @@ export class ScheduleTickJob extends PlainJob {
         const now = Date.now();
         if (!hasOverrun(this.schedule.minutesInto(slot, now), record.startedAt, now, cap)) return;
 
-        if (!(await this.console.cutOverrun(record.itemId))) {
+        const fadeMs = this.schedule.overrunFadeMs();
+        if (!(await this.console.cutOverrun(record.itemId, fadeMs))) {
             // Once per record rather than once a minute, on `say`'s argument: the stream refusing a cut
             // is still true next minute, and the next minute tries again anyway.
             this.logger.warn('schedule: a record from the last programme ran past its limit, but the stream did not take the cut');
@@ -178,8 +179,8 @@ export class ScheduleTickJob extends PlainJob {
         void this.activity.record({
             module: 'director',
             kind: 'schedule.overrun',
-            detail: `"${record.title}" ran ${cap === 1 ? 'a minute' : `${cap} minutes`} into ${named(slot)}, so the station cut it to start the show on time.`,
-            data: { slot: slot.id, item: record.itemId, minutes: cap },
+            detail: `"${record.title}" ran ${cap === 1 ? 'a minute' : `${cap} minutes`} into ${named(slot)}, so the station ${fadeMs > 0 ? 'faded it out' : 'cut it'} to start the show on time.`,
+            data: { slot: slot.id, item: record.itemId, minutes: cap, fadeMs },
         });
     }
 

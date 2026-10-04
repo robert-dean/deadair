@@ -125,10 +125,12 @@ export const schedule = {
         saveFailed: 'The boundary setting could not be saved.',
         onLabel: 'Start shows on time',
         onDescription:
-            'Off, the record playing when a block starts always finishes, however long it is. On, a record from the last programme that is still going this long into the new one is cut, the way Skip cuts it.',
+            'Off, the record playing when a block starts always finishes, however long it is. On, a record from the last programme that is still going this long into the new one is faded out.',
         minutesLabel: 'Minutes a record may run into the next show',
         minutesDescription:
             'Most records end well inside five minutes, so only the long ones are cut. Zero cuts whatever is playing the moment the block starts.',
+        fadeLabel: 'Seconds to fade it out over',
+        fadeDescription: 'How long the record takes to fade away before the show starts. Zero cuts it at once, the way Skip does.',
         note: 'Only the schedule’s own changeovers are affected. A programme you put on by hand always lets the record finish.',
     },
     clock: {

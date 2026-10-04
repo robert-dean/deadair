@@ -35,6 +35,15 @@ public final class PlayoutClient: Sendable {
         return try http.decodeJSON(PlayoutStatus.self, from: response)
     }
 
+    /// Play an album
+    /// Plays an album the library holds, whole and in the order it was made: by disc, then by track. A feature, so no breaks and no blends between its records, and what is on air finishes rather than being cut off. It stops at the end of the album, or when the schedule's next block starts
+    public func playAnAlbum(body: PlayoutAlbumInput) async throws -> PlayoutStatus {
+        var request = SdkRequest(method: "POST", path: ["playout", "album"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PlayoutStatus.self, from: response)
+    }
+
     /// Play a chart
     /// Builds the running order from a published chart and starts handing it to the player. The same replacement a playlist makes, from a document somebody else ranked
     public func playAChart(body: PlayoutChartInput) async throws -> PlayoutStatus {

@@ -48,6 +48,11 @@ export const playout = {
         tooltip_other: '{{containers}} are running config that has been replaced. Open the transport for the restart command.',
         title: 'A stream container is running config that has been replaced',
     },
+    album: {
+        air: 'Air this album',
+        hint: 'Plays the whole album on air, in order, with no breaks between its records. It replaces what is queued; the record on air finishes first.',
+        failed: 'The album could not be put on air.',
+    },
     playlist: {
         failed: 'That playlist could not be aired.',
         failedLabel: 'Failed',

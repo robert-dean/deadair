@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import type { AlmanacEntry } from '@deadair/plugin-sdk';
-import { languageGuard, stationPromptSettings } from './prompt.settings.js';
+import { languageGuard, speakerGuard, stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
@@ -185,6 +185,7 @@ export class ModelAlmanacBreakWriter extends BreakWriter {
             // rather than aired: "Lovefool just slid into the mix" ahead of Lovefool. See `misCuedIn`.
             ...(request.next === undefined ? {} : { cues: { next: request.next } }),
             ...languageGuard(this.config),
+            ...speakerGuard(this.config, request),
             // The check this kind lives or dies by, and it is the guard's own `invented-year` rather
             // than anything written here: a historical claim's checkable part IS its year, the
             // entries are in the prompt, and `permittedYears` reads every year it was SHOWN. A

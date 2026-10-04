@@ -300,3 +300,36 @@ describe('SegmentLibrary.discard', () => {
         ).resolves.toBeUndefined();
     });
 });
+
+describe('how loud a recording came out', () => {
+    const measurer = (integratedLufs?: number) => ({
+        analysis: { measureAudio: vi.fn(async () => (integratedLufs === undefined ? undefined : { data: { integratedLufs } })) },
+        config: { get: vi.fn((_key: string, fallback: unknown) => fallback) },
+        signer: { sign: vi.fn((url: string) => url) },
+    });
+
+    it('is measured on import and written to the row, so it is not levelled as raw speech', async () => {
+        const { repository } = fakeRepository();
+        const recordLoudness = vi.fn(async () => {});
+        Object.assign(repository, { recordLoudness });
+        const measuring = measurer(-14.2);
+
+        await drop('ident/station.mp3', 'an ident');
+        await new SegmentLibrary(store, repository, inbox, logger, measuring as never).scan();
+
+        expect(measuring.analysis.measureAudio).toHaveBeenCalledTimes(1);
+        expect(recordLoudness).toHaveBeenCalledWith('segment-1', -14.2);
+    });
+
+    it('still takes the recording when nothing can measure it', async () => {
+        const { repository } = fakeRepository();
+        const recordLoudness = vi.fn(async () => {});
+        Object.assign(repository, { recordLoudness });
+
+        await drop('ident/station.mp3', 'an ident');
+        const result = await new SegmentLibrary(store, repository, inbox, logger, measurer() as never).scan();
+
+        expect(result.imported).toBe(1);
+        expect(recordLoudness).not.toHaveBeenCalled();
+    });
+});

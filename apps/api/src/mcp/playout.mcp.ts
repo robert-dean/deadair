@@ -7,7 +7,13 @@ import { requireMcpPolicy, type McpToolHandler, type McpToolHandlerMap, type Mcp
 import { PolicyService } from '@maroonedsoftware/policies';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 import { PlayoutService } from '#src/modules/playout/playout.service.js';
-import { PlayoutChartInput, PlayoutPlaylistInput, PlayoutStationPlaylistInput, PlayoutStatus } from '../modules/playout/types/playout.types.js';
+import {
+    PlayoutAlbumInput,
+    PlayoutChartInput,
+    PlayoutPlaylistInput,
+    PlayoutStationPlaylistInput,
+    PlayoutStatus,
+} from '../modules/playout/types/playout.types.js';
 
 /** The request's scoped container, which a tool resolving per call reads its service and policies from. */
 function requireMcpContainer(context: McpToolContext): Container {
@@ -20,6 +26,7 @@ function requireMcpContainer(context: McpToolContext): Container {
 const GetPlayoutStatusArgs = z.object({});
 const PlayAPlaylistArgs = z.object({ body: PlayoutPlaylistInput });
 const PlayAStationPlaylistArgs = z.object({ body: PlayoutStationPlaylistInput });
+const PlayAnAlbumArgs = z.object({ body: PlayoutAlbumInput });
 const PlayAChartArgs = z.object({ body: PlayoutChartInput });
 const SkipTheCurrentItemArgs = z.object({});
 const StartPlayoutArgs = z.object({});
@@ -100,6 +107,30 @@ export class PlayAStationPlaylistMcpTool implements McpToolHandler {
  * from [playout.ck](../../data/contracts/playout/playout.ck#L71)
  */
 @Injectable()
+export class PlayAnAlbumMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'play_an_album',
+        description:
+            "Plays an album the library holds, whole and in the order it was made: by disc, then by track. A feature, so no breaks and no blends between its records, and what is on air finishes rather than being cut off. It stops at the end of the album, or when the schedule's next block starts",
+        inputSchema: z.toJSONSchema(PlayAnAlbumArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(PlayoutStatus, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { body } = await parseAndValidate(args, PlayAnAlbumArgs);
+        const result = await container.get(PlayoutService).playAlbum(body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L89)
+ */
+@Injectable()
 export class PlayAChartMcpTool implements McpToolHandler {
     readonly definition: Tool = {
         name: 'play_a_chart',
@@ -121,7 +152,7 @@ export class PlayAChartMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playout.ck](../../data/contracts/playout/playout.ck#L89)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L107)
  */
 @Injectable()
 export class SkipTheCurrentItemMcpTool implements McpToolHandler {
@@ -144,7 +175,7 @@ export class SkipTheCurrentItemMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playout.ck](../../data/contracts/playout/playout.ck#L107)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L125)
  */
 @Injectable()
 export class StartPlayoutMcpTool implements McpToolHandler {
@@ -167,7 +198,7 @@ export class StartPlayoutMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playout.ck](../../data/contracts/playout/playout.ck#L122)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L140)
  */
 @Injectable()
 export class StopPlayoutMcpTool implements McpToolHandler {
@@ -200,6 +231,7 @@ export function registerPlayoutMcpCatalog(map: McpToolHandlerMap, container: Con
     map.set('get_playout_status', container.get(GetPlayoutStatusMcpTool));
     map.set('play_a_playlist', container.get(PlayAPlaylistMcpTool));
     map.set('play_a_station_playlist', container.get(PlayAStationPlaylistMcpTool));
+    map.set('play_an_album', container.get(PlayAnAlbumMcpTool));
     map.set('play_a_chart', container.get(PlayAChartMcpTool));
     map.set('skip_the_current_item', container.get(SkipTheCurrentItemMcpTool));
     map.set('start_playout', container.get(StartPlayoutMcpTool));
@@ -211,6 +243,7 @@ export function registerPlayoutMcpToolClasses(registry: Registry): void {
     registry.register(GetPlayoutStatusMcpTool).useClass(GetPlayoutStatusMcpTool).asSingleton();
     registry.register(PlayAPlaylistMcpTool).useClass(PlayAPlaylistMcpTool).asSingleton();
     registry.register(PlayAStationPlaylistMcpTool).useClass(PlayAStationPlaylistMcpTool).asSingleton();
+    registry.register(PlayAnAlbumMcpTool).useClass(PlayAnAlbumMcpTool).asSingleton();
     registry.register(PlayAChartMcpTool).useClass(PlayAChartMcpTool).asSingleton();
     registry.register(SkipTheCurrentItemMcpTool).useClass(SkipTheCurrentItemMcpTool).asSingleton();
     registry.register(StartPlayoutMcpTool).useClass(StartPlayoutMcpTool).asSingleton();

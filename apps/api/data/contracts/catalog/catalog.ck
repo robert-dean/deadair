@@ -7,6 +7,7 @@ options {
         AlbumsService: "#src/modules/catalog/albums.service.js"
         TracksService: "#src/modules/catalog/tracks.service.js"
         EnrichmentReadService: "#src/modules/enrichment/enrichment.read.service.js"
+        VocalMarkersService: "#src/modules/lyrics/vocal.markers.service.js"
     }
     security: {
         # The floor for every operation in this file, cascading file -> route -> operation. Almost
@@ -251,6 +252,50 @@ operation /catalog/tracks/{id}/analysis: {
         response: {
             200: {
                 application/json: TrackClearResult
+            }
+        }
+    }
+}
+
+operation /catalog/tracks/{id}/vocal-markers: {
+    params: {
+        id: uuid
+    }
+    get: { # Where the singing starts and stops on one record, from an operator's correction or its timed lyrics
+        name: Get vocal markers
+        service: VocalMarkersService.getVocalMarkers
+        response: {
+            200: {
+                application/json: VocalMarkersDetail
+            }
+        }
+    }
+    put: { # Correct where the singing starts and stops, over whatever the lyrics say
+        name: Set vocal markers
+        service: VocalMarkersService.setVocalMarkers
+        security: {
+            # A correction changes when the presenter stops talking over a record on air, so it is an
+            # operator action and takes `platform.manage` rather than the file's read floor.
+            policy: platform.manage
+        }
+        request: {
+            application/json: VocalMarkersInput
+        }
+        response: {
+            200: {
+                application/json: VocalMarkersDetail
+            }
+        }
+    }
+    delete: { # Drop the correction, so the record's timed lyrics decide again
+        name: Clear vocal markers
+        service: VocalMarkersService.clearVocalMarkers
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: VocalMarkersDetail
             }
         }
     }

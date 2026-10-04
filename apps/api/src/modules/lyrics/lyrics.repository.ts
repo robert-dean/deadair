@@ -22,6 +22,17 @@ export interface StoredWords {
     providerRef?: string;
 }
 
+/** One source's timing evidence for one record: the timed lines and the instrumental flag, and nothing else. */
+export interface StoredTiming {
+    trackId: string;
+    provider: string;
+    instrumental: boolean;
+    synced?: LyricLine[];
+}
+
+/** An operator's correction: the record is instrumental, or its singing starts at `onsetMs` (and stops at `endMs`). */
+export type VocalOverride = { instrumental: true } | { instrumental: false; onsetMs: number; endMs?: number };
+
 const nullable = <T>(value: T | null | undefined): T | undefined => (value == null ? undefined : value);
 
 /**
@@ -126,6 +137,73 @@ export class LyricsRepository extends DataRepository {
             mbid: nullable(row.mbid),
             outstanding: row.outstanding,
         }));
+    }
+
+    /**
+     * The timing evidence for a set of records: every row that has timed lines or says instrumental.
+     *
+     * The timed lines carry their text because the only way to tell a sung line from the blank one
+     * that marks where singing stops is to look. The caller is `VocalMarkersReader`, which turns them
+     * into markers and hands on nothing else.
+     */
+    async timingsForTracks(trackIds: readonly string[]): Promise<StoredTiming[]> {
+        if (trackIds.length === 0) return [];
+
+        const rows = await this.db
+            .selectFrom('deadair.trackLyrics')
+            .select(['trackId', 'provider', 'instrumental', 'synced'])
+            .where('trackId', 'in', [...trackIds])
+            .where(eb => eb.or([eb('synced', 'is not', null), eb('instrumental', '=', true)]))
+            .execute();
+
+        return rows.map(row => ({
+            trackId: row.trackId,
+            provider: row.provider,
+            instrumental: row.instrumental,
+            ...(row.synced == null ? {} : { synced: row.synced as unknown as LyricLine[] }),
+        }));
+    }
+
+    /** An operator's correction of where the singing is on each of these records, by track id. */
+    async overridesForTracks(trackIds: readonly string[]): Promise<Map<string, VocalOverride>> {
+        if (trackIds.length === 0) return new Map();
+
+        const rows = await this.db
+            .selectFrom('deadair.trackVocalOverrides')
+            .select(['trackId', 'instrumental', 'onsetMs', 'endMs'])
+            .where('trackId', 'in', [...trackIds])
+            .execute();
+
+        return new Map(
+            rows.map(row => [
+                row.trackId,
+                row.instrumental
+                    ? { instrumental: true }
+                    : { instrumental: false, onsetMs: row.onsetMs ?? 0, ...(row.endMs == null ? {} : { endMs: row.endMs }) },
+            ]),
+        );
+    }
+
+    /** Sets an operator's correction, replacing any before it. */
+    async saveOverride(trackId: string, override: VocalOverride): Promise<void> {
+        const row = {
+            trackId,
+            instrumental: override.instrumental,
+            onsetMs: override.instrumental ? null : override.onsetMs,
+            endMs: override.instrumental ? null : (override.endMs ?? null),
+        };
+
+        await this.db
+            .insertInto('deadair.trackVocalOverrides')
+            .values(row)
+            .onConflict(oc => oc.column('trackId').doUpdateSet(row))
+            .execute();
+    }
+
+    /** Drops an operator's correction. Answers how many rows went, which is zero or one. */
+    async clearOverride(trackId: string): Promise<number> {
+        const result = await this.db.deleteFrom('deadair.trackVocalOverrides').where('trackId', '=', trackId).executeTakeFirst();
+        return Number(result.numDeletedRows);
     }
 
     /**

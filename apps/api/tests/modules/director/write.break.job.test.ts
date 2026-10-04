@@ -16,6 +16,8 @@ import type { Segment } from '../../../src/modules/render/segment.repository.js'
 import type { StationAlmanac } from '../../../src/modules/almanac/almanac.service.js';
 import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
 import type { ScriptWrite } from '../../../src/modules/render/script.history.repository.js';
+import type { VocalMarkers } from '../../../src/modules/lyrics/vocal.ranges.js';
+import { TALK_UP_KEYS } from '../../../src/modules/director/talk.up.js';
 
 vi.mock('../../../src/modules/jobs/job.authorization.js', () => ({ overrideJobActor: vi.fn() }));
 
@@ -89,6 +91,8 @@ function harness(
         settings?: Record<string, string>;
         /** Episodes of somebody else's programme the order holds, as their segment rows. */
         programmes?: Segment[];
+        /** Where the singing starts on each record, keyed by track id, for the talk-up budget. */
+        vocalMarkers?: Record<string, VocalMarkers>;
     } = {},
 ) {
     const segments = {
@@ -197,6 +201,12 @@ function harness(
     // unless a test asks otherwise, which is the state every other assertion here was written
     // against.
     const plays = { duringBroadcast: vi.fn(async () => options.played ?? []) };
+    const vocalMarkers = {
+        forTracks: vi.fn(
+            async (ids: readonly string[]) =>
+                new Map(ids.flatMap(id => (options.vocalMarkers?.[id] === undefined ? [] : [[id, options.vocalMarkers[id]!] as const]))),
+        ),
+    };
     // Whether a broadcast is on at all. Present by default, because a break being written is
     // overwhelmingly a break on a station that is airing — the `undefined` case has its own test.
     const identity = { current: vi.fn(() => ('broadcastId' in options ? options.broadcastId : 'broadcast-1')) };
@@ -224,6 +234,7 @@ function harness(
         personaStories as never,
         tellings as never,
         plays as never,
+        vocalMarkers as never,
         identity as never,
         speech as never,
         activity as never,
@@ -324,6 +335,63 @@ describe('WriteBreakJob', () => {
 
         expect(planted.requests.findById).not.toHaveBeenCalled();
         expect(planted.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ context: expect.anything() }));
+    });
+
+    describe('the intro of the record coming up', () => {
+        // The singing on 'Pink Moon' starts fifteen seconds in. With the default room of a second
+        // and a half, the duck's ramp and the cue clock's lag, 33 words fit in front of it.
+        const sung: VocalMarkers = { kind: 'ranges', onsetMs: 15_000, endMs: 120_000, ranges: [] };
+        const withTrackIds = async () => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Solid Air', 'John Martyn', 't-solid'), track('Pink Moon', 'Nick Drake', 't-pink')]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+            return lineup;
+        };
+
+        it('tells a talk link how many words fit over it, when talking up is on', async () => {
+            const { job, writers } = harness({
+                lineup: await withTrackIds(),
+                vocalMarkers: { 't-pink': sung },
+                settings: { [TALK_UP_KEYS.enabled]: 'true' },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ talkUp: { runwayMs: 15_000, words: 33 } }));
+        });
+
+        it('says nothing with talking up off, stored as the string false', async () => {
+            const { job, writers } = harness({
+                lineup: await withTrackIds(),
+                vocalMarkers: { 't-pink': sung },
+                settings: { [TALK_UP_KEYS.enabled]: 'false' },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkUp: expect.anything() }));
+        });
+
+        it('says nothing to a break that is not a link', async () => {
+            const { job, writers } = harness({
+                lineup: await withTrackIds(),
+                segment: planned({ kind: 'news' }),
+                vocalMarkers: { 't-pink': sung },
+                settings: { [TALK_UP_KEYS.enabled]: 'true' },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkUp: expect.anything() }));
+        });
+
+        it('says nothing before a record whose singing it cannot place', async () => {
+            const { job, writers } = harness({ lineup: await withTrackIds(), settings: { [TALK_UP_KEYS.enabled]: 'true' } });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkUp: expect.anything() }));
+        });
     });
 
     it('hands over what the format clock asked a planted break to be about', async () => {

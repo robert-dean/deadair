@@ -16,6 +16,8 @@ import type {
     TrackEnrichmentDetail,
     TrackPage,
     TrackQueryInput,
+    VocalMarkersDetail,
+    VocalMarkersInput,
 } from './types/catalog.types.js';
 import { reviveAlbumEnrichmentDetail, reviveArtistEnrichmentDetail, reviveTrackDetail, reviveTrackEnrichmentDetail } from './types/catalog.types.js';
 
@@ -151,6 +153,37 @@ export class CatalogClient {
     async clearTrackAnalysis(id: string): Promise<TrackClearResult> {
         const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/analysis`, { method: 'DELETE' });
         return await parseJson<TrackClearResult>(result);
+    }
+
+    /**
+     * @name Get vocal markers
+     * @description Where the singing starts and stops on one record, from an operator's correction or its timed lyrics
+     */
+    async getVocalMarkers(id: string): Promise<VocalMarkersDetail> {
+        const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/vocal-markers`, { method: 'GET' });
+        return await parseJson<VocalMarkersDetail>(result);
+    }
+
+    /**
+     * @name Set vocal markers
+     * @description Correct where the singing starts and stops, over whatever the lyrics say
+     */
+    async setVocalMarkers(id: string, body: VocalMarkersInput): Promise<VocalMarkersDetail> {
+        const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/vocal-markers`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<VocalMarkersDetail>(result);
+    }
+
+    /**
+     * @name Clear vocal markers
+     * @description Drop the correction, so the record's timed lyrics decide again
+     */
+    async clearVocalMarkers(id: string): Promise<VocalMarkersDetail> {
+        const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/vocal-markers`, { method: 'DELETE' });
+        return await parseJson<VocalMarkersDetail>(result);
     }
 
     /**

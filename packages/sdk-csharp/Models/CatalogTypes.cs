@@ -214,6 +214,59 @@ public sealed record TrackClearResult
 public sealed record TrackClearResultInput;
 
 /// <summary>
+/// Where the singing starts and stops on one record, and which answer that is. Times are milliseconds
+/// from the start of the file, the timeline a lyric's timings use. Never the words themselves.
+/// </summary>
+public sealed record VocalMarkersDetail
+{
+    [JsonPropertyName("trackId")]
+    public required Guid TrackId { get; init; }
+
+    /// <summary>Nobody sings on it; where the singing is; or nothing to go on</summary>
+    [JsonPropertyName("kind")]
+    public required VocalMarkersDetailKind Kind { get; init; }
+
+    /// <summary>Where the first sung word lands, when kind is ranges</summary>
+    [JsonPropertyName("onsetMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? OnsetMs { get; init; }
+
+    /// <summary>Where the singing stops, when it is known</summary>
+    [JsonPropertyName("endMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? EndMs { get; init; }
+
+    /// <summary>An operator's correction, the record's timed lyrics, or neither</summary>
+    [JsonPropertyName("source")]
+    public required VocalMarkersDetailSource Source { get; init; }
+}
+
+/// <summary>
+/// Where the singing starts and stops on one record, and which answer that is. Times are milliseconds
+/// from the start of the file, the timeline a lyric's timings use. Never the words themselves.
+/// </summary>
+public sealed record VocalMarkersDetailInput;
+
+/// <summary>An operator's correction: either the record is instrumental, or the singing starts at `onsetMs`.</summary>
+public sealed record VocalMarkersInput
+{
+    /// <summary>Nobody sings on this record, whatever its lyrics say</summary>
+    [JsonPropertyName("instrumental")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Instrumental { get; init; } = false;
+
+    /// <summary>Where the first sung word lands, from the start of the file. Required unless instrumental</summary>
+    [JsonPropertyName("onsetMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? OnsetMs { get; init; }
+
+    /// <summary>Where the singing stops. Optional, and after the onset</summary>
+    [JsonPropertyName("endMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? EndMs { get; init; }
+}
+
+/// <summary>
 /// Narrow a clear to one provider's answer, for the case where one source is wrong and the rest are
 /// not. Absent clears every provider's.
 /// </summary>
@@ -1443,4 +1496,32 @@ public sealed record AlbumEnrichmentDetailInput
 
     [JsonPropertyName("claims")]
     public required List<FactClaimInput> Claims { get; init; }
+}
+
+/// <summary>Nobody sings on it; where the singing is; or nothing to go on</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<VocalMarkersDetailKind>))]
+public enum VocalMarkersDetailKind
+{
+    [JsonStringEnumMemberName("instrumental")]
+    Instrumental,
+
+    [JsonStringEnumMemberName("ranges")]
+    Ranges,
+
+    [JsonStringEnumMemberName("unknown")]
+    Unknown,
+}
+
+/// <summary>An operator's correction, the record's timed lyrics, or neither</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<VocalMarkersDetailSource>))]
+public enum VocalMarkersDetailSource
+{
+    [JsonStringEnumMemberName("override")]
+    Override,
+
+    [JsonStringEnumMemberName("lyrics")]
+    Lyrics,
+
+    [JsonStringEnumMemberName("none")]
+    None,
 }

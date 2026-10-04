@@ -53,6 +53,25 @@ const prompt = (request: BreakWriteRequest, settings: PromptSettings = {}) => br
 const system = (messages: ReturnType<typeof prompt>) => messages.find(message => message.role === 'system')?.content ?? '';
 const user = (messages: ReturnType<typeof prompt>) => messages.find(message => message.role === 'user')?.content ?? '';
 
+describe('the intro of the record coming up', () => {
+    it('offers a word budget for talking over it, as an offer rather than a ceiling', () => {
+        const words = user(prompt({ kind: 'talkbreak', previous, next, talkUp: { runwayMs: 15_400, words: 33 } }));
+
+        expect(words).toContain('starts about 15 seconds in');
+        expect(words).toContain('33 words or fewer');
+        expect(words).toContain('which is fine too');
+    });
+
+    it('says nothing about an intro when it has not been told one', () => {
+        expect(user(prompt({ kind: 'talkbreak', previous, next }))).not.toContain('seconds in');
+    });
+
+    it('leaves the ceiling where it was', () => {
+        const told = system(prompt({ kind: 'talkbreak', previous, next, talkUp: { runwayMs: 15_000, words: 12 } }));
+        expect(told).toContain(`Keep it under ${system(prompt({ kind: 'talkbreak', previous, next })).match(/Keep it under (\d+)/)![1]} words`);
+    });
+});
+
 describe('breakPrompt', () => {
     it('is a system turn and a user turn, in that order', () => {
         const messages = prompt({ kind: 'talkbreak', previous });

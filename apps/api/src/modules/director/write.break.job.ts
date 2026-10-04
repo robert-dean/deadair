@@ -32,7 +32,7 @@ import { BulletinSource } from './bulletin.source.js';
 import { ChangeoverSource } from './changeover.source.js';
 import { WeatherSource } from './weather.source.js';
 import { AlmanacSource } from './almanac.source.js';
-import type { BreakTrack, PlayedRecord, WrittenBreak } from './break.writer.js';
+import type { BreakTrack, BreakWriteRequest, PlayedRecord, WrittenBreak } from './break.writer.js';
 import { CLOCK_KEYS, dayGreeting, dayPart, NAMES_THE_TIME_DEFAULT, roughTime, stationZone } from './clock.words.js';
 import { BreakWriterRegistry, declineText, isWritten, type BreakWriteResult } from './break.writer.registry.js';
 import { BreakFloorWatch } from './break.floor.watch.js';
@@ -42,6 +42,9 @@ import { STORY_KIND, STORY_SHAPE } from './story.break.writer.js';
 import { isTrackItem, type StationLineup } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { VocalMarkersReader } from '#modules/lyrics/vocal.markers.reader.js';
+import { runwayFor } from '#modules/lyrics/vocal.runway.js';
+import { resolveTalkUp, talkUpBudget } from './talk.up.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { rotationOf } from '#modules/shared/rotation.js';
 
@@ -195,6 +198,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         /** The ledger behind the two stamps on a story. See {@link story}. */
         private readonly tellings: PersonaTellingRepository,
         private readonly plays: PlayHistoryRepository,
+        /** Where the singing starts on the record a talk link leads into. See {@link talkUp}. */
+        private readonly vocalMarkers: VocalMarkersReader,
         private readonly identity: StationIdentity,
         private readonly speech: SpeechService,
         private readonly activity: ActivityRecorder,
@@ -390,6 +395,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             ...(subject === undefined ? {} : { subject }),
             ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),
             ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
+            ...(await this.talkUp(lineup, segment.kind, neighbours.next)),
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
             ...(await this.memory(segment.kind)),
             // Read here rather than held by any writer, for the reason the facts above are: the
@@ -647,6 +653,31 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
      * one: an artist who comes round twice in an evening gets a different sentence the second time
      * without anything having to remember the first.
      */
+    /**
+     * How long the intro of the record this link leads into runs, for a writer that can aim at it.
+     *
+     * Only for a talk break, only with talking up on, and only before a record whose markers say
+     * where the singing starts. A failure to read them costs the advice and never the break.
+     */
+    private async talkUp(lineup: StationLineup, kind: string, next: Neighbour | undefined): Promise<Partial<Pick<BreakWriteRequest, 'talkUp'>>> {
+        if (kind !== TALK_BREAK_KIND || next?.track.trackId === undefined) return {};
+        const settings = resolveTalkUp(this.config);
+        if (!settings.enabled) return {};
+
+        const item = lineup.all().find(candidate => candidate.id === next.itemId);
+        const cueInMs = item !== undefined && isTrackItem(item) ? item.track.cueInMs : undefined;
+        const trackId = next.track.trackId;
+
+        try {
+            const markers = (await this.vocalMarkers.forTracks([trackId])).get(trackId);
+            const budget = markers === undefined ? undefined : talkUpBudget(runwayFor(markers, cueInMs), settings.safetyMs);
+            return budget === undefined ? {} : { talkUp: budget };
+        } catch (error) {
+            this.logger.warn('write break: could not read where the singing starts on the next record', { error: errorText(error) });
+            return {};
+        }
+    }
+
     private async attachFacts(segmentId: string, neighbours: Neighbours, budget: FactBudget | undefined): Promise<void> {
         const sides = [neighbours.previous, neighbours.next].filter((side): side is Neighbour => side !== undefined);
         const trackIds = sides.map(side => side.track.trackId).filter((trackId): trackId is string => trackId !== undefined);

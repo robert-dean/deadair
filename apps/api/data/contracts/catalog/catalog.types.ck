@@ -135,6 +135,23 @@ contract TrackClearResult: {
     detail: readonly string(min=1, max=400) # What happened, in the words the console shows
 }
 
+# Where the singing starts and stops on one record, and which answer that is. Times are milliseconds
+# from the start of the file, the timeline a lyric's timings use. Never the words themselves.
+contract VocalMarkersDetail: {
+    trackId: readonly uuid
+    kind: readonly enum(instrumental, ranges, unknown) # Nobody sings on it; where the singing is; or nothing to go on
+    onsetMs?: readonly int(min=0) # Where the first sung word lands, when kind is ranges
+    endMs?: readonly int(min=0) # Where the singing stops, when it is known
+    source: readonly enum(override, lyrics, none) # An operator's correction, the record's timed lyrics, or neither
+}
+
+# An operator's correction: either the record is instrumental, or the singing starts at `onsetMs`.
+contract VocalMarkersInput: {
+    instrumental?: boolean = false # Nobody sings on this record, whatever its lyrics say
+    onsetMs?: int(min=0) # Where the first sung word lands, from the start of the file. Required unless instrumental
+    endMs?: int(min=0) # Where the singing stops. Optional, and after the onset
+}
+
 # Narrow a clear to one provider's answer, for the case where one source is wrong and the rest are
 # not. Absent clears every provider's.
 contract ClearEnrichmentQuery: {

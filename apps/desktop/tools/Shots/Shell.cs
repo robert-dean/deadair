@@ -935,7 +935,7 @@ internal static class Fakes
         library.Records.Present(new TrackPage
         {
             Meta = new Pagination { Total = 766, PageSize = 50 },
-            States = new TrackStateCounts { Total = 766, Cached = 412, Measured = 389, Enriched = 701, Benched = 3, Failing = 0, Lyrics = 0, Synced = 0, Instrumental = 0 },
+            States = new TrackStateCounts { Total = 766, Cached = 412, Measured = 389, Enriched = 701, Benched = 3, Failing = 0, Lyrics = 0, Synced = 0, Instrumental = 0, Moods = 0 },
             Data =
             [
                 Track("Alive", "Pearl Jam", "Ten", 341_000, 1991, Rating.Liked, audio: true, measured: true, enriched: true),

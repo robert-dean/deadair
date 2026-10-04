@@ -48,6 +48,13 @@ public sealed record PlayoutStationPlaylistInput
     public bool? Callins { get; init; }
 }
 
+/// <summary>An album the library holds, to play whole</summary>
+public sealed record PlayoutAlbumInput
+{
+    [JsonPropertyName("albumId")]
+    public required Guid AlbumId { get; init; }
+}
+
 /// <summary>The published chart to build the running order from</summary>
 public sealed record PlayoutChartInput
 {

@@ -16,6 +16,16 @@ describe('mapTrack', () => {
         });
     });
 
+    it('carries where the song sits on its album, off the file’s own tags', () => {
+        expect(mapTrack({ ...song, track: 3, discNumber: 2 })).toMatchObject({ trackNumber: 3, discNumber: 2 });
+    });
+
+    it('drops a track number of zero, which is a tag nobody filled in rather than a position', () => {
+        const mapped = mapTrack({ ...song, track: 0, discNumber: 0 });
+        expect(mapped).not.toHaveProperty('trackNumber');
+        expect(mapped).not.toHaveProperty('discNumber');
+    });
+
     it('refuses a song with no id, since nothing could ever be fetched by it', () => {
         expect(mapTrack({ title: 'Nameless' })).toBeUndefined();
     });

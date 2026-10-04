@@ -1,7 +1,7 @@
 ---
 title: 'Stop playout'
 sidebar_label: 'Stop playout'
-sidebar_position: 7
+sidebar_position: 8
 mdx:
     format: 'md'
 ---

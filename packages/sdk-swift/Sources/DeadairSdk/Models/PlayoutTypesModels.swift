@@ -76,6 +76,29 @@ public struct PlayoutStationPlaylistInput: Codable, Equatable, Sendable {
     }
 }
 
+/// An album the library holds, to play whole
+public struct PlayoutAlbumInput: Codable, Equatable, Sendable {
+    public var albumId: UUID
+
+    public init(albumId: UUID) {
+        self.albumId = albumId
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case albumId = "albumId"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.albumId = try container.decode(UUID.self, forKey: .albumId)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.albumId, forKey: .albumId)
+    }
+}
+
 /// The published chart to build the running order from
 public struct PlayoutChartInput: Codable, Equatable, Sendable {
     /// As `pluginId:chartId`, which is how `GET /charts` lists them

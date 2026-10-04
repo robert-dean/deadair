@@ -2,7 +2,7 @@ import { ActionIcon, Button, Group, Menu, Tooltip } from '@mantine/core';
 import { IconChevronDown } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
-import { usePlayPlaylist, usePlayStationPlaylist } from '../../api/playout.queries';
+import { usePlayAlbum, usePlayPlaylist, usePlayStationPlaylist } from '../../api/playout.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 
 export interface PlayPlaylistButtonProps {
@@ -68,6 +68,32 @@ export function PlayStationPlaylistButton({ stationPlaylistId, size = 'sm', vari
             size={size}
             variant={variant}
         />
+    );
+}
+
+/**
+ * Plays an album the library holds, whole and in the order it was made.
+ *
+ * One press and no menu, unlike the playlist buttons: an album goes out as a feature, which never
+ * has records mixed in or calls between its tracks, so there is nothing to ask.
+ */
+export function PlayAlbumButton({ albumId, size = 'xs', variant = 'light' }: { albumId: string; size?: 'xs' | 'sm'; variant?: string }) {
+    const { t } = useTranslation('playout');
+    const play = usePlayAlbum();
+    const failure = play.isError ? apiErrorMessage(play.error, t('album.failed')) : undefined;
+
+    return (
+        <Tooltip label={failure ?? t('album.hint')} color={failure ? 'red' : undefined} multiline maw={320}>
+            <Button
+                size={size}
+                variant={variant}
+                color={failure ? 'red' : undefined}
+                loading={play.isPending}
+                onClick={() => play.mutate({ albumId })}
+            >
+                {failure ? t('playlist.failedLabel') : t('album.air')}
+            </Button>
+        </Tooltip>
     );
 }
 

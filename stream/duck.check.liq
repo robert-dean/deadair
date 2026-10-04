@@ -1,10 +1,11 @@
 # Where does the duck land the bed under the voice?
 #
-# The bed is one 440 Hz tone at two levels: ten seconds at about -30 LUFS, then ten at about -8. A
+# The bed is one 440 Hz tone at two levels: ten seconds at about -30 LUFS, then twelve at about -8. A
 # 700 Hz "voice" at about -15 LUFS, where a break lands against the default target and trim, speaks
-# for four seconds over each half. Both are below the K-weighting shelf, so a sine's amplitude
-# converts to LUFS without a correction. What `duck.check.py` reads back is the bed's level under
-# each voice against the voice's own, and whether the bed comes back up after each.
+# for four seconds three times: over the quiet half, across the step from quiet to loud (a record
+# kicking in under a talk-up), and over the loud half. Both tones are below the K-weighting shelf,
+# so a sine's amplitude converts to LUFS without a correction. What `duck.check.py` reads back is
+# the bed's level under each voice against the voice's own, and whether the bed comes back up after.
 #
 # Run with stream/duck.check.py, which writes the tones, runs this in the pinned image and reads the
 # result. See stream/README.md.
@@ -14,7 +15,9 @@ settings.log.level := 3
 settings.frame.audio.samplerate := 44100
 
 # What `radio.default.env` gives the real script.
-duck_gain_db = -12.
+duck_bed_lufs = -25.
+duck_gain_db = -18.
+duck_min_db = -3.
 duck_fade_ms = 300.
 
 bed_queue = request.queue(id="bed")
@@ -24,29 +27,48 @@ bed = mksafe(bed_queue)
 
 voice = request.queue(id="voice", prefetch=1)
 thread.run(delay=3., fun () -> voice.push(request.create("/w/voice.wav")))
-thread.run(delay=13., fun () -> voice.push(request.create("/w/voice.wav")))
+thread.run(delay=8., fun () -> voice.push(request.create("/w/voice.wav")))
+thread.run(delay=15., fun () -> voice.push(request.create("/w/voice.wav")))
 
 # ── BEGIN copied from radio.liq ──────────────────────────────────────────────────
+duck_attack_db_per_s = 30.
+duck_release_db_per_s = 3.
+
 def ducked(music_bed, dj_voice) =
-  duck_floor = lin_of_dB(duck_gain_db)
+  metered = lufs(window=3., music_bed)
   tick_s = 0.025
-  step = (1. - duck_floor) * (tick_s * 1000. / duck_fade_ms)
+  attack_step_db = duck_attack_db_per_s * tick_s
+  release_step_db = duck_release_db_per_s * tick_s
+  depth_db = ref(duck_min_db)
   gain = ref(1.)
   thread.run(
     every=tick_s,
     fun () ->
       begin
-        target = if dj_voice.is_ready() then duck_floor else 1. end
+        measured = max(metered.lufs(), metered.lufs_momentary())
+        wanted =
+          if not (measured >= -50.) then duck_min_db
+          else max(duck_gain_db, min(duck_min_db, duck_bed_lufs - measured))
+          end
+        speaking = dj_voice.is_ready()
+        depth_db :=
+          if not speaking then wanted
+          elsif depth_db() < wanted then min(wanted, depth_db() + release_step_db)
+          else max(wanted, depth_db() - attack_step_db)
+          end
+        duck_floor = lin_of_dB(depth_db())
+        target = if speaking then duck_floor else 1. end
         current = gain()
+        step = (1. - min(current, duck_floor)) * (tick_s * 1000. / duck_fade_ms)
         gain :=
           if current < target then min(target, current + step)
           else max(target, current - step)
           end
       end
   )
-  add(normalize=false, [amplify({gain()}, override=null, music_bed), dj_voice])
+  add(normalize=false, [amplify({gain()}, override=null, metered), dj_voice])
 end
 # ── END copied from radio.liq ────────────────────────────────────────────────────
 
-thread.run(delay=20., fun () -> shutdown())
+thread.run(delay=22., fun () -> shutdown())
 output.file(%wav(mono), "/w/duck.check.wav", ducked(bed, voice))

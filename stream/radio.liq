@@ -132,12 +132,25 @@ harbor_port = int_of_string(environment.get("HARBOR_PORT", default="8005"))
 # the gap IS live — only the duck-vs-cut mix choice needs the restart.
 talk_over = environment.get("TALK_OVER_TRACKS", default="true") == "true"
 
-# How far the bed drops under the voice, and how long the ramp takes (director settings
-# duckGainDb / duckFadeMs, materialized into radio.env). Read at startup like talk_over.
+# The duck (step 4), materialized into radio.env and read at startup like talk_over. The duck lands
+# the bed at a LEVEL under the voice rather than dropping it by an amount, so three of these are
+# that level and the two bounds on how far the bed may move to reach it:
+#
+#   DUCK_BED_LUFS  where the bed sits while the DJ speaks. -25 is ten under where a break lands
+#                  against the default target and trim, which is exactly where the old fixed -12
+#                  put a record levelled to -13. So a record at target ducks as it always did, and
+#                  only quieter and louder passages move.
+#   DUCK_GAIN_DB   the DEEPEST the bed goes, however loud it is. It was the whole duck once; now it
+#                  is the bound that stops a brickwalled chorus being pulled to nothing.
+#   DUCK_MIN_DB    the SHALLOWEST. A quiet intro already under the target still dips this far, so a
+#                  break is always heard as the DJ coming in rather than as a voice over the record.
+#   DUCK_FADE_MS   how long the ramp in and out takes, whatever the depth.
 #
 # Through `env_float` (defined at the top of this file) because the materializer writes every key
 # whether or not it is set, so an unset one arrives here as the empty string rather than absent.
-duck_gain_db = env_float("DUCK_GAIN_DB", -12.)
+duck_bed_lufs = env_float("DUCK_BED_LUFS", -25.)
+duck_gain_db = env_float("DUCK_GAIN_DB", -18.)
+duck_min_db = min(0., env_float("DUCK_MIN_DB", -3.))
 duck_fade_ms = max(1., env_float("DUCK_FADE_MS", 300.))
 
 # The operator's trim on the DJ voice, in dB, applied after the mic chain in step 3, on TOP of
@@ -1330,7 +1343,7 @@ thread.run(every=voice_tick, voice_cue_check)
 # somebody played.
 #
 # It exists because the level of a segment is otherwise entirely whatever the renderer produced. The
-# duck depth below is a fixed number of dB, so it only lands the voice where it belongs if the voice
+# duck below lands the bed at a fixed level, so it only puts the voice where it belongs if the voice
 # arrives somewhere predictable; a quiet engine disappears under the bed and a hot one clips into the
 # limiter. Nothing upstream can fix that for us — the engine is a plugin, and a new one is expected —
 # so the correction belongs here, on the one path every segment takes.
@@ -1402,18 +1415,73 @@ voice_bus = amplify(lin_of_dB(voice_gain_db), override=null, voice_bus)
 #    hole under nothing. is_ready() flips when audio is actually available.
 #    NB: no name here shadows anything. `floor` in particular is a Liquidsoap builtin
 #    (float -> int), so the bottom of the ramp is `duck_floor`.
+#
+#    THE DEPTH is decided by the bed's own level, which is what makes this a sidechain. It used to
+#    be a fixed -12, and a fixed drop only lands the bed in the right place for a bed at one level:
+#    measured with stream/duck.check.py, the voice sat 27 LU over a quiet intro and 5 over a loud
+#    chorus, which are the two complaints a talk-over station gets ("talking over nothing", "can't
+#    hear the DJ"). Now the bed is metered and dropped as far as it takes to sit at `duck_bed_lufs`,
+#    bounded by `duck_gain_db` at the deep end and `duck_min_db` at the shallow one.
+#
+#    - The meter is BS.1770 loudness, the same units the app levels records in, read UPSTREAM of
+#      the duck's own gain. Downstream it would see its own reduction and duck further for it, which
+#      is a feedback loop rather than a meter. The reading is the LOUDER of short-term (3s) and
+#      momentary (400ms): short-term alone lags a record kicking in by seconds, and momentary alone
+#      would let the bed up in every gap between two drum hits.
+#    - Below -50 LUFS the reading is silence, or an ident's tail, and the depth is the shallowest
+#      rather than a computed boost the ceiling would throw away anyway. `not (x >= -50.)` and not
+#      `x < -50.` because a meter that has heard nothing yet can answer NaN, and NaN fails both.
+#    - While the DJ is NOT speaking the depth follows the meter freely, so a break starts from the
+#      bed as it is at that moment. While the DJ IS speaking it moves at two rates. DEEPER at
+#      `duck_attack_db_per_s`, fast, because a record kicking in under a talk-up is the one thing
+#      that must not wait: at the slow rate in both directions duck.check.py measured the bed 2.5 LU
+#      OVER the voice a second after the kick. With both changes it is on target within the second,
+#      and what is left is the momentary window filling: a bed that steps up 22 dB in one frame is
+#      heard over the voice for about 0.3s. A meter cannot hear what has not happened yet, and only
+#      a lookahead delay on the bed would close that, which would move the bed against the cue
+#      timing everything else here is built on. SHALLOWER at `duck_release_db_per_s`, slowly, so the
+#      gap between two phrases of a record cannot pump the bed under a sentence, and a record fading
+#      out under the voice (a fade-skip at a show boundary, or its own outro) lets the duck ease off
+#      rather than step.
+#    - The ramp in and out takes `duck_fade_ms` whatever the depth, because the cue fires that long
+#      before the first word (`voice_cue_check`) and the bed has to be down by then. The step is
+#      therefore sized from the depth being ramped to, tick by tick; for a -12 duck it is exactly
+#      the step the fixed duck used.
+duck_attack_db_per_s = 30.
+duck_release_db_per_s = 3.
+
 def ducked(music_bed, dj_voice) =
-  duck_floor = lin_of_dB(duck_gain_db)
+  metered = lufs(window=3., music_bed)
   tick_s = 0.025
-  # Distance covered per tick so a full 1.0 → duck_floor sweep takes duck_fade_ms.
-  step = (1. - duck_floor) * (tick_s * 1000. / duck_fade_ms)
+  attack_step_db = duck_attack_db_per_s * tick_s
+  release_step_db = duck_release_db_per_s * tick_s
+  depth_db = ref(duck_min_db)
   gain = ref(1.)
   thread.run(
     every=tick_s,
     fun () ->
       begin
-        target = if dj_voice.is_ready() then duck_floor else 1. end
+        measured = max(metered.lufs(), metered.lufs_momentary())
+        wanted =
+          if not (measured >= -50.) then duck_min_db
+          else max(duck_gain_db, min(duck_min_db, duck_bed_lufs - measured))
+          end
+        speaking = dj_voice.is_ready()
+        depth_db :=
+          if not speaking then wanted
+          elsif depth_db() < wanted then min(wanted, depth_db() + release_step_db)
+          else max(wanted, depth_db() - attack_step_db)
+          end
+        duck_floor = lin_of_dB(depth_db())
+        target = if speaking then duck_floor else 1. end
+        # Distance covered per tick so a full sweep between 1.0 and the duck's bottom takes
+        # duck_fade_ms. The bottom is the LOWER of where the gain is and where it is going: going
+        # in that is the new floor, and coming out it is the floor the break was ducked to, not the
+        # one the meter would pick now. Sized from the latter, a break that ended over a quiet
+        # outro would ramp a deep duck back up at a shallow one's pace. While the DJ speaks the
+        # floor moves far slower than this, so the gain follows it exactly.
         current = gain()
+        step = (1. - min(current, duck_floor)) * (tick_s * 1000. / duck_fade_ms)
         gain :=
           if current < target then min(target, current + step)
           else max(target, current - step)
@@ -1427,7 +1495,7 @@ def ducked(music_bed, dj_voice) =
   #    time, and it threw the duck ramp away, since the ramp IS the discarded factor. Measured off
   #    the mount: records aired at `-16 + stamp` rather than at -16 — -26.3 LUFS against a -7.9 LUFS
   #    break — and no stamped record ever ducked under the voice.
-  add(normalize=false, [amplify({gain()}, override=null, music_bed), dj_voice])
+  add(normalize=false, [amplify({gain()}, override=null, metered), dj_voice])
 end
 
 programme =

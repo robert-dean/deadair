@@ -184,7 +184,21 @@ export class CandidatesRepository extends DataRepository {
      * reading two different columns. A copy with no measured duration is never excluded by it: see
      * `track.length.ts`.
      */
-    async sample(count: number, policy: AdvisoryPolicy = ADVISORY_DEFAULT, era?: EraWindow, bounds?: TrackLengthBounds): Promise<CandidateTrack[]> {
+    async sample(
+        count: number,
+        policy: AdvisoryPolicy = ADVISORY_DEFAULT,
+        era?: EraWindow,
+        bounds?: TrackLengthBounds,
+        /**
+         * Draw only records tagged with something CONTAINING one of these, for a genre steer.
+         *
+         * Loose on purpose, and safe only because it is a positive draw: what comes back is then
+         * matched precisely (`genre.match.ts`) before anything leans on it, and a record this lets
+         * through that does not really match is simply drawn at its ordinary weight. Never a filter
+         * for a never-play rule, where loose would block what nobody asked to (Ideas #22).
+         */
+        taggedLike?: readonly string[],
+    ): Promise<CandidateTrack[]> {
         const limit = Math.min(SAMPLE_CEILING, Math.max(1, count) * SAMPLE_MULTIPLIER);
 
         const rows = await this.db
@@ -236,6 +250,7 @@ export class CandidatesRepository extends DataRepository {
             .where(eb => eb.or([eb('deadair.albums.rating', 'is', null), eb('deadair.albums.rating', '<>', -1)]))
             .where(eb => noCreditedDislike(eb))
             .$if(bindsAnything(era), qb => qb.where(withinEra(era!)))
+            .$if(taggedLike !== undefined && taggedLike.length > 0, qb => qb.where(taggedLikeAny(taggedLike!)))
             .orderBy(sql`random()`)
             .limit(limit)
             .execute();
@@ -480,4 +495,25 @@ export class CandidatesRepository extends DataRepository {
 
         return row;
     }
+}
+
+/**
+ * Whether a record, or its artist, carries a genre tag containing any of these, case-blind. The loose
+ * half of a genre steer's draw; see `sample`'s `taggedLike`.
+ */
+function taggedLikeAny(genres: readonly string[]) {
+    const patterns = genres.map(genre => `%${genre.replace(/[\\%_]/g, character => `\\${character}`)}%`);
+    const tagged = (table: string, column: string, id: string) => sql`
+        select 1
+        from deadair.${sql.raw(table)} e
+        cross join lateral jsonb_array_elements_text(
+            case when jsonb_typeof(e.data -> 'genres') = 'array' then e.data -> 'genres' else '[]'::jsonb end
+        ) tag
+        where e.${sql.raw(column)} = deadair.tracks.${sql.raw(id)} and tag ilike any (${patterns})
+    `;
+    return sql<boolean>`exists (
+        ${tagged('track_enrichment', 'track_id', 'id')}
+        union all
+        ${tagged('artist_enrichment', 'artist_id', 'artist_id')}
+    )`;
 }

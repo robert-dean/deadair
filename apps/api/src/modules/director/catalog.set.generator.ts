@@ -12,6 +12,8 @@ import { applyRules, spaceArtists, weightOf, type RotationCandidate } from './ro
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { freshnessOf, historyDaysFor, resolveSmartShuffle } from './smart.shuffle.js';
 import { trackLengthBounds } from './track.length.js';
+import { BlockRulesRepository } from './block.rules.repository.js';
+import { STEER_LEAN, steered } from './genre.steer.js';
 
 /**
  * The station's own taste, for now: a weighted draw from the catalog, shaped by
@@ -55,6 +57,8 @@ export class CatalogSetGenerator extends SetGenerator {
 
     constructor(
         private readonly candidates: CandidatesRepository,
+        // The genre steer, read per refill so one an operator just set leans the next batch.
+        private readonly rules: BlockRulesRepository,
         private readonly history: PlayHistoryRepository,
         private readonly identity: StationIdentity,
         private readonly config: AppConfig,
@@ -95,17 +99,30 @@ export class CatalogSetGenerator extends SetGenerator {
         // that it is not an instruction: a year range is exact, so narrowing on it costs the floor
         // none of the guarantee that keeps it the floor. The brief beside it stays unread.
         const era = inputs.era;
-        const sampled = await this.candidates.sample(count, policy, era, trackLengthBounds(this.config));
-        await this.watchStarvation(policy, era, count, sampled.length);
+        const bounds = trackLengthBounds(this.config);
+        const steer = await this.rules.steer();
+        const [ordinary, leaning] = await Promise.all([
+            this.candidates.sample(count, policy, era, bounds),
+            // A second, smaller draw from the steered genres, so a lean toward something the library
+            // holds little of still has records to lean on. Loose here and precise below.
+            steer === undefined ? Promise.resolve([]) : this.candidates.sample(count, policy, era, bounds, steer.genres),
+        ]);
+        await this.watchStarvation(policy, era, count, ordinary.length);
+        const sampled = mergeByTrack(ordinary, leaning);
+        const leans = steer === undefined ? undefined : await this.leaningToward(sampled, steer.genres);
         // Freshness is stamped on what was SAMPLED, so it can only choose between the records the
         // sample drew. That is enough: the sample is random, so over a few refills every record is
         // offered, and the weight decides which of the offered ones win. If it ever has to be true of
         // the whole library in one batch, the fix is ordering the SQL by a randomised function of
         // the age rather than raising the ceiling (the same note #30 makes about a play count).
         const now = DateTime.utc();
-        const scored = sampled.map(track =>
-            toRotationCandidate(track, smartShuffle.enabled ? { lastAired, now, horizonDays: smartShuffle.horizonDays } : undefined),
-        );
+        const scored = sampled.map(track => {
+            const candidate = toRotationCandidate(
+                track,
+                smartShuffle.enabled ? { lastAired, now, horizonDays: smartShuffle.horizonDays } : undefined,
+            );
+            return leans?.has(track.trackId) ? { ...candidate, lean: STEER_LEAN } : candidate;
+        });
 
         // The same rules `PickResolver` applies to every pick from every generator, applied
         // again here and deliberately. Not redundancy: filtering BEFORE the draw is what keeps
@@ -119,6 +136,12 @@ export class CatalogSetGenerator extends SetGenerator {
             artist: candidate.track.artist,
             trackId: candidate.track.trackId,
         }));
+    }
+
+    /** Which drawn records really are in a steered genre, by the same matching a genre rule uses. */
+    private async leaningToward(sampled: readonly CandidateTrack[], genres: readonly string[]): Promise<Set<string>> {
+        const tags = await this.candidates.tagsFor(sampled.map(track => track.trackId));
+        return new Set(sampled.flatMap(track => (steered(tags.get(track.trackId) ?? [], genres) ? [track.trackId] : [])));
     }
 
     /**
@@ -227,3 +250,9 @@ const drawWeighted = (candidates: readonly ScoredCandidate[], count: number): Sc
     }
     return drawn;
 };
+
+/** Two draws as one, each record once, the ordinary draw's copy first. */
+function mergeByTrack(first: readonly CandidateTrack[], second: readonly CandidateTrack[]): CandidateTrack[] {
+    const seen = new Set(first.map(track => track.trackId));
+    return [...first, ...second.filter(track => !seen.has(track.trackId))];
+}

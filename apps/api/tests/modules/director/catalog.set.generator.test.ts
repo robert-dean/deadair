@@ -18,6 +18,7 @@ import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.
 import { DEFAULT_RULES, resolveRules } from '../../../src/modules/director/rotation.rules.js';
 import { DEFAULT_SMART_SHUFFLE_DAYS, SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
+import type { BlockRulesRepository } from '../../../src/modules/director/block.rules.repository.js';
 
 const candidate = (title: string, artist: string, rating = 0): CandidateTrack => ({
     trackId: `id-${artist}-${title}`,
@@ -34,12 +35,20 @@ interface Options {
     /** When each song last aired, as history answers it inside the smart shuffle's horizon. */
     lastAired?: Map<string, DateTime>;
     settings?: Record<string, unknown>;
+    /** A genre steer in force, and the extra sample its loose draw finds. */
+    steer?: { genres: string[]; leaning: CandidateTrack[] };
+    /** Each track's genres, as `tagsFor` answers them. */
+    tags?: Record<string, string[]>;
 }
 
 function build(options: Options = {}) {
     const candidates = {
-        sample: vi.fn(async () => options.sample ?? []),
+        sample: vi.fn(async (...args: unknown[]) => (args[4] === undefined ? (options.sample ?? []) : (options.steer?.leaning ?? []))),
+        tagsFor: vi.fn(async (ids: readonly string[]) => new Map(ids.flatMap(id => (options.tags?.[id] ? [[id, options.tags[id]!]] : [])))),
     } as unknown as CandidatesRepository;
+    const rules = {
+        steer: vi.fn(async () => (options.steer === undefined ? undefined : { genres: options.steer.genres, endsAt: '2099-01-01T00:00:00.000Z' })),
+    } as unknown as BlockRulesRepository;
 
     const history = {
         songKeysSince: vi.fn(async (days: number) => (days > 0 ? (options.songKeys ?? new Set()) : new Set())),
@@ -56,7 +65,7 @@ function build(options: Options = {}) {
     const eraWatch = { starved: vi.fn(), clear: vi.fn() } as unknown as EraWatch;
 
     return {
-        generator: new CatalogSetGenerator(candidates, history, new StationIdentity(), config, watch, eraWatch),
+        generator: new CatalogSetGenerator(candidates, rules, history, new StationIdentity(), config, watch, eraWatch),
         candidates,
         history,
         watch,
@@ -323,5 +332,37 @@ describe('CatalogSetGenerator under smart shuffle', () => {
         const { generator } = build({ sample, lastAired: new Map(sample.map(track => [songKey(track.title, [track.artist]), yesterday()])) });
 
         expect(await generator.generate({ count: 3, rules: rotation })).toHaveLength(3);
+    });
+
+    describe('a genre steer', () => {
+        it('draws the steered genre far more often, and still plays the rest', async () => {
+            const soul = Array.from({ length: 10 }, (_, n) => candidate(`Soul ${n}`, `Soul Artist ${n}`));
+            const other = Array.from({ length: 10 }, (_, n) => candidate(`Other ${n}`, `Other Artist ${n}`));
+            const tags = Object.fromEntries([
+                ...soul.map(track => [track.trackId, ['Northern Soul']]),
+                ...other.map(track => [track.trackId, ['Rock']]),
+            ]);
+            const { generator } = build({ sample: [...soul.slice(0, 3), ...other], steer: { genres: ['Soul'], leaning: soul }, tags });
+
+            let steeredDrawn = 0;
+            let otherDrawn = 0;
+            for (let run = 0; run < 40; run++) {
+                const picks = await generator.generate({ count: 5, rules: DEFAULT_RULES, avoidSongKeys: new Set() } as never);
+                steeredDrawn += picks.filter(pick => pick.title.startsWith('Soul')).length;
+                otherDrawn += picks.filter(pick => pick.title.startsWith('Other')).length;
+            }
+
+            expect(steeredDrawn).toBeGreaterThan(otherDrawn * 2);
+            expect(otherDrawn).toBeGreaterThan(0);
+        });
+
+        it('draws no extra sample and reads no tags when nothing is steering', async () => {
+            const { generator, candidates } = build({ sample: [candidate('One', 'A')] });
+
+            await generator.generate({ count: 1, rules: DEFAULT_RULES, avoidSongKeys: new Set() } as never);
+
+            expect(candidates.sample).toHaveBeenCalledTimes(1);
+            expect(candidates.tagsFor).not.toHaveBeenCalled();
+        });
     });
 });

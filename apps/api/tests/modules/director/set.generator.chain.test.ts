@@ -265,15 +265,23 @@ describe('SetGeneratorChain with the real bindings', () => {
             songKeysSince: vi.fn(async () => new Set<string>()),
             artistKeysSince: vi.fn(async () => new Set<string>()),
             lastAiredSince: vi.fn(async () => new Map()),
-        } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[1];
+        } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[2];
 
         // No advisory setting stored, so the policy resolves to its default and narrows nothing:
         // this helper exists to be the chain's floor, not to exercise the policy.
-        const config = { get: (_key: string, fallback?: unknown) => fallback } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[3];
-        const watch = { starved: vi.fn(), clear: vi.fn() } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[4];
-        const eraWatch = { starved: vi.fn(), clear: vi.fn() } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[5];
+        const config = { get: (_key: string, fallback?: unknown) => fallback } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[4];
+        const watch = { starved: vi.fn(), clear: vi.fn() } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[5];
+        const eraWatch = { starved: vi.fn(), clear: vi.fn() } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[6];
 
-        return new CatalogSetGenerator(candidates, history, new StationIdentity(), config, watch, eraWatch);
+        return new CatalogSetGenerator(
+            candidates,
+            { steer: async () => undefined } as never,
+            history,
+            new StationIdentity(),
+            config,
+            watch,
+            eraWatch,
+        );
     }
 
     /** The model binding as an operator who never turned it on has it. */

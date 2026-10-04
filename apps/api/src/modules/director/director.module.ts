@@ -35,6 +35,7 @@ import { ClockBandRepository } from './clock.band.repository.js';
 import { ClockService } from './clock.service.js';
 import { BlockRulesRepository } from './block.rules.repository.js';
 import { BlockRulesService } from './block.rules.service.js';
+import { NeverPlay } from './never.play.js';
 import { AdvisoryWatch } from './advisory.watch.js';
 import { BreakFloorWatch } from './break.floor.watch.js';
 import { EraWatch } from './era.watch.js';
@@ -296,6 +297,7 @@ export const DirectorModule: ServerKitModule = {
         // the console, so it is scoped like every other repository here. See `block.rules.ts`.
         registry.register(BlockRulesRepository).useClass(BlockRulesRepository).asScoped();
         registry.register(BlockRulesService).useClass(BlockRulesService).asScoped();
+        registry.register(NeverPlay).useClass(NeverPlay).asScoped();
 
         // The first producer on the station bus: somebody tuned in, so ask for a greeting. A
         // singleton because it holds a subscription, and its own class rather than a branch in the

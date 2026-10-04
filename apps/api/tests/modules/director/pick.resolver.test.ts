@@ -10,6 +10,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
 
 import type { BlockRule } from '../../../src/modules/director/block.rules.js';
+import { NeverPlay } from '../../../src/modules/director/never.play.js';
 import { ADVISORY_KEY } from '../../../src/modules/director/advisory.policy.js';
 import { discoveryCap, DISCOVER_KEY, MAX_DISCOVERIES, MIN_DISCOVERIES, PickResolver } from '../../../src/modules/director/pick.resolver.js';
 import type { ProviderTrackLookup } from '../../../src/modules/director/provider.track.lookup.js';
@@ -180,7 +181,7 @@ function build(options: Options = {}) {
     return {
         resolver: new PickResolver(
             candidates,
-            blockRules,
+            new NeverPlay(blockRules, candidates, config),
             tracks,
             analysis,
             history,

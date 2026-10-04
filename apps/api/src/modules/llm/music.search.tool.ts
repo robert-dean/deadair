@@ -9,6 +9,7 @@ import { QueuedRecords } from '#modules/shared/queued.records.js';
 import { AiredRecords } from '#modules/shared/aired.records.js';
 import { SearchedRecords } from '#modules/shared/searched.records.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { NeverPlay } from '#modules/director/never.play.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { ProviderSearch, type FoundTrack } from './provider.search.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
@@ -64,6 +65,9 @@ import type { StationTool, ToolSource } from './llm.tools.js';
  * floor quietly fills the rest of the hour.
  */
 const MAX_RESULTS = 25;
+
+/** How many times the asked-for rows the library half is read when a never-play rule holds, before it is cut back. */
+const NEVER_PLAY_OVERFETCH = 3;
 
 /**
  * How few records a search may answer with, whatever was asked for.
@@ -164,6 +168,8 @@ export class MusicSearchTool implements ToolSource {
         // the answer when the model stops talking is the refill's question. See `SearchedRecords`.
         private readonly searched: SearchedRecords,
         private readonly identity: StationIdentity,
+        // Never-play rules, so the model is not offered what the station will refuse. See `ownedAllowed`.
+        private readonly neverPlay: NeverPlay,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -244,7 +250,7 @@ export class MusicSearchTool implements ToolSource {
         //
         // The seed is the broadcast, which is what makes the library's arbitrary ordering hold still
         // for one programme and move between them. See `searchPlayable`'s order clause.
-        const owned = await this.tracks.searchPlayable(query, limit, cleanOnly, { ...filters, ...seedOf(this.identity.current()) });
+        const owned = await this.ownedAllowed(query, limit, cleanOnly, { ...filters, ...seedOf(this.identity.current()) });
 
         const reaching = owned.length < THIN || settingIsOn(this.config, MUSIC_SEARCH_KEYS.alwaysReach, ALWAYS_REACH_DEFAULT);
         const reached = reaching ? (await this.providers.search(query, filters, MAX_RESULTS)).tracks : [];
@@ -260,6 +266,27 @@ export class MusicSearchTool implements ToolSource {
         this.logger.debug('llm: searched for music', { query, ...filters, owned: owned.length, reached: reached.length, answered: rows.length });
 
         return { tracks: rows };
+    }
+
+    /**
+     * The library's half, without what a never-play rule forbids.
+     *
+     * Over-fetched three times and cut back when a rule holds, because a model shown too few rows pads
+     * its answer with repeats and the floor quietly fills the hour. Asked with no broadcast, so a
+     * rule scoped to a mode or a block is not judged here; `PickResolver` judges every pick against
+     * the broadcast it is for, and this only keeps the model from being offered what the station
+     * will refuse anyway. Provider rows the catalog has never seen carry no tags and are judged there.
+     */
+    private async ownedAllowed(query: string, limit: number, cleanOnly: boolean, options: Parameters<TracksRepository['searchPlayable']>[3]) {
+        const rules = await this.neverPlay.holding();
+        if (rules.length === 0) return await this.tracks.searchPlayable(query, limit, cleanOnly, options);
+
+        const rows = await this.tracks.searchPlayable(query, limit * NEVER_PLAY_OVERFETCH, cleanOnly, options);
+        const blocked = await this.neverPlay.blockedUnder(
+            rules,
+            rows.map(row => row.trackId),
+        );
+        return rows.filter(row => !blocked.has(row.trackId)).slice(0, limit);
     }
 
     /**

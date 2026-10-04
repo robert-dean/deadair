@@ -341,6 +341,18 @@ public sealed record TrackStateCounts
 
     [JsonPropertyName("failing")]
     public required long Failing { get; init; }
+
+    /// <summary>A lyrics source has the words of it. The words themselves are never served</summary>
+    [JsonPropertyName("lyrics")]
+    public required long Lyrics { get; init; }
+
+    /// <summary>A lyrics source has the timing of its lines, which says when the singing starts</summary>
+    [JsonPropertyName("synced")]
+    public required long Synced { get; init; }
+
+    /// <summary>A lyrics source says nobody sings on it</summary>
+    [JsonPropertyName("instrumental")]
+    public required long Instrumental { get; init; }
 }
 
 /// <summary>

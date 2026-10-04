@@ -1,10 +1,10 @@
 ---
 title: Plugins
 sidebar_position: 9
-description: The twenty-one bundled plugins that bring the station its music, facts, voice, words and measurements, and how trust and permissions work.
+description: The twenty-two bundled plugins that bring the station its music, facts, voice, words and measurements, and how trust and permissions work.
 ---
 
-Almost everything the station reaches outside itself is a plugin: where the music comes from, what it knows about a record, how it speaks, which model writes its words, and the program that measures its audio. Twenty-one are bundled in the image, and each is switched on and configured from its own page. A plugin somebody else wrote is installed by importing it from the console, or by copying it into the plugins folder on the station's data volume, and is then held to exactly the same rules.
+Almost everything the station reaches outside itself is a plugin: where the music comes from, what it knows about a record, how it speaks, which model writes its words, and the program that measures its audio. Twenty-two are bundled in the image, and each is switched on and configured from its own page. A plugin somebody else wrote is installed by importing it from the console, or by copying it into the plugins folder on the station's data volume, and is then held to exactly the same rules.
 
 ![The plugin catalogue: a card per plugin and its state](/img/console/plugins.webp)
 *Fig. 1. The plugins.*
@@ -13,7 +13,7 @@ Almost everything the station reaches outside itself is a plugin: where the musi
 
 With no model the station writes its own breaks from its phrasings. With no voice it plays records. With no analyzer every record plays, unmeasured. The one it cannot do without is a music provider: there is nothing to programme until there are records.
 
-## The bundled twenty-one
+## The bundled twenty-two
 
 **Music**
 
@@ -26,6 +26,7 @@ With no model the station writes its own breaks from its phrasings. With no voic
 - **MusicBrainz and ListenBrainz.** Canonical identity for artists, releases and recordings, with genres, label, cover art and artist background. A free ListenBrainz token, or your own mirror, gets past the public service's one request a second. It also answers who sounds like whom, from ListenBrainz's listening data: similar artists need no token, while naming an artist's best known records, and the records people play alongside one record, do. With a token it can also scrobble what the station plays to that ListenBrainz account, which is off by default and switched on in the plugin's settings. It is a separate destination from Last.fm, so either can be down without costing the other its plays.
 - **Last.fm.** Community tags as genres and moods, artist background, the charts, who sounds like whom, and scrobbling, which is off by default. Its terms are non-commercial.
 - **Deezer.** Who sounds like whom, and what to play by them. It needs no account and no API key, so it is the one similarity source that works the moment you switch it on. It sits alongside Last.fm rather than instead of it: two sources disagreeing about who resembles an artist are not in conflict, and the station keeps every name both offer.
+- **LRCLIB.** The words of each record and the timing of each line, from an open lyrics database you can also run yourself. The station never says or shows a lyric: it uses the timings to know when the singing starts. It asks nothing until you switch on looking up lyrics under Settings → Measurement, and its lyrics are contributed by volunteers with their rights cleared by nobody, so keeping them is your call.
 - **Wikipedia.** Articles about the songs, records and artists in the library, in the language you choose. The station draws its facts from this prose and keeps the sentence behind each. See [claims](./claims.md). It also answers what happened on today's date, which is what a [This day break](./breaks.md#this-day-in-history) reads out, once it has been given a contact address.
 
 **The world outside**
@@ -59,7 +60,7 @@ With no model the station writes its own breaks from its phrasings. With no voic
 
 ## One capability nothing bundled fills
 
-A **narration** plugin hands the station text to read out whole: a chapter, an issue, a long read. The station reads it in its presenter's voice, and there is a page in the console for what it has read, but none of the twenty-one above offers anything to read. That one waits on a plugin somebody else wrote, or one you write. See [readings](./narrations.md).
+A **narration** plugin hands the station text to read out whole: a chapter, an issue, a long read. The station reads it in its presenter's voice, and there is a page in the console for what it has read, but none of the twenty-two above offers anything to read. That one waits on a plugin somebody else wrote, or one you write. See [readings](./narrations.md).
 
 ## Plugins are trusted code
 

@@ -103,6 +103,7 @@ import {
 } from '#modules/analysis/analysis.settings.js';
 import { CHARTS_KEYS } from '#modules/charts/charts.keys.js';
 import { ENRICHMENT_KEYS } from '#modules/enrichment/enrichment.keys.js';
+import { LYRICS_FETCH_DEFAULT, LYRICS_KEYS } from '#modules/lyrics/lyrics.keys.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { TRANSCODE_PLUGIN_KEY } from '#modules/render/transcode.settings.js';
 import { SHARE_COPY_DAYS_DEFAULT, SHARE_COPY_DAYS_KEY, SHARE_COPY_DAYS_MAX, SHARE_COPY_DAYS_MIN } from '#modules/render/segment.share.settings.js';
@@ -1565,6 +1566,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         max: MAX_ANALYSIS_PACE_MS,
         help: 'A record the station has already kept costs no provider request to measure, so this can be far shorter than the download pause above — but it is not free: it is still disk and decode time on whatever machine is running the analyzer. Set to 0 to measure the local half of the library flat out.',
     },
+    {
+        group: 'analysis',
+        key: LYRICS_KEYS.fetch,
+        label: 'Look up the words of each record',
+        type: 'boolean',
+        default: LYRICS_FETCH_DEFAULT,
+        help: 'Asks your lyrics plugins for the words of each record and the timing of each line, a few records at a time in the background. The station never says or shows them: what it uses is when the singing starts and stops, and what a record is about. Lyrics are somebody else’s copyrighted text and the sources are run by volunteers, so this stays off until you decide to keep them.',
+    },
 
     // ── schedule ───────────────────────────────────────────────────────────────
     // What plays in the hours no block claims — what a broadcaster calls a
@@ -1975,6 +1984,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         placeholder: 'No order set, so each plugin’s own declared priority decides.',
         columns: [{ key: 'source', label: 'Source', type: 'select', required: true }],
         help: 'Every source is asked about a record and the answers are merged field by field, so this only decides who wins where two of them disagree — about a release year, a label, a running time. Each plugin already declares how much to trust it, which is the author’s view of their own source and the order used when this is empty. Set it when you can see that on your library one source is right and another is not. It changes what is looked up next rather than what is already stored: a record keeps the details it was filled in with until something enriches it again.',
+    },
+    {
+        group: 'providers',
+        key: LYRICS_KEYS.providerOrder,
+        label: 'Which lyrics source to ask first',
+        type: 'list',
+        placeholder: 'No order set, so each plugin’s own declared priority decides.',
+        columns: [{ key: 'source', label: 'Source', type: 'select', required: true }],
+        help: 'Every lyrics source is asked about a record and each answer is kept, since one may have the timing of each line where another has only the words. This decides who is asked first. A record whose words were found is not asked about again.',
     },
 ];
 

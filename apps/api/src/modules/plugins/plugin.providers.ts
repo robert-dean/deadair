@@ -3,6 +3,7 @@ import {
     PLUGIN_CAPABILITY_CHARTS,
     PLUGIN_CAPABILITY_ENRICHMENT,
     PLUGIN_CAPABILITY_LLM,
+    PLUGIN_CAPABILITY_LYRICS,
     PLUGIN_CAPABILITY_MIXER,
     PLUGIN_CAPABILITY_SIMILARITY,
     PLUGIN_CAPABILITY_SPEECH,
@@ -15,6 +16,7 @@ import { ANALYSIS_PLUGIN_KEY } from '#modules/analysis/analysis.settings.js';
 import { CHARTS_KEYS } from '#modules/charts/charts.keys.js';
 import { ENRICHMENT_KEYS } from '#modules/enrichment/enrichment.keys.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
+import { LYRICS_KEYS } from '#modules/lyrics/lyrics.keys.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { TRANSCODE_PLUGIN_KEY } from '#modules/render/transcode.settings.js';
@@ -23,6 +25,7 @@ import { WEATHER_KEYS } from '#modules/weather/weather.keys.js';
 import {
     asAnalysisPlugin,
     asLlmPlugin,
+    asLyricsPlugin,
     asMixerPlugin,
     asChartsPlugin,
     asEnrichmentPlugin,
@@ -34,6 +37,7 @@ import {
     type ChartsPlugin,
     type EnrichmentPlugin,
     type LlmPlugin,
+    type LyricsPlugin,
     type MixerPlugin,
     type SimilarityPlugin,
     type SpeechPlugin,
@@ -179,6 +183,15 @@ export const PROVIDER_CAPABILITIES = {
         // it for those plugins only.
         fallback: (left, right) => left.priority - right.priority,
     } satisfies ProviderCapability<EnrichmentPlugin>,
+    [PLUGIN_CAPABILITY_LYRICS]: {
+        capability: PLUGIN_CAPABILITY_LYRICS,
+        mode: 'ordered',
+        settingKey: LYRICS_KEYS.providerOrder,
+        as: asLyricsPlugin,
+        // Enrichment's rule and for its reason: a lyrics source declares how far to trust it, and an
+        // empty setting reproduces that order exactly.
+        fallback: (left, right) => left.priority - right.priority,
+    } satisfies ProviderCapability<LyricsPlugin>,
 } as const;
 
 /** Every entry, in the order the console draws them. */

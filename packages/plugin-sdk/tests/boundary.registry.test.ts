@@ -43,6 +43,7 @@ const BOUNDARY_SOURCE_FILES = [
     'capabilities/scrobble.ts',
     'capabilities/messaging.ts',
     'capabilities/output.ts',
+    'capabilities/lyrics.ts',
 ] as const;
 
 function exportedInterfacesIn(relativePath: string): string[] {

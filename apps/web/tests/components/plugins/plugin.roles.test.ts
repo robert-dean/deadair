@@ -10,7 +10,7 @@ describe('capabilityLabel', () => {
     });
 
     it('falls back to the id for a capability this console has never heard of', () => {
-        expect(capabilityLabel('lyrics')).toBe('lyrics');
+        expect(capabilityLabel('karaoke')).toBe('karaoke');
     });
 });
 
@@ -25,7 +25,7 @@ describe('roleOf', () => {
     });
 
     it('puts a plugin nobody claims under Other rather than nowhere', () => {
-        expect(roleOf(pluginSummary({ capabilities: ['lyrics'] }))).toBe(OTHER_ROLE);
+        expect(roleOf(pluginSummary({ capabilities: ['karaoke'] }))).toBe(OTHER_ROLE);
         expect(roleOf(pluginSummary({ capabilities: [] }))).toBe(OTHER_ROLE);
     });
 });
@@ -35,7 +35,7 @@ describe('groupByRole', () => {
         const groups = groupByRole([
             pluginSummary({ id: 'x.rss', name: 'RSS', capabilities: ['news'] }),
             pluginSummary({ id: 'x.spotify', name: 'Spotify', capabilities: ['catalog', 'stream'] }),
-            pluginSummary({ id: 'x.lyrics', name: 'Lyrics', capabilities: ['lyrics'] }),
+            pluginSummary({ id: 'x.karaoke', name: 'Karaoke', capabilities: ['karaoke'] }),
             pluginSummary({ id: 'x.navidrome', name: 'Navidrome', capabilities: ['catalog', 'stream'] }),
         ]);
 

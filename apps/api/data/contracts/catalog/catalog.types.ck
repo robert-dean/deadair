@@ -200,6 +200,9 @@ contract TrackStateCounts: {
     enriched: readonly int(min=0)
     benched: readonly int(min=0)
     failing: readonly int(min=0)
+    lyrics: readonly int(min=0) # A lyrics source has the words of it. The words themselves are never served
+    synced: readonly int(min=0) # A lyrics source has the timing of its lines, which says when the singing starts
+    instrumental: readonly int(min=0) # A lyrics source says nobody sings on it
 }
 
 # A track as a LIST shows it: the record, plus three facts about what the station has of it.

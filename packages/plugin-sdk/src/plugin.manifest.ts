@@ -220,6 +220,12 @@ export const PLUGIN_CAPABILITY_MESSAGING = 'messaging';
  */
 export const PLUGIN_CAPABILITY_OUTPUT = 'output';
 
+/**
+ * Finds the words of a record and the timings of its lines. Read by the host
+ * and never said: `capabilities/lyrics.ts` says why it is not enrichment.
+ */
+export const PLUGIN_CAPABILITY_LYRICS = 'lyrics';
+
 export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_CATALOG,
     PLUGIN_CAPABILITY_STREAM,
@@ -242,6 +248,7 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_SCROBBLE,
     PLUGIN_CAPABILITY_MESSAGING,
     PLUGIN_CAPABILITY_OUTPUT,
+    PLUGIN_CAPABILITY_LYRICS,
 ] as const;
 
 export type KnownPluginCapability = (typeof KNOWN_PLUGIN_CAPABILITIES)[number];

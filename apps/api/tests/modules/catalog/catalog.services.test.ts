@@ -57,7 +57,9 @@ const trackRow = () => ({
 const listRow = (overrides: Record<string, unknown> = {}) => ({ ...trackRow(), hasAudio: false, measured: false, enriched: false, ...overrides });
 
 /** The counts beside a page. Zeroes unless a test is about them. */
-const trackStateCounts = vi.fn().mockResolvedValue({ total: 0, cached: 0, measured: 0, enriched: 0, benched: 0, failing: 0 });
+const trackStateCounts = vi
+    .fn()
+    .mockResolvedValue({ total: 0, cached: 0, measured: 0, enriched: 0, benched: 0, failing: 0, lyrics: 0, synced: 0, instrumental: 0 });
 
 /**
  * A row as the CONSOLE sees it: the repository answers with the column's `-1 / 0 / 1` and the
@@ -261,13 +263,25 @@ describe('TracksService', () => {
     // how many are benched".
     it('counts the states over the same set the page came from', async () => {
         const listTracks = vi.fn().mockResolvedValue({ total: 8, data: [listRow()] });
-        const counts = vi.fn().mockResolvedValue({ total: 8, cached: 3, measured: 1, enriched: 5, benched: 0, failing: 2 });
+        const counts = vi
+            .fn()
+            .mockResolvedValue({ total: 8, cached: 3, measured: 1, enriched: 5, benched: 0, failing: 2, lyrics: 4, synced: 3, instrumental: 1 });
         const service = tracksService({ listTracks, trackStateCounts: counts });
 
         const result = await service.listTracks(query({ search: 'vaka' }));
 
         expect(counts).toHaveBeenCalledWith(expect.objectContaining({ search: 'vaka' }), undefined);
-        expect(result.states).toEqual({ total: 8, cached: 3, measured: 1, enriched: 5, benched: 0, failing: 2 });
+        expect(result.states).toEqual({
+            total: 8,
+            cached: 3,
+            measured: 1,
+            enriched: 5,
+            benched: 0,
+            failing: 2,
+            lyrics: 4,
+            synced: 3,
+            instrumental: 1,
+        });
     });
 
     it('hands the chosen state through to the query', async () => {

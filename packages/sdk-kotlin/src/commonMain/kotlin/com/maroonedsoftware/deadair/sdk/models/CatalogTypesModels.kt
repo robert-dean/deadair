@@ -245,6 +245,12 @@ data class TrackStateCounts(
     val enriched: Long,
     val benched: Long,
     val failing: Long,
+    /** A lyrics source has the words of it. The words themselves are never served */
+    val lyrics: Long,
+    /** A lyrics source has the timing of its lines, which says when the singing starts */
+    val synced: Long,
+    /** A lyrics source says nobody sings on it */
+    val instrumental: Long,
 )
 
 /**

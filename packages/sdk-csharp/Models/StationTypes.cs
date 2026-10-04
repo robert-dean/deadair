@@ -101,6 +101,38 @@ public sealed record StationBacklog
 /// </summary>
 public sealed record StationBacklogInput;
 
+/// <summary>
+/// Who has the station's one model slot, and how many are waiting for it.
+///
+/// The model is shared by every break, every programme refill and every production, one generation at
+/// a time, so a slot held for far longer than any generation takes is the station's ability to speak
+/// stuck behind one answer. Nothing else exposes it.
+/// </summary>
+public sealed record StationModelHolder
+{
+    /// <summary>Whose work it is: `breaking` and `air` have a deadline, `background` (a refill, a production) does not, `preview` is an operator trying something</summary>
+    [JsonPropertyName("priority")]
+    public required StationModelHolderPriority Priority { get; init; }
+
+    /// <summary>When it took the slot. Every generation is bounded at ten minutes, so a holder older than that is a stream that stopped arriving</summary>
+    [JsonPropertyName("heldSince")]
+    public required DateTimeOffset HeldSince { get; init; }
+
+    /// <summary>The model plugin answering it</summary>
+    [JsonPropertyName("plugin")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Plugin { get; init; }
+}
+
+/// <summary>
+/// Who has the station's one model slot, and how many are waiting for it.
+///
+/// The model is shared by every break, every programme refill and every production, one generation at
+/// a time, so a slot held for far longer than any generation takes is the station's ability to speak
+/// stuck behind one answer. Nothing else exposes it.
+/// </summary>
+public sealed record StationModelHolderInput;
+
 /// <summary>One release of the station, in the words its changelog entry used</summary>
 public sealed record StationRelease
 {
@@ -160,10 +192,62 @@ public sealed record AttentionItem
     public List<AttentionEvidence>? Evidence { get; init; }
 }
 
+/// <summary>The model slot and its queue</summary>
+public sealed record StationModel
+{
+    /// <summary>Callers queued behind whoever holds the slot</summary>
+    [JsonPropertyName("waiting")]
+    public required long Waiting { get; init; }
+
+    /// <summary>Absent while the model is free</summary>
+    [JsonPropertyName("holder")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public StationModelHolder? Holder { get; init; }
+}
+
+/// <summary>The model slot and its queue</summary>
+public sealed record StationModelInput;
+
+/// <summary>What this build is, and what changed in it</summary>
+public sealed record StationReleases
+{
+    /// <summary>The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read</summary>
+    [JsonPropertyName("current")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Current { get; init; }
+
+    /// <summary>Every release this build contains, newest first</summary>
+    [JsonPropertyName("notes")]
+    public required List<StationRelease> Notes { get; init; }
+
+    /// <summary>Whether the station asks GitHub for newer releases, which the operator switches under Settings, Station</summary>
+    [JsonPropertyName("checks")]
+    public required bool Checks { get; init; }
+
+    /// <summary>When GitHub last answered. Absent until it has, and while the check is switched off</summary>
+    [JsonPropertyName("checkedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? CheckedAt { get; init; }
+
+    /// <summary>Releases newer than this build, newest first, each with its notes and its page. Empty when there are none, while the check is off, and until GitHub has answered</summary>
+    [JsonPropertyName("available")]
+    public required List<StationRelease> Available { get; init; }
+}
+
+/// <summary>What this build is, and what changed in it</summary>
+public sealed record StationReleasesInput;
+
+/// <summary>Everything wrong or waiting, worst first</summary>
+public sealed record StationAttention
+{
+    [JsonPropertyName("items")]
+    public required List<AttentionItem> Items { get; init; }
+}
+
 /// <summary>
 /// One reading of the machinery, for a page that assembles the station's health.
 ///
-/// It carries ONLY the two signals nothing else exposes. Everything else a check-up shows — the
+/// It carries ONLY the signals nothing else exposes. Everything else a check-up shows — the
 /// silence verdict, the listener count, what needs somebody, the plugin statuses, the disk — is
 /// already on a contract the console reads, and composing them again here would be a second answer
 /// that can disagree with the first. `/playout/status` in particular is polled every two seconds for
@@ -204,12 +288,16 @@ public sealed record StationCheckup
     [JsonPropertyName("backlog")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public StationBacklog? Backlog { get; init; }
+
+    [JsonPropertyName("model")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public StationModel? Model { get; init; }
 }
 
 /// <summary>
 /// One reading of the machinery, for a page that assembles the station's health.
 ///
-/// It carries ONLY the two signals nothing else exposes. Everything else a check-up shows — the
+/// It carries ONLY the signals nothing else exposes. Everything else a check-up shows — the
 /// silence verdict, the listener count, what needs somebody, the plugin statuses, the disk — is
 /// already on a contract the console reads, and composing them again here would be a second answer
 /// that can disagree with the first. `/playout/status` in particular is polled every two seconds for
@@ -229,42 +317,6 @@ public sealed record StationCheckup
 /// </summary>
 public sealed record StationCheckupInput;
 
-/// <summary>What this build is, and what changed in it</summary>
-public sealed record StationReleases
-{
-    /// <summary>The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read</summary>
-    [JsonPropertyName("current")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Current { get; init; }
-
-    /// <summary>Every release this build contains, newest first</summary>
-    [JsonPropertyName("notes")]
-    public required List<StationRelease> Notes { get; init; }
-
-    /// <summary>Whether the station asks GitHub for newer releases, which the operator switches under Settings, Station</summary>
-    [JsonPropertyName("checks")]
-    public required bool Checks { get; init; }
-
-    /// <summary>When GitHub last answered. Absent until it has, and while the check is switched off</summary>
-    [JsonPropertyName("checkedAt")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public DateTimeOffset? CheckedAt { get; init; }
-
-    /// <summary>Releases newer than this build, newest first, each with its notes and its page. Empty when there are none, while the check is off, and until GitHub has answered</summary>
-    [JsonPropertyName("available")]
-    public required List<StationRelease> Available { get; init; }
-}
-
-/// <summary>What this build is, and what changed in it</summary>
-public sealed record StationReleasesInput;
-
-/// <summary>Everything wrong or waiting, worst first</summary>
-public sealed record StationAttention
-{
-    [JsonPropertyName("items")]
-    public required List<AttentionItem> Items { get; init; }
-}
-
 /// <summary>`failure` is the station not doing its job, `warning` is something failing beside a station that is working, and `notice` is a thing nobody has set up yet. A notice is not a fault and must not be drawn as one</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<AttentionItemSeverity>))]
 public enum AttentionItemSeverity
@@ -277,4 +329,21 @@ public enum AttentionItemSeverity
 
     [JsonStringEnumMemberName("notice")]
     Notice,
+}
+
+/// <summary>Whose work it is: `breaking` and `air` have a deadline, `background` (a refill, a production) does not, `preview` is an operator trying something</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<StationModelHolderPriority>))]
+public enum StationModelHolderPriority
+{
+    [JsonStringEnumMemberName("breaking")]
+    Breaking,
+
+    [JsonStringEnumMemberName("air")]
+    Air,
+
+    [JsonStringEnumMemberName("background")]
+    Background,
+
+    [JsonStringEnumMemberName("preview")]
+    Preview,
 }

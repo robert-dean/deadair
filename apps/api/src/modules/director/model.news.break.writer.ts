@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { languageGuard, stationPromptSettings } from './prompt.settings.js';
+import { languageGuard, speakerGuard, stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { breakPrompt, readAnswer, writeDecline, writeTrim, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
@@ -230,6 +230,7 @@ export class ModelNewsBreakWriter extends BreakWriter {
             // rather than aired: "Lovefool just slid into the mix" ahead of Lovefool. See `misCuedIn`.
             ...(request.next === undefined ? {} : { cues: { next: request.next } }),
             ...languageGuard(this.config),
+            ...speakerGuard(this.config, request),
         };
         const script = readAnswer(result.text, guard);
 

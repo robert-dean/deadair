@@ -573,7 +573,7 @@ export interface DeadairPersonas {
   growth: "proposes" | "self-directed" | null;
   id: Generated<string>;
   key: string;
-  kind: Generated<"host" | "caller">;
+  kind: Generated<"host" | "caller" | "newsreader">;
   label: string;
   latitude: string | null;
   preoccupations: Generated<Json>;
@@ -1041,6 +1041,7 @@ export interface DeadairTracks {
   artistId: string;
   artists: string;
   createdAt: Generated<DateTime>;
+  discNumber: number | null;
   durationMs: number | null;
   genre: string | null;
   id: Generated<string>;
@@ -1049,6 +1050,7 @@ export interface DeadairTracks {
   rating: Generated<number>;
   title: string;
   titleKey: string;
+  trackNumber: number | null;
   updatedAt: Generated<DateTime>;
   year: number | null;
 }

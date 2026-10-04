@@ -4,6 +4,7 @@ import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
 import { readForwardedHop } from '#modules/shared/forwarded.reading.js';
 import { TracksRepository, type FaultingTrack } from '#modules/catalog/tracks.repository.js';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
+import { BreakFloorWatch } from '#modules/director/break.floor.watch.js';
 import { PlayoutService } from '#modules/playout/playout.service.js';
 import { PluginsService } from '#modules/plugins/plugins.service.js';
 import { SpotifyShimClient } from '#modules/stream/spotify.shim.client.js';
@@ -38,6 +39,12 @@ import type { StationAttention } from './types/station.types.js';
  * set of sentences. The status call is what the console already polls for the transport strip, so
  * this is the same answer arriving by a second road rather than a different one.
  */
+/** The watch's run as a fact, or nothing. Memory, so there is nothing here to fail. */
+const floorFact = (watch: BreakFloorWatch): Pick<AttentionFacts, 'floor'> => {
+    const reading = watch.reading();
+    return reading === undefined ? {} : { floor: reading };
+};
+
 @Injectable()
 export class StationAttentionService {
     constructor(
@@ -46,6 +53,7 @@ export class StationAttentionService {
         private readonly tracks: TracksRepository,
         private readonly plugins: PluginsService,
         private readonly fetcher: SpotifyShimClient,
+        private readonly floorWatch: BreakFloorWatch,
         private readonly logger: Logger,
     ) {}
 
@@ -75,6 +83,7 @@ export class StationAttentionService {
             // it never uses, which is precisely the wrong entry that teaches an operator to skim.
             unauthorizedFetcher: await this.unauthorizedFetcher(plugins.fetches),
             singleHop: readForwardedHop(),
+            ...floorFact(this.floorWatch),
         };
 
         return { items: attention(facts) };

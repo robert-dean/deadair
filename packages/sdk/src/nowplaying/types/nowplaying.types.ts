@@ -40,11 +40,13 @@ export interface NowPlayingShow {
     name: string;
     /** Who is presenting, by the name they go by on air. Absent when there is no name to give: no persona on air with one, and no station-wide presenter name set. Never the persona's console label */
     host?: string;
+    /** A picture of whoever is presenting, when the operator gave their persona one. A path under the API root, like a cover's. Absent for a persona with no picture, which a player answers by showing the record's cover as before */
+    hostArtUrl?: string;
 }
 
 /**
  * What the station is playing, for anything that wants to display it
- * generated from [NowPlaying](../../../../../apps/api/data/contracts/nowplaying/nowplaying.types.ck#L29)
+ * generated from [NowPlaying](../../../../../apps/api/data/contracts/nowplaying/nowplaying.types.ck#L30)
  */
 export interface NowPlaying {
     /** The station's on-air name */

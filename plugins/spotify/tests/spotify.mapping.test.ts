@@ -37,6 +37,11 @@ describe('mapTrack', () => {
         });
     });
 
+    it('carries where the track sits on its album', () => {
+        expect(mapTrack({ id: 'track-1', name: 'Song Title', track_number: 7, disc_number: 2 })).toMatchObject({ trackNumber: 7, discNumber: 2 });
+        expect(mapTrack({ id: 'track-1', name: 'Song Title' })).not.toHaveProperty('trackNumber');
+    });
+
     it('carries the popularity, which is what a browse is ordered by', () => {
         const track = mapTrack({ id: 'track-1', name: 'Respect', popularity: 82 });
 

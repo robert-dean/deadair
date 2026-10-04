@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { PlayoutChartInput, PlayoutPlaylistInput, PlayoutStationPlaylistInput, PlayoutStatus } from '@deadair/sdk';
+import type { PlayoutChartInput, PlayoutPlaylistInput, PlayoutAlbumInput, PlayoutStationPlaylistInput, PlayoutStatus } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -115,6 +115,17 @@ export function usePlayStationPlaylist() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (input: PlayoutStationPlaylistInput) => sdk.playout.playAStationPlaylist(input),
+        onSuccess: status => {
+            followTransport(queryClient, status);
+        },
+    });
+}
+
+/** Plays an album the library holds, whole and in order, as a feature. */
+export function usePlayAlbum() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (input: PlayoutAlbumInput) => sdk.playout.playAnAlbum(input),
         onSuccess: status => {
             followTransport(queryClient, status);
         },

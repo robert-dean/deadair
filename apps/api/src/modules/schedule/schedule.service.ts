@@ -8,7 +8,14 @@ import { DirectorService } from '#modules/director/director.service.js';
 import type { ChartOrder } from '#modules/director/chart.picks.js';
 import { isChartSource, isStationPlaylistSource, minutesIntoSlot, overlap, resolveSlot, type ScheduleSlot } from '#modules/director/schedule.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
-import { CAP_OVERRUN_KEY, DEFAULT_CAP_OVERRUN, OVERRUN_MINUTES_KEY, resolveOverrunMinutes } from './changeover.overrun.js';
+import {
+    CAP_OVERRUN_KEY,
+    DEFAULT_CAP_OVERRUN,
+    OVERRUN_FADE_MS_KEY,
+    OVERRUN_MINUTES_KEY,
+    resolveOverrunFadeMs,
+    resolveOverrunMinutes,
+} from './changeover.overrun.js';
 import type { ScheduleNow, ScheduleSlotInput, ScheduleSlotList, ScheduleTimetable, ScheduleTimetableQuery } from './types/schedule.types.js';
 import { project, stamp, type StationDate } from './schedule.occurrences.js';
 import { ScheduleRepository, type ScheduleSlotDraft } from './schedule.repository.js';
@@ -188,6 +195,11 @@ export class ScheduleService {
         return resolveOverrunMinutes(this.config.get(OVERRUN_MINUTES_KEY, ''));
     }
 
+    /** How long a record cut at its limit takes to fade out, in milliseconds. Zero cuts. See `changeover.overrun.ts`. */
+    overrunFadeMs(): number {
+        return resolveOverrunFadeMs(this.config.get(OVERRUN_FADE_MS_KEY, ''));
+    }
+
     /** Whole minutes since `slot` began, on the station's own clock. `slot` must be the one in force. */
     minutesInto(slot: ScheduleSlot, at: number = Date.now()): number {
         return minutesIntoSlot(slot, at, stationZone(this.config));
@@ -263,7 +275,8 @@ export class ScheduleService {
      * with the grid.
      */
     async current(): Promise<ScheduleNow> {
-        const clock = readClock(Date.now(), stationZone(this.config));
+        const zone = stationZone(this.config);
+        const clock = readClock(Date.now(), zone);
         const today: StationDate = { year: clock.year, month: clock.month, day: clock.day, weekday: clock.weekday };
         const now = stamp(today, clock.hour * 60 + clock.minute, clock.second);
 
@@ -279,6 +292,7 @@ export class ScheduleService {
 
         return {
             now,
+            timezone: zone,
             ...(inForce === undefined ? {} : { slotId: inForce.id }),
             ...(airing === undefined ? {} : { airingSlotId: airing }),
             upcoming,

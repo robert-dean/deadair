@@ -40,7 +40,7 @@ function plugin(over: { id: string; name: string; capabilities: string[]; usesTr
 /** The shim answering as it does in the production image: up, and holding no login of its own. */
 const unauthorized: FetcherAuthorizationState = { reachable: true, configured: true, authorized: false, session: false };
 
-function service(over: { plugins?: unknown[]; authorization?: FetcherAuthorizationState } = {}) {
+function service(over: { plugins?: unknown[]; authorization?: FetcherAuthorizationState; floor?: { since: number; breaks: number } } = {}) {
     const playout = { getStatus: () => Promise.resolve({ silence: airing }) } as unknown as PlayoutService;
     const director = { getOrder: () => Promise.resolve({ items: [] }) } as unknown as DirectorConsoleService;
     const tracks = {
@@ -51,7 +51,9 @@ function service(over: { plugins?: unknown[]; authorization?: FetcherAuthorizati
     const plugins = { listPlugins: () => Promise.resolve(over.plugins ?? []) } as unknown as PluginsService;
     const fetcher = { authorization: () => Promise.resolve(over.authorization ?? unauthorized) } as unknown as SpotifyShimClient;
 
-    return new StationAttentionService(playout, director, tracks, plugins, fetcher, quiet);
+    const floorWatch = { reading: () => over.floor } as never;
+
+    return new StationAttentionService(playout, director, tracks, plugins, fetcher, floorWatch, quiet);
 }
 
 describe('StationAttentionService.read', () => {
@@ -133,5 +135,13 @@ describe('StationAttentionService.read', () => {
         }).read();
 
         expect(items).toEqual([]);
+    });
+
+    it('names a model that has stopped writing breaks, from the floor watch', async () => {
+        resetForwardedHop();
+
+        const { items } = await service({ floor: { since: Date.parse('2026-10-03T18:00:00Z'), breaks: 7 } }).read();
+
+        expect(items).toEqual([expect.objectContaining({ code: 'breaksOnFloor', severity: 'warning', count: 7, route: '/checkup' })]);
     });
 });

@@ -7,9 +7,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
     DEFAULT_CAP_OVERRUN,
+    DEFAULT_OVERRUN_FADE_MS,
     DEFAULT_OVERRUN_MINUTES,
     hasOverrun,
+    OVERRUN_FADE_MS_RANGE,
     OVERRUN_MINUTES_RANGE,
+    resolveOverrunFadeMs,
     resolveOverrunMinutes,
 } from '../../../src/modules/schedule/changeover.overrun.js';
 
@@ -65,5 +68,22 @@ describe('hasOverrun', () => {
     it('never counts a record as overrunning for longer than it has been on', () => {
         expect(hasOverrun(100, now - 2 * MINUTE, now, 5)).toBe(false);
         expect(hasOverrun(100, now - 5 * MINUTE, now, 5)).toBe(true);
+    });
+});
+
+describe('resolveOverrunFadeMs', () => {
+    it('answers the default for a row nobody set or nobody can read', () => {
+        expect(resolveOverrunFadeMs('')).toBe(DEFAULT_OVERRUN_FADE_MS);
+        expect(resolveOverrunFadeMs('slowly')).toBe(DEFAULT_OVERRUN_FADE_MS);
+    });
+
+    it('reads the string a settings row holds, and keeps zero as a cut', () => {
+        expect(resolveOverrunFadeMs('2500')).toBe(2500);
+        expect(resolveOverrunFadeMs('0')).toBe(0);
+    });
+
+    it('clamps a stored figure into its range', () => {
+        expect(resolveOverrunFadeMs('-100')).toBe(OVERRUN_FADE_MS_RANGE.min);
+        expect(resolveOverrunFadeMs('60000')).toBe(OVERRUN_FADE_MS_RANGE.max);
     });
 });

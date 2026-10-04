@@ -14,6 +14,7 @@ import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
+import { PersonaArtworkService } from '#modules/art/persona.artwork.service.js';
 import type { Persona } from '#modules/personas/persona.js';
 import { ProductionRepository } from '#modules/productions/production.repository.js';
 import type { Production } from '#modules/productions/production.js';
@@ -1607,7 +1608,7 @@ export class DirectorService {
             // Before the early return. A recast means the host CHANGED, so a read that failed cannot
             // keep the name the transport holds — that is the outgoing host's — and names nobody
             // until the next reading can say who came in.
-            if (this.lineup === lineup) this.tellTransport(lineup, incoming.read ? onAirName(incoming.persona) : undefined);
+            if (this.lineup === lineup) this.tellTransport(lineup, incoming.read ? hostOf(incoming) : {});
             if (!incoming.read) return;
 
             const ids = [
@@ -1640,13 +1641,29 @@ export class DirectorService {
      * not be mistaken for one. {@link recast} would otherwise read a failed call as every break in
      * the tail being out of character.
      */
-    private async presenting(personaId: string | undefined): Promise<{ read: boolean; persona?: Persona }> {
+    private async presenting(personaId: string | undefined): Promise<{ read: boolean; persona?: Persona; portrait?: string }> {
         try {
             const persona = await inScope(this.container, async scope => scope.get(PersonaRepository).presenting(personaId));
-            return { read: true, ...(persona === undefined ? {} : { persona }) };
+            const portrait = persona === undefined ? undefined : await this.portraitOf(persona.id);
+            return { read: true, ...(persona === undefined ? {} : { persona }), ...(portrait === undefined ? {} : { portrait }) };
         } catch (error) {
             this.logger.warn(`director: could not read who is presenting (${errorText(error)})`);
             return { read: false };
+        }
+    }
+
+    /**
+     * Where a persona's portrait is served, or nothing.
+     *
+     * Its own failure, kept apart from the persona read: a picture that could not be looked up costs
+     * the listener's player a picture, never the station its knowledge of who is talking.
+     */
+    private async portraitOf(personaId: string): Promise<string | undefined> {
+        try {
+            return await inScope(this.container, async scope => scope.get(PersonaArtworkService).portraitUrl(personaId));
+        } catch (error) {
+            this.logger.warn(`director: could not read the presenter's portrait (${errorText(error)})`);
+            return undefined;
         }
     }
 
@@ -1665,7 +1682,7 @@ export class DirectorService {
         // changed, and a transient fault on the personas table must not make the station forget who
         // is talking. The transport forgot any previous programme's host when this order was
         // attached, so what is kept is only ever this order's.
-        this.tellTransport(lineup, incoming.read ? onAirName(incoming.persona) : this.rundown.broadcast()?.host);
+        this.tellTransport(lineup, incoming.read ? hostOf(incoming) : this.heldHost());
     }
 
     /**
@@ -1676,8 +1693,18 @@ export class DirectorService {
      * The console `label` is never it — that is what the operator calls the character, and the
      * listener is never told it.
      */
-    private tellTransport(lineup: StationLineup, host: string | undefined): void {
-        this.rundown.setBroadcast({ name: lineup.name, ...(host === undefined ? {} : { host }) });
+    private tellTransport(lineup: StationLineup, host: { name?: string; art?: string }): void {
+        this.rundown.setBroadcast({
+            name: lineup.name,
+            ...(host.name === undefined ? {} : { host: host.name }),
+            ...(host.art === undefined ? {} : { hostArtUrl: host.art }),
+        });
+    }
+
+    /** The host the transport already holds, name and picture, for a pass that has nothing newer. */
+    private heldHost(): { name?: string; art?: string } {
+        const held = this.rundown.broadcast();
+        return { ...(held?.host === undefined ? {} : { name: held.host }), ...(held?.hostArtUrl === undefined ? {} : { art: held.hostArtUrl }) };
     }
 
     /**
@@ -2037,7 +2064,7 @@ export class DirectorService {
         // And what the programme is called, on the same every-pass terms: a relabel (`rebind`) posts
         // nothing else the transport would hear. The host costs a query, so it is re-read only once
         // the last reading is a minute old, which is what catches a persona renamed while it is on.
-        if (Date.now() - this.hostReadAt < HOST_TTL_MS) this.tellTransport(lineup, this.rundown.broadcast()?.host);
+        if (Date.now() - this.hostReadAt < HOST_TTL_MS) this.tellTransport(lineup, this.heldHost());
         else await this.announceBroadcast(lineup);
 
         // FIRST, and before planting: a break the station was asked for and has already spoken is
@@ -3654,4 +3681,10 @@ function takeForLead(candidates: readonly StationLineupItem[], wanted: number): 
     }
 
     return taken;
+}
+
+/** What the transport is told about a host it has just read: the on-air name and the portrait. */
+function hostOf(incoming: { persona?: Persona; portrait?: string }): { name?: string; art?: string } {
+    const name = onAirName(incoming.persona);
+    return { ...(name === undefined ? {} : { name }), ...(incoming.portrait === undefined ? {} : { art: incoming.portrait }) };
 }

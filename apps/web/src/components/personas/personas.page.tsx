@@ -184,6 +184,20 @@ export function PersonasPage() {
                         >
                             {t('page.newCaller')}
                         </Button>
+                        {/* Only while the station has none: it reads the news in one voice, and the
+                            database refuses a second. A button that always failed would be a question
+                            the page should not ask. */}
+                        {all.some(persona => kindOf(persona) === 'newsreader') ? undefined : (
+                            <Button
+                                variant="default"
+                                onClick={() => {
+                                    setWriting('newsreader');
+                                    setEditing(null);
+                                }}
+                            >
+                                {t('page.newNewsreader')}
+                            </Button>
+                        )}
                         <Button
                             onClick={() => {
                                 setWriting('host');
@@ -259,9 +273,7 @@ export function PersonasPage() {
                             component to share it. The roster is already ordered hosts-then-callers,
                             so one comparison with the card above is the whole of it — and a filter
                             that matches only callers correctly draws only that heading. */}
-                        {index === 0 || kindOf(shown[index - 1]!) !== kindOf(persona) ? (
-                            <Eyebrow>{kindOf(persona) === 'caller' ? t('page.heading.callers') : t('page.heading.hosts')}</Eyebrow>
-                        ) : undefined}
+                        {index === 0 || kindOf(shown[index - 1]!) !== kindOf(persona) ? <Eyebrow>{t(HEADINGS[kindOf(persona)])}</Eyebrow> : undefined}
                         <Card>
                             {/* Wraps on a phone rather than holding its intrinsic width: at 500px the
                             action row otherwise stayed full size while the left column collapsed
@@ -364,7 +376,7 @@ export function PersonasPage() {
                                     somebody who phones in cannot present the station, and the API
                                     and the database both say so. A button that always fails is a
                                     question the page should not have asked. */}
-                                    {persona.defaultHost || kindOf(persona) === 'caller' ? undefined : (
+                                    {persona.defaultHost || kindOf(persona) !== 'host' ? undefined : (
                                         <Button
                                             variant="light"
                                             size="compact-sm"
@@ -640,8 +652,11 @@ function ordered(personas: Persona[]): Persona[] {
     );
 }
 
-/** Hosts before callers. */
-const rank = (kind: PersonaKind): number => (kind === 'caller' ? 1 : 0);
+/** Hosts, then the newsreader, then callers. */
+const rank = (kind: PersonaKind): number => ({ host: 0, newsreader: 1, caller: 2 })[kind];
+
+/** The heading over each half of the roster. */
+const HEADINGS = { host: 'page.heading.hosts', newsreader: 'page.heading.newsreader', caller: 'page.heading.callers' } as const;
 
 /** Everything a character can be looked up by: what it is called, what it is, and who it says it is. */
 function matching(personas: Persona[], filter: string): Persona[] {

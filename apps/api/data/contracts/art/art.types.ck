@@ -30,3 +30,19 @@ contract BreakArtworkList: {
 contract BreakArtworkUpload: {
     file: binary # The image itself. jpeg, png, webp or gif, decided by its BYTES rather than by its name or its declared type, and at most 4 MB
 }
+
+# A presenter's picture, which a listener's player shows while that persona is on air
+contract PersonaPortrait: {
+    personaId: uuid # The persona it belongs to
+    url: string(max=2000) # Where the station serves it, as a path under the API root. The same shape and the same route a record's cover uses
+}
+
+# Every persona that has a portrait
+contract PersonaPortraitList: {
+    portraits: array(PersonaPortrait)
+}
+
+# A portrait arriving from the browser, as multipart form parts. Documentation rather than validation, as for a break's picture
+contract PersonaPortraitUpload: {
+    file: binary # The image itself. jpeg, png, webp or gif, decided by its BYTES, and at most 4 MB
+}

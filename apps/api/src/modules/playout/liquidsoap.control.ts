@@ -428,9 +428,19 @@ export class PlayoutControlClient {
      * With `itemId`, the cut is AIMED: `radio.liq` cuts only when that item is the one airing, and
      * otherwise answers with a reading naming whatever is. The check has to happen there, where the
      * decoder is, because anything this side of the round trip can be overtaken by a boundary.
+     *
+     * With `fadeMs` as well, the item is faded out over that long and cut at the bottom rather than
+     * at once. The reading comes back immediately with the item still on air. Only an aimed cut
+     * fades: `radio.liq` checks on every step of the ramp that the named item is still the one
+     * airing, so a record that ends on its own mid-fade stops the ramp instead of fading whatever
+     * came next.
      */
-    async skip(itemId?: string): Promise<QueueStatus | undefined> {
-        return this.read(await this.call('POST', '/control/skip', undefined, itemId === undefined ? undefined : { 'X-Skip-Item': itemId }));
+    async skip(itemId?: string, options: { fadeMs?: number } = {}): Promise<QueueStatus | undefined> {
+        const headers: Record<string, string> = {};
+        if (itemId !== undefined) headers['X-Skip-Item'] = itemId;
+        if (itemId !== undefined && options.fadeMs !== undefined && options.fadeMs > 0) headers['X-Fade-Ms'] = String(Math.round(options.fadeMs));
+
+        return this.read(await this.call('POST', '/control/skip', undefined, Object.keys(headers).length === 0 ? undefined : headers));
     }
 
     /**

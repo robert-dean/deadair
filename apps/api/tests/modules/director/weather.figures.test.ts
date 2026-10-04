@@ -11,7 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { inventedFigure, mentionsWeather } from '../../../src/modules/director/weather.figures.js';
+import { inventedFigure, mentionsWeather, unofferedWeather } from '../../../src/modules/director/weather.figures.js';
 import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
 
 const READING: SpokenWeather = {
@@ -135,5 +135,32 @@ describe('on a station that does not broadcast in English', () => {
     it('takes a break offered a reading to have reported it, because the vocabulary is English', () => {
         expect(mentionsWeather('Ein wunderschöner Abend, bleiben Sie dran.', READING, 'de')).toBe(true);
         expect(mentionsWeather('A lovely evening, stay with us.', SUNNY)).toBe(false);
+    });
+});
+
+describe('unofferedWeather', () => {
+    it('finds the sky described by a break that was given no reading', () => {
+        expect(unofferedWeather("Sunny out there this afternoon, so here's one for the windows down.")).toBe('Sunny');
+        expect(unofferedWeather('It has been raining all day.')).toBe('raining');
+        expect(unofferedWeather('A grey, overcast Tuesday.')).toBe('overcast');
+        expect(unofferedWeather('Blue skies for the drive home.')).toBe('Blue skies');
+    });
+
+    it('finds a temperature, which with no reading behind it is made up', () => {
+        expect(unofferedWeather("It's 22 degrees out there.")).toBe('22 degrees');
+        expect(unofferedWeather('A cool 15° tonight.')).toBe('15°');
+    });
+
+    it('leaves words that are about anything but the sky', () => {
+        // The loose vocabulary `mentionsWeather` reads would refuse every one of these.
+        expect(unofferedWeather('That record took the charts by storm.')).toBeUndefined();
+        expect(unofferedWeather('Come rain or shine, this one never gets old.')).toBeUndefined();
+        expect(unofferedWeather('A clear favourite on this station.')).toBeUndefined();
+        expect(unofferedWeather('On a Sunday, nothing beats it.')).toBeUndefined();
+        expect(unofferedWeather('A bit of sunshine for your afternoon.')).toBeUndefined();
+    });
+
+    it('asks nothing of a station that does not broadcast in English', () => {
+        expect(unofferedWeather('Es ist sonnig und 22 Grad.', 'de')).toBeUndefined();
     });
 });

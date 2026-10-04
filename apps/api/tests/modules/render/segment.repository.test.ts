@@ -123,6 +123,14 @@ describe('SegmentRepository.recast', () => {
 
         expect(statements[0]?.sql).toMatch(/"delivery" = \$\d+/);
     });
+
+    it('leaves the newsreader’s bulletins alone, since a change of host does not change who reads the news', async () => {
+        const statements: Statement[] = [];
+        await new SegmentRepository(fakeDb([], statements), identity()).recast(['seg-1'], 'persona-1');
+
+        expect(statements[0]?.sql).toMatch(/not exists \(select "reader"\."id" from "deadair"\."personas" as "reader"/);
+        expect(statements[0]?.parameters).toContain('newsreader');
+    });
 });
 
 describe('SegmentRepository.plan', () => {

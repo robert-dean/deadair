@@ -9,6 +9,7 @@ public final class Deadair: Sendable {
     public let activity: ActivityClient
     public let artBreaks: ArtBreaksClient
     public let art: ArtClient
+    public let artPersonas: ArtPersonasClient
     public let authenticationApikeys: AuthenticationApikeysClient
     public let authentication: AuthenticationClient
     public let authenticationFactor: AuthenticationFactorClient
@@ -51,6 +52,7 @@ public final class Deadair: Sendable {
         self.activity = ActivityClient(http: http)
         self.artBreaks = ArtBreaksClient(http: http)
         self.art = ArtClient(http: http)
+        self.artPersonas = ArtPersonasClient(http: http)
         self.authenticationApikeys = AuthenticationApikeysClient(http: http)
         self.authentication = AuthenticationClient(http: http)
         self.authenticationFactor = AuthenticationFactorClient(http: http)

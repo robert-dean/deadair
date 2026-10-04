@@ -77,12 +77,19 @@ export const NowPlayingShow = z.strictObject({
         .describe(
             "Who is presenting, by the name they go by on air. Absent when there is no name to give: no persona on air with one, and no station-wide presenter name set. Never the persona's console label",
         ),
+    hostArtUrl: z
+        .string()
+        .max(2000)
+        .optional()
+        .describe(
+            "A picture of whoever is presenting, when the operator gave their persona one. A path under the API root, like a cover's. Absent for a persona with no picture, which a player answers by showing the record's cover as before",
+        ),
 });
 export type NowPlayingShow = z.infer<typeof NowPlayingShow>;
 
 /**
  * What the station is playing, for anything that wants to display it
- * generated from [NowPlaying](../../../../data/contracts/nowplaying/nowplaying.types.ck#L29)
+ * generated from [NowPlaying](../../../../data/contracts/nowplaying/nowplaying.types.ck#L30)
  */
 export const NowPlaying = z.strictObject({
     station: z.string().max(200).describe("The station's on-air name"),

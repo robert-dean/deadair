@@ -281,10 +281,12 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // nothing for and a presenter has the most to say about; see `dayPart`.
         const part = segment.airsAt === undefined ? undefined : dayPart(segment.airsAt, zone);
 
-        // This broadcast's own host where it named one, and the station's behind it. `undefined` is
-        // an ordinary answer: a station that has chosen no persona writes exactly what it wrote
-        // before personas existed.
-        const persona = await this.personas.presenting(lineup.personaId);
+        // This broadcast's own host where it named one, and the station's behind it, except that a
+        // bulletin is the newsreader's where the station has one. `undefined` is an ordinary answer:
+        // a station that has chosen no persona writes exactly what it wrote before personas existed.
+        // Everything below reads this one persona (the sheet, the phrasing pool, the voice), which
+        // is what keeps a declined bulletin from coming out in the host's words and the reader's voice.
+        const persona = await this.personas.presentingFor(segment.kind, lineup.personaId);
 
         // After the claim, so a job that was merely early does no work at all, and for EVERY break
         // rather than only when a model might use them: what the station knows about a record is a

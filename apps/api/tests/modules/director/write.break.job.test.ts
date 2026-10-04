@@ -128,7 +128,7 @@ function harness(
     };
     // Who the station is right now. `undefined` unless a test asks otherwise, because a station
     // that has chosen no persona is the state every assertion below was written against.
-    const personas = { presenting: vi.fn(async () => options.persona) };
+    const personas = { presentingFor: vi.fn(async () => options.persona) };
     // A rack with nothing on it, which is what every persona in these tests has: `pads` answers `{}`
     // for an empty set, so the request is byte-identical to one built before soundboards existed.
     const pads = {
@@ -454,7 +454,7 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(personas.presenting).toHaveBeenCalledWith('p-tonight');
+        expect(personas.presentingFor).toHaveBeenCalledWith('talkbreak', 'p-tonight');
     });
 
     it("hands the writers this character's notebook, and rests what it took", async () => {

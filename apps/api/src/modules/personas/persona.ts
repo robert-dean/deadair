@@ -46,6 +46,15 @@ export const PERSONA_KINDS = ['host', 'caller', 'newsreader'] as const;
 /** One of {@link PERSONA_KINDS}. */
 export type PersonaKind = (typeof PERSONA_KINDS)[number];
 
+/**
+ * The kinds of break the newsreader reads, when the station has one.
+ *
+ * The bulletin and nothing else: the weather and the time of day are the presenter's to say. Spelled
+ * here rather than imported from the director, which registers after this module; `NEWS_KIND` in
+ * `news.break.writer.ts` is the same word, and `persona.repository.test.ts` holds the two together.
+ */
+export const NEWSREADER_READS: ReadonlySet<string> = new Set(['news']);
+
 /** What a persona is when nobody said: the station's own voice, which is what the table held before callers. */
 export const DEFAULT_PERSONA_KIND: PersonaKind = 'host';
 

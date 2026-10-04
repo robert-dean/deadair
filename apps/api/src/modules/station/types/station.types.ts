@@ -78,8 +78,32 @@ export const StationBacklogInput = z.strictObject({});
 export type StationBacklogInput = z.infer<typeof StationBacklogInput>;
 
 /**
+ * Who has the station's one model slot, and how many are waiting for it.
+ *
+ * The model is shared by every break, every programme refill and every production, one generation at
+ * a time, so a slot held for far longer than any generation takes is the station's ability to speak
+ * stuck behind one answer. Nothing else exposes it.
+ * generated from [StationModelHolder](../../../../data/contracts/station/station.types.ck#L66)
+ */
+export const StationModelHolder = z.strictObject({
+    priority: z
+        .enum(['breaking', 'air', 'background', 'preview'])
+        .describe(
+            'Whose work it is: `breaking` and `air` have a deadline, `background` (a refill, a production) does not, `preview` is an operator trying something',
+        ),
+    heldSince: _ZodDatetime.describe(
+        'When it took the slot. Every generation is bounded at ten minutes, so a holder older than that is a stream that stopped arriving',
+    ),
+    plugin: z.string().min(1).max(200).optional().describe('The model plugin answering it'),
+});
+export type StationModelHolder = z.infer<typeof StationModelHolder>;
+
+export const StationModelHolderInput = z.strictObject({});
+export type StationModelHolderInput = z.infer<typeof StationModelHolderInput>;
+
+/**
  * One release of the station, in the words its changelog entry used
- * generated from [StationRelease](../../../../data/contracts/station/station.types.ck#L89)
+ * generated from [StationRelease](../../../../data/contracts/station/station.types.ck#L107)
  */
 export const StationRelease = z.strictObject({
     version: z.string().min(1).max(50).describe('The release, as its tag names it without the leading `v`'),
@@ -150,56 +174,23 @@ export const AttentionItem = z.strictObject({
 export type AttentionItem = z.infer<typeof AttentionItem>;
 
 /**
- * One reading of the machinery, for a page that assembles the station's health.
- *
- * It carries ONLY the two signals nothing else exposes. Everything else a check-up shows — the
- * silence verdict, the listener count, what needs somebody, the plugin statuses, the disk — is
- * already on a contract the console reads, and composing them again here would be a second answer
- * that can disagree with the first. `/playout/status` in particular is polled every two seconds for
- * the transport strip, so asking for it a second way would be a second reading of the same fact.
- *
- * Each section is OPTIONAL and absent means that reader failed. A page saying what is wrong is the
- * worst place for one broken reader to take the whole answer down, which is the rule
- * `StationAttentionService` already works to. `revision` is the one exception and says so on its
- * own line: it cannot fail, so absent there means something else.
- *
- * The revision is on THIS contract rather than composed from `/health`, which also reports it, and
- * that is not the second-answer problem the paragraph above describes. Both read one string from one
- * place at boot, so they cannot disagree. What they differ in is who can reach them: `/health` is
- * `operation(internal)`, deliberately, so it generates no SDK method and the console cannot call it
- * — which would leave "which build is this" answerable only from a shell, the one thing carrying it
- * here exists to fix.
- * generated from [StationCheckup](../../../../data/contracts/station/station.types.ck#L80)
+ * The model slot and its queue
+ * generated from [StationModel](../../../../data/contracts/station/station.types.ck#L73)
  */
-export const StationCheckup = z.strictObject({
-    readAt: _ZodDatetime.describe('When this reading was taken, so a stale page cannot pass itself off as now'),
-    revision: z
-        .string()
-        .min(1)
-        .max(100)
-        .optional()
-        .describe(
-            "The commit this station was built from, as the image's `org.opencontainers.image.revision` label says it. Unlike the sections below, absent is not a failed reader: it means nothing stamped this build, which is what a development tree and a hand-built image both are",
-        ),
-    version: z
-        .string()
-        .min(1)
-        .max(50)
-        .optional()
-        .describe(
-            "The release this station is, as the image's `org.opencontainers.image.version` label says it. Absent on the same terms as `revision` and for a second reason: only a tagged build carries one, so a station following `latest` reports a commit and no version",
-        ),
-    heartbeats: z.array(StationHeartbeat).optional(),
-    backlog: StationBacklog.optional(),
+export const StationModel = z.strictObject({
+    waiting: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Callers queued behind whoever holds the slot'),
+    holder: StationModelHolder.optional().describe('Absent while the model is free'),
 });
-export type StationCheckup = z.infer<typeof StationCheckup>;
+export type StationModel = z.infer<typeof StationModel>;
 
-export const StationCheckupInput = z.strictObject({});
-export type StationCheckupInput = z.infer<typeof StationCheckupInput>;
+export const StationModelInput = z.strictObject({});
+export type StationModelInput = z.infer<typeof StationModelInput>;
 
 /**
  * What this build is, and what changed in it
- * generated from [StationReleases](../../../../data/contracts/station/station.types.ck#L97)
+ * generated from [StationReleases](../../../../data/contracts/station/station.types.ck#L115)
  */
 export const StationReleases = z.strictObject({
     current: z
@@ -254,3 +245,52 @@ export const StationAttention = z.strictObject({
     items: z.array(AttentionItem),
 });
 export type StationAttention = z.infer<typeof StationAttention>;
+
+/**
+ * One reading of the machinery, for a page that assembles the station's health.
+ *
+ * It carries ONLY the signals nothing else exposes. Everything else a check-up shows — the
+ * silence verdict, the listener count, what needs somebody, the plugin statuses, the disk — is
+ * already on a contract the console reads, and composing them again here would be a second answer
+ * that can disagree with the first. `/playout/status` in particular is polled every two seconds for
+ * the transport strip, so asking for it a second way would be a second reading of the same fact.
+ *
+ * Each section is OPTIONAL and absent means that reader failed. A page saying what is wrong is the
+ * worst place for one broken reader to take the whole answer down, which is the rule
+ * `StationAttentionService` already works to. `revision` is the one exception and says so on its
+ * own line: it cannot fail, so absent there means something else.
+ *
+ * The revision is on THIS contract rather than composed from `/health`, which also reports it, and
+ * that is not the second-answer problem the paragraph above describes. Both read one string from one
+ * place at boot, so they cannot disagree. What they differ in is who can reach them: `/health` is
+ * `operation(internal)`, deliberately, so it generates no SDK method and the console cannot call it
+ * — which would leave "which build is this" answerable only from a shell, the one thing carrying it
+ * here exists to fix.
+ * generated from [StationCheckup](../../../../data/contracts/station/station.types.ck#L97)
+ */
+export const StationCheckup = z.strictObject({
+    readAt: _ZodDatetime.describe('When this reading was taken, so a stale page cannot pass itself off as now'),
+    revision: z
+        .string()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe(
+            "The commit this station was built from, as the image's `org.opencontainers.image.revision` label says it. Unlike the sections below, absent is not a failed reader: it means nothing stamped this build, which is what a development tree and a hand-built image both are",
+        ),
+    version: z
+        .string()
+        .min(1)
+        .max(50)
+        .optional()
+        .describe(
+            "The release this station is, as the image's `org.opencontainers.image.version` label says it. Absent on the same terms as `revision` and for a second reason: only a tagged build carries one, so a station following `latest` reports a commit and no version",
+        ),
+    heartbeats: z.array(StationHeartbeat).optional(),
+    backlog: StationBacklog.optional(),
+    model: StationModel.optional(),
+});
+export type StationCheckup = z.infer<typeof StationCheckup>;
+
+export const StationCheckupInput = z.strictObject({});
+export type StationCheckupInput = z.infer<typeof StationCheckupInput>;

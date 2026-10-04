@@ -122,6 +122,12 @@ export interface AttentionFacts {
      * for what puts this here and why it is process memory rather than a stored fact.
      */
     singleHop?: { address: string; count: number; lastSeenAt: string };
+    /**
+     * A run of breaks the floor wrote because the model failed, once it has lasted long enough to be
+     * reported. `undefined` while the model is answering, and for the first hour of a run. See
+     * `BreakFloorWatch`.
+     */
+    floor?: { since: number; breaks: number };
 }
 
 /**
@@ -257,6 +263,22 @@ function air(facts: AttentionFacts): AttentionItem[] {
 /** What the station is fed by: the plugins an operator switched on. */
 function supply(facts: AttentionFacts): AttentionItem[] {
     const items: AttentionItem[] = [];
+
+    // A warning rather than a failure: the station is on air and talking, in its own fallback
+    // phrasing, which is the floor doing its job. What is wrong is beside it, and nothing else on
+    // the station says so.
+    if (facts.floor !== undefined) {
+        items.push({
+            code: 'breaksOnFloor',
+            severity: 'warning',
+            title: 'The model is not writing breaks',
+            detail:
+                `The last ${facts.floor.breaks} breaks were written in the station's own phrasing because the model failed to answer, ` +
+                `starting ${new Date(facts.floor.since).toISOString()}. Check that the model is running and reachable; the check-up shows who has it.`,
+            route: '/checkup',
+            count: facts.floor.breaks,
+        });
+    }
 
     // A `failure`, which is what puts it above the benched copies and the failing fetches in the
     // library section. That ordering is the point rather than a nicety: those two are this one's

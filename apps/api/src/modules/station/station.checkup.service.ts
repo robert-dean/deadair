@@ -7,12 +7,13 @@ import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { BuildRevision } from '#modules/shared/build.revision.js';
 import { Heartbeat } from '#modules/shared/heartbeat.js';
-import type { StationBacklog, StationCheckup, StationHeartbeat } from './types/station.types.js';
+import { LlmGate } from '#modules/llm/llm.gate.js';
+import type { StationBacklog, StationCheckup, StationHeartbeat, StationModel } from './types/station.types.js';
 
 /**
  * The machinery, for the page that assembles a check-up.
  *
- * Two signals and no more, because those are the two nothing else exposes. Every other fact a
+ * The signals nothing else exposes, and no more. Every other fact a
  * check-up shows is already on a contract the console reads for another reason: the silence verdict
  * and the audience ride `/playout/status`, which the transport strip polls every two seconds; what
  * needs somebody is `/station/attention`; the plugin statuses are `/plugins`; the disk is
@@ -47,11 +48,13 @@ export class StationCheckupService {
         private readonly tracks: TracksRepository,
         private readonly heartbeat: Heartbeat,
         private readonly revision: BuildRevision,
+        private readonly gate: LlmGate,
         private readonly logger: Logger,
     ) {}
 
     async read(): Promise<StationCheckup> {
         const [heartbeats, backlog] = await Promise.all([this.loops(), this.backlog()]);
+        const model = this.model();
 
         return {
             // Stamped here rather than left to the console's own clock, so a page that has been open
@@ -66,7 +69,37 @@ export class StationCheckupService {
             ...(this.revision.version === undefined ? {} : { version: this.revision.version }),
             ...(heartbeats === undefined ? {} : { heartbeats }),
             ...(backlog === undefined ? {} : { backlog }),
+            ...(model === undefined ? {} : { model }),
         };
+    }
+
+    /**
+     * Who has the model, and how many are waiting for it.
+     *
+     * The gate keeps this in memory already, so this asks nothing of the model. `heldSince` rather
+     * than a duration, on the heartbeats' argument: a reader on another machine wants WHEN.
+     */
+    private model(): StationModel | undefined {
+        try {
+            const now = Date.now();
+            const { depth, holder } = this.gate.snapshot(now);
+
+            return {
+                waiting: depth,
+                ...(holder === undefined
+                    ? {}
+                    : {
+                          holder: {
+                              priority: holder.priority,
+                              heldSince: DateTime.fromMillis(now - holder.heldMs, { zone: 'utc' }),
+                              ...(holder.label === undefined ? {} : { plugin: holder.label }),
+                          },
+                      }),
+            };
+        } catch (error) {
+            this.logger.warn(`station: the model slot could not be read (${message(error)})`);
+            return undefined;
+        }
     }
 
     /**

@@ -3,17 +3,19 @@
  * Please do not edit it manually.
  */
 
-import type { ColumnType } from 'kysely';
-import type { DateTime } from 'luxon';
+import type { ColumnType } from "kysely";
+import type { DateTime } from "luxon";
 
-export type Generated<T> = T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S, I | undefined, U> : ColumnType<T, T | undefined, T>;
+export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
+  ? ColumnType<S, I | undefined, U>
+  : ColumnType<T, T | undefined, T>;
 
 export type Json = JsonValue;
 
 export type JsonArray = JsonValue[];
 
 export type JsonObject = {
-    [x: string]: JsonValue | undefined;
+  [x: string]: JsonValue | undefined;
 };
 
 export type JsonPrimitive = boolean | number | string | null;
@@ -21,1168 +23,1168 @@ export type JsonPrimitive = boolean | number | string | null;
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
 export interface DeadairActors {
-    active: Generated<boolean>;
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    type: 'user' | 'system' | 'vendor';
-    updatedAt: Generated<DateTime>;
+  active: Generated<boolean>;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  type: "user" | "system" | "vendor";
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairActorsApikeyFactors {
-    actorId: string;
-    createdAt: Generated<DateTime>;
-    expiresAt: DateTime | null;
-    hint: string;
-    id: Generated<string>;
-    name: string;
-    revokedAt: DateTime | null;
-    secretHash: string;
-    updatedAt: Generated<DateTime>;
+  actorId: string;
+  createdAt: Generated<DateTime>;
+  expiresAt: DateTime | null;
+  hint: string;
+  id: Generated<string>;
+  name: string;
+  revokedAt: DateTime | null;
+  secretHash: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairActorsAuthenticatorFactors {
-    active: Generated<boolean>;
-    actorId: string;
-    algorithm: 'sha1' | 'sha256' | 'sha512';
-    counter: number;
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    label: string | null;
-    periodSeconds: number;
-    secret: string;
-    secretDek: string;
-    tokenLength: number;
-    type: 'totp' | 'hotp';
-    updatedAt: Generated<DateTime>;
+  active: Generated<boolean>;
+  actorId: string;
+  algorithm: "sha1" | "sha256" | "sha512";
+  counter: number;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  label: string | null;
+  periodSeconds: number;
+  secret: string;
+  secretDek: string;
+  tokenLength: number;
+  type: "totp" | "hotp";
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairActorsEmailFactors {
-    active: Generated<boolean>;
-    actorId: string;
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    updatedAt: Generated<DateTime>;
-    value: string;
+  active: Generated<boolean>;
+  actorId: string;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  updatedAt: Generated<DateTime>;
+  value: string;
 }
 
 export interface DeadairActorSessionEvents {
-    actorId: string;
-    eventType: 'created' | 'refreshed' | 'revoked' | 'expired' | 'step_up' | 'validation_failed';
-    id: Generated<bigint>;
-    ip: string | null;
-    metadata: Json | null;
-    occurredAt: Generated<DateTime>;
-    sessionToken: string;
-    userAgent: string | null;
+  actorId: string;
+  eventType: "created" | "refreshed" | "revoked" | "expired" | "step_up" | "validation_failed";
+  id: Generated<bigint>;
+  ip: string | null;
+  metadata: Json | null;
+  occurredAt: Generated<DateTime>;
+  sessionToken: string;
+  userAgent: string | null;
 }
 
 export interface DeadairActorsFidoFactors {
-    active: Generated<boolean>;
-    actorId: string;
-    counter: number;
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    label: string | null;
-    publicKey: string;
-    publicKeyId: string;
-    updatedAt: Generated<DateTime>;
+  active: Generated<boolean>;
+  actorId: string;
+  counter: number;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  label: string | null;
+  publicKey: string;
+  publicKeyId: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairActorsOidcFactors {
-    active: Generated<boolean>;
-    actorId: string;
-    createdAt: Generated<DateTime>;
-    email: string | null;
-    encryptedRefreshToken: string | null;
-    encryptedRefreshTokenDek: string | null;
-    id: Generated<string>;
-    picture: string | null;
-    provider: string;
-    refreshTokenExpiresAt: DateTime | null;
-    subject: string;
-    updatedAt: Generated<DateTime>;
+  active: Generated<boolean>;
+  actorId: string;
+  createdAt: Generated<DateTime>;
+  email: string | null;
+  encryptedRefreshToken: string | null;
+  encryptedRefreshTokenDek: string | null;
+  id: Generated<string>;
+  picture: string | null;
+  provider: string;
+  refreshTokenExpiresAt: DateTime | null;
+  subject: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairActorsPasswordFactors {
-    active: Generated<boolean>;
-    actorId: string;
-    createdAt: Generated<DateTime>;
-    hash: string;
-    needsReset: Generated<boolean>;
-    salt: string;
-    updatedAt: Generated<DateTime>;
+  active: Generated<boolean>;
+  actorId: string;
+  createdAt: Generated<DateTime>;
+  hash: string;
+  needsReset: Generated<boolean>;
+  salt: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairActorsPasswordFactorsArchive {
-    actorId: string;
-    archivedAt: Generated<DateTime>;
-    hash: string;
-    id: Generated<string>;
-    salt: string;
+  actorId: string;
+  archivedAt: Generated<DateTime>;
+  hash: string;
+  id: Generated<string>;
+  salt: string;
 }
 
 export interface DeadairAlbumEnrichment {
-    albumId: string;
-    attempts: Generated<number>;
-    createdAt: Generated<DateTime>;
-    data: Json;
-    expiresAt: DateTime | null;
-    fetchedAt: Generated<DateTime>;
-    id: Generated<string>;
-    lastError: string | null;
-    provider: string;
-    providerRef: string | null;
-    updatedAt: Generated<DateTime>;
+  albumId: string;
+  attempts: Generated<number>;
+  createdAt: Generated<DateTime>;
+  data: Json;
+  expiresAt: DateTime | null;
+  fetchedAt: Generated<DateTime>;
+  id: Generated<string>;
+  lastError: string | null;
+  provider: string;
+  providerRef: string | null;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairAlbums {
-    artistId: string;
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    imageUrl: string | null;
-    mbid: string | null;
-    mergedIntoId: string | null;
-    name: string;
-    nameKey: string;
-    rating: Generated<number>;
-    updatedAt: Generated<DateTime>;
-    year: number | null;
+  artistId: string;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  imageUrl: string | null;
+  mbid: string | null;
+  mergedIntoId: string | null;
+  name: string;
+  nameKey: string;
+  rating: Generated<number>;
+  updatedAt: Generated<DateTime>;
+  year: number | null;
 }
 
 export interface DeadairAlbumSources {
-    albumId: string;
-    coverArtId: string | null;
-    createdAt: Generated<DateTime>;
-    externalId: string;
-    id: Generated<string>;
-    lastSeenAt: DateTime | null;
-    missingAt: DateTime | null;
-    pluginId: string;
-    raw: Json | null;
-    updatedAt: Generated<DateTime>;
-    uri: string | null;
+  albumId: string;
+  coverArtId: string | null;
+  createdAt: Generated<DateTime>;
+  externalId: string;
+  id: Generated<string>;
+  lastSeenAt: DateTime | null;
+  missingAt: DateTime | null;
+  pluginId: string;
+  raw: Json | null;
+  updatedAt: Generated<DateTime>;
+  uri: string | null;
 }
 
 export interface DeadairArtAssets {
-    attempts: Generated<number>;
-    byteSize: number | null;
-    checksum: string | null;
-    contentType: string | null;
-    createdAt: Generated<DateTime>;
-    ext: string | null;
-    fetchedAt: DateTime | null;
-    id: Generated<string>;
-    lastError: string | null;
-    nextAttemptAt: DateTime | null;
-    sourceUrl: string;
-    updatedAt: Generated<DateTime>;
+  attempts: Generated<number>;
+  byteSize: number | null;
+  checksum: string | null;
+  contentType: string | null;
+  createdAt: Generated<DateTime>;
+  ext: string | null;
+  fetchedAt: DateTime | null;
+  id: Generated<string>;
+  lastError: string | null;
+  nextAttemptAt: DateTime | null;
+  sourceUrl: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairArtistEnrichment {
-    artistId: string;
-    attempts: Generated<number>;
-    createdAt: Generated<DateTime>;
-    data: Json;
-    expiresAt: DateTime | null;
-    fetchedAt: Generated<DateTime>;
-    id: Generated<string>;
-    lastError: string | null;
-    provider: string;
-    providerRef: string | null;
-    updatedAt: Generated<DateTime>;
+  artistId: string;
+  attempts: Generated<number>;
+  createdAt: Generated<DateTime>;
+  data: Json;
+  expiresAt: DateTime | null;
+  fetchedAt: Generated<DateTime>;
+  id: Generated<string>;
+  lastError: string | null;
+  provider: string;
+  providerRef: string | null;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairArtists {
-    artistKey: string;
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    imageUrl: string | null;
-    mbid: string | null;
-    mergedIntoId: string | null;
-    name: string;
-    rating: Generated<number>;
-    updatedAt: Generated<DateTime>;
+  artistKey: string;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  imageUrl: string | null;
+  mbid: string | null;
+  mergedIntoId: string | null;
+  name: string;
+  rating: Generated<number>;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairArtistSources {
-    artistId: string;
-    createdAt: Generated<DateTime>;
-    externalId: string;
-    id: Generated<string>;
-    imageUrl: string | null;
-    lastSeenAt: DateTime | null;
-    missingAt: DateTime | null;
-    pluginId: string;
-    raw: Json | null;
-    updatedAt: Generated<DateTime>;
-    uri: string | null;
+  artistId: string;
+  createdAt: Generated<DateTime>;
+  externalId: string;
+  id: Generated<string>;
+  imageUrl: string | null;
+  lastSeenAt: DateTime | null;
+  missingAt: DateTime | null;
+  pluginId: string;
+  raw: Json | null;
+  updatedAt: Generated<DateTime>;
+  uri: string | null;
 }
 
 export interface DeadairBreakRequests {
-    broadcastId: string | null;
-    context: Json | null;
-    createdAt: Generated<DateTime>;
-    dedupeKey: string | null;
-    expiresAt: DateTime | null;
-    id: Generated<string>;
-    kind: string;
-    reason: string | null;
-    segmentId: string | null;
-    source: string;
-    state: Generated<'pending' | 'ready' | 'placed' | 'expired' | 'failed'>;
-    stationKey: Generated<string>;
-    updatedAt: Generated<DateTime>;
-    urgency: 'interrupt' | 'next' | 'soon' | 'whenever';
+  broadcastId: string | null;
+  context: Json | null;
+  createdAt: Generated<DateTime>;
+  dedupeKey: string | null;
+  expiresAt: DateTime | null;
+  id: Generated<string>;
+  kind: string;
+  reason: string | null;
+  segmentId: string | null;
+  source: string;
+  state: Generated<"pending" | "ready" | "placed" | "expired" | "failed">;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+  urgency: "interrupt" | "next" | "soon" | "whenever";
 }
 
 export interface DeadairCallerHosts {
-    callerId: string;
-    createdAt: Generated<DateTime>;
-    hostId: string;
+  callerId: string;
+  createdAt: Generated<DateTime>;
+  hostId: string;
 }
 
 export interface DeadairClockBands {
-    at: 'clock' | 'interval';
-    createdAt: Generated<DateTime>;
-    enabled: Generated<boolean>;
-    everyMinutes: number | null;
-    hour: number | null;
-    id: Generated<string>;
-    kind: string;
-    minute: number | null;
-    position: Generated<number>;
-    stationKey: Generated<string>;
-    topicId: string | null;
-    updatedAt: Generated<DateTime>;
+  at: "clock" | "interval";
+  createdAt: Generated<DateTime>;
+  enabled: Generated<boolean>;
+  everyMinutes: number | null;
+  hour: number | null;
+  id: Generated<string>;
+  kind: string;
+  minute: number | null;
+  position: Generated<number>;
+  stationKey: Generated<string>;
+  topicId: string | null;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairConsoleLanguageChoices {
-    actorId: string;
-    createdAt: Generated<DateTime>;
-    locale: string;
-    updatedAt: Generated<DateTime>;
+  actorId: string;
+  createdAt: Generated<DateTime>;
+  locale: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairConsoleLanguages {
-    catalog: Json;
-    createdAt: Generated<DateTime>;
-    direction: Generated<'ltr' | 'rtl'>;
-    id: Generated<string>;
-    importedBy: string | null;
-    locale: string;
-    madeFor: Generated<string>;
-    name: string;
-    stationKey: Generated<string>;
-    updatedAt: Generated<DateTime>;
+  catalog: Json;
+  createdAt: Generated<DateTime>;
+  direction: Generated<"ltr" | "rtl">;
+  id: Generated<string>;
+  importedBy: string | null;
+  locale: string;
+  madeFor: Generated<string>;
+  name: string;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairFactExtractions {
-    albumId: string | null;
-    artistId: string | null;
-    claims: Generated<number>;
-    createdAt: Generated<DateTime>;
-    documentUrl: string;
-    id: Generated<string>;
-    source: 'lead' | 'model' | 'gloss';
-    stationKey: Generated<string>;
-    trackId: string | null;
+  albumId: string | null;
+  artistId: string | null;
+  claims: Generated<number>;
+  createdAt: Generated<DateTime>;
+  documentUrl: string;
+  id: Generated<string>;
+  source: "lead" | "model" | "gloss";
+  stationKey: Generated<string>;
+  trackId: string | null;
 }
 
 export interface DeadairFacts {
-    albumId: string | null;
-    artistId: string | null;
-    category: Generated<'summary' | 'placement' | 'chart' | 'recording' | 'personnel' | 'controversy' | 'cover_or_sample' | 'ending'>;
-    claim: string;
-    confidence: number | null;
-    createdAt: Generated<DateTime>;
-    extractedAt: Generated<DateTime>;
-    id: Generated<string>;
-    lastUsedAt: DateTime | null;
-    model: string | null;
-    source: 'lead' | 'model';
-    sourceProvider: string;
-    sourceQuote: string;
-    sourceUrl: string;
-    stationKey: Generated<string>;
-    trackId: string | null;
-    updatedAt: Generated<DateTime>;
+  albumId: string | null;
+  artistId: string | null;
+  category: Generated<"summary" | "placement" | "chart" | "recording" | "personnel" | "controversy" | "cover_or_sample" | "ending">;
+  claim: string;
+  confidence: number | null;
+  createdAt: Generated<DateTime>;
+  extractedAt: Generated<DateTime>;
+  id: Generated<string>;
+  lastUsedAt: DateTime | null;
+  model: string | null;
+  source: "lead" | "model";
+  sourceProvider: string;
+  sourceQuote: string;
+  sourceUrl: string;
+  stationKey: Generated<string>;
+  trackId: string | null;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairHiddenPlaylists {
-    createdAt: Generated<DateTime>;
-    playlistId: string;
-    pluginId: string;
-    stationKey: Generated<string>;
+  createdAt: Generated<DateTime>;
+  playlistId: string;
+  pluginId: string;
+  stationKey: Generated<string>;
 }
 
 export interface DeadairListenerRequests {
-    actorId: string | null;
-    airedAt: DateTime | null;
-    artist: string;
-    chatId: string | null;
-    chatKind: 'direct' | 'group' | null;
-    createdAt: Generated<DateTime>;
-    decidedAt: DateTime | null;
-    dedicateTo: string | null;
-    id: Generated<string>;
-    message: string | null;
-    messageId: string | null;
-    pluginId: string | null;
-    reason: string | null;
-    requesterKey: string;
-    requesterName: string;
-    stationKey: Generated<string>;
-    status: Generated<'waiting' | 'pending' | 'queued' | 'aired' | 'declined' | 'expired'>;
-    title: string;
-    trackId: string;
-    updatedAt: Generated<DateTime>;
+  actorId: string | null;
+  airedAt: DateTime | null;
+  artist: string;
+  chatId: string | null;
+  chatKind: "direct" | "group" | null;
+  createdAt: Generated<DateTime>;
+  decidedAt: DateTime | null;
+  dedicateTo: string | null;
+  id: Generated<string>;
+  message: string | null;
+  messageId: string | null;
+  pluginId: string | null;
+  reason: string | null;
+  requesterKey: string;
+  requesterName: string;
+  stationKey: Generated<string>;
+  status: Generated<"waiting" | "pending" | "queued" | "aired" | "declined" | "expired">;
+  title: string;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairLoginEvents {
-    actorId: string;
-    factorId: string | null;
-    factorType: string;
-    id: Generated<bigint>;
-    ip: string | null;
-    mfaSatisfied: boolean;
-    occurredAt: Generated<DateTime>;
-    sessionToken: string | null;
-    userAgent: string | null;
+  actorId: string;
+  factorId: string | null;
+  factorType: string;
+  id: Generated<bigint>;
+  ip: string | null;
+  mfaSatisfied: boolean;
+  occurredAt: Generated<DateTime>;
+  sessionToken: string | null;
+  userAgent: string | null;
 }
 
 export interface DeadairLoginFailureCounters {
-    actorId: string | null;
-    attemptCount: Generated<number>;
-    bucketStart: DateTime;
-    factorType: string;
-    identifier: string | null;
-    identifierHash: string;
-    ip: string;
-    lastReason: string | null;
-    lastSeenAt: Generated<DateTime>;
+  actorId: string | null;
+  attemptCount: Generated<number>;
+  bucketStart: DateTime;
+  factorType: string;
+  identifier: string | null;
+  identifierHash: string;
+  ip: string;
+  lastReason: string | null;
+  lastSeenAt: Generated<DateTime>;
 }
 
 export interface DeadairMessagingCursors {
-    cursor: string;
-    pluginId: string;
-    updatedAt: Generated<DateTime>;
+  cursor: string;
+  pluginId: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairMessagingIdentities {
-    actorId: string;
-    createdAt: Generated<DateTime>;
-    displayName: string;
-    platformUserId: string;
-    pluginId: string;
+  actorId: string;
+  createdAt: Generated<DateTime>;
+  displayName: string;
+  platformUserId: string;
+  pluginId: string;
 }
 
 export interface DeadairMessagingLinkCodes {
-    actorId: string;
-    codeHash: string;
-    createdAt: Generated<DateTime>;
-    expiresAt: DateTime;
+  actorId: string;
+  codeHash: string;
+  createdAt: Generated<DateTime>;
+  expiresAt: DateTime;
 }
 
 export interface DeadairNarrationPieces {
-    airedAt: DateTime | null;
-    artworkUrl: string | null;
-    author: string | null;
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    language: string | null;
-    ordinal: number | null;
-    pieceId: string;
-    productionId: string | null;
-    publishedAt: DateTime | null;
-    renderAttempts: Generated<number>;
-    renderError: string | null;
-    renderRequestedAt: DateTime | null;
-    scheduledFor: DateTime | null;
-    seenAt: Generated<DateTime>;
-    segmentId: string | null;
-    seriesId: string;
-    seriesOrder: Generated<string>;
-    seriesTitle: string;
-    stationKey: Generated<string>;
-    summary: string | null;
-    title: string;
-    updatedAt: Generated<DateTime>;
-    url: string | null;
-    withdrawnAt: DateTime | null;
-    wordCount: number | null;
+  airedAt: DateTime | null;
+  artworkUrl: string | null;
+  author: string | null;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  language: string | null;
+  ordinal: number | null;
+  pieceId: string;
+  productionId: string | null;
+  publishedAt: DateTime | null;
+  renderAttempts: Generated<number>;
+  renderError: string | null;
+  renderRequestedAt: DateTime | null;
+  scheduledFor: DateTime | null;
+  seenAt: Generated<DateTime>;
+  segmentId: string | null;
+  seriesId: string;
+  seriesOrder: Generated<string>;
+  seriesTitle: string;
+  stationKey: Generated<string>;
+  summary: string | null;
+  title: string;
+  updatedAt: Generated<DateTime>;
+  url: string | null;
+  withdrawnAt: DateTime | null;
+  wordCount: number | null;
 }
 
 export interface DeadairOauthClients {
-    clientId: string;
-    clientUri: string | null;
-    createdAt: Generated<DateTime>;
-    createdBy: string | null;
-    expiresAt: DateTime | null;
-    kind: 'preregistered' | 'dynamic';
-    lastUsedAt: DateTime | null;
-    logoUri: string | null;
-    name: string | null;
-    redirectUris: string[];
-    revokedAt: DateTime | null;
-    secretHash: string | null;
-    tokenEndpointAuthMethod: 'none' | 'client_secret_post' | 'client_secret_basic';
-    updatedAt: Generated<DateTime>;
+  clientId: string;
+  clientUri: string | null;
+  createdAt: Generated<DateTime>;
+  createdBy: string | null;
+  expiresAt: DateTime | null;
+  kind: "preregistered" | "dynamic";
+  lastUsedAt: DateTime | null;
+  logoUri: string | null;
+  name: string | null;
+  redirectUris: string[];
+  revokedAt: DateTime | null;
+  secretHash: string | null;
+  tokenEndpointAuthMethod: "none" | "client_secret_post" | "client_secret_basic";
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairOauthGrants {
-    actorId: string;
-    clientId: string;
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    lastUsedAt: DateTime | null;
-    resource: string;
-    revokedAt: DateTime | null;
-    scope: Generated<string[]>;
-    updatedAt: Generated<DateTime>;
+  actorId: string;
+  clientId: string;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  lastUsedAt: DateTime | null;
+  resource: string;
+  revokedAt: DateTime | null;
+  scope: Generated<string[]>;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairOutputCasts {
-    deviceId: string;
-    deviceName: string;
-    mountPath: string;
-    pluginId: string;
-    startedAt: Generated<DateTime>;
-    startedBy: string | null;
-    stationKey: Generated<string>;
+  deviceId: string;
+  deviceName: string;
+  mountPath: string;
+  pluginId: string;
+  startedAt: Generated<DateTime>;
+  startedBy: string | null;
+  stationKey: Generated<string>;
 }
 
 export interface DeadairPads {
-    audioChecksum: string;
-    audioExt: string;
-    board: string;
-    createdAt: Generated<DateTime>;
-    durationMs: number | null;
-    id: Generated<string>;
-    label: string;
-    lastUsedAt: DateTime | null;
-    loudnessLufs: number | null;
-    name: string;
-    source: Generated<string>;
-    sourcePath: string | null;
-    state: Generated<'active' | 'rejected'>;
-    stationKey: Generated<string>;
-    updatedAt: Generated<DateTime>;
+  audioChecksum: string;
+  audioExt: string;
+  board: string;
+  createdAt: Generated<DateTime>;
+  durationMs: number | null;
+  id: Generated<string>;
+  label: string;
+  lastUsedAt: DateTime | null;
+  loudnessLufs: number | null;
+  name: string;
+  source: Generated<string>;
+  sourcePath: string | null;
+  state: Generated<"active" | "rejected">;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairPadSetMembers {
-    createdAt: Generated<DateTime>;
-    padId: string;
-    setId: string;
+  createdAt: Generated<DateTime>;
+  padId: string;
+  setId: string;
 }
 
 export interface DeadairPadSets {
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    key: string;
-    label: string;
-    position: Generated<number>;
-    stationKey: Generated<string>;
-    updatedAt: Generated<DateTime>;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  key: string;
+  label: string;
+  position: Generated<number>;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairPermissionsRelationTuples {
-    createdAt: Generated<DateTime>;
-    createdBy: string | null;
-    id: Generated<string>;
-    objectId: string;
-    objectNamespace: string;
-    relation: string;
-    subjectId: string;
-    subjectNamespace: string;
-    subjectRelation: Generated<string>;
-    updatedAt: Generated<DateTime>;
+  createdAt: Generated<DateTime>;
+  createdBy: string | null;
+  id: Generated<string>;
+  objectId: string;
+  objectNamespace: string;
+  relation: string;
+  subjectId: string;
+  subjectNamespace: string;
+  subjectRelation: Generated<string>;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairPersonaAuditionBreaks {
-    attempts: Json;
-    auditionId: string;
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    next: Json;
-    ordinal: number;
-    previous: Json;
-    reason: string | null;
-    script: string | null;
-    told: boolean | null;
-    writer: string | null;
+  attempts: Json;
+  auditionId: string;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  next: Json;
+  ordinal: number;
+  previous: Json;
+  reason: string | null;
+  script: string | null;
+  told: boolean | null;
+  writer: string | null;
 }
 
 export interface DeadairPersonaAuditions {
-    actorId: string | null;
-    cancelledAt: DateTime | null;
-    createdAt: Generated<DateTime>;
-    cursor: Generated<number>;
-    error: string | null;
-    finishedAt: DateTime | null;
-    id: Generated<string>;
-    personaId: string;
-    personaKey: string;
-    records: Json;
-    sourceChartId: string | null;
-    sourceName: string | null;
-    sourcePlaylistId: string | null;
-    sourcePluginId: string | null;
-    sourceStationPlaylistId: string | null;
-    state: Generated<'queued' | 'running' | 'done' | 'failed' | 'cancelled'>;
-    stationKey: Generated<string>;
-    transitions: number;
-    updatedAt: Generated<DateTime>;
+  actorId: string | null;
+  cancelledAt: DateTime | null;
+  createdAt: Generated<DateTime>;
+  cursor: Generated<number>;
+  error: string | null;
+  finishedAt: DateTime | null;
+  id: Generated<string>;
+  personaId: string;
+  personaKey: string;
+  records: Json;
+  sourceChartId: string | null;
+  sourceName: string | null;
+  sourcePlaylistId: string | null;
+  sourcePluginId: string | null;
+  sourceStationPlaylistId: string | null;
+  state: Generated<"queued" | "running" | "done" | "failed" | "cancelled">;
+  stationKey: Generated<string>;
+  transitions: number;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairPersonaNotePasses {
-    personaKey: string;
-    ranAt: Generated<DateTime>;
-    readThrough: DateTime | null;
-    stationKey: Generated<string>;
+  personaKey: string;
+  ranAt: Generated<DateTime>;
+  readThrough: DateTime | null;
+  stationKey: Generated<string>;
 }
 
 export interface DeadairPersonaNotes {
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    kind: 'said' | 'trait';
-    lastUsedAt: DateTime | null;
-    note: string;
-    origin: 'operator' | 'model';
-    personaKey: string;
-    sourceQuote: string | null;
-    sourceScriptId: string | null;
-    state: 'active' | 'suggested' | 'rejected';
-    stationKey: Generated<string>;
-    updatedAt: Generated<DateTime>;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  kind: "said" | "trait";
+  lastUsedAt: DateTime | null;
+  note: string;
+  origin: "operator" | "model";
+  personaKey: string;
+  sourceQuote: string | null;
+  sourceScriptId: string | null;
+  state: "active" | "suggested" | "rejected";
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairPersonas {
-    avoid: Generated<Json>;
-    background: string | null;
-    brevity: string | null;
-    catchphrases: Generated<Json>;
-    chattiness: string | null;
-    createdAt: Generated<DateTime>;
-    defaultHost: Generated<boolean>;
-    diction: Generated<Json>;
-    dictionMarkers: Generated<Json>;
-    djName: string | null;
-    exclusiveSubjects: Generated<Json>;
-    growth: 'proposes' | 'self-directed' | null;
-    id: Generated<string>;
-    key: string;
-    kind: Generated<'host' | 'caller'>;
-    label: string;
-    latitude: string | null;
-    preoccupations: Generated<Json>;
-    quirks: Generated<Json>;
-    samples: Generated<Json>;
-    soundboard: string | null;
-    stationKey: Generated<string>;
-    storytelling: string | null;
-    style: string;
-    templates: string | null;
-    trivia: 'keen' | null;
-    updatedAt: Generated<DateTime>;
-    voice: string | null;
+  avoid: Generated<Json>;
+  background: string | null;
+  brevity: string | null;
+  catchphrases: Generated<Json>;
+  chattiness: string | null;
+  createdAt: Generated<DateTime>;
+  defaultHost: Generated<boolean>;
+  diction: Generated<Json>;
+  dictionMarkers: Generated<Json>;
+  djName: string | null;
+  exclusiveSubjects: Generated<Json>;
+  growth: "proposes" | "self-directed" | null;
+  id: Generated<string>;
+  key: string;
+  kind: Generated<"host" | "caller">;
+  label: string;
+  latitude: string | null;
+  preoccupations: Generated<Json>;
+  quirks: Generated<Json>;
+  samples: Generated<Json>;
+  soundboard: string | null;
+  stationKey: Generated<string>;
+  storytelling: string | null;
+  style: string;
+  templates: string | null;
+  trivia: "keen" | null;
+  updatedAt: Generated<DateTime>;
+  voice: string | null;
 }
 
 export interface DeadairPersonaStories {
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    kind: Generated<'anecdote' | 'arc' | 'bit'>;
-    origin: 'operator' | 'model';
-    personaKey: string;
-    source: string | null;
-    state: 'active' | 'suggested' | 'rejected';
-    stationKey: Generated<string>;
-    story: string;
-    title: string;
-    updatedAt: Generated<DateTime>;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  kind: Generated<"anecdote" | "arc" | "bit">;
+  origin: "operator" | "model";
+  personaKey: string;
+  source: string | null;
+  state: "active" | "suggested" | "rejected";
+  stationKey: Generated<string>;
+  story: string;
+  title: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairPersonaStoryBeats {
-    beat: string;
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    ordinal: number;
-    origin: 'operator' | 'model';
-    source: string | null;
-    state: 'active' | 'suggested' | 'rejected';
-    storyId: string;
-    updatedAt: Generated<DateTime>;
+  beat: string;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  ordinal: number;
+  origin: "operator" | "model";
+  source: string | null;
+  state: "active" | "suggested" | "rejected";
+  storyId: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairPersonaStoryDetails {
-    createdAt: Generated<DateTime>;
-    detail: string;
-    id: Generated<string>;
-    origin: 'operator' | 'model';
-    source: string | null;
-    state: 'active' | 'suggested' | 'rejected';
-    storyId: string;
+  createdAt: Generated<DateTime>;
+  detail: string;
+  id: Generated<string>;
+  origin: "operator" | "model";
+  source: string | null;
+  state: "active" | "suggested" | "rejected";
+  storyId: string;
 }
 
 export interface DeadairPersonaStoryRecaps {
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    recap: string;
-    stationKey: Generated<string>;
-    storyId: string;
-    tellings: number;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  recap: string;
+  stationKey: Generated<string>;
+  storyId: string;
+  tellings: number;
 }
 
 export interface DeadairPersonaTellings {
-    airedAt: DateTime | null;
-    beatId: string | null;
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    mode: 'offered' | 'told';
-    personaKey: string;
-    said: string | null;
-    segmentId: string | null;
-    source: 'break' | 'production' | 'backfill';
-    stationKey: Generated<string>;
-    storyId: string;
-    told: Generated<boolean>;
+  airedAt: DateTime | null;
+  beatId: string | null;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  mode: "offered" | "told";
+  personaKey: string;
+  said: string | null;
+  segmentId: string | null;
+  source: "break" | "production" | "backfill";
+  stationKey: Generated<string>;
+  storyId: string;
+  told: Generated<boolean>;
 }
 
 export interface DeadairPlayHistory {
-    airedAt: Generated<DateTime>;
-    artist: Generated<string>;
-    artistKey: string;
-    artists: string;
-    broadcastId: string | null;
-    createdAt: Generated<DateTime>;
-    externalId: string;
-    id: Generated<string>;
-    pluginId: string;
-    songKey: string;
-    source: Generated<string>;
-    stationKey: Generated<string>;
-    title: string;
-    trackId: string | null;
+  airedAt: Generated<DateTime>;
+  artist: Generated<string>;
+  artistKey: string;
+  artists: string;
+  broadcastId: string | null;
+  createdAt: Generated<DateTime>;
+  externalId: string;
+  id: Generated<string>;
+  pluginId: string;
+  songKey: string;
+  source: Generated<string>;
+  stationKey: Generated<string>;
+  title: string;
+  trackId: string | null;
 }
 
 export interface DeadairPlaylists {
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    name: string;
-    originPluginId: string | null;
-    prompt: Generated<string>;
-    updatedAt: Generated<DateTime>;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  name: string;
+  originPluginId: string | null;
+  prompt: Generated<string>;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairPlaylistTracks {
-    id: Generated<string>;
-    originExternalId: string | null;
-    originPluginId: string | null;
-    originSnapshot: Json | null;
-    playlistId: string;
-    position: number;
-    trackId: string | null;
+  id: Generated<string>;
+  originExternalId: string | null;
+  originPluginId: string | null;
+  originSnapshot: Json | null;
+  playlistId: string;
+  position: number;
+  trackId: string | null;
 }
 
 export interface DeadairPluginConfigs {
-    config: Generated<Json>;
-    createdAt: Generated<DateTime>;
-    enabled: Generated<boolean>;
-    firstEnabledAt: DateTime | null;
-    lastError: string | null;
-    logLevel: Generated<'debug' | 'info' | 'warn' | 'error'>;
-    pluginId: string;
-    secrets: Generated<Json>;
-    status: string | null;
-    updatedAt: Generated<DateTime>;
+  config: Generated<Json>;
+  createdAt: Generated<DateTime>;
+  enabled: Generated<boolean>;
+  firstEnabledAt: DateTime | null;
+  lastError: string | null;
+  logLevel: Generated<"debug" | "info" | "warn" | "error">;
+  pluginId: string;
+  secrets: Generated<Json>;
+  status: string | null;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairPluginGrants {
-    capability: string;
-    createdAt: Generated<DateTime>;
-    decidedAt: Generated<DateTime>;
-    decidedBy: string | null;
-    decision: 'allowed' | 'denied';
-    pluginId: string;
-    updatedAt: Generated<DateTime>;
+  capability: string;
+  createdAt: Generated<DateTime>;
+  decidedAt: Generated<DateTime>;
+  decidedBy: string | null;
+  decision: "allowed" | "denied";
+  pluginId: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairPluginStorage {
-    createdAt: Generated<DateTime>;
-    key: string;
-    pluginId: string;
-    updatedAt: Generated<DateTime>;
-    value: Json | null;
+  createdAt: Generated<DateTime>;
+  key: string;
+  pluginId: string;
+  updatedAt: Generated<DateTime>;
+  value: Json | null;
 }
 
 export interface DeadairPodcastEpisodes {
-    airedAt: DateTime | null;
-    artworkUrl: string | null;
-    audioBytes: number | null;
-    audioMime: string | null;
-    audioUrl: string;
-    createdAt: Generated<DateTime>;
-    durationMs: number | null;
-    episodeId: string;
-    explicit: boolean | null;
-    fetchAttempts: Generated<number>;
-    fetchError: string | null;
-    fetchRequestedAt: DateTime | null;
-    id: Generated<string>;
-    publishedAt: DateTime | null;
-    scheduledFor: DateTime | null;
-    seenAt: Generated<DateTime>;
-    segmentId: string | null;
-    showId: string;
-    showTitle: string;
-    stationKey: Generated<string>;
-    summary: string | null;
-    title: string;
-    updatedAt: Generated<DateTime>;
-    url: string | null;
+  airedAt: DateTime | null;
+  artworkUrl: string | null;
+  audioBytes: number | null;
+  audioMime: string | null;
+  audioUrl: string;
+  createdAt: Generated<DateTime>;
+  durationMs: number | null;
+  episodeId: string;
+  explicit: boolean | null;
+  fetchAttempts: Generated<number>;
+  fetchError: string | null;
+  fetchRequestedAt: DateTime | null;
+  id: Generated<string>;
+  publishedAt: DateTime | null;
+  scheduledFor: DateTime | null;
+  seenAt: Generated<DateTime>;
+  segmentId: string | null;
+  showId: string;
+  showTitle: string;
+  stationKey: Generated<string>;
+  summary: string | null;
+  title: string;
+  updatedAt: Generated<DateTime>;
+  url: string | null;
 }
 
 export interface DeadairProductions {
-    actorId: string | null;
-    brief: string | null;
-    broadcastId: string | null;
-    cancelledAt: DateTime | null;
-    casting: Json | null;
-    createdAt: Generated<DateTime>;
-    error: string | null;
-    id: Generated<string>;
-    kind: Generated<string>;
-    outline: Json | null;
-    personaId: string | null;
-    plan: Json | null;
-    scheduledFor: DateTime | null;
-    state: Generated<'planned' | 'outlining' | 'drafting' | 'checking' | 'rendering' | 'stitching' | 'ready' | 'aired' | 'failed' | 'cancelled'>;
-    stationKey: Generated<string>;
-    targetMs: number;
-    title: string;
-    updatedAt: Generated<DateTime>;
-    writingMode: Generated<'quick' | 'outlined' | 'polished'>;
+  actorId: string | null;
+  brief: string | null;
+  broadcastId: string | null;
+  cancelledAt: DateTime | null;
+  casting: Json | null;
+  createdAt: Generated<DateTime>;
+  error: string | null;
+  id: Generated<string>;
+  kind: Generated<string>;
+  outline: Json | null;
+  personaId: string | null;
+  plan: Json | null;
+  scheduledFor: DateTime | null;
+  state: Generated<"planned" | "outlining" | "drafting" | "checking" | "rendering" | "stitching" | "ready" | "aired" | "failed" | "cancelled">;
+  stationKey: Generated<string>;
+  targetMs: number;
+  title: string;
+  updatedAt: Generated<DateTime>;
+  writingMode: Generated<"quick" | "outlined" | "polished">;
 }
 
 export interface DeadairPronunciations {
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    origin: 'operator' | 'gloss';
-    sourceQuote: string | null;
-    sourceUrl: string | null;
-    spoken: string;
-    state: 'active' | 'suggested' | 'rejected';
-    stationKey: Generated<string>;
-    subjectId: string | null;
-    subjectKind: 'track' | 'album' | 'artist' | null;
-    updatedAt: Generated<DateTime>;
-    written: string;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  origin: "operator" | "gloss";
+  sourceQuote: string | null;
+  sourceUrl: string | null;
+  spoken: string;
+  state: "active" | "suggested" | "rejected";
+  stationKey: Generated<string>;
+  subjectId: string | null;
+  subjectKind: "track" | "album" | "artist" | null;
+  updatedAt: Generated<DateTime>;
+  written: string;
 }
 
 export interface DeadairProviderPlaylistListings {
-    listedAt: Generated<DateTime>;
-    playlists: Json;
-    pluginId: string;
-    stationKey: Generated<string>;
+  listedAt: Generated<DateTime>;
+  playlists: Json;
+  pluginId: string;
+  stationKey: Generated<string>;
 }
 
 export interface DeadairScheduleSlots {
-    brief: Generated<string>;
-    callins: boolean | null;
-    createdAt: Generated<DateTime>;
-    days: Generated<Json>;
-    endsAtMinutes: number;
-    eraFrom: number | null;
-    eraTo: number | null;
-    id: Generated<string>;
-    label: Generated<string>;
-    mixInSimilar: boolean | null;
-    mode: Generated<'rotation' | 'setlist' | 'feature'>;
-    mood: 'love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear' | null;
-    onEnd: Generated<'extend' | 'repeat' | 'stop'>;
-    personaId: string | null;
-    sourceChartId: string | null;
-    sourceChartOrder: 'countdown' | 'ranked' | 'unordered' | null;
-    sourcePlaylistId: string | null;
-    sourcePluginId: string | null;
-    sourceStationPlaylistId: string | null;
-    startsAtMinutes: number;
-    stationKey: Generated<string>;
-    updatedAt: Generated<DateTime>;
+  brief: Generated<string>;
+  callins: boolean | null;
+  createdAt: Generated<DateTime>;
+  days: Generated<Json>;
+  endsAtMinutes: number;
+  eraFrom: number | null;
+  eraTo: number | null;
+  id: Generated<string>;
+  label: Generated<string>;
+  mixInSimilar: boolean | null;
+  mode: Generated<"rotation" | "setlist" | "feature">;
+  mood: "love" | "happiness" | "comfort" | "sadness" | "loneliness" | "anger" | "fear" | null;
+  onEnd: Generated<"extend" | "repeat" | "stop">;
+  personaId: string | null;
+  sourceChartId: string | null;
+  sourceChartOrder: "countdown" | "ranked" | "unordered" | null;
+  sourcePlaylistId: string | null;
+  sourcePluginId: string | null;
+  sourceStationPlaylistId: string | null;
+  startsAtMinutes: number;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairScriptHistory {
-    broadcastId: string | null;
-    createdAt: Generated<DateTime>;
-    delivery: string | null;
-    durationMs: number | null;
-    id: Generated<string>;
-    kind: string;
-    label: string | null;
-    model: string | null;
-    next: Json | null;
-    outcome: 'written' | 'declined' | 'failed';
-    personaKey: string | null;
-    previous: Json | null;
-    prompt: Json | null;
-    raw: string | null;
-    reason: string | null;
-    script: string | null;
-    segmentId: string | null;
-    source: string | null;
-    stationKey: Generated<string>;
-    usage: Json | null;
-    writer: string;
+  broadcastId: string | null;
+  createdAt: Generated<DateTime>;
+  delivery: string | null;
+  durationMs: number | null;
+  id: Generated<string>;
+  kind: string;
+  label: string | null;
+  model: string | null;
+  next: Json | null;
+  outcome: "written" | "declined" | "failed";
+  personaKey: string | null;
+  previous: Json | null;
+  prompt: Json | null;
+  raw: string | null;
+  reason: string | null;
+  script: string | null;
+  segmentId: string | null;
+  source: string | null;
+  stationKey: Generated<string>;
+  usage: Json | null;
+  writer: string;
 }
 
 export interface DeadairScriptRatings {
-    actorId: string | null;
-    createdAt: Generated<DateTime>;
-    rating: number;
-    scriptId: string;
-    stationKey: Generated<string>;
-    updatedAt: Generated<DateTime>;
+  actorId: string | null;
+  createdAt: Generated<DateTime>;
+  rating: number;
+  scriptId: string;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairScrobbleQueue {
-    attempts: Generated<number>;
-    broadcastId: string | null;
-    createdAt: Generated<DateTime>;
-    eligibleAt: DateTime;
-    id: Generated<string>;
-    lastError: string | null;
-    nextAttemptAt: Generated<DateTime>;
-    payload: Json;
-    playedAt: DateTime;
-    pluginId: string;
-    stationKey: Generated<string>;
+  attempts: Generated<number>;
+  broadcastId: string | null;
+  createdAt: Generated<DateTime>;
+  eligibleAt: DateTime;
+  id: Generated<string>;
+  lastError: string | null;
+  nextAttemptAt: Generated<DateTime>;
+  payload: Json;
+  playedAt: DateTime;
+  pluginId: string;
+  stationKey: Generated<string>;
 }
 
 export interface DeadairSegmentEvents {
-    broadcastId: string | null;
-    createdAt: Generated<DateTime>;
-    fromState: string | null;
-    id: Generated<string>;
-    reason: string | null;
-    segmentId: string;
-    stationKey: Generated<string>;
-    toState: 'planned' | 'writing' | 'written' | 'rendering' | 'ready' | 'failed';
+  broadcastId: string | null;
+  createdAt: Generated<DateTime>;
+  fromState: string | null;
+  id: Generated<string>;
+  reason: string | null;
+  segmentId: string;
+  stationKey: Generated<string>;
+  toState: "planned" | "writing" | "written" | "rendering" | "ready" | "failed";
 }
 
 export interface DeadairSegments {
-    airsAt: DateTime | null;
-    audioChecksum: string | null;
-    audioExt: string | null;
-    claimsItemId: string | null;
-    claimsPreviousItemId: string | null;
-    claimsReadingUntil: DateTime | null;
-    claimsTimeFrom: DateTime | null;
-    claimsTimeUntil: DateTime | null;
-    context: Json | null;
-    createdAt: Generated<DateTime>;
-    delivery: string | null;
-    durationMs: number | null;
-    error: string | null;
-    id: Generated<string>;
-    kind: Generated<string>;
-    label: string;
-    listenerLabel: string | null;
-    loudnessLufs: number | null;
-    pads: Generated<Json>;
-    personaId: string | null;
-    productionId: string | null;
-    productionOrdinal: number | null;
-    requestId: string | null;
-    script: string | null;
-    source: Generated<string>;
-    sourcePath: string | null;
-    spokenScript: string | null;
-    state: Generated<'planned' | 'writing' | 'written' | 'rendering' | 'ready' | 'failed'>;
-    stationKey: Generated<string>;
-    updatedAt: Generated<DateTime>;
-    voice: string | null;
-    writer: string | null;
+  airsAt: DateTime | null;
+  audioChecksum: string | null;
+  audioExt: string | null;
+  claimsItemId: string | null;
+  claimsPreviousItemId: string | null;
+  claimsReadingUntil: DateTime | null;
+  claimsTimeFrom: DateTime | null;
+  claimsTimeUntil: DateTime | null;
+  context: Json | null;
+  createdAt: Generated<DateTime>;
+  delivery: string | null;
+  durationMs: number | null;
+  error: string | null;
+  id: Generated<string>;
+  kind: Generated<string>;
+  label: string;
+  listenerLabel: string | null;
+  loudnessLufs: number | null;
+  pads: Generated<Json>;
+  personaId: string | null;
+  productionId: string | null;
+  productionOrdinal: number | null;
+  requestId: string | null;
+  script: string | null;
+  source: Generated<string>;
+  sourcePath: string | null;
+  spokenScript: string | null;
+  state: Generated<"planned" | "writing" | "written" | "rendering" | "ready" | "failed">;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+  voice: string | null;
+  writer: string | null;
 }
 
 export interface DeadairSettings {
-    createdAt: Generated<DateTime>;
-    key: string;
-    updatedAt: Generated<DateTime>;
-    value: string | null;
+  createdAt: Generated<DateTime>;
+  key: string;
+  updatedAt: Generated<DateTime>;
+  value: string | null;
 }
 
 export interface DeadairStationAir {
-    active: Generated<boolean>;
-    createdAt: Generated<DateTime>;
-    ranOut: Generated<boolean>;
-    slot: Generated<string>;
-    updatedAt: Generated<DateTime>;
+  active: Generated<boolean>;
+  createdAt: Generated<DateTime>;
+  ranOut: Generated<boolean>;
+  slot: Generated<string>;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairStationEvents {
-    actorId: string | null;
-    broadcastId: string | null;
-    createdAt: Generated<DateTime>;
-    data: Json | null;
-    detail: string;
-    id: Generated<string>;
-    kind: string;
-    module: 'playout' | 'director' | 'render' | 'catalog' | 'plugins' | 'storage';
-    severity: Generated<'info' | 'warn' | 'fault'>;
-    stationKey: Generated<string>;
+  actorId: string | null;
+  broadcastId: string | null;
+  createdAt: Generated<DateTime>;
+  data: Json | null;
+  detail: string;
+  id: Generated<string>;
+  kind: string;
+  module: "playout" | "director" | "render" | "catalog" | "plugins" | "storage";
+  severity: Generated<"info" | "warn" | "fault">;
+  stationKey: Generated<string>;
 }
 
 export interface DeadairStationLineup {
-    brief: Generated<string>;
-    broadcastId: Generated<string>;
-    createdAt: Generated<DateTime>;
-    eraFrom: number | null;
-    eraTo: number | null;
-    holdUntil: DateTime | null;
-    items: Generated<Json>;
-    mode: Generated<'rotation' | 'setlist' | 'feature'>;
-    mood: 'love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear' | null;
-    name: Generated<string>;
-    onEnd: Generated<'extend' | 'repeat' | 'stop'>;
-    personaId: string | null;
-    placedBy: Generated<'operator' | 'schedule'>;
-    rules: Json | null;
-    slotId: string | null;
-    source: Generated<string>;
-    sourceChartId: string | null;
-    sourcePlaylistId: string | null;
-    sourcePluginId: string | null;
-    stationKey: Generated<string>;
-    updatedAt: Generated<DateTime>;
+  brief: Generated<string>;
+  broadcastId: Generated<string>;
+  createdAt: Generated<DateTime>;
+  eraFrom: number | null;
+  eraTo: number | null;
+  holdUntil: DateTime | null;
+  items: Generated<Json>;
+  mode: Generated<"rotation" | "setlist" | "feature">;
+  mood: "love" | "happiness" | "comfort" | "sadness" | "loneliness" | "anger" | "fear" | null;
+  name: Generated<string>;
+  onEnd: Generated<"extend" | "repeat" | "stop">;
+  personaId: string | null;
+  placedBy: Generated<"operator" | "schedule">;
+  rules: Json | null;
+  slotId: string | null;
+  source: Generated<string>;
+  sourceChartId: string | null;
+  sourcePlaylistId: string | null;
+  sourcePluginId: string | null;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairTopics {
-    config: Generated<Json>;
-    createdAt: Generated<DateTime>;
-    id: Generated<string>;
-    key: string;
-    kind: string;
-    label: string;
-    position: Generated<number>;
-    stationKey: Generated<string>;
-    updatedAt: Generated<DateTime>;
+  config: Generated<Json>;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  key: string;
+  kind: string;
+  label: string;
+  position: Generated<number>;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairTrackAnalysis {
-    analyzedAt: DateTime | null;
-    analyzer: string | null;
-    analyzerPluginId: string | null;
-    complete: Generated<boolean>;
-    createdAt: Generated<DateTime>;
-    data: Generated<Json>;
-    failedAt: DateTime | null;
-    failureReason: string | null;
-    id: Generated<string>;
-    schemaVersion: number;
-    trackId: string;
-    updatedAt: Generated<DateTime>;
+  analyzedAt: DateTime | null;
+  analyzer: string | null;
+  analyzerPluginId: string | null;
+  complete: Generated<boolean>;
+  createdAt: Generated<DateTime>;
+  data: Generated<Json>;
+  failedAt: DateTime | null;
+  failureReason: string | null;
+  id: Generated<string>;
+  schemaVersion: number;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairTrackArtists {
-    artistId: string;
-    createdAt: Generated<DateTime>;
-    position: number;
-    trackId: string;
+  artistId: string;
+  createdAt: Generated<DateTime>;
+  position: number;
+  trackId: string;
 }
 
 export interface DeadairTrackAudio {
-    attempts: Generated<number>;
-    byteSize: number | null;
-    checksum: string | null;
-    contentType: string | null;
-    createdAt: Generated<DateTime>;
-    ext: string | null;
-    fetchedAt: DateTime | null;
-    id: Generated<string>;
-    lastError: string | null;
-    lastServedAt: Generated<DateTime>;
-    nextAttemptAt: DateTime | null;
-    sourceId: string;
-    updatedAt: Generated<DateTime>;
+  attempts: Generated<number>;
+  byteSize: number | null;
+  checksum: string | null;
+  contentType: string | null;
+  createdAt: Generated<DateTime>;
+  ext: string | null;
+  fetchedAt: DateTime | null;
+  id: Generated<string>;
+  lastError: string | null;
+  lastServedAt: Generated<DateTime>;
+  nextAttemptAt: DateTime | null;
+  sourceId: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairTrackEnrichment {
-    attempts: Generated<number>;
-    createdAt: Generated<DateTime>;
-    data: Json;
-    expiresAt: DateTime | null;
-    fetchedAt: Generated<DateTime>;
-    id: Generated<string>;
-    lastError: string | null;
-    provider: string;
-    providerRef: string | null;
-    trackId: string;
-    updatedAt: Generated<DateTime>;
+  attempts: Generated<number>;
+  createdAt: Generated<DateTime>;
+  data: Json;
+  expiresAt: DateTime | null;
+  fetchedAt: Generated<DateTime>;
+  id: Generated<string>;
+  lastError: string | null;
+  provider: string;
+  providerRef: string | null;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairTrackLyricLabels {
-    createdAt: Generated<DateTime>;
-    moods: Json | null;
-    moodsAt: DateTime | null;
-    moodsAttempts: Generated<number>;
-    moodsError: string | null;
-    moodsRetryAt: DateTime | null;
-    moodsVersion: string | null;
-    subject: string | null;
-    subjectAt: DateTime | null;
-    subjectAttempts: Generated<number>;
-    subjectError: string | null;
-    subjectRetryAt: DateTime | null;
-    subjectVersion: string | null;
-    trackId: string;
-    updatedAt: Generated<DateTime>;
+  createdAt: Generated<DateTime>;
+  moods: Json | null;
+  moodsAt: DateTime | null;
+  moodsAttempts: Generated<number>;
+  moodsError: string | null;
+  moodsRetryAt: DateTime | null;
+  moodsVersion: string | null;
+  subject: string | null;
+  subjectAt: DateTime | null;
+  subjectAttempts: Generated<number>;
+  subjectError: string | null;
+  subjectRetryAt: DateTime | null;
+  subjectVersion: string | null;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairTrackLyrics {
-    attempts: Generated<number>;
-    createdAt: Generated<DateTime>;
-    expiresAt: DateTime | null;
-    fetchedAt: Generated<DateTime>;
-    id: Generated<string>;
-    instrumental: Generated<boolean>;
-    language: string | null;
-    lastError: string | null;
-    plain: string | null;
-    provider: string;
-    providerRef: string | null;
-    synced: Json | null;
-    trackId: string;
-    updatedAt: Generated<DateTime>;
+  attempts: Generated<number>;
+  createdAt: Generated<DateTime>;
+  expiresAt: DateTime | null;
+  fetchedAt: Generated<DateTime>;
+  id: Generated<string>;
+  instrumental: Generated<boolean>;
+  language: string | null;
+  lastError: string | null;
+  plain: string | null;
+  provider: string;
+  providerRef: string | null;
+  synced: Json | null;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairTracks {
-    albumId: string | null;
-    artistId: string;
-    artists: string;
-    createdAt: Generated<DateTime>;
-    durationMs: number | null;
-    genre: string | null;
-    id: Generated<string>;
-    mbid: string | null;
-    mergedIntoId: string | null;
-    rating: Generated<number>;
-    title: string;
-    titleKey: string;
-    updatedAt: Generated<DateTime>;
-    year: number | null;
+  albumId: string | null;
+  artistId: string;
+  artists: string;
+  createdAt: Generated<DateTime>;
+  durationMs: number | null;
+  genre: string | null;
+  id: Generated<string>;
+  mbid: string | null;
+  mergedIntoId: string | null;
+  rating: Generated<number>;
+  title: string;
+  titleKey: string;
+  updatedAt: Generated<DateTime>;
+  year: number | null;
 }
 
 export interface DeadairTrackSources {
-    advisory: 'explicit' | 'clean' | null;
-    bitrate: number | null;
-    coverArtId: string | null;
-    createdAt: Generated<DateTime>;
-    durationMs: number | null;
-    externalId: string;
-    format: string | null;
-    id: Generated<string>;
-    isrc: string | null;
-    lastSeenAt: DateTime | null;
-    missingAt: DateTime | null;
-    origin: Generated<'sync' | 'discovered'>;
-    playable: Generated<boolean>;
-    pluginId: string;
-    raw: Json | null;
-    trackId: string;
-    updatedAt: Generated<DateTime>;
-    uri: string | null;
+  advisory: "explicit" | "clean" | null;
+  bitrate: number | null;
+  coverArtId: string | null;
+  createdAt: Generated<DateTime>;
+  durationMs: number | null;
+  externalId: string;
+  format: string | null;
+  id: Generated<string>;
+  isrc: string | null;
+  lastSeenAt: DateTime | null;
+  missingAt: DateTime | null;
+  origin: Generated<"sync" | "discovered">;
+  playable: Generated<boolean>;
+  pluginId: string;
+  raw: Json | null;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
+  uri: string | null;
 }
 
 export interface DeadairTrackVocalOverrides {
-    createdAt: Generated<DateTime>;
-    endMs: number | null;
-    instrumental: Generated<boolean>;
-    onsetMs: number | null;
-    trackId: string;
-    updatedAt: Generated<DateTime>;
+  createdAt: Generated<DateTime>;
+  endMs: number | null;
+  instrumental: Generated<boolean>;
+  onsetMs: number | null;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface SchemaMigrations {
-    version: string;
+  version: string;
 }
 
 export interface DB {
-    'deadair.actors': DeadairActors;
-    'deadair.actorsApikeyFactors': DeadairActorsApikeyFactors;
-    'deadair.actorsAuthenticatorFactors': DeadairActorsAuthenticatorFactors;
-    'deadair.actorsEmailFactors': DeadairActorsEmailFactors;
-    'deadair.actorSessionEvents': DeadairActorSessionEvents;
-    'deadair.actorsFidoFactors': DeadairActorsFidoFactors;
-    'deadair.actorsOidcFactors': DeadairActorsOidcFactors;
-    'deadair.actorsPasswordFactors': DeadairActorsPasswordFactors;
-    'deadair.actorsPasswordFactorsArchive': DeadairActorsPasswordFactorsArchive;
-    'deadair.albumEnrichment': DeadairAlbumEnrichment;
-    'deadair.albums': DeadairAlbums;
-    'deadair.albumSources': DeadairAlbumSources;
-    'deadair.artAssets': DeadairArtAssets;
-    'deadair.artistEnrichment': DeadairArtistEnrichment;
-    'deadair.artists': DeadairArtists;
-    'deadair.artistSources': DeadairArtistSources;
-    'deadair.breakRequests': DeadairBreakRequests;
-    'deadair.callerHosts': DeadairCallerHosts;
-    'deadair.clockBands': DeadairClockBands;
-    'deadair.consoleLanguageChoices': DeadairConsoleLanguageChoices;
-    'deadair.consoleLanguages': DeadairConsoleLanguages;
-    'deadair.factExtractions': DeadairFactExtractions;
-    'deadair.facts': DeadairFacts;
-    'deadair.hiddenPlaylists': DeadairHiddenPlaylists;
-    'deadair.listenerRequests': DeadairListenerRequests;
-    'deadair.loginEvents': DeadairLoginEvents;
-    'deadair.loginFailureCounters': DeadairLoginFailureCounters;
-    'deadair.messagingCursors': DeadairMessagingCursors;
-    'deadair.messagingIdentities': DeadairMessagingIdentities;
-    'deadair.messagingLinkCodes': DeadairMessagingLinkCodes;
-    'deadair.narrationPieces': DeadairNarrationPieces;
-    'deadair.oauthClients': DeadairOauthClients;
-    'deadair.oauthGrants': DeadairOauthGrants;
-    'deadair.outputCasts': DeadairOutputCasts;
-    'deadair.pads': DeadairPads;
-    'deadair.padSetMembers': DeadairPadSetMembers;
-    'deadair.padSets': DeadairPadSets;
-    'deadair.permissionsRelationTuples': DeadairPermissionsRelationTuples;
-    'deadair.personaAuditionBreaks': DeadairPersonaAuditionBreaks;
-    'deadair.personaAuditions': DeadairPersonaAuditions;
-    'deadair.personaNotePasses': DeadairPersonaNotePasses;
-    'deadair.personaNotes': DeadairPersonaNotes;
-    'deadair.personas': DeadairPersonas;
-    'deadair.personaStories': DeadairPersonaStories;
-    'deadair.personaStoryBeats': DeadairPersonaStoryBeats;
-    'deadair.personaStoryDetails': DeadairPersonaStoryDetails;
-    'deadair.personaStoryRecaps': DeadairPersonaStoryRecaps;
-    'deadair.personaTellings': DeadairPersonaTellings;
-    'deadair.playHistory': DeadairPlayHistory;
-    'deadair.playlists': DeadairPlaylists;
-    'deadair.playlistTracks': DeadairPlaylistTracks;
-    'deadair.pluginConfigs': DeadairPluginConfigs;
-    'deadair.pluginGrants': DeadairPluginGrants;
-    'deadair.pluginStorage': DeadairPluginStorage;
-    'deadair.podcastEpisodes': DeadairPodcastEpisodes;
-    'deadair.productions': DeadairProductions;
-    'deadair.pronunciations': DeadairPronunciations;
-    'deadair.providerPlaylistListings': DeadairProviderPlaylistListings;
-    'deadair.scheduleSlots': DeadairScheduleSlots;
-    'deadair.scriptHistory': DeadairScriptHistory;
-    'deadair.scriptRatings': DeadairScriptRatings;
-    'deadair.scrobbleQueue': DeadairScrobbleQueue;
-    'deadair.segmentEvents': DeadairSegmentEvents;
-    'deadair.segments': DeadairSegments;
-    'deadair.settings': DeadairSettings;
-    'deadair.stationAir': DeadairStationAir;
-    'deadair.stationEvents': DeadairStationEvents;
-    'deadair.stationLineup': DeadairStationLineup;
-    'deadair.topics': DeadairTopics;
-    'deadair.trackAnalysis': DeadairTrackAnalysis;
-    'deadair.trackArtists': DeadairTrackArtists;
-    'deadair.trackAudio': DeadairTrackAudio;
-    'deadair.trackEnrichment': DeadairTrackEnrichment;
-    'deadair.trackLyricLabels': DeadairTrackLyricLabels;
-    'deadair.trackLyrics': DeadairTrackLyrics;
-    'deadair.tracks': DeadairTracks;
-    'deadair.trackSources': DeadairTrackSources;
-    'deadair.trackVocalOverrides': DeadairTrackVocalOverrides;
-    schemaMigrations: SchemaMigrations;
+  "deadair.actors": DeadairActors;
+  "deadair.actorsApikeyFactors": DeadairActorsApikeyFactors;
+  "deadair.actorsAuthenticatorFactors": DeadairActorsAuthenticatorFactors;
+  "deadair.actorsEmailFactors": DeadairActorsEmailFactors;
+  "deadair.actorSessionEvents": DeadairActorSessionEvents;
+  "deadair.actorsFidoFactors": DeadairActorsFidoFactors;
+  "deadair.actorsOidcFactors": DeadairActorsOidcFactors;
+  "deadair.actorsPasswordFactors": DeadairActorsPasswordFactors;
+  "deadair.actorsPasswordFactorsArchive": DeadairActorsPasswordFactorsArchive;
+  "deadair.albumEnrichment": DeadairAlbumEnrichment;
+  "deadair.albums": DeadairAlbums;
+  "deadair.albumSources": DeadairAlbumSources;
+  "deadair.artAssets": DeadairArtAssets;
+  "deadair.artistEnrichment": DeadairArtistEnrichment;
+  "deadair.artists": DeadairArtists;
+  "deadair.artistSources": DeadairArtistSources;
+  "deadair.breakRequests": DeadairBreakRequests;
+  "deadair.callerHosts": DeadairCallerHosts;
+  "deadair.clockBands": DeadairClockBands;
+  "deadair.consoleLanguageChoices": DeadairConsoleLanguageChoices;
+  "deadair.consoleLanguages": DeadairConsoleLanguages;
+  "deadair.factExtractions": DeadairFactExtractions;
+  "deadair.facts": DeadairFacts;
+  "deadair.hiddenPlaylists": DeadairHiddenPlaylists;
+  "deadair.listenerRequests": DeadairListenerRequests;
+  "deadair.loginEvents": DeadairLoginEvents;
+  "deadair.loginFailureCounters": DeadairLoginFailureCounters;
+  "deadair.messagingCursors": DeadairMessagingCursors;
+  "deadair.messagingIdentities": DeadairMessagingIdentities;
+  "deadair.messagingLinkCodes": DeadairMessagingLinkCodes;
+  "deadair.narrationPieces": DeadairNarrationPieces;
+  "deadair.oauthClients": DeadairOauthClients;
+  "deadair.oauthGrants": DeadairOauthGrants;
+  "deadair.outputCasts": DeadairOutputCasts;
+  "deadair.pads": DeadairPads;
+  "deadair.padSetMembers": DeadairPadSetMembers;
+  "deadair.padSets": DeadairPadSets;
+  "deadair.permissionsRelationTuples": DeadairPermissionsRelationTuples;
+  "deadair.personaAuditionBreaks": DeadairPersonaAuditionBreaks;
+  "deadair.personaAuditions": DeadairPersonaAuditions;
+  "deadair.personaNotePasses": DeadairPersonaNotePasses;
+  "deadair.personaNotes": DeadairPersonaNotes;
+  "deadair.personas": DeadairPersonas;
+  "deadair.personaStories": DeadairPersonaStories;
+  "deadair.personaStoryBeats": DeadairPersonaStoryBeats;
+  "deadair.personaStoryDetails": DeadairPersonaStoryDetails;
+  "deadair.personaStoryRecaps": DeadairPersonaStoryRecaps;
+  "deadair.personaTellings": DeadairPersonaTellings;
+  "deadair.playHistory": DeadairPlayHistory;
+  "deadair.playlists": DeadairPlaylists;
+  "deadair.playlistTracks": DeadairPlaylistTracks;
+  "deadair.pluginConfigs": DeadairPluginConfigs;
+  "deadair.pluginGrants": DeadairPluginGrants;
+  "deadair.pluginStorage": DeadairPluginStorage;
+  "deadair.podcastEpisodes": DeadairPodcastEpisodes;
+  "deadair.productions": DeadairProductions;
+  "deadair.pronunciations": DeadairPronunciations;
+  "deadair.providerPlaylistListings": DeadairProviderPlaylistListings;
+  "deadair.scheduleSlots": DeadairScheduleSlots;
+  "deadair.scriptHistory": DeadairScriptHistory;
+  "deadair.scriptRatings": DeadairScriptRatings;
+  "deadair.scrobbleQueue": DeadairScrobbleQueue;
+  "deadair.segmentEvents": DeadairSegmentEvents;
+  "deadair.segments": DeadairSegments;
+  "deadair.settings": DeadairSettings;
+  "deadair.stationAir": DeadairStationAir;
+  "deadair.stationEvents": DeadairStationEvents;
+  "deadair.stationLineup": DeadairStationLineup;
+  "deadair.topics": DeadairTopics;
+  "deadair.trackAnalysis": DeadairTrackAnalysis;
+  "deadair.trackArtists": DeadairTrackArtists;
+  "deadair.trackAudio": DeadairTrackAudio;
+  "deadair.trackEnrichment": DeadairTrackEnrichment;
+  "deadair.trackLyricLabels": DeadairTrackLyricLabels;
+  "deadair.trackLyrics": DeadairTrackLyrics;
+  "deadair.tracks": DeadairTracks;
+  "deadair.trackSources": DeadairTrackSources;
+  "deadair.trackVocalOverrides": DeadairTrackVocalOverrides;
+  schemaMigrations: SchemaMigrations;
 }

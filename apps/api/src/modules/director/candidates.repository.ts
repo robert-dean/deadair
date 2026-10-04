@@ -283,6 +283,51 @@ export class CandidatesRepository extends DataRepository {
     }
 
     /**
+     * Every genre a batch of works is tagged with, at the track and at its artist, for the
+     * never-play rules to judge.
+     *
+     * The one place that union is written for the pick path, and the same two arrays `taggedWith`
+     * reads for a search: `track_enrichment.data -> 'genres'` and `artist_enrichment.data -> 'genres'`,
+     * one row per provider, each guarded by `jsonb_typeof` because a plugin wrote it. Both levels
+     * count, because a tag on the artist is how a style reaches a record nobody tagged one by one,
+     * which on most libraries is most of them. Never the promoted `tracks.genre` scalar: it is the
+     * first of these arrays, and the array is the data (Ideas #22).
+     *
+     * A track with no tags answers with nothing, which the rules read as "falls under no rule".
+     */
+    async tagsFor(trackIds: readonly string[]): Promise<Map<string, string[]>> {
+        const tags = new Map<string, string[]>();
+        if (trackIds.length === 0) return tags;
+
+        const genres = (table: string, column: string, id: string) => sql`
+            select jsonb_array_elements_text(
+                case when jsonb_typeof(e.data -> 'genres') = 'array' then e.data -> 'genres' else '[]'::jsonb end
+            ) as tag
+            from deadair.${sql.raw(table)} e
+            where e.${sql.raw(column)} = deadair.tracks.${sql.raw(id)}
+        `;
+
+        const rows = await this.db
+            .selectFrom('deadair.tracks')
+            .select('deadair.tracks.id as trackId')
+            .select(
+                sql<string[] | null>`array(
+                    select distinct tag from (
+                        ${genres('track_enrichment', 'track_id', 'id')}
+                        union all
+                        ${genres('artist_enrichment', 'artist_id', 'artist_id')}
+                    ) tagged
+                    where tag <> ''
+                )`.as('tags'),
+            )
+            .where('deadair.tracks.id', 'in', [...trackIds])
+            .execute();
+
+        for (const row of rows) if (row.tags != null && row.tags.length > 0) tags.set(row.trackId, row.tags);
+        return tags;
+    }
+
+    /**
      * When a batch of works was first released, as far as this catalog knows.
      *
      * {@link ratingsFor}'s sibling, and it exists for the same reason: a pick can arrive from a

@@ -647,6 +647,17 @@ describe('PlayoutPusher.skipCurrent', () => {
         }
     });
 
+    it('does not hold the transport for a faded cut, which lands seconds later', async () => {
+        const { pusher, control, first } = await onAirStation(['a', 'b']);
+        control.reading = { queued: 1, ready: true, onAir: first };
+        control.status.mockClear();
+
+        expect(await pusher.skipCurrent(first, { fadeMs: 4000 })).toBe(true);
+        expect(control.skip).toHaveBeenCalledWith(first, { fadeMs: 4000 });
+        // No confirm loop: the reading the fade answered with is the only one read.
+        expect(control.status).not.toHaveBeenCalled();
+    });
+
     it('gives up after the budget rather than holding the operator', async () => {
         // A skip into a queue with nothing resolved behind it never produces a new
         // boundary: the mount falls to the local bed. That is a normal outcome, and
@@ -678,7 +689,7 @@ describe('PlayoutPusher.skipCurrent aimed at an item', () => {
             await vi.advanceTimersByTimeAsync(3_000);
 
             expect(await skipped).toBe(true);
-            expect(control.skip).toHaveBeenCalledExactlyOnceWith(first);
+            expect(control.skip).toHaveBeenCalledExactlyOnceWith(first, {});
         } finally {
             vi.useRealTimers();
         }

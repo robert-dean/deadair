@@ -8,7 +8,14 @@ import { DirectorService } from '#modules/director/director.service.js';
 import type { ChartOrder } from '#modules/director/chart.picks.js';
 import { isChartSource, isStationPlaylistSource, minutesIntoSlot, overlap, resolveSlot, type ScheduleSlot } from '#modules/director/schedule.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
-import { CAP_OVERRUN_KEY, DEFAULT_CAP_OVERRUN, OVERRUN_MINUTES_KEY, resolveOverrunMinutes } from './changeover.overrun.js';
+import {
+    CAP_OVERRUN_KEY,
+    DEFAULT_CAP_OVERRUN,
+    OVERRUN_FADE_MS_KEY,
+    OVERRUN_MINUTES_KEY,
+    resolveOverrunFadeMs,
+    resolveOverrunMinutes,
+} from './changeover.overrun.js';
 import type { ScheduleNow, ScheduleSlotInput, ScheduleSlotList, ScheduleTimetable, ScheduleTimetableQuery } from './types/schedule.types.js';
 import { project, stamp, type StationDate } from './schedule.occurrences.js';
 import { ScheduleRepository, type ScheduleSlotDraft } from './schedule.repository.js';
@@ -186,6 +193,11 @@ export class ScheduleService {
         if (!settingIsOn(this.config, CAP_OVERRUN_KEY, DEFAULT_CAP_OVERRUN)) return undefined;
 
         return resolveOverrunMinutes(this.config.get(OVERRUN_MINUTES_KEY, ''));
+    }
+
+    /** How long a record cut at its limit takes to fade out, in milliseconds. Zero cuts. See `changeover.overrun.ts`. */
+    overrunFadeMs(): number {
+        return resolveOverrunFadeMs(this.config.get(OVERRUN_FADE_MS_KEY, ''));
     }
 
     /** Whole minutes since `slot` began, on the station's own clock. `slot` must be the one in force. */

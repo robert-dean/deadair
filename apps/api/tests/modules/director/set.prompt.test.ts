@@ -526,3 +526,18 @@ describe('readPicks', () => {
         expect(readPicks('[]', 10)).toEqual([]);
     });
 });
+
+describe('a genre steer in the set prompt', () => {
+    it('asks for mostly the steered genres, and still allows the rest', () => {
+        const user = setPrompt({ count: 10, avoid: [], lean: ['Soul', 'Funk'] }, {}).find(message => message.role === 'user')?.content ?? '';
+
+        expect(user).toContain('leaning toward Soul, Funk');
+        expect(user).toMatch(/still choose something else/);
+    });
+
+    it('says nothing about a lean when there is none', () => {
+        const user = setPrompt({ count: 10, avoid: [] }, {}).find(message => message.role === 'user')?.content ?? '';
+
+        expect(user).not.toContain('leaning toward');
+    });
+});

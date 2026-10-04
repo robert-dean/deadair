@@ -15,7 +15,7 @@ namespace MaroonedSoftware.Deadair.Desktop.Core.Tests;
 /// </remarks>
 public class TrackStatesTests
 {
-    private static readonly TrackStateCounts Counts = new() { Total = 766, Cached = 412, Measured = 389, Enriched = 701, Benched = 3, Failing = 0 };
+    private static readonly TrackStateCounts Counts = new() { Total = 766, Cached = 412, Measured = 389, Enriched = 701, Benched = 3, Failing = 0, Lyrics = 0, Synced = 0, Instrumental = 0 };
 
     [Theory]
     [InlineData(TrackState.Cached, 412)]

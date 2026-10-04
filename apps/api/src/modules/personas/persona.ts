@@ -38,9 +38,10 @@ import type { PersonaSheet } from './persona.sheet.js';
  * the column to remember.
  *
  * A closed list rather than free text, unlike `segments.kind`, because each value is a rule the code
- * has to know how to apply. [personas](https://github.com/robert-dean/deadair/discussions/25) §1's newsreader is the next entry.
+ * has to know how to apply. `newsreader` is [personas](https://github.com/robert-dean/deadair/discussions/25) §1's: the one persona
+ * every news bulletin is read as, whoever is hosting. At most one per station (migration 0061).
  */
-export const PERSONA_KINDS = ['host', 'caller'] as const;
+export const PERSONA_KINDS = ['host', 'caller', 'newsreader'] as const;
 
 /** One of {@link PERSONA_KINDS}. */
 export type PersonaKind = (typeof PERSONA_KINDS)[number];

@@ -573,7 +573,7 @@ export interface DeadairPersonas {
   growth: "proposes" | "self-directed" | null;
   id: Generated<string>;
   key: string;
-  kind: Generated<"host" | "caller">;
+  kind: Generated<"host" | "caller" | "newsreader">;
   label: string;
   latitude: string | null;
   preoccupations: Generated<Json>;

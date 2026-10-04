@@ -8593,8 +8593,8 @@ components:
                     description: 'A stable slug, unique per station. What a log line names and what a seeded persona is recognised by'
                 kind:
                     type: string
-                    enum: [host, caller]
-                    description: "What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air. Absent means `host`, so a form written before callers existed still means what it meant"
+                    enum: [host, caller, newsreader]
+                    description: "What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant"
                 label:
                     type: string
                     minLength: 1
@@ -9169,7 +9169,7 @@ components:
                   properties:
                       kind:
                           type: string
-                          enum: [host, caller]
+                          enum: [host, caller, newsreader]
                           description: 'Absent means `host`, as everywhere else'
                       soundboard:
                           type: string
@@ -9286,7 +9286,7 @@ components:
                     readOnly: true
                 kind:
                     type: string
-                    enum: [host, caller]
+                    enum: [host, caller, newsreader]
                     readOnly: true
                 outcome:
                     type: string

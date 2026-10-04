@@ -285,6 +285,16 @@ because the skip lands a frame or more later; the next track's `on_track` restor
 python3 stream/fadeskip.check.py
 ```
 
+`duck.check.liq` measures where the duck lands the bed under the voice. The bed is one tone at about
+-30 LUFS for ten seconds and -8 for ten more, and a voice at -15 speaks over each half. It reports the
+gap between the voice and the bed under it, which is what a listener hears as "the music is too loud
+under the DJ" or "the DJ is talking over nothing". Against a fixed -12 dB duck that gap was 27 LU over
+the quiet half and 5 over the loud one. Built like the fadeskip check, with no dev stack:
+
+```
+python3 stream/duck.check.py
+```
+
 `liveboundary.check.py` is the third, and it measures the real mount rather than a render: capture
 the stream with a listener connected (the connection is what holds the audience gate open), log
 `GET /nowplaying` alongside it, and it reports the level across each join and how abruptly the

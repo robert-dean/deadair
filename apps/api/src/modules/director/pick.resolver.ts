@@ -19,6 +19,21 @@ import { measurementOf } from './track.measurement.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { activeRules, blockedBy, compileRules, type CompiledRule } from './block.rules.js';
+import { BlockRulesRepository } from './block.rules.repository.js';
+import { readClock } from './clock.bands.js';
+import { stationZone } from './clock.words.js';
+import type { StationMode } from './types/director.types.js';
+
+/**
+ * What a never-play rule is scoped against, beyond the clock: the broadcast a pick is for. A caller
+ * that knows passes it; one that does not leaves a mode- or slot-scoped rule unjudged rather than
+ * guessing, and every unscoped rule still holds.
+ */
+export interface PickBroadcast {
+    mode?: StationMode;
+    slotId?: string;
+}
 
 /**
  * Whether the station may play records it does not own yet.
@@ -150,6 +165,9 @@ const toRundownTrack = ({ songKey: _song, artistKey: _artist, rating: _rating, .
 export class PickResolver {
     constructor(
         private readonly candidates: CandidatesRepository,
+        // The station's never-play rules, read on every judging pass so a rule an operator just wrote
+        // holds from the next pick. See `block.rules.ts`.
+        private readonly blockRules: BlockRulesRepository,
         private readonly tracks: TracksRepository,
         private readonly analysis: AnalysisRepository,
         private readonly history: PlayHistoryRepository,
@@ -213,17 +231,19 @@ export class PickResolver {
              * with what survived them.
              */
             keepOrder?: boolean;
+            /** The broadcast these picks are for, which a mode- or slot-scoped never-play rule is judged against. */
+            broadcast?: PickBroadcast;
         } = {},
     ): Promise<RundownTrack[]> {
         if (picks.length === 0) return [];
 
-        const { preference = [], era, avoidArtistKeys, seedArtistKey, discoveries, keepOrder } = options;
+        const { preference = [], era, avoidArtistKeys, seedArtistKey, discoveries, keepOrder, broadcast } = options;
         const policy = advisoryPolicy(this.config);
 
         const identified = await this.identify(picks, discoveries);
         if (identified.length === 0) return [];
 
-        const eligible = await this.judge(identified, rules, era, avoidArtistKeys);
+        const eligible = await this.judge(identified, rules, era, avoidArtistKeys, broadcast);
         if (eligible.length === 0) return [];
 
         const trackIds = eligible.map(entry => entry.trackId);
@@ -333,15 +353,19 @@ export class PickResolver {
      * not consent, and an uncatalogued copy has said nothing about its own advisory. See
      * `advisory.policy.ts:80-88`.
      */
-    async vet(tracks: readonly RundownTrack[], options: { era?: EraWindow; preference?: readonly string[] }): Promise<RundownTrack[]> {
+    async vet(
+        tracks: readonly RundownTrack[],
+        options: { era?: EraWindow; preference?: readonly string[]; broadcast?: PickBroadcast },
+    ): Promise<RundownTrack[]> {
         if (tracks.length === 0) return [];
 
-        const { era, preference = [] } = options;
+        const { era, preference = [], broadcast } = options;
         const policy = advisoryPolicy(this.config);
         const bounds = trackLengthBounds(this.config);
         const trackIds = tracks.flatMap(track => (track.trackId === undefined ? [] : [track.trackId]));
 
-        const [ratings, years, bindings] = await Promise.all([
+        const [blocked, ratings, years, bindings] = await Promise.all([
+            this.neverPlay(trackIds, broadcast),
             this.candidates.ratingsFor(trackIds),
             bindsAnything(era) ? this.candidates.yearsFor(trackIds) : Promise.resolve(new Map<string, number>()),
             this.candidates.bindingsFor(trackIds, preference, policy),
@@ -362,6 +386,17 @@ export class PickResolver {
             if (!notDisliked.has(entry)) continue;
 
             const { track } = entry;
+            // A playlist is a generator this station never asked its rules about, so a never-play
+            // rule holds over it exactly as a dislike does. Named, since one rule can empty a
+            // playlist and the operator needs to know which.
+            const rule = track.trackId === undefined ? undefined : blocked.get(track.trackId);
+            if (rule !== undefined) {
+                this.logger.info('director: a never-play rule kept a chosen track off air', {
+                    track: `${track.artist} — ${track.title}`,
+                    rule: `${rule.field}:${rule.value}`,
+                });
+                continue;
+            }
             const year = track.trackId === undefined ? undefined : years.get(track.trackId);
             if (bindsAnything(era) && !withinPeriod(year, era)) continue;
 
@@ -432,9 +467,11 @@ export class PickResolver {
         rules: ResolvedRules,
         era?: EraWindow,
         avoidArtistKeys?: ReadonlySet<string>,
+        broadcast?: PickBroadcast,
     ): Promise<Identified[]> {
         const trackIds = identified.map(entry => entry.trackId);
-        const [ratings, songKeys, recentArtistKeys, years] = await Promise.all([
+        const [blocked, ratings, songKeys, recentArtistKeys, years] = await Promise.all([
+            this.neverPlay(trackIds, broadcast),
             this.candidates.ratingsFor(trackIds),
             this.history.songKeysSince(rules.repeatWindowDays, this.identity.stationKey),
             this.history.artistKeysSince(rules.artistCooldownMinutes, this.identity.stationKey),
@@ -448,7 +485,19 @@ export class PickResolver {
         // `.has()` on this per candidate.
         const artistKeys = avoidArtistKeys === undefined ? recentArtistKeys : new Set([...recentArtistKeys, ...avoidArtistKeys]);
 
-        const judged = identified.map(entry => {
+        // FIRST, beside the dislike and for its reason: absolute, cheapest, and not something a
+        // lineup can switch off, so it must not live on `ResolvedRules` where `NO_RULES` would zero
+        // it. A setlist plays its own records and still never plays a genre the station forbade.
+        const allowed = blocked.size === 0 ? identified : identified.filter(entry => !blocked.has(entry.trackId));
+        if (allowed.length < identified.length) {
+            this.logger.debug('director: never-play rules dropped some chosen tracks', {
+                offered: identified.length,
+                kept: allowed.length,
+                rules: [...new Set([...blocked.values()].map(rule => `${rule.field}:${rule.value}`))],
+            });
+        }
+
+        const judged = allowed.map(entry => {
             const rating = ratings.get(entry.trackId);
             return rating === undefined ? entry : { ...entry, rating };
         });
@@ -474,6 +523,34 @@ export class PickResolver {
             });
         }
         return eligible;
+    }
+
+    /**
+     * Which of these tracks a never-play rule holding right now forbids, and which rule.
+     *
+     * The rules are read and narrowed once per pass and the tags only when some rule holds, so a
+     * station with no rules pays one cheap read and nothing else. A track with no tags is forbidden
+     * by nothing (see `blockedBy`).
+     */
+    private async neverPlay(trackIds: readonly string[], broadcast?: PickBroadcast): Promise<Map<string, CompiledRule>> {
+        const blocked = new Map<string, CompiledRule>();
+        if (trackIds.length === 0) return blocked;
+
+        const now = Date.now();
+        const rules = activeRules(compileRules(await this.blockRules.list()), {
+            clock: readClock(now, stationZone(this.config)),
+            now,
+            ...(broadcast?.mode === undefined ? {} : { mode: broadcast.mode }),
+            ...(broadcast?.slotId === undefined ? {} : { slotId: broadcast.slotId }),
+        });
+        if (rules.length === 0) return blocked;
+
+        const tags = await this.candidates.tagsFor(trackIds);
+        for (const trackId of trackIds) {
+            const rule = blockedBy(rules, tags.get(trackId) ?? []);
+            if (rule !== undefined) blocked.set(trackId, rule);
+        }
+        return blocked;
     }
 
     /**

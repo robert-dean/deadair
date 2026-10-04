@@ -214,6 +214,9 @@ export class RequestDesk {
             const rules = resolveRules(lineup.mode, lineup.rules, stationRules(this.config));
             const [track] = await this.resolver.resolve([{ title: request.title, artist: request.artist, trackId: request.trackId }], rules, {
                 ...(lineup.era === undefined ? {} : { era: lineup.era }),
+                // A never-play rule makes no exception for a listener, so a scoped one is judged
+                // against the broadcast the request would join.
+                broadcast: { mode: lineup.mode, ...(lineup.slotId === undefined ? {} : { slotId: lineup.slotId }) },
                 keepOrder: true,
                 discoveries: 1,
             });

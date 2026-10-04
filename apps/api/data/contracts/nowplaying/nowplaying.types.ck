@@ -24,6 +24,7 @@ contract NowPlayingMount: { # One way to listen to this station right now
 contract NowPlayingShow: { # The programme on air, as a listener would be told it
     name: string(max=200) # What this broadcast is called. It changes the moment the station changes programme, which can be one record before the new programme's first record is heard: a changeover never cuts a listener off mid-record
     host?: string(max=200) # Who is presenting, by the name they go by on air. Absent when there is no name to give: no persona on air with one, and no station-wide presenter name set. Never the persona's console label
+    hostArtUrl?: string(max=2000) # A picture of whoever is presenting, when the operator gave their persona one. A path under the API root, like a cover's. Absent for a persona with no picture, which a player answers by showing the record's cover as before
 }
 
 contract NowPlaying: { # What the station is playing, for anything that wants to display it

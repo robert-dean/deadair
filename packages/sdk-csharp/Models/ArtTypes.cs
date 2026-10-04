@@ -52,11 +52,38 @@ public sealed record BreakArtworkUpload
     public required byte[] File { get; init; }
 }
 
+/// <summary>A presenter's picture, which a listener's player shows while that persona is on air</summary>
+public sealed record PersonaPortrait
+{
+    /// <summary>The persona it belongs to</summary>
+    [JsonPropertyName("personaId")]
+    public required Guid PersonaId { get; init; }
+
+    /// <summary>Where the station serves it, as a path under the API root. The same shape and the same route a record's cover uses</summary>
+    [JsonPropertyName("url")]
+    public required string Url { get; init; }
+}
+
+/// <summary>A portrait arriving from the browser, as multipart form parts. Documentation rather than validation, as for a break's picture</summary>
+public sealed record PersonaPortraitUpload
+{
+    /// <summary>The image itself. jpeg, png, webp or gif, decided by its BYTES, and at most 4 MB</summary>
+    [JsonPropertyName("file")]
+    public required byte[] File { get; init; }
+}
+
 /// <summary>Every kind the station holds a picture for, kind by kind</summary>
 public sealed record BreakArtworkList
 {
     [JsonPropertyName("breaks")]
     public required List<BreakArtwork> Breaks { get; init; }
+}
+
+/// <summary>Every persona that has a portrait</summary>
+public sealed record PersonaPortraitList
+{
+    [JsonPropertyName("portraits")]
+    public required List<PersonaPortrait> Portraits { get; init; }
 }
 
 /// <summary>Whether these are the bytes this repository ships or ones somebody uploaded over them</summary>

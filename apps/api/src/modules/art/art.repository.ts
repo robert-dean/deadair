@@ -152,6 +152,16 @@ export class ArtRepository extends DataRepository {
     }
 
     /**
+     * Forget the picture under a key. Only for a key the station made itself (a persona's portrait),
+     * never for a cached cover, whose row is the sweeper's memory of what it has tried.
+     *
+     * The bytes stay in the store for the orphan sweep, which reclaims every file no row names.
+     */
+    async deleteBySourceUrl(sourceUrl: string): Promise<void> {
+        await this.db.deleteFrom('deadair.artAssets').where('sourceUrl', '=', sourceUrl).execute();
+    }
+
+    /**
      * Records that a fetch did not produce bytes, and when it is worth trying again.
      *
      * The row is kept rather than deleted: without it the sweeper cannot tell a URL it has never

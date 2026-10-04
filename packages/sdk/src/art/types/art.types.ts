@@ -32,9 +32,37 @@ export interface BreakArtworkUpload {
 }
 
 /**
+ * A presenter's picture, which a listener's player shows while that persona is on air
+ * generated from [PersonaPortrait](../../../../../apps/api/data/contracts/art/art.types.ck#L35)
+ */
+export interface PersonaPortrait {
+    /** The persona it belongs to */
+    personaId: string;
+    /** Where the station serves it, as a path under the API root. The same shape and the same route a record's cover uses */
+    url: string;
+}
+
+/**
+ * A portrait arriving from the browser, as multipart form parts. Documentation rather than validation, as for a break's picture
+ * generated from [PersonaPortraitUpload](../../../../../apps/api/data/contracts/art/art.types.ck#L46)
+ */
+export interface PersonaPortraitUpload {
+    /** The image itself. jpeg, png, webp or gif, decided by its BYTES, and at most 4 MB */
+    file: Blob;
+}
+
+/**
  * Every kind the station holds a picture for, kind by kind
  * generated from [BreakArtworkList](../../../../../apps/api/data/contracts/art/art.types.ck#L21)
  */
 export interface BreakArtworkList {
     breaks: BreakArtwork[];
+}
+
+/**
+ * Every persona that has a portrait
+ * generated from [PersonaPortraitList](../../../../../apps/api/data/contracts/art/art.types.ck#L41)
+ */
+export interface PersonaPortraitList {
+    portraits: PersonaPortrait[];
 }

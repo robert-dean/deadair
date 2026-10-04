@@ -10,7 +10,7 @@ import {
     isPersonaStorytelling,
     isPersonaTrivia,
 } from './persona.sheet.js';
-import { DEFAULT_PERSONA_KIND, isPersonaKind, type Persona, type PersonaDraft } from './persona.js';
+import { DEFAULT_PERSONA_KIND, isPersonaKind, NEWSREADER_READS, type Persona, type PersonaDraft } from './persona.js';
 
 /**
  * The personas an operator has written, which of them is the station's own host, and which of them
@@ -198,6 +198,36 @@ export class PersonaRepository extends DataRepository {
         if (lineupPersonaId === undefined) return this.defaultHost();
 
         return (await this.find(lineupPersonaId)) ?? this.defaultHost();
+    }
+
+    /** The station's newsreader, of which there is at most one (migration 0061), or `undefined`. */
+    async newsreader(): Promise<Persona | undefined> {
+        const row = await this.db
+            .selectFrom('deadair.personas')
+            .selectAll()
+            .where('stationKey', '=', this.station.stationKey)
+            .where('kind', '=', 'newsreader')
+            .executeTakeFirst();
+
+        return row === undefined ? undefined : toPersona(row);
+    }
+
+    /**
+     * Who says a break of this kind: the newsreader for a bulletin, when the station has one, and
+     * whoever {@link presenting} answers for everything else.
+     *
+     * The one place the newsreader's precedence lives, for {@link presenting}'s reason: the words, the
+     * station's own phrasing underneath them and the voice all read the persona from here, so a
+     * bulletin refused by the model is not then read in the host's phrasing and the newsreader's
+     * voice. A show naming its own host does not move the news: a host is not a newsreader.
+     */
+    async presentingFor(segmentKind: string, lineupPersonaId: string | undefined): Promise<Persona | undefined> {
+        if (NEWSREADER_READS.has(segmentKind)) {
+            const reader = await this.newsreader();
+            if (reader !== undefined) return reader;
+        }
+
+        return await this.presenting(lineupPersonaId);
     }
 
     async create(draft: PersonaDraft): Promise<Persona> {

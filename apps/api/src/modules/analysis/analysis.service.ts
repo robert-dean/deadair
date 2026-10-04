@@ -8,6 +8,7 @@ import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { TrackAudioResolver } from '#modules/playout/providers/track.audio.resolver.js';
 import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js';
+import { AudienceWatch } from '#modules/playout/audience.watch.js';
 import { AnalysisRepository, type AnalysableTrack } from './analysis.repository.js';
 import {
     ANALYSIS_CONCURRENCY_KEY,
@@ -50,6 +51,15 @@ export interface AnalysisPaceOverride {
     localPaceMs?: number;
 }
 
+/**
+ * What one track cost the walk.
+ *
+ * `cheap` made no provider request: the copy was already here, or the track never reached the
+ * analyzer at all. `fetched` sent the analyzer through a provider download. `withheld` was a track
+ * that would have needed a download while nobody was listening, so it was left for a later pass.
+ */
+type MeasureOutcome = 'cheap' | 'fetched' | 'withheld';
+
 /** What one pass did, for the job's log line. */
 export interface AnalysisPassSummary {
     scanned: number;
@@ -82,6 +92,10 @@ export class AnalysisService {
         // a copy the station already keeps from one the analyzer is about to make it fetch. See
         // `measureOne`.
         private readonly audioService: TrackAudioService,
+        // Whether the station is on air for anybody. A download made while it is not wakes the music
+        // server's disks for a record nobody will hear yet, so the walk keeps to copies already here
+        // until the gate opens. See `measureOne`.
+        private readonly audience: AudienceWatch,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -243,9 +257,16 @@ export class AnalysisService {
                     const track = queue.shift();
                     if (track === undefined) return;
 
+                    // Read per track rather than once per run: a listener arriving mid-walk opens the
+                    // gate, and the remainder of the run may then fetch as usual.
+                    const outcome = await this.measureOne(analyzer, track, summary, this.audience.gateOpen());
+
+                    // Stop rather than skip, for the reason the budget check below gives: everything
+                    // behind the first track that needs a download needs one too.
+                    if (outcome === 'withheld') return;
+
                     summary.scanned += 1;
-                    const wasLocal = await this.measureOne(analyzer, track, summary);
-                    if (!wasLocal) providerSpent += 1;
+                    if (outcome === 'fetched') providerSpent += 1;
 
                     // Stop the walk rather than skip the track: `listTracksNeedingAnalysis` hands
                     // over the local ones FIRST, so everything left behind a spent budget needs a
@@ -261,7 +282,7 @@ export class AnalysisService {
                     // rather than nothing, because background analysis running flat out is still real
                     // disk and decode work on a machine nobody asked to donate it. Charged only when
                     // there is more to do, so a short queue is not padded for nothing.
-                    if (queue.length > 0) await this.pause(wasLocal ? localPaceMs : providerPaceMs, signal);
+                    if (queue.length > 0) await this.pause(outcome === 'cheap' ? localPaceMs : providerPaceMs, signal);
                 }
             }),
         );
@@ -296,20 +317,28 @@ export class AnalysisService {
      * Never throws. Everything that can go wrong here is one track's problem,
      * and the pass around it has already paid for the others.
      *
-     * @returns Whether this measurement needed no provider fetch, which is what the pause after it is
-     * chosen by. Answered `true` for a copy already on this machine AND for a track that never reached
-     * the analyzer at all — neither one made a request to a rate-limited upstream, so neither one owes
-     * that pace. Answered before the analyzer's own fetch runs, from what {@link TrackAudioService}
-     * already knows, because the analyzer's request happens inside a plugin call this service cannot
-     * see the inside of.
+     * @param mayFetch - Whether a track the station does not hold may be fetched for this. False while
+     * the audience gate is shut: off air the station reaches for nothing, and on a library kept on
+     * spinning disks a download every hour is what keeps them from ever sleeping.
+     * @returns What the track cost, which is what the pause after it is chosen by. `cheap` for a copy
+     * already on this machine AND for a track that never reached the analyzer at all — neither one made
+     * a request to a rate-limited upstream, so neither one owes that pace. Answered before the
+     * analyzer's own fetch runs, from what {@link TrackAudioService} already knows, because the
+     * analyzer's request happens inside a plugin call this service cannot see the inside of.
      */
-    private async measureOne(analyzer: AnalysisPlugin, track: AnalysableTrack, summary: AnalysisPassSummary): Promise<boolean> {
+    private async measureOne(
+        analyzer: AnalysisPlugin,
+        track: AnalysableTrack,
+        summary: AnalysisPassSummary,
+        mayFetch: boolean,
+    ): Promise<MeasureOutcome> {
         const pluginId = analyzer.record.id;
 
         // Checked BEFORE resolving the same track's URL and BEFORE the analyzer ever asks for it. A
         // failure here is read as "not local" rather than propagated: that is the pace-conservative
         // answer, so a check this can never usefully retry does not cost the track its measurement.
         const wasLocal = await this.audioService.has({ pluginId: track.pluginId, externalId: track.externalId }).catch(() => false);
+        if (!wasLocal && !mayFetch) return 'withheld';
 
         // Resolved here rather than by the analyzer, because a plugin cannot ask another plugin for
         // anything: the copy that can actually be served is a binding the catalog owns, and reaching
@@ -332,7 +361,7 @@ export class AnalysisService {
             // something that may be fixed in a minute.
             this.logger.debug('analysis: no audio url for a track', { track: track.trackId, provider: track.pluginId });
             // Nothing was fetched, so this is the cheap case regardless of `wasLocal`.
-            return true;
+            return 'cheap';
         }
 
         const ref: AnalysisRef = {
@@ -383,6 +412,6 @@ export class AnalysisService {
             });
         }
 
-        return wasLocal;
+        return wasLocal ? 'cheap' : 'fetched';
     }
 }

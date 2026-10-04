@@ -38,6 +38,8 @@ const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } 
 interface Options {
     /** A playlist the station owns, by its rows, or absent for one it does not hold. */
     stationPlaylist?: { name: string; rows: StationPlaylistRowTrack[] };
+    /** An album the library holds, as `TracksRepository.inAlbumOrder` answers it, or absent for one it does not. */
+    album?: { name: string; tracks: { trackId: string; title: string; artists: string[]; album: string; durationMs?: number }[] };
     /** Which copy serves each library record, by canonical id, for the station playlist cases. */
     stationBindings?: Record<string, { pluginId: string; externalId: string; durationMs?: number }>;
     tracks?: { id: string; title: string; artists: string[]; durationMs?: number; album?: string; artworkUrl?: string }[];
@@ -182,6 +184,7 @@ function build(options: Options = {}) {
             return options.catalogRows ?? ids.map(id => ({ externalId: id, trackId: `cat-${id}`, year: null, albumName: null, albumImageUrl: null }));
         }),
         findTrack: vi.fn(async (id: string) => (options.catalogTrack?.id === id ? options.catalogTrack : undefined)),
+        inAlbumOrder: vi.fn(async () => options.album ?? { tracks: [] }),
         findByIds: vi.fn(
             async (ids: readonly string[]) => new Map(ids.map(id => [id, { title: '', credit: '', year: 1998, artworkUrl: `art-${id}` }])),
         ),
@@ -760,6 +763,54 @@ describe('DirectorConsoleService.putOnAir', () => {
 
         expect(playlists.getPlaylistTracks).not.toHaveBeenCalled();
         expect(posted()[0]).toMatchObject({ kind: 'putOnAir', tracks: [], binding: { source: 'director' } });
+    });
+
+    describe('an album the library holds', () => {
+        const id = '00000000-0000-4000-8000-000000000002';
+        const record = (trackId: string, title: string) => ({ trackId, title, artists: ['Portishead'], album: 'Dummy' });
+
+        it('airs it in the order the library keeps it, named for the album and its artist', async () => {
+            const { service, posted, resolver } = build({
+                album: {
+                    name: 'Dummy by Portishead',
+                    tracks: [record('cat-1', 'Mysterons'), record('cat-2', 'Sour Times'), record('cat-3', 'Strangers')],
+                },
+                stationBindings: {
+                    'cat-1': { pluginId: 'deadair.navidrome', externalId: 'nd-1' },
+                    'cat-2': { pluginId: 'deadair.navidrome', externalId: 'nd-2' },
+                    'cat-3': { pluginId: 'deadair.navidrome', externalId: 'nd-3' },
+                },
+            });
+
+            await service.putOnAir({ albumId: id, mode: 'feature' });
+
+            const command = posted().at(-1);
+            if (command?.kind !== 'putOnAir') throw new Error('expected the station to be put on air');
+            expect(command.tracks.map(track => track.title)).toEqual(['Mysterons', 'Sour Times', 'Strangers']);
+            expect(command.binding).toMatchObject({ name: 'Dummy by Portishead', source: 'import', mode: 'feature' });
+            expect(command.binding.sourcePluginId).toBeUndefined();
+            expect(resolver.vet).toHaveBeenCalled();
+        });
+
+        it('refuses an album the library does not hold', async () => {
+            const { service, director } = build({});
+
+            expect(await statusOf(service.putOnAir({ albumId: id }))).toBe(404);
+            expect(director.post).not.toHaveBeenCalled();
+        });
+
+        it('refuses one no provider serves a copy of, naming the album rather than a playlist', async () => {
+            const { service, director } = build({
+                album: { name: 'Dummy by Portishead', tracks: [record('cat-1', 'Mysterons')] },
+                stationBindings: {},
+            });
+
+            await expect(service.putOnAir({ albumId: id })).rejects.toMatchObject({
+                statusCode: 422,
+                details: { message: expect.stringContaining('that album') },
+            });
+            expect(director.post).not.toHaveBeenCalled();
+        });
     });
 
     describe('a playlist the station owns', () => {
@@ -2037,7 +2088,14 @@ describe('DirectorConsoleService and a record left over from the last programme'
 
         expect(await service.cutOverrun('on-air')).toBe(true);
         // The id goes with the cut, because the check here runs before the transport's own wait.
-        expect(pusher.skipCurrent).toHaveBeenCalledWith('on-air');
+        expect(pusher.skipCurrent).toHaveBeenCalledWith('on-air', {});
+    });
+
+    it('asks the transport to fade the record out when the cut has a fade', async () => {
+        const { service, pusher } = build({ order: scheduled(), airing: true });
+
+        expect(await service.cutOverrun('on-air', 4000)).toBe(true);
+        expect(pusher.skipCurrent).toHaveBeenCalledWith('on-air', { fadeMs: 4000 });
     });
 
     // The record may have ended on its own since the tick named it, and a cut then would take the

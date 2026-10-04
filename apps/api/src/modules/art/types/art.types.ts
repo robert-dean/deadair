@@ -46,6 +46,28 @@ export const BreakArtworkUpload = z.strictObject({
 export type BreakArtworkUpload = z.infer<typeof BreakArtworkUpload>;
 
 /**
+ * A presenter's picture, which a listener's player shows while that persona is on air
+ * generated from [PersonaPortrait](../../../../data/contracts/art/art.types.ck#L35)
+ */
+export const PersonaPortrait = z.strictObject({
+    personaId: z.uuid().describe('The persona it belongs to'),
+    url: z
+        .string()
+        .max(2000)
+        .describe("Where the station serves it, as a path under the API root. The same shape and the same route a record's cover uses"),
+});
+export type PersonaPortrait = z.infer<typeof PersonaPortrait>;
+
+/**
+ * A portrait arriving from the browser, as multipart form parts. Documentation rather than validation, as for a break's picture
+ * generated from [PersonaPortraitUpload](../../../../data/contracts/art/art.types.ck#L46)
+ */
+export const PersonaPortraitUpload = z.strictObject({
+    file: _ZodBinary.describe('The image itself. jpeg, png, webp or gif, decided by its BYTES, and at most 4 MB'),
+});
+export type PersonaPortraitUpload = z.infer<typeof PersonaPortraitUpload>;
+
+/**
  * Every kind the station holds a picture for, kind by kind
  * generated from [BreakArtworkList](../../../../data/contracts/art/art.types.ck#L21)
  */
@@ -53,3 +75,12 @@ export const BreakArtworkList = z.strictObject({
     breaks: z.array(BreakArtwork),
 });
 export type BreakArtworkList = z.infer<typeof BreakArtworkList>;
+
+/**
+ * Every persona that has a portrait
+ * generated from [PersonaPortraitList](../../../../data/contracts/art/art.types.ck#L41)
+ */
+export const PersonaPortraitList = z.strictObject({
+    portraits: z.array(PersonaPortrait),
+});
+export type PersonaPortraitList = z.infer<typeof PersonaPortraitList>;

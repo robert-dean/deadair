@@ -60,7 +60,7 @@ describe('OverrunPanel', () => {
         expect(screen.getByLabelText(/Minutes a record may run/)).toBeEnabled();
     });
 
-    it('saves exactly the two keys it owns', async () => {
+    it('saves exactly the three keys it owns', async () => {
         getSettings.mockResolvedValue(settingsOf({}));
         updateSettings.mockResolvedValue(settingsOf({ 'schedule.capOverrun': true }));
         render(<OverrunPanel />);
@@ -72,9 +72,30 @@ describe('OverrunPanel', () => {
         await waitFor(() => {
             expect(updateSettings).toHaveBeenCalledTimes(1);
         });
-        expect(Object.keys(sent()).sort()).toEqual(['schedule.capOverrun', 'schedule.overrunMinutes']);
+        expect(Object.keys(sent()).sort()).toEqual(['schedule.capOverrun', 'schedule.overrunFadeMs', 'schedule.overrunMinutes']);
         expect(sent()['schedule.capOverrun']).toBe(true);
         expect(sent()['schedule.overrunMinutes']).toBe(5);
+        // Drawn in seconds, stored in milliseconds.
+        expect(sent()['schedule.overrunFadeMs']).toBe(4000);
+    });
+
+    it('draws a stored fade in seconds and saves a new one in milliseconds', async () => {
+        getSettings.mockResolvedValue(settingsOf({ 'schedule.capOverrun': true, 'schedule.overrunFadeMs': '2500' }));
+        updateSettings.mockResolvedValue(settingsOf({ 'schedule.capOverrun': true }));
+        render(<OverrunPanel />);
+        const user = setupUser();
+
+        const fade = await screen.findByLabelText(/Seconds to fade it out over/);
+        expect(fade).toHaveValue('2.5');
+
+        await user.clear(fade);
+        await user.type(fade, '6');
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => {
+            expect(updateSettings).toHaveBeenCalledTimes(1);
+        });
+        expect(sent()['schedule.overrunFadeMs']).toBe(6000);
     });
 
     it('clears an emptied box with a null, so the default stands rather than an empty string', async () => {

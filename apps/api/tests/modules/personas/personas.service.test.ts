@@ -23,7 +23,13 @@ const persona = (over: Partial<Persona> = {}): Persona => ({
 });
 
 function build(
-    options: { setDefaultHost?: Persona | undefined; postFails?: boolean; roster?: Persona[]; ordersHost?: string; ties?: Map<string, string[]> } = {},
+    options: {
+        setDefaultHost?: Persona | undefined;
+        postFails?: boolean;
+        roster?: Persona[];
+        ordersHost?: string;
+        ties?: Map<string, string[]>;
+    } = {},
 ) {
     const roster = options.roster ?? [persona()];
     const personas = {
@@ -281,5 +287,32 @@ describe('PersonasService tying a caller to the hosts it rings', () => {
         expect(list.personas.find(row => row.id === 'c1')?.hosts).toEqual(['h1']);
         expect(list.personas.find(row => row.id === 'c2')).not.toHaveProperty('hosts');
         expect(list.personas.find(row => row.id === 'h1')).not.toHaveProperty('hosts');
+    });
+});
+
+describe('the newsreader', () => {
+    it('cannot be made the station’s host, and is told why in its own words', async () => {
+        const reader = persona({ id: 'n1', key: 'newsdesk', kind: 'newsreader', label: 'The newsdesk', defaultHost: false });
+        const { service, personas } = build({ setDefaultHost: reader });
+
+        await expect(service.setDefaultHost('n1')).rejects.toMatchObject({
+            statusCode: 400,
+            details: { message: expect.stringMatching(/reads the news/) },
+        });
+        expect(personas.setDefaultHost).not.toHaveBeenCalled();
+    });
+
+    it('answers a second newsreader as a conflict naming the newsreader rather than the key', async () => {
+        const { service, personas } = build();
+        personas.create.mockRejectedValueOnce(
+            Object.assign(new Error('duplicate key'), { code: '23505', constraint: 'personas_one_newsreader_idx' }),
+        );
+
+        await expect(
+            service.create({ key: 'second-desk', label: 'Second desk', style: 'a newsreader', kind: 'newsreader' } as never),
+        ).rejects.toMatchObject({
+            statusCode: 409,
+            details: { message: expect.stringMatching(/already has a newsreader/) },
+        });
     });
 });

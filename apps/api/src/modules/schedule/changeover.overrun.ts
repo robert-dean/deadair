@@ -25,9 +25,9 @@ export const CAP_OVERRUN_KEY = 'schedule.capOverrun';
 /**
  * Off, and an upgrade must not change that.
  *
- * The only way this ends a record early is the operator's own Skip, which is a cut rather than a
- * fade, so turning it on is a station choosing a punctual schedule over a finished record. That is
- * a choice somebody makes, not one an upgrade makes for them.
+ * Turning it on ends records early, faded over {@link DEFAULT_OVERRUN_FADE_MS} unless the station
+ * asks for a cut, so it is a station choosing a punctual schedule over a finished record. That is a
+ * choice somebody makes, not one an upgrade makes for them.
  */
 export const DEFAULT_CAP_OVERRUN = false;
 
@@ -57,6 +57,28 @@ export function resolveOverrunMinutes(value: unknown): number {
     if (!Number.isFinite(parsed)) return DEFAULT_OVERRUN_MINUTES;
 
     return Math.min(OVERRUN_MINUTES_RANGE.max, Math.max(OVERRUN_MINUTES_RANGE.min, Math.floor(parsed)));
+}
+
+/** The `deadair.settings` key for how long a record cut at its limit takes to fade out. */
+export const OVERRUN_FADE_MS_KEY = 'schedule.overrunFadeMs';
+
+/**
+ * Four seconds, which reads as the record being faded down rather than switched off.
+ *
+ * A record cut at the bottom of a bar and a record cut mid-phrase sound the same to nobody, and a
+ * ramp is what takes the difference away. Zero is the cut the Skip button makes.
+ */
+export const DEFAULT_OVERRUN_FADE_MS = 4000;
+
+/** The range it takes. Fifteen seconds is already a long fade for something the listener did not ask for. */
+export const OVERRUN_FADE_MS_RANGE = { min: 0, max: 15_000 } as const;
+
+/** The stored fade, clamped to {@link OVERRUN_FADE_MS_RANGE}, on {@link resolveOverrunMinutes}' terms. */
+export function resolveOverrunFadeMs(value: unknown): number {
+    const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
+    if (!Number.isFinite(parsed)) return DEFAULT_OVERRUN_FADE_MS;
+
+    return Math.min(OVERRUN_FADE_MS_RANGE.max, Math.max(OVERRUN_FADE_MS_RANGE.min, Math.round(parsed)));
 }
 
 /**

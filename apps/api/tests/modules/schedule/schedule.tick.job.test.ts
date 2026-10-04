@@ -49,6 +49,7 @@ interface Options {
     holdUntil?: number;
     /** The station's overrun limit in minutes. Absent is the switch off. */
     overrunCap?: number;
+    overrunFadeMs?: number;
     /** Whole minutes since the slot in force began. */
     minutesInto?: number;
     /** A record from the programme that just ended, still on air. */
@@ -62,6 +63,7 @@ function build(options: Options = {}) {
         inForce: vi.fn(async () => options.inForce),
         sustaining: vi.fn(() => options.sustaining),
         overrunCap: vi.fn(() => options.overrunCap),
+        overrunFadeMs: vi.fn(() => options.overrunFadeMs ?? 0),
         minutesInto: vi.fn(() => options.minutesInto ?? 0),
     } as unknown as ScheduleService;
 
@@ -376,8 +378,24 @@ describe('ScheduleTickJob', () => {
 
             await tick();
 
-            expect(console.cutOverrun).toHaveBeenCalledWith('item-old');
+            expect(console.cutOverrun).toHaveBeenCalledWith('item-old', 0);
             expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'schedule.overrun' }));
+        });
+
+        it('fades it out rather than cutting it when the station asks for a fade', async () => {
+            const { tick, console, activity } = build({
+                inForce: slot('morning'),
+                airing: 'morning',
+                overrunCap: 5,
+                overrunFadeMs: 4000,
+                overrunning: long,
+                minutesInto: 5,
+            });
+
+            await tick();
+
+            expect(console.cutOverrun).toHaveBeenCalledWith('item-old', 4000);
+            expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ detail: expect.stringContaining('faded it out') }));
         });
 
         // `overrunning` answers nothing for a programme an operator put on, and nothing once the

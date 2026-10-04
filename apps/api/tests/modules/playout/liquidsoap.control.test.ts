@@ -328,6 +328,24 @@ describe('PlayoutControlClient mutations', () => {
         }
     });
 
+    it('asks for a fade only on an aimed cut', async () => {
+        // radio.liq checks the named item on every step of the ramp, so an unaimed fade could fade
+        // whatever came next. The header goes only with an item.
+        const fades: (string | null)[] = [];
+        const client = clientWith(async (_url, init) => {
+            fades.push(new Headers(init?.headers).get('X-Fade-Ms'));
+            return new Response(JSON.stringify({ queued: 0, ready: true, onAir: 'item-2' }), { status: 200 });
+        });
+        try {
+            await client.skip('item-2', { fadeMs: 4000 });
+            await client.skip(undefined, { fadeMs: 4000 });
+            await client.skip('item-2', { fadeMs: 0 });
+            expect(fades).toEqual(['4000', null, null]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('answers a skip with the reading the command produced', async () => {
         const client = clientWith(
             async () => new Response(JSON.stringify({ queued: 0, ready: true, onAir: 'item-2', remainingMs: 1000 }), { status: 200 }),

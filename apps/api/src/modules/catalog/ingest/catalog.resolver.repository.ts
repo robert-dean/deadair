@@ -62,6 +62,10 @@ export interface TrackIdentity {
      * `ProviderTrack.year` for why it is not a date.
      */
     year?: number;
+    /** Where this copy sits on its album, from 1. Only ever read against the album this copy names. */
+    trackNumber?: number;
+    /** Which disc of that album, from 1. */
+    discNumber?: number;
 }
 
 /** A canonical track competing to be the match for an incoming item. */
@@ -81,6 +85,11 @@ export interface TrackCandidate {
  */
 const YEAR_MIN = 1900;
 const YEAR_MAX = 2100;
+
+/** A track or disc number worth storing: a whole number the column takes (smallint, from 1), or nothing. */
+export function usablePosition(value: number | undefined): number | undefined {
+    return typeof value === 'number' && Number.isInteger(value) && value > 0 && value < 1000 ? value : undefined;
+}
 
 /**
  * A release year worth storing, or nothing.
@@ -311,6 +320,7 @@ export class CatalogResolverRepository extends DataRepository {
 
         if (existingId) {
             await this.fillTrackBlanks(existingId, albumId, track.durationMs, usableYear(track.year));
+            await this.fillAlbumPosition(existingId, albumId, track);
             return { id: existingId, created: false };
         }
 
@@ -324,6 +334,9 @@ export class CatalogResolverRepository extends DataRepository {
                 titleKey: normalizeKey(track.title),
                 durationMs: track.durationMs ?? null,
                 year: usableYear(track.year) ?? null,
+                // Only with an album to be a position ON: a number with no album says nothing.
+                trackNumber: albumId === undefined ? null : (usablePosition(track.trackNumber) ?? null),
+                discNumber: albumId === undefined ? null : (usablePosition(track.discNumber) ?? null),
             })
             .returning('id')
             .executeTakeFirstOrThrow();
@@ -622,6 +635,39 @@ export class CatalogResolverRepository extends DataRepository {
         }
         if (year !== undefined) {
             await this.db.updateTable('deadair.tracks').set({ year }).where('id', '=', trackId).where('year', 'is', null).execute();
+        }
+    }
+
+    /**
+     * Where an existing row sits on its album, filled from a copy that names the SAME album.
+     *
+     * After {@link fillTrackBlanks}, so a row that had no album has just been given this copy's, and
+     * this copy's position then belongs to it. A copy on some other album (the compilation the song
+     * also appears on) says nothing about the row's own album and is ignored. Blank-only, like the
+     * fields beside it.
+     */
+    private async fillAlbumPosition(trackId: string, albumId: string | undefined, track: TrackIdentity): Promise<void> {
+        if (albumId === undefined) return;
+
+        const trackNumber = usablePosition(track.trackNumber);
+        const discNumber = usablePosition(track.discNumber);
+        if (trackNumber !== undefined) {
+            await this.db
+                .updateTable('deadair.tracks')
+                .set({ trackNumber })
+                .where('id', '=', trackId)
+                .where('albumId', '=', albumId)
+                .where('trackNumber', 'is', null)
+                .execute();
+        }
+        if (discNumber !== undefined) {
+            await this.db
+                .updateTable('deadair.tracks')
+                .set({ discNumber })
+                .where('id', '=', trackId)
+                .where('albumId', '=', albumId)
+                .where('discNumber', 'is', null)
+                .execute();
         }
     }
 

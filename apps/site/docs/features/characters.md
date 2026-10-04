@@ -15,6 +15,8 @@ One host is on air at a time, and a block on the Programme timetable can name it
 
 "Who they are" completes "You are…" and replaces the station's default role outright, because a model told both that it is a radio station and that it is a pirate captain hedges. "How they speak" is the dialect, applied to every sentence and repeated after the station's content rules, which on their own pull a model back to careful plain English. "Their own phrasings" are what the station says in this character when the model declines. A character with none falls back to the station's own five, plain English, never mixed with a character's. Then come signature phrases, sample lines, what they always and never do, and the subjects they keep coming back to, one per break.
 
+A station can also have one **newsreader** ("New newsreader" on the roster, offered while there is none). Every news bulletin is then written in the newsreader's character and read in its voice, whoever is hosting; without one, the host reads the news as before. The newsreader never presents a show.
+
 A new character can start from a description, which a model turns into a sheet you edit before saving. The roster exports to a file and imports from one. Nine hosts and five callers ship, each with its own voice, and "Restore built-ins" puts back any that are missing.
 
 ## Keeping a model in character
@@ -60,4 +62,4 @@ That is safe to try because it can be undone. Every time a character carries one
 
 ## In the console
 
-Voice, Characters is the roster, with "New host" and "New caller"; each card's menu opens its Notebook, Stories and Memory; callers are covered in [Phone-ins](./phone-ins.md). Voice, Voices says which voice reads which character, and Voice, What it said can be narrowed to one character.
+Voice, Characters is the roster, with "New host", "New caller" and, while there is none, "New newsreader"; each card's menu opens its Notebook, Stories and Memory; callers are covered in [Phone-ins](./phone-ins.md). Voice, Voices says which voice reads which character, and Voice, What it said can be narrowed to one character.

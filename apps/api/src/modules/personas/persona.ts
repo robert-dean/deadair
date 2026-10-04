@@ -38,12 +38,22 @@ import type { PersonaSheet } from './persona.sheet.js';
  * the column to remember.
  *
  * A closed list rather than free text, unlike `segments.kind`, because each value is a rule the code
- * has to know how to apply. [personas](https://github.com/robert-dean/deadair/discussions/25) §1's newsreader is the next entry.
+ * has to know how to apply. `newsreader` is [personas](https://github.com/robert-dean/deadair/discussions/25) §1's: the one persona
+ * every news bulletin is read as, whoever is hosting. At most one per station (migration 0061).
  */
-export const PERSONA_KINDS = ['host', 'caller'] as const;
+export const PERSONA_KINDS = ['host', 'caller', 'newsreader'] as const;
 
 /** One of {@link PERSONA_KINDS}. */
 export type PersonaKind = (typeof PERSONA_KINDS)[number];
+
+/**
+ * The kinds of break the newsreader reads, when the station has one.
+ *
+ * The bulletin and nothing else: the weather and the time of day are the presenter's to say. Spelled
+ * here rather than imported from the director, which registers after this module; `NEWS_KIND` in
+ * `news.break.writer.ts` is the same word, and `persona.repository.test.ts` holds the two together.
+ */
+export const NEWSREADER_READS: ReadonlySet<string> = new Set(['news']);
 
 /** What a persona is when nobody said: the station's own voice, which is what the table held before callers. */
 export const DEFAULT_PERSONA_KIND: PersonaKind = 'host';

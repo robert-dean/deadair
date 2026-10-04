@@ -404,6 +404,8 @@ public struct ScheduleTimetable: Codable, Equatable, Sendable {
 public struct ScheduleNow: Codable, Equatable, Sendable {
     /// What time it is on the station's own clock, in the same zone-naive `YYYY-MM-DD HH:mm:ss` shape as a block's ends. It is here so a caller can say how much of the block is left without knowing the station's timezone: subtracting two readings taken in one frame is arithmetic, deriving one is not
     public var now: String
+    /// The IANA zone the station reads its clock in: `station.timezone`, or the machine's own when that is empty. Optional because a station from before it existed does not send it. For a console showing the station's time beside an operator's own when the two differ, which a zone-naive reading cannot tell it
+    public var timezone: String?
     /// The slot in force at this instant. Absent means the station has no schedule
     public var slotId: String?
     /// The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins
@@ -411,8 +413,9 @@ public struct ScheduleNow: Codable, Equatable, Sendable {
     /// The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block
     public var upcoming: [ScheduleOccurrence]
 
-    public init(now: String, slotId: String? = nil, airingSlotId: String? = nil, upcoming: [ScheduleOccurrence]) {
+    public init(now: String, timezone: String? = nil, slotId: String? = nil, airingSlotId: String? = nil, upcoming: [ScheduleOccurrence]) {
         self.now = now
+        self.timezone = timezone
         self.slotId = slotId
         self.airingSlotId = airingSlotId
         self.upcoming = upcoming
@@ -420,6 +423,7 @@ public struct ScheduleNow: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case now = "now"
+        case timezone = "timezone"
         case slotId = "slotId"
         case airingSlotId = "airingSlotId"
         case upcoming = "upcoming"
@@ -428,6 +432,7 @@ public struct ScheduleNow: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.now = try container.decode(String.self, forKey: .now)
+        self.timezone = try container.decodeIfPresent(String.self, forKey: .timezone)
         self.slotId = try container.decodeIfPresent(String.self, forKey: .slotId)
         self.airingSlotId = try container.decodeIfPresent(String.self, forKey: .airingSlotId)
         self.upcoming = try container.decode([ScheduleOccurrence].self, forKey: .upcoming)
@@ -436,6 +441,7 @@ public struct ScheduleNow: Codable, Equatable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.now, forKey: .now)
+        try container.encodeIfPresent(self.timezone, forKey: .timezone)
         try container.encodeIfPresent(self.slotId, forKey: .slotId)
         try container.encodeIfPresent(self.airingSlotId, forKey: .airingSlotId)
         try container.encode(self.upcoming, forKey: .upcoming)

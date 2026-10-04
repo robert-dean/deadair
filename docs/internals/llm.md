@@ -98,6 +98,17 @@ think by default. The plugin's own effort setting still wins unless it is Auto, 
 says so. The record-choosing model keeps its own room (`llm.setMaxTokens`) and its own `low`: an hour of
 programming is a research task, and a link is not.
 
+**When the model is the problem, the station says so in two places, because the floor hides it
+otherwise.** Every break falls through to its deterministic writer when the model fails, which keeps the
+station on air and is exactly why a model that has gone quietly can go unnoticed for an evening. So the
+check-up carries the gate itself (`StationCheckup.model`, read from `LlmGate.snapshot`): how many callers
+are waiting and who holds the slot since when, with a warning on the page once that is past the ten-minute
+generation budget, which only a stream that stopped arriving can be. And `BreakFloorWatch` counts breaks the
+floor wrote because a model writer FAILED (threw, timed out, was unavailable; never a content decline, which
+is the model working), records `break.floor` once that run has lasted an hour and three breaks, puts
+`breaksOnFloor` on the attention list for as long as it lasts, and records `break.floorCleared` on the first
+break a model writes.
+
 ## The tool loop
 
 **The source list is ordered, and the order is the only steer a model gets about which question to ask

@@ -182,7 +182,7 @@ says a mood dropdown is strictly weaker than prose, and it was, while nothing kn
 in: a mood column could only have been matched against a vocabulary nothing filled. Once a model has
 judged each record (`deadair.track_lyric_labels`, with `lyrics.moods` on), "comfort" is a share every
 judged record carries, and the floor can lean on it with nothing reading prose. So `station_lineup.mood`
-and `schedule_slots.mood` (0064) ride beside the period, copied at a changeover and read on every refill,
+and `schedule_slots.mood` (0066) ride beside the period, copied at a changeover and read on every refill,
 and reach `SetInputs.mood`. It differs from the period in one way that matters: it LEANS and never
 narrows, because a mood read off lyrics is wrong often enough that keeping a record off the air for it
 would be the station acting on a guess. See `director/mood.lean.ts`. A broadcast put on by hand can carry

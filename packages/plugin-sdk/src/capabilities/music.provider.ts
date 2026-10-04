@@ -50,6 +50,17 @@ export interface ProviderTrack {
      */
     year?: number;
     /**
+     * Where this copy sits on its album: the track number, counted from 1 within its disc.
+     *
+     * About THIS copy rather than the recording: the same song is track 3 on the album and track 14
+     * on a compilation, so a host reads it only against the album this copy names. Optional, and
+     * absent means the provider did not say, never "first". What it is for is playing an album in
+     * the order it was made.
+     */
+    trackNumber?: number;
+    /** Which disc of a multi-disc album this copy is on, counted from 1. Absent for a single disc, or a provider that did not say. */
+    discNumber?: number;
+    /**
      * How well known the record is, 0 to 100, when the provider has an opinion.
      *
      * A RANKING and not a fact: providers compute it differently and none of them says how, so the

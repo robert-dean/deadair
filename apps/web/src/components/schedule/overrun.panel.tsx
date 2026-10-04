@@ -17,16 +17,22 @@ import { Eyebrow } from '../shared/eyebrow';
 const KEYS = {
     on: 'schedule.capOverrun',
     minutes: 'schedule.overrunMinutes',
+    fadeMs: 'schedule.overrunFadeMs',
 } as const;
 
 /** The registry's own default and range, restated because the page draws its own controls. */
 const DEFAULT_MINUTES = 5;
 const MAX_MINUTES = 60;
+/** Stored in milliseconds, drawn in seconds, which is the unit anybody thinks of a fade in. */
+const DEFAULT_FADE_SECONDS = 4;
+const MAX_FADE_SECONDS = 15;
 
 interface FormValues {
     on: boolean;
     /** Empty string is Mantine's "nothing typed" for a `NumberInput`, and it saves as the default. */
     minutes: number | string;
+    /** Seconds, the same empty-string rule. */
+    fadeSeconds: number | string;
 }
 
 /**
@@ -52,6 +58,7 @@ export function OverrunPanel() {
             // Only a real number is stored. Emptied, the row goes and the default stands, which is
             // the same null-deletes-the-row gesture the sustaining form uses.
             [KEYS.minutes]: typeof next.minutes === 'number' ? next.minutes : null,
+            [KEYS.fadeMs]: typeof next.fadeSeconds === 'number' ? Math.round(next.fadeSeconds * 1000) : null,
         });
     };
 
@@ -108,6 +115,18 @@ function OverrunForm({ initial, onSubmit, saving, succeeded, failure }: OverrunF
                     {...form.getInputProps('minutes')}
                 />
 
+                <NumberInput
+                    label={t('overrun.fadeLabel')}
+                    description={t('overrun.fadeDescription')}
+                    min={0}
+                    max={MAX_FADE_SECONDS}
+                    step={0.5}
+                    decimalScale={1}
+                    maw={320}
+                    disabled={!form.values.on}
+                    {...form.getInputProps('fadeSeconds')}
+                />
+
                 <Text size="xs" c="dimmed">
                     {t('overrun.note')}
                 </Text>
@@ -130,11 +149,17 @@ function OverrunForm({ initial, onSubmit, saving, succeeded, failure }: OverrunF
 /** The settings as the form's own values, with the tolerance the console gives a hand-edited row. */
 function storedValues(values: Record<string, unknown>): FormValues {
     const on = values[KEYS.on];
-    const minutes = values[KEYS.minutes];
-    const parsed = typeof minutes === 'number' ? minutes : typeof minutes === 'string' && minutes.trim() !== '' ? Number(minutes) : Number.NaN;
+    const minutes = asNumber(values[KEYS.minutes]);
+    const fadeMs = asNumber(values[KEYS.fadeMs]);
 
     return {
         on: on === true || on === 'true',
-        minutes: Number.isFinite(parsed) ? parsed : DEFAULT_MINUTES,
+        minutes: Number.isFinite(minutes) ? minutes : DEFAULT_MINUTES,
+        fadeSeconds: Number.isFinite(fadeMs) ? fadeMs / 1000 : DEFAULT_FADE_SECONDS,
     };
+}
+
+/** A stored number, which arrives as a number or as the text a settings row holds. */
+function asNumber(value: unknown): number {
+    return typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN;
 }

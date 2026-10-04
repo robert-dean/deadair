@@ -61,9 +61,14 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // queue keep the evidence. `expiresIn` is the ceiling on one walk, generous
     // enough for a large library and short enough that a wedged run is
     // reclaimed rather than blocking the queue until someone notices.
+    //
+    // Four minutes past rather than on the hour. The hour is when a show changes and the
+    // director builds a new order, which wants the provider for itself; a full library walk
+    // landing on the same minute is what makes a slow server time out. Anywhere in the hour
+    // satisfies `scheduledSyncIsDue`, which judges by the hour rather than the minute.
     'catalog.sync': {
         job: CatalogSyncJob,
-        cron: '0 * * * *',
+        cron: '4 * * * *',
         policy: {
             retryLimit: 2,
             retryDelay: Duration.fromObject({ minutes: 1 }),
@@ -111,9 +116,12 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // wedged run is reclaimed before the next one starts: the walk stops asking
     // for work at `RUN_BUDGET_MS` (11 minutes) and can overshoot by at most the
     // batch call already in flight, so thirteen clears it either way.
+    //
+    // Two minutes past each quarter, so neither the hour's changeover nor the art pass below
+    // starts on the same minute.
     'catalog.enrich': {
         job: EnrichmentJob,
-        cron: '*/15 * * * *',
+        cron: '2-59/15 * * * *',
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 13 }) },
     },
 
@@ -147,27 +155,32 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // still has no bytes, so it is still outstanding and the next pass picks it up under its own
     // backoff. The work is its own record. `expiresIn` sits above a full batch of timeouts and
     // below the interval, so a wedged run is reclaimed before the next one starts.
+    //
+    // Five past each ten minutes, off the hour for the reason the sync gives.
     'catalog.cache_art': {
         job: ArtCacheJob,
-        cron: '*/10 * * * *',
+        cron: '5-59/10 * * * *',
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 5 }) },
     },
 
-    // Hourly, and a batch of five, and a minute between tracks. All three are the
-    // same precaution rather than three separate ones.
+    // Hourly, at most fifteen downloads a run, and a pause between tracks. All three
+    // are the same precaution rather than three separate ones.
     //
-    // **Measuring a track is a full audio download through the provider credential
-    // the station plays on.** At */30 with a batch of 50 that is a hundred full
-    // tracks an hour of background traffic against a station playing about fifteen,
-    // which is six times the foreground load for work nobody is waiting on.
+    // **Measuring a track the station does not hold is a full audio download through
+    // the provider credential the station plays on.** At */30 with a batch of 50 that
+    // is a hundred full tracks an hour of background traffic against a station
+    // playing about fifteen, which is six times the foreground load for work nobody
+    // is waiting on. A track whose copy is already here costs only decode time, so a
+    // run looks much further into the queue than it downloads.
     //
     // So the schedule is not tuned for throughput here, unlike every other walk in
     // this file. It is tuned to stay underneath whatever headroom the station is
     // not using. A library gets measured over days, which is the right trade: an
     // unmeasured track plays perfectly well, and a station that cannot fetch audio
     // plays nothing at all. Raising any of the three without knowing the provider's
-    // limits is how this regresses. See `BATCH_SIZE` in `analysis.job.ts` for what
-    // this was mistakenly blamed for, so nobody re-investigates it.
+    // limits is how this regresses. See `PROVIDER_BATCH_SIZE` and `SCAN_BATCH_SIZE`
+    // in `analysis.job.ts` for both numbers, and for what the download ceiling was
+    // mistakenly blamed for, so nobody re-investigates it.
     //
     // Deliberately NOT sent by the catalog sync the way enrichment is. A newly
     // arrived track wants describing within minutes because the station may talk

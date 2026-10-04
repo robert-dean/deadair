@@ -56,6 +56,8 @@ export interface SubsonicChild {
     /** Seconds, per the protocol. Everything downstream wants milliseconds. */
     duration?: number;
     track?: number;
+    /** Which disc of the album, when the server knows. */
+    discNumber?: number;
     year?: number;
     /** The legacy single-genre field. */
     genre?: string;

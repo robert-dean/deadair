@@ -86,8 +86,15 @@ export function mapTrack(song: SubsonicChild, artworkUrl?: string): ProviderTrac
         // Straight off the file's own tags, which is the best year any provider gives: a library
         // tags the record it holds rather than the reissue it was bought from.
         ...(releaseYear(song.year) === undefined ? {} : { year: releaseYear(song.year) }),
+        // Off the file's tags as well, which is what makes an album playable in its own order.
+        ...(position(song.track) === undefined ? {} : { trackNumber: position(song.track) }),
+        ...(position(song.discNumber) === undefined ? {} : { discNumber: position(song.discNumber) }),
     };
 }
+
+/** A track or disc number worth passing on: a whole number from 1. A zero is a tag nobody filled in. */
+const position = (value: number | undefined): number | undefined =>
+    typeof value === 'number' && Number.isInteger(value) && value > 0 && value < 1000 ? value : undefined;
 
 /** Every song in a list that has an id, in the order the server gave them. */
 export const mapTracks = (songs: SubsonicChild[] | undefined, artworkUrl?: (song: SubsonicChild) => string | undefined): ProviderTrack[] =>

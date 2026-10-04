@@ -77,6 +77,30 @@ describe('PersonasPage', () => {
         expect(screen.queryByRole('button', { name: 'Make station host' })).not.toBeInTheDocument();
     });
 
+    it('never offers the host button for the newsreader, who reads the news and never presents', async () => {
+        listPersonas.mockResolvedValue({
+            personas: [persona({ id: 'p-3', key: 'newsdesk', kind: 'newsreader', label: 'Newsdesk', defaultHost: false })],
+        });
+        render(<PersonasPage />);
+
+        expect(await screen.findByText('Newsreader')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Make station host' })).not.toBeInTheDocument();
+    });
+
+    it('offers a newsreader only while the station has none', async () => {
+        listPersonas.mockResolvedValue({ personas: [persona()] });
+        const { unmount } = render(<PersonasPage />);
+        expect(await screen.findByRole('button', { name: 'New newsreader' })).toBeInTheDocument();
+        unmount();
+
+        listPersonas.mockResolvedValue({
+            personas: [persona(), persona({ id: 'p-3', key: 'newsdesk', kind: 'newsreader', label: 'Newsdesk', defaultHost: false })],
+        });
+        render(<PersonasPage />);
+        await screen.findByText('Newsdesk');
+        expect(screen.queryByRole('button', { name: 'New newsreader' })).not.toBeInTheDocument();
+    });
+
     it('never offers the host button for the station\u2019s own host, since it already is', async () => {
         listPersonas.mockResolvedValue({ personas: [persona({ defaultHost: true })] });
         render(<PersonasPage />);

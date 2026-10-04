@@ -77,6 +77,15 @@ export interface BreakTrack {
     album?: string;
     durationMs?: number;
     /**
+     * What this record is about, in one sentence a model wrote from its lyric (`lyrics/lyric.subject.ts`).
+     *
+     * Present only with `breaks.aboutTheRecord` on, and for a record one has been written for. It is
+     * the station's own words, checked against the lyric before it was stored, and it is what a
+     * writer is shown INSTEAD of the lyric: a line it was never shown is one it cannot quote. The
+     * floor writers have nowhere to put it and ignore it.
+     */
+    about?: string;
+    /**
      * Short true things about this record, already chosen for this break.
      *
      * Fetched by the CALLER and never by a writer reaching into a repository, which is what keeps a
@@ -280,6 +289,15 @@ export interface BreakWriteRequest {
      * decision is taken at hand-over on the rendered length either way. See `talk.up.ts`.
      */
     talkUp?: { runwayMs: number; words: number };
+    /**
+     * The lyric lines of the records either side, for the GUARD and never for the prompt.
+     *
+     * Read by `AnswerGuard.lyrics` to refuse a script that quotes one: a model shown only what a
+     * record is about may still know its chorus by heart. Present only with `breaks.aboutTheRecord`
+     * on. Nothing renders it, a capture never sees it (captures are of the prompt), and it is
+     * classified `not-spoken` in `break.freshness.ts`.
+     */
+    lyricLines?: readonly string[];
     /** What the station calls itself, from `stream.title`. Absent when the operator has not said. */
     station?: string;
     /**

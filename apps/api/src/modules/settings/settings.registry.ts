@@ -103,8 +103,16 @@ import {
 } from '#modules/analysis/analysis.settings.js';
 import { CHARTS_KEYS } from '#modules/charts/charts.keys.js';
 import { ENRICHMENT_KEYS } from '#modules/enrichment/enrichment.keys.js';
-import { LYRIC_MOODS_DEFAULT, LYRIC_MOODS_KEYS, LYRICS_FETCH_DEFAULT, LYRICS_KEYS } from '#modules/lyrics/lyrics.keys.js';
+import {
+    LYRIC_MOODS_DEFAULT,
+    LYRIC_MOODS_KEYS,
+    LYRIC_SUBJECT_KEYS,
+    LYRIC_SUBJECTS_DEFAULT,
+    LYRICS_FETCH_DEFAULT,
+    LYRICS_KEYS,
+} from '#modules/lyrics/lyrics.keys.js';
 import { DEFAULT_TALK_UP_SAFETY_MS, TALK_UP_DEFAULT, TALK_UP_KEYS, TALK_UP_SAFETY_RANGE } from '#modules/director/talk.up.js';
+import { ABOUT_THE_RECORD_DEFAULT, ABOUT_THE_RECORD_KEYS } from '#modules/director/about.the.record.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { TRANSCODE_PLUGIN_KEY } from '#modules/render/transcode.settings.js';
 import { SHARE_COPY_DAYS_DEFAULT, SHARE_COPY_DAYS_KEY, SHARE_COPY_DAYS_MAX, SHARE_COPY_DAYS_MIN } from '#modules/render/segment.share.settings.js';
@@ -901,6 +909,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'breaks',
+        key: ABOUT_THE_RECORD_KEYS.enabled,
+        label: 'Tell the presenter what each record is about',
+        type: 'boolean',
+        default: ABOUT_THE_RECORD_DEFAULT,
+        dependsOn: ROTATION_KEYS.breaks,
+        help: 'Shows the writer of a link the one-sentence summary a model wrote of each record, so the presenter can say something about the song rather than only its name. The presenter is never shown the lyrics themselves, and a link that quotes six words of them in a row is thrown away and written again. Needs saying what each record is about switched on under Words.',
+    },
+    {
+        group: 'breaks',
         key: TALK_UP_KEYS.safetyMs,
         label: 'Room left before the singing (ms)',
         type: 'number',
@@ -1502,6 +1519,24 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: '',
         optionsFrom: 'llm.models',
         help: "Nothing is waiting on a mood, so a slower and more careful model costs you nothing here. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
+    },
+    {
+        group: 'llm',
+        key: LYRIC_SUBJECT_KEYS.enabled,
+        label: 'Let a model say what each record is about',
+        type: 'boolean',
+        default: LYRIC_SUBJECTS_DEFAULT,
+        help: 'A model reads each record’s lyrics, and where the station can search the web, what is written about it, and sums up what the record is about in one sentence of its own. A sentence that repeats a run of the lyrics is thrown away rather than kept, because the presenter may say it. On its own this only stores the sentences; switch on telling the presenter under Breaks to use them. It runs in the background at the lowest priority.',
+    },
+    {
+        group: 'llm',
+        key: LYRIC_SUBJECT_KEYS.model,
+        label: 'Model for saying what records are about',
+        type: 'string',
+        dependsOn: LYRIC_SUBJECT_KEYS.enabled,
+        default: '',
+        optionsFrom: 'llm.models',
+        help: "Nothing is waiting on these either, so a slower and more careful model costs you nothing. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
     },
     {
         group: 'llm',

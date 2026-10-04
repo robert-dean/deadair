@@ -39,3 +39,18 @@ export const LYRIC_MOODS_KEYS = {
 
 /** OFF. See {@link LYRIC_MOODS_KEYS.enabled}. */
 export const LYRIC_MOODS_DEFAULT = false;
+
+/** The settings the subject walk reads. Declared in `settings.registry.ts`, read in `LyricSubjectsService`. */
+export const LYRIC_SUBJECT_KEYS = {
+    /**
+     * Whether the station has a model say, in a sentence, what each record is about. OFF, for the
+     * mood walk's reason, and because what it writes is shown to a break writer once
+     * `breaks.aboutTheRecord` is on too.
+     */
+    enabled: 'lyrics.subjects',
+    /** Which model writes them, `provider:model`. Empty for the plugin's default. */
+    model: 'llm.subjectModel',
+} as const;
+
+/** OFF. See {@link LYRIC_SUBJECT_KEYS.enabled}. */
+export const LYRIC_SUBJECTS_DEFAULT = false;

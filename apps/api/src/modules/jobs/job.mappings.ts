@@ -9,6 +9,7 @@ import { PlaylistFillJob } from '#modules/playlists/playlist.fill.job.js';
 import { EnrichmentJob } from '#modules/enrichment/enrichment.job.js';
 import { LyricsJob } from '#modules/lyrics/lyrics.job.js';
 import { LyricMoodsJob } from '#modules/lyrics/lyric.moods.job.js';
+import { LyricSubjectsJob } from '#modules/lyrics/lyric.subjects.job.js';
 import { FactExtractionJob } from '#modules/enrichment/fact.extraction.job.js';
 import { ArtCacheJob } from '#modules/art/art.cache.job.js';
 import { AnalysisJob } from '#modules/analysis/analysis.job.js';
@@ -164,6 +165,13 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'catalog.label_moods': {
         job: LyricMoodsJob,
         cron: '13-59/15 * * * *',
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 13 }) },
+    },
+
+    // The mood walk's twin, a few minutes behind it so the two do not queue on the model together.
+    'catalog.label_subjects': {
+        job: LyricSubjectsJob,
+        cron: '4-59/15 * * * *',
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 13 }) },
     },
 

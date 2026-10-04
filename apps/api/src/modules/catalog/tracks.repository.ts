@@ -286,6 +286,12 @@ export interface PlayableSearchOptions {
      * ordering to reason about.
      */
     seed?: string;
+    /**
+     * What the record is about, matched as words against the one-line subject a model wrote for it
+     * (`deadair.track_lyric_labels.subject`, full-text over the `simple` configuration). A record with
+     * no subject is not found by this, which is why `search_music` says how many records have one.
+     */
+    about?: string;
 }
 
 /** `titleKey` is a match key for ingest and never read out; the two names are joined in below. */
@@ -555,6 +561,17 @@ export class TracksRepository extends DataRepository {
      * @param options - The period to narrow to, and the seed the arbitrary ordering is drawn from.
      *   See {@link PlayableSearchOptions}.
      */
+    /** How many records have a subject, and how many records there are, for `search_music` to be honest about coverage. */
+    async subjectCoverage(): Promise<{ withSubject: number; total: number }> {
+        const row = await this.db
+            .selectFrom('deadair.tracks')
+            .leftJoin('deadair.trackLyricLabels as ll', 'll.trackId', 'deadair.tracks.id')
+            .select(eb => [eb.fn.countAll<number>().as('total'), eb.fn.count<number>('ll.subject').as('withSubject')])
+            .where('deadair.tracks.mergedIntoId', 'is', null)
+            .executeTakeFirstOrThrow();
+        return { withSubject: Number(row.withSubject), total: Number(row.total) };
+    }
+
     async searchPlayable(search: string, limit: number, cleanOnly = false, options: PlayableSearchOptions = {}) {
         const pattern = likeContains(search);
         // A period alone is a complete search: `search_music` may be called with nothing but a pair
@@ -613,6 +630,19 @@ export class TracksRepository extends DataRepository {
             // test and the text match all became optional, and the search answered with records from
             // the wrong decade AND records nothing can play. Caught by `library.search.smoke.ts`,
             // which is the only thing that runs this SQL.
+            .$if(options.about !== undefined && options.about.trim().length > 0, qb =>
+                qb.where(eb =>
+                    eb.exists(
+                        eb
+                            .selectFrom('deadair.trackLyricLabels as ll')
+                            .select('ll.trackId')
+                            .whereRef('ll.trackId', '=', 'deadair.tracks.id')
+                            .where(
+                                sql<boolean>`to_tsvector('simple', coalesce(ll.subject, '')) @@ websearch_to_tsquery('simple', ${options.about!.trim()})`,
+                            ),
+                    ),
+                ),
+            )
             .$if(options.yearFrom !== undefined, qb => qb.where(sql<boolean>`(${released} is null or ${released} >= ${options.yearFrom!})`))
             .$if(options.yearTo !== undefined, qb => qb.where(sql<boolean>`(${released} is null or ${released} <= ${options.yearTo!})`))
             .where(eb =>

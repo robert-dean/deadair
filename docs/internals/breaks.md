@@ -187,6 +187,26 @@ The markers come from the record's timed lyrics, or from an operator's correctio
 page, which wins until it is cleared. No audio is cut or joined for any of this: the mixer does exactly
 what it does for an interrupting talk-over ([`playout.md`](playout.md) § "What decides a blend").
 
+## What a record is about, and the words it never says
+
+**The writer of a link is shown a sentence about each record and never its lyric**, with
+`breaks.aboutTheRecord` on (off, and useful only with `lyrics.subjects` on too). The sentence is the
+station's own: a model writes it once per record from the lyric and, where the station can search, the
+web (`lyrics/lyric.subject.ts`), and it is refused before it is stored if it shares six words in a row
+with the lyric. `WriteBreakJob.aboutTheRecords` stamps it on `BreakTrack.about` for a talk link, and
+`describe` renders it behind `withFacts` as "What it is about", beside a line asking for no quoting.
+A writer cannot quote a line it was never shown, which is why the subject travels and the lyric does not.
+
+**And the answer is guarded against the lyric anyway, because a model can know a chorus by heart.** The
+same read hands the records' lines to `BreakWriteRequest.lyricLines`, which nothing renders and the
+freshness table calls `not-spoken`, and the talk writer passes them to `AnswerGuard.lyrics`.
+`quotedLyricIn` refuses a script sharing six words in a row with one (`runOf`, so a line shorter than
+that is never matched whole: a title is often a line of its own lyric, and naming the record is the
+job). It sits in `readAnswer` and `writeDecline` in the same place, after the factual checks, and the
+`quoted-lyric` reason it stores never carries the words that matched, since `script_history.reason`
+would then be a second copy of the text. The subject and the guard are read together and fail
+together, so a break is never shown a subject it is not also guarded against quoting from.
+
 ## A claim needs its evidence
 
 **A FACT is a claim with its evidence attached, and it is not a plugin's payload.** `deadair.facts` holds one

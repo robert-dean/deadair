@@ -53,6 +53,43 @@ const prompt = (request: BreakWriteRequest, settings: PromptSettings = {}) => br
 const system = (messages: ReturnType<typeof prompt>) => messages.find(message => message.role === 'system')?.content ?? '';
 const user = (messages: ReturnType<typeof prompt>) => messages.find(message => message.role === 'user')?.content ?? '';
 
+describe('what a record is about, and its words', () => {
+    const lyrics = ['Pink, pink, pink, pink moon', 'Saw it written and I saw it say', 'Pink moon is on its way'];
+
+    it('shows the subject in the station’s own words, and asks for no quoting', () => {
+        const words = user(prompt({ kind: 'talkbreak', previous, next: { ...next, about: 'Night falling on everyone alike.' } }));
+
+        expect(words).toContain('- What it is about: Night falling on everyone alike.');
+        expect(words).toContain('Never quote the words of a song');
+    });
+
+    it('says nothing about quoting when no subject was shown', () => {
+        expect(user(prompt({ kind: 'talkbreak', previous, next }))).not.toContain('Never quote the words');
+    });
+
+    it('refuses a script that reads six words of a lyric aloud, in both readers', () => {
+        const script = 'Nick Drake now: saw it written and I saw it say, here is Pink Moon.';
+
+        expect(readAnswer(script, { lyrics })).toBeUndefined();
+        expect(writeDecline(script, { lyrics })?.fault).toBe('quoted-lyric');
+    });
+
+    it('never puts the quoted words in the reason it stores', () => {
+        const declined = writeDecline('Saw it written and I saw it say, that was Nick Drake.', { lyrics });
+
+        expect(declined?.reason).not.toContain('saw it');
+        expect(declined?.reason).not.toContain('Saw it');
+    });
+
+    it('lets a script name the record, whose title is a short line of its lyric', () => {
+        expect(readAnswer('That was Pink Moon by Nick Drake, and here is something warmer.', { lyrics })).toBeDefined();
+    });
+
+    it('asks nothing when it was given no lyric', () => {
+        expect(readAnswer('Saw it written and I saw it say, that was Nick Drake.', {})).toBeDefined();
+    });
+});
+
 describe('the intro of the record coming up', () => {
     it('offers a word budget for talking over it, as an offer rather than a ceiling', () => {
         const words = user(prompt({ kind: 'talkbreak', previous, next, talkUp: { runwayMs: 15_400, words: 33 } }));

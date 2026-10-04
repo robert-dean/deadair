@@ -126,6 +126,14 @@ filters what the registry offers by name, and a name nothing offers right now is
 about that record and has no business with the catalog, the charts or the news, and a model offered all
 seven spends its few steps wandering. It still holds the slot only at `background` priority.
 
+**`search_music` can match what a record is ABOUT, and is honest about how much of the library that covers.**
+With `lyrics.subjects` on and at least one subject written, the tool gains an `about` parameter matched as
+words (Postgres full text, `simple` configuration, 0068's index) against the one-line subject a model wrote
+for each record. It searches the library only and never reaches the providers, which keep no summary and
+would answer the query alone. Its description says how many records have a subject when fewer than half do,
+because three matches in a library a tenth summed up reads to a model as a library with three such records.
+It matches words rather than meanings; anything cleverer is an embedding, and a separate piece of work.
+
 **Four of the seven sources are plugin-backed and three are not, and the line between them is not about
 difficulty.** [tool-plugins](https://github.com/robert-dean/deadair/discussions/44)'s rule: a tool is a plugin when the thing it talks to is somebody
 else's service (charts, similar artists, news, web search), and a host-side source when it talks to deadair

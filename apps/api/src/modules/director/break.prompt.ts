@@ -34,6 +34,7 @@
  * badly, and a rule about them would be a rule about nothing.
  */
 
+import { SUBJECT_ECHO_WORDS } from '#modules/lyrics/lyric.subject.js';
 import { isSpeechDelivery, sentencesWithin, withoutCues, type LlmMessage, type SpeechCue, type SpeechDelivery } from '@deadair/plugin-sdk';
 import { padCue, withoutPads } from '#modules/render/pad.cues.js';
 import { afterThinking, MAX_REACTIONS, speakableScript } from '#modules/render/speakable.script.js';
@@ -43,6 +44,7 @@ import {
     latitudeOf,
     personaLines,
     personaVoiceReminder,
+    runOf,
     spentCatchphrases,
     subjectsVisited,
     LATITUDE_INSTRUCTIONS,
@@ -1039,6 +1041,13 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         );
     }
 
+    // Said wherever a record's subject was shown, because that is when a model is likeliest to reach for
+    // the words themselves. The guard refuses a script that does (`quotedLyricIn`); this asks first,
+    // which is the bargain every refusal here is struck on.
+    if (withFacts && (previous?.about?.trim() || request.next?.about?.trim())) {
+        parts.push('Never quote the words of a song. If you say what one is about, say it in your own words.');
+    }
+
     // The record coming up has an intro the presenter could talk over, and this is how much of it
     // there is. Advice only: whether the link actually goes over the intro is decided at hand-over on
     // its real length (`talk.up.ts`), and one that runs long simply airs before the record instead.
@@ -1433,6 +1442,9 @@ function describe(track: BreakTrack, withFacts: boolean): string {
         if (track.album?.trim()) lines.push(`- Album: ${spoken(track.album.trim())}`);
         if (track.durationMs) lines.push(`- Length: ${spokenLength(track.durationMs)}`);
     }
+    // What it is about, in the station's own words rather than the record's: the writer is shown this
+    // and never the lyric. Behind `withFacts` with the rest of the material, for the same reason.
+    if (withFacts && track.about?.trim()) lines.push(`- What it is about: ${track.about.trim()}`);
     if (withFacts && track.facts && track.facts.length > 0) lines.push('- Notes:', ...track.facts.map(fact => `  - ${fact}`));
     return lines.join('\n');
 }
@@ -2289,6 +2301,14 @@ export interface AnswerGuard {
      */
     names?: readonly (BreakTrack | undefined)[];
     /**
+     * The lyric lines of the records this break was shown, to refuse a script that quotes one.
+     *
+     * The writer is shown what a record is ABOUT and never its words, so this catches the case that
+     * cannot: a model that knows the chorus anyway. Absent means the question is not asked, which is
+     * every break with `breaks.aboutTheRecord` off. See {@link quotedLyricIn}.
+     */
+    lyrics?: readonly string[];
+    /**
      * Who may be named in front of the script as its speaker, so that label is taken off before the
      * engine reads it out. Built by `speakerGuard`. See `SpeakableOptions.speakers`.
      */
@@ -2475,6 +2495,11 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // And weather from a break that was given none, beside the figure check and in the same position
     // `writeDecline` asks it. See `unofferedWeatherIn`.
     if (unofferedWeatherIn(words, guard) !== undefined) return undefined;
+
+    // A break that read a line of a record's lyric aloud, which is somebody's copyrighted text and the
+    // one thing the station must never say. After the factual checks and in the same position
+    // `writeDecline` checks it, on the one-story rule. See `quotedLyricIn`.
+    if (quotedLyricIn(words, guard) !== undefined) return undefined;
 
     // A correct sentence that is not this character speaking, which is the failure a persona is
     // asked for and the one a model handed a page of content rules actually makes — in flat plain
@@ -2925,6 +2950,17 @@ const inventedFigureIn = (script: string, guard: AnswerGuard): string | undefine
     guard.weather === undefined ? undefined : inventedFigure(withoutRecordNames(script, guard), guard.weather, guard.language);
 
 /**
+ * The lyric line a script quotes {@link SUBJECT_ECHO_WORDS} words of in a row, or `undefined`.
+ *
+ * `runOf`'s rule, so a line shorter than the run is never matched whole: a title is often a line of
+ * the lyric, and naming the record is the job. Judged against the whole script rather than one with
+ * the record names taken out, because a title long enough to be six words of the lyric is still the
+ * lyric when it is read out as a sentence.
+ */
+const quotedLyricIn = (script: string, guard: AnswerGuard): string | undefined =>
+    guard.lyrics === undefined || guard.lyrics.length === 0 ? undefined : runOf(guard.lyrics, script, SUBJECT_ECHO_WORDS);
+
+/**
  * The weather a break described when it was given no reading to describe, or `undefined`.
  *
  * The other half of {@link inventedFigureIn}: that one asks what a break did with the reading it was
@@ -2997,6 +3033,7 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     // to the service. A figure nobody measured is also the one fault here a LISTENER can be harmed
     // by — a temperature said confidently is acted on.
     'invented-figure': 'the model gave a figure the station was never given, which sounds exactly like one the service measured',
+    'quoted-lyric': 'the model quoted a run of a record’s lyrics, which the station never says on air',
     // Not folded into the row above: there the station had a reading and the model contradicted it,
     // here it had none and the model described the sky anyway, and the two send an operator to
     // different places (the service, against the prompt).
@@ -3035,6 +3072,7 @@ export type WriteFault =
     | 'wrong-daypart'
     | 'invented-year'
     | 'invented-figure'
+    | 'quoted-lyric'
     | 'unoffered-weather'
     | 'character-trimmed';
 
@@ -3102,6 +3140,9 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     // figure follows the year.
     const sky = unofferedWeatherIn(speakable, guard);
     if (sky !== undefined) return reasoned('unoffered-weather', sky);
+    // Without the words that matched, unlike the two above: they are the lyric, and this sentence is
+    // stored in `script_history.reason`, which is the second copy of the text the station must not keep.
+    if (quotedLyricIn(speakable, guard) !== undefined) return reasoned('quoted-lyric');
 
     const fault = faultIn(speakable, guard);
     if (fault === undefined) return undefined;

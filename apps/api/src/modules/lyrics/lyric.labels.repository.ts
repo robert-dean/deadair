@@ -48,6 +48,23 @@ export class LyricLabelsRepository extends DataRepository {
      * value and never by id.
      */
     async listTracksNeedingMoods(version: string, limit: number, searchable: boolean, priority: readonly string[] = []): Promise<MoodCandidate[]> {
+        return await this.listNeeding('moods', version, limit, searchable, priority);
+    }
+
+    /** {@link listTracksNeedingMoods} for the subject, on its own version and its own backoff. */
+    async listTracksNeedingSubjects(version: string, limit: number, searchable: boolean, priority: readonly string[] = []): Promise<MoodCandidate[]> {
+        return await this.listNeeding('subject', version, limit, searchable, priority);
+    }
+
+    private async listNeeding(
+        label: 'moods' | 'subject',
+        version: string,
+        limit: number,
+        searchable: boolean,
+        priority: readonly string[],
+    ): Promise<MoodCandidate[]> {
+        const versionColumn = sql.ref(`l.${label}_version`);
+        const retryColumn = sql.ref(`l.${label}_retry_at`);
         const rows = await sql<{
             trackId: string;
             title: string;
@@ -84,8 +101,8 @@ export class LyricLabelsRepository extends DataRepository {
                    limit 1
               ) words on true
              where t.merged_into_id is null
-               and (l.track_id is null or l.moods_version is distinct from ${version})
-               and (l.moods_retry_at is null or l.moods_retry_at <= now())
+               and (l.track_id is null or ${versionColumn} is distinct from ${version})
+               and (${retryColumn} is null or ${retryColumn} <= now())
                and (words.lyric is not null or ${searchable})
              order by coalesce(array_position(${priority}::uuid[], t.id), 2147483647),
                       t.rating desc,
@@ -162,5 +179,55 @@ export class LyricLabelsRepository extends DataRepository {
                 return moods === undefined ? [] : [[row.trackId, moods] as const];
             }),
         );
+    }
+
+    /** A subject, or `undefined` for "could not tell", under these instructions. Already checked against the lyric. */
+    async saveSubject(trackId: string, subject: string | undefined, version: string): Promise<void> {
+        const row = {
+            trackId,
+            subject: subject ?? null,
+            subjectVersion: version,
+            subjectAt: sql<never>`now()`,
+            subjectAttempts: 0,
+            subjectRetryAt: null,
+            subjectError: null,
+        };
+
+        await this.db
+            .insertInto('deadair.trackLyricLabels')
+            .values(row)
+            .onConflict(oc => oc.column('trackId').doUpdateSet(row))
+            .execute();
+    }
+
+    /** A subject that could not be had, or was refused for quoting the lyric. Whatever was stored before is kept. */
+    async recordSubjectFailure(trackId: string, error: string, baseRetryMs: number, maxRetryMs: number): Promise<void> {
+        const retry = failureBackoff('deadair.track_lyric_labels.subject_attempts', baseRetryMs, maxRetryMs);
+
+        await this.db
+            .insertInto('deadair.trackLyricLabels')
+            .values({ trackId, subjectAttempts: 1, subjectRetryAt: retry.first, subjectError: error.slice(0, 500) })
+            .onConflict(oc =>
+                oc.column('trackId').doUpdateSet(eb => ({
+                    subjectAttempts: eb('deadair.trackLyricLabels.subjectAttempts', '+', 1),
+                    subjectRetryAt: retry.again,
+                    subjectError: error.slice(0, 500),
+                })),
+            )
+            .execute();
+    }
+
+    /** What each of these records is about, where a subject is stored. Any version counts, as for the moods. */
+    async subjectsForTracks(trackIds: readonly string[]): Promise<Map<string, string>> {
+        if (trackIds.length === 0) return new Map();
+
+        const rows = await this.db
+            .selectFrom('deadair.trackLyricLabels')
+            .select(['trackId', 'subject'])
+            .where('trackId', 'in', [...trackIds])
+            .where('subject', 'is not', null)
+            .execute();
+
+        return new Map(rows.flatMap(row => (row.subject == null ? [] : [[row.trackId, row.subject] as const])));
     }
 }

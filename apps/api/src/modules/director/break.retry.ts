@@ -73,6 +73,10 @@ export const RETRYABLE_FAULTS: ReadonlySet<WriteFault> = new Set<WriteFault>([
     'retold-verbatim',
     'repeated-itself',
     'wrong-daypart',
+    // A scene the prompt said not to set, which is `wrong-daypart`'s kind of mistake rather than
+    // `invented-figure`'s: the model was not wrong about something it was given, it reached for
+    // something it was not, and a reminder is what that wants.
+    'unoffered-weather',
     'nothing-said',
 ]);
 
@@ -109,6 +113,8 @@ const NUDGES: Record<string, string> = {
         'That said again, word for word, something you said on air a few breaks ago, and a listener heard it the first time. Say the same break again in words you have not used today.',
     'wrong-daypart':
         'That named the wrong part of the day. Say the same break again, fitting the time you were told, or saying nothing about the time at all.',
+    'unoffered-weather':
+        'That described the weather, and you have not been told what it is doing outside. Say the same break again without saying anything about the weather.',
     'nothing-said': 'That answered with nothing the station could read aloud. Write the break.',
 };
 

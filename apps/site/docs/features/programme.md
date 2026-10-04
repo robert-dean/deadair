@@ -58,6 +58,10 @@ Records, albums and artists can each be liked, neutral or disliked. A dislike an
 
 Every pick from every source passes through one final step that applies your dislikes, the period and the explicit-content policy. That includes a playlist you put on air: its order and titles stay as you made them, and a record you disliked still does not play. A dislike also reaches a running order that was built before you set it: dislike an artist while the station is on, and their records come out of what is planned there and then, including a record they only guest on, rather than waiting for the order to be rebuilt.
 
+**Never play** rules, on Programme's **Leans and rules** tab, forbid a whole kind of record: a genre (and any kind of it, so a rule for Punk also refuses Punk Rock, but a rule for Rap never refuses Trap) or an exact tag. A rule can hold only for a season (`12-01` to `01-06` wraps the new year) or a window of hours (`22` to `6` wraps midnight). While it holds it is absolute, like a dislike: no playlist, chart, album or request gets round it. A record nobody tagged is never refused by one. A rule applies from the next record the station chooses; what is already queued stays.
+
+**Lean toward**, on the same tab, is the gentle version: name some genres and a number of hours, and the station chooses them far more often, while still playing anything else rather than running dry. **Stop leaning** ends it early.
+
 ## The format clock
 
 The format clock is a list of rules about what the station says inside the hour, each written as a sentence: say a news bulletin every hour at half past, say the weather once a day at 07:00, say what happened on today's date mid-morning, say an ident every so many minutes. When two rules want the same boundary, the higher one in the list wins.

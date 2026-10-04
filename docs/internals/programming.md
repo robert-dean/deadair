@@ -181,6 +181,36 @@ comes through the shim rather than the Web API and whether that filter binds on 
 see [clean-copy-matching](https://github.com/robert-dean/deadair/discussions/9), which also holds the deferred matcher for a clean copy the playlists
 never carried.
 
+## Never-play rules, and the genre steer
+
+**A rule forbids a KIND of record, beside a dislike, which forbids one thing.** Ideas #22 is the design and
+`director/block.rules.ts` the evaluation: a `genre` rule refuses any record tagged with that genre or a kind
+of it (`genre.match.ts`: words compared after `normalizeKey`, the target a contiguous run inside the tag, so
+`Punk Rock` falls under `Punk`, plain `Pop` never under `Pop Punk`, and `Trap` never under `Rap`); a `tag`
+rule is exact. Scopes are a season of `MM-DD` days wrapping the year end, a window of hours wrapping midnight,
+station modes, schedule slots and an expiry, each optional and absent meaning always. Rows live in
+`deadair.block_rules` (0063). **Exclude only, and absolute**: no "only these genres", and no relaxing when the
+station runs short, including for a listener request. A record nobody tagged falls under nothing.
+
+**Enforced where a dislike is, never beside it.** `NeverPlay` (`never.play.ts`) narrows the rules once per
+call and reads tags only when one holds, through `CandidatesRepository.tagsFor`, the one place the tag union
+is written for the pick path (the enrichment `genres` arrays at the track and at its artist, never the
+promoted `tracks.genre` scalar). `PickResolver.judge` drops a blocked pick FIRST, beside `rejectDisliked`
+and not on `ResolvedRules`, so `NO_RULES` cannot zero it and a setlist still obeys it; `vet` holds it over a
+playlist, a chart, an album and a single record. Callers pass the broadcast they pick for (`PickBroadcast`:
+mode and slot) so a scoped rule is judged against it; one that cannot say leaves a scoped rule unjudged
+rather than guessing. The model's music search asks the same class and over-fetches three times so a model
+is not shown what the station will refuse and is not left with too few rows. Records already in a running
+order stay: a rule holds from the next pick.
+
+**The steer is the positive half #22 refused to make a rule, and it is a weight.** `deadair.genre_steers`
+holds one lean per station: genres until a time. `CatalogSetGenerator` draws a second, loose sample of
+records tagged with something CONTAINING a steered genre (positive, so loose is safe), matches the whole
+draw precisely, and gives a real match `STEER_LEAN` (four) times its weight through `RotationCandidate.lean`.
+`ModelSetGenerator` puts it in the user turn as "choose mostly from these, and still choose something else".
+Nothing ever removes a record for being outside a steer, so it can never leave the station with nothing to
+play: a lean toward a genre the library barely holds plays what it has and fills the rest as usual.
+
 ## What the model is offered
 
 **ONE search tool, because the split between two was a decision the host could make itself.**

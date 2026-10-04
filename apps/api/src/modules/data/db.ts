@@ -220,6 +220,22 @@ export interface DeadairArtistSources {
   uri: string | null;
 }
 
+export interface DeadairBlockRules {
+  createdAt: Generated<DateTime>;
+  endsAt: DateTime | null;
+  field: "genre" | "tag";
+  fromHour: number | null;
+  id: Generated<string>;
+  modes: Generated<string[]>;
+  seasonFrom: string | null;
+  seasonTo: string | null;
+  slotIds: Generated<string[]>;
+  stationKey: Generated<string>;
+  untilHour: number | null;
+  updatedAt: Generated<DateTime>;
+  value: string;
+}
+
 export interface DeadairBreakRequests {
   broadcastId: string | null;
   context: Json | null;
@@ -308,6 +324,13 @@ export interface DeadairFacts {
   stationKey: Generated<string>;
   trackId: string | null;
   updatedAt: Generated<DateTime>;
+}
+
+export interface DeadairGenreSteers {
+  createdAt: Generated<DateTime>;
+  endsAt: DateTime;
+  genres: string[];
+  stationKey: Generated<string>;
 }
 
 export interface DeadairHiddenPlaylists {
@@ -1078,6 +1101,7 @@ export interface DB {
   "deadair.artistEnrichment": DeadairArtistEnrichment;
   "deadair.artists": DeadairArtists;
   "deadair.artistSources": DeadairArtistSources;
+  "deadair.blockRules": DeadairBlockRules;
   "deadair.breakRequests": DeadairBreakRequests;
   "deadair.callerHosts": DeadairCallerHosts;
   "deadair.clockBands": DeadairClockBands;
@@ -1085,6 +1109,7 @@ export interface DB {
   "deadair.consoleLanguages": DeadairConsoleLanguages;
   "deadair.factExtractions": DeadairFactExtractions;
   "deadair.facts": DeadairFacts;
+  "deadair.genreSteers": DeadairGenreSteers;
   "deadair.hiddenPlaylists": DeadairHiddenPlaylists;
   "deadair.listenerRequests": DeadairListenerRequests;
   "deadair.loginEvents": DeadairLoginEvents;

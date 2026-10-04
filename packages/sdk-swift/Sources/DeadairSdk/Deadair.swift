@@ -18,6 +18,7 @@ public final class Deadair: Sendable {
     public let charts: ChartsClient
     public let clock: ClockClient
     public let director: DirectorClient
+    public let rules: RulesClient
     public let history: HistoryClient
     public let languages: LanguagesClient
     public let messaging: MessagingClient
@@ -61,6 +62,7 @@ public final class Deadair: Sendable {
         self.charts = ChartsClient(http: http)
         self.clock = ClockClient(http: http)
         self.director = DirectorClient(http: http)
+        self.rules = RulesClient(http: http)
         self.history = HistoryClient(http: http)
         self.languages = LanguagesClient(http: http)
         self.messaging = MessagingClient(http: http)

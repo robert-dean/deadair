@@ -1274,6 +1274,122 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/StationOrder'
+    '/rules':
+        get:
+            operationId: list
+            summary: 'List never-play rules'
+            description: 'Every never-play rule on this station, newest first, each saying whether it holds right now'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/BlockRuleList'
+        post:
+            operationId: add
+            summary: 'Add a never-play rule'
+            description: 'Adds a rule. It holds from the next record the station chooses'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/BlockRule'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/BlockRuleList'
+    '/rules/steer':
+        get:
+            operationId: readSteer
+            summary: 'Read the genre steer'
+            description: 'The lean in force, if any'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/GenreSteerReading'
+        put:
+            operationId: steer
+            summary: 'Steer toward genres'
+            description: 'Leans the station toward some genres for a number of hours, replacing any lean already in force'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/GenreSteerInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/GenreSteerReading'
+        delete:
+            operationId: stopSteering
+            summary: 'Stop steering'
+            description: 'Ends the lean now'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/GenreSteerReading'
+    '/rules/{id}':
+        put:
+            operationId: change
+            summary: 'Change a never-play rule'
+            description: 'Replaces a rule'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/BlockRule'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/BlockRuleList'
+                '404':
+                    description: 'Not found'
+        delete:
+            operationId: remove
+            summary: 'Remove a never-play rule'
+            description: 'Removes a rule'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/BlockRuleList'
+                '404':
+                    description: 'Not found'
     '/history':
         get:
             operationId: readHistory
@@ -7694,6 +7810,117 @@ components:
                     maxLength: 500
                     description: "What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the station's ordinary rotation. It steers every later refill too, not just this one batch"
             description: 'Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues'
+        BlockRule:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    readOnly: true
+                field:
+                    type: string
+                    enum: [genre, tag]
+                    description: '`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag'
+                value:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'The genre or tag, as you would write it'
+                seasonFrom:
+                    type: string
+                    minLength: 5
+                    maxLength: 5
+                    description: 'First day it holds, as `MM-DD`. With `seasonTo`; a season starting after it ends wraps the year end'
+                seasonTo:
+                    type: string
+                    minLength: 5
+                    maxLength: 5
+                    description: 'Last day it holds, as `MM-DD`'
+                fromHour:
+                    type: integer
+                    minimum: 0
+                    maximum: 23
+                    description: "First hour of the station's day it holds. With `untilHour`; a window starting after it ends wraps midnight"
+                untilHour:
+                    type: integer
+                    minimum: 0
+                    maximum: 24
+                    description: 'The hour it stops holding, exclusive'
+                modes:
+                    type: array
+                    items:
+                        type: string
+                        enum: [rotation, setlist, feature]
+                    description: 'Only while the station is in one of these modes. Absent or empty means every mode'
+                slotIds:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                    description: 'Only during these schedule blocks. Absent or empty means whatever is on'
+                endsAt:
+                    type: string
+                    format: date-time
+                    description: 'When it stops holding. Absent means until it is removed'
+                inForce:
+                    type: boolean
+                    readOnly: true
+                    description: "Whether it holds right now, on the station's clock, for what is on air"
+            required: [id, field, value, inForce]
+            description: "A never-play rule: a KIND of record the station must not play. Absolute, like a dislike, and\nexclude-only: there is no \"only these\" rule, because one could leave the station nothing to play.\nEvery scope is optional and an absent one means \"always\""
+        BlockRuleList:
+            type: object
+            properties:
+                rules:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/BlockRule'
+            required: [rules]
+            description: 'Every rule on the station, newest first'
+        GenreSteer:
+            type: object
+            properties:
+                genres:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                    minItems: 1
+                    maxItems: 20
+                    description: 'What to favour, as genres. A record tagged with any of them, or a kind of one, is preferred'
+                endsAt:
+                    type: string
+                    format: date-time
+                    description: 'When the station goes back to choosing as it ordinarily does'
+            required: [genres, endsAt]
+            description: "A lean toward some genres for a while. The opposite of a rule: the station favours them when it\nchooses records, and still plays anything else rather than run dry"
+        GenreSteerReading:
+            type: object
+            properties:
+                steer:
+                    '$ref': '#/components/schemas/GenreSteer'
+                    description: 'Absent when nothing is leaning the station, including once one has run out'
+            description: 'The lean in force, or none'
+        GenreSteerInput:
+            type: object
+            properties:
+                genres:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                    minItems: 1
+                    maxItems: 20
+                hours:
+                    type: integer
+                    minimum: 1
+                    maximum: 24
+                    description: 'How long it lasts, from now'
+            required: [genres, hours]
+            description: 'Lean the station toward some genres for a number of hours'
         HistoryEntry:
             type: object
             properties:

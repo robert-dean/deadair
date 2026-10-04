@@ -31,6 +31,7 @@ public sealed class DeadairSdk : IDisposable
         Charts = new ChartsClient(Http);
         Clock = new ClockClient(Http);
         Director = new DirectorClient(Http);
+        Rules = new RulesClient(Http);
         History = new HistoryClient(Http);
         Languages = new LanguagesClient(Http);
         Messaging = new MessagingClient(Http);
@@ -85,6 +86,8 @@ public sealed class DeadairSdk : IDisposable
     public ClockClient Clock { get; }
 
     public DirectorClient Director { get; }
+
+    public RulesClient Rules { get; }
 
     public HistoryClient History { get; }
 

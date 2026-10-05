@@ -117,6 +117,8 @@ fun RunningOrderScreen(
     onHistory: () -> Unit,
     /** The broadcast the order belongs to, for who is presenting it. `null` before the order has arrived. */
     broadcast: BroadcastUiState?,
+    /** That presenter's portrait, resolved. `null` draws the name alone. */
+    hostPortraitUrl: String?,
     handlers: OrderHandlers?,
     /** Change who presents the show. `null` for anyone who may not, and off air, where there is nobody to change. */
     onHost: (() -> Unit)?,
@@ -143,6 +145,7 @@ fun RunningOrderScreen(
                 // Who is presenting, and nothing about a broadcast that has none: off air there is
                 // no one, and the line would name the station's own host over an empty order.
                 hostName = broadcast?.takeUnless { it.nothingOn }?.hostName?.resolve(),
+                hostPortraitUrl = hostPortraitUrl,
                 // Not while rows are being moved: the one thing to do then is finish.
                 onHost = onHost?.takeUnless { editing },
                 actions =

@@ -1,12 +1,15 @@
 package com.maroonedsoftware.deadair.ui.schedule
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
@@ -16,12 +19,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.schedule.ScheduleState
 import com.maroonedsoftware.deadair.ui.ErrorPlaceholder
@@ -39,13 +45,19 @@ import com.maroonedsoftware.deadair.ui.theme.Gutter
  * by this phone, drifting away from the one the station is actually running on.
  */
 @Composable
-fun WhatsOnScreen(state: ScheduleState, onRetry: () -> Unit, onSignIn: () -> Unit) {
+fun WhatsOnScreen(
+    state: ScheduleState,
+    /** Turns a station path (a host's portrait) into something an image loader can fetch. */
+    artUrlFor: (String?) -> String?,
+    onRetry: () -> Unit,
+    onSignIn: () -> Unit,
+) {
     when (state) {
         ScheduleState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.tab_whats_on), onSignIn)
         ScheduleState.Loading -> Loading()
         is ScheduleState.Answered ->
             Refreshable(state = state, onRefresh = onRetry) {
-                Blocks(whatsOn(state.reading.now, state.reading.slots, state.reading.personas), staleSince = null, stale = false)
+                Blocks(whatsOn(state.reading.now, state.reading.slots, state.reading.personas, state.reading.portraits), artUrlFor, staleSince = null, stale = false)
             }
         is ScheduleState.Unreachable -> {
             val last = state.lastGood
@@ -56,7 +68,7 @@ fun WhatsOnScreen(state: ScheduleState, onRetry: () -> Unit, onSignIn: () -> Uni
                 // emptied itself on one failed poll would make every hiccup look like the station
                 // losing its schedule. The banner says so; the words stay readable.
                 Refreshable(state = state, onRefresh = onRetry) {
-                    Blocks(whatsOn(last.now, last.slots, last.personas), staleSince = state.lastGoodAtMs, stale = true)
+                    Blocks(whatsOn(last.now, last.slots, last.personas, last.portraits), artUrlFor, staleSince = state.lastGoodAtMs, stale = true)
                 }
             }
         }
@@ -75,7 +87,7 @@ private fun Loading() {
 }
 
 @Composable
-private fun Blocks(state: WhatsOnUiState, staleSince: Long?, stale: Boolean) {
+private fun Blocks(state: WhatsOnUiState, artUrlFor: (String?) -> String?, staleSince: Long?, stale: Boolean) {
     Column(modifier = Modifier.fillMaxSize()) {
         // Above the scrolling part, so it is seen wherever the reader had scrolled to.
         if (stale) StaleBanner(staleSince, modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp))
@@ -85,21 +97,21 @@ private fun Blocks(state: WhatsOnUiState, staleSince: Long?, stale: Boolean) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             when (val onNow = state.onNow) {
-                is OnNow.Live -> LiveCard(onNow)
+                is OnNow.Live -> LiveCard(onNow, artUrlFor)
                 is OnNow.Between -> BetweenCard(onNow)
             }
 
-            state.ahead.forEach { AheadCard(it) }
+            state.ahead.forEach { AheadCard(it, artUrlFor) }
         }
     }
 }
 
 @Composable
-private fun LiveCard(live: OnNow.Live) {
+private fun LiveCard(live: OnNow.Live, artUrlFor: (String?) -> String?) {
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Heading(live.eyebrow.resolve(), live.leftLabel.resolve())
-            BlockBody(live.block)
+            BlockBody(live.block, artUrlFor)
             // Silent to a screen reader: the "left" label beside the eyebrow already says how far
             // through the block it is, and a bar announcing a percentage on top of it said the
             // same thing twice in two units.
@@ -130,11 +142,11 @@ private fun BetweenCard(between: OnNow.Between) {
 }
 
 @Composable
-private fun AheadCard(ahead: Ahead) {
+private fun AheadCard(ahead: Ahead, artUrlFor: (String?) -> String?) {
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Heading(ahead.eyebrow.resolve(), ahead.startsIn.resolve())
-            BlockBody(ahead.block)
+            BlockBody(ahead.block, artUrlFor)
         }
     }
 }
@@ -156,7 +168,7 @@ private fun Heading(eyebrow: String, trailing: String) {
 }
 
 @Composable
-private fun BlockBody(block: BlockCard) {
+private fun BlockBody(block: BlockCard, artUrlFor: (String?) -> String?) {
     Text(block.label.resolve(), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
 
     val hours = block.hours?.resolve()
@@ -166,7 +178,22 @@ private fun BlockBody(block: BlockCard) {
             block.host == null -> hours
             else -> stringResource(R.string.schedule_hours_and_host, hours, block.host)
         }
-    line?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    line?.let {
+        // The host's face before the line that names them, small and round as on Now playing, so it
+        // reads as a face beside a name rather than as the block's cover.
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            artUrlFor(block.hostPortraitPath)?.let { url ->
+                AsyncImage(
+                    model = url,
+                    // The line beside it says who it is.
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(HostPortraitSize).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainer),
+                )
+            }
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 
     block.brief?.let {
         Text(
@@ -178,3 +205,6 @@ private fun BlockBody(block: BlockCard) {
         )
     }
 }
+
+/** A host's face beside the line that names them: a little taller than the line, so a face is still a face. */
+private val HostPortraitSize = 24.dp

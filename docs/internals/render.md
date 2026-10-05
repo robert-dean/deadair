@@ -206,6 +206,22 @@ presenting NOW, which after a recast is somebody else with a different rack.
 one row down: no mixer, a refusal, a deleted pad, an unservable mime all fall back to speaking the script
 whole with the cue stripped.
 
+**A pad is mixed at a LEVEL, not at 0 dB.** Whoever made a pad mastered it, and an air horn is mastered
+loud, so mixing each one at unity put it wherever its maker left it: twelve decibels over the words it
+landed on, or lost under them. `padGainDb` (`render/pad.level.ts`) turns the pad's measured `loudnessLufs`
+into a gain against `ASSUMED_SPEECH_LUFS`, and the two shapes of hit get different targets on purpose. An
+OVERLAY sits `render.padLevelDb` under the words (six by default, which is a sound clearly heard as a second
+thing and never louder than what is being said; the eighteen a music bed sits at is a drop nobody hears) and
+rides `AudioOverlay.gainDb`. A STING is a part between two takes with nothing underneath it, so it is levelled
+TO the words rather than under them and rides the part's own `gainDb` in `AudioJoin.parts`. Three bounds:
+the figure is against the assumed speech level rather than a measured take, because the takes are spoken and
+joined in one pass and the joined break is measured and levelled afterwards as a whole, which keeps the
+ratio; the gain is clamped to `gain.ts`'s twelve, against a measurement of the wrong file; and an UNMEASURED
+pad, which is most short ones since BS.1770 gates in 400ms blocks, gets no gain at all and sends exactly the
+request it did before any of this. A boost is allowed where `gainFor` refuses one without a peak, because the
+sidecar scales a join that crossed full scale back under it, so a lifted pad can only make the break quieter
+before the station levels it, never clip it.
+
 And **no pad landing means NO JOIN** — two takes still look joinable and are not, because the words were split
 for the sole purpose of putting a sound between them, so joining them without it produces a silent hole
 mid-sentence out of two separately-trimmed takes that no longer share their prosody.

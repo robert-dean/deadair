@@ -210,6 +210,23 @@ describe('AnalyzerPlugin.join', () => {
         expect(call?.init?.timeoutMs).toBe(JOIN_TIMEOUT_MS);
     });
 
+    it('forwards a part gain, and only on the part that has one', async () => {
+        // A sting placed between two takes is levelled against them; the takes are not touched, and
+        // a zero is not sent either, so an ordinary join keeps the body it always had.
+        const { plugin, calls } = await started();
+        await plugin.join({
+            ...REQUEST,
+            parts: [REQUEST.parts[0]!, { url: REQUEST.parts[1]!.url, gainDb: -4.5 }, { url: 'http://api.test/c', gainDb: 0 }],
+        });
+
+        const call = calls.find(candidate => candidate.url.endsWith('/join'));
+        expect(JSON.parse((call?.init?.body as string) ?? '{}').parts).toEqual([
+            { url: REQUEST.parts[0]!.url },
+            { url: REQUEST.parts[1]!.url, gainDb: -4.5 },
+            { url: 'http://api.test/c' },
+        ]);
+    });
+
     it('passes a caller that asked for no trim through as it is', async () => {
         const { plugin, calls } = await started();
         await plugin.join({ ...REQUEST, trim: false });

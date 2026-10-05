@@ -10,7 +10,8 @@ import { AudioUrlSigner } from '#modules/playout/audio.url.signer.js';
 import type { AudioOverlay } from '@deadair/plugin-sdk';
 import { splitOnPads, withoutPads } from './pad.cues.js';
 import { PadRepository } from './pad.repository.js';
-import { padDuckDb, padGapMs, padUnderMs } from './pad.settings.js';
+import { padGainDb } from './pad.level.js';
+import { padDuckDb, padGapMs, padLevelDb, padUnderMs } from './pad.settings.js';
 import { MixerService } from './mixer.service.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
 import { extensionForMime, SegmentStore } from './segment.store.js';
@@ -256,6 +257,8 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         const under = padUnderMs(this.config);
 
         const urls: string[] = [];
+        // One per entry in `urls`, by index: a gain for a sting, nothing for a take.
+        const gains: (number | undefined)[] = [];
         const overlays: AudioOverlay[] = [];
         const spoken: string[] = [];
         let placed = 0;
@@ -286,9 +289,26 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
                     // has no words for the sound to land under, so it stays a part. Sending an
                     // overlay anchored to a join that does not exist is refused by the mixer, which
                     // would cost the break its whole join rather than its timing.
-                    overlays.push({ url, afterIndex: urls.length - 1, offsetMs: -under, duckDb: padDuckDb(this.config) });
+                    //
+                    // Levelled against the words it lands on rather than mixed at whatever its maker
+                    // mastered it to. Omitted for an unmeasured pad, which is most short ones, so
+                    // that case puts exactly the request on the wire it did before levelling existed.
+                    const gainDb = padGainDb(pad.loudnessLufs, padLevelDb(this.config));
+                    overlays.push({
+                        url,
+                        afterIndex: urls.length - 1,
+                        offsetMs: -under,
+                        ...(gainDb === undefined ? {} : { gainDb }),
+                        duckDb: padDuckDb(this.config),
+                    });
                 } else {
+                    // A STING plays alone between two takes, so nothing is underneath it to keep
+                    // intelligible and `render.padLevelDb` (how far UNDER the words) does not apply.
+                    // What it must not do is jump out of the break or vanish from it, so it is
+                    // levelled to the words either side. The joined break is then measured and
+                    // levelled as a whole, which keeps that ratio.
                     urls.push(url);
+                    gains.push(padGainDb(pad.loudnessLufs, 0));
                 }
                 placed += 1;
                 continue;
@@ -297,6 +317,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
             const take = await this.say(part.text, segment, priority);
 
             urls.push(this.signer.sign(storedAudioUrl(base, take.checksum, take.ext)));
+            gains.push(undefined);
             spoken.push(take.spokenText);
         }
 
@@ -314,7 +335,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         // to hand the same bytes back. It IS worth the call once there is something to mix on.
         if (urls.length < 2 && overlays.length === 0) return undefined;
 
-        const joined = await this.mixer.join(segment.label, urls, padGapMs(this.config), { overlays });
+        const joined = await this.mixer.join(segment.label, urls, padGapMs(this.config), { overlays, gainsDb: gains });
         if (joined === undefined) return undefined;
 
         const ext = extensionForMime(joined.mime);

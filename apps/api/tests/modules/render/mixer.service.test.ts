@@ -76,6 +76,19 @@ describe('MixerService.join', () => {
         expect(invoker.invoke).toHaveBeenCalledWith('deadair.analyzer', 'mixer.join', expect.any(Function), expect.anything());
     });
 
+    it('puts a part gain on the part it lines up with, and nothing on a part without one', async () => {
+        const { service, join } = build();
+
+        await service.join('Padded break', ['http://station.test/a', 'http://station.test/pad', 'http://station.test/b'], 60, {
+            gainsDb: [undefined, -6.5],
+        });
+
+        expect(join).toHaveBeenCalledWith({
+            parts: [{ url: 'http://station.test/a' }, { url: 'http://station.test/pad', gainDb: -6.5 }, { url: 'http://station.test/b' }],
+            gapMs: 60,
+        });
+    });
+
     it('answers undefined with a reason when nothing can join, rather than throwing', async () => {
         // An ordinary state, not a fault: the production airs as its beats.
         const { service, logger } = build({ plugins: [['deadair.analyzer', ['analysis']]] });

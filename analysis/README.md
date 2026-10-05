@@ -184,7 +184,7 @@ has silently disabled the check. A genuinely short track is `true`; a download t
 {
   "parts": [                 // in the order they are to be heard
     { "url": "https://…" },  // each complete and self-authenticating, as /analyze's is
-    { "url": "https://…" }
+    { "url": "https://…", "gainDb": -4.5 }  // optional: turn this part up or down after its trim
   ],
   "gapMs": 200,              // silence BETWEEN the parts. 0..2000, default 200
   "trim": true               // take each part's own leading and trailing silence off first

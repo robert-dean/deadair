@@ -54,8 +54,14 @@ export interface AudioJoin {
      * and carries whatever authentication it needs. It has to be reachable from
      * wherever the joining happens, which is not necessarily where this plugin
      * runs.
+     *
+     * `gainDb` is what to do to that part, in decibels, before it is joined.
+     * Absent leaves it alone, which is what every part got before the field
+     * existed. It is for a part that was not recorded beside the others: a sound
+     * placed between two takes was mastered by whoever made it, and the caller
+     * holding its measurement is the one that can say how far to move it.
      */
-    parts: Array<{ url: string }>;
+    parts: Array<{ url: string; gainDb?: number }>;
 
     /**
      * How much silence to put BETWEEN the parts, in milliseconds.

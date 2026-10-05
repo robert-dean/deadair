@@ -44,6 +44,8 @@ function harness(
         join?: () => Promise<unknown>;
         /** The pad the row names has been deleted since the words were written. */
         padMissing?: boolean;
+        /** How loud the pad measured, in LUFS. Absent is the short pad nothing could put a figure on. */
+        padLufs?: number;
         /** Settings as the STRINGS a config layer actually holds. */
         settings?: Record<string, string>;
     } = {},
@@ -90,6 +92,7 @@ function harness(
                       audioExt: 'mp3',
                       source: 'library',
                       state: 'active',
+                      ...(options.padLufs === undefined ? {} : { loudnessLufs: options.padLufs }),
                   },
         ),
     } as unknown as PadRepository;
@@ -508,6 +511,75 @@ describe('RenderSegmentJob landing a pad under the words', () => {
 
         const [, , , options] = joinArgs(mixer);
         expect(options.overlays?.[0]).toMatchObject({ duckDb: -6 });
+    });
+
+    it('levels a measured pad against the words, six under by default', async () => {
+        // An air horn mastered at -10 LUFS against speech assumed at -26.5: six under the words is
+        // -32.5, so the horn wants to come down 22.5 dB, and the clamp holds it at twelve.
+        const loud = harness({ claimed: padded(), padLufs: -10, settings: { 'render.padUnderMs': '400' } });
+        await loud.job.run({ segmentId: 'seg-1' });
+        expect(joinArgs(loud.mixer)[3].overlays?.[0]).toMatchObject({ gainDb: -12 });
+
+        const near = harness({ claimed: padded(), padLufs: -28, settings: { 'render.padUnderMs': '400' } });
+        await near.job.run({ segmentId: 'seg-1' });
+        expect(joinArgs(near.mixer)[3].overlays?.[0]).toMatchObject({ gainDb: -4.5 });
+    });
+
+    it('reads where the pad sits as the string a config layer holds', async () => {
+        const { job, mixer } = harness({ claimed: padded(), padLufs: -28, settings: { 'render.padUnderMs': '400', 'render.padLevelDb': '-3' } });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        // -26.5 - 3 - (-28) = -1.5
+        expect(joinArgs(mixer)[3].overlays?.[0]).toMatchObject({ gainDb: -1.5 });
+    });
+
+    it('leaves an unmeasured pad at the level it was mastered, and says nothing about gain', async () => {
+        // Most short pads: a 350ms rimshot produces no 400ms loudness block, so there is no figure,
+        // and inventing one would be worse than the 0 dB it always had.
+        const { job, mixer } = harness({ claimed: padded(), settings: { 'render.padUnderMs': '400' } });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(joinArgs(mixer)[3].overlays?.[0]).not.toHaveProperty('gainDb');
+    });
+});
+
+// A STING is a part between two takes rather than a sound on top of them, so nothing is underneath
+// it and it is levelled to the words rather than under them.
+describe('RenderSegmentJob levelling a sting', () => {
+    const padded = () =>
+        segment({
+            script: 'Ambitious. [sfx:rimshot] They played it anyway.',
+            pads: [{ name: 'rimshot', padId: 'pad-1' }],
+        });
+
+    const joinArgs = (mixer: unknown) =>
+        (mixer as { join: { mock: { calls: [string, string[], number, { gainsDb?: (number | undefined)[] }][] } } }).join.mock.calls[0]!;
+
+    it('levels a measured sting to the words either side, and leaves the takes alone', async () => {
+        const { job, mixer } = harness({ claimed: padded(), padLufs: -20 });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        // Speech assumed at -26.5 against a sting at -20 is -6.5, on the pad's part alone.
+        expect(joinArgs(mixer)[3].gainsDb).toEqual([undefined, -6.5, undefined]);
+    });
+
+    it('is not moved by where an overlaid pad sits, since nothing is underneath a sting', async () => {
+        const { job, mixer } = harness({ claimed: padded(), padLufs: -20, settings: { 'render.padLevelDb': '-18' } });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(joinArgs(mixer)[3].gainsDb).toEqual([undefined, -6.5, undefined]);
+    });
+
+    it('sends no gain at all for an unmeasured sting', async () => {
+        const { job, mixer } = harness({ claimed: padded() });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(joinArgs(mixer)[3].gainsDb).toEqual([undefined, undefined, undefined]);
     });
 });
 

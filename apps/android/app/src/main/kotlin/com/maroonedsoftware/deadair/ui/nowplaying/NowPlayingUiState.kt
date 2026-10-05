@@ -74,6 +74,14 @@ data class NowPlayingUiState(
         }
 
     /**
+     * The presenter's portrait beside [hostLine], as the station's path (resolve it like a cover).
+     * Only where the line itself is drawn, so a portrait never stands beside nobody. During a break
+     * there is no line, and the portrait takes the cover's place instead (see `coverPath`).
+     */
+    val hostPortraitPath: String?
+        get() = if (hostLine == null) null else show?.hostArtUrl?.ifBlank { null }
+
+    /**
      * Whether the subtitle is a credit that may scroll past, or a sentence that has to wrap.
      *
      * A long artist line scrolls the way it does on every player a listener has used. App copy

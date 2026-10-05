@@ -111,6 +111,24 @@ class NowPlayingUiStateTest {
     }
 
     @Test
+    fun `puts the presenter's portrait beside the host line, and nowhere the line is not`() {
+        val cass = NowPlayingShow(name = "Late Static", host = "Cass", hostArtUrl = "art/cass")
+
+        assertEquals("art/cass", state(AirState.OnAir(track), show = cass).hostPortraitPath)
+        // A portrait with no name beside it would be a stranger's face.
+        assertNull(state(AirState.OnAir(track), show = cass.copy(host = null)).hostPortraitPath)
+        // During a break the portrait is the cover, not a second copy under the title.
+        assertNull(state(AirState.OnAir(spoken), show = cass).hostPortraitPath)
+        assertNull(state(AirState.Unreachable, stale = true, show = cass).hostPortraitPath)
+    }
+
+    @Test
+    fun `draws the host line alone when the persona has no picture`() {
+        assertNull(state(AirState.OnAir(track), show = NowPlayingShow(name = "Late Static", host = "Cass")).hostPortraitPath)
+        assertNull(state(AirState.OnAir(track), show = NowPlayingShow(name = "Late Static", host = "Cass", hostArtUrl = " ")).hostPortraitPath)
+    }
+
+    @Test
     fun `says the host is on the mic during a break, with the break's label under it`() {
         val ui = state(AirState.OnAir(spoken), show = NowPlayingShow(name = "Late Static", host = "Cass"))
 

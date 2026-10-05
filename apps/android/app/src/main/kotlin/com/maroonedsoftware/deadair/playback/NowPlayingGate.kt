@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.playback
 
+import com.maroonedsoftware.deadair.nowplaying.coverPath
 import com.maroonedsoftware.deadair.sdk.models.NowPlaying
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingTrackKind
 
@@ -193,7 +194,7 @@ class NowPlayingGate(
             title = this?.track?.title,
             artist = this?.track?.artist,
             album = this?.track?.album,
-            artworkUrl = this?.track?.artworkUrl,
+            artworkUrl = this.coverPath(),
             show = this?.show?.name,
             host = this?.show?.host,
         )

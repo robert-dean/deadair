@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.playback
 
+import com.maroonedsoftware.deadair.nowplaying.coverPath
 import androidx.annotation.OptIn
 import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
@@ -108,7 +109,7 @@ object MediaItems {
             .setTitle(text.title)
             .setArtist(text.artist)
             .setAlbumTitle(text.album)
-            .setArtworkUri(station.artUrl(now?.track?.artworkUrl)?.toUri())
+            .setArtworkUri(station.artUrl(now.coverPath())?.toUri())
             .setMediaType(MediaMetadata.MEDIA_TYPE_RADIO_STATION)
             .setIsBrowsable(false)
             .setIsPlayable(true)

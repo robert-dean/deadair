@@ -109,6 +109,8 @@ fun NowPlayingScreen(
     onPlay: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
+    /** The presenter's portrait, resolved, for beside the host line. `null` draws the line alone. */
+    hostPortraitUrl: String? = null,
     /** The operator's Skip, Shuffle and like. All `null` for anyone the station does not call its operator. */
     operator: OperatorControls = OperatorControls(skip = null, shuffle = null, like = null),
     /** Where the cover leads, when the record is known. */
@@ -145,12 +147,12 @@ fun NowPlayingScreen(
                         modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).heightIn(min = viewportHeight - 32.dp),
                         verticalArrangement = Arrangement.Center,
                     ) {
-                        Words(state, centred = false, like = operator.like)
+                        Words(state, centred = false, like = operator.like, hostPortraitUrl = hostPortraitUrl)
                         Controls(state, playhead, onPlay, onStop, operator)
                     }
                 }
             } else {
-                FullBleed(state, artworkUrl, palette?.mesh.orEmpty(), playhead, onPlay, onStop, operator, onArtwork, rest, bottomReserve)
+                FullBleed(state, artworkUrl, hostPortraitUrl, palette?.mesh.orEmpty(), playhead, onPlay, onStop, operator, onArtwork, rest, bottomReserve)
             }
         }
     }
@@ -169,6 +171,7 @@ data class LikeControl(val liked: Boolean?, val enabled: Boolean, val onToggle: 
 private fun FullBleed(
     state: NowPlayingUiState,
     artworkUrl: String?,
+    hostPortraitUrl: String?,
     mesh: List<Int>,
     playhead: Playhead?,
     onPlay: () -> Unit,
@@ -260,7 +263,7 @@ private fun FullBleed(
             }
             Column(modifier = Modifier.fillMaxWidth().alpha(shown).padding(horizontal = Gutter)) {
                 Spacer(Modifier.height(CoverGap))
-                Words(state, centred = true, like = operator.like)
+                Words(state, centred = true, like = operator.like, hostPortraitUrl = hostPortraitUrl)
                 Controls(state, playhead, onPlay, onStop, operator)
             }
         }
@@ -281,7 +284,7 @@ private const val BleedStrength = 0.8f
 
 
 @Composable
-private fun Words(state: NowPlayingUiState, centred: Boolean, like: LikeControl?, modifier: Modifier = Modifier) {
+private fun Words(state: NowPlayingUiState, centred: Boolean, like: LikeControl?, hostPortraitUrl: String?, modifier: Modifier = Modifier) {
     val align = if (centred) TextAlign.Center else TextAlign.Start
     Column(
         // Announced when it changes, without being focused: off air to warming up to a record is
@@ -319,17 +322,32 @@ private fun Words(state: NowPlayingUiState, centred: Boolean, like: LikeControl?
             )
         }
         // Who is presenting, quieter than the credit and under it: the record is the news, the host
-        // is who brought it.
+        // is who brought it. Their portrait sits before the name when the station has one, small and
+        // round so it reads as a face beside a name rather than a second cover.
         state.hostLine?.let {
-            Text(
-                it.resolve(),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = align,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            Row(
                 modifier = Modifier.padding(top = 4.dp),
-            )
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                hostPortraitUrl?.let { url ->
+                    AsyncImage(
+                        model = url,
+                        // The name beside it says who it is.
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(HostPortraitSize).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainer),
+                    )
+                }
+                Text(
+                    it.resolve(),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = align,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         // Beside the cover there is room for the album; under it, the title and the credit are the
         // whole of it, and the album is one tap away on the record's page.
@@ -373,6 +391,9 @@ private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -
 
 /** How far the controls either side of the play button stand from it. */
 private val PlayNeighbourGap = 48.dp
+
+/** The presenter's portrait beside the host line: about the height of the line, so the row does not grow. */
+private val HostPortraitSize = 28.dp
 
 /** The room the title keeps clear either side, for the heart at its end. */
 private val HeartRoom = 48.dp

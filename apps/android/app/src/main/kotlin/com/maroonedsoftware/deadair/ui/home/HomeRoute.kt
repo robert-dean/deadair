@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.ui.home
 
+import com.maroonedsoftware.deadair.nowplaying.coverPath
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -133,7 +134,9 @@ fun HomeRoute(
             stale = nowPlaying is NowPlayingState.Unreachable,
             show = reading?.nowPlaying?.show,
         )
-    val artworkUrl = station?.artUrl(reading?.nowPlaying?.track?.artworkUrl)
+    // The record's cover, or the presenter during a break: see `coverPath`.
+    val artworkUrl = station?.artUrl(reading?.nowPlaying.coverPath())
+    val hostPortraitUrl = station?.artUrl(nowState.hostPortraitPath)
 
     // Now playing gives the screen to the cover when left alone, upright only: sideways the cover
     // is beside the words and already has its own half. Held here because the tabs go with it.
@@ -271,6 +274,7 @@ fun HomeRoute(
                 NowPlayingScreen(
                     state = nowState,
                     artworkUrl = artworkUrl,
+                    hostPortraitUrl = hostPortraitUrl,
                     // Frozen while the station is unreachable: a bar still sweeping from a reading
                     // minutes old is a moving, confident lie about where the record is.
                     playhead = rememberPlayhead(reading.takeIf { nowPlaying is NowPlayingState.Answered }, ticking = !rest.resting),

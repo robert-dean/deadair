@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.44.1] — 2026-10-05
+
+- A record's mood and what it is about are judged again once its lyric arrives. A judgement made before then came from a web search at best, and from the model's memory when the search found nothing, and it used to stand for good. The station now remembers whether the lyric was in front of the model and treats a judgement made without it as out of date once there is one.
+
 ## [0.44.0] — 2026-10-05
 
 - When the presenter talks over a record, the music now drops to a set level under the voice instead of by a set amount. A quiet intro only dips a little and a loud chorus comes down further, so the voice sits the same distance above the music either way. If a record kicks in while the presenter is still talking, the music is pulled back under the voice within a second. A record at the station's usual level ducks exactly as it did before. If you change the station's target loudness or how far under the music the presenter sits, the ducked music moves with the voice straight away, with no restart.
@@ -1075,7 +1079,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.44.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.44.1...HEAD
+[0.44.1]: https://github.com/robert-dean/deadair/compare/v0.44.0...v0.44.1
 [0.44.0]: https://github.com/robert-dean/deadair/compare/v0.43.0...v0.44.0
 [0.43.0]: https://github.com/robert-dean/deadair/compare/v0.42.0...v0.43.0
 [0.42.0]: https://github.com/robert-dean/deadair/compare/v0.41.0...v0.42.0

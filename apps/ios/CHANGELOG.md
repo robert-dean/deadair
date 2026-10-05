@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-10-05
+
+- You can now start the station with Siri, a Shortcut or the Action button ("Play deadair"), even after you have swiped the app away. The app also has a CarPlay screen: the station as a single row, showing the record on air (or who is on the mic, with their picture during a break), and pressing it plays the station and opens the usual Now Playing screen. The CarPlay screen turns on once Apple approves it for the app, so for now this update changes nothing in the car.
+
 ## [0.7.0] — 2026-10-05
 
 - When the presenter on air has a picture, the app now shows it. On Now playing it sits beside their name under the record, and on Up next beside the host's name at the top. While the presenter is talking between records, their picture takes the place of the cover on Now playing, in the player bar and on the lock screen, and the page takes its colours from it. A presenter without a picture, or a station that does not send one yet, looks exactly as before.

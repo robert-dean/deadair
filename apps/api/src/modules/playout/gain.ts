@@ -130,6 +130,23 @@ export const CEILING_DBTP = -1;
 export const MAX_GAIN_DB = 12;
 
 /**
+ * The most this will lift the station's OWN speech, which is {@link MAX_GAIN_DB}'s argument with a
+ * different input.
+ *
+ * Still a bound on being wrong rather than a judgement, but the right one for audio whose level is
+ * knowable in advance: a speech engine lands consistently low, and twelve was not enough to reach the
+ * aim. The bundled one measures -25.5 to -28.3 LUFS, and with the speech trim at zero against the
+ * default target that is a lift of 12.5 to 15.3 — measured on the live station on 2026-10-05, every
+ * break was being held 0.8 to 1.5 dB short by the cap alone. Eighteen covers the quietest engine
+ * anybody has measured with room for a lower target, and still refuses the tens of decibels a
+ * measurement of the wrong file asks for.
+ *
+ * Not applied to somebody else's programme ({@link programmeGainFor}), which is a mastered level and
+ * the case {@link MAX_GAIN_DB} was written for.
+ */
+export const MAX_SPEECH_GAIN_DB = 18;
+
+/**
  * Below this, in either direction, no gain is stamped at all.
  *
  * Half a decibel is not audible on a track boundary, and the same call as
@@ -273,8 +290,8 @@ export function resolveSpeechTrimDb(value: unknown): number {
  *   is for and is inaudible, where leaving the DJ several dB under the record
  *   either side is the thing a listener actually notices.
  *
- * {@link MAX_GAIN_DB} still bounds it, on the same argument as above: it is a
- * bound on being wrong, and a measurement of the wrong file asks for a
+ * {@link MAX_SPEECH_GAIN_DB} still bounds it, on {@link MAX_GAIN_DB}'s argument: it
+ * is a bound on being wrong, and a measurement of the wrong file asks for a
  * correction of tens of decibels with total confidence.
  *
  * The target it aims at is the station's less the operator's trim, which is where
@@ -287,7 +304,7 @@ export function speechGainFor(measured: MeasuredLoudness, targetLufs: number, tr
     const target = (isFinite(targetLufs) ? targetLufs : DEFAULT_TARGET_LUFS) - trim;
     const level = isFinite(measured.loudnessLufs) ? measured.loudnessLufs : ASSUMED_SPEECH_LUFS;
 
-    return round(clamp(target - level, MAX_GAIN_DB));
+    return round(clamp(target - level, MAX_SPEECH_GAIN_DB));
 }
 
 /**
@@ -315,10 +332,18 @@ export const DUCK_UNDER_VOICE_DB = 10;
  * {@link MAX_GAIN_DB}, and a break that far out is wrong in a way no bed level would fix.
  */
 export function duckBedLufsFor(targetLufs: number, trimDb: number): number {
-    const trim = isFinite(trimDb) ? trimDb : DEFAULT_SPEECH_TRIM_DB;
-    const target = (isFinite(targetLufs) ? targetLufs : DEFAULT_TARGET_LUFS) - trim;
+    return round(speechAimLufs(targetLufs, trimDb) - DUCK_UNDER_VOICE_DB);
+}
 
-    return round(target - DUCK_UNDER_VOICE_DB);
+/**
+ * Where a voice is aimed, in LUFS: the station's target less the speech trim. What {@link speechGainFor}
+ * and {@link programmeGainFor} level spoken word to, what the duck sits under, and where the voice
+ * compressors in `radio.liq` put their threshold — so that the voice leaves the chain at this level
+ * whatever the operator has set. See `voice_comp_makeup_db` there for why the threshold has to follow it.
+ */
+export function speechAimLufs(targetLufs: number, trimDb: number): number {
+    const trim = isFinite(trimDb) ? trimDb : DEFAULT_SPEECH_TRIM_DB;
+    return round((isFinite(targetLufs) ? targetLufs : DEFAULT_TARGET_LUFS) - trim);
 }
 
 /**

@@ -5,8 +5,22 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { DUCK_BED_KEY, duckAnnotations, itemAnnotations, type AnnotationContext } from '../../../src/modules/playout/annotate.js';
-import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, duckBedLufsFor, programmeGainFor, speechGainFor } from '../../../src/modules/playout/gain.js';
+import {
+    DUCK_BED_KEY,
+    duckAnnotations,
+    itemAnnotations,
+    VOICE_AIM_KEY,
+    voiceAnnotations,
+    type AnnotationContext,
+} from '../../../src/modules/playout/annotate.js';
+import {
+    DEFAULT_SPEECH_TRIM_DB,
+    DEFAULT_TARGET_LUFS,
+    duckBedLufsFor,
+    programmeGainFor,
+    speechAimLufs,
+    speechGainFor,
+} from '../../../src/modules/playout/gain.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import type { RundownItem } from '../../../src/modules/playout/rundown.js';
 
@@ -63,6 +77,26 @@ describe('gainAnnotations, through itemAnnotations', () => {
         const expected = `${speechGainFor({ loudnessLufs: -9 }, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB)} dB`;
         expect(off.liq_amplify).toBe(expected);
         expect(on.liq_amplify).toBe(expected);
+    });
+});
+
+describe('the voice aim, which the voice compressors put their threshold at', () => {
+    const aim = String(speechAimLufs(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB));
+
+    it('rides a break between two records', () => {
+        expect(itemAnnotations(speech(-26), context(true))[VOICE_AIM_KEY]).toBe(aim);
+    });
+
+    it('rides a talk-over cue, through the same function both routes share', () => {
+        expect(voiceAnnotations({ loudnessLufs: -26 }, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB)[VOICE_AIM_KEY]).toBe(aim);
+    });
+
+    it("rides somebody else's programme, which goes through the same compressor", () => {
+        expect(itemAnnotations({ ...speech(-16), programme: true }, context(true))[VOICE_AIM_KEY]).toBe(aim);
+    });
+
+    it('is never on a record, which the compressor leaves at 1:1', () => {
+        expect(itemAnnotations(record(-9), context(true))[VOICE_AIM_KEY]).toBeUndefined();
     });
 });
 

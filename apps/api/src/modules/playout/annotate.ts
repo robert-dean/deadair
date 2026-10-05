@@ -18,7 +18,7 @@
 import { isRenderItem } from '#modules/render/segment.source.js';
 import { stationArtwork, stationOrigin } from '#modules/stream/stream.settings.js';
 import { blendFor } from './crossfade.js';
-import { duckBedLufsFor, gainFor, programmeGainFor, speechGainFor, type MeasuredLoudness } from './gain.js';
+import { duckBedLufsFor, gainFor, programmeGainFor, speechAimLufs, speechGainFor, type MeasuredLoudness } from './gain.js';
 import type { RundownItem } from './rundown.js';
 
 /** The metadata key carrying the rundown item id. Must match `radio.liq`. */
@@ -39,6 +39,15 @@ export const ITEM_KEY = 'deadair_item';
  * same answer on the reading side, which is what a mixer wants.
  */
 export const SPEECH_KEY = 'deadair_speech';
+
+/**
+ * The metadata key carrying where a voice is aimed, in LUFS. Must match `radio.liq`.
+ *
+ * On every spoken item, by both routes and for somebody else's programme too, because all of them go
+ * through a voice compressor whose threshold is this figure. A fixed threshold under a voice that had
+ * moved up squeezed every break six decibels short of its aim; see `voice_comp_makeup_db` there.
+ */
+export const VOICE_AIM_KEY = 'deadair_voice_lufs';
 
 /**
  * The metadata key on a talk-over cue carrying the level the bed is ducked to, in LUFS. Must match
@@ -375,7 +384,12 @@ function gainAnnotations(item: RundownItem, { targetLufs, speechTrimDb, leveling
     // record-only knob — see the field's own doc comment for why.
     // Somebody else's programme is spoken word too, and levelled like the station's voice, but from a
     // mastered level rather than a speech engine's: see `programmeGainFor`.
-    if (isRenderItem(item) && item.programme === true) return { liq_amplify: `${programmeGainFor(item, targetLufs, speechTrimDb)} dB` };
+    if (isRenderItem(item) && item.programme === true) {
+        return {
+            liq_amplify: `${programmeGainFor(item, targetLufs, speechTrimDb)} dB`,
+            [VOICE_AIM_KEY]: String(speechAimLufs(targetLufs, speechTrimDb)),
+        };
+    }
     if (isRenderItem(item)) return voiceAnnotations(item, targetLufs, speechTrimDb);
     if (!levelingEnabled) return {};
 
@@ -385,7 +399,7 @@ function gainAnnotations(item: RundownItem, { targetLufs, speechTrimDb, leveling
 }
 
 /**
- * `liq_amplify` for a break, whichever way it reaches the player.
+ * `liq_amplify` for a break, whichever way it reaches the player, and {@link VOICE_AIM_KEY} beside it.
  *
  * A break has TWO routes and they meet nothing in common downstream. Between two
  * records it is an ordinary running-order item, pushed onto the playout queue and
@@ -401,7 +415,7 @@ function gainAnnotations(item: RundownItem, { targetLufs, speechTrimDb, leveling
  * Exported for the pusher, which arms the cue and has no `RundownItem` to hand.
  */
 export function voiceAnnotations(measured: MeasuredLoudness, targetLufs: number, trimDb: number): Record<string, string> {
-    return { liq_amplify: `${speechGainFor(measured, targetLufs, trimDb)} dB` };
+    return { liq_amplify: `${speechGainFor(measured, targetLufs, trimDb)} dB`, [VOICE_AIM_KEY]: String(speechAimLufs(targetLufs, trimDb)) };
 }
 
 /**

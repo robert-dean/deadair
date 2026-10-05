@@ -820,6 +820,21 @@ describe('Rundown.forgetStranded', () => {
         expect(order.find(cue.id)?.state).toBe('skipped');
     });
 
+    // Live, a talked-up link never reached its record. The cue is handed by the director, never by
+    // the player, and the next reading counted it among what the player should be holding: one
+    // handed, none held, so the cue was "lost" and reclaimed to planned. A planned line nobody has
+    // prepared is a gap, and the record behind it was then forgotten as stranded and its cue skipped.
+    it('does not count a talk-over cue as something the player was given', () => {
+        const { rundown, order, cue, first } = cuedOrder();
+
+        rundown.reconcile({ queued: 0, ready: false });
+
+        expect(rundown.servedCount()).toBe(0);
+        expect(order.find(cue.id)?.state).toBe('handed');
+        expect(rundown.forgetStranded()).toBe(0);
+        expect(rundown.isPrepared(first.id)).toBe(true);
+    });
+
     it('leaves a prepared record alone while it is still next', () => {
         // The ordinary edit, a record added at the end, moves nothing in front of it.
         const { rundown, order, cue, first } = cuedOrder();

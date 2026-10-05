@@ -283,6 +283,14 @@ as a `voice` cue on the record it rides, armed with `X-Voice-At-Ms` like an inte
 bed ducks under it and nothing is faded into speech. Where the cue lands and why is
 [`breaks.md`](breaks.md) § "Talking up to the post".
 
+**A cue is `handed` and the player never holds it, so the rundown never counts one.** The director marks a
+cue handed the moment it attaches it to a record, and it is armed on the mic chain rather than queued.
+`Rundown.handedIds` counted it anyway, so every reading found the player one item short: the cue was
+reclaimed as lost and left `planned` with nothing prepared for it, `forgetStranded` read that as a gap
+and dropped the record behind it with the cue marked skipped, and the record was prepared again bare.
+That cost the first talk-ups the live station decided, and had the pusher topping up one item short
+while any cue was held. `LiveItem.over` is how the transport tells a cue from an item it handed over.
+
 **Somebody else's programme is spoken word too, and differs in three places only.** An episode of a podcast
 the station carries is a segment, so the mixer never fades into it either; `RundownItem.programme` is what
 gives it its own title and show on the mount, a `record` on `/nowplaying`, and a gain assumed from a

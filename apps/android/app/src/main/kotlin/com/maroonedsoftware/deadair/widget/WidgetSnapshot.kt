@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.widget
 
+import com.maroonedsoftware.deadair.nowplaying.coverPath
 import com.maroonedsoftware.deadair.sdk.models.NowPlaying
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingTrackKind
 
@@ -49,7 +50,7 @@ fun snapshotOf(now: NowPlaying, stationName: String?, readAtMs: Long): WidgetSna
         title = track?.title,
         artist = track?.artist?.ifBlank { null },
         host = now.show?.host?.ifBlank { null },
-        artworkUrl = track?.artworkUrl,
+        artworkUrl = now.coverPath(),
         readAtMs = readAtMs,
     )
 }

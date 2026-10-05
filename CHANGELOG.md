@@ -9,6 +9,14 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.44.0] — 2026-10-05
+
+- When the presenter talks over a record, the music now drops to a set level under the voice instead of by a set amount. A quiet intro only dips a little and a loud chorus comes down further, so the voice sits the same distance above the music either way. If a record kicks in while the presenter is still talking, the music is pulled back under the voice within a second. A record at the station's usual level ducks exactly as it did before. If you change the station's target loudness or how far under the music the presenter sits, the ducked music moves with the voice straight away, with no restart.
+- UPnP/DLNA speakers that check a stream before playing it, Samsung televisions among them, now play the station: the stream answers that check itself instead of refusing it, which those speakers read as "resource not found". And a new stream setting, **Address for speakers**, says where speakers fetch the stream from when that is not the public URL, for a speaker that cannot reach the public address from inside your network.
+- The fake plugin host's `remainingMs()` now starts where a live call does: a few milliseconds short of the host's 8 second default deadline, rather than at 15 seconds. A plugin that refuses work unless a full request timeout is left now fails its tests the way it fails on a station, instead of passing them while answering nothing live. A test that exercises a call the host gives a longer deadline (an enrichment call, a batch) seeds that deadline with `seedRemainingMs`.
+- The weather tool answers the model again. Every reading a break asked for came back empty unless one was already cached, because the plugin wanted a full 8 seconds left on a call whose whole deadline is 8 seconds. A read now starts with 1.5 seconds or more in hand, and what is left of the call still caps each request.
+- Web search answers the model again. Every search a break writer or a background walk made came back empty without an engine being asked, because the plugin wanted a full 8 seconds left on a call whose whole deadline is 8 seconds. The connection test never made that check, so it kept passing. A query now starts with 1.5 seconds or more in hand, and what is left of the call still caps it.
+
 ## [0.43.0] — 2026-10-04
 
 - With `breaks.aboutTheRecord` on (off by default), the writer of a link is shown the one-sentence summary of what each record is about, so the presenter can say something about the song rather than only its name. The presenter is never shown the lyrics themselves, and a link that quotes six words of them in a row is refused and written again, without the quoted words ever being stored.
@@ -1067,7 +1075,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.43.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.44.0...HEAD
+[0.44.0]: https://github.com/robert-dean/deadair/compare/v0.43.0...v0.44.0
 [0.43.0]: https://github.com/robert-dean/deadair/compare/v0.42.0...v0.43.0
 [0.42.0]: https://github.com/robert-dean/deadair/compare/v0.41.0...v0.42.0
 [0.41.0]: https://github.com/robert-dean/deadair/compare/v0.40.0...v0.41.0

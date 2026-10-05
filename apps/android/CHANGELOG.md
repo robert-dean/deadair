@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-10-05
+
+- The presenter now has a face. When the operator has given a persona a picture, Now playing shows it as a small round portrait beside "with" and their name, and during a talk break the portrait takes the place of the radio glyph that used to stand in for a cover: on Now playing, in the player bar over the other tabs, on the lock screen and notification, and on the home-screen widget. A record's own cover always wins while a record plays. A persona with no picture, or a station that does not send one yet, looks exactly as before.
+
 ## [0.14.0] — 2026-10-04
 
 - Signed in, you can now ask the station to play a record. Up next has a Request button: search by title or artist, pick a record, and add your name, a dedication or a message if you like. When the station holds few matches, records from its music providers are offered too, marked with where they come from, and the station fetches one before playing it. The station plays a request soon after it is asked for, between two records, if its rules allow, and it takes one request at a time from each listener. The same page lists your recent requests and what became of each one, including the station's reason when it turned one down.
@@ -190,7 +194,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.14.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.15.0...HEAD
+[0.15.0]: https://github.com/robert-dean/deadair/compare/android-v0.14.0...android-v0.15.0
 [0.14.0]: https://github.com/robert-dean/deadair/compare/android-v0.13.0...android-v0.14.0
 [0.13.0]: https://github.com/robert-dean/deadair/compare/android-v0.12.0...android-v0.13.0
 [0.12.0]: https://github.com/robert-dean/deadair/compare/android-v0.11.2...android-v0.12.0

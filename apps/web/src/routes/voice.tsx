@@ -1,6 +1,6 @@
 import { createFileRoute, stripSearchParams, useNavigate } from '@tanstack/react-router';
 
-import { isVoiceTab, VoicePage, type VoiceTab } from '../components/voice/voice.page';
+import { DEFAULT_VOICE_TAB, isVoiceTab, VoicePage, type VoiceTab } from '../components/voice/voice.page';
 
 /**
  * A destination at rest carries no query string, exactly as the catalog lists do.
@@ -9,7 +9,7 @@ import { isVoiceTab, VoicePage, type VoiceTab } from '../components/voice/voice.
  * one shape everywhere: `stripSearchParams` takes them back out of the URL, which is what keeps a
  * plain Voice link from rewriting itself to `?segment=&persona=` the moment it lands.
  */
-const DEFAULTS = { tab: 'characters' as VoiceTab, segment: '', persona: '' };
+const DEFAULTS = { tab: DEFAULT_VOICE_TAB, segment: '', persona: '' };
 
 /** Exported because the generated route tree names this type in `VoiceRoute`'s own declaration. */
 export interface VoiceSearch {
@@ -38,7 +38,7 @@ export interface VoiceSearch {
 export const Route = createFileRoute('/voice')({
     component: VoiceRoute,
     validateSearch: (input: Record<string, unknown>): VoiceSearch => ({
-        tab: isVoiceTab(input.tab) ? input.tab : 'characters',
+        tab: isVoiceTab(input.tab) ? input.tab : DEFAULT_VOICE_TAB,
         segment: typeof input.segment === 'string' ? input.segment : '',
         persona: typeof input.persona === 'string' ? input.persona : '',
     }),

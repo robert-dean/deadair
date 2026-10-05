@@ -11,8 +11,21 @@ let pathname = '/nowhere';
 // The nav is exercised without a router: `Link` is reached to render an anchor, and `useRouterState`
 // to answer where we are.
 vi.mock('@tanstack/react-router', () => ({
-    Link: ({ to, children, ...props }: { to?: string; children?: ReactNode }) => (
-        <a href={to} {...props}>
+    // `activeOptions` is drawn as an attribute, since how a row matches is the router's to apply and
+    // this test's only to see asked for. `search` is dropped: an anchor has no use for it.
+    Link: ({
+        to,
+        children,
+        activeOptions,
+        search: _search,
+        ...props
+    }: {
+        to?: string;
+        children?: ReactNode;
+        activeOptions?: { exact?: boolean };
+        search?: unknown;
+    }) => (
+        <a href={to} data-exact={activeOptions?.exact ? 'true' : undefined} {...props}>
             {children}
         </a>
     ),
@@ -80,6 +93,27 @@ describe('SideNav', () => {
         }
         // Library's are not drawn beside them: one destination is expanded at a time.
         expect(screen.queryByRole('link', { name: /Playlists/ })).not.toBeInTheDocument();
+    });
+
+    /**
+     * The default tab's row asks for no search, because the route strips the default from the URL, and
+     * the router counts an empty search as part of every other tab's. Matched loosely, Today was lit
+     * beside Leans and rules, and Characters beside every other Voice tab.
+     */
+    it('matches only the default tab’s row exactly, so it is not lit beside another tab', () => {
+        pathname = '/schedule';
+        render(<SideNav />);
+
+        expect(screen.getByRole('link', { name: /^Today/ })).toHaveAttribute('data-exact', 'true');
+        expect(screen.getByRole('link', { name: /^Leans and rules/ })).not.toHaveAttribute('data-exact');
+    });
+
+    it('does the same for Voice, whose other tabs stay lit while a link narrows them', () => {
+        pathname = '/voice';
+        render(<SideNav />);
+
+        expect(screen.getByRole('link', { name: /^Characters/ })).toHaveAttribute('data-exact', 'true');
+        expect(screen.getByRole('link', { name: /^What it said/ })).not.toHaveAttribute('data-exact');
     });
 
     /**

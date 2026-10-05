@@ -51,6 +51,9 @@ export const VOICE_TABS = [
 
 export type VoiceTab = (typeof VOICE_TABS)[number]['key'];
 
+/** The tab a bare `/voice` opens on, and the one its URL leaves out. */
+export const DEFAULT_VOICE_TAB: VoiceTab = 'characters';
+
 /** Whether a string off the URL is a tab this destination has. */
 export function isVoiceTab(value: unknown): value is VoiceTab {
     return typeof value === 'string' && VOICE_TABS.some(tab => tab.key === value);

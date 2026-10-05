@@ -110,6 +110,9 @@ function programmeTab<TKey extends 'today' | 'week' | 'sustaining' | 'requests' 
 
 export type ProgrammeTab = (typeof PROGRAMME_TABS)[number]['key'];
 
+/** The tab a bare `/schedule` opens on, and the one its URL leaves out. */
+export const DEFAULT_PROGRAMME_TAB: ProgrammeTab = 'today';
+
 /** Whether a string off the URL is a tab this destination has. */
 export function isProgrammeTab(value: unknown): value is ProgrammeTab {
     return typeof value === 'string' && PROGRAMME_TABS.some(tab => tab.key === value);

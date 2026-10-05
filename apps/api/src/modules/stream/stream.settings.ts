@@ -19,6 +19,13 @@ export const STREAM_KEYS = {
     description: 'stream.description',
     genre: 'stream.genre',
     publicUrl: 'stream.publicUrl',
+    /**
+     * Where speakers the station casts to fetch the stream from, when that is not the public URL.
+     * A speaker is on the station's own network, where the public name may not resolve or may
+     * route out and back through a tunnel, so the address it wants is often the station's plain
+     * `http://` LAN one while listeners outside keep the public HTTPS name.
+     */
+    speakerUrl: 'stream.speakerUrl',
     bitrate: 'stream.bitrate',
     /**
      * The optional format mounts, each off by default.
@@ -215,6 +222,7 @@ export const STREAM_DEFAULTS = {
     description: '',
     genre: 'Music',
     publicUrl: '',
+    speakerUrl: '',
     bitrate: '128',
     // Off, every one of them: an encoder the operator did not ask for is CPU spent
     // permanently on a mount nobody has been told exists.

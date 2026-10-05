@@ -52,7 +52,7 @@ With no model the station writes its own breaks from its phrasings. With no voic
 
 **Speakers**
 
-- **Speakers.** Plays the station on speakers and televisions on your network: anything with Chromecast built in, a Sonos, a BluOS player (Bluesound, NAD), or a UPnP/DLNA renderer such as an AV receiver or a television. It finds them on your network by itself when the station can see its multicast, and otherwise takes a Chromecast, a Sonos or a BluOS player by the address your router gave it and any other renderer by its description address. The speaker fetches the stream itself from the public address in the station's stream settings, so that address has to be one it can reach, and a speaker playing the station counts as a listener.
+- **Speakers.** Plays the station on speakers and televisions on your network: anything with Chromecast built in, a Sonos, a BluOS player (Bluesound, NAD), or a UPnP/DLNA renderer such as an AV receiver or a television. It finds them on your network by itself when the station can see its multicast, and otherwise takes a Chromecast, a Sonos or a BluOS player by the address your router gave it and any other renderer by its description address. The speaker fetches the stream itself, from the public address in the station's stream settings or from a separate address for speakers set beside it, so that address has to be one it can reach, and a speaker playing the station counts as a listener.
 
 **Measurement**
 

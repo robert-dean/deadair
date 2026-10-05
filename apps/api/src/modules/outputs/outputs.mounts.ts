@@ -1,5 +1,12 @@
 import type { AppConfig } from '@maroonedsoftware/appconfig';
-import { HLS_PLAYLIST_PATH, resolveMountSettings, resolvePublicUrl, streamMounts } from '#modules/stream/stream.settings.js';
+import {
+    HLS_PLAYLIST_PATH,
+    STREAM_KEYS,
+    resolveMountSettings,
+    resolvePublicUrl,
+    stationOrigin,
+    streamMounts,
+} from '#modules/stream/stream.settings.js';
 import type { OutputMount } from './types/outputs.types.js';
 
 type MountFormat = OutputMount['format'];
@@ -54,12 +61,16 @@ export function mountsFor(accepted: readonly string[], mounts: readonly OutputMo
  * The absolute URL a speaker is handed for a mount, or `undefined` when the station has no address
  * a speaker could reach.
  *
- * The station's PUBLIC address and never the stream server's own: a speaker is somewhere else on
- * the network, and `localhost` there is the speaker. An empty address, and a loopback one, both
- * answer `undefined` rather than a URL that would leave the speaker silent with nothing to say why.
+ * `stream.speakerUrl` when the operator set one, else the station's PUBLIC address, and never the
+ * stream server's own: a speaker is somewhere else on the network, and `localhost` there is the
+ * speaker. An empty address, and a loopback one, both answer `undefined` rather than a URL that
+ * would leave the speaker silent with nothing to say why. A loopback speaker address does not fall
+ * back to the public one: the operator named an address, and quietly using another is how a speaker
+ * ends up on the wrong one with nothing in the console saying so.
  */
 export function mountUrl(config: AppConfig, path: string): string | undefined {
-    const origin = resolvePublicUrl(config);
+    const speaker = stationOrigin(config.get(STREAM_KEYS.speakerUrl, ''));
+    const origin = speaker === '' ? resolvePublicUrl(config) : speaker;
     if (origin === '') return undefined;
 
     let hostname: string;

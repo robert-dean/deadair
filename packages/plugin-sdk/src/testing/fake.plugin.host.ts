@@ -136,11 +136,15 @@ export interface FakePluginHost extends PluginHost {
 }
 
 /**
- * What `host.remainingMs()` reports unless a test says otherwise. Matches the
- * host's default per-call deadline, so a plugin that only sheds work when the
- * budget is tight behaves in tests the way it does on a healthy station.
+ * What `host.remainingMs()` reports unless a test says otherwise: what a live
+ * call reads on its first line. The host's default per-call deadline is 8s, and
+ * the clock has already been running for a few milliseconds by the time plugin
+ * code asks, so a live call never sees the whole 8s. A plugin that refuses to
+ * start unless a full request timeout is left therefore never starts at all,
+ * and a default above the real deadline hid exactly that: every test passed
+ * while every live call returned nothing.
  */
-const DEFAULT_REMAINING_MS = 15_000;
+const DEFAULT_REMAINING_MS = 8_000 - 5;
 
 /**
  * What a test says a scripted reply should be.

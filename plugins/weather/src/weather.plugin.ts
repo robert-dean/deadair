@@ -11,7 +11,7 @@ import {
     MAX_FORECAST_DAYS,
     PLUGIN_ID,
     PLUGIN_VERSION,
-    REQUEST_TIMEOUT_MS,
+    READ_BUDGET_MS,
     type EngineId,
 } from './weather.manifest.js';
 
@@ -130,7 +130,7 @@ export class WeatherPlugin extends Plugin implements WeatherPluginInstance {
         const cached = this.cachedReading(place, days, language);
         if (cached !== undefined) return cached;
 
-        if (!hasBudget(host, REQUEST_TIMEOUT_MS)) {
+        if (!hasBudget(host, READ_BUDGET_MS)) {
             host.logger.debug('weather: not enough of the call left to ask a service');
             return undefined;
         }

@@ -78,6 +78,15 @@ const initialize = async (token = 'lb-token'): Promise<void> => {
     await plugin.init(host);
 };
 
+/**
+ * What `remainingMs()` reads at the top of a live `enrichTracks` call. The host
+ * gives a batch 48 seconds (four upstream requests' worth) rather than the 8
+ * second default every other call gets, and the per-track tail only starts with
+ * a full request and a margin in hand, so a test left on the fake's default
+ * would be testing a call the station never makes.
+ */
+const BATCH_CALL_REMAINING_MS = 48_000 - 5;
+
 beforeEach(() => {
     host = createFakePluginHost();
     plugin = new MusicBrainzPlugin();
@@ -177,6 +186,10 @@ describe('mapListenBrainz', () => {
 });
 
 describe('enrichTracks through ListenBrainz', () => {
+    beforeEach(() => {
+        host.seedRemainingMs(BATCH_CALL_REMAINING_MS);
+    });
+
     it('describes a batch in two requests instead of one per track', async () => {
         await initialize();
         route(listenBrainzRoutes);

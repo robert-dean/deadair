@@ -348,7 +348,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
     }
 
     /**
-     * Find out how loud the break came out, and write it down.
+     * Find out how loud and how long the break came out, and write both down.
      *
      * A speech engine aims at no particular level, so this is the only thing that can tell the
      * station where its own voice actually landed — and the level is not the engine's constant
@@ -369,6 +369,15 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         try {
             const url = this.signer.sign(segmentAudioUrl(resolvePlayoutBaseUrl(this.config), segmentId));
             const result = await this.analysis.measureAudio(segmentId, url);
+
+            // The length first, since a segment with no loudness figure still has one. Only from a
+            // measurement that decoded the whole file: a truncated download is a confident and
+            // shorter length, and a link fitted to it would run past the post it was fitted to.
+            const durationMs = result?.complete === true ? result.durationMs : undefined;
+            if (typeof durationMs === 'number' && Number.isFinite(durationMs) && durationMs > 0) {
+                await this.segments.recordDuration(segmentId, Math.round(durationMs));
+            }
+
             // `integratedLufs` is the ANALYZER's name for it and `loudnessLufs` is the item's, the
             // same translation `PickResolver.loudness` makes for a record. Reading the item's name
             // off an analyzer's blob is not a type error — `data` is `Record<string, unknown>` —

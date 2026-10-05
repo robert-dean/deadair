@@ -56,6 +56,7 @@ function harness(
         markFailed: vi.fn(async () => {}),
         releaseForRetry: vi.fn(async () => options.released ?? true),
         recordLoudness: vi.fn(async () => {}),
+        recordDuration: vi.fn(async () => {}),
     } as unknown as SegmentRepository;
 
     const speech = {
@@ -249,6 +250,29 @@ describe('RenderSegmentJob: measuring what it made', () => {
 
         expect(analysis.measureAudio).toHaveBeenCalledWith('seg-1', expect.stringContaining('seg-1'));
         expect(segments.recordLoudness).toHaveBeenCalledWith('seg-1', -24.5);
+    });
+
+    it('writes down how long the audio decoded to, which a spoken break has no other way to know', async () => {
+        // A speech engine answers with a stream and no length, so without this every link reached
+        // the director with none, and talking up to the post, which fits a link by its length, never
+        // talked one up.
+        const { job, segments } = harness({ measure: async () => ({ schemaVersion: 1, complete: true, durationMs: 11_730.4, data: {} }) });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.recordDuration).toHaveBeenCalledWith('seg-1', 11_730);
+    });
+
+    it('takes no length from a measurement of part of the file', async () => {
+        // A truncated download is a confident, SHORTER length, and a link fitted to it runs past
+        // the post it was fitted to.
+        const { job, segments } = harness({
+            measure: async () => ({ schemaVersion: 1, complete: false, durationMs: 4_000, data: { integratedLufs: -24.5 } }),
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.recordDuration).not.toHaveBeenCalled();
     });
 
     it('marks the segment ready before it measures it', async () => {

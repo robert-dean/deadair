@@ -157,6 +157,14 @@ where in that record to start, or nothing. Nothing is a link in the gap, exactly
 instrumental, a record with no timed lyrics, a runway under 2.5s, a link that does not fit. **A link is
 never trimmed or rendered again to make it fit**; it simply airs where it always did.
 
+**`segments.duration_ms` is the analyzer's decode, and for a while it was nobody's.** A speech engine
+answers with a stream and no length, so a spoken link reached the director with none, and
+`talkUpRunways` skips a link it cannot measure. The feature went live and talked up nothing: of
+thousands of segments only the stitched call-ins had a length. `RenderSegmentJob.measure` now writes
+the decoded length beside the loudness (`recordDuration`), from a measurement of the WHOLE file
+only, since a truncated download is a confident and shorter length. A link handed over in the second
+or so before it is measured has none yet and airs in the gap, which is the fail-open anyway.
+
 **The post is the first sung line, moved onto the timeline the record AIRS on.** The lyric's timings
 count from the top of the file and the record airs from its measured cue-in, so an 8s first line on a
 record with 6s of leading silence is 2s of runway on air. `lyrics/vocal.runway.ts` is the one place

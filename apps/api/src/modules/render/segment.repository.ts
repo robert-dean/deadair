@@ -1533,6 +1533,19 @@ export class SegmentRepository extends DataRepository {
     }
 
     /**
+     * How long a rendered segment's audio turned out to be, as the analyzer decoded it.
+     *
+     * A speech engine answers with a stream and no length, so a spoken break had none until it was
+     * measured, and every reader of `durationMs` saw a link with no length at all. The one that
+     * cared was talking up to the post (`talk.up.ts`), which cannot fit a link it cannot measure and
+     * so never talked one up. Written beside the loudness rather than at render, because the decode
+     * is the only honest figure: the bytes measured are the bytes that air.
+     */
+    async recordDuration(id: string, durationMs: number): Promise<void> {
+        await this.db.updateTable('deadair.segments').set({ durationMs }).where('id', '=', id).execute();
+    }
+
+    /**
      * Hand a render back because the HOST was not ready, not because the segment was wrong.
      *
      * `rendering → written`, which is where {@link claimForRender} starts, so `retryRenders` picks

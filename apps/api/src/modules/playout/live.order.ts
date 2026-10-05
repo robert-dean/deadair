@@ -27,6 +27,12 @@ export type LiveItemState = 'planned' | 'handed' | 'airing' | 'played' | 'skippe
 export interface LiveItem {
     id: string;
     state: LiveItemState;
+    /**
+     * Set on a talk-over cue: a segment heard OVER the record after it rather than between records.
+     * The director hands a cue over itself and the player is never given it, since it is armed on the
+     * mic chain rather than queued, so it is never among what the player is holding.
+     */
+    over?: { atMs: number };
 }
 
 /**

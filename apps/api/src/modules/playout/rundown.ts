@@ -1120,9 +1120,16 @@ export class Rundown {
         return this.ahead().find(entry => entry.state === 'planned')?.item;
     }
 
-    /** The ids the player is believed to be holding, in hand-over order. */
+    /**
+     * The ids the player is believed to be holding, in hand-over order.
+     *
+     * Never a talk-over cue. One is `handed` from the moment the director attaches it to a record, and
+     * the player never holds it: counted here, every reading found the player one short, reclaimed the
+     * cue as lost and left it `planned` and unprepared, which {@link forgetStranded} then read as a gap
+     * and dropped the record carrying it, cue and all. It also had the pusher topping up one item short.
+     */
     private handedIds(): string[] {
-        return (this.order?.all() ?? []).filter(item => item.state === 'handed').map(item => item.id);
+        return (this.order?.all() ?? []).filter(item => item.state === 'handed' && item.over === undefined).map(item => item.id);
     }
 
     private stateOf(id: string): string | undefined {

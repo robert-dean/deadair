@@ -126,19 +126,25 @@ export class MixerService {
      * @param options - Anything beyond a plain sequence. An options bag rather than a fourth
      *                  positional argument, because the next thing after overlays is a fifth, and a
      *                  call site reading `join(label, urls, 60, [], undefined)` says nothing about
-     *                  what it wants.
+     *                  what it wants. `gainsDb` lines up with `urls` by index, and an entry that
+     *                  is absent leaves its part alone.
      */
     async join(
         label: string,
         urls: readonly string[],
         gapMs: number,
-        options: { overlays?: readonly AudioOverlay[] } = {},
+        options: { overlays?: readonly AudioOverlay[]; gainsDb?: readonly (number | undefined)[] } = {},
     ): Promise<JoinedAudio | undefined> {
         const mixer = this.mixer();
         if (mixer === undefined) return undefined;
 
         const request: AudioJoin = {
-            parts: urls.map(url => ({ url })),
+            // A part's gain only where it has one, so a join that levels nothing is the same request
+            // it was before parts could carry one.
+            parts: urls.map((url, index) => {
+                const gainDb = options.gainsDb?.[index];
+                return gainDb === undefined ? { url } : { url, gainDb };
+            }),
             gapMs,
             // Omitted rather than sent empty, so an ordinary join puts the same request on the wire
             // it did before overlays existed.

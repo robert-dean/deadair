@@ -257,6 +257,8 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         const under = padUnderMs(this.config);
 
         const urls: string[] = [];
+        // One per entry in `urls`, by index: a gain for a sting, nothing for a take.
+        const gains: (number | undefined)[] = [];
         const overlays: AudioOverlay[] = [];
         const spoken: string[] = [];
         let placed = 0;
@@ -300,7 +302,13 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
                         duckDb: padDuckDb(this.config),
                     });
                 } else {
+                    // A STING plays alone between two takes, so nothing is underneath it to keep
+                    // intelligible and `render.padLevelDb` (how far UNDER the words) does not apply.
+                    // What it must not do is jump out of the break or vanish from it, so it is
+                    // levelled to the words either side. The joined break is then measured and
+                    // levelled as a whole, which keeps that ratio.
                     urls.push(url);
+                    gains.push(padGainDb(pad.loudnessLufs, 0));
                 }
                 placed += 1;
                 continue;
@@ -309,6 +317,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
             const take = await this.say(part.text, segment, priority);
 
             urls.push(this.signer.sign(storedAudioUrl(base, take.checksum, take.ext)));
+            gains.push(undefined);
             spoken.push(take.spokenText);
         }
 
@@ -326,7 +335,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         // to hand the same bytes back. It IS worth the call once there is something to mix on.
         if (urls.length < 2 && overlays.length === 0) return undefined;
 
-        const joined = await this.mixer.join(segment.label, urls, padGapMs(this.config), { overlays });
+        const joined = await this.mixer.join(segment.label, urls, padGapMs(this.config), { overlays, gainsDb: gains });
         if (joined === undefined) return undefined;
 
         const ext = extensionForMime(joined.mime);

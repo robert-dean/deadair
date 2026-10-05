@@ -545,6 +545,44 @@ describe('RenderSegmentJob landing a pad under the words', () => {
     });
 });
 
+// A STING is a part between two takes rather than a sound on top of them, so nothing is underneath
+// it and it is levelled to the words rather than under them.
+describe('RenderSegmentJob levelling a sting', () => {
+    const padded = () =>
+        segment({
+            script: 'Ambitious. [sfx:rimshot] They played it anyway.',
+            pads: [{ name: 'rimshot', padId: 'pad-1' }],
+        });
+
+    const joinArgs = (mixer: unknown) =>
+        (mixer as { join: { mock: { calls: [string, string[], number, { gainsDb?: (number | undefined)[] }][] } } }).join.mock.calls[0]!;
+
+    it('levels a measured sting to the words either side, and leaves the takes alone', async () => {
+        const { job, mixer } = harness({ claimed: padded(), padLufs: -20 });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        // Speech assumed at -26.5 against a sting at -20 is -6.5, on the pad's part alone.
+        expect(joinArgs(mixer)[3].gainsDb).toEqual([undefined, -6.5, undefined]);
+    });
+
+    it('is not moved by where an overlaid pad sits, since nothing is underneath a sting', async () => {
+        const { job, mixer } = harness({ claimed: padded(), padLufs: -20, settings: { 'render.padLevelDb': '-18' } });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(joinArgs(mixer)[3].gainsDb).toEqual([undefined, -6.5, undefined]);
+    });
+
+    it('sends no gain at all for an unmeasured sting', async () => {
+        const { job, mixer } = harness({ claimed: padded() });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(joinArgs(mixer)[3].gainsDb).toEqual([undefined, undefined, undefined]);
+    });
+});
+
 // `SpeechGate` orders its queue by rank and never preempts, so what a priority buys is the order
 // things are admitted in, not the right to interrupt. A programme rendered hours ahead of its slot
 // is several consecutive takes on the station's only engine; at `air` a break planted in the

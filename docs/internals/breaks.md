@@ -157,6 +157,15 @@ where in that record to start, or nothing. Nothing is a link in the gap, exactly
 instrumental, a record with no timed lyrics, a runway under 2.5s, a link that does not fit. **A link is
 never trimmed or rendered again to make it fit**; it simply airs where it always did.
 
+**A talked-up link waiting for its record is the same cue when it comes round again.** A link in front
+of a record that is not in the batch has nothing to ride on yet, so the hand-over holds it
+(`pendingVoice`) for the next pass, exactly as it holds a planted talk-over. The first talk-up the live
+station decided then came round a second time, already marked `over`, and the "two talk-overs in a
+row" rule read the held cue and itself as a pair and marked it skipped as its own predecessor. It
+aired anyway, because the loop then held the same cue again and it rode its record (on air 2s into
+"Zombie", 29s long, ending 18s before the first sung word), but the running order recorded a link a
+listener heard as one they never did. The rule now drops only a DIFFERENT held cue.
+
 **`segments.duration_ms` is the analyzer's decode, and for a while it was nobody's.** A speech engine
 answers with a stream and no length, so a spoken link reached the director with none, and
 `talkUpRunways` skips a link it cannot measure. The feature went live and talked up nothing: of

@@ -3133,8 +3133,13 @@ export class DirectorService {
             // Two of them in a row would be one talking over the other, so the later one wins and
             // the earlier is dropped. That is a programming mistake rather than a fault, and the
             // alternative — queueing them — is two voices at once.
+            //
+            // The SAME cue offered again is not a second one. A talked-up link held for a record in
+            // a later batch can come round again, already marked as a talk-over, and reading it as
+            // its own predecessor marked the first talk-up the station ever decided as skipped
+            // while it aired.
             if (item.over !== undefined) {
-                if (pending !== undefined) {
+                if (pending !== undefined && pending.itemId !== item.id) {
                     this.logger.info('director: two talk-overs in a row; keeping the later one', { dropped: pending.segmentId });
                     skipped.push(pending.itemId);
                 }

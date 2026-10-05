@@ -2930,6 +2930,28 @@ describe('DirectorService talking a link up to the post', () => {
         const { rundown } = await run({ markers: { kind: 'instrumental' }, setting: 'true' });
         expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
     });
+
+    // Live, the first talk-up the station decided was recorded as skipped although it aired. The link
+    // sat in front of the second record, so the pass that talked it up had nothing to ride on and held
+    // it; the link then came round again, now marked as a talk-over, and the loop read the held cue and
+    // the same cue offered again as two in a row and skipped it as its own predecessor.
+    it('keeps a talked-up link that comes round again while it waits for its record', async () => {
+        const built = build({ items: ['a', 'b'], segments: [link(6_000)], vocalMarkers: { 'track-b': sung } });
+        built.station.set(TALK_UP_KEYS.enabled, 'true');
+        await built.seedCatalogued();
+        built.lineup.insertSegment('seg-1', 1);
+        const cueItemId = built.lineup.all()[1]!.id;
+        await built.director.start();
+        await settle();
+        expect(built.lineup.all()[1]).toMatchObject({ state: 'handed', over: { atMs: 6_956 } });
+
+        // However it comes back, it comes back as a talk-over the director is already holding.
+        built.lineup.reclaim([cueItemId]);
+        await airNext(built.rundown);
+
+        expect(built.lineup.all()[1]?.state).not.toBe('skipped');
+        expect(built.rundown.upcoming().find(item => item.externalId === 'b')?.voice).toEqual({ segmentId: 'seg-1', atMs: 6_956, itemId: cueItemId });
+    });
 });
 
 // A talk-over is heard ALONGSIDE a record rather than in the gap before it, so it never becomes a

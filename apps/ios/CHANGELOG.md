@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-10-05
+
+- When the presenter on air has a picture, the app now shows it. On Now playing it sits beside their name under the record, and on Up next beside the host's name at the top. While the presenter is talking between records, their picture takes the place of the cover on Now playing, in the player bar and on the lock screen, and the page takes its colours from it. A presenter without a picture, or a station that does not send one yet, looks exactly as before.
+
 ## [0.6.0] — 2026-10-04
 
 - Signed in, you can now ask the station to play a record. Up next has a Request button: search by title or artist, pick a record, and add your name, a dedication or a message if you like. When the station holds few matches, records from its music providers are offered too, marked with where they come from, and the station fetches one before playing it. The station plays a request soon after it is asked for, between two records, if its rules allow, and it takes one request at a time from each listener. The same page lists your recent requests and what became of each one, including the station's reason when it turned one down.

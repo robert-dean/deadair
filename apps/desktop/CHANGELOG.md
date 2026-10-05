@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-10-05
+
+- When the station has a picture of whoever is presenting, the app shows it beside their name on the desk, in the Now playing panel and in Studio. During a break, which has no cover of its own, the presenter's picture takes the cover's place, and the page's colours follow it. A presenter with no picture, or a station that does not send one, looks exactly as before.
+
 ## [0.6.0] — 2026-10-04
 
 - Studio: the record on air across the whole window, to sit back from. It takes the screen, and leaving puts the window back as it was. The cover large, the title, who is presenting and the playhead, over the cover's own colours drifting slowly, with Listen and Stop and nothing else. Open it with the TV button in the bar, Window › Studio, or F; leave it with Escape, F or its close button. The controls and the pointer fade after a few seconds of stillness, the backdrop holds still if Reduce Motion is on, and it stops drawing while the window cannot be seen. Space still starts and stops the station, and the bar's play button now says so.
@@ -81,7 +85,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.6.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.0...HEAD
+[0.7.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.6.0...desktop-v0.7.0
 [0.6.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.5.0...desktop-v0.6.0
 [0.5.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.4.1...desktop-v0.5.0
 [0.4.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.4.0...desktop-v0.4.1

@@ -113,7 +113,7 @@ public final class NowPlayingGate {
     ///
     /// The kind and the show among them, because `lockScreenLines` draws a break from the host and
     /// the show's name: a recast during a break changes what the lock screen says with nothing
-    /// about the item moving.
+    /// about the item moving. The host's picture too, which is a break's artwork when they have one.
     private struct Shown: Equatable {
         let present: Bool
         let station: String?
@@ -124,6 +124,7 @@ public final class NowPlayingGate {
         let artworkUrl: String?
         let show: String?
         let host: String?
+        let hostArtUrl: String?
 
         init(_ reading: NowPlaying?) {
             present = reading != nil
@@ -135,6 +136,7 @@ public final class NowPlayingGate {
             artworkUrl = reading?.track?.artworkUrl
             show = reading?.show?.name
             host = reading?.show?.host
+            hostArtUrl = reading?.show?.hostArtUrl
         }
     }
 }

@@ -278,12 +278,19 @@ struct NowPlayingScreen: View {
             }
             // Who is presenting, quieter than the credit and under it: the record is the news, the
             // host is who brought it.
+            // Their picture beside the name when the station has one.
             if let host = ui.hostLine {
-                Text(host.words)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .padding(.top, 4)
+                HStack(spacing: 6) {
+                    if let portrait = hostPortraitUrl(station: model.settings.settings.station, reading: model.nowPlaying.state.latest?.value)
+                        .flatMap(URL.init(string:)) {
+                        HostPortrait(url: portrait, loader: model.artwork)
+                    }
+                    Text(host.words)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .padding(.top, 4)
             }
             // Beside the cover there is room for the album; under it, the title and the credit are the
             // whole of it, and the album is one tap away on the record's page.
@@ -368,11 +375,27 @@ extension NowPlayingScreen {
     }
 }
 
-/// The cover for what is on air, through the station's own art route. Nothing off air: a cover
-/// left over from the last record would say something is playing that is not.
+/// The cover for what is on air, through the station's own art route, and during a break the picture
+/// of whoever is talking when they have one (`coverArtUrl`). Nothing off air: a cover left over from
+/// the last record would say something is playing that is not.
 func artworkURL(station: StationUrl?, reading: NowPlaying?) -> URL? {
-    guard reading?.onAir == true else { return nil }
-    return station?.artUrl(reading?.track?.artworkUrl).flatMap(URL.init(string:))
+    coverArtUrl(station: station, reading: reading).flatMap(URL.init(string:))
+}
+
+/// The presenter's picture, small and round, beside their name.
+///
+/// Drawn only when the station sent one, so a presenter without a picture is the bare name exactly
+/// as before. Through `ArtworkView`, for the reason every picture in the app goes through it: one
+/// agent, one session.
+struct HostPortrait: View {
+    let url: URL
+    let loader: ArtworkLoader
+    var size: CGFloat = 24
+
+    var body: some View {
+        ArtworkView(url: url, loader: loader, cornerRadius: size / 2, placeholderSize: size * 0.45, placeholder: "person.fill")
+            .frame(width: size, height: size)
+    }
 }
 
 /// Play, or stop. Never pause: a paused connection is still a listener.

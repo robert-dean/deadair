@@ -198,7 +198,7 @@ final class Listening {
         let name = reading?.station ?? settings.settings.stationName ?? station.origin
         let playing = conductor.state == .playing
         system.show(station: name, reading: reading, artwork: nil, playing: playing)
-        guard let art = station.artUrl(reading?.track?.artworkUrl).flatMap(URL.init(string:)) else { return }
+        guard let art = coverArtUrl(station: station, reading: reading).flatMap(URL.init(string:)) else { return }
         Task {
             let image = await artwork.image(for: art)
             // Only if the record it belongs to is still the one showing.

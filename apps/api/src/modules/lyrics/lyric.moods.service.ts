@@ -104,10 +104,10 @@ export class LyricMoodsService {
                     );
                 } else if (moods === 'unknown') {
                     summary.unplaced++;
-                    await this.labels.saveMoods(candidate.trackId, undefined, MOODS_VERSION);
+                    await this.labels.saveMoods(candidate.trackId, undefined, MOODS_VERSION, candidate.lyric !== undefined);
                 } else {
                     summary.judged++;
-                    await this.labels.saveMoods(candidate.trackId, moods, MOODS_VERSION);
+                    await this.labels.saveMoods(candidate.trackId, moods, MOODS_VERSION, candidate.lyric !== undefined);
                 }
             } catch (error) {
                 this.logger.warn('lyric moods: could not store a judgement', { trackId: candidate.trackId, error: errorText(error) });

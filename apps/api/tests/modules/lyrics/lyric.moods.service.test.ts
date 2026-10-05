@@ -19,12 +19,12 @@ import { settingsConfig } from '../../utils/settings.config.js';
 
 const logger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) as unknown as Logger;
 
-const candidate = (trackId = 't1', lyric: string | undefined = 'Give me a reason to love you'): MoodCandidate => ({
+const candidate = (trackId = 't1', withLyric = true): MoodCandidate => ({
     trackId,
     title: 'Glory Box',
     artist: 'Portishead',
     instrumental: false,
-    ...(lyric === undefined ? {} : { lyric }),
+    ...(withLyric ? { lyric: 'Give me a reason to love you' } : {}),
 });
 
 function build(options: { answers?: unknown[]; searchable?: boolean; candidates?: MoodCandidate[]; settings?: Record<string, string> } = {}) {
@@ -51,14 +51,21 @@ describe('LyricMoodsService', () => {
         const { service, labels } = build();
 
         expect(await service.labelPending(10)).toEqual({ judged: 1, unplaced: 0, failed: 0, yielded: false });
-        expect(labels.saveMoods).toHaveBeenCalledWith('t1', expect.objectContaining({ sadness: 0.75, love: 0.25 }), MOODS_VERSION);
+        expect(labels.saveMoods).toHaveBeenCalledWith('t1', expect.objectContaining({ sadness: 0.75, love: 0.25 }), MOODS_VERSION, true);
+    });
+
+    it('says a judgement made without the lyric was, so the walk makes it again once the lyric arrives', async () => {
+        const { service, labels } = build({ searchable: true, candidates: [candidate('t1', false)] });
+
+        await service.labelPending(10);
+        expect(labels.saveMoods).toHaveBeenCalledWith('t1', expect.objectContaining({ sadness: 0.75 }), MOODS_VERSION, false);
     });
 
     it('records "could not tell" as a judgement with no moods, so the record is not asked again', async () => {
         const { service, labels } = build({ answers: [{ text: '{"unknown":true}', finishReason: 'stop' }] });
 
         expect((await service.labelPending(10)).unplaced).toBe(1);
-        expect(labels.saveMoods).toHaveBeenCalledWith('t1', undefined, MOODS_VERSION);
+        expect(labels.saveMoods).toHaveBeenCalledWith('t1', undefined, MOODS_VERSION, true);
     });
 
     it('backs off a record whose answer was not a distribution', async () => {

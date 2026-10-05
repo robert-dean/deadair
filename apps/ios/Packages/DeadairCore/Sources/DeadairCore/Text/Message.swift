@@ -38,6 +38,9 @@ public enum Message: Equatable, Sendable {
     /// The sleep timer's countdown: "Stops in 14 min". Never less than a minute.
     case stopsIn(Span)
     case stopsAfterThisRecord
+    /// A car's screen before any station is kept: there is nothing to play, and the phone is where
+    /// one is chosen.
+    case chooseStationOnPhone
 
     // MARK: The address field
 

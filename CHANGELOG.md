@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.44.3] — 2026-10-05
+
+- The help for **Address for speakers** now says when it is needed: some televisions' DLNA players, Samsung's among them, cannot play an HTTPS stream at all, and play the station once given its plain `http://` address on your network.
+
 ## [0.44.2] — 2026-10-05
 
 - What a record is about is now written so a presenter could say it on air: sex, drugs or violence are named plainly and never described. Every existing summary is written again under the new rule. A station that speaks clean (`prefer-clean` or `clean-only`) no longer shows a link's writer the summary of a record with any copy marked explicit.
@@ -1086,7 +1090,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.44.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.44.3...HEAD
+[0.44.3]: https://github.com/robert-dean/deadair/compare/v0.44.2...v0.44.3
 [0.44.2]: https://github.com/robert-dean/deadair/compare/v0.44.1...v0.44.2
 [0.44.1]: https://github.com/robert-dean/deadair/compare/v0.44.0...v0.44.1
 [0.44.0]: https://github.com/robert-dean/deadair/compare/v0.43.0...v0.44.0

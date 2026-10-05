@@ -73,8 +73,18 @@ const initialize = async (config: Record<string, unknown> = {}): Promise<void> =
 /** Every request the plugin made, with the query string dropped, for counting by endpoint. */
 const paths = (): string[] => host.calls.map(call => call.url.split('?')[0]!.replace('https://musicbrainz.org/ws/2/', ''));
 
+/**
+ * What `remainingMs()` reads at the top of a live `enrichTracks` call. The host
+ * gives a batch 48 seconds (four upstream requests' worth) rather than the 8
+ * second default every other call gets, and the per-track tail only starts with
+ * a full request and a margin in hand, so a test left on the fake's default
+ * would be testing a call the station never makes.
+ */
+const BATCH_CALL_REMAINING_MS = 48_000 - 5;
+
 beforeEach(() => {
     host = createFakePluginHost();
+    host.seedRemainingMs(BATCH_CALL_REMAINING_MS);
     plugin = new MusicBrainzPlugin();
 });
 

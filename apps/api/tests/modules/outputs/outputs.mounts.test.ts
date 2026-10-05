@@ -64,3 +64,23 @@ describe('mountUrl', () => {
         },
     );
 });
+
+describe('mountUrl, with an address for speakers', () => {
+    it('uses the speaker address over the public one, so a LAN speaker can be given plain http', () => {
+        const { config } = settingsConfig({ 'stream.publicUrl': 'https://radio.example.com', 'stream.speakerUrl': 'http://192.168.1.10:8080/' });
+
+        expect(mountUrl(config, '/live.mp3')).toBe('http://192.168.1.10:8080/live.mp3');
+    });
+
+    it('falls back to the public address when the speaker address is empty', () => {
+        const { config } = settingsConfig({ 'stream.publicUrl': 'https://radio.example.com', 'stream.speakerUrl': '  ' });
+
+        expect(mountUrl(config, '/live.mp3')).toBe('https://radio.example.com/live.mp3');
+    });
+
+    it('refuses a loopback speaker address rather than quietly using the public one', () => {
+        const { config } = settingsConfig({ 'stream.publicUrl': 'https://radio.example.com', 'stream.speakerUrl': 'http://localhost:8080' });
+
+        expect(mountUrl(config, '/live.mp3')).toBeUndefined();
+    });
+});

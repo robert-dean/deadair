@@ -48,8 +48,9 @@ export function castManifest(protocols: ConfigFieldOption[], discovery: Discover
                 label: 'How this works',
                 type: 'note',
                 help:
-                    'Each speaker fetches the station’s stream itself, from the public address in the station’s stream settings, so ' +
-                    'that address has to be one the speaker can reach. A speaker playing the station counts as a listener.',
+                    'Each speaker fetches the station’s stream itself, from the address for speakers in the station’s stream settings, ' +
+                    'or the public address when that is empty, so it has to be one the speaker can reach. A speaker playing the station ' +
+                    'counts as a listener.',
             },
             {
                 key: DISCOVER_FIELD,

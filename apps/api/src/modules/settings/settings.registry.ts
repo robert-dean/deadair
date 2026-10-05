@@ -465,6 +465,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'stream',
+        key: STREAM_KEYS.speakerUrl,
+        label: 'Address for speakers',
+        type: 'url',
+        default: STREAM_DEFAULTS.speakerUrl,
+        placeholder: 'http://192.168.1.10:8080',
+        help: 'Where speakers the station plays on (Chromecast, Sonos, BluOS, DLNA) fetch the stream from. Leave empty to use the public URL. Set it to the station’s plain http:// address on your network when a speaker cannot play HTTPS, as some televisions cannot, or cannot reach the public address from inside.',
+    },
+    {
+        group: 'stream',
         key: STREAM_KEYS.hostname,
         label: 'Advertised hostname',
         type: 'string',

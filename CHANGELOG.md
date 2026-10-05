@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.44.4] — 2026-10-05
+
+- A link that is talked up into the record after the next one is no longer recorded as skipped. It was held for its record and then offered a second time, and the rule against two talk-overs on one record took it for a second one and marked it skipped, although it still aired.
+
 ## [0.44.3] — 2026-10-05
 
 - The help for **Address for speakers** now says when it is needed: some televisions' DLNA players, Samsung's among them, cannot play an HTTPS stream at all, and play the station once given its plain `http://` address on your network.
@@ -1090,7 +1094,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.44.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.44.4...HEAD
+[0.44.4]: https://github.com/robert-dean/deadair/compare/v0.44.3...v0.44.4
 [0.44.3]: https://github.com/robert-dean/deadair/compare/v0.44.2...v0.44.3
 [0.44.2]: https://github.com/robert-dean/deadair/compare/v0.44.1...v0.44.2
 [0.44.1]: https://github.com/robert-dean/deadair/compare/v0.44.0...v0.44.1

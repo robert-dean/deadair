@@ -9,10 +9,16 @@ import { settingsConfig } from '../../utils/settings.config.js';
 
 const logger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) as unknown as Logger;
 
-const build = (text: string) => {
+const build = (text: string, withLyric = true) => {
     const labels = {
         listTracksNeedingSubjects: vi.fn(async () => [
-            { trackId: 't1', title: 'Glory Box', artist: 'Portishead', instrumental: false, lyric: 'Playing with this bow and arrow' },
+            {
+                trackId: 't1',
+                title: 'Glory Box',
+                artist: 'Portishead',
+                instrumental: false,
+                ...(withLyric ? { lyric: 'Playing with this bow and arrow' } : {}),
+            },
         ]),
         saveSubject: vi.fn(async () => {}),
         recordSubjectFailure: vi.fn(async () => {}),
@@ -27,8 +33,15 @@ describe('LyricSubjectsService', () => {
         const { service, labels, llm } = build('{"about":"Being tired of games in love."}');
 
         expect((await service.writePending(5)).written).toBe(1);
-        expect(labels.saveSubject).toHaveBeenCalledWith('t1', 'Being tired of games in love.', SUBJECT_VERSION);
+        expect(labels.saveSubject).toHaveBeenCalledWith('t1', 'Being tired of games in love.', SUBJECT_VERSION, true);
         expect(llm.converse).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ onlyTools: ['search_web'] }));
+    });
+
+    it('says a subject written without the lyric was, so the walk writes it again once the lyric arrives', async () => {
+        const { service, labels } = build('{"about":"Being tired of games in love."}', false);
+
+        await service.writePending(5);
+        expect(labels.saveSubject).toHaveBeenCalledWith('t1', 'Being tired of games in love.', SUBJECT_VERSION, false);
     });
 
     it('refuses and retries one that quotes the lyric, never storing it', async () => {

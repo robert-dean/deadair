@@ -44,8 +44,10 @@ export class LyricLabelsRepository extends DataRepository {
      * A record qualifies when it has words from some lyrics source, or, with `searchable`, when it
      * has none at all, since then the web is what it is judged by. Without search a record with no
      * words is left alone rather than marked: it qualifies the day an operator configures a search.
-     * A failure waits out its backoff. The order is the lyrics walk's (`listTracksNeedingLyrics`), by
-     * value and never by id.
+     * A failure waits out its backoff. A record judged WITHOUT words qualifies again once it has some,
+     * because the lyric is better evidence than the search result or the memory it was judged from
+     * (`moods_from_words`, migration 0070). The order is the lyrics walk's (`listTracksNeedingLyrics`),
+     * by value and never by id.
      */
     async listTracksNeedingMoods(version: string, limit: number, searchable: boolean, priority: readonly string[] = []): Promise<MoodCandidate[]> {
         return await this.listNeeding('moods', version, limit, searchable, priority);
@@ -65,6 +67,7 @@ export class LyricLabelsRepository extends DataRepository {
     ): Promise<MoodCandidate[]> {
         const versionColumn = sql.ref(`l.${label}_version`);
         const retryColumn = sql.ref(`l.${label}_retry_at`);
+        const fromWordsColumn = sql.ref(`l.${label}_from_words`);
         const rows = await sql<{
             trackId: string;
             title: string;
@@ -101,7 +104,9 @@ export class LyricLabelsRepository extends DataRepository {
                    limit 1
               ) words on true
              where t.merged_into_id is null
-               and (l.track_id is null or ${versionColumn} is distinct from ${version})
+               and (l.track_id is null
+                    or ${versionColumn} is distinct from ${version}
+                    or (not ${fromWordsColumn} and words.lyric is not null))
                and (${retryColumn} is null or ${retryColumn} <= now())
                and (words.lyric is not null or ${searchable})
              order by coalesce(array_position(${priority}::uuid[], t.id), 2147483647),
@@ -122,12 +127,16 @@ export class LyricLabelsRepository extends DataRepository {
         }));
     }
 
-    /** A judgement: the distribution, or `undefined` for "could not tell", under these instructions. */
-    async saveMoods(trackId: string, moods: MoodDistribution | undefined, version: string): Promise<void> {
+    /**
+     * A judgement: the distribution, or `undefined` for "could not tell", under these instructions.
+     * `fromWords` says whether the model had the lyric, and a judgement without it is made again once it has.
+     */
+    async saveMoods(trackId: string, moods: MoodDistribution | undefined, version: string, fromWords: boolean): Promise<void> {
         const row = {
             trackId,
             moods: moods === undefined ? null : toJsonb(moods),
             moodsVersion: version,
+            moodsFromWords: fromWords,
             moodsAt: sql<never>`now()`,
             moodsAttempts: 0,
             moodsRetryAt: null,
@@ -181,12 +190,13 @@ export class LyricLabelsRepository extends DataRepository {
         );
     }
 
-    /** A subject, or `undefined` for "could not tell", under these instructions. Already checked against the lyric. */
-    async saveSubject(trackId: string, subject: string | undefined, version: string): Promise<void> {
+    /** A subject, or `undefined` for "could not tell", under these instructions. Already checked against the lyric. `fromWords` as for {@link saveMoods}. */
+    async saveSubject(trackId: string, subject: string | undefined, version: string, fromWords: boolean): Promise<void> {
         const row = {
             trackId,
             subject: subject ?? null,
             subjectVersion: version,
+            subjectFromWords: fromWords,
             subjectAt: sql<never>`now()`,
             subjectAttempts: 0,
             subjectRetryAt: null,

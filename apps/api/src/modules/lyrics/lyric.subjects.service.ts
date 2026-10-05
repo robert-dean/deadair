@@ -76,7 +76,7 @@ export class LyricSubjectsService {
             try {
                 if (read === 'unknown') {
                     summary.unplaced++;
-                    await this.labels.saveSubject(candidate.trackId, undefined, SUBJECT_VERSION);
+                    await this.labels.saveSubject(candidate.trackId, undefined, SUBJECT_VERSION, candidate.lyric !== undefined);
                 } else if ('refused' in read) {
                     summary.refused++;
                     // Logged by reason only: the refused words may BE the lyric.
@@ -84,7 +84,7 @@ export class LyricSubjectsService {
                     await this.labels.recordSubjectFailure(candidate.trackId, read.refused, MOODS_FAILURE_RETRY_MS, MOODS_FAILURE_MAX_RETRY_MS);
                 } else {
                     summary.written++;
-                    await this.labels.saveSubject(candidate.trackId, read.about, SUBJECT_VERSION);
+                    await this.labels.saveSubject(candidate.trackId, read.about, SUBJECT_VERSION, candidate.lyric !== undefined);
                 }
             } catch (error) {
                 this.logger.warn('lyric subjects: could not store an answer', { trackId: candidate.trackId, error: errorText(error) });

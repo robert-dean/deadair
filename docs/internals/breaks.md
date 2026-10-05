@@ -197,6 +197,14 @@ with the lyric. `WriteBreakJob.aboutTheRecords` stamps it on `BreakTrack.about` 
 `describe` renders it behind `withFacts` as "What it is about", beside a line asking for no quoting.
 A writer cannot quote a line it was never shown, which is why the subject travels and the lyric does not.
 
+**A sentence written before the record's lyric arrived is written again once it has.** "Once per record"
+was literal at first, and the first live pass ran a quarter of an hour before the first lyrics pass,
+with the search returning nothing: fifteen of seventeen subjects came from the model's memory, one
+of them turning "Stairway to Heaven" upside down, and nothing would ever have replaced them.
+`subject_from_words` (and `moods_from_words` for the mood walk, on the same terms) records whether
+the model had the lyric, and the walk treats a row judged without it as stale once a lyric exists.
+A record no source has a lyric for keeps what it was given, so an instrumental is judged once.
+
 **And the answer is guarded against the lyric anyway, because a model can know a chorus by heart.** The
 same read hands the records' lines to `BreakWriteRequest.lyricLines`, which nothing renders and the
 freshness table calls `not-spoken`, and the talk writer passes them to `AnswerGuard.lyrics`.

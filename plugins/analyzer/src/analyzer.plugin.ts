@@ -183,7 +183,12 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider, MixerPro
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
-                parts: request.parts.map(part => ({ url: part.url })),
+                // A part's gain is sent only when it has one, for the overlays' reason below: an
+                // ordinary join keeps exactly the body it always had.
+                parts: request.parts.map(part => ({
+                    url: part.url,
+                    ...(part.gainDb === undefined || part.gainDb === 0 ? {} : { gainDb: part.gainDb }),
+                })),
                 gapMs: request.gapMs,
                 trim: request.trim ?? true,
                 // Sent only when there are any, so a station that asks for an ordinary join puts

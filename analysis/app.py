@@ -37,6 +37,7 @@ from join import (
     join_samples,
     place_overlay,
     trim_to_cues,
+    with_gain,
     with_headroom,
 )
 from loudness import integrated_lufs, sample_peak_db, to_mono, true_peak_db
@@ -137,6 +138,11 @@ class AnalyzeRequest(BaseModel):
 
 class JoinPart(BaseModel):
     url: str
+    # What to do to this part, in decibels, before it is joined. Zero leaves it
+    # alone, which is what every part was before a part could carry one; the
+    # station sends it for a sting, a pad placed between two takes, so the sound
+    # arrives at a level judged against the words rather than at its own master.
+    gainDb: float = 0.0
 
 
 class JoinOverlay(BaseModel):
@@ -470,7 +476,7 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
     }
 
 
-def _join(urls: list[str], gap_ms: int, trim: bool, overlays: list[JoinOverlay]) -> tuple[bytes, int]:
+def _join(urls: list[str], gap_ms: int, trim: bool, overlays: list[JoinOverlay], gains: list[float] | None = None) -> tuple[bytes, int]:
     """Fetch every part, join them, and answer with one FLAC and how long it runs.
 
     The parts are downloaded and probed BEFORE any of them is decoded, because
@@ -535,6 +541,11 @@ def _join(urls: list[str], gap_ms: int, trim: bool, overlays: list[JoinOverlay])
     if trim:
         parts = [trim_to_cues(part) for part in parts]
 
+    # After the trim, so a part's edges are found at the level it was recorded at.
+    # See `with_gain`.
+    gains = gains if gains is not None else [0.0] * len(parts)
+    parts = [with_gain(part, gain) for part, gain in zip(parts, gains, strict=True)]
+
     try:
         joined = join_samples(parts, gap_ms)
 
@@ -546,8 +557,9 @@ def _join(urls: list[str], gap_ms: int, trim: bool, overlays: list[JoinOverlay])
                 at = boundaries[overlay.afterIndex] + int(overlay.offsetMs * SAMPLE_RATE / 1000)
                 joined = place_overlay(joined, samples, at, overlay.gainDb, overlay.duckDb)
 
-            # Only where something was summed. An ordinary join is bit-identical to
-            # one made before overlays existed.
+        # Only where something was summed or turned up. An ordinary join is
+        # bit-identical to one made before overlays or part gains existed.
+        if overlays or any(gain != 0.0 for gain in gains):
             joined = with_headroom(joined)
     except ValueError as error:
         raise AnalysisError("undecodable", str(error), status=400) from error
@@ -813,7 +825,8 @@ async def join(request: JoinRequest) -> Response:
     async with _slots:
         loop = asyncio.get_running_loop()
         try:
-            audio, length_ms = await loop.run_in_executor(_pool, _join, urls, request.gapMs, request.trim, request.overlays)
+            gains = [part.gainDb for part in request.parts]
+            audio, length_ms = await loop.run_in_executor(_pool, _join, urls, request.gapMs, request.trim, request.overlays, gains)
         except AnalysisError as error:
             return _error(error)
         except Exception as error:  # noqa: BLE001 - the boundary; nothing above this catches

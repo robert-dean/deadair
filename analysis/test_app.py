@@ -152,3 +152,31 @@ def test_join_trims_even_when_a_later_part_fails_to_decode(monkeypatch: pytest.M
         _join(["https://example.invalid/a.flac", "https://example.invalid/b.flac"], 0, False, [])
 
     assert len(calls) == 1
+
+
+def test_join_turns_a_part_by_its_own_gain(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A sting between two takes arrives at a level judged against the words, so
+    # the gain lands on THAT part and leaves the takes alone.
+    _spy_trim(monkeypatch)
+    paths = iter(["/no/such/a", "/no/such/b"])
+    monkeypatch.setattr(app, "_download", lambda url: (next(paths), True))
+    monkeypatch.setattr(app, "_probe", lambda path: Probed(channels=1, tags={}))
+    monkeypatch.setattr(
+        app,
+        "_decode",
+        lambda path, channels: Decoded(samples=np.full((app.SAMPLE_RATE, channels), 0.5, dtype=np.float32), duration_ms=1000),
+    )
+
+    encoded: list[np.ndarray] = []
+
+    def encode(samples: np.ndarray, channels: int) -> bytes:
+        encoded.append(samples)
+        return b"fLaC"
+
+    monkeypatch.setattr(app, "_encode_flac", encode)
+
+    _join(["https://example.invalid/a.flac", "https://example.invalid/b.flac"], 0, False, [], [0.0, -6.0])
+
+    joined = encoded[0]
+    assert float(np.max(np.abs(joined[: app.SAMPLE_RATE]))) == pytest.approx(0.5, rel=1e-4)
+    assert float(np.max(np.abs(joined[app.SAMPLE_RATE :]))) == pytest.approx(0.5 * 10 ** (-6 / 20), rel=1e-4)

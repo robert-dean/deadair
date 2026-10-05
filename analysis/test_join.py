@@ -12,7 +12,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from join import MAX_GAP_MS, MAX_PARTS, duration_ms, join_offsets, join_samples, place_overlay, trim_to_cues, with_headroom
+from join import MAX_GAP_MS, MAX_PARTS, duration_ms, join_offsets, join_samples, place_overlay, trim_to_cues, with_gain, with_headroom
 from measure import SAMPLE_RATE
 
 
@@ -256,3 +256,27 @@ def test_headroom_leaves_an_ordinary_join_bit_identical():
     joined = join_samples([tone(0.5), tone(0.5)], 200)
 
     assert np.array_equal(with_headroom(joined), joined)
+
+
+def test_gain_scales_a_part_before_it_is_joined():
+    # A sting is a part rather than an overlay, so its level is set here.
+    part = np.ones((100, 1), dtype=np.float32) * 0.5
+
+    assert float(np.max(np.abs(with_gain(part, -6.0)))) == pytest.approx(0.5 * 10 ** (-6 / 20), rel=1e-4)
+
+
+def test_no_gain_hands_back_the_very_part_it_was_given():
+    # So a join asking for no gain is bit-identical to one made before parts
+    # could carry one.
+    part = tone(0.5)
+
+    assert with_gain(part, 0.0) is part
+
+
+def test_a_boosted_part_is_brought_back_under_full_scale_by_the_headroom():
+    words = np.ones((1000, 1), dtype=np.float32) * 0.5
+    sting = with_gain(np.ones((100, 1), dtype=np.float32) * 0.9, 6.0)
+
+    joined = with_headroom(join_samples([words, sting], 0))
+
+    assert float(np.max(np.abs(joined))) <= 1.0

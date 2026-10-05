@@ -218,3 +218,24 @@ def with_headroom(samples: np.ndarray) -> np.ndarray:
         return samples
 
     return (samples / np.float32(peak)).astype(np.float32, copy=False)
+
+
+def with_gain(samples: np.ndarray, gain_db: float = 0.0) -> np.ndarray:
+    """One part turned up or down by `gain_db`, before it is joined.
+
+    What a STING needs where an overlay has `place_overlay`'s own gain: a pad
+    placed between two takes is a part like any other, and it arrives at whatever
+    level whoever made it mastered it to. The caller holds the measurement and so
+    the opinion; this only applies it.
+
+    Applied after the trim rather than before, so the trim finds a part's edges
+    against the level it was recorded at and a quiet sting turned up is not cut
+    differently from the same sting left alone. Zero hands back the very buffer it
+    was given, so a join that asks for no gain is bit-identical to one made before
+    parts could carry one. A boost can push the join past full scale, which is why
+    the caller runs `with_headroom` over any join that carried a gain.
+    """
+    if gain_db == 0.0 or samples.size == 0:
+        return samples
+
+    return (samples.astype(np.float32, copy=False) * np.float32(10.0 ** (gain_db / 20.0))).astype(np.float32, copy=False)

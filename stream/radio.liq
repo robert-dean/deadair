@@ -1740,7 +1740,7 @@ end
 publish(
   mount = environment.get("STREAM_MOUNT", default="/live.mp3"),
   icy_on = true,
-  %mp3(bitrate=int_of_float(env_float("STREAM_BITRATE", 128.))),
+  %mp3(bitrate=int_of_float(env_float("STREAM_BITRATE", 320.))),
   bus
 )
 

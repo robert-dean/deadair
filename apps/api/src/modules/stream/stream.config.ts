@@ -88,8 +88,8 @@ const BURST_SECONDS = 0.5;
  * in its own block.
  *
  * Never smaller than what a 128 kbps station used to get, so switching a format on can
- * only ever make these roomier. A station that changes nothing renders the same
- * numbers it always did, which is also what keeps the config generation stable.
+ * only ever make these roomier. A station whose mounts do not change renders the same
+ * numbers each time, which is also what keeps the config generation stable.
  */
 export function bufferSizes(mounts: StreamMount[]): { queue: number; burst: number } {
     const hungriest = Math.max(...mounts.map(bytesPerSecond));

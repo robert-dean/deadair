@@ -225,7 +225,7 @@ export const STREAM_DEFAULTS = {
     genre: 'Music',
     publicUrl: '',
     speakerUrl: '',
-    bitrate: '128',
+    bitrate: '320',
     // Off, every one of them: an encoder the operator did not ask for is CPU spent
     // permanently on a mount nobody has been told exists.
     opusEnabled: false,

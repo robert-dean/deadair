@@ -19,7 +19,7 @@ const audienceOf = (listeners = 0) => ({ listenerCount: () => listeners }) as un
  * The MP3 mount every station publishes, which is the floor of `mounts` and has no switch.
  * Named because most of these tests are about something else and would otherwise repeat it.
  */
-const MP3_MOUNT = { format: 'mp3', path: '/live.mp3', bitrateKbps: 128 };
+const MP3_MOUNT = { format: 'mp3', path: '/live.mp3', bitrateKbps: 320 };
 
 const item = {
     id: 'item-1',
@@ -301,7 +301,7 @@ describe('NowPlayingService', () => {
             });
 
             expect(service.getNowPlaying().mounts).toEqual([
-                { format: 'mp3', path: '/live.mp3', bitrateKbps: 128 },
+                { format: 'mp3', path: '/live.mp3', bitrateKbps: 320 },
                 { format: 'opus', path: '/live.opus', bitrateKbps: 160 },
             ]);
         });
@@ -312,7 +312,7 @@ describe('NowPlayingService', () => {
             });
 
             expect(service.getNowPlaying().mounts).toEqual([
-                { format: 'mp3', path: '/live.mp3', bitrateKbps: 128 },
+                { format: 'mp3', path: '/live.mp3', bitrateKbps: 320 },
                 // No bitrate: what a listener gets is the AAC variant's rate, and reporting the
                 // AAC setting here would state a figure for an output whose setting is not it.
                 { format: 'hls', path: '/live.m3u8' },

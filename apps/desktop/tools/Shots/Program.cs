@@ -8,6 +8,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using MaroonedSoftware.Deadair.Desktop;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
+using MaroonedSoftware.Deadair.Desktop.Services;
 using MaroonedSoftware.Deadair.Desktop.Themes;
 using MaroonedSoftware.Deadair.Desktop.ViewModels;
 using MaroonedSoftware.Deadair.Desktop.Views;
@@ -63,6 +64,10 @@ internal static class Program
                 ? ThemeVariant.Light
                 : ThemeVariant.Dark;
         }
+
+        // The one picture a frame can fetch: a presenter's portrait. Every other address answers 404,
+        // so every other cover is the initial it always was.
+        ArtworkLoader.Shared = Portrait.Loader();
 
         foreach (var (name, page, width, height) in Pages.All())
         {

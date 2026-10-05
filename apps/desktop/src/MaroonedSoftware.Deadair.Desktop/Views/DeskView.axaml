@@ -4,6 +4,7 @@
     xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
     xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
     xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.DeskView"
     x:DataType="vm:ListenerViewModel">
 
@@ -78,8 +79,16 @@
                 <TextBlock Text="{Binding Artist}" Classes="secondary" FontSize="17"
                            IsVisible="{Binding HasArtist}"
                            TextWrapping="Wrap" MaxLines="2" />
-                <TextBlock Text="{Binding HostLine}" Classes="secondary"
-                           IsVisible="{Binding HasHostLine}" TextTrimming="CharacterEllipsis" />
+                <!-- The presenter's picture beside their name when the station has one, square like
+                     every picture here. Absent during a break that has taken it as the cover. The gap
+                     is the picture's margin rather than the grid's spacing, which a hidden column
+                     still pays, so a line with no picture sits exactly where it always did. -->
+                <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding HasHostLine}">
+                    <controls:Artwork Size="24" Source="{Binding HostPortrait}" Initial="{Binding HostInitial}"
+                                      IsVisible="{Binding HasHostPortrait}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBlock Grid.Column="1" Text="{Binding HostLine}" Classes="secondary"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </Grid>
                 <TextBlock Text="{Binding Album}" Classes="dimmed" TextTrimming="CharacterEllipsis" />
 
                 <!-- Off air is the ordinary resting state of an audience-gated station, so it gets a

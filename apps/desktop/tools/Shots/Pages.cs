@@ -54,6 +54,13 @@ internal static class Pages
         yield return ("studio-backdrop", Backdrop(), 1180, 720);
         yield return ("studio-backdrop-no-cover", new StudioBackdrop { Phase = 0.3 }, 1180, 720);
         yield return ("shell-desk-break", Shell(operatorSignedIn: false, Fakes.OnTheMic), 1180, 720);
+
+        // The presenter's picture: beside "with Cass" under a record, and as the cover in a break.
+        yield return ("shell-desk-portrait", Shell(operatorSignedIn: false, Portrait.BesideTheLine), 1180, 720);
+        yield return ("shell-desk-portrait-min", Shell(operatorSignedIn: false, Portrait.BesideTheLine), 820, 520);
+        yield return ("shell-desk-break-portrait", Shell(operatorSignedIn: false, Portrait.AsTheCover), 1180, 720);
+        yield return ("studio-portrait", Studio(Portrait.BesideTheLine), 1180, 720);
+        yield return ("studio-break-portrait", Studio(Portrait.AsTheCover), 1180, 720);
         yield return ("shell-desk-warming-up", Shell(operatorSignedIn: false, Fakes.WarmingUp), 1180, 720);
         yield return ("shell-desk-off-air", Shell(operatorSignedIn: false, Fakes.OffAir), 1180, 720);
         yield return ("shell-desk-stale", Shell(operatorSignedIn: false, Fakes.Stale), 1180, 720);

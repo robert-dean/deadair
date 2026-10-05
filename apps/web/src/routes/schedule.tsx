@@ -1,9 +1,9 @@
 import { createFileRoute, stripSearchParams, useNavigate } from '@tanstack/react-router';
 
-import { isProgrammeTab, SchedulePage, type ProgrammeTab } from '../components/schedule/schedule.page';
+import { DEFAULT_PROGRAMME_TAB, isProgrammeTab, SchedulePage, type ProgrammeTab } from '../components/schedule/schedule.page';
 
 /** A destination at rest carries no query string, exactly as Voice and the catalog lists do. */
-const DEFAULTS = { tab: 'today' as ProgrammeTab };
+const DEFAULTS: { tab: ProgrammeTab } = { tab: DEFAULT_PROGRAMME_TAB };
 
 /**
  * What the station plays across the day, and what it says inside the hour.
@@ -15,7 +15,7 @@ const DEFAULTS = { tab: 'today' as ProgrammeTab };
 export const Route = createFileRoute('/schedule')({
     component: ProgrammeRoute,
     validateSearch: (input: Record<string, unknown>): { tab: ProgrammeTab } => ({
-        tab: isProgrammeTab(input.tab) ? input.tab : 'today',
+        tab: isProgrammeTab(input.tab) ? input.tab : DEFAULT_PROGRAMME_TAB,
     }),
     search: { middlewares: [stripSearchParams(DEFAULTS)] },
 });

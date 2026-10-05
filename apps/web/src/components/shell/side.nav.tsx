@@ -91,6 +91,7 @@ export function SideNav({ attention = [] }: SideNavProps) {
                                   search={section.search}
                                   label={section.label}
                                   hintText={section.hintText}
+                                  exact={section.exact}
                                   nested
                                   attention={typeof section.to === 'string' ? counts.get(section.to) : undefined}
                               />

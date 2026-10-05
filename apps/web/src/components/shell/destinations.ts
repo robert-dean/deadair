@@ -4,9 +4,9 @@ import { i18n } from '../../i18n/i18n.setup';
 
 import { CHECKUP_ROUTES, CHECKUP_TABS } from '../station/checkup.shell';
 import { LIBRARY_ROUTES, LIBRARY_TABS } from '../library/library.shell';
-import { PROGRAMME_TABS } from '../schedule/schedule.page';
+import { DEFAULT_PROGRAMME_TAB, PROGRAMME_TABS } from '../schedule/schedule.page';
 import { SETTINGS_ROUTES, SETTINGS_SECTIONS } from '../settings/settings.shell';
-import { VOICE_TABS } from '../voice/voice.page';
+import { DEFAULT_VOICE_TAB, VOICE_TABS } from '../voice/voice.page';
 
 /**
  * Everywhere the console goes, and what is under each of them.
@@ -53,6 +53,15 @@ export interface NavSection extends NavLink {
     label: string;
     /** What is behind it, drawn as the row's tooltip. Straight off the tab table. */
     hintText?: string;
+    /**
+     * Whether this row's search must match the URL's exactly, which only a destination's DEFAULT tab needs.
+     *
+     * The route strips a default from the URL, so the default tab's link asks for no search at all, and
+     * the router's prefix match counts an empty search as a subset of every other tab's. Left alone,
+     * Today stayed lit beside whichever Programme tab was open. The other tabs keep the prefix match,
+     * so What it said stays lit while a link has narrowed it to one break.
+     */
+    exact?: boolean;
 }
 
 export interface NavDestination extends NavLink {
@@ -89,6 +98,7 @@ export const NAV_DESTINATIONS: NavDestination[] = [
         sections: PROGRAMME_TABS.map(tab => ({
             to: '/schedule',
             search: { tab: tab.key },
+            exact: tab.key === DEFAULT_PROGRAMME_TAB,
             get label() {
                 return tab.label;
             },
@@ -132,6 +142,7 @@ export const NAV_DESTINATIONS: NavDestination[] = [
         sections: VOICE_TABS.map(tab => ({
             to: '/voice',
             search: { tab: tab.key, segment: '', persona: '' },
+            exact: tab.key === DEFAULT_VOICE_TAB,
             get label() {
                 return tab.label;
             },

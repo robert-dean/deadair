@@ -495,8 +495,9 @@ ENV NODE_ENV=production \
     CHANGELOG_PATH=/app/CHANGELOG.md \
     STREAM_CONFIG_DIR=/data/streamconfig \
     # Everything that reads the rendered config here is the station's own user, so the passwords
-    # in it are not world-readable. The default is looser because it has to serve a deployment
-    # where the parts are separate containers under uids this project does not choose. Icecast
+    # in it are not world-readable. The default is looser because of the development compose
+    # stack, where the app runs on the host and the stock Icecast image reads the file as uid
+    # 1000 (see STREAM_CONFIG_MODE in apps/api/.env.example). Icecast
     # says it may refuse a world-readable config in a future version, so this is also what stops
     # that being a station that will not start one day.
     STREAM_CONFIG_MODE=0640 \

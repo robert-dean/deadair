@@ -361,10 +361,12 @@ export interface WriteStreamConfigArgs {
      * They hold the stream's passwords, so the mode anyone would pick is the narrow one —
      * but who has to READ them is a property of the deployment rather than of the station.
      * Where the parts run as separate containers they share only the volume, and the uid
-     * each one runs as is decided by an image this project does not build; where they run
-     * as one, they are all the same user and nothing outside it needs the file at all. So
-     * the default is the permissive one that works everywhere, and the deployment that can
-     * prove it is narrower says so.
+     * each one runs as is decided by an image this project does not build: in the
+     * development compose stack the app writes as the developer, the stock Icecast image
+     * reads as uid 1000 and Liquidsoap as root. Where they run as one, they are all the same
+     * user and nothing outside it needs the file at all. So the default is the permissive
+     * one that works everywhere, and the deployment that can prove it is narrower says so
+     * (the image's `Dockerfile`, or `apps/api/.env.example` for a checkout).
      */
     configMode?: number;
     log?: (message: string) => void;

@@ -89,6 +89,7 @@
     <ThemeVariantScope.Resources>
         <SolidColorBrush x:Key="DaBgBrush" Color="{DynamicResource DaBg}" />
         <SolidColorBrush x:Key="DaRaisedBrush" Color="{DynamicResource DaRaised}" />
+        <SolidColorBrush x:Key="DaBorderBrush" Color="{DynamicResource DaBorder}" />
         <SolidColorBrush x:Key="DaHoverBrush" Color="{DynamicResource DaHover}" />
         <SolidColorBrush x:Key="DaTextBrush" Color="{DynamicResource DaText}" />
         <SolidColorBrush x:Key="DaTextSecondaryBrush" Color="{DynamicResource DaTextSecondary}" />
@@ -146,10 +147,17 @@
                 <TextBlock Text="{Binding Listener.Artist}" Classes="secondary" FontSize="18"
                            IsVisible="{Binding Listener.HasArtist}"
                            TextAlignment="Center" TextTrimming="CharacterEllipsis" />
-                <TextBlock Text="{Binding Listener.HostLine}" FontSize="14"
-                           IsVisible="{Binding Listener.HasHostLine}"
-                           TextAlignment="Center" TextTrimming="CharacterEllipsis"
-                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                <!-- Centred as a pair, the picture and the line, so the line stays in the middle
+                     when there is no picture. -->
+                <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Center"
+                      IsVisible="{Binding Listener.HasHostLine}">
+                    <controls:Artwork Size="28" Source="{Binding Listener.HostPortrait}"
+                                      Initial="{Binding Listener.HostInitial}"
+                                      IsVisible="{Binding Listener.HasHostPortrait}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBlock Grid.Column="1" Text="{Binding Listener.HostLine}" FontSize="14"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                </Grid>
                 <!-- The desk's sentence: off air is the resting state of an audience-gated station. -->
                 <TextBlock Text="The station is quiet. Press Listen and it wakes up." FontSize="14"
                            IsVisible="{Binding !Listener.OnAir}" TextAlignment="Center" TextWrapping="Wrap"

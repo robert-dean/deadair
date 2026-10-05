@@ -46,10 +46,15 @@
                            TextTrimming="CharacterEllipsis" />
                 <!-- Quieter than the credit and under it, as on Android: the record is the news,
                      the host is who brought it. -->
-                <TextBlock Text="{Binding Listener.HostLine}" FontSize="12"
-                           IsVisible="{Binding Listener.HasHostLine}"
-                           TextTrimming="CharacterEllipsis"
-                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                <Grid ColumnDefinitions="Auto,*"
+                      IsVisible="{Binding Listener.HasHostLine}">
+                    <controls:Artwork Size="20" Source="{Binding Listener.HostPortrait}"
+                                      Initial="{Binding Listener.HostInitial}"
+                                      IsVisible="{Binding Listener.HasHostPortrait}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Grid.Column="1" Text="{Binding Listener.HostLine}" FontSize="12"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                </Grid>
             </StackPanel>
 
             <!-- An operator's: what the station says about itself, then what is coming up. -->

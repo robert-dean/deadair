@@ -209,6 +209,24 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
     public bool HasHostLine => HostLine is not null;
 
+    /// <summary>
+    /// The presenter's picture beside their line, resolved against the station, or null for none.
+    /// </summary>
+    /// <remarks>
+    /// Drawn by the <c>Artwork</c> control, so it is fetched and kept by <c>ArtworkLoader</c> like
+    /// every row's cover: one request per picture however many places draw it. Null during a break
+    /// that has taken the portrait as its cover (Core's <c>HostPortrait</c>).
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasHostPortrait))]
+    private Uri? _hostPortrait;
+
+    public bool HasHostPortrait => HostPortrait is not null;
+
+    /// <summary>The presenter's initial, drawn in the portrait's square until the picture arrives.</summary>
+    [ObservableProperty]
+    private string _hostInitial = "?";
+
     [ObservableProperty]
     private Bitmap? _artwork;
 
@@ -459,6 +477,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         Artist = null;
         Album = null;
         HostLine = null;
+        HostPortrait = null;
         Artwork = null;
         CoverPalette = null;
         OnAir = false;
@@ -683,6 +702,8 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         Artist = track?.Artist;
         Album = track?.Album;
         HostLine = Core.NowPlaying.HostLine.For(track, now.Show);
+        HostPortrait = _station.ArtUrl(Core.NowPlaying.HostPortrait.BesideLine(track, now.Show));
+        HostInitial = First(now.Show?.Host?.Trim() ?? string.Empty);
         OnPropertyChanged(nameof(Initial));
 
         Duration = Playhead.Duration(track)?.TotalSeconds ?? 0;
@@ -698,7 +719,8 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _appliedItemKey = itemKey;
 
         PublishToSystem();
-        _ = LoadArtworkAsync(track?.ArtworkUrl);
+        // A break has no cover of its own, so it takes the presenter's portrait when there is one.
+        _ = LoadArtworkAsync(Core.NowPlaying.HostPortrait.Cover(track, now.Show));
     }
 
     private void Tick()

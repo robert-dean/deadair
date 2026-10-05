@@ -513,6 +513,21 @@ says nothing rather than "with the host". A break falls back to "The host is on 
 then the line is the only thing saying the station is talking rather than playing. A break's artist
 is empty, so the credit line is hidden on `HasArtist` rather than drawn as a blank line's height.
 
+**The presenter's picture goes beside that line, and a break takes it as its cover**
+(`Core/NowPlaying/HostPortrait`). `show.hostArtUrl` is a path under the API root, a cover's shape, so
+it goes through `StationUrl.ArtUrl` and the `Artwork` control like a row's cover, fetched and kept by
+`ArtworkLoader`. A break has no art of its own and used to draw the initial of its label, so it takes
+the portrait as the hero cover instead, through the same `LoadArtworkAsync` as a record's: the page's
+wash, Studio's backdrop and the system's Now Playing follow it. A record keeps its cover, and one with
+none keeps its initial, because the record is still what is on air. The picture is drawn beside the
+line only where the line is, and not during a break that has it as the cover, where it would be the
+same face twice. It stays square, under `DaCornerNone`. Its gap is the picture's own margin rather than
+the grid's `ColumnSpacing`, which a collapsed column still pays: with spacing, every line with no
+picture moved eight units right, which the first `shell-desk-break-portrait` frame showed. Absent the
+field, the desk and the panel draw pixel for pixel what they did; the frames with a picture are the
+`-portrait` ones in `tools/Shots`, which serves one picture to the loader and a 404 for every other
+address.
+
 **The sleep timer stops the listener and nothing else, and matters more here than in a music app.**
 A connection is an audience to an audience-gated station, so somebody asleep with the app playing
 keeps the station on air for as long as the Mac is awake. `Core/Playback/SleepTimer` is only the

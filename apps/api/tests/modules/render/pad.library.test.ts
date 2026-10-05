@@ -16,7 +16,8 @@ import { join } from 'node:path';
 import { Logger } from '@maroonedsoftware/logger';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { PadLibrary, padNameOf } from '../../../src/modules/render/pad.library.js';
+import { PadLibrary, padNameOf, peakOf } from '../../../src/modules/render/pad.library.js';
+import { TRUE_PEAK_ALLOWANCE_DB } from '../../../src/modules/playout/gain.js';
 import { PAD_SOURCES, type ImportedPad, type PadRepository } from '../../../src/modules/render/pad.repository.js';
 import type { PadSetRepository } from '../../../src/modules/render/pad.set.repository.js';
 import { SegmentStore } from '../../../src/modules/render/segment.store.js';
@@ -430,5 +431,83 @@ describe('PadLibrary.ingest', () => {
         ).rejects.toThrow();
 
         expect(imports).toHaveLength(0);
+    });
+});
+
+// A short pad has no integrated loudness (BS.1770 gates in 400ms blocks), so its PEAK is what the
+// render path levels it by. These pin what is kept, and that a pad measured before peaks were kept
+// gets one on the next scan without anything else being asked.
+describe('PadLibrary measuring a pad by its peak', () => {
+    const measuring = (data: Record<string, unknown>) =>
+        ({ measureAudio: vi.fn(async () => ({ schemaVersion: 1, complete: true, durationMs: 350, data })) }) as unknown as AnalysisService;
+
+    /** One slot whose import answers `outcome`, holding a pad that has `peakDb` or not. */
+    const oneSlot = (outcome: 'created' | 'unchanged', peakDb?: number) => {
+        const measured = vi.fn(async () => {});
+        const repository = {
+            importFile: vi.fn(async (imported: ImportedPad) => ({
+                outcome,
+                pad: {
+                    id: 'pad-1',
+                    board: imported.board,
+                    name: imported.name,
+                    label: imported.label,
+                    audioChecksum: imported.audioChecksum,
+                    audioExt: imported.audioExt,
+                    source: imported.source,
+                    state: 'active' as const,
+                    ...(peakDb === undefined ? {} : { peakDb }),
+                },
+            })),
+            measured,
+        } as unknown as PadRepository;
+        return { repository, measured };
+    };
+
+    it('keeps the true peak beside a loudness the sound was too short to have', async () => {
+        const { repository, measured } = oneSlot('created');
+        await write('wisecrack/rimshot.mp3', 'tick');
+        const library = new PadLibrary(
+            store,
+            repository,
+            sets,
+            libraryDir,
+            measuring({ truePeakDb: -3.2, samplePeakDb: -3.6 }),
+            config,
+            logger,
+            signer,
+        );
+
+        await library.scan();
+
+        expect(measured).toHaveBeenCalledWith('pad-1', { durationMs: 350, peakDb: -3.2 });
+    });
+
+    it('treats a sample peak alone as optimistic by the allowance, since the waveform overshoots it', () => {
+        expect(peakOf({ samplePeakDb: -4 })).toBe(-4 + TRUE_PEAK_ALLOWANCE_DB);
+        expect(peakOf({ truePeakDb: -2, samplePeakDb: -4 })).toBe(-2);
+        expect(peakOf({})).toBeUndefined();
+    });
+
+    it('measures an unchanged pad that has no peak yet, which is every pad measured before peaks were kept', async () => {
+        const { repository, measured } = oneSlot('unchanged');
+        await write('wisecrack/rimshot.mp3', 'tick');
+        const library = new PadLibrary(store, repository, sets, libraryDir, measuring({ truePeakDb: -3.2 }), config, logger, signer);
+
+        await library.scan();
+
+        expect(measured).toHaveBeenCalledWith('pad-1', { durationMs: 350, peakDb: -3.2 });
+    });
+
+    it('leaves an unchanged pad that already has a peak alone', async () => {
+        const { repository, measured } = oneSlot('unchanged', -3.2);
+        const measure = measuring({ truePeakDb: -3.2 });
+        await write('wisecrack/rimshot.mp3', 'tick');
+        const library = new PadLibrary(store, repository, sets, libraryDir, measure, config, logger, signer);
+
+        await library.scan();
+
+        expect(measure.measureAudio).not.toHaveBeenCalled();
+        expect(measured).not.toHaveBeenCalled();
     });
 });

@@ -32,6 +32,14 @@ export interface Pad {
      * ordinary — the join falls back to leaving the level alone.
      */
     loudnessLufs?: number;
+    /**
+     * The loudest moment, in dBTP, once something measured it.
+     *
+     * Present for the short pads `loudnessLufs` cannot describe: integrated loudness is gated in 400ms
+     * blocks and a rimshot has none, where a peak needs only a sample. What the render path levels a
+     * pad by when there is no loudness figure. See `padLoudness`.
+     */
+    peakDb?: number;
     source: string;
     sourcePath?: string;
     /** When it was last chosen, as an ISO-8601 string. Absent for one never hit. */
@@ -260,11 +268,12 @@ export class PadRepository extends DataRepository {
                     sourcePath: imported.sourcePath,
                     audioChecksum: imported.audioChecksum,
                     audioExt: imported.audioExt,
-                    // Both measurements belong to the FILE rather than to the slot, so a replacement
+                    // Every measurement belongs to the FILE rather than to the slot, so a replacement
                     // arrives unmeasured. Leaving the old numbers would level the new sound against
                     // the old one, which is the failure this column exists to prevent.
                     durationMs: null,
                     loudnessLufs: null,
+                    peakDb: null,
                 })
                 .where('id', '=', existing.id)
                 .returningAll()
@@ -315,12 +324,13 @@ export class PadRepository extends DataRepository {
      * loudness is: the file is on the rack and reachable the moment it is imported, and how loud it
      * is can catch up.
      */
-    async measured(id: string, measurement: { durationMs?: number; loudnessLufs?: number }): Promise<void> {
+    async measured(id: string, measurement: { durationMs?: number; loudnessLufs?: number; peakDb?: number }): Promise<void> {
         await this.db
             .updateTable('deadair.pads')
             .set({
                 durationMs: measurement.durationMs ?? null,
                 loudnessLufs: measurement.loudnessLufs ?? null,
+                peakDb: measurement.peakDb ?? null,
             })
             .where('id', '=', id)
             .where('stationKey', '=', this.station.stationKey)
@@ -413,6 +423,7 @@ function toPad(row: {
     audioExt: string;
     durationMs: number | null;
     loudnessLufs: number | null;
+    peakDb: number | null;
     source: string;
     sourcePath: string | null;
     lastUsedAt: { toISO(): string | null } | null;
@@ -427,6 +438,7 @@ function toPad(row: {
         audioExt: isSegmentExtension(row.audioExt) ? row.audioExt : 'mp3',
         ...(row.durationMs == null ? {} : { durationMs: row.durationMs }),
         ...(row.loudnessLufs == null ? {} : { loudnessLufs: row.loudnessLufs }),
+        ...(row.peakDb == null ? {} : { peakDb: row.peakDb }),
         source: row.source,
         ...(row.sourcePath == null ? {} : { sourcePath: row.sourcePath }),
         ...(row.lastUsedAt == null ? {} : { lastUsedAt: row.lastUsedAt.toISO() ?? '' }),

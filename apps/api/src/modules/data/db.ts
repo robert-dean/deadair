@@ -487,6 +487,7 @@ export interface DeadairPads {
   lastUsedAt: DateTime | null;
   loudnessLufs: number | null;
   name: string;
+  peakDb: number | null;
   source: Generated<string>;
   sourcePath: string | null;
   state: Generated<"active" | "rejected">;

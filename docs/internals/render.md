@@ -216,9 +216,20 @@ rides `AudioOverlay.gainDb`. A STING is a part between two takes with nothing un
 TO the words rather than under them and rides the part's own `gainDb` in `AudioJoin.parts`. Three bounds:
 the figure is against the assumed speech level rather than a measured take, because the takes are spoken and
 joined in one pass and the joined break is measured and levelled afterwards as a whole, which keeps the
-ratio; the gain is clamped to `gain.ts`'s twelve, against a measurement of the wrong file; and an UNMEASURED
-pad, which is most short ones since BS.1770 gates in 400ms blocks, gets no gain at all and sends exactly the
-request it did before any of this. A boost is allowed where `gainFor` refuses one without a peak, because the
+ratio; the gain is clamped to `gain.ts`'s twelve, against a measurement of the wrong file; and a pad with no
+figure at all gets no gain and sends exactly the request it did before any of this.
+
+**A short pad is levelled by its PEAK**, because most of the rack has no loudness: BS.1770 gates in 400ms
+blocks and a rimshot produces none, where the analyzer reports a true peak for anything with a sample in it.
+`pads.peak_db` (migration 0071) keeps it, and `padLoudness` estimates the loudness as the peak less
+`SHORT_PAD_CREST_DB` (16) at the moment a gain is wanted, so the stored loudness stays a measurement. Sixteen
+is the station's own voice's peak-to-loudness ratio, measured, which is what makes the rest work: the drop's
+PEAK lands `render.padLevelDb` under the voice's peaks, the comparison an editor makes by eye and the only one
+a sound too short to gate supports. A measured loudness always wins, and stings take the same fallback. Pads
+measured before the column existed are BACKFILLED by the boot scan, which already reads every file in the
+library: an unchanged pad with no peak is measured again there, and never on the render path, so a break
+waits on nothing. One that still answers without a peak (no analyzer, or a file of silence) is asked again
+on the next boot. A boost is allowed where `gainFor` refuses one without a peak, because the
 sidecar scales a join that crossed full scale back under it, so a lifted pad can only make the break quieter
 before the station levels it, never clip it.
 

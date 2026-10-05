@@ -10,7 +10,7 @@ import { AudioUrlSigner } from '#modules/playout/audio.url.signer.js';
 import type { AudioOverlay } from '@deadair/plugin-sdk';
 import { splitOnPads, withoutPads } from './pad.cues.js';
 import { PadRepository } from './pad.repository.js';
-import { padGainDb } from './pad.level.js';
+import { padGainDb, padLoudness } from './pad.level.js';
 import { padDuckDb, padGapMs, padLevelDb, padUnderMs } from './pad.settings.js';
 import { MixerService } from './mixer.service.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
@@ -291,9 +291,10 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
                     // would cost the break its whole join rather than its timing.
                     //
                     // Levelled against the words it lands on rather than mixed at whatever its maker
-                    // mastered it to. Omitted for an unmeasured pad, which is most short ones, so
-                    // that case puts exactly the request on the wire it did before levelling existed.
-                    const gainDb = padGainDb(pad.loudnessLufs, padLevelDb(this.config));
+                    // mastered it to, by its measured loudness or, for a sound too short to have one,
+                    // by its peak. Omitted for a pad with neither, so that case puts exactly the
+                    // request on the wire it did before levelling existed.
+                    const gainDb = padGainDb(padLoudness(pad), padLevelDb(this.config));
                     overlays.push({
                         url,
                         afterIndex: urls.length - 1,
@@ -308,7 +309,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
                     // levelled to the words either side. The joined break is then measured and
                     // levelled as a whole, which keeps that ratio.
                     urls.push(url);
-                    gains.push(padGainDb(pad.loudnessLufs, 0));
+                    gains.push(padGainDb(padLoudness(pad), 0));
                 }
                 placed += 1;
                 continue;

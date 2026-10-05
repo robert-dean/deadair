@@ -46,6 +46,8 @@ function harness(
         padMissing?: boolean;
         /** How loud the pad measured, in LUFS. Absent is the short pad nothing could put a figure on. */
         padLufs?: number;
+        /** The pad's peak in dBTP, which a short pad has where it has no loudness. */
+        padPeak?: number;
         /** Settings as the STRINGS a config layer actually holds. */
         settings?: Record<string, string>;
     } = {},
@@ -93,6 +95,7 @@ function harness(
                       source: 'library',
                       state: 'active',
                       ...(options.padLufs === undefined ? {} : { loudnessLufs: options.padLufs }),
+                      ...(options.padPeak === undefined ? {} : { peakDb: options.padPeak }),
                   },
         ),
     } as unknown as PadRepository;
@@ -534,6 +537,26 @@ describe('RenderSegmentJob landing a pad under the words', () => {
         expect(joinArgs(mixer)[3].overlays?.[0]).toMatchObject({ gainDb: -1.5 });
     });
 
+    it('levels a short pad by its peak when it has no loudness', async () => {
+        // Peak -1 dBTP, estimated at -17 LUFS; six under speech assumed at -26.5 is -32.5: down 15.5,
+        // clamped at twelve. A peak of -12 is estimated at -28: down 4.5.
+        const hot = harness({ claimed: padded(), padPeak: -1, settings: { 'render.padUnderMs': '400' } });
+        await hot.job.run({ segmentId: 'seg-1' });
+        expect(joinArgs(hot.mixer)[3].overlays?.[0]).toMatchObject({ gainDb: -12 });
+
+        const mild = harness({ claimed: padded(), padPeak: -12, settings: { 'render.padUnderMs': '400', 'render.padLevelDb': '-6' } });
+        await mild.job.run({ segmentId: 'seg-1' });
+        expect(joinArgs(mild.mixer)[3].overlays?.[0]).toMatchObject({ gainDb: -4.5 });
+    });
+
+    it('prefers a measured loudness over the peak estimate', async () => {
+        const { job, mixer } = harness({ claimed: padded(), padLufs: -28, padPeak: -1, settings: { 'render.padUnderMs': '400' } });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(joinArgs(mixer)[3].overlays?.[0]).toMatchObject({ gainDb: -4.5 });
+    });
+
     it('leaves an unmeasured pad at the level it was mastered, and says nothing about gain', async () => {
         // Most short pads: a 350ms rimshot produces no 400ms loudness block, so there is no figure,
         // and inventing one would be worse than the 0 dB it always had.
@@ -572,6 +595,15 @@ describe('RenderSegmentJob levelling a sting', () => {
         await job.run({ segmentId: 'seg-1' });
 
         expect(joinArgs(mixer)[3].gainsDb).toEqual([undefined, -6.5, undefined]);
+    });
+
+    it('levels a short sting by its peak, with the same fallback an overlay has', async () => {
+        // Peak -6 dBTP is estimated at -22 LUFS; level with speech at -26.5 is down 4.5.
+        const { job, mixer } = harness({ claimed: padded(), padPeak: -6 });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(joinArgs(mixer)[3].gainsDb).toEqual([undefined, -4.5, undefined]);
     });
 
     it('sends no gain at all for an unmeasured sting', async () => {

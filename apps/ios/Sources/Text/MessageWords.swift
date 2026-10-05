@@ -26,6 +26,7 @@ extension Message {
         case .withHost(let host): String(localized: "with \(host)")
         case .stopsIn(let span): String(localized: "Stops in \(span.words)")
         case .stopsAfterThisRecord: String(localized: "Stops after this record")
+        case .chooseStationOnPhone: String(localized: "Choose a station in the app on your iPhone")
 
         case .answeredAs(let name): String(localized: "Found \(name).")
         case .notEncrypted: String(localized: "Not encrypted. Fine on your own network.")

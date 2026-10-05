@@ -28,6 +28,9 @@ final class Listening {
     let sleepTimer: SleepTimer
     /// The mount being played, and whether it is the format that was asked for.
     private(set) var choice: MountChoice?
+    /// The reading the lock screen is showing, which is the one `NowPlayingGate` has released: held
+    /// until the audio reaches it, so a car's screen reads from here and agrees with the tile.
+    private(set) var shown: NowPlaying?
 
     @ObservationIgnored private let player: StationPlayer
     @ObservationIgnored private let gate: NowPlayingGate
@@ -107,6 +110,7 @@ final class Listening {
         lease?.release()
         lease = nil
         choice = nil
+        shown = nil
         gate.cancel()
         releaseBackgroundTime()
         system.clear()
@@ -195,6 +199,7 @@ final class Listening {
 
     private func publish(_ reading: NowPlaying?) {
         guard conductor.wantsToPlay, let station = settings.settings.station else { return }
+        shown = reading
         let name = reading?.station ?? settings.settings.stationName ?? station.origin
         let playing = conductor.state == .playing
         system.show(station: name, reading: reading, artwork: nil, playing: playing)

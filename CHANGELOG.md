@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.44.6] — 2026-10-05
+
+- A never-play rule can now be limited to station modes (rotation, setlist, feature) and to particular schedule blocks from the Programme page, and the list of rules says which blocks each one is limited to. A station whose rules refuse most of its library no longer runs short: the ordinary rotation leaves refused records out of its draw and draws again to make up the difference, instead of choosing records the station was always going to refuse.
+- Soundboard hits are now mixed at a level rather than at whatever their maker mastered them to. A pad the analyzer measured is set against the presenter's voice: a hit that plays over the words sits six decibels under them by default, which the new "Sit a hit under the words by (dB)" setting under Render changes, and a hit that plays between the words is matched to them. A short pad the analyzer could not put a loudness figure on, and every pad on a station with no analyzer, plays exactly as it did before.
+- Short soundboard hits are now levelled too. A pad too short for a loudness reading, which is most drops, is levelled by how hot its loudest moment is instead, so it lands its peak the same distance under the voice's that a longer pad sits under the words. Pads already on the rack are measured for this the next time the station starts; a station with no analyzer plays every pad exactly as before.
+- The MP3 mount now defaults to 320 kbps rather than 128. A station that never chose a bitrate moves to 320 on upgrade, which is about two and a half times the bandwidth per listener; set Stream, Bitrate back to 128 to keep the old figure. Kokoro now asks for FLAC rather than MP3 by default, so a break reaches the stream with one lossy encode instead of two; a Kokoro whose format was saved keeps it. Navidrome's stream format help now says that the original file is the only lossless path, rather than describing the choice as one of CPU.
+
 ## [0.44.5] — 2026-10-05
 
 - A talk-over cue is no longer counted among what the player was handed. Counting it made every reading find the player one item short, so the cue was taken back as lost, the record it was riding was prepared again without it, and the talk-up or talk-over never aired. It also had the station queueing one record fewer than it meant to while a cue was waiting.
@@ -1098,7 +1105,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.44.5...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.44.6...HEAD
+[0.44.6]: https://github.com/robert-dean/deadair/compare/v0.44.5...v0.44.6
 [0.44.5]: https://github.com/robert-dean/deadair/compare/v0.44.4...v0.44.5
 [0.44.4]: https://github.com/robert-dean/deadair/compare/v0.44.3...v0.44.4
 [0.44.3]: https://github.com/robert-dean/deadair/compare/v0.44.2...v0.44.3

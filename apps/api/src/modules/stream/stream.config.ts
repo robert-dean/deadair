@@ -88,8 +88,8 @@ const BURST_SECONDS = 0.5;
  * in its own block.
  *
  * Never smaller than what a 128 kbps station used to get, so switching a format on can
- * only ever make these roomier. A station that changes nothing renders the same
- * numbers it always did, which is also what keeps the config generation stable.
+ * only ever make these roomier. A station whose mounts do not change renders the same
+ * numbers each time, which is also what keeps the config generation stable.
  */
 export function bufferSizes(mounts: StreamMount[]): { queue: number; burst: number } {
     const hungriest = Math.max(...mounts.map(bytesPerSecond));
@@ -361,10 +361,12 @@ export interface WriteStreamConfigArgs {
      * They hold the stream's passwords, so the mode anyone would pick is the narrow one —
      * but who has to READ them is a property of the deployment rather than of the station.
      * Where the parts run as separate containers they share only the volume, and the uid
-     * each one runs as is decided by an image this project does not build; where they run
-     * as one, they are all the same user and nothing outside it needs the file at all. So
-     * the default is the permissive one that works everywhere, and the deployment that can
-     * prove it is narrower says so.
+     * each one runs as is decided by an image this project does not build: in the
+     * development compose stack the app writes as the developer, the stock Icecast image
+     * reads as uid 1000 and Liquidsoap as root. Where they run as one, they are all the same
+     * user and nothing outside it needs the file at all. So the default is the permissive
+     * one that works everywhere, and the deployment that can prove it is narrower says so
+     * (the image's `Dockerfile`, or `apps/api/.env.example` for a checkout).
      */
     configMode?: number;
     log?: (message: string) => void;

@@ -146,7 +146,7 @@ export const RESPONSE_FORMATS = {
 
 export type ResponseFormat = keyof typeof RESPONSE_FORMATS;
 
-export const DEFAULT_FORMAT: ResponseFormat = 'mp3';
+export const DEFAULT_FORMAT: ResponseFormat = 'flac';
 
 /**
  * Validated on the way in, so `init()` never has to defend against a half-typed
@@ -213,7 +213,7 @@ export const kokoroManifest: PluginManifest = {
             type: 'select',
             default: DEFAULT_FORMAT,
             options: (Object.keys(RESPONSE_FORMATS) as ResponseFormat[]).map(value => ({ value, label: value })),
-            help: 'mp3 unless you have a reason. It is what the station stores and what the stream wants.',
+            help: 'flac unless you have a reason. A break is re-encoded for the stream anyway, so a lossless one reaches the listener with one lossy generation rather than two, and at a few seconds it costs almost nothing to keep.',
         },
         {
             key: 'defaultVoice',

@@ -149,7 +149,7 @@ export const navidromeManifest: PluginManifest = {
                 { value: 'mp3', label: 'MP3' },
                 { value: 'opus', label: 'Opus' },
             ],
-            help: 'Leave on the original unless your library holds formats the player cannot decode. Transcoding costs the Navidrome machine CPU for every track.',
+            help: 'Leave on the original unless your library holds formats the player cannot decode. The original is the only way a lossless library reaches the station lossless: anything else is a lossy copy that the stream then encodes again, and it costs the Navidrome machine CPU for every track.',
         },
         {
             key: 'maxBitRate',

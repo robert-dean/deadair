@@ -95,7 +95,7 @@ describe('resolveStreamSettings', () => {
     it('fills defaults matching the committed radio.default.env', () => {
         const settings = resolveStreamSettings(settingsConfig().config, encryption);
 
-        expect(settings.bitrate).toBe('128');
+        expect(settings.bitrate).toBe('320');
         expect(settings.icecastHost).toBe('icecast');
         expect(settings.icecastPort).toBe('8000');
         expect(settings.sourcePassword).toBeUndefined();
@@ -210,7 +210,7 @@ describe('streamMounts', () => {
     const base = () => resolveStreamSettings(settingsConfig().config, encryption);
 
     it('publishes MP3 alone until the operator asks for more', () => {
-        expect(streamMounts(base())).toEqual([{ format: 'mp3', path: '/live.mp3', bitrateKbps: 128 }]);
+        expect(streamMounts(base())).toEqual([{ format: 'mp3', path: '/live.mp3', bitrateKbps: 320 }]);
     });
 
     it('adds each format the operator switched on, MP3 always first', () => {
@@ -221,7 +221,7 @@ describe('streamMounts', () => {
         });
 
         expect(streamMounts(resolveStreamSettings(config, encryption))).toEqual([
-            { format: 'mp3', path: '/live.mp3', bitrateKbps: 128 },
+            { format: 'mp3', path: '/live.mp3', bitrateKbps: 320 },
             { format: 'opus', path: '/live.opus', bitrateKbps: 160 },
             { format: 'aac', path: '/live.aac', bitrateKbps: 192 },
             // No bitrate: FLAC is lossless and has none to set.

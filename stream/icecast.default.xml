@@ -19,15 +19,16 @@
     <clients>100</clients>
     <!-- Headroom for a future live/harbor source alongside the main mount. -->
     <sources>4</sources>
-    <queue-size>524288</queue-size>
+    <queue-size>800000</queue-size>
     <client-timeout>30</client-timeout>
     <header-timeout>15</header-timeout>
     <source-timeout>10</source-timeout>
     <!-- Burst a little buffered audio on connect so players start fast. The burst is backlog the
          listener never catches up on, so it is also how late the mount reacts to an operator
-         skip. 8192 B ≈ 0.5s at 128 kbps. Kept in step with icecast.xml.tmpl. -->
+         skip. 20000 B = 0.5s at the default 320 kbps, and the queue is 20s of it, which are the
+         numbers the app renders for that bitrate (bufferSizes in stream.config.ts). -->
     <burst-on-connect>1</burst-on-connect>
-    <burst-size>8192</burst-size>
+    <burst-size>20000</burst-size>
   </limits>
 
   <authentication>

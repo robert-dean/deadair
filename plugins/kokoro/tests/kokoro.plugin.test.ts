@@ -126,9 +126,9 @@ describe('KokoroPlugin.speak', () => {
             model: 'kokoro',
             input: 'You are listening to Deadair.',
             voice: 'af_heart',
-            response_format: 'mp3',
+            response_format: 'flac',
         });
-        expect(handle.mime).toBe('audio/mpeg');
+        expect(handle.mime).toBe('audio/flac');
         expect(handle.audio).toBeInstanceOf(ReadableStream);
     });
 

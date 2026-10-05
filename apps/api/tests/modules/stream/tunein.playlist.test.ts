@@ -34,7 +34,7 @@ describe('tuneInPls', () => {
             [
                 '[playlist]',
                 `File1=${ORIGIN}/live.mp3`,
-                'Title1=Deadair (MP3 128 kbps)',
+                'Title1=Deadair (MP3 320 kbps)',
                 'Length1=-1',
                 `File2=${ORIGIN}/live.opus`,
                 'Title2=Deadair (OPUS 160 kbps)',
@@ -51,7 +51,7 @@ describe('tuneInPls', () => {
     });
 
     it('keeps a station name with a line break in it on one line, where a player would end the entry', () => {
-        expect(tuneInPls(ORIGIN, 'Dead\nair', mountsWith())).toContain('Title1=Dead air (MP3 128 kbps)\n');
+        expect(tuneInPls(ORIGIN, 'Dead\nair', mountsWith())).toContain('Title1=Dead air (MP3 320 kbps)\n');
     });
 });
 
@@ -62,7 +62,7 @@ describe('tuneInM3u', () => {
         expect(m3u).toBe(
             [
                 '#EXTM3U',
-                '#EXTINF:-1,Deadair (MP3 128 kbps)',
+                '#EXTINF:-1,Deadair (MP3 320 kbps)',
                 `${ORIGIN}/live.mp3`,
                 '#EXTINF:-1,Deadair (FLAC)',
                 `${ORIGIN}/live.flac`,

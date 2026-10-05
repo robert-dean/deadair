@@ -137,6 +137,22 @@ export class PlayoutPusher {
      */
     private reclaimedFor?: string;
 
+    /**
+     * The record whose cue radio.liq is holding, by item id. Absent when this process has armed nothing
+     * that is still waiting to be spoken.
+     */
+    private armedCue?: string;
+
+    /**
+     * Cues for records already handed over, waiting for the slot, in hand-over order.
+     *
+     * radio.liq holds ONE cue and an arm replaces it, so a cue is armed only once the one before it is
+     * spent. With a lead of one, the record after a talked-up one is pushed the moment the talked-up
+     * one starts, which is before its cue is due: arming at push overwrote it, and the first back-to-back
+     * talk-ups the station decided lost the first of the pair without a word.
+     */
+    private waitingCues: { carrierId: string; uri: string; atMs: number }[] = [];
+
     constructor(
         private readonly rundown: Rundown,
         private readonly control: PlayoutControlClient,
@@ -219,6 +235,7 @@ export class PlayoutPusher {
                 // `/control/offair` clears it too, but a replacement does not go through that, and
                 // a cue left armed would fire over the first record of the NEW running order.
                 void this.control.clearVoice().catch(() => undefined);
+                this.forgetCues();
             }),
         );
 
@@ -398,6 +415,11 @@ export class PlayoutPusher {
             // holding an hour of it.
             const current = (onAir ? await this.reclaim(reading) : undefined) ?? reading;
 
+            // Before anything is handed over, so a cue spent since the last pass makes room for the
+            // next one ahead of whatever this pass pushes behind it.
+            this.releaseSpentCue(current);
+            this.armWaitingCue();
+
             // Whichever of the two says the player is holding MORE.
             //
             // `heldBy` counts pending requests, the ones the prefetch has resolved, and
@@ -483,7 +505,11 @@ export class PlayoutPusher {
                         },
                         pulled.voice.url,
                     );
-                    void this.control.armVoice(uri, pulled.item.id, pulled.voice.atMs).catch(() => undefined);
+                    // Queued rather than armed outright: armed now only if nothing is holding the
+                    // slot. See `waitingCues`. A record handed over again replaces its old entry.
+                    this.waitingCues = this.waitingCues.filter(cue => cue.carrierId !== pulled.item.id);
+                    this.waitingCues.push({ carrierId: pulled.item.id, uri, atMs: pulled.voice.atMs });
+                    this.armWaitingCue();
                 }
 
                 if (!landed) {
@@ -505,6 +531,34 @@ export class PlayoutPusher {
                 this.lastFailure = undefined;
             }
         }
+    }
+
+    /**
+     * Free the slot once the cue in it can no longer be waiting: the mixer has spoken it or given up
+     * on it, or the record it rides is over or gone. A script too old to report the cue's state frees
+     * it only when the record is done, which never overwrites a cue and at worst arms the next late.
+     */
+    private releaseSpentCue(reading: QueueStatus): void {
+        if (this.armedCue === undefined) return;
+        const spoken = reading.voice !== undefined && reading.voice !== 'armed';
+        if (spoken || !this.rundown.isUnfinished(this.armedCue)) this.armedCue = undefined;
+    }
+
+    /** Arm the first waiting cue whose record can still air, when nothing is holding the slot. */
+    private armWaitingCue(): void {
+        if (this.armedCue !== undefined) return;
+        while (this.waitingCues.length > 0 && !this.rundown.isUnfinished(this.waitingCues[0]!.carrierId)) this.waitingCues.shift();
+        const next = this.waitingCues.shift();
+        if (next === undefined) return;
+
+        this.armedCue = next.carrierId;
+        void this.control.armVoice(next.uri, next.carrierId, next.atMs).catch(() => undefined);
+    }
+
+    /** Whatever was armed or waiting is gone with the running order it belonged to. */
+    private forgetCues(): void {
+        this.armedCue = undefined;
+        this.waitingCues = [];
     }
 
     /**
@@ -640,6 +694,7 @@ export class PlayoutPusher {
 
         this.reclaimedFor = foreign;
         void this.control.clearVoice().catch(() => undefined);
+        this.forgetCues();
         // Reconciled again, because the flush is what makes the running order's memory of what it
         // handed over wrong: every item that was queued behind the stranger is back to be offered.
         this.rundown.reconcile(flushed);

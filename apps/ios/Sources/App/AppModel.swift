@@ -8,6 +8,10 @@ import Observation
 @MainActor
 @Observable
 final class AppModel {
+    /// The one graph in the process. The app's window, the play intent and the CarPlay scene all
+    /// read it, because a second one would be a second player and a second listener.
+    static let shared = AppModel()
+
     let http: StationHttp
     let settings: SettingsStore
     let nowPlaying: NowPlayingRepository

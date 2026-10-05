@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.44.2] — 2026-10-05
+
+- What a record is about is now written so a presenter could say it on air: sex, drugs or violence are named plainly and never described. Every existing summary is written again under the new rule. A station that speaks clean (`prefer-clean` or `clean-only`) no longer shows a link's writer the summary of a record with any copy marked explicit.
+- The side rail lights one tab at a time again. On Programme, Today stayed lit beside whichever other tab was open, and on Voice, Characters did the same, because the default tab's link carries no search and the router counted that as part of every other tab's.
+- A spoken break now knows how long it is. Its length is taken from the analyzer's measurement of the audio, which already ran for the loudness and had its length thrown away. Talking up to the post fits a link by its length, so it had never talked one up. Anything else that reads a break's length (the audio cache's look-ahead, what the player shows) now gets a real figure instead of none.
+- Samsung televisions, and other UPnP/DLNA renderers that will not play a stream with no length, now play the station: they used to say "This file format is not supported". The Speakers plugin asks for the live stream with a declared length for a UPnP renderer, and only for one, so nothing changes for anybody else listening.
+
 ## [0.44.1] — 2026-10-05
 
 - A record's mood and what it is about are judged again once its lyric arrives. A judgement made before then came from a web search at best, and from the model's memory when the search found nothing, and it used to stand for good. The station now remembers whether the lyric was in front of the model and treats a judgement made without it as out of date once there is one.
@@ -1079,7 +1086,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.44.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.44.2...HEAD
+[0.44.2]: https://github.com/robert-dean/deadair/compare/v0.44.1...v0.44.2
 [0.44.1]: https://github.com/robert-dean/deadair/compare/v0.44.0...v0.44.1
 [0.44.0]: https://github.com/robert-dean/deadair/compare/v0.43.0...v0.44.0
 [0.43.0]: https://github.com/robert-dean/deadair/compare/v0.42.0...v0.43.0

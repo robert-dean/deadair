@@ -282,6 +282,7 @@ describe('SetGeneratorChain with the real bindings', () => {
             watch,
             eraWatch,
             { moodsForTracks: async () => new Map() } as never,
+            { holding: async () => [], blockedUnder: async () => new Map() } as never,
         );
     }
 

@@ -216,6 +216,21 @@ rather than guessing. The model's music search asks the same class and over-fetc
 is not shown what the station will refuse and is not left with too few rows. Records already in a running
 order stay: a rule holds from the next pick.
 
+**The floor refuses before it draws, too, and the resolver stays the guarantee.** With the rules applied only
+at `PickResolver`, `CatalogSetGenerator` drew a sample, weighed it and chose among records a rule would
+refuse, so a station refusing most of its library got a batch the resolver emptied and a refill that
+starved with playable records still in the library. The generator now asks `NeverPlay.holding` with the
+broadcast it is drawing for (`SetInputs.broadcast`, passed by `planRecords`) and draws round what holds.
+**SQL gets only exact equality** (`SampleExclusions.refusedTags`: a tag that IS the rule's value, ignoring
+case and outer space), because that is provably a subset of what `genre.match.ts` refuses; a SQL copy of the
+word-boundary fold would be a second matcher, and in the exclude direction a disagreement is a silent
+over-block. Each drawn batch is then judged by `NeverPlay.blockedUnder`, the resolver's own code, and what it
+refuses is made up by drawing again without anything already drawn, the next draw sized from the refusal rate
+so far, at most four draws. A rule table that cannot be read costs the early filter and never the batch.
+Neither half is deletable because the other exists: picks reach the resolver from generators that never read
+this repository. The console's rules panel limits a rule to modes and schedule blocks, and names a block that
+has since been deleted by its id.
+
 **The steer is the positive half #22 refused to make a rule, and it is a weight.** `deadair.genre_steers`
 holds one lean per station: genres until a time. `CatalogSetGenerator` draws a second, loose sample of
 records tagged with something CONTAINING a steered genre (positive, so loose is safe), matches the whole

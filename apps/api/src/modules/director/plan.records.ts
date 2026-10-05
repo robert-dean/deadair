@@ -128,6 +128,7 @@ export const planRecords = async (
             ...(request.mood === undefined ? {} : { mood: request.mood }),
             avoidSongKeys: request.avoidSongKeys,
             ...(request.avoidArtistKeys === undefined ? {} : { avoidArtistKeys: request.avoidArtistKeys }),
+            ...(request.broadcast === undefined ? {} : { broadcast: request.broadcast }),
         });
 
         // Asked AFTER every attempt and not only the retried one, because it clears as it answers:

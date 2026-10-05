@@ -1,5 +1,6 @@
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import type { ResolvedRules } from './rotation.rules.js';
+import type { PickBroadcast } from './never.play.js';
 
 /**
  * Choosing what the station should play next, as one DI seam.
@@ -78,6 +79,12 @@ export interface SetInputs {
     avoidSongKeys?: ReadonlySet<string>;
     /** Artists not to choose, for the same reason. */
     avoidArtistKeys?: ReadonlySet<string>;
+    /**
+     * The broadcast these records are for, so a generator that filters on never-play rules early
+     * judges a mode- or slot-scoped one the same way `PickResolver` will. Absent leaves those rules
+     * unjudged, exactly as it does there. See `PickBroadcast`.
+     */
+    broadcast?: PickBroadcast;
 }
 
 export abstract class SetGenerator {

@@ -55,6 +55,44 @@ describe('CandidatesRepository.sample', () => {
     });
 });
 
+describe('CandidatesRepository.sample round a never-play rule', () => {
+    // The SQL half of the early filter may only ever be EQUALITY, case and outer space aside: anything
+    // looser is a second genre matcher, and in the exclude direction a disagreement with
+    // `genre.match.ts` is a record refused that no rule names (Ideas #22).
+    it('leaves nothing out when nothing is refused', async () => {
+        const captured: Captured = { statements: [] };
+        await new CandidatesRepository(fakeDb(captured)).sample(10);
+
+        const [statement] = captured.statements;
+        expect(statement?.sql).not.toContain('lower(btrim(tag))');
+        expect(statement?.sql).not.toContain('not in');
+    });
+
+    it('leaves out a record or artist tagged exactly a refused value, folded only for case and space', async () => {
+        const captured: Captured = { statements: [] };
+        await new CandidatesRepository(fakeDb(captured)).sample(10, undefined, undefined, undefined, undefined, {
+            refusedTags: [' Country ', 'country', 'Live'],
+        });
+
+        const [statement] = captured.statements;
+        expect(statement?.sql).toContain('not exists');
+        expect(statement?.sql).toContain('lower(btrim(tag)) = any');
+        expect(statement?.sql).toContain('track_enrichment');
+        expect(statement?.sql).toContain('artist_enrichment');
+        expect(statement?.sql).not.toMatch(/ilike/);
+        expect(statement?.parameters).toContainEqual(['country', 'live']);
+    });
+
+    it('leaves out what an earlier draw already returned', async () => {
+        const captured: Captured = { statements: [] };
+        await new CandidatesRepository(fakeDb(captured)).sample(10, undefined, undefined, undefined, undefined, { trackIds: ['t1', 't2'] });
+
+        const [statement] = captured.statements;
+        expect(statement?.sql).toMatch(/"deadair"\."tracks"\."id" not in \(\$\d+, \$\d+\)/);
+        expect(statement?.parameters).toEqual(expect.arrayContaining(['t1', 't2']));
+    });
+});
+
 describe('CandidatesRepository.sample length bounds', () => {
     // A9: the same `exists` subquery the live-binding test already runs also carries the length
     // bound, on the same `duration_ms` column `bindingsFor` reads its own from -- so the draw and

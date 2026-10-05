@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Badge, Button, Card, Group, NumberInput, SegmentedControl, Select, Stack, TagsInput, Text, TextInput } from '@mantine/core';
-import type { BlockRule } from '@deadair/sdk';
+import { Badge, Button, Card, Group, MultiSelect, NumberInput, SegmentedControl, Select, Stack, TagsInput, Text, TextInput } from '@mantine/core';
+import type { BlockRule, ScheduleSlot } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
@@ -12,6 +12,7 @@ import {
     useStopSteering,
     useSteerTowardGenres,
 } from '../../api/rules.queries';
+import { useSchedule } from '../../api/schedule.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { formatClock } from '../../i18n/format.locale';
 import { EmptyState } from '../shared/empty.state';
@@ -20,6 +21,12 @@ import { Eyebrow } from '../shared/eyebrow';
 
 /** How long a lean can be asked for, in hours. The API takes 1 to 24. */
 const STEER_HOURS = ['1', '2', '3', '4', '6', '8', '12', '24'];
+
+/** The modes a rule can be limited to, in the order the Programme page offers them everywhere else. */
+const RULE_MODES = ['rotation', 'setlist', 'feature'] as const;
+type RuleMode = (typeof RULE_MODES)[number];
+
+const isRuleMode = (value: string): value is RuleMode => (RULE_MODES as readonly string[]).includes(value);
 
 /**
  * The two ways an operator shapes what the station chooses beyond the rotation's own rules.
@@ -114,6 +121,12 @@ function NeverPlayCard() {
     const [seasonTo, setSeasonTo] = useState('');
     const [fromHour, setFromHour] = useState<number | string>('');
     const [untilHour, setUntilHour] = useState<number | string>('');
+    const [modes, setModes] = useState<RuleMode[]>([]);
+    const [slotIds, setSlotIds] = useState<string[]>([]);
+    // The same cached list the schedule grid on this page reads, so offering the blocks costs no
+    // second request. A block that is deleted later leaves its id on the rule, which `scopeOf` shows.
+    const schedule = useSchedule();
+    const slots = schedule.data?.slots ?? [];
 
     const failure = add.isError
         ? apiErrorMessage(add.error, t('rules.never.addFailed'))
@@ -128,6 +141,10 @@ function NeverPlayCard() {
                 value: value.trim(),
                 ...(seasonFrom.trim() === '' || seasonTo.trim() === '' ? {} : { seasonFrom: seasonFrom.trim(), seasonTo: seasonTo.trim() }),
                 ...(typeof fromHour === 'number' && typeof untilHour === 'number' ? { fromHour, untilHour } : {}),
+                // Sent only when something was chosen: an empty list means "every one" to the API as
+                // well, but an absent field is the shape every unscoped rule already has.
+                ...(modes.length === 0 ? {} : { modes }),
+                ...(slotIds.length === 0 ? {} : { slotIds }),
             },
             {
                 onSuccess: () => {
@@ -136,6 +153,8 @@ function NeverPlayCard() {
                     setSeasonTo('');
                     setFromHour('');
                     setUntilHour('');
+                    setModes([]);
+                    setSlotIds([]);
                 },
             },
         );
@@ -167,7 +186,7 @@ function NeverPlayCard() {
                                 </Badge>
                             </Group>
                             <Text size="xs" c="dimmed">
-                                {scopeOf(rule, t)}
+                                {scopeOf(rule, slots, t)}
                             </Text>
                         </Stack>
                         <Button size="xs" variant="default" disabled={remove.isPending} onClick={() => remove.mutate(rule.id)}>
@@ -229,24 +248,59 @@ function NeverPlayCard() {
                             onChange={setUntilHour}
                             w={110}
                         />
+                    </Group>
+                    <Group align="flex-end" gap="sm" wrap="wrap">
+                        <MultiSelect
+                            label={t('rules.never.modesLabel')}
+                            placeholder={modes.length === 0 ? t('rules.never.modesPlaceholder') : undefined}
+                            data={RULE_MODES.map(mode => ({ value: mode, label: t(`rules.never.mode.${mode}`) }))}
+                            value={modes}
+                            onChange={next => setModes(next.filter(isRuleMode))}
+                            clearable
+                            style={{ flex: 1, minWidth: 200 }}
+                        />
+                        <MultiSelect
+                            label={t('rules.never.slotsLabel')}
+                            placeholder={slotIds.length === 0 ? t('rules.never.slotsPlaceholder') : undefined}
+                            data={slots.map(slot => ({ value: slot.id, label: slot.label }))}
+                            value={slotIds}
+                            onChange={setSlotIds}
+                            nothingFoundMessage={t('rules.never.slotsNone')}
+                            searchable
+                            clearable
+                            style={{ flex: 1, minWidth: 200 }}
+                        />
                         <Button disabled={value.trim() === ''} loading={add.isPending} onClick={submit}>
                             {t('rules.never.add')}
                         </Button>
                     </Group>
+                    <Text size="xs" c="dimmed">
+                        {t('rules.never.scopeHint')}
+                    </Text>
                 </Stack>
             </Stack>
         </Card>
     );
 }
 
-/** When a rule holds, in a sentence, or "always" for one with no scope. */
-function scopeOf(rule: BlockRule, t: TFunction<'schedule'>): string {
+/**
+ * When a rule holds, in a sentence, or "always" for one with no scope.
+ *
+ * A block is named by its label. One that has since been deleted is shown by its id rather than
+ * dropped: the rule still names it, so it still limits the rule (to a block that never comes on).
+ */
+function scopeOf(rule: BlockRule, slots: readonly ScheduleSlot[], t: TFunction<'schedule'>): string {
     const parts: string[] = [];
     if (rule.seasonFrom !== undefined && rule.seasonTo !== undefined)
         parts.push(t('rules.never.scope.season', { from: rule.seasonFrom, to: rule.seasonTo }));
     if (rule.fromHour !== undefined && rule.untilHour !== undefined)
         parts.push(t('rules.never.scope.hours', { from: rule.fromHour, until: rule.untilHour }));
-    if (rule.modes !== undefined && rule.modes.length > 0) parts.push(t('rules.never.scope.modes', { modes: rule.modes.join(', ') }));
+    if (rule.modes !== undefined && rule.modes.length > 0)
+        parts.push(t('rules.never.scope.modes', { modes: rule.modes.map(mode => t(`rules.never.mode.${mode}`)).join(', ') }));
+    if (rule.slotIds !== undefined && rule.slotIds.length > 0) {
+        const names = rule.slotIds.map(id => slots.find(slot => slot.id === id)?.label ?? id);
+        parts.push(t('rules.never.scope.slots', { slots: names.join(', ') }));
+    }
     if (rule.endsAt !== undefined) parts.push(t('rules.never.scope.until', { until: formatClock(rule.endsAt.toJSDate()) }));
     return parts.length === 0 ? t('rules.never.scope.always') : parts.join(' · ');
 }

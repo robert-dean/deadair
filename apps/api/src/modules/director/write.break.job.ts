@@ -32,6 +32,7 @@ import { BulletinSource } from './bulletin.source.js';
 import { ChangeoverSource } from './changeover.source.js';
 import { WeatherSource } from './weather.source.js';
 import { AlmanacSource } from './almanac.source.js';
+import { advisoryPolicy, speaksClean } from './advisory.policy.js';
 import type { BreakTrack, BreakWriteRequest, PlayedRecord, WrittenBreak } from './break.writer.js';
 import { CLOCK_KEYS, dayGreeting, dayPart, NAMES_THE_TIME_DEFAULT, roughTime, stationZone } from './clock.words.js';
 import { BreakWriterRegistry, declineText, isWritten, type BreakWriteResult } from './break.writer.registry.js';
@@ -696,6 +697,9 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
      * `BreakWriteRequest.lyricLines`, which nothing renders: the writer sees the subject, the guard sees
      * the words. Best-effort like the facts: a read that fails costs the subject AND the guard together,
      * so a break is never shown a subject it is not also guarded against quoting from.
+     *
+     * A station that speaks clean (`speaksClean`) is shown no subject for a record with an explicit copy,
+     * since its writer is told to keep it clean in the same prompt. The lyric lines still reach the guard.
      */
     private async aboutTheRecords(kind: string, neighbours: Neighbours): Promise<Partial<Pick<BreakWriteRequest, 'lyricLines'>>> {
         if (kind !== TALK_BREAK_KIND || !settingIsOn(this.config, ABOUT_THE_RECORD_KEYS.enabled, ABOUT_THE_RECORD_DEFAULT)) return {};
@@ -705,7 +709,10 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         const ids = sides.map(side => side.track.trackId!);
 
         try {
-            const [subjects, words] = await Promise.all([this.lyricLabels.subjectsForTracks(ids), this.lyrics.textForDerivation(ids)]);
+            const [subjects, words] = await Promise.all([
+                this.lyricLabels.subjectsForTracks(ids, { withholdExplicit: speaksClean(advisoryPolicy(this.config)) }),
+                this.lyrics.textForDerivation(ids),
+            ]);
             for (const side of sides) {
                 const about = subjects.get(side.track.trackId!);
                 if (about !== undefined) side.track = { ...side.track, about };

@@ -13,6 +13,12 @@ import { MAX_PROMPT_LYRIC_CHARS, type MoodSubject } from './lyric.moods.js';
  * row with the lyric is refused and never stored. The writer is shown the label and never the lyric,
  * so a line it was never shown is one it cannot quote, and the guard on the break itself
  * (`quoted-lyric` in `break.prompt.ts`) catches one it knew anyway.
+ *
+ * And it is written to be SAYABLE, because a presenter may paraphrase it on air whatever the station's
+ * advisory policy. The first live pass described a sex act in one subject and cocaine use in another,
+ * both accurately; the rule asks for the subject named the way a presenter would name it, never the
+ * act described. A station that speaks clean is not shown an explicit record's subject at all
+ * (`subjectsForTracks`' `withholdExplicit`).
  */
 
 /** The longest subject kept, in words. A presenter gets a sentence, not a review. */
@@ -33,6 +39,7 @@ const SYSTEM = [
     `- One sentence, under ${MAX_SUBJECT_WORDS} words, in your own words.`,
     '- Never quote the lyric or a page, not even a phrase. Describe it instead.',
     '- Say what it is about, not whether it is good. No opinions, no "this song".',
+    '- Write it so a radio presenter could say it on air. Name sex, drugs or violence plainly if that is what it is about, but never describe the act.',
     '- If you are given the lyric, read it. If you can look things up, you may search for what the song is about, but trust the lyric over a page about it.',
     '- If you cannot tell, say so. A wrong subject said on air is worse than none.',
     '',

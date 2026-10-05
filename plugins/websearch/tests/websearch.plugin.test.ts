@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 import { WebSearchPlugin } from '../src/websearch.plugin.js';
-import { BRAVE_HOST, REQUEST_TIMEOUT_MS, TAVILY_HOST, websearchManifest } from '../src/websearch.manifest.js';
+import { BRAVE_HOST, QUERY_BUDGET_MS, REQUEST_TIMEOUT_MS, TAVILY_HOST, websearchManifest } from '../src/websearch.manifest.js';
 
 let host: FakePluginHost;
 let plugin: WebSearchPlugin;
@@ -211,9 +211,21 @@ describe('bounds', () => {
         expect(host.calls).toHaveLength(0);
     });
 
+    it('asks with what a live call actually has left, which is a moment short of the 8 second default', async () => {
+        // The state every real search starts in. The check used to want the
+        // whole request timeout, which this is a few milliseconds short of, so
+        // every search the model made answered empty without asking anybody.
+        await initialize({ provider: 'searxng', baseUrl: 'http://searxng:8080' });
+        host.seedRemainingMs(REQUEST_TIMEOUT_MS - 5);
+        queueJson({ results: [searxngHit] });
+
+        await expect(plugin.search({ query: 'portishead', limit: 5 })).resolves.toHaveLength(1);
+        expect(host.calls).toHaveLength(1);
+    });
+
     it('does not start a request there is not enough of the call left to finish', async () => {
         await initialize({ provider: 'searxng', baseUrl: 'http://searxng:8080' });
-        host.seedRemainingMs(REQUEST_TIMEOUT_MS - 1);
+        host.seedRemainingMs(QUERY_BUDGET_MS - 1);
 
         await expect(plugin.search({ query: 'portishead', limit: 5 })).resolves.toEqual([]);
         expect(host.calls).toHaveLength(0);

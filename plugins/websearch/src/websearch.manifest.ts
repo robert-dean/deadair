@@ -52,6 +52,19 @@ export const TAVILY_HOST = 'api.tavily.com';
 export const REQUEST_TIMEOUT_MS = 8_000;
 
 /**
+ * Budget below which a query is not worth starting.
+ *
+ * A floor, and deliberately well under {@link REQUEST_TIMEOUT_MS}. The host's
+ * default per-call deadline is that same 8 seconds, so a check against the
+ * ceiling read a few milliseconds short of it on every call and refused them
+ * all: the model's every search came back empty without an engine being asked,
+ * while the test button, which never checks, answered fine. What is left of
+ * the call caps the request anyway, so all this has to rule out is a query
+ * that could not plausibly come back.
+ */
+export const QUERY_BUDGET_MS = 1_500;
+
+/**
  * Per-request budget for a page whose prose is being read.
  *
  * Longer than a query, and the other way round from `plugins/rss`'s pair on

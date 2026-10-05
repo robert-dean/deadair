@@ -18,7 +18,7 @@ import { searxngSearch } from './searxng.provider.js';
 import { tavilySearch } from './tavily.provider.js';
 import { albumQuery, artistQuery, documentsFor, parseTrustedSites, type TrustedSite } from './websearch.enrichment.js';
 import { hasBudget } from './websearch.http.js';
-import { DEFAULT_MAX_DOCUMENTS, DEFAULT_MAX_RESULTS, MAX_DOCUMENTS, REQUEST_TIMEOUT_MS, type ProviderId } from './websearch.manifest.js';
+import { DEFAULT_MAX_DOCUMENTS, DEFAULT_MAX_RESULTS, MAX_DOCUMENTS, QUERY_BUDGET_MS, type ProviderId } from './websearch.manifest.js';
 
 export { websearchManifest } from './websearch.manifest.js';
 
@@ -136,7 +136,7 @@ export class WebSearchPlugin extends Plugin implements SearchPluginInstance, Enr
         const asked = query.query.trim();
         if (asked.length === 0 || this.provider === undefined) return [];
 
-        if (!hasBudget(this.host, REQUEST_TIMEOUT_MS)) {
+        if (!hasBudget(this.host, QUERY_BUDGET_MS)) {
             this.host.logger.debug('web search: not enough of the call left to ask an engine');
             return [];
         }
@@ -231,7 +231,7 @@ export class WebSearchPlugin extends Plugin implements SearchPluginInstance, Enr
         if (this.provider === undefined || this.trustedSites.length === 0) return [];
 
         const host = this.host;
-        if (!hasBudget(host, REQUEST_TIMEOUT_MS)) return [];
+        if (!hasBudget(host, QUERY_BUDGET_MS)) return [];
 
         const sites = this.trustedSites.map(site => site.hostname);
         const wanted = this.maxDocuments;

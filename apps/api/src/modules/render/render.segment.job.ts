@@ -10,7 +10,8 @@ import { AudioUrlSigner } from '#modules/playout/audio.url.signer.js';
 import type { AudioOverlay } from '@deadair/plugin-sdk';
 import { splitOnPads, withoutPads } from './pad.cues.js';
 import { PadRepository } from './pad.repository.js';
-import { padDuckDb, padGapMs, padUnderMs } from './pad.settings.js';
+import { padGainDb } from './pad.level.js';
+import { padDuckDb, padGapMs, padLevelDb, padUnderMs } from './pad.settings.js';
 import { MixerService } from './mixer.service.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
 import { extensionForMime, SegmentStore } from './segment.store.js';
@@ -286,7 +287,18 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
                     // has no words for the sound to land under, so it stays a part. Sending an
                     // overlay anchored to a join that does not exist is refused by the mixer, which
                     // would cost the break its whole join rather than its timing.
-                    overlays.push({ url, afterIndex: urls.length - 1, offsetMs: -under, duckDb: padDuckDb(this.config) });
+                    //
+                    // Levelled against the words it lands on rather than mixed at whatever its maker
+                    // mastered it to. Omitted for an unmeasured pad, which is most short ones, so
+                    // that case puts exactly the request on the wire it did before levelling existed.
+                    const gainDb = padGainDb(pad.loudnessLufs, padLevelDb(this.config));
+                    overlays.push({
+                        url,
+                        afterIndex: urls.length - 1,
+                        offsetMs: -under,
+                        ...(gainDb === undefined ? {} : { gainDb }),
+                        duckDb: padDuckDb(this.config),
+                    });
                 } else {
                     urls.push(url);
                 }

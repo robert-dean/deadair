@@ -382,8 +382,9 @@ export class PadLibrary {
      * an air horn is mastered LOUD. Without a figure the console can only say "—" beside a sound that
      * is twelve decibels hotter than the words it is about to land on.
      *
-     * **What reads it today is a person.** Nothing computes an `AudioOverlay.gainDb` from it; it is
-     * reported so an operator can see the mismatch and re-master or set the duck.
+     * **What reads it is the render path, and a person.** `RenderSegmentJob` turns it into the gain an
+     * overlaid pad is mixed at (`padGainDb`), and the console shows it so an operator can see why a
+     * sound came out where it did.
      *
      * **A short pad legitimately has no loudness at all**, and that is measured rather than assumed:
      * integrated loudness to BS.1770 is gated in 400ms blocks, so a 350ms rimshot produces no block

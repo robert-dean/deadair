@@ -7,6 +7,7 @@
 
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { numberFrom } from '#modules/shared/setting.numbers.js';
 
 /** The `deadair.settings` key. Dot-keyed, and in the `render` group like everything else this path reads. */
 export const PAD_GAP_KEY = 'render.padGapMs';
@@ -167,3 +168,50 @@ export function padDuckDb(config: AppConfig): number {
 
 /** The `deadair.settings` key for the duck. */
 export const PAD_DUCK_KEY = 'render.padDuckDb';
+
+/** The `deadair.settings` key for where an overlaid pad sits against the words. */
+export const PAD_LEVEL_KEY = 'render.padLevelDb';
+
+/**
+ * How far UNDER the speech an overlaid pad is levelled, in dB of loudness.
+ *
+ * **Six, and the number is chosen against what an overlay here actually is.** The obvious figure is
+ * the one a music bed sits at under a voice, somewhere around eighteen down, and it is the wrong
+ * one: a bed runs for the whole break and only has to be there, while an overlay is a single drop
+ * landing on the tail of a sentence ({@link padUnderMs} caps it at three seconds for exactly that
+ * reason) and has to be HEARD. Eighteen under the words is a rimshot nobody notices. Level with the
+ * words is a sound that fights the last syllable for the same ear, which is the one thing pulling
+ * it under the speech is for. Six is the usual spacing between a voice and an effect played under
+ * it: clearly audible as a second thing, never louder than what is being said.
+ *
+ * It is a figure against the station's ASSUMED speech level rather than against a measured take,
+ * because the takes are spoken and joined in one pass and nothing measures them in between. The
+ * joined break is measured afterwards and levelled as a whole, which moves the words and the sound
+ * together and so keeps this ratio, which is the part an operator is choosing.
+ */
+const DEFAULT_LEVEL_DB = -6;
+
+/**
+ * Twenty-four under is where a drop stops being audible over speech at all, and the duck's floor
+ * for the same reason. Six over is room for a station that wants its air horn to win, and no more:
+ * past that the words under it are gone, which is what the duck is for.
+ */
+const MIN_LEVEL_DB = -24;
+const MAX_LEVEL_DB = 6;
+
+/**
+ * Where an overlaid pad sits against the words, in dB relative to the speech.
+ *
+ * Clamped rather than refused, and parsed from a string, like every resolver here: a stored `-9`
+ * arrives as `'-9'`.
+ */
+export function padLevelDb(config: AppConfig): number {
+    // Through `numberFrom` rather than a bare `Number()`, which reads an emptied box as zero: a
+    // stored empty string is a setting nobody set and takes the default, not "level with the words".
+    const set = numberFrom(config.get(PAD_LEVEL_KEY, String(DEFAULT_LEVEL_DB)), DEFAULT_LEVEL_DB);
+
+    return Math.min(MAX_LEVEL_DB, Math.max(MIN_LEVEL_DB, set));
+}
+
+/** What the console draws, so the form and the resolver cannot disagree about the range. */
+export const PAD_LEVEL_BOUNDS = { default: DEFAULT_LEVEL_DB, min: MIN_LEVEL_DB, max: MAX_LEVEL_DB } as const;

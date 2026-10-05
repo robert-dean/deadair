@@ -38,6 +38,7 @@ import {
 import { ConfigFieldOptionSource } from '../../../src/modules/plugins/types/plugins.types.js';
 import { providerCapabilities } from '../../../src/modules/plugins/plugin.providers.js';
 import { DEFAULT_RULES, ROTATION_KEYS, stationRules } from '../../../src/modules/director/rotation.rules.js';
+import { PAD_LEVEL_KEY, padLevelDb } from '../../../src/modules/render/pad.settings.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
 const encryption = new EncryptionProvider(randomBytes(32));
@@ -272,6 +273,17 @@ describe('the settings registry', () => {
         expect(resolveAnalysisConcurrency(descriptor.max)).toBe(descriptor.max);
         expect(resolveAnalysisConcurrency(descriptor.max! + 1)).toBe(descriptor.max);
         expect(resolveAnalysisConcurrency(descriptor.min! - 1)).toBe(descriptor.min);
+    });
+
+    it('declares where a pad sits over the same range and default its resolver uses', () => {
+        const descriptor = findDescriptor(PAD_LEVEL_KEY)!;
+        const read = (value?: number) => padLevelDb(settingsConfig(value === undefined ? {} : { [PAD_LEVEL_KEY]: String(value) }).config);
+
+        expect(read()).toBe(descriptor.default);
+        expect(read(descriptor.min)).toBe(descriptor.min);
+        expect(read(descriptor.max)).toBe(descriptor.max);
+        expect(read(descriptor.min! - 1)).toBe(descriptor.min);
+        expect(read(descriptor.max! + 1)).toBe(descriptor.max);
     });
 
     it('declares the sweep guard over the same range and default its resolver uses', () => {

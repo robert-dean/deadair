@@ -227,8 +227,15 @@ export class LyricLabelsRepository extends DataRepository {
             .execute();
     }
 
-    /** What each of these records is about, where a subject is stored. Any version counts, as for the moods. */
-    async subjectsForTracks(trackIds: readonly string[]): Promise<Map<string, string>> {
+    /**
+     * What each of these records is about, where a subject is stored. Any version counts, as for the moods.
+     *
+     * With `withholdExplicit`, a record with ANY copy marked explicit is left out. Any copy rather than
+     * the one airing, because a subject is about the song and a clean edit is the same song: "Lit Up"
+     * is about cocaine whichever copy plays. For a station that speaks clean, where a writer told to
+     * keep it clean and shown an explicit subject in the same prompt is asked to do two things at once.
+     */
+    async subjectsForTracks(trackIds: readonly string[], options: { withholdExplicit?: boolean } = {}): Promise<Map<string, string>> {
         if (trackIds.length === 0) return new Map();
 
         const rows = await this.db
@@ -236,6 +243,19 @@ export class LyricLabelsRepository extends DataRepository {
             .select(['trackId', 'subject'])
             .where('trackId', 'in', [...trackIds])
             .where('subject', 'is not', null)
+            .$if(options.withholdExplicit === true, qb =>
+                qb.where(eb =>
+                    eb.not(
+                        eb.exists(
+                            eb
+                                .selectFrom('deadair.trackSources')
+                                .select('deadair.trackSources.trackId')
+                                .whereRef('deadair.trackSources.trackId', '=', 'deadair.trackLyricLabels.trackId')
+                                .where('deadair.trackSources.advisory', '=', 'explicit'),
+                        ),
+                    ),
+                ),
+            )
             .execute();
 
         return new Map(rows.flatMap(row => (row.subject == null ? [] : [[row.trackId, row.subject] as const])));

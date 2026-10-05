@@ -278,6 +278,7 @@ function harness(
         plays,
         identity,
         speech,
+        lyricLabels,
     };
 }
 
@@ -371,6 +372,22 @@ describe('WriteBreakJob', () => {
                     lyricLines: ['Pink, pink, pink, pink moon', 'Saw it written and I saw it say'],
                 }),
             );
+        });
+
+        it('withholds the subject of a record with an explicit copy on a station that speaks clean', async () => {
+            const { job, lyricLabels } = harness({ lineup: await withTrackIds(), settings: { ...on, 'rotation.advisory': 'prefer-clean' } });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(lyricLabels.subjectsForTracks).toHaveBeenCalledWith(['t-solid', 't-pink'], { withholdExplicit: true });
+        });
+
+        it('shows every subject on a station that plays the explicit copy, which is the default', async () => {
+            const { job, lyricLabels } = harness({ lineup: await withTrackIds(), settings: on });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(lyricLabels.subjectsForTracks).toHaveBeenCalledWith(['t-solid', 't-pink'], { withholdExplicit: false });
         });
 
         it('shows nothing with the switch stored as the string false', async () => {

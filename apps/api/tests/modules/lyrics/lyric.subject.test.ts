@@ -42,6 +42,12 @@ describe('subjectPrompt', () => {
         expect(system?.content).toContain('Never quote the lyric');
         expect(SUBJECT_VERSION).toMatch(/^s1-[0-9a-f]{12}$/);
     });
+
+    it('asks for a sentence a presenter could say on air, naming the subject and never describing the act', () => {
+        const [system] = subjectPrompt({ title: 'Glory Box', artist: 'Portishead' }, false);
+        expect(system?.content).toContain('so a radio presenter could say it on air');
+        expect(system?.content).toContain('never describe the act');
+    });
 });
 
 describe('lyricLines', () => {

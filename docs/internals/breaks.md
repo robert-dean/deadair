@@ -205,6 +205,16 @@ of them turning "Stairway to Heaven" upside down, and nothing would ever have re
 the model had the lyric, and the walk treats a row judged without it as stale once a lyric exists.
 A record no source has a lyric for keeps what it was given, so an instrumental is judged once.
 
+**The sentence is written to be said on air, and a clean station is not shown an explicit record's.**
+A presenter may paraphrase the subject, and the first live pass described a sex act in one and cocaine
+use in another, accurately, on a station whose policy (`rotation.advisory`, `prefer-explicit` by
+default) plays both records. So the subject prompt asks for the subject NAMED the way a presenter
+would name it and never the act described, whatever the policy. And where `speaksClean` holds, which
+is both non-default policies, `subjectsForTracks` withholds the subject of any record with a copy
+marked explicit: any copy rather than the airing one, because a clean edit is the same song, and a
+writer told to keep it clean should not be shown an explicit subject in the same prompt. The lyric
+lines still reach the guard either way.
+
 **And the answer is guarded against the lyric anyway, because a model can know a chorus by heart.** The
 same read hands the records' lines to `BreakWriteRequest.lyricLines`, which nothing renders and the
 freshness table calls `not-spoken`, and the talk writer passes them to `AnswerGuard.lyrics`.

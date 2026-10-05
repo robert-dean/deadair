@@ -246,6 +246,17 @@ describe('PlayoutService.playPlaylist', () => {
     });
 });
 
+describe('PlayoutService.playAlbum', () => {
+    it('plays the album whole, as a feature, through the director', async () => {
+        const { service, director, pusher } = build();
+
+        await service.playAlbum({ albumId: 'al-1' });
+
+        expect(director.putOnAir).toHaveBeenCalledWith({ albumId: 'al-1', mode: 'feature' });
+        expect(pusher.reconcile).toHaveBeenCalledOnce();
+    });
+});
+
 describe('PlayoutService.playStationPlaylist', () => {
     it('builds the running order from a playlist the station owns, through the director', async () => {
         const { service, director, pusher } = build();

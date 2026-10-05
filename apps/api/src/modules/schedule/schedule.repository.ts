@@ -1,3 +1,4 @@
+import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import { Injectable } from 'injectkit';
 import { Kysely, sql } from 'kysely';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
@@ -107,6 +108,7 @@ function columnsOf(draft: ScheduleSlotDraft) {
         brief: draft.brief ?? '',
         eraFrom: draft.era?.from ?? null,
         eraTo: draft.era?.to ?? null,
+        mood: draft.mood ?? null,
         callins: draft.callins ?? null,
         mixInSimilar: draft.mixInSimilar ?? null,
         mode: draft.mode,
@@ -142,6 +144,7 @@ function toSlot(row: {
     brief: string;
     eraFrom: number | null;
     eraTo: number | null;
+    mood: LyricMood | null;
     callins: boolean | null;
     mixInSimilar: boolean | null;
     mode: 'rotation' | 'setlist' | 'feature';
@@ -174,6 +177,7 @@ function toSlot(row: {
         ...(row.eraFrom == null && row.eraTo == null
             ? {}
             : { era: { ...(row.eraFrom == null ? {} : { from: row.eraFrom }), ...(row.eraTo == null ? {} : { to: row.eraTo }) } }),
+        ...(row.mood == null ? {} : { mood: row.mood }),
         // `== null` rather than a falsy test, because `false` is a real answer here and means the
         // opposite of absent: this slot takes no calls, on a station that otherwise would.
         ...(row.callins == null ? {} : { callins: row.callins }),

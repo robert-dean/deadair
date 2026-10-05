@@ -21,6 +21,7 @@ export const KNOWN_CAPABILITIES = [
     'mixer',
     'transcode',
     'enrichment',
+    'lyrics',
     'similarity',
     'search',
     'scrobble',
@@ -67,7 +68,7 @@ export const PLUGIN_ROLES: readonly PluginRole[] = [
     role('voice', ['speech']),
     role('writing', ['llm']),
     role('audio', ['analysis', 'mixer', 'transcode']),
-    role('knowledge', ['enrichment', 'similarity', 'search', 'scrobble']),
+    role('knowledge', ['enrichment', 'lyrics', 'similarity', 'search', 'scrobble']),
     role('programmes', ['news', 'weather', 'podcast', 'almanac', 'charts']),
 ];
 

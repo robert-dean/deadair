@@ -215,6 +215,23 @@ export function TrackStateFilter({ counts, value, onChange }: TrackStateFilterPr
                         );
                     })}
                 </Group>
+
+                {/* What the lyrics walk has found, as counts and never as words: the station reads a
+                    record's lyrics to know when the singing starts and never shows them. Not a chip,
+                    because there is no list of records to filter to that an operator could act on,
+                    and drawn only once the walk has found something, so a station that never turned
+                    lyrics on sees the card it always did. */}
+                {counts.lyrics + counts.instrumental > 0 ? (
+                    <Text size="xs" c="dimmed">
+                        {t('stateFilter.lyrics', {
+                            count: counts.lyrics,
+                            lyrics: formatCount(counts.lyrics),
+                            synced: formatCount(counts.synced),
+                            instrumental: formatCount(counts.instrumental),
+                        })}
+                        {counts.moods > 0 ? ` ${t('stateFilter.moods', { count: counts.moods, moods: formatCount(counts.moods) })}` : ''}
+                    </Text>
+                ) : undefined}
             </Stack>
         </Card>
     );

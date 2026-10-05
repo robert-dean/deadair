@@ -37,6 +37,7 @@ import {
     artistTrackFixture,
     scrobblePlayFixture,
     scrobbleRejectionFixture,
+    trackLyricsFixture,
     newsFeedDescriptorFixture,
     newsItemFixture,
     newsQueryFixture,
@@ -125,6 +126,7 @@ describe('plugin boundary conformance: positive fixtures', () => {
         ['ScrobblePlay', scrobblePlayFixture],
         ['ScrobbleRejection', scrobbleRejectionFixture],
         ['ScrobbleResult', scrobbleResultFixture],
+        ['TrackLyrics', trackLyricsFixture],
         ['SpeechLimits', speechLimitsFixture],
     ] as const)('%s crosses the boundary', (label, value) => {
         expect(() => assertCrossesBoundary(value, label)).not.toThrow();

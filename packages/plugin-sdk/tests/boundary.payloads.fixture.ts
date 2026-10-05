@@ -38,6 +38,7 @@ import type {
 } from '../src/capabilities/podcast.js';
 import type { ArtistTrack, SimilarArtist } from '../src/capabilities/similarity.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from '../src/capabilities/scrobble.js';
+import type { TrackLyrics } from '../src/capabilities/lyrics.js';
 
 /**
  * Throws with the offending property path when `value` is not JSON-safe.
@@ -591,6 +592,16 @@ export const scrobbleRejectionFixture: ScrobbleRejection = {
 export const scrobbleResultFixture: ScrobbleResult = {
     accepted: 9,
     rejected: [scrobbleRejectionFixture],
+};
+
+export const trackLyricsFixture: TrackLyrics = {
+    plain: 'First line\nSecond line',
+    synced: [
+        { atMs: 12_400, endMs: 15_100, text: 'First line' },
+        { atMs: 15_100, text: 'Second line' },
+    ],
+    language: 'en',
+    providerRef: 'lrclib:42',
 };
 
 const externalIdFixture: ExternalId = { source: 'musicbrainz', id: 'mb-123' };

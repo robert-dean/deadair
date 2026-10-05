@@ -33,6 +33,9 @@ import { ChangeoverSource } from './changeover.source.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { ClockBandRepository } from './clock.band.repository.js';
 import { ClockService } from './clock.service.js';
+import { BlockRulesRepository } from './block.rules.repository.js';
+import { BlockRulesService } from './block.rules.service.js';
+import { NeverPlay } from './never.play.js';
 import { AdvisoryWatch } from './advisory.watch.js';
 import { BreakFloorWatch } from './break.floor.watch.js';
 import { EraWatch } from './era.watch.js';
@@ -290,6 +293,11 @@ export const DirectorModule: ServerKitModule = {
         // The operator's half of the format clock. Scoped like every other request-facing service,
         // and it tells the director nothing: a band is read off the table on the next commit pass.
         registry.register(ClockService).useClass(ClockService).asScoped();
+        // Never-play rules and the genre steer: the repository is read by the pick path as well as
+        // the console, so it is scoped like every other repository here. See `block.rules.ts`.
+        registry.register(BlockRulesRepository).useClass(BlockRulesRepository).asScoped();
+        registry.register(BlockRulesService).useClass(BlockRulesService).asScoped();
+        registry.register(NeverPlay).useClass(NeverPlay).asScoped();
 
         // The first producer on the station bus: somebody tuned in, so ask for a greeting. A
         // singleton because it holds a subscription, and its own class rather than a branch in the

@@ -319,6 +319,104 @@ public struct TrackClearResultInput: Codable, Equatable, Sendable {
     }
 }
 
+/// Where the singing starts and stops on one record, and which answer that is. Times are milliseconds
+/// from the start of the file, the timeline a lyric's timings use. Never the words themselves.
+public struct VocalMarkersDetail: Codable, Equatable, Sendable {
+    public var trackId: UUID
+    /// Nobody sings on it; where the singing is; or nothing to go on
+    public var kind: VocalMarkersDetailKind
+    /// Where the first sung word lands, when kind is ranges
+    public var onsetMs: Int?
+    /// Where the singing stops, when it is known
+    public var endMs: Int?
+    /// An operator's correction, the record's timed lyrics, or neither
+    public var source: VocalMarkersDetailSource
+
+    public init(trackId: UUID, kind: VocalMarkersDetailKind, onsetMs: Int? = nil, endMs: Int? = nil, source: VocalMarkersDetailSource) {
+        self.trackId = trackId
+        self.kind = kind
+        self.onsetMs = onsetMs
+        self.endMs = endMs
+        self.source = source
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case trackId = "trackId"
+        case kind = "kind"
+        case onsetMs = "onsetMs"
+        case endMs = "endMs"
+        case source = "source"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.trackId = try container.decode(UUID.self, forKey: .trackId)
+        self.kind = try container.decode(VocalMarkersDetailKind.self, forKey: .kind)
+        self.onsetMs = try container.decodeIfPresent(Int.self, forKey: .onsetMs)
+        self.endMs = try container.decodeIfPresent(Int.self, forKey: .endMs)
+        self.source = try container.decode(VocalMarkersDetailSource.self, forKey: .source)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.trackId, forKey: .trackId)
+        try container.encode(self.kind, forKey: .kind)
+        try container.encodeIfPresent(self.onsetMs, forKey: .onsetMs)
+        try container.encodeIfPresent(self.endMs, forKey: .endMs)
+        try container.encode(self.source, forKey: .source)
+    }
+}
+
+/// Where the singing starts and stops on one record, and which answer that is. Times are milliseconds
+/// from the start of the file, the timeline a lyric's timings use. Never the words themselves.
+public struct VocalMarkersDetailInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
+/// An operator's correction: either the record is instrumental, or the singing starts at `onsetMs`.
+public struct VocalMarkersInput: Codable, Equatable, Sendable {
+    /// Nobody sings on this record, whatever its lyrics say
+    public var instrumental: Bool
+    /// Where the first sung word lands, from the start of the file. Required unless instrumental
+    public var onsetMs: Int?
+    /// Where the singing stops. Optional, and after the onset
+    public var endMs: Int?
+
+    public init(instrumental: Bool = false, onsetMs: Int? = nil, endMs: Int? = nil) {
+        self.instrumental = instrumental
+        self.onsetMs = onsetMs
+        self.endMs = endMs
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case instrumental = "instrumental"
+        case onsetMs = "onsetMs"
+        case endMs = "endMs"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.instrumental = try container.decodeIfPresent(Bool.self, forKey: .instrumental) ?? false
+        self.onsetMs = try container.decodeIfPresent(Int.self, forKey: .onsetMs)
+        self.endMs = try container.decodeIfPresent(Int.self, forKey: .endMs)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.instrumental, forKey: .instrumental)
+        try container.encodeIfPresent(self.onsetMs, forKey: .onsetMs)
+        try container.encodeIfPresent(self.endMs, forKey: .endMs)
+    }
+}
+
 /// Narrow a clear to one provider's answer, for the case where one source is wrong and the rest are
 /// not. Absent clears every provider's.
 public struct ClearEnrichmentQuery: Codable, Equatable, Sendable {
@@ -405,14 +503,26 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
     public var enriched: Int
     public var benched: Int
     public var failing: Int
+    /// A lyrics source has the words of it. The words themselves are never served
+    public var lyrics: Int
+    /// A lyrics source has the timing of its lines, which says when the singing starts
+    public var synced: Int
+    /// A lyrics source says nobody sings on it
+    public var instrumental: Int
+    /// A model has judged what mood it is in
+    public var moods: Int
 
-    public init(total: Int, cached: Int, measured: Int, enriched: Int, benched: Int, failing: Int) {
+    public init(total: Int, cached: Int, measured: Int, enriched: Int, benched: Int, failing: Int, lyrics: Int, synced: Int, instrumental: Int, moods: Int) {
         self.total = total
         self.cached = cached
         self.measured = measured
         self.enriched = enriched
         self.benched = benched
         self.failing = failing
+        self.lyrics = lyrics
+        self.synced = synced
+        self.instrumental = instrumental
+        self.moods = moods
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -422,6 +532,10 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
         case enriched = "enriched"
         case benched = "benched"
         case failing = "failing"
+        case lyrics = "lyrics"
+        case synced = "synced"
+        case instrumental = "instrumental"
+        case moods = "moods"
     }
 
     public init(from decoder: Decoder) throws {
@@ -432,6 +546,10 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
         self.enriched = try container.decode(Int.self, forKey: .enriched)
         self.benched = try container.decode(Int.self, forKey: .benched)
         self.failing = try container.decode(Int.self, forKey: .failing)
+        self.lyrics = try container.decode(Int.self, forKey: .lyrics)
+        self.synced = try container.decode(Int.self, forKey: .synced)
+        self.instrumental = try container.decode(Int.self, forKey: .instrumental)
+        self.moods = try container.decode(Int.self, forKey: .moods)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -442,6 +560,10 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
         try container.encode(self.enriched, forKey: .enriched)
         try container.encode(self.benched, forKey: .benched)
         try container.encode(self.failing, forKey: .failing)
+        try container.encode(self.lyrics, forKey: .lyrics)
+        try container.encode(self.synced, forKey: .synced)
+        try container.encode(self.instrumental, forKey: .instrumental)
+        try container.encode(self.moods, forKey: .moods)
     }
 }
 
@@ -2417,4 +2539,18 @@ public struct AlbumEnrichmentDetailInput: Codable, Equatable, Sendable {
         try container.encode(self.sources, forKey: .sources)
         try container.encode(self.claims, forKey: .claims)
     }
+}
+
+/// Nobody sings on it; where the singing is; or nothing to go on
+public enum VocalMarkersDetailKind: String, Codable, CaseIterable, Sendable {
+    case instrumental = "instrumental"
+    case ranges = "ranges"
+    case unknown = "unknown"
+}
+
+/// An operator's correction, the record's timed lyrics, or neither
+public enum VocalMarkersDetailSource: String, Codable, CaseIterable, Sendable {
+    case override = "override"
+    case lyrics = "lyrics"
+    case none = "none"
 }

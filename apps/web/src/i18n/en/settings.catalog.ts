@@ -410,6 +410,12 @@ export const settings = {
                     'Every source is asked about a record and the answers are merged field by field, so this decides who wins where two of them disagree about a year, a label or a running time. Each plugin declares how much to trust it; this overrides that with what you can see on your own library.',
                 only: 'Only {{name}} fills in details about records, so there is nothing to order.',
             },
+            lyrics: {
+                title: 'Where the words of a record come from',
+                meaning:
+                    'Every source is asked for the words of a record and each answer is kept, because one may have the timing of each line where another has only the words. This decides who is asked first. The station never says or shows them; it uses them to know when the singing starts.',
+                only: 'Only {{name}} looks up lyrics, so there is nothing to order.',
+            },
         },
     },
     security: {

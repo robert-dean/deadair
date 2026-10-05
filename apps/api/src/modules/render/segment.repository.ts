@@ -1285,6 +1285,19 @@ export class SegmentRepository extends DataRepository {
         if (host !== undefined) {
             clauses.push(eb('deadair.segments.personaId', 'is not', null));
             if (host.personaId !== undefined) clauses.push(eb('deadair.segments.personaId', '<>', host.personaId));
+            // The newsreader's bulletins are not the outgoing host's to give back: whoever presents,
+            // the news is still read by the newsreader, so rewriting them would only say them again.
+            clauses.push(
+                eb.not(
+                    eb.exists(
+                        eb
+                            .selectFrom('deadair.personas as reader')
+                            .select('reader.id')
+                            .whereRef('reader.id', '=', 'deadair.segments.personaId')
+                            .where('reader.kind', '=', 'newsreader'),
+                    ),
+                ),
+            );
             clauses.push(eb('deadair.segments.productionId', 'is', null));
         }
 

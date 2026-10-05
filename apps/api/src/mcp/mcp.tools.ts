@@ -2,6 +2,7 @@ import { Injectable, type Container, type Registry } from 'injectkit';
 import { McpToolHandlerMap } from '@maroonedsoftware/mcp';
 import { registerActivityMcpCatalog, registerActivityMcpToolClasses } from './activity.mcp.js';
 import { registerArtBreaksMcpCatalog, registerArtBreaksMcpToolClasses } from './art.breaks.mcp.js';
+import { registerArtPersonasMcpCatalog, registerArtPersonasMcpToolClasses } from './art.personas.mcp.js';
 import { registerAuthenticationSessionsMcpCatalog, registerAuthenticationSessionsMcpToolClasses } from './authentication.sessions.mcp.js';
 import { registerCatalogMcpCatalog, registerCatalogMcpToolClasses } from './catalog.mcp.js';
 import { registerChartsMcpCatalog, registerChartsMcpToolClasses } from './charts.mcp.js';
@@ -23,6 +24,7 @@ import { registerPodcastsMcpCatalog, registerPodcastsMcpToolClasses } from './po
 import { registerProductionsMcpCatalog, registerProductionsMcpToolClasses } from './productions.mcp.js';
 import { registerRenderMcpCatalog, registerRenderMcpToolClasses } from './render.mcp.js';
 import { registerRequestsMcpTools, registerRequestsMcpCatalog, registerRequestsMcpToolClasses } from './requests.mcp.js';
+import { registerRulesMcpCatalog, registerRulesMcpToolClasses } from './rules.mcp.js';
 import { registerScheduleMcpTools, registerScheduleMcpCatalog, registerScheduleMcpToolClasses } from './schedule.mcp.js';
 import { registerSettingsMcpCatalog, registerSettingsMcpToolClasses } from './settings.mcp.js';
 import { registerStationMcpCatalog, registerStationMcpToolClasses } from './station.mcp.js';
@@ -69,6 +71,7 @@ export function registerMcpCatalog(container: Container): McpToolCatalog {
     const map = new McpToolCatalog();
     registerActivityMcpCatalog(map, container);
     registerArtBreaksMcpCatalog(map, container);
+    registerArtPersonasMcpCatalog(map, container);
     registerAuthenticationSessionsMcpCatalog(map, container);
     registerCatalogMcpCatalog(map, container);
     registerChartsMcpCatalog(map, container);
@@ -90,6 +93,7 @@ export function registerMcpCatalog(container: Container): McpToolCatalog {
     registerProductionsMcpCatalog(map, container);
     registerRenderMcpCatalog(map, container);
     registerRequestsMcpCatalog(map, container);
+    registerRulesMcpCatalog(map, container);
     registerScheduleMcpCatalog(map, container);
     registerSettingsMcpCatalog(map, container);
     registerStationMcpCatalog(map, container);
@@ -110,6 +114,7 @@ export function registerMcpCatalog(container: Container): McpToolCatalog {
 export function registerMcpToolClasses(registry: Registry): void {
     registerActivityMcpToolClasses(registry);
     registerArtBreaksMcpToolClasses(registry);
+    registerArtPersonasMcpToolClasses(registry);
     registerAuthenticationSessionsMcpToolClasses(registry);
     registerCatalogMcpToolClasses(registry);
     registerChartsMcpToolClasses(registry);
@@ -131,6 +136,7 @@ export function registerMcpToolClasses(registry: Registry): void {
     registerProductionsMcpToolClasses(registry);
     registerRenderMcpToolClasses(registry);
     registerRequestsMcpToolClasses(registry);
+    registerRulesMcpToolClasses(registry);
     registerScheduleMcpToolClasses(registry);
     registerSettingsMcpToolClasses(registry);
     registerStationMcpToolClasses(registry);

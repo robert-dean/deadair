@@ -154,6 +154,7 @@ export class MixInSimilarJob extends PlainJob<MixInSimilarPayload> {
             rules,
             {
                 ...(lineup.era === undefined ? {} : { era: lineup.era }),
+                broadcast: { mode: lineup.mode, ...(lineup.slotId === undefined ? {} : { slotId: lineup.slotId }) },
                 keepOrder: true,
                 discoveries: chosen.length,
             },

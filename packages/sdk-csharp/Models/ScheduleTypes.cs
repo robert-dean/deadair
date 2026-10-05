@@ -78,6 +78,11 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? EraTo { get; init; }
 
+    /// <summary>The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean</summary>
+    [JsonPropertyName("mood")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ScheduleSlotMood? Mood { get; init; }
+
     /// <summary>Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says</summary>
     [JsonPropertyName("callins")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -158,6 +163,11 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("eraTo")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? EraTo { get; init; }
+
+    /// <summary>The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean</summary>
+    [JsonPropertyName("mood")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ScheduleSlotMood? Mood { get; init; }
 
     /// <summary>Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says</summary>
     [JsonPropertyName("callins")]
@@ -273,6 +283,32 @@ public enum ScheduleSlotSourceChartOrder
 
     [JsonStringEnumMemberName("unordered")]
     Unordered,
+}
+
+/// <summary>The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<ScheduleSlotMood>))]
+public enum ScheduleSlotMood
+{
+    [JsonStringEnumMemberName("love")]
+    Love,
+
+    [JsonStringEnumMemberName("happiness")]
+    Happiness,
+
+    [JsonStringEnumMemberName("comfort")]
+    Comfort,
+
+    [JsonStringEnumMemberName("sadness")]
+    Sadness,
+
+    [JsonStringEnumMemberName("loneliness")]
+    Loneliness,
+
+    [JsonStringEnumMemberName("anger")]
+    Anger,
+
+    [JsonStringEnumMemberName("fear")]
+    Fear,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<ScheduleSlotMode>))]

@@ -16,6 +16,9 @@ import type { Segment } from '../../../src/modules/render/segment.repository.js'
 import type { StationAlmanac } from '../../../src/modules/almanac/almanac.service.js';
 import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
 import type { ScriptWrite } from '../../../src/modules/render/script.history.repository.js';
+import type { VocalMarkers } from '../../../src/modules/lyrics/vocal.ranges.js';
+import { TALK_UP_KEYS } from '../../../src/modules/director/talk.up.js';
+import { ABOUT_THE_RECORD_KEYS } from '../../../src/modules/director/about.the.record.js';
 
 vi.mock('../../../src/modules/jobs/job.authorization.js', () => ({ overrideJobActor: vi.fn() }));
 
@@ -89,6 +92,12 @@ function harness(
         settings?: Record<string, string>;
         /** Episodes of somebody else's programme the order holds, as their segment rows. */
         programmes?: Segment[];
+        /** Where the singing starts on each record, keyed by track id, for the talk-up budget. */
+        vocalMarkers?: Record<string, VocalMarkers>;
+        /** What each record is about, keyed by track id. */
+        subjects?: Map<string, string>;
+        /** Each record's lyric, keyed by track id, for the guard. */
+        lyricTexts?: Map<string, string>;
     } = {},
 ) {
     const segments = {
@@ -131,7 +140,7 @@ function harness(
     };
     // Who the station is right now. `undefined` unless a test asks otherwise, because a station
     // that has chosen no persona is the state every assertion below was written against.
-    const personas = { presenting: vi.fn(async () => options.persona) };
+    const personas = { presentingFor: vi.fn(async () => options.persona) };
     // A rack with nothing on it, which is what every persona in these tests has: `pads` answers `{}`
     // for an empty set, so the request is byte-identical to one built before soundboards existed.
     const pads = {
@@ -197,6 +206,14 @@ function harness(
     // unless a test asks otherwise, which is the state every other assertion here was written
     // against.
     const plays = { duringBroadcast: vi.fn(async () => options.played ?? []) };
+    const lyricLabels = { subjectsForTracks: vi.fn(async () => options.subjects ?? new Map<string, string>()) };
+    const lyricTexts = { textForDerivation: vi.fn(async () => options.lyricTexts ?? new Map<string, string>()) };
+    const vocalMarkers = {
+        forTracks: vi.fn(
+            async (ids: readonly string[]) =>
+                new Map(ids.flatMap(id => (options.vocalMarkers?.[id] === undefined ? [] : [[id, options.vocalMarkers[id]!] as const]))),
+        ),
+    };
     // Whether a broadcast is on at all. Present by default, because a break being written is
     // overwhelmingly a break on a station that is airing — the `undefined` case has its own test.
     const identity = { current: vi.fn(() => ('broadcastId' in options ? options.broadcastId : 'broadcast-1')) };
@@ -224,6 +241,9 @@ function harness(
         personaStories as never,
         tellings as never,
         plays as never,
+        vocalMarkers as never,
+        lyricLabels as never,
+        lyricTexts as never,
         identity as never,
         speech as never,
         activity as never,
@@ -324,6 +344,104 @@ describe('WriteBreakJob', () => {
 
         expect(planted.requests.findById).not.toHaveBeenCalled();
         expect(planted.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ context: expect.anything() }));
+    });
+
+    describe('what the records are about', () => {
+        const withTrackIds = async () => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Solid Air', 'John Martyn', 't-solid'), track('Pink Moon', 'Nick Drake', 't-pink')]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+            return lineup;
+        };
+        const on = { [ABOUT_THE_RECORD_KEYS.enabled]: 'true' };
+
+        it('shows the writer each subject and hands the guard the words, never the prompt', async () => {
+            const { job, writers } = harness({
+                lineup: await withTrackIds(),
+                subjects: new Map([['t-pink', 'Watching the night sky arrive for everyone.']]),
+                lyricTexts: new Map([['t-pink', 'Pink, pink, pink, pink moon\nSaw it written and I saw it say']]),
+                settings: on,
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    next: expect.objectContaining({ about: 'Watching the night sky arrive for everyone.' }),
+                    lyricLines: ['Pink, pink, pink, pink moon', 'Saw it written and I saw it say'],
+                }),
+            );
+        });
+
+        it('shows nothing with the switch stored as the string false', async () => {
+            const { job, writers } = harness({
+                lineup: await withTrackIds(),
+                subjects: new Map([['t-pink', 'About the moon.']]),
+                settings: { [ABOUT_THE_RECORD_KEYS.enabled]: 'false' },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ lyricLines: expect.anything() }));
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ next: expect.not.objectContaining({ about: expect.anything() }) }));
+        });
+    });
+
+    describe('the intro of the record coming up', () => {
+        // The singing on 'Pink Moon' starts fifteen seconds in. With the default room of a second
+        // and a half, the duck's ramp and the cue clock's lag, 33 words fit in front of it.
+        const sung: VocalMarkers = { kind: 'ranges', onsetMs: 15_000, endMs: 120_000, ranges: [] };
+        const withTrackIds = async () => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Solid Air', 'John Martyn', 't-solid'), track('Pink Moon', 'Nick Drake', 't-pink')]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+            return lineup;
+        };
+
+        it('tells a talk link how many words fit over it, when talking up is on', async () => {
+            const { job, writers } = harness({
+                lineup: await withTrackIds(),
+                vocalMarkers: { 't-pink': sung },
+                settings: { [TALK_UP_KEYS.enabled]: 'true' },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ talkUp: { runwayMs: 15_000, words: 33 } }));
+        });
+
+        it('says nothing with talking up off, stored as the string false', async () => {
+            const { job, writers } = harness({
+                lineup: await withTrackIds(),
+                vocalMarkers: { 't-pink': sung },
+                settings: { [TALK_UP_KEYS.enabled]: 'false' },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkUp: expect.anything() }));
+        });
+
+        it('says nothing to a break that is not a link', async () => {
+            const { job, writers } = harness({
+                lineup: await withTrackIds(),
+                segment: planned({ kind: 'news' }),
+                vocalMarkers: { 't-pink': sung },
+                settings: { [TALK_UP_KEYS.enabled]: 'true' },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkUp: expect.anything() }));
+        });
+
+        it('says nothing before a record whose singing it cannot place', async () => {
+            const { job, writers } = harness({ lineup: await withTrackIds(), settings: { [TALK_UP_KEYS.enabled]: 'true' } });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ talkUp: expect.anything() }));
+        });
     });
 
     it('hands over what the format clock asked a planted break to be about', async () => {
@@ -470,7 +588,7 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(personas.presenting).toHaveBeenCalledWith('p-tonight');
+        expect(personas.presentingFor).toHaveBeenCalledWith('talkbreak', 'p-tonight');
     });
 
     it("hands the writers this character's notebook, and rests what it took", async () => {

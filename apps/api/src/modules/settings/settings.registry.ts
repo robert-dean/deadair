@@ -62,6 +62,7 @@ import {
     MIN_BREAK_WORDS,
     MIN_STORY_WORDS,
 } from '#modules/director/break.words.js';
+import { STATION_CONTEXT_KEY, STATION_IDENTITY_KEY } from '#modules/director/prompt.settings.js';
 import { DEFAULT_MAX_WORDS } from '#modules/director/break.prompt.js';
 import { SUSTAINING_KEYS } from '#modules/schedule/schedule.service.js';
 import {
@@ -102,6 +103,16 @@ import {
 } from '#modules/analysis/analysis.settings.js';
 import { CHARTS_KEYS } from '#modules/charts/charts.keys.js';
 import { ENRICHMENT_KEYS } from '#modules/enrichment/enrichment.keys.js';
+import {
+    LYRIC_MOODS_DEFAULT,
+    LYRIC_MOODS_KEYS,
+    LYRIC_SUBJECT_KEYS,
+    LYRIC_SUBJECTS_DEFAULT,
+    LYRICS_FETCH_DEFAULT,
+    LYRICS_KEYS,
+} from '#modules/lyrics/lyrics.keys.js';
+import { DEFAULT_TALK_UP_SAFETY_MS, TALK_UP_DEFAULT, TALK_UP_KEYS, TALK_UP_SAFETY_RANGE } from '#modules/director/talk.up.js';
+import { ABOUT_THE_RECORD_DEFAULT, ABOUT_THE_RECORD_KEYS } from '#modules/director/about.the.record.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { TRANSCODE_PLUGIN_KEY } from '#modules/render/transcode.settings.js';
 import { SHARE_COPY_DAYS_DEFAULT, SHARE_COPY_DAYS_KEY, SHARE_COPY_DAYS_MAX, SHARE_COPY_DAYS_MIN } from '#modules/render/segment.share.settings.js';
@@ -253,6 +264,28 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         default: STREAM_DEFAULTS.title,
         help: 'What players and directories show. Icecast advertises it on the mount.',
+    },
+    {
+        group: 'station',
+        key: STATION_IDENTITY_KEY,
+        label: 'About the station',
+        type: 'text',
+        default: '',
+        placeholder: 'An independent station in Atlanta playing soul, funk and the records around them, for people who stay up late.',
+        help:
+            'Who the station is, in a sentence or two: what it plays, who it is for, what it stands for. Every presenter is told it as background, ' +
+            'above whichever show is on. Leave empty and they know only the station’s name.',
+    },
+    {
+        group: 'station',
+        key: STATION_CONTEXT_KEY,
+        label: 'What is going on at the station',
+        type: 'text',
+        default: '',
+        placeholder: 'It is our tenth birthday this week. The studio is snowed in.',
+        help:
+            'Anything true right now that a presenter would know: an anniversary, a fundraiser, a move. Told to every break as something to know ' +
+            'rather than to say, so it comes up where it fits instead of in every link. Clear it when it stops being true.',
     },
     {
         group: 'station',
@@ -867,6 +900,35 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'breaks',
+        key: TALK_UP_KEYS.enabled,
+        label: 'Talk up to the post',
+        type: 'boolean',
+        default: TALK_UP_DEFAULT,
+        dependsOn: ROTATION_KEYS.breaks,
+        help: 'When a link is short enough to finish before the singing starts on the next record, the presenter says it over that record’s intro instead of in the gap, landing the last word just before the first sung one. Where the singing starts comes from the record’s timed lyrics, so this does nothing until lyrics are switched on under Measurement, and a record with none is introduced in the gap as before. You can correct where the singing starts on any record’s page.',
+    },
+    {
+        group: 'breaks',
+        key: ABOUT_THE_RECORD_KEYS.enabled,
+        label: 'Tell the presenter what each record is about',
+        type: 'boolean',
+        default: ABOUT_THE_RECORD_DEFAULT,
+        dependsOn: ROTATION_KEYS.breaks,
+        help: 'Shows the writer of a link the one-sentence summary a model wrote of each record, so the presenter can say something about the song rather than only its name. The presenter is never shown the lyrics themselves, and a link that quotes six words of them in a row is thrown away and written again. Needs saying what each record is about switched on under Words.',
+    },
+    {
+        group: 'breaks',
+        key: TALK_UP_KEYS.safetyMs,
+        label: 'Room left before the singing (ms)',
+        type: 'number',
+        default: DEFAULT_TALK_UP_SAFETY_MS,
+        dependsOn: TALK_UP_KEYS.enabled,
+        min: TALK_UP_SAFETY_RANGE.min,
+        max: TALK_UP_SAFETY_RANGE.max,
+        help: 'How long before the first sung word the presenter has to have finished. Lyric timings are typed by people and can be a little early or late, so the default leaves a second and a half.',
+    },
+    {
+        group: 'breaks',
         key: BREAK_WORD_KEYS.story,
         label: 'Words a story may run to',
         type: 'number',
@@ -1442,6 +1504,42 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'llm',
+        key: LYRIC_MOODS_KEYS.enabled,
+        label: 'Let a model judge what mood each record is in',
+        type: 'boolean',
+        default: LYRIC_MOODS_DEFAULT,
+        help: 'A model reads each record’s lyrics, and where the station can search the web, what is written about it, and judges how much of it is love, happiness, comfort, sadness, loneliness, anger or fear. A schedule slot can then lean toward one of those. A judgement like this is often wrong about a single record, so it only ever makes a fitting record a little more likely to be picked and never keeps one off the air. It runs in the background at the lowest priority, so a talk break always gets the model first, and it will take days rather than minutes to work through a library.',
+    },
+    {
+        group: 'llm',
+        key: LYRIC_MOODS_KEYS.model,
+        label: 'Model for judging moods',
+        type: 'string',
+        dependsOn: LYRIC_MOODS_KEYS.enabled,
+        default: '',
+        optionsFrom: 'llm.models',
+        help: "Nothing is waiting on a mood, so a slower and more careful model costs you nothing here. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
+    },
+    {
+        group: 'llm',
+        key: LYRIC_SUBJECT_KEYS.enabled,
+        label: 'Let a model say what each record is about',
+        type: 'boolean',
+        default: LYRIC_SUBJECTS_DEFAULT,
+        help: 'A model reads each record’s lyrics, and where the station can search the web, what is written about it, and sums up what the record is about in one sentence of its own. A sentence that repeats a run of the lyrics is thrown away rather than kept, because the presenter may say it. On its own this only stores the sentences; switch on telling the presenter under Breaks to use them. It runs in the background at the lowest priority.',
+    },
+    {
+        group: 'llm',
+        key: LYRIC_SUBJECT_KEYS.model,
+        label: 'Model for saying what records are about',
+        type: 'string',
+        dependsOn: LYRIC_SUBJECT_KEYS.enabled,
+        default: '',
+        optionsFrom: 'llm.models',
+        help: "Nothing is waiting on these either, so a slower and more careful model costs you nothing. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
+    },
+    {
+        group: 'llm',
         key: PERSONA_NOTES_KEYS.enabled,
         label: 'Let a model read each character back to itself',
         type: 'boolean',
@@ -1541,6 +1639,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         min: 0,
         max: MAX_ANALYSIS_PACE_MS,
         help: 'A record the station has already kept costs no provider request to measure, so this can be far shorter than the download pause above — but it is not free: it is still disk and decode time on whatever machine is running the analyzer. Set to 0 to measure the local half of the library flat out.',
+    },
+    {
+        group: 'analysis',
+        key: LYRICS_KEYS.fetch,
+        label: 'Look up the words of each record',
+        type: 'boolean',
+        default: LYRICS_FETCH_DEFAULT,
+        help: 'Asks your lyrics plugins for the words of each record and the timing of each line, a few records at a time in the background. The station never says or shows them: what it uses is when the singing starts and stops, and what a record is about. Lyrics are somebody else’s copyrighted text and the sources are run by volunteers, so this stays off until you decide to keep them.',
     },
 
     // ── schedule ───────────────────────────────────────────────────────────────
@@ -1952,6 +2058,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         placeholder: 'No order set, so each plugin’s own declared priority decides.',
         columns: [{ key: 'source', label: 'Source', type: 'select', required: true }],
         help: 'Every source is asked about a record and the answers are merged field by field, so this only decides who wins where two of them disagree — about a release year, a label, a running time. Each plugin already declares how much to trust it, which is the author’s view of their own source and the order used when this is empty. Set it when you can see that on your library one source is right and another is not. It changes what is looked up next rather than what is already stored: a record keeps the details it was filled in with until something enriches it again.',
+    },
+    {
+        group: 'providers',
+        key: LYRICS_KEYS.providerOrder,
+        label: 'Which lyrics source to ask first',
+        type: 'list',
+        placeholder: 'No order set, so each plugin’s own declared priority decides.',
+        columns: [{ key: 'source', label: 'Source', type: 'select', required: true }],
+        help: 'Every lyrics source is asked about a record and each answer is kept, since one may have the timing of each line where another has only the words. This decides who is asked first. A record whose words were found is not asked about again.',
     },
 ];
 

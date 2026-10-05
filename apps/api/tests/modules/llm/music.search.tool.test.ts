@@ -17,6 +17,8 @@ import { DateTime } from 'luxon';
 import { SearchedRecords } from '../../../src/modules/shared/searched.records.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
+import type { NeverPlay } from '../../../src/modules/director/never.play.js';
+import { LYRIC_SUBJECT_KEYS } from '../../../src/modules/lyrics/lyrics.keys.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -46,6 +48,10 @@ interface Build {
     settings?: Record<string, unknown>;
     /** The broadcast on air, which is what seeds the library's row ordering. */
     broadcastId?: string;
+    /** Never-play rules holding now, and the library rows (by title) they forbid. */
+    neverPlay?: { rules: unknown[]; blockedTitles: string[] };
+    /** How many records have a subject, and how many there are. */
+    coverage?: { withSubject: number; total: number };
 }
 
 function build({
@@ -58,11 +64,14 @@ function build({
     airedLately = [],
     settings = {},
     broadcastId,
+    neverPlay: forbidden,
+    coverage = { withSubject: 0, total: 0 },
 }: Build = {}) {
     const searchPlayable = vi.fn(async () => library);
     const ownership = vi.fn(async () => ({ owned: new Set(ownedKeys), banned: new Set(bannedKeys) }));
     const dislikedArtistKeys = vi.fn(async () => new Set(bannedArtists.map(normalizeKey)));
-    const tracks = { searchPlayable, ownership, dislikedArtistKeys } as unknown as TracksRepository;
+    const subjectCoverage = vi.fn(async () => coverage);
+    const tracks = { searchPlayable, ownership, dislikedArtistKeys, subjectCoverage } as unknown as TracksRepository;
 
     const search = vi.fn(async () => ({ tracks: reached, searched: 1 }));
     const providers = { search, canSearch: () => true } as unknown as ProviderSearch;
@@ -83,8 +92,17 @@ function build({
 
     const searched = new SearchedRecords();
 
+    // No rules by default, which is every station until somebody writes one.
+    const neverPlay = {
+        holding: vi.fn(async () => forbidden?.rules ?? []),
+        blockedUnder: vi.fn(
+            async (_rules: unknown, ids: readonly string[]) =>
+                new Map(ids.filter(id => forbidden?.blockedTitles.includes(id) ?? false).map(id => [id, { field: 'genre', value: 'x' }])),
+        ),
+    } as unknown as NeverPlay;
+
     return {
-        tool: new MusicSearchTool(tracks, providers, queued, aired, searched, identity, config, logger),
+        tool: new MusicSearchTool(tracks, providers, queued, aired, searched, identity, neverPlay, config, logger),
         searchPlayable,
         search,
         ownership,
@@ -486,5 +504,53 @@ describe('MusicSearchTool', () => {
         await run(tool, { query: 'Miami Nights' });
 
         expect(searched.size).toBe(1);
+    });
+
+    it('shows the model nothing a never-play rule forbids, reading further into the library to make up for it', async () => {
+        const { tool, searchPlayable } = build({
+            library: [
+                { trackId: 'Jolene', title: 'Jolene', artistName: 'Dolly Parton', year: 1973, genre: 'country' },
+                { trackId: 'Roads', title: 'Roads', artistName: 'Portishead', year: 1994, genre: 'trip hop' },
+            ] as never,
+            neverPlay: { rules: [{ id: 'no-country' }], blockedTitles: ['Jolene'] },
+        });
+
+        const { tracks } = await run(tool, { query: 'night', limit: 10 });
+
+        expect(tracks.map(track => track.title)).toEqual(['Roads']);
+        expect(searchPlayable).toHaveBeenCalledWith('night', 30, false, expect.anything());
+    });
+});
+
+describe('MusicSearchTool searching by what a record is about', () => {
+    const on = { [LYRIC_SUBJECT_KEYS.enabled]: 'true' };
+    const parameters = async (tool: MusicSearchTool) =>
+        (await only(tool)).declaration.parameters as { properties: Record<string, { description: string }> };
+
+    it('offers no about while subjects are off, or none has been written', async () => {
+        expect((await parameters(build({ coverage: { withSubject: 30, total: 40 } }).tool)).properties).not.toHaveProperty('about');
+        expect((await parameters(build({ settings: on, coverage: { withSubject: 0, total: 40 } }).tool)).properties).not.toHaveProperty('about');
+    });
+
+    it('offers about once there are subjects, and says when they are a minority', async () => {
+        const most = (await parameters(build({ settings: on, coverage: { withSubject: 35, total: 40 } }).tool)).properties.about;
+        const few = (await parameters(build({ settings: on, coverage: { withSubject: 4, total: 40 } }).tool)).properties.about;
+
+        expect(most?.description).not.toContain('so far');
+        expect(few?.description).toContain('Only 4 of the 40 records');
+    });
+
+    it('searches the library by what records are about, and never the providers', async () => {
+        const { tool, searchPlayable, search } = build({
+            settings: on,
+            coverage: { withSubject: 35, total: 40 },
+            library: [{ title: 'Roads', artistName: 'Portishead', year: 1994 }],
+        });
+
+        const result = await run(tool, { about: 'leaving town' });
+
+        expect(searchPlayable).toHaveBeenCalledWith('', expect.any(Number), false, expect.objectContaining({ about: 'leaving town' }));
+        expect(search).not.toHaveBeenCalled();
+        expect(result.tracks.map(row => row.title)).toEqual(['Roads']);
     });
 });

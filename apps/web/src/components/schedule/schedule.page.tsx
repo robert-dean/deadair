@@ -17,6 +17,7 @@ import { OverrunPanel } from './overrun.panel';
 import { colorOf, weekdayOf } from './schedule.day';
 import { blockEdit, drawnEnd, minutesOf, type DraggedBlock, type SlotEdit } from './schedule.edits';
 import { SlotEditor, type EditorTarget } from './slot.editor';
+import { RulesPanel } from './rules.panel';
 import { RequestsPanel } from '../requests/requests.panel';
 import { SustainingPanel } from './sustaining.panel';
 import { i18n } from '../../i18n/i18n.setup';
@@ -92,9 +93,10 @@ export const PROGRAMME_TABS = [
     programmeTab('week'),
     programmeTab('sustaining'),
     programmeTab('requests'),
+    programmeTab('rules'),
 ] as const satisfies readonly DestinationTab<string>[];
 
-function programmeTab<TKey extends 'today' | 'week' | 'sustaining' | 'requests'>(key: TKey) {
+function programmeTab<TKey extends 'today' | 'week' | 'sustaining' | 'requests' | 'rules'>(key: TKey) {
     return {
         key,
         get label(): string {
@@ -312,6 +314,9 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
             {/* A request is a record the station will play a few records from now, which is this
                 destination's question. See the panel. */}
             {tab === 'requests' ? <RequestsPanel /> : undefined}
+
+            {/* Leaning the station toward some genres, and never playing others. See the panel. */}
+            {tab === 'rules' ? <RulesPanel /> : undefined}
 
             {/* The other half of "what happens when", and the reason Today is a tab rather than the
                 day grid: a band is a rule about every hour and has no place on a week. */}

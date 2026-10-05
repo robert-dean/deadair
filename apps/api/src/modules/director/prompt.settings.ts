@@ -6,7 +6,33 @@ import type { AnswerGuard, PromptSettings } from './break.prompt.js';
 import type { BreakWriteRequest } from './break.writer.js';
 
 /** The part of a break prompt's settings that is the station's rather than the break's. */
-export type StationPromptSettings = Required<Pick<PromptSettings, 'station' | 'dj' | 'cleanLanguage'>> & Pick<PromptSettings, 'language'>;
+export type StationPromptSettings = Required<Pick<PromptSettings, 'station' | 'dj' | 'cleanLanguage'>> &
+    Pick<PromptSettings, 'language' | 'stationIdentity' | 'stationContext'>;
+
+/**
+ * Who the station is, in the operator's words: what it plays, who it is for, what it stands for.
+ *
+ * Above every show and every persona, and standing: it changes when the station does, not with the
+ * hour. A persona says how the presenter talks; this says what they are talking on.
+ */
+export const STATION_IDENTITY_KEY = 'station.identity';
+
+/**
+ * What is true at the station right now: a move, an anniversary, a fundraiser, the snow.
+ *
+ * Offered as background rather than as something to say, which is the whole difference between this
+ * and a brief: a fact every break was TOLD to mention would be every break.
+ */
+export const STATION_CONTEXT_KEY = 'station.context';
+
+/** The longest either may be, so one pasted essay cannot become most of every prompt. */
+export const STATION_TEXT_MAX = 1200;
+
+/** A stored text setting, trimmed and bounded, or nothing when it is empty. */
+const stationText = (config: AppConfig, key: string): string | undefined => {
+    const value = String(config.get(key, '') ?? '').trim();
+    return value === '' ? undefined : value.slice(0, STATION_TEXT_MAX);
+};
 
 /**
  * What every model writer tells the model about the station, read from the config for one break.
@@ -27,6 +53,8 @@ export function stationPromptSettings(config: AppConfig, request: Pick<BreakWrit
         // manner rather than a character has no reason to rename the presenter.
         dj: request.persona?.djName ?? config.get(TEMPLATE_KEYS.djName, ''),
         cleanLanguage: speaksClean(advisoryPolicy(config)),
+        ...optional('stationIdentity', stationText(config, STATION_IDENTITY_KEY)),
+        ...optional('stationContext', stationText(config, STATION_CONTEXT_KEY)),
         // Absent for English rather than `'en'`, so an English station's prompt is byte for byte what
         // it was before a station could broadcast in anything else.
         ...(language === undefined ? {} : { language }),
@@ -43,6 +71,9 @@ export function languageGuard(config: AppConfig): Pick<AnswerGuard, 'language'> 
     const language = stationLanguage(config);
     return language === undefined ? {} : { language };
 }
+
+const optional = <K extends string>(key: K, value: string | undefined): Partial<Record<K, string>> =>
+    value === undefined ? {} : ({ [key]: value } as Record<K, string>);
 
 /**
  * Who may be named in front of a script as its speaker, as a field on an answer guard.

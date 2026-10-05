@@ -40,6 +40,21 @@ export const programme = {
         toDescription: 'Empty means no upper bound.',
         note: 'A record whose release year the catalogue does not know is played whatever the period. Leaving it out is not evidence of the wrong decade, and demanding one would empty the draw on a library nothing has enriched.',
     },
+    mood: {
+        label: 'Leans toward',
+        description:
+            'Records a model has judged to be in this mood are a little more likely to be picked. Nothing is ever kept off the air for it, and it does nothing until moods are switched on under Words.',
+        none: 'No lean',
+        options: {
+            love: 'Love',
+            happiness: 'Happiness',
+            comfort: 'Comfort',
+            sadness: 'Sadness',
+            loneliness: 'Loneliness',
+            anger: 'Anger',
+            fear: 'Fear',
+        },
+    },
     shape: {
         modeLabel: 'Mode',
         mode: {

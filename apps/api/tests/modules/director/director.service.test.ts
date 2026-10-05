@@ -41,11 +41,15 @@ import { BreakPlanner } from '../../../src/modules/director/break.planner.js';
 import { BreakRequestRepository } from '../../../src/modules/director/break.request.repository.js';
 import type { StoredBreakRequest } from '../../../src/modules/director/break.request.js';
 import { PersonaRepository } from '../../../src/modules/personas/persona.repository.js';
+import { PersonaArtworkService } from '../../../src/modules/art/persona.artwork.service.js';
 import { SegmentRepository, type Segment } from '../../../src/modules/render/segment.repository.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import { Heartbeat, HEARTBEATS } from '../../../src/modules/shared/heartbeat.js';
 import { WARMUP_KIND } from '../../../src/modules/director/warmup.writer.js';
+import { VocalMarkersReader } from '../../../src/modules/lyrics/vocal.markers.reader.js';
+import type { VocalMarkers } from '../../../src/modules/lyrics/vocal.ranges.js';
+import { TALK_UP_KEYS } from '../../../src/modules/director/talk.up.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -146,6 +150,8 @@ interface Options {
     personas?: { active?: string; known?: string[]; names?: Record<string, string> };
     /** A personas table that cannot be read at all, which must leave the breaks alone. */
     personasFail?: boolean;
+    /** Portraits by persona id, as `PersonaArtworkService.portraitUrl` answers them. */
+    portraits?: Record<string, string>;
     /**
      * Productions still being made, as `ProductionRepository.unfinished` answers them.
      *
@@ -163,6 +169,8 @@ interface Options {
     beats?: Record<string, { id: string; state: string }[]>;
     /** Which productions have been joined into one row, keyed by production id. */
     joined?: Record<string, { id: string; durationMs?: number }>;
+    /** Where the singing starts on each catalogued record, keyed by track id, for the talk-up. */
+    vocalMarkers?: Record<string, VocalMarkers>;
 }
 
 function build(options: Options = {}) {
@@ -407,39 +415,51 @@ function build(options: Options = {}) {
         }),
     };
 
+    const markersReader = {
+        forTracks: vi.fn(
+            async (ids: readonly string[]) =>
+                new Map(ids.flatMap(id => (options.vocalMarkers?.[id] === undefined ? [] : [[id, options.vocalMarkers[id]!] as const]))),
+        ),
+    };
+    const portraits = { portraitUrl: vi.fn(async (personaId: string) => options.portraits?.[personaId]) };
+
     const scope = {
         get: vi.fn((token: unknown) =>
-            token === PersonaRepository
-                ? personas
-                : token === ProductionRepository
-                  ? productions
-                  : token === BreakRequestRepository
-                    ? requests
-                    : token === StationLineupRepository
-                      ? lineups
-                      : token === StationAirRepository
-                        ? airRepository
-                        : token === SegmentRepository
-                          ? segments
-                          : token === BreakPlanner
-                            ? breaks
-                            : token === CandidatesRepository
-                              ? candidates
-                              : token === ArtRepository
-                                ? art
-                                : token === TrackAudioService
-                                  ? trackAudio
-                                  : token === TrackCachePlanner
-                                    ? cachePlanner
-                                    : token === AnalysisRepository
-                                      ? analysis
-                                      : token === PodcastScheduler
-                                        ? podcastScheduler
-                                        : token === PodcastEpisodeRepository
-                                          ? podcastEpisodes
-                                          : token === PersonaTellingRepository
-                                            ? personaTellings
-                                            : history,
+            token === VocalMarkersReader
+                ? markersReader
+                : token === PersonaArtworkService
+                  ? portraits
+                  : token === PersonaRepository
+                    ? personas
+                    : token === ProductionRepository
+                      ? productions
+                      : token === BreakRequestRepository
+                        ? requests
+                        : token === StationLineupRepository
+                          ? lineups
+                          : token === StationAirRepository
+                            ? airRepository
+                            : token === SegmentRepository
+                              ? segments
+                              : token === BreakPlanner
+                                ? breaks
+                                : token === CandidatesRepository
+                                  ? candidates
+                                  : token === ArtRepository
+                                    ? art
+                                    : token === TrackAudioService
+                                      ? trackAudio
+                                      : token === TrackCachePlanner
+                                        ? cachePlanner
+                                        : token === AnalysisRepository
+                                          ? analysis
+                                          : token === PodcastScheduler
+                                            ? podcastScheduler
+                                            : token === PodcastEpisodeRepository
+                                              ? podcastEpisodes
+                                              : token === PersonaTellingRepository
+                                                ? personaTellings
+                                                : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -1652,6 +1672,23 @@ describe('DirectorService telling the transport what is on', () => {
         expect(rundown.broadcast()).toEqual({ name: 'Afternoons', host: 'Cap Ray' });
     });
 
+    it('tells the transport the host’s portrait beside their name', async () => {
+        const options = {
+            items: ['a'],
+            personas: { active: 'classic', known: ['classic', 'pirate'], names: { classic: 'Ray', pirate: 'Cap Ray' } },
+            portraits: { pirate: 'art/portrait-1/cover.png' },
+        };
+        const { director, rundown, seed } = build(options);
+        await seed();
+        await director.start();
+        // A host with no picture has none on the broadcast, rather than an empty one.
+        expect(rundown.broadcast()).toEqual({ name: 'Afternoons', host: 'Ray' });
+
+        await director.post({ kind: 'recast', bind: { personaId: 'pirate' } });
+
+        expect(rundown.broadcast()).toEqual({ name: 'Afternoons', host: 'Cap Ray', hostArtUrl: 'art/portrait-1/cover.png' });
+    });
+
     it('changes the host when the station itself changes character', async () => {
         const options = { items: ['a'], personas: { active: 'classic', known: ['classic', 'pirate'], names: { classic: 'Ray', pirate: 'Cap Ray' } } };
         const { director, rundown, seed } = build(options);
@@ -2833,6 +2870,65 @@ describe('DirectorService committing across a change underneath it', () => {
         // for good: the items would read as spent and nothing would ever offer them again.
         expect(lineup.committedThrough()).toBe(0);
         expect(lineup.remaining()).toBe(4);
+    });
+});
+
+// Talking up to the post: an ordinary link rendered short enough to finish before the singing starts
+// rides the record after it, exactly as a talk-over does, instead of airing in the gap. Off by
+// default, and anything it cannot judge airs in the gap as before.
+describe('DirectorService talking a link up to the post', () => {
+    const link = (durationMs: number) => ({ id: 'seg-1', kind: 'talkbreak', state: 'ready' as const, label: 'A link', source: 'render', durationMs });
+    // The singing starts fifteen seconds into 'a'. With the default room of a second and a half and
+    // the duck's 300ms ramp after the last word, a six-second link must start by
+    // (15000 - 1500 - 6300) / 1.035 = 6956ms, allowing for the cue clock running slow.
+    const sung = { kind: 'ranges' as const, onsetMs: 15_000, endMs: 200_000, ranges: [] };
+
+    async function run(options: { durationMs?: number; markers?: VocalMarkers; setting?: string }) {
+        const built = build({
+            items: ['a', 'b'],
+            segments: [link(options.durationMs ?? 6_000)],
+            vocalMarkers: options.markers === undefined ? {} : { 'track-a': options.markers },
+        });
+        if (options.setting !== undefined) built.station.set(TALK_UP_KEYS.enabled, options.setting);
+        await built.seedCatalogued();
+        built.lineup.insertSegment('seg-1', 0);
+        await built.director.start();
+        await settle();
+        return built;
+    }
+
+    it('airs the link in the gap when talking up has never been switched on', async () => {
+        const { rundown } = await run({ markers: sung });
+        expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
+    });
+
+    it('airs it in the gap when the switch is stored as the string false', async () => {
+        const { rundown } = await run({ markers: sung, setting: 'false' });
+        expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
+    });
+
+    it('rides the record so the last word lands before the first sung one', async () => {
+        const { rundown, lineup } = await run({ markers: sung, setting: 'true' });
+        const record = rundown.upcoming().find(item => item.externalId === 'a');
+
+        expect(record?.voice).toEqual({ segmentId: 'seg-1', atMs: 6_956, itemId: lineup.all()[0]!.id });
+        // Stored as a talk-over, so the sweep that runs when 'a' starts does not count it as missed.
+        expect(lineup.all()[0]).toMatchObject({ state: 'handed', over: { atMs: 6_956 } });
+    });
+
+    it('airs a link too long for the intro in the gap rather than trimming it', async () => {
+        const { rundown } = await run({ durationMs: 14_000, markers: sung, setting: 'true' });
+        expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
+    });
+
+    it('airs it in the gap when there is nothing to say where the singing starts', async () => {
+        const { rundown } = await run({ setting: 'true' });
+        expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
+    });
+
+    it('airs it in the gap before an instrumental, which has no post to talk up to', async () => {
+        const { rundown } = await run({ markers: { kind: 'instrumental' }, setting: 'true' });
+        expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
     });
 });
 

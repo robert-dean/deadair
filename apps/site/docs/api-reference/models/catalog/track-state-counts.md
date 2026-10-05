@@ -1,6 +1,6 @@
 ---
 title: 'TrackStateCounts'
-sidebar_position: 17
+sidebar_position: 19
 mdx:
     format: 'md'
 ---
@@ -13,15 +13,19 @@ mdx:
 > read as N of M without reaching into the pager.
 
 <details>
-<summary>Attributes (6)</summary>
+<summary>Attributes (10)</summary>
 
-| Attribute  | Type     | Required | Description |
-| ---------- | -------- | -------- | ----------- |
-| `total`    | `number` | Yes      | _read-only_ |
-| `cached`   | `number` | Yes      | _read-only_ |
-| `measured` | `number` | Yes      | _read-only_ |
-| `enriched` | `number` | Yes      | _read-only_ |
-| `benched`  | `number` | Yes      | _read-only_ |
-| `failing`  | `number` | Yes      | _read-only_ |
+| Attribute      | Type     | Required | Description                                                                                  |
+| -------------- | -------- | -------- | -------------------------------------------------------------------------------------------- |
+| `total`        | `number` | Yes      | _read-only_                                                                                  |
+| `cached`       | `number` | Yes      | _read-only_                                                                                  |
+| `measured`     | `number` | Yes      | _read-only_                                                                                  |
+| `enriched`     | `number` | Yes      | _read-only_                                                                                  |
+| `benched`      | `number` | Yes      | _read-only_                                                                                  |
+| `failing`      | `number` | Yes      | _read-only_                                                                                  |
+| `lyrics`       | `number` | Yes      | A lyrics source has the words of it. The words themselves are never served. _read-only_      |
+| `synced`       | `number` | Yes      | A lyrics source has the timing of its lines, which says when the singing starts. _read-only_ |
+| `instrumental` | `number` | Yes      | A lyrics source says nobody sings on it. _read-only_                                         |
+| `moods`        | `number` | Yes      | A model has judged what mood it is in. _read-only_                                           |
 
 </details>

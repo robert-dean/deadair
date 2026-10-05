@@ -22,6 +22,7 @@ public sealed class DeadairSdk : IDisposable
         Activity = new ActivityClient(Http);
         ArtBreaks = new ArtBreaksClient(Http);
         Art = new ArtClient(Http);
+        ArtPersonas = new ArtPersonasClient(Http);
         AuthenticationApikeys = new AuthenticationApikeysClient(Http);
         Authentication = new AuthenticationClient(Http);
         AuthenticationFactor = new AuthenticationFactorClient(Http);
@@ -30,6 +31,7 @@ public sealed class DeadairSdk : IDisposable
         Charts = new ChartsClient(Http);
         Clock = new ClockClient(Http);
         Director = new DirectorClient(Http);
+        Rules = new RulesClient(Http);
         History = new HistoryClient(Http);
         Languages = new LanguagesClient(Http);
         Messaging = new MessagingClient(Http);
@@ -67,6 +69,8 @@ public sealed class DeadairSdk : IDisposable
 
     public ArtClient Art { get; }
 
+    public ArtPersonasClient ArtPersonas { get; }
+
     public AuthenticationApikeysClient AuthenticationApikeys { get; }
 
     public AuthenticationClient Authentication { get; }
@@ -82,6 +86,8 @@ public sealed class DeadairSdk : IDisposable
     public ClockClient Clock { get; }
 
     public DirectorClient Director { get; }
+
+    public RulesClient Rules { get; }
 
     public HistoryClient History { get; }
 

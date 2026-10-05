@@ -1242,9 +1242,18 @@ export const MAX_RECENT_ECHO_WORDS = 11;
  * break that short is usually an ident, and saying the station's name again is the job.
  */
 export function repeatOf(recent: readonly string[], script: string): string | undefined {
+    return runOf(recent, script, MAX_RECENT_ECHO_WORDS + 1);
+}
+
+/**
+ * The line a script shares `run` consecutive words with, or `undefined`. A line shorter than the run
+ * is never matched, which is {@link repeatOf}'s rule and the one a song's lyric needs too: a chorus of
+ * "oh baby" appears in plenty of scripts nobody copied from anything.
+ */
+export function runOf(lines: readonly string[], script: string, run: number): string | undefined {
     const spoken = ` ${wordsOf(script).join(' ')} `;
 
-    return recent.find(line => sharesRun(wordsOf(line), spoken, MAX_RECENT_ECHO_WORDS + 1));
+    return lines.find(line => sharesRun(wordsOf(line), spoken, run));
 }
 
 /** Whether any `run` consecutive words of `words` appear in `spoken`, which is space-padded. */

@@ -18,6 +18,10 @@ import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.
 import { DEFAULT_RULES, resolveRules } from '../../../src/modules/director/rotation.rules.js';
 import { DEFAULT_SMART_SHUFFLE_DAYS, SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
+import type { BlockRulesRepository } from '../../../src/modules/director/block.rules.repository.js';
+import type { LyricLabelsRepository } from '../../../src/modules/lyrics/lyric.labels.repository.js';
+import type { MoodDistribution } from '../../../src/modules/lyrics/lyric.moods.js';
+import { MOOD_BOOST } from '../../../src/modules/director/mood.lean.js';
 
 const candidate = (title: string, artist: string, rating = 0): CandidateTrack => ({
     trackId: `id-${artist}-${title}`,
@@ -34,12 +38,24 @@ interface Options {
     /** When each song last aired, as history answers it inside the smart shuffle's horizon. */
     lastAired?: Map<string, DateTime>;
     settings?: Record<string, unknown>;
+    /** A genre steer in force, and the extra sample its loose draw finds. */
+    steer?: { genres: string[]; leaning: CandidateTrack[] };
+    /** Each track's genres, as `tagsFor` answers them. */
+    tags?: Record<string, string[]>;
+    /** What mood a model judged each record to be in, keyed by track id. */
+    moods?: Map<string, MoodDistribution>;
+    /** The judged moods cannot be read at all. */
+    moodsFail?: boolean;
 }
 
 function build(options: Options = {}) {
     const candidates = {
-        sample: vi.fn(async () => options.sample ?? []),
+        sample: vi.fn(async (...args: unknown[]) => (args[4] === undefined ? (options.sample ?? []) : (options.steer?.leaning ?? []))),
+        tagsFor: vi.fn(async (ids: readonly string[]) => new Map(ids.flatMap(id => (options.tags?.[id] ? [[id, options.tags[id]!]] : [])))),
     } as unknown as CandidatesRepository;
+    const rules = {
+        steer: vi.fn(async () => (options.steer === undefined ? undefined : { genres: options.steer.genres, endsAt: '2099-01-01T00:00:00.000Z' })),
+    } as unknown as BlockRulesRepository;
 
     const history = {
         songKeysSince: vi.fn(async (days: number) => (days > 0 ? (options.songKeys ?? new Set()) : new Set())),
@@ -54,9 +70,16 @@ function build(options: Options = {}) {
 
     const watch = { starved: vi.fn(), clear: vi.fn() } as unknown as AdvisoryWatch;
     const eraWatch = { starved: vi.fn(), clear: vi.fn() } as unknown as EraWatch;
+    const labels = {
+        moodsForTracks: vi.fn(async () => {
+            if (options.moodsFail) throw new Error('the labels table is gone');
+            return options.moods ?? new Map();
+        }),
+    } as unknown as LyricLabelsRepository;
 
     return {
-        generator: new CatalogSetGenerator(candidates, history, new StationIdentity(), config, watch, eraWatch),
+        generator: new CatalogSetGenerator(candidates, rules, history, new StationIdentity(), config, watch, eraWatch, labels),
+        labels,
         candidates,
         history,
         watch,
@@ -323,5 +346,109 @@ describe('CatalogSetGenerator under smart shuffle', () => {
         const { generator } = build({ sample, lastAired: new Map(sample.map(track => [songKey(track.title, [track.artist]), yesterday()])) });
 
         expect(await generator.generate({ count: 3, rules: rotation })).toHaveLength(3);
+    });
+
+    describe('a genre steer', () => {
+        it('draws the steered genre far more often, and still plays the rest', async () => {
+            const soul = Array.from({ length: 10 }, (_, n) => candidate(`Soul ${n}`, `Soul Artist ${n}`));
+            const other = Array.from({ length: 10 }, (_, n) => candidate(`Other ${n}`, `Other Artist ${n}`));
+            const tags = Object.fromEntries([
+                ...soul.map(track => [track.trackId, ['Northern Soul']]),
+                ...other.map(track => [track.trackId, ['Rock']]),
+            ]);
+            const { generator } = build({ sample: [...soul.slice(0, 3), ...other], steer: { genres: ['Soul'], leaning: soul }, tags });
+
+            let steeredDrawn = 0;
+            let otherDrawn = 0;
+            for (let run = 0; run < 40; run++) {
+                const picks = await generator.generate({ count: 5, rules: DEFAULT_RULES, avoidSongKeys: new Set() } as never);
+                steeredDrawn += picks.filter(pick => pick.title.startsWith('Soul')).length;
+                otherDrawn += picks.filter(pick => pick.title.startsWith('Other')).length;
+            }
+
+            expect(steeredDrawn).toBeGreaterThan(otherDrawn * 2);
+            expect(otherDrawn).toBeGreaterThan(0);
+        });
+
+        it('draws no extra sample and reads no tags when nothing is steering', async () => {
+            const { generator, candidates } = build({ sample: [candidate('One', 'A')] });
+
+            await generator.generate({ count: 1, rules: DEFAULT_RULES, avoidSongKeys: new Set() } as never);
+
+            expect(candidates.sample).toHaveBeenCalledTimes(1);
+            expect(candidates.tagsFor).not.toHaveBeenCalled();
+        });
+    });
+});
+
+describe('CatalogSetGenerator leaning toward a mood', () => {
+    const judged = (shares: Partial<MoodDistribution>): MoodDistribution => ({
+        love: 0,
+        happiness: 0,
+        comfort: 0,
+        sadness: 0,
+        loneliness: 0,
+        anger: 0,
+        fear: 0,
+        ...shares,
+    });
+    // Pinning the ticket lets the weights decide, as the smart shuffle's cases do.
+    const pinTicket = () => vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const off = { [SMART_SHUFFLE_KEYS.enabled]: 'false' };
+
+    it('draws the record in the mood over one that is not', async () => {
+        const random = pinTicket();
+        const { generator } = build({
+            sample: [candidate('Party', 'One'), candidate('Lullaby', 'Two')],
+            moods: new Map([['id-Two-Lullaby', judged({ comfort: 0.8, love: 0.2 })]]),
+            settings: off,
+        });
+
+        expect((await generator.generate({ count: 1, rules: rotation, mood: 'comfort' })).map(pick => pick.title)).toEqual(['Lullaby']);
+        random.mockRestore();
+    });
+
+    it('asks nothing about moods for a broadcast that names none, and draws as before', async () => {
+        const random = pinTicket();
+        const { generator, labels } = build({ sample: [candidate('Party', 'One'), candidate('Lullaby', 'Two')], settings: off });
+
+        expect((await generator.generate({ count: 1, rules: rotation })).map(pick => pick.title)).toEqual(['Party']);
+        expect(labels.moodsForTracks).not.toHaveBeenCalled();
+        random.mockRestore();
+    });
+
+    it('still draws when the moods cannot be read, as though none was named', async () => {
+        const { generator } = build({ sample: [candidate('Party', 'One')], moodsFail: true, settings: off });
+        expect(await generator.generate({ count: 1, rules: rotation, mood: 'comfort' })).toHaveLength(1);
+    });
+
+    it('never keeps a record off the air: a library of forty plays all forty, leaning or not', async () => {
+        const sample = Array.from({ length: 40 }, (_, index) => candidate(`Song ${index}`, `Artist ${index}`));
+        const { generator } = build({
+            sample,
+            moods: new Map(sample.slice(0, 5).map(track => [track.trackId, judged({ sadness: 1 })])),
+            settings: off,
+        });
+
+        const picks = await generator.generate({ count: 40, rules: { ...rotation, artistCooldownMinutes: 0, repeatWindowDays: 0 }, mood: 'sadness' });
+
+        expect(new Set(picks.map(pick => pick.title)).size).toBe(40);
+    });
+
+    it('makes a fitting record twice as likely, the factor a like gets, and no more', async () => {
+        expect(MOOD_BOOST).toBe(2);
+        const sample = [candidate('Fits', 'One'), candidate('Other', 'Two')];
+        const { generator } = build({ sample, moods: new Map([['id-One-Fits', judged({ fear: 0.5, anger: 0.5 })]]), settings: off });
+
+        let fits = 0;
+        const draws = 3000;
+        for (let index = 0; index < draws; index++) {
+            const [pick] = await generator.generate({ count: 1, rules: rotation, mood: 'fear' });
+            if (pick?.title === 'Fits') fits++;
+        }
+
+        // Two to one is two thirds. A generous band, because this is a draw.
+        expect(fits / draws).toBeGreaterThan(0.6);
+        expect(fits / draws).toBeLessThan(0.73);
     });
 });

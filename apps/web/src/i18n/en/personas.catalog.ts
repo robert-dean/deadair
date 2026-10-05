@@ -7,6 +7,20 @@
  * as i18next variables.
  */
 export const personas = {
+    portrait: {
+        label: 'Picture',
+        description:
+            'Shown in listeners’ apps while this presenter is on air, in place of the record’s cover. Saved as soon as you drop it, not with the rest of this sheet.',
+        alt: 'A picture of {{name}}',
+        readFailed: 'The picture could not be read',
+        replaceFailed: 'The picture could not be saved',
+        removeFailed: 'The picture could not be removed',
+        drop: {
+            add: 'Drop a picture here, or click to choose one. JPEG, PNG, WebP or GIF, up to 4 MB.',
+            replace: 'Drop another picture to replace it.',
+        },
+        remove: 'Remove',
+    },
     shared: {
         done: 'Done',
         change: 'Change',
@@ -39,6 +53,7 @@ export const personas = {
         import: 'Import',
         restore: 'Restore built-ins',
         newCaller: 'New caller',
+        newNewsreader: 'New newsreader',
         newHost: 'New host',
         loadError: {
             title: 'Personas could not be loaded',
@@ -60,6 +75,7 @@ export const personas = {
         noMatch: 'No character here matches that. Clear the box to see the whole roster again.',
         heading: {
             hosts: 'Hosts',
+            newsreader: 'Newsreader',
             callers: 'Callers',
         },
     },
@@ -105,6 +121,7 @@ export const personas = {
     editor: {
         title: {
             newCaller: 'New caller',
+            newNewsreader: 'New newsreader',
             newHost: 'New host',
             edit: 'Edit {{label}}',
         },
@@ -389,6 +406,7 @@ export const personas = {
             stories: 'Stories',
         },
         caller: 'Caller',
+        newsreader: 'Newsreader',
         outcome: {
             create: 'New',
             update: 'Rewrite',

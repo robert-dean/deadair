@@ -9,7 +9,9 @@ import { QueuedRecords } from '#modules/shared/queued.records.js';
 import { AiredRecords } from '#modules/shared/aired.records.js';
 import { SearchedRecords } from '#modules/shared/searched.records.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { NeverPlay } from '#modules/director/never.play.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
+import { LYRIC_SUBJECT_KEYS, LYRIC_SUBJECTS_DEFAULT } from '#modules/lyrics/lyrics.keys.js';
 import { ProviderSearch, type FoundTrack } from './provider.search.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
 
@@ -64,6 +66,9 @@ import type { StationTool, ToolSource } from './llm.tools.js';
  * floor quietly fills the rest of the hour.
  */
 const MAX_RESULTS = 25;
+
+/** How many times the asked-for rows the library half is read when a never-play rule holds, before it is cut back. */
+const NEVER_PLAY_OVERFETCH = 3;
 
 /**
  * How few records a search may answer with, whatever was asked for.
@@ -152,6 +157,9 @@ interface MusicTrack {
     popularity?: number;
 }
 
+/** Below this share of the library with a subject, `about` says its matches are a sample. */
+const THIN_SUBJECT_SHARE = 0.5;
+
 @Injectable()
 export class MusicSearchTool implements ToolSource {
     constructor(
@@ -164,11 +172,40 @@ export class MusicSearchTool implements ToolSource {
         // the answer when the model stops talking is the refill's question. See `SearchedRecords`.
         private readonly searched: SearchedRecords,
         private readonly identity: StationIdentity,
+        // Never-play rules, so the model is not offered what the station will refuse. See `ownedAllowed`.
+        private readonly neverPlay: NeverPlay,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
 
+    /**
+     * The `about` parameter, or `undefined` when the station has no subjects to search.
+     *
+     * Offered only with `lyrics.subjects` on and at least one subject written, for the rule the other
+     * tools follow: a parameter whose every use answers nothing spends context teaching the model
+     * about something that cannot help it. And it says how many records have a subject when that is
+     * a minority, because a search that finds three records about leaving home in a library where
+     * only a tenth have been summed up reads, to a model, like a library with three such records.
+     */
+    private async aboutParameter(): Promise<{ type: 'string'; description: string } | undefined> {
+        if (!settingIsOn(this.config, LYRIC_SUBJECT_KEYS.enabled, LYRIC_SUBJECTS_DEFAULT)) return undefined;
+
+        const coverage = await this.tracks.subjectCoverage().catch(() => undefined);
+        if (coverage === undefined || coverage.withSubject === 0) return undefined;
+
+        const thin = coverage.withSubject < coverage.total * THIN_SUBJECT_SHARE;
+        return {
+            type: 'string',
+            description:
+                'What the record is ABOUT, in a few plain words ("leaving home", "a summer romance"), matched against a one-line summary the station keeps of its own records. Library only: provider records have no summary.' +
+                (thin
+                    ? ` Only ${coverage.withSubject} of the ${coverage.total} records in the library have one so far, so treat what comes back as a few examples, not the whole of it.`
+                    : ''),
+        };
+    }
+
     async tools(): Promise<StationTool[]> {
+        const about = await this.aboutParameter();
         return [
             {
                 // The catalog. It moves when somebody ingests, not on its own, and a record that
@@ -195,6 +232,7 @@ export class MusicSearchTool implements ToolSource {
                                     'Narrow to records released in or after this year. Narrows the library and the providers alike, and a record whose release year nobody recorded is still offered.',
                             },
                             yearTo: { type: 'number', description: 'Narrow to records released in or before this year. As yearFrom.' },
+                            ...(about === undefined ? {} : { about }),
                             limit: {
                                 type: 'number',
                                 description: `How many records, at most ${MAX_RESULTS}. Asking for fewer than ${MIN_RESULTS} still returns ${MIN_RESULTS}: you are choosing from what comes back, so a short list only narrows what you have to choose between.`,
@@ -222,12 +260,13 @@ export class MusicSearchTool implements ToolSource {
      */
     private async search(args: Record<string, unknown>): Promise<{ tracks: MusicTrack[] }> {
         const query = readText(args.query) ?? '';
+        const about = readText(args.about);
         const filters = {
             ...(readYear(args.yearFrom) === undefined ? {} : { yearFrom: readYear(args.yearFrom)! }),
             ...(readYear(args.yearTo) === undefined ? {} : { yearTo: readYear(args.yearTo)! }),
         };
-        if (query.length === 0 && Object.keys(filters).length === 0) {
-            throw new Error('a search needs a "query" string, or a year to narrow by');
+        if (query.length === 0 && about === undefined && Object.keys(filters).length === 0) {
+            throw new Error('a search needs a "query" string, an "about", or a year to narrow by');
         }
 
         const limit = clampLimit(args.limit);
@@ -244,9 +283,16 @@ export class MusicSearchTool implements ToolSource {
         //
         // The seed is the broadcast, which is what makes the library's arbitrary ordering hold still
         // for one programme and move between them. See `searchPlayable`'s order clause.
-        const owned = await this.tracks.searchPlayable(query, limit, cleanOnly, { ...filters, ...seedOf(this.identity.current()) });
+        const owned = await this.ownedAllowed(query, limit, cleanOnly, {
+            ...filters,
+            ...seedOf(this.identity.current()),
+            ...(about === undefined ? {} : { about }),
+        });
 
-        const reaching = owned.length < THIN || settingIsOn(this.config, MUSIC_SEARCH_KEYS.alwaysReach, ALWAYS_REACH_DEFAULT);
+        // Never with `about`: the providers keep no summary, so reaching them would answer the query
+        // alone and hand back records nobody judged to be about anything.
+        const reaching =
+            about === undefined && (owned.length < THIN || settingIsOn(this.config, MUSIC_SEARCH_KEYS.alwaysReach, ALWAYS_REACH_DEFAULT));
         const reached = reaching ? (await this.providers.search(query, filters, MAX_RESULTS)).tracks : [];
 
         const fromProviders = await this.fromProviders(reached, owned);
@@ -257,9 +303,37 @@ export class MusicSearchTool implements ToolSource {
         // for the run that cost an hour and for why the transcript is the wrong place to read it
         // back from.
         this.searched.remember(rows);
-        this.logger.debug('llm: searched for music', { query, ...filters, owned: owned.length, reached: reached.length, answered: rows.length });
+        this.logger.debug('llm: searched for music', {
+            query,
+            ...(about === undefined ? {} : { about }),
+            ...filters,
+            owned: owned.length,
+            reached: reached.length,
+            answered: rows.length,
+        });
 
         return { tracks: rows };
+    }
+
+    /**
+     * The library's half, without what a never-play rule forbids.
+     *
+     * Over-fetched three times and cut back when a rule holds, because a model shown too few rows pads
+     * its answer with repeats and the floor quietly fills the hour. Asked with no broadcast, so a
+     * rule scoped to a mode or a block is not judged here; `PickResolver` judges every pick against
+     * the broadcast it is for, and this only keeps the model from being offered what the station
+     * will refuse anyway. Provider rows the catalog has never seen carry no tags and are judged there.
+     */
+    private async ownedAllowed(query: string, limit: number, cleanOnly: boolean, options: Parameters<TracksRepository['searchPlayable']>[3]) {
+        const rules = await this.neverPlay.holding();
+        if (rules.length === 0) return await this.tracks.searchPlayable(query, limit, cleanOnly, options);
+
+        const rows = await this.tracks.searchPlayable(query, limit * NEVER_PLAY_OVERFETCH, cleanOnly, options);
+        const blocked = await this.neverPlay.blockedUnder(
+            rules,
+            rows.map(row => row.trackId),
+        );
+        return rows.filter(row => !blocked.has(row.trackId)).slice(0, limit);
     }
 
     /**

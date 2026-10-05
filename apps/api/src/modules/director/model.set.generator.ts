@@ -18,6 +18,7 @@ import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { advisoryPolicy, demandsClean } from './advisory.policy.js';
 import { artistKey } from './rotation.keys.js';
+import { BlockRulesRepository } from './block.rules.repository.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { readPicks, setPrompt, type TastePrompt } from './set.prompt.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -247,6 +248,8 @@ export class ModelSetGenerator extends SetGenerator {
         // What the search tool handed the model, for the runs where the model then says nothing
         // this can read. See `SearchedRecords` and {@link ModelSetGenerator.rescue}.
         private readonly searched: SearchedRecords,
+        // The genre steer, so a lean the operator set reaches the model too. See `genre.steer.ts`.
+        private readonly rules: BlockRulesRepository,
         private readonly config: AppConfig,
         private readonly logger: Logger,
         // For smart shuffle: when each song last aired, read here and handed to the search through
@@ -278,6 +281,7 @@ export class ModelSetGenerator extends SetGenerator {
         // and no row is marked, which is the search as it was.
         await this.rememberAired();
 
+        const steer = await this.rules.steer();
         const model = this.config.get(MODEL_GENERATOR_KEYS.model, '').trim();
         // Read per refill like the two above it, so an operator raising the ceiling after a run of
         // `length` finishes gets the new one on the next refill rather than at the next restart.
@@ -292,6 +296,9 @@ export class ModelSetGenerator extends SetGenerator {
                 // nothing for a model to split the difference between. It is advice either way —
                 // `PickResolver` drops an out-of-period pick whatever comes back.
                 ...(inputs.era === undefined ? {} : { era: inputs.era }),
+                // The genre steer, read per refill like everything above. Advice to the model and a
+                // weight in the catalog draw, never a filter: see `genre.steer.ts`.
+                ...(steer === undefined ? {} : { lean: steer.genres }),
             },
             {
                 station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),

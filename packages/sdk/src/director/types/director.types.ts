@@ -41,7 +41,7 @@ export type StationItemState = 'planned' | 'handed' | 'airing' | 'played' | 'ski
 
 /**
  * Change who is presenting the broadcast that is on air
- * generated from [SetStationHostInput](../../../../../apps/api/data/contracts/director/director.types.ck#L97)
+ * generated from [SetStationHostInput](../../../../../apps/api/data/contracts/director/director.types.ck#L99)
  */
 export interface SetStationHostInput {
     /** Who hosts it from here on. Absent hands it back to whichever persona the station has on air, which is what a broadcast that never named one already does */
@@ -50,7 +50,7 @@ export interface SetStationHostInput {
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](../../../../../apps/api/data/contracts/director/director.types.ck#L101)
+ * generated from [AddStationSegmentInput](../../../../../apps/api/data/contracts/director/director.types.ck#L103)
  */
 export interface AddStationSegmentInput {
     segmentId: string;
@@ -62,7 +62,7 @@ export interface AddStationSegmentInput {
 
 /**
  * Put a catalog record into the running order. Refused at the door — 404 for a record the catalog does not hold, 422 for one whose audio is not local yet — rather than accepted and left to fail when it comes round
- * generated from [AddStationTrackInput](../../../../../apps/api/data/contracts/director/director.types.ck#L107)
+ * generated from [AddStationTrackInput](../../../../../apps/api/data/contracts/director/director.types.ck#L109)
  */
 export interface AddStationTrackInput {
     trackId: string;
@@ -72,7 +72,7 @@ export interface AddStationTrackInput {
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](../../../../../apps/api/data/contracts/director/director.types.ck#L112)
+ * generated from [MoveStationItemInput](../../../../../apps/api/data/contracts/director/director.types.ck#L114)
  */
 export interface MoveStationItemInput {
     toIndex: number;
@@ -80,7 +80,7 @@ export interface MoveStationItemInput {
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](../../../../../apps/api/data/contracts/director/director.types.ck#L116)
+ * generated from [ExtendStationInput](../../../../../apps/api/data/contracts/director/director.types.ck#L118)
  */
 export interface ExtendStationInput {
     count?: number;
@@ -88,7 +88,7 @@ export interface ExtendStationInput {
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](../../../../../apps/api/data/contracts/director/director.types.ck#L120)
+ * generated from [ReplanStationInput](../../../../../apps/api/data/contracts/director/director.types.ck#L122)
  */
 export interface ReplanStationInput {
     /** How many records to programme. Absent is roughly an hour */
@@ -143,6 +143,8 @@ export interface PutOnAirInput {
     chartId?: string;
     /** Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId` */
     chartOrder?: 'countdown' | 'ranked' | 'unordered';
+    /** An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends */
+    albumId?: string;
     /** A playlist the station owns to build from instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`: its records are the library's own, so each airs from whichever provider serves a copy, and a row the library does not hold yet is left out */
     stationPlaylistId?: string;
     /** What to call this broadcast. Absent names it after the chart, or after the plugin, since only the surface that listed the source knows its own name for it */
@@ -155,6 +157,8 @@ export interface PutOnAirInput {
     eraFrom?: number;
     /** The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone */
     eraTo?: number;
+    /** The mood this broadcast leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean */
+    mood?: 'love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear';
     /** Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent is no calls: there is no station-wide default behind it */
     callins?: boolean;
     /** Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records, found through the similarity plugin. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off. A setlist and a feature never have anything mixed in */

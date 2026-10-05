@@ -4,6 +4,7 @@ package com.maroonedsoftware.deadair.sdk
 import com.maroonedsoftware.deadair.sdk.clients.ActivityClient
 import com.maroonedsoftware.deadair.sdk.clients.ArtBreaksClient
 import com.maroonedsoftware.deadair.sdk.clients.ArtClient
+import com.maroonedsoftware.deadair.sdk.clients.ArtPersonasClient
 import com.maroonedsoftware.deadair.sdk.clients.AuthenticationApikeysClient
 import com.maroonedsoftware.deadair.sdk.clients.AuthenticationClient
 import com.maroonedsoftware.deadair.sdk.clients.AuthenticationFactorClient
@@ -12,6 +13,7 @@ import com.maroonedsoftware.deadair.sdk.clients.CatalogClient
 import com.maroonedsoftware.deadair.sdk.clients.ChartsClient
 import com.maroonedsoftware.deadair.sdk.clients.ClockClient
 import com.maroonedsoftware.deadair.sdk.clients.DirectorClient
+import com.maroonedsoftware.deadair.sdk.clients.RulesClient
 import com.maroonedsoftware.deadair.sdk.clients.HistoryClient
 import com.maroonedsoftware.deadair.sdk.clients.LanguagesClient
 import com.maroonedsoftware.deadair.sdk.clients.MessagingClient
@@ -53,6 +55,7 @@ class DeadairSdk(config: SdkConfig) : AutoCloseable {
     val activity: ActivityClient = ActivityClient(http)
     val artBreaks: ArtBreaksClient = ArtBreaksClient(http)
     val art: ArtClient = ArtClient(http)
+    val artPersonas: ArtPersonasClient = ArtPersonasClient(http)
     val authenticationApikeys: AuthenticationApikeysClient = AuthenticationApikeysClient(http)
     val authentication: AuthenticationClient = AuthenticationClient(http)
     val authenticationFactor: AuthenticationFactorClient = AuthenticationFactorClient(http)
@@ -61,6 +64,7 @@ class DeadairSdk(config: SdkConfig) : AutoCloseable {
     val charts: ChartsClient = ChartsClient(http)
     val clock: ClockClient = ClockClient(http)
     val director: DirectorClient = DirectorClient(http)
+    val rules: RulesClient = RulesClient(http)
     val history: HistoryClient = HistoryClient(http)
     val languages: LanguagesClient = LanguagesClient(http)
     val messaging: MessagingClient = MessagingClient(http)

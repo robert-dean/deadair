@@ -133,6 +133,9 @@ export const queryKeys = {
      * both writes answer with the whole listing, because replacing one kind's picture is a change to
      * the one page that shows all of them.
      */
+    personaPortraits: {
+        list: () => ['personaPortraits', 'list'] as const,
+    },
     breakArtwork: {
         list: () => ['breakArtwork', 'list'] as const,
     },
@@ -309,6 +312,8 @@ export const queryKeys = {
         order: () => ['director', 'order'] as const,
         /** The format clock. One key: order is preference, so every write answers with the whole of it. */
         clock: () => ['director', 'clock'] as const,
+        rules: () => ['director', 'rules'] as const,
+        steer: () => ['director', 'steer'] as const,
     },
     /**
      * The station's own catalog, as opposed to `playlists`, which is whatever the enabled plugins
@@ -340,5 +345,6 @@ export const queryKeys = {
          */
         track: (id: string) => ['catalog', 'track', id] as const,
         trackEnrichment: (id: string) => ['catalog', 'track', id, 'enrichment'] as const,
+        trackVocalMarkers: (id: string) => ['catalog', 'track', id, 'vocalMarkers'] as const,
     },
 } as const;

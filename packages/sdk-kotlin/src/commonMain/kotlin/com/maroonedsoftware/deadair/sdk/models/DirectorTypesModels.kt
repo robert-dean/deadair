@@ -164,6 +164,8 @@ data class PutOnAirInput(
     val chartId: String? = null,
     /** Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId` */
     val chartOrder: PutOnAirInputChartOrder? = null,
+    /** An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends */
+    val albumId: Uuid? = null,
     /** A playlist the station owns to build from instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`: its records are the library's own, so each airs from whichever provider serves a copy, and a row the library does not hold yet is left out */
     val stationPlaylistId: Uuid? = null,
     /** What to call this broadcast. Absent names it after the chart, or after the plugin, since only the surface that listed the source knows its own name for it */
@@ -176,6 +178,8 @@ data class PutOnAirInput(
     val eraFrom: Long? = null,
     /** The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone */
     val eraTo: Long? = null,
+    /** The mood this broadcast leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean */
+    val mood: PutOnAirInputMood? = null,
     /** Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent is no calls: there is no station-wide default behind it */
     val callins: Boolean? = null,
     /** Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records, found through the similarity plugin. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off. A setlist and a feature never have anything mixed in */
@@ -287,4 +291,23 @@ enum class PutOnAirInputChartOrder {
     RANKED,
     @SerialName("unordered")
     UNORDERED,
+}
+
+/** The mood this broadcast leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean */
+@Serializable
+enum class PutOnAirInputMood {
+    @SerialName("love")
+    LOVE,
+    @SerialName("happiness")
+    HAPPINESS,
+    @SerialName("comfort")
+    COMFORT,
+    @SerialName("sadness")
+    SADNESS,
+    @SerialName("loneliness")
+    LONELINESS,
+    @SerialName("anger")
+    ANGER,
+    @SerialName("fear")
+    FEAR,
 }

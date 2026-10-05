@@ -18,6 +18,8 @@ import com.maroonedsoftware.deadair.sdk.models.TrackDetail
 import com.maroonedsoftware.deadair.sdk.models.TrackEnrichmentDetail
 import com.maroonedsoftware.deadair.sdk.models.TrackPage
 import com.maroonedsoftware.deadair.sdk.models.TrackQueryInput
+import com.maroonedsoftware.deadair.sdk.models.VocalMarkersDetail
+import com.maroonedsoftware.deadair.sdk.models.VocalMarkersInput
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 import io.ktor.http.HttpMethod
 import kotlin.uuid.ExperimentalUuidApi
@@ -165,6 +167,40 @@ class CatalogClient(private val http: SdkHttp) {
     suspend fun clearTrackAnalysis(id: Uuid): TrackClearResult {
         val response = http.execute(HttpMethod.Delete) {
             path("catalog", "tracks", segment(id), "analysis")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Get vocal markers
+     * Where the singing starts and stops on one record, from an operator's correction or its timed lyrics
+     */
+    suspend fun getVocalMarkers(id: Uuid): VocalMarkersDetail {
+        val response = http.execute(HttpMethod.Get) {
+            path("catalog", "tracks", segment(id), "vocal-markers")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Set vocal markers
+     * Correct where the singing starts and stops, over whatever the lyrics say
+     */
+    suspend fun setVocalMarkers(id: Uuid, body: VocalMarkersInput): VocalMarkersDetail {
+        val response = http.execute(HttpMethod.Put) {
+            path("catalog", "tracks", segment(id), "vocal-markers")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Clear vocal markers
+     * Drop the correction, so the record's timed lyrics decide again
+     */
+    suspend fun clearVocalMarkers(id: Uuid): VocalMarkersDetail {
+        val response = http.execute(HttpMethod.Delete) {
+            path("catalog", "tracks", segment(id), "vocal-markers")
         }
         return http.decodeJson(response)
     }

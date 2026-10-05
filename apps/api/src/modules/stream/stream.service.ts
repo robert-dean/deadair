@@ -56,7 +56,8 @@ import type {
  */
 const TALK_OVER_TRACKS = true;
 const DUCK_GAIN_DB = -18;
-const DUCK_FADE_MS = 300;
+/** Exported for the talk-up, which has to allow for the bed coming back up after the last word. */
+export const DUCK_FADE_MS = 300;
 const DUCK_MIN_DB = -3;
 const DUCK_BED_LUFS = -25;
 

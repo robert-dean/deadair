@@ -5,6 +5,7 @@ import { AuthenticationApikeysRouter } from './authentication.apikeys.router.js'
 import { ActivityRouter } from './activity.router.js';
 import { HistoryRouter } from './history.router.js';
 import { ArtBreaksRouter } from './art.breaks.router.js';
+import { ArtPersonasRouter } from './art.personas.router.js';
 import { ArtRouter } from './art.router.js';
 import { CatalogRouter } from './catalog.router.js';
 import { ChartsRouter } from './charts.router.js';
@@ -13,6 +14,7 @@ import { NarrationsRouter } from './narrations.router.js';
 import { PodcastsRouter } from './podcasts.router.js';
 import { HealthRouter } from './health.router.js';
 import { ClockRouter } from './clock.router.js';
+import { RulesRouter } from './rules.router.js';
 import { DirectorRouter } from './director.router.js';
 import { PlaylistsRouter } from './playlists.router.js';
 import { StationPlaylistsRouter } from './station.playlists.router.js';
@@ -59,6 +61,7 @@ export const routers = [
     // operations answers 400 from the uuid check on the route above it, and never runs. See
     // `art.breaks.ck` and the test that pins it.
     ArtBreaksRouter,
+    ArtPersonasRouter,
     ArtRouter,
     ActivityRouter,
     HistoryRouter,
@@ -73,6 +76,7 @@ export const routers = [
     NowplayingRouter,
     DirectorRouter,
     ClockRouter,
+    RulesRouter,
     RenderRouter,
     PersonasRouter,
     PersonasAuditionsRouter,

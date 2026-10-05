@@ -8,7 +8,7 @@ options {
 contract Persona: {
     id: readonly string(min=1, max=100)
     key: string(min=1, max=100) # A stable slug, unique per station. What a log line names and what a seeded persona is recognised by
-    kind?: enum(host, caller) # What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air. Absent means `host`, so a form written before callers existed still means what it meant
+    kind?: enum(host, caller, newsreader) # What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant
     label: string(min=1, max=200)
     style: string(min=1, max=2000) # Completes "You are …". Who they ARE; the sheet below carries how they talk
     djName?: string(max=200) # The name this character goes by on air, overriding the station's own while it is active
@@ -185,7 +185,7 @@ contract PersonaFile: {
 # exactly what travels, plus the two fields a model is deliberately not asked for and a real install
 # always knows: what the character is FOR, and which rack it has to hand
 contract PersonaFilePersona: PersonaDraftView & {
-    kind?: enum(host, caller) # Absent means `host`, as everywhere else
+    kind?: enum(host, caller, newsreader) # Absent means `host`, as everywhere else
     soundboard?: string(max=200) # The board this character reaches for. Carried even though the receiving station may not hold it: a persona naming a rack that does not exist and one with no rack are the same state, and the import says which it got
     stories: array(PersonaFileStory)
 }
@@ -232,7 +232,7 @@ contract PersonaImportPlan: {
 contract PersonaImportEntry: {
     key: readonly string(min=1, max=100) # What identifies this character across two installs
     label: readonly string(min=1, max=200)
-    kind?: readonly enum(host, caller)
+    kind?: readonly enum(host, caller, newsreader)
     outcome: readonly enum(create, update) # Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote
     storiesNew: readonly int(min=0)
     storiesHeld: readonly int(min=0) # Already here under the same handle, so importing would skip them

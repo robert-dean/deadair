@@ -312,4 +312,30 @@ describe('SlotEditor', () => {
         expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('sourcePluginId');
         expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('sourceChartId');
     });
+
+    it('sends the mood a slot leans toward, and nothing for a slot with no lean', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({ mood: 'comfort' }) }}
+                onClose={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+        expect(await screen.findByDisplayValue('Comfort')).toBeInTheDocument();
+
+        await setupUser().click(screen.getByRole('button', { name: 'Save' }));
+        expect(onSubmit.mock.calls[0]![0].mood).toBe('comfort');
+
+        const untouched = vi.fn();
+        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={untouched} onDelete={noop} saving={false} deleting={false} />);
+        await setupUser().type((await screen.findAllByRole('textbox', { name: 'Name' })).at(-1)!, 'Breakfast');
+        await setupUser().click(screen.getAllByRole('button', { name: 'Save' }).at(-1)!);
+        expect(untouched.mock.calls[0]?.[0]).not.toHaveProperty('mood');
+    });
 });

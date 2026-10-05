@@ -1,7 +1,7 @@
 ---
 title: 'Skip the current item'
 sidebar_label: 'Skip the current item'
-sidebar_position: 5
+sidebar_position: 6
 mdx:
     format: 'md'
 ---

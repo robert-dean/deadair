@@ -17,6 +17,10 @@ contract PlayoutStationPlaylistInput: { # A playlist the station owns, to load i
     callins?: boolean # Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it
 }
 
+contract PlayoutAlbumInput: { # An album the library holds, to play whole
+    albumId: uuid
+}
+
 contract PlayoutChartInput: { # The published chart to build the running order from
     chartId: string(min=1, max=400) # As `pluginId:chartId`, which is how `GET /charts` lists them
     chartOrder?: enum(countdown, ranked, unordered) # Which way round to play it. Absent is `countdown`, which opens on the lowest rank and ends on number one

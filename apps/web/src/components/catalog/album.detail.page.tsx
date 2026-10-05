@@ -16,6 +16,7 @@ import { CATALOG_SEARCH_DEFAULTS, type TrackListOrder } from './catalog.page.par
 import { CatalogPagination } from './catalog.pagination';
 import { EnrichmentPanel } from './enrichment.panel';
 import { RatingControl } from './rating.control';
+import { PlayAlbumButton } from '../playout/play.playlist.button';
 import { TrackEnrichmentRow, TrackExpandButton, useTrackExpansion } from './track.expansion';
 
 export interface AlbumDetailPageProps {
@@ -76,6 +77,7 @@ export function AlbumDetailPage({ albumId, page, order, onPageChange }: AlbumDet
                                         rateAlbum.mutate({ id: albumId, rating });
                                     }}
                                 />
+                                <PlayAlbumButton albumId={albumId} />
                             </Group>
                         ) : undefined}
                     </PageHeader>

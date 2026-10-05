@@ -14,6 +14,7 @@ import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
+import { PersonaArtworkService } from '#modules/art/persona.artwork.service.js';
 import type { Persona } from '#modules/personas/persona.js';
 import { ProductionRepository } from '#modules/productions/production.repository.js';
 import type { Production } from '#modules/productions/production.js';
@@ -31,6 +32,11 @@ import { WELCOME_KIND } from './welcome.writer.js';
 import { CHANGEOVER_KIND } from './changeover.writer.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
 import { inScope } from '#modules/shared/scoped.work.js';
+import { VocalMarkersReader } from '#modules/lyrics/vocal.markers.reader.js';
+import { runwayFor, type Runway } from '#modules/lyrics/vocal.runway.js';
+import { DUCK_FADE_MS } from '#modules/stream/stream.service.js';
+import { TALK_BREAK_KIND } from './talk.break.writer.js';
+import { resolveTalkUp, talkUpAt } from './talk.up.js';
 import { ScrobbleService } from '#modules/scrobble/scrobble.service.js';
 import type { ScrobblePlay } from '@deadair/plugin-sdk';
 import { brokenClaim } from './break.claims.js';
@@ -1602,7 +1608,7 @@ export class DirectorService {
             // Before the early return. A recast means the host CHANGED, so a read that failed cannot
             // keep the name the transport holds — that is the outgoing host's — and names nobody
             // until the next reading can say who came in.
-            if (this.lineup === lineup) this.tellTransport(lineup, incoming.read ? onAirName(incoming.persona) : undefined);
+            if (this.lineup === lineup) this.tellTransport(lineup, incoming.read ? hostOf(incoming) : {});
             if (!incoming.read) return;
 
             const ids = [
@@ -1635,13 +1641,29 @@ export class DirectorService {
      * not be mistaken for one. {@link recast} would otherwise read a failed call as every break in
      * the tail being out of character.
      */
-    private async presenting(personaId: string | undefined): Promise<{ read: boolean; persona?: Persona }> {
+    private async presenting(personaId: string | undefined): Promise<{ read: boolean; persona?: Persona; portrait?: string }> {
         try {
             const persona = await inScope(this.container, async scope => scope.get(PersonaRepository).presenting(personaId));
-            return { read: true, ...(persona === undefined ? {} : { persona }) };
+            const portrait = persona === undefined ? undefined : await this.portraitOf(persona.id);
+            return { read: true, ...(persona === undefined ? {} : { persona }), ...(portrait === undefined ? {} : { portrait }) };
         } catch (error) {
             this.logger.warn(`director: could not read who is presenting (${errorText(error)})`);
             return { read: false };
+        }
+    }
+
+    /**
+     * Where a persona's portrait is served, or nothing.
+     *
+     * Its own failure, kept apart from the persona read: a picture that could not be looked up costs
+     * the listener's player a picture, never the station its knowledge of who is talking.
+     */
+    private async portraitOf(personaId: string): Promise<string | undefined> {
+        try {
+            return await inScope(this.container, async scope => scope.get(PersonaArtworkService).portraitUrl(personaId));
+        } catch (error) {
+            this.logger.warn(`director: could not read the presenter's portrait (${errorText(error)})`);
+            return undefined;
         }
     }
 
@@ -1660,7 +1682,7 @@ export class DirectorService {
         // changed, and a transient fault on the personas table must not make the station forget who
         // is talking. The transport forgot any previous programme's host when this order was
         // attached, so what is kept is only ever this order's.
-        this.tellTransport(lineup, incoming.read ? onAirName(incoming.persona) : this.rundown.broadcast()?.host);
+        this.tellTransport(lineup, incoming.read ? hostOf(incoming) : this.heldHost());
     }
 
     /**
@@ -1671,8 +1693,18 @@ export class DirectorService {
      * The console `label` is never it — that is what the operator calls the character, and the
      * listener is never told it.
      */
-    private tellTransport(lineup: StationLineup, host: string | undefined): void {
-        this.rundown.setBroadcast({ name: lineup.name, ...(host === undefined ? {} : { host }) });
+    private tellTransport(lineup: StationLineup, host: { name?: string; art?: string }): void {
+        this.rundown.setBroadcast({
+            name: lineup.name,
+            ...(host.name === undefined ? {} : { host: host.name }),
+            ...(host.art === undefined ? {} : { hostArtUrl: host.art }),
+        });
+    }
+
+    /** The host the transport already holds, name and picture, for a pass that has nothing newer. */
+    private heldHost(): { name?: string; art?: string } {
+        const held = this.rundown.broadcast();
+        return { ...(held?.host === undefined ? {} : { name: held.host }), ...(held?.hostArtUrl === undefined ? {} : { art: held.hostArtUrl }) };
     }
 
     /**
@@ -2032,7 +2064,7 @@ export class DirectorService {
         // And what the programme is called, on the same every-pass terms: a relabel (`rebind`) posts
         // nothing else the transport would hear. The host costs a query, so it is re-read only once
         // the last reading is a minute old, which is what catches a persona renamed while it is on.
-        if (Date.now() - this.hostReadAt < HOST_TTL_MS) this.tellTransport(lineup, this.rundown.broadcast()?.host);
+        if (Date.now() - this.hostReadAt < HOST_TTL_MS) this.tellTransport(lineup, this.heldHost());
         else await this.announceBroadcast(lineup);
 
         // FIRST, and before planting: a break the station was asked for and has already spoken is
@@ -2743,6 +2775,39 @@ export class DirectorService {
         return resolved;
     }
 
+    /**
+     * The runway of the record directly after each talk link in this batch that could be talked up.
+     *
+     * Keyed by the LINK's item id. A link qualifies when it is an ordinary talk break, not already a
+     * talk-over, rendered (so its length is known), and directly in front of a record the catalog
+     * holds. The markers are read in one batch, and a failure to read them costs the talk-ups and
+     * never the links: every one of them then airs in the gap, as before.
+     */
+    private async talkUpRunways(items: readonly StationLineupItem[], segments: Map<string, Segment>): Promise<Map<string, Runway>> {
+        const candidates = items.flatMap(item => {
+            if (item.kind !== 'segment' || item.over !== undefined) return [];
+            const segment = segments.get(item.segmentId);
+            if (segment?.state !== 'ready' || segment.kind !== TALK_BREAK_KIND || segment.durationMs === undefined) return [];
+            const next = this.lineup?.trackRightAfter(item.id);
+            return next?.track.trackId === undefined ? [] : [{ itemId: item.id, trackId: next.track.trackId, cueInMs: next.track.cueInMs }];
+        });
+        if (candidates.length === 0) return new Map();
+
+        const markers = await inScope(this.container, async scope =>
+            scope.get(VocalMarkersReader).forTracks(candidates.map(one => one.trackId)),
+        ).catch(error => {
+            this.logger.warn(`director: could not read where the singing starts, so every link airs in the gap (${errorText(error)})`);
+            return new Map();
+        });
+
+        return new Map(
+            candidates.flatMap(({ itemId, trackId, cueInMs }) => {
+                const found = markers.get(trackId);
+                return found === undefined ? [] : [[itemId, runwayFor(found, cueInMs)] as const];
+            }),
+        );
+    }
+
     private async toPlayerItems(items: readonly StationLineupItem[]): Promise<{ items: RundownItem[]; skipped: string[]; unavailable: string[] }> {
         const wanted = items.filter(item => item.kind === 'segment').map(item => item.segmentId);
         const segments =
@@ -2795,6 +2860,11 @@ export class DirectorService {
         // reason: an operator who replaces the weather picture has replaced it for the forecast
         // that is about to air, not for the one after the next refill.
         const breakArtwork = await this.breakArtwork(segments);
+
+        // Where the singing starts on each record a link in this batch could be talked up over, read
+        // once for the batch and only when talking up is switched on. See `talk.up.ts`.
+        const talkUp = resolveTalkUp(this.config);
+        const runways = talkUp.enabled ? await this.talkUpRunways(items, segments) : new Map<string, Runway>();
 
         const playable: RundownItem[] = [];
         const skipped: string[] = [];
@@ -3024,6 +3094,35 @@ export class DirectorService {
                     data: { segmentId: item.segmentId, until: broken.until },
                 });
                 skipped.push(item.id);
+                continue;
+            }
+
+            // Talking up to the post: an ordinary link that fits inside the next record's intro rides
+            // that record, exactly as a talk-over does below, instead of airing in the gap. Only when
+            // nothing is already waiting to ride it, since two voices on one record is one talking
+            // over the other. Anything that does not fit, or has no runway to judge by, airs in the
+            // gap as it always did.
+            const runway = item.over === undefined && pending === undefined ? runways.get(item.id) : undefined;
+            const upAt =
+                runway === undefined || segment.durationMs === undefined
+                    ? undefined
+                    : talkUpAt({ voiceMs: segment.durationMs, runway, safetyMs: talkUp.safetyMs, duckFadeMs: DUCK_FADE_MS });
+            if (upAt !== undefined) {
+                this.logger.info('director: talking a link up to the post', {
+                    segment: segment.id,
+                    atMs: upAt,
+                    voiceMs: segment.durationMs,
+                    runwayMs: runway?.kind === 'ms' ? runway.ms : undefined,
+                });
+                // Marked as a talk-over on the order itself, not only handled as one here: see
+                // `StationLineup.handOverTalkingUp` for the sweep that would otherwise skip it.
+                this.lineup?.handOverTalkingUp(item.id, upAt);
+                pending = {
+                    itemId: item.id,
+                    segmentId: segment.id,
+                    atMs: upAt,
+                    ...(segment.loudnessLufs === undefined ? {} : { loudnessLufs: segment.loudnessLufs }),
+                };
                 continue;
             }
 
@@ -3582,4 +3681,10 @@ function takeForLead(candidates: readonly StationLineupItem[], wanted: number): 
     }
 
     return taken;
+}
+
+/** What the transport is told about a host it has just read: the on-air name and the portrait. */
+function hostOf(incoming: { persona?: Persona; portrait?: string }): { name?: string; art?: string } {
+    const name = onAirName(incoming.persona);
+    return { ...(name === undefined ? {} : { name }), ...(incoming.portrait === undefined ? {} : { art: incoming.portrait }) };
 }

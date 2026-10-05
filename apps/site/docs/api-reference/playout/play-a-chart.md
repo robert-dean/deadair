@@ -1,7 +1,7 @@
 ---
 title: 'Play a chart'
 sidebar_label: 'Play a chart'
-sidebar_position: 4
+sidebar_position: 5
 mdx:
     format: 'md'
 ---

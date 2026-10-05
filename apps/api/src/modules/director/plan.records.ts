@@ -8,8 +8,9 @@
  * are the records", and nothing either side of that.
  */
 
+import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
-import type { PickResolver } from './pick.resolver.js';
+import type { PickBroadcast, PickResolver } from './pick.resolver.js';
 import { artistKey, songKey } from './rotation.keys.js';
 import type { ResolvedRules } from './rotation.rules.js';
 import type { SetGenerator, TrackPick } from './set.generator.js';
@@ -38,6 +39,8 @@ export interface PlanRequest {
     brief?: string;
     /** The period it plays, read off the running order beside the brief and for the same reason. */
     era?: { from?: number; to?: number };
+    /** The mood the broadcast leans into, read off the running order beside the period. */
+    mood?: LyricMood;
     /** Songs not to choose again: what the order already holds, or what it is about to stop holding. */
     avoidSongKeys: ReadonlySet<string>;
     /**
@@ -55,6 +58,8 @@ export interface PlanRequest {
      * {@link spaceArtists} compares its first placement against.
      */
     seedArtistKey?: string;
+    /** The broadcast this is for, so a mode- or slot-scoped never-play rule holds. See `PickBroadcast`. */
+    broadcast?: PickBroadcast;
 }
 
 /** The records, and enough of the arithmetic for a caller's log line to be worth reading. */
@@ -120,6 +125,7 @@ export const planRecords = async (
             rules: request.rules,
             ...(request.brief ? { brief: request.brief } : {}),
             ...(request.era === undefined ? {} : { era: request.era }),
+            ...(request.mood === undefined ? {} : { mood: request.mood }),
             avoidSongKeys: request.avoidSongKeys,
             ...(request.avoidArtistKeys === undefined ? {} : { avoidArtistKeys: request.avoidArtistKeys }),
         });
@@ -136,6 +142,7 @@ export const planRecords = async (
         ...(request.era === undefined ? {} : { era: request.era }),
         ...(request.avoidArtistKeys === undefined ? {} : { avoidArtistKeys: request.avoidArtistKeys }),
         ...(request.seedArtistKey === undefined ? {} : { seedArtistKey: request.seedArtistKey }),
+        ...(request.broadcast === undefined ? {} : { broadcast: request.broadcast }),
     });
 
     return {

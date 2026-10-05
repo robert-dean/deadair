@@ -142,8 +142,25 @@ function build(options: Options = {}) {
     const history = { lastAiredSince } as unknown as PlayHistoryRepository;
     const aired = new AiredRecords();
 
+    // No steer unless a case sets one, which is every station until an operator leans it.
+    const rules = { steer: vi.fn(async () => undefined as { genres: string[]; endsAt: string } | undefined) };
+
     return {
-        generator: new ModelSetGenerator(llm, taste, tracks, preemption, queued, searched, config, logger, history, new StationIdentity(), aired),
+        generator: new ModelSetGenerator(
+            llm,
+            taste,
+            tracks,
+            preemption,
+            queued,
+            searched,
+            rules as never,
+            config,
+            logger,
+            history,
+            new StationIdentity(),
+            aired,
+        ),
+        rules,
         converse,
         taste,
         styleVocabulary,

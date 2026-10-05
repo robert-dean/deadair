@@ -181,6 +181,67 @@ paths:
                                 type: string
                 '304':
                     description: 'Response 304'
+    '/art/personas':
+        get:
+            operationId: listPortraits
+            summary: 'List persona portraits'
+            description: 'Every persona that has a portrait'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaPortraitList'
+    '/art/personas/{personaId}':
+        post:
+            operationId: replacePortrait
+            summary: 'Replace persona portrait'
+            description: 'Puts a picture on a persona. A persona that already had one keeps its URL, so a player holding it picks up the new picture'
+            parameters:
+                - name: personaId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'multipart/form-data':
+                        schema:
+                            '$ref': '#/components/schemas/PersonaPortraitUpload'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaPortraitList'
+                '400':
+                    description: 'Bad request'
+                '413':
+                    description: 'Response 413'
+                '415':
+                    description: 'Response 415'
+        delete:
+            operationId: removePortrait
+            summary: 'Remove persona portrait'
+            description: "Takes a persona's picture away. A player shows the record's cover instead"
+            parameters:
+                - name: personaId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaPortraitList'
     '/auth/apikeys':
         get:
             operationId: list
@@ -733,6 +794,67 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/TrackClearResult'
+    '/catalog/tracks/{id}/vocal-markers':
+        get:
+            operationId: getVocalMarkers
+            summary: 'Get vocal markers'
+            description: "Where the singing starts and stops on one record, from an operator's correction or its timed lyrics"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/VocalMarkersDetail'
+        put:
+            operationId: setVocalMarkers
+            summary: 'Set vocal markers'
+            description: 'Correct where the singing starts and stops, over whatever the lyrics say'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/VocalMarkersInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/VocalMarkersDetail'
+        delete:
+            operationId: clearVocalMarkers
+            summary: 'Clear vocal markers'
+            description: "Drop the correction, so the record's timed lyrics decide again"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/VocalMarkersDetail'
     '/catalog/tracks/{id}/retry':
         post:
             operationId: retryAudio
@@ -1213,6 +1335,122 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/StationOrder'
+    '/rules':
+        get:
+            operationId: list
+            summary: 'List never-play rules'
+            description: 'Every never-play rule on this station, newest first, each saying whether it holds right now'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/BlockRuleList'
+        post:
+            operationId: add
+            summary: 'Add a never-play rule'
+            description: 'Adds a rule. It holds from the next record the station chooses'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/BlockRule'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/BlockRuleList'
+    '/rules/steer':
+        get:
+            operationId: readSteer
+            summary: 'Read the genre steer'
+            description: 'The lean in force, if any'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/GenreSteerReading'
+        put:
+            operationId: steer
+            summary: 'Steer toward genres'
+            description: 'Leans the station toward some genres for a number of hours, replacing any lean already in force'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/GenreSteerInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/GenreSteerReading'
+        delete:
+            operationId: stopSteering
+            summary: 'Stop steering'
+            description: 'Ends the lean now'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/GenreSteerReading'
+    '/rules/{id}':
+        put:
+            operationId: change
+            summary: 'Change a never-play rule'
+            description: 'Replaces a rule'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/BlockRule'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/BlockRuleList'
+                '404':
+                    description: 'Not found'
+        delete:
+            operationId: remove
+            summary: 'Remove a never-play rule'
+            description: 'Removes a rule'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/BlockRuleList'
+                '404':
+                    description: 'Not found'
     '/history':
         get:
             operationId: readHistory
@@ -2959,6 +3197,24 @@ paths:
                     'application/json':
                         schema:
                             '$ref': '#/components/schemas/PlayoutStationPlaylistInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PlayoutStatus'
+    '/playout/album':
+        post:
+            operationId: playAlbum
+            summary: 'Play an album'
+            description: "Plays an album the library holds, whole and in the order it was made: by disc, then by track. A feature, so no breaks and no blends between its records, and what is on air finishes rather than being cut off. It stops at the end of the album, or when the schedule's next block starts"
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PlayoutAlbumInput'
             responses:
                 '200':
                     description: 'Successful response'
@@ -5047,6 +5303,37 @@ components:
                     description: 'The image itself. jpeg, png, webp or gif, decided by its BYTES rather than by its name or its declared type, and at most 4 MB'
             required: [file]
             description: "A picture arriving from the browser, as multipart form parts.\n\nDocumentation rather than validation: a multipart body reaches the service as the raw parser and\nthe generated client types the body as `FormData`, so nothing checks this shape. It says what to\nsend"
+        PersonaPortrait:
+            type: object
+            properties:
+                personaId:
+                    type: string
+                    format: uuid
+                    description: 'The persona it belongs to'
+                url:
+                    type: string
+                    maxLength: 2000
+                    description: "Where the station serves it, as a path under the API root. The same shape and the same route a record's cover uses"
+            required: [personaId, url]
+            description: "A presenter's picture, which a listener's player shows while that persona is on air"
+        PersonaPortraitList:
+            type: object
+            properties:
+                portraits:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PersonaPortrait'
+            required: [portraits]
+            description: 'Every persona that has a portrait'
+        PersonaPortraitUpload:
+            type: object
+            properties:
+                file:
+                    type: string
+                    format: binary
+                    description: 'The image itself. jpeg, png, webp or gif, decided by its BYTES, and at most 4 MB'
+            required: [file]
+            description: "A portrait arriving from the browser, as multipart form parts. Documentation rather than validation, as for a break's picture"
         AuthenticationGrantType:
             type: string
             enum:
@@ -6601,6 +6888,51 @@ components:
                     description: 'What happened, in the words the console shows'
             required: [trackId, cleared, detail]
             description: "What a clear actually did.\n\nA count rather than a bare 204, because the interesting answers are the small ones: clearing the\naudio of a record with three copies and being told `1` is the station saying two of them were\nnever here — which is a fact about the record and not about the button."
+        VocalMarkersDetail:
+            type: object
+            properties:
+                trackId:
+                    type: string
+                    format: uuid
+                    readOnly: true
+                kind:
+                    type: string
+                    enum: [instrumental, ranges, unknown]
+                    readOnly: true
+                    description: 'Nobody sings on it; where the singing is; or nothing to go on'
+                onsetMs:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'Where the first sung word lands, when kind is ranges'
+                endMs:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'Where the singing stops, when it is known'
+                source:
+                    type: string
+                    enum: [override, lyrics, none]
+                    readOnly: true
+                    description: "An operator's correction, the record's timed lyrics, or neither"
+            required: [trackId, kind, source]
+            description: "Where the singing starts and stops on one record, and which answer that is. Times are milliseconds\nfrom the start of the file, the timeline a lyric's timings use. Never the words themselves."
+        VocalMarkersInput:
+            type: object
+            properties:
+                instrumental:
+                    type: boolean
+                    default: false
+                    description: 'Nobody sings on this record, whatever its lyrics say'
+                onsetMs:
+                    type: integer
+                    minimum: 0
+                    description: 'Where the first sung word lands, from the start of the file. Required unless instrumental'
+                endMs:
+                    type: integer
+                    minimum: 0
+                    description: 'Where the singing stops. Optional, and after the onset'
+            description: "An operator's correction: either the record is instrumental, or the singing starts at `onsetMs`."
         ClearEnrichmentQuery:
             type: object
             properties:
@@ -6668,7 +7000,37 @@ components:
                     type: integer
                     minimum: 0
                     readOnly: true
-            required: [total, cached, measured, enriched, benched, failing]
+                lyrics:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'A lyrics source has the words of it. The words themselves are never served'
+                synced:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'A lyrics source has the timing of its lines, which says when the singing starts'
+                instrumental:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'A lyrics source says nobody sings on it'
+                moods:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'A model has judged what mood it is in'
+            required:
+                - total
+                - cached
+                - measured
+                - enriched
+                - benched
+                - failing
+                - lyrics
+                - synced
+                - instrumental
+                - moods
             description: "How much of the library is in each state, over the whole filtered set rather than this page.\n\nThe aggregate is what an operator reads first — \"13 of 581 measured\" is the sentence that made\n[analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the\nsame number as `meta.total` when nothing is filtered, and is repeated here so the counts can be\nread as N of M without reaching into the pager."
         TrackRow:
             allOf:
@@ -7495,6 +7857,10 @@ components:
                     type: string
                     enum: [countdown, ranked, unordered]
                     description: "Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId`"
+                albumId:
+                    type: string
+                    format: uuid
+                    description: 'An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends'
                 stationPlaylistId:
                     type: string
                     format: uuid
@@ -7523,6 +7889,10 @@ components:
                     minimum: 1900
                     maximum: 2100
                     description: 'The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone'
+                mood:
+                    type: string
+                    enum: [love, happiness, comfort, sadness, loneliness, anger, fear]
+                    description: 'The mood this broadcast leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean'
                 callins:
                     type: boolean
                     description: 'Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent is no calls: there is no station-wide default behind it'
@@ -7602,6 +7972,117 @@ components:
                     maxLength: 500
                     description: "What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the station's ordinary rotation. It steers every later refill too, not just this one batch"
             description: 'Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues'
+        BlockRule:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    readOnly: true
+                field:
+                    type: string
+                    enum: [genre, tag]
+                    description: '`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag'
+                value:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'The genre or tag, as you would write it'
+                seasonFrom:
+                    type: string
+                    minLength: 5
+                    maxLength: 5
+                    description: 'First day it holds, as `MM-DD`. With `seasonTo`; a season starting after it ends wraps the year end'
+                seasonTo:
+                    type: string
+                    minLength: 5
+                    maxLength: 5
+                    description: 'Last day it holds, as `MM-DD`'
+                fromHour:
+                    type: integer
+                    minimum: 0
+                    maximum: 23
+                    description: "First hour of the station's day it holds. With `untilHour`; a window starting after it ends wraps midnight"
+                untilHour:
+                    type: integer
+                    minimum: 0
+                    maximum: 24
+                    description: 'The hour it stops holding, exclusive'
+                modes:
+                    type: array
+                    items:
+                        type: string
+                        enum: [rotation, setlist, feature]
+                    description: 'Only while the station is in one of these modes. Absent or empty means every mode'
+                slotIds:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                    description: 'Only during these schedule blocks. Absent or empty means whatever is on'
+                endsAt:
+                    type: string
+                    format: date-time
+                    description: 'When it stops holding. Absent means until it is removed'
+                inForce:
+                    type: boolean
+                    readOnly: true
+                    description: "Whether it holds right now, on the station's clock, for what is on air"
+            required: [id, field, value, inForce]
+            description: "A never-play rule: a KIND of record the station must not play. Absolute, like a dislike, and\nexclude-only: there is no \"only these\" rule, because one could leave the station nothing to play.\nEvery scope is optional and an absent one means \"always\""
+        BlockRuleList:
+            type: object
+            properties:
+                rules:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/BlockRule'
+            required: [rules]
+            description: 'Every rule on the station, newest first'
+        GenreSteer:
+            type: object
+            properties:
+                genres:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                    minItems: 1
+                    maxItems: 20
+                    description: 'What to favour, as genres. A record tagged with any of them, or a kind of one, is preferred'
+                endsAt:
+                    type: string
+                    format: date-time
+                    description: 'When the station goes back to choosing as it ordinarily does'
+            required: [genres, endsAt]
+            description: "A lean toward some genres for a while. The opposite of a rule: the station favours them when it\nchooses records, and still plays anything else rather than run dry"
+        GenreSteerReading:
+            type: object
+            properties:
+                steer:
+                    '$ref': '#/components/schemas/GenreSteer'
+                    description: 'Absent when nothing is leaning the station, including once one has run out'
+            description: 'The lean in force, or none'
+        GenreSteerInput:
+            type: object
+            properties:
+                genres:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                    minItems: 1
+                    maxItems: 20
+                hours:
+                    type: integer
+                    minimum: 1
+                    maximum: 24
+                    description: 'How long it lasts, from now'
+            required: [genres, hours]
+            description: 'Lean the station toward some genres for a number of hours'
         HistoryEntry:
             type: object
             properties:
@@ -8115,6 +8596,10 @@ components:
                     type: string
                     maxLength: 200
                     description: "Who is presenting, by the name they go by on air. Absent when there is no name to give: no persona on air with one, and no station-wide presenter name set. Never the persona's console label"
+                hostArtUrl:
+                    type: string
+                    maxLength: 2000
+                    description: "A picture of whoever is presenting, when the operator gave their persona one. A path under the API root, like a cover's. Absent for a persona with no picture, which a player answers by showing the record's cover as before"
             required: [name]
             description: 'The programme on air, as a listener would be told it'
         NowPlaying:
@@ -8593,8 +9078,8 @@ components:
                     description: 'A stable slug, unique per station. What a log line names and what a seeded persona is recognised by'
                 kind:
                     type: string
-                    enum: [host, caller]
-                    description: "What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air. Absent means `host`, so a form written before callers existed still means what it meant"
+                    enum: [host, caller, newsreader]
+                    description: "What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant"
                 label:
                     type: string
                     minLength: 1
@@ -9169,7 +9654,7 @@ components:
                   properties:
                       kind:
                           type: string
-                          enum: [host, caller]
+                          enum: [host, caller, newsreader]
                           description: 'Absent means `host`, as everywhere else'
                       soundboard:
                           type: string
@@ -9286,7 +9771,7 @@ components:
                     readOnly: true
                 kind:
                     type: string
-                    enum: [host, caller]
+                    enum: [host, caller, newsreader]
                     readOnly: true
                 outcome:
                     type: string
@@ -10230,6 +10715,14 @@ components:
                     description: 'Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it'
             required: [stationPlaylistId]
             description: 'A playlist the station owns, to load into the running order'
+        PlayoutAlbumInput:
+            type: object
+            properties:
+                albumId:
+                    type: string
+                    format: uuid
+            required: [albumId]
+            description: 'An album the library holds, to play whole'
         PlayoutChartInput:
             type: object
             properties:
@@ -12283,6 +12776,10 @@ components:
                     minimum: 1900
                     maximum: 2100
                     description: 'The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone'
+                mood:
+                    type: string
+                    enum: [love, happiness, comfort, sadness, loneliness, anger, fear]
+                    description: 'The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean'
                 callins:
                     type: boolean
                     description: 'Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says'

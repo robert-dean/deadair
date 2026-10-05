@@ -220,6 +220,22 @@ export interface DeadairArtistSources {
   uri: string | null;
 }
 
+export interface DeadairBlockRules {
+  createdAt: Generated<DateTime>;
+  endsAt: DateTime | null;
+  field: "genre" | "tag";
+  fromHour: number | null;
+  id: Generated<string>;
+  modes: Generated<string[]>;
+  seasonFrom: string | null;
+  seasonTo: string | null;
+  slotIds: Generated<string[]>;
+  stationKey: Generated<string>;
+  untilHour: number | null;
+  updatedAt: Generated<DateTime>;
+  value: string;
+}
+
 export interface DeadairBreakRequests {
   broadcastId: string | null;
   context: Json | null;
@@ -308,6 +324,13 @@ export interface DeadairFacts {
   stationKey: Generated<string>;
   trackId: string | null;
   updatedAt: Generated<DateTime>;
+}
+
+export interface DeadairGenreSteers {
+  createdAt: Generated<DateTime>;
+  endsAt: DateTime;
+  genres: string[];
+  stationKey: Generated<string>;
 }
 
 export interface DeadairHiddenPlaylists {
@@ -573,7 +596,7 @@ export interface DeadairPersonas {
   growth: "proposes" | "self-directed" | null;
   id: Generated<string>;
   key: string;
-  kind: Generated<"host" | "caller">;
+  kind: Generated<"host" | "caller" | "newsreader">;
   label: string;
   latitude: string | null;
   preoccupations: Generated<Json>;
@@ -799,6 +822,7 @@ export interface DeadairScheduleSlots {
   label: Generated<string>;
   mixInSimilar: boolean | null;
   mode: Generated<"rotation" | "setlist" | "feature">;
+  mood: "love" | "happiness" | "comfort" | "sadness" | "loneliness" | "anger" | "fear" | null;
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;
   sourceChartId: string | null;
@@ -941,6 +965,7 @@ export interface DeadairStationLineup {
   holdUntil: DateTime | null;
   items: Generated<Json>;
   mode: Generated<"rotation" | "setlist" | "feature">;
+  mood: "love" | "happiness" | "comfort" | "sadness" | "loneliness" | "anger" | "fear" | null;
   name: Generated<string>;
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;
@@ -1019,11 +1044,47 @@ export interface DeadairTrackEnrichment {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairTrackLyricLabels {
+  createdAt: Generated<DateTime>;
+  moods: Json | null;
+  moodsAt: DateTime | null;
+  moodsAttempts: Generated<number>;
+  moodsError: string | null;
+  moodsRetryAt: DateTime | null;
+  moodsVersion: string | null;
+  subject: string | null;
+  subjectAt: DateTime | null;
+  subjectAttempts: Generated<number>;
+  subjectError: string | null;
+  subjectRetryAt: DateTime | null;
+  subjectVersion: string | null;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
+}
+
+export interface DeadairTrackLyrics {
+  attempts: Generated<number>;
+  createdAt: Generated<DateTime>;
+  expiresAt: DateTime | null;
+  fetchedAt: Generated<DateTime>;
+  id: Generated<string>;
+  instrumental: Generated<boolean>;
+  language: string | null;
+  lastError: string | null;
+  plain: string | null;
+  provider: string;
+  providerRef: string | null;
+  synced: Json | null;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairTracks {
   albumId: string | null;
   artistId: string;
   artists: string;
   createdAt: Generated<DateTime>;
+  discNumber: number | null;
   durationMs: number | null;
   genre: string | null;
   id: Generated<string>;
@@ -1032,6 +1093,7 @@ export interface DeadairTracks {
   rating: Generated<number>;
   title: string;
   titleKey: string;
+  trackNumber: number | null;
   updatedAt: Generated<DateTime>;
   year: number | null;
 }
@@ -1057,6 +1119,15 @@ export interface DeadairTrackSources {
   uri: string | null;
 }
 
+export interface DeadairTrackVocalOverrides {
+  createdAt: Generated<DateTime>;
+  endMs: number | null;
+  instrumental: Generated<boolean>;
+  onsetMs: number | null;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface SchemaMigrations {
   version: string;
 }
@@ -1078,6 +1149,7 @@ export interface DB {
   "deadair.artistEnrichment": DeadairArtistEnrichment;
   "deadair.artists": DeadairArtists;
   "deadair.artistSources": DeadairArtistSources;
+  "deadair.blockRules": DeadairBlockRules;
   "deadair.breakRequests": DeadairBreakRequests;
   "deadair.callerHosts": DeadairCallerHosts;
   "deadair.clockBands": DeadairClockBands;
@@ -1085,6 +1157,7 @@ export interface DB {
   "deadair.consoleLanguages": DeadairConsoleLanguages;
   "deadair.factExtractions": DeadairFactExtractions;
   "deadair.facts": DeadairFacts;
+  "deadair.genreSteers": DeadairGenreSteers;
   "deadair.hiddenPlaylists": DeadairHiddenPlaylists;
   "deadair.listenerRequests": DeadairListenerRequests;
   "deadair.loginEvents": DeadairLoginEvents;
@@ -1135,7 +1208,10 @@ export interface DB {
   "deadair.trackArtists": DeadairTrackArtists;
   "deadair.trackAudio": DeadairTrackAudio;
   "deadair.trackEnrichment": DeadairTrackEnrichment;
+  "deadair.trackLyricLabels": DeadairTrackLyricLabels;
+  "deadair.trackLyrics": DeadairTrackLyrics;
   "deadair.tracks": DeadairTracks;
   "deadair.trackSources": DeadairTrackSources;
+  "deadair.trackVocalOverrides": DeadairTrackVocalOverrides;
   schemaMigrations: SchemaMigrations;
 }

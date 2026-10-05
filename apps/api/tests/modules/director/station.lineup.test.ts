@@ -135,6 +135,41 @@ describe('StationLineup and what the player has done', () => {
         expect(statesOf(lineup)).toEqual(['airing', 'handed']);
     });
 
+    it('does not pass over a link talked up over the record now starting', () => {
+        // The same exception as the talk-over below, for a link that BECAME one at hand-over: it is
+        // marked with `over` there, which is what this sweep reads.
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertSegment('link', 1);
+        const [a, link, b] = lineup.all();
+
+        lineup.markHanded(a!.id);
+        lineup.markAiring(a!.id);
+        expect(lineup.handOverTalkingUp(link!.id, 6_956)).toBe(true);
+        lineup.markHanded(b!.id);
+
+        expect(lineup.markAiring(b!.id)).toEqual({ passedOver: 0 });
+        expect(link).toMatchObject({ state: 'handed', over: { atMs: 6_956 } });
+    });
+
+    it('will not talk up a line that is already a talk-over or already handed', () => {
+        const lineup = lineupWith(['a']);
+        lineup.insertSegment('cue', 0, { atMs: 500 });
+        const [cue] = lineup.all();
+
+        expect(lineup.handOverTalkingUp(cue!.id, 1_000)).toBe(false);
+        expect(cue).toMatchObject({ over: { atMs: 500 } });
+    });
+
+    it('finds the record directly after a line, and nothing when something else airs first', () => {
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertSegment('link', 1);
+        lineup.insertSegment('jingle', 1);
+        const [, jingle, link, b] = lineup.all();
+
+        expect(lineup.trackRightAfter(link!.id)?.id).toBe(b!.id);
+        expect(lineup.trackRightAfter(jingle!.id)).toBeUndefined();
+    });
+
     it('does not pass over a talk-over riding the record now starting', () => {
         // A talk-over cue is `handed` — armed — before the record it rides ever starts,
         // and it sits right in front of that record in the order. It has not missed

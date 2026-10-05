@@ -60,7 +60,19 @@ const track = (overrides: Record<string, unknown> = {}) => ({
     ...overrides,
 });
 
-const counts = (overrides: Record<string, number> = {}) => ({ total: 1, cached: 0, measured: 0, enriched: 0, benched: 0, failing: 0, ...overrides });
+const counts = (overrides: Record<string, number> = {}) => ({
+    total: 1,
+    cached: 0,
+    measured: 0,
+    enriched: 0,
+    benched: 0,
+    failing: 0,
+    lyrics: 0,
+    synced: 0,
+    instrumental: 0,
+    moods: 0,
+    ...overrides,
+});
 
 const page = (data: unknown[], total = data.length, states = counts({ total })) => ({
     meta: { total, page: 0, pageSize: 50, sort: 'asc' },
@@ -281,6 +293,47 @@ describe('CatalogTracksPage', () => {
         // The unmeasured chip counts the COMPLEMENT of what the API reports, because the filter an
         // operator wants is the records the walk has not reached.
         expect(screen.getByText('703')).toBeInTheDocument();
+    });
+
+    it('counts the lyrics found, once there are any, and never shows the words', async () => {
+        listTracks.mockResolvedValue(page([track()], 60, counts({ total: 60, lyrics: 59, synced: 52, instrumental: 1 })));
+
+        render(
+            <CatalogTracksPage
+                order={ORDER('title')}
+                onOrderChange={noop}
+                page={0}
+                search=""
+                state=""
+                onPageChange={noop}
+                onSearchChange={noop}
+                onStateChange={noop}
+            />,
+        );
+
+        expect(
+            await screen.findByText('Lyrics for 59 records, 52 with the timing of each line, and 1 known to be instrumental.'),
+        ).toBeInTheDocument();
+    });
+
+    it('says nothing about lyrics on a station that has none', async () => {
+        listTracks.mockResolvedValue(page([track()], 919, counts({ total: 919 })));
+
+        render(
+            <CatalogTracksPage
+                order={ORDER('title')}
+                onOrderChange={noop}
+                page={0}
+                search=""
+                state=""
+                onPageChange={noop}
+                onSearchChange={noop}
+                onStateChange={noop}
+            />,
+        );
+
+        await screen.findByText(/ready to air right now/);
+        expect(screen.queryByText(/Lyrics for/)).not.toBeInTheDocument();
     });
 
     it('asks for one state when a filter is chosen, and says which is chosen', async () => {

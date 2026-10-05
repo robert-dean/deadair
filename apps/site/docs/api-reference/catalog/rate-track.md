@@ -1,7 +1,7 @@
 ---
 title: 'Rate track'
 sidebar_label: 'Rate track'
-sidebar_position: 19
+sidebar_position: 22
 mdx:
     format: 'md'
 ---

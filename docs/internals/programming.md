@@ -36,6 +36,19 @@ facts with nothing connecting them.
 
 **Smart shuffle is a lean on the draw, never a filter, and it is keyed on the song.** The repeat window and the artist cooldown are filters, and a filter has nothing to say about the far side of itself: past the window, a record aired four days ago and one never aired were drawn with identical probability, which is the bubble [station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §5 names. `rotation.smartShuffle` (on by default) stamps each sampled candidate with a `freshness` from `0` (just aired) to `1` (a `rotation.smartShuffleDays` horizon ago, a fortnight by default, or never), read from `PlayHistoryRepository.lastAiredSince` grouped by `song_key`, so a discovered copy of a record that aired yesterday is exactly as stale as the copy that aired. `weightOf` multiplies it in beside the like-doubling, from `FRESH_FLOOR` (a quarter) up to full weight. **Never zero**, because a weight of nothing is a second repeat window nobody set, and a library of forty records must still play all forty. Three limits worth knowing before anyone extends it. It chooses only among what `CandidatesRepository.sample` drew, which is enough because the sample is random; if it ever has to hold for the whole library in one batch, the fix is ordering the SQL by a randomised function of age rather than raising the ceiling. It is bounded by the history's 120-day retention, which is why the horizon's ceiling is that figure. And a generator that NAMES records cannot be weighted, only judged, so the lean reaches the named sources where they choose rather than at the resolver. `SimilarSetGenerator` takes the freshest of each neighbour's few top tracks, ties to the source's own ranking, instead of always the first: a neighbour's first track is the same record every time that neighbour comes up, and on the live station the fortnight's most-aired records (2026-09-12) were exactly those canonical hits, five to seven airings each. `ModelSetGenerator` cannot be leaned at all, since the model does the choosing, so it is TOLD instead: the refill reads the same history into the scoped `AiredRecords` and `MusicSearchTool` marks each row with `airedDaysAgo`, the shape `queued` already has and for the same reason (a fact the host holds must not become a question the model spends a step on). Information, never a veto: a narrow brief may need the record that aired yesterday, and refusing it is the repeat window's job. Off asks the history for zero days, which runs no query and restores the old draw, the old walk and the old search rows exactly.
 
+**A broadcast's mood is a second lean on the draw, never a filter, and it is the factor a like gets.**
+With a mood on the running order (`station_lineup.mood`, from a schedule slot or `PutOnAirInput.mood`),
+`CatalogSetGenerator` reads the judged distributions for what it sampled (`LyricLabelsRepository.moodsForTracks`,
+one query) and stamps `moodFit` on each record giving the mood at least `MOOD_FIT_SHARE` of its weight;
+`weightOf` doubles those. Everything else keeps the weight it had: a mismatch, a record never judged, one
+the model could not place. That asymmetry is the point. A comparable implementation measured picking by a
+mood read off lyrics against a few hundred hand-labelled records and was right about half the time, against
+a third for picking at random: a real signal and a poor filter. So a fitting record is made more likely,
+a library of forty still airs all forty, and a failed read of the moods costs the lean and never the
+batch. Only the floor reads it, for the period's reason (a stored number, not prose), and there is no
+switch of its own: naming a mood IS the switch. `MOOD_FIT_SHARE` is an unfitted third and says so; fitting
+it needs records labelled by hand on this station.
+
 **Several similarity sources are asked in an order the operator sets, and the order matters to two of the three questions rather than all three.** `SimilarityService` pools every source for `similarTo` — two sources disagreeing about who resembles Portishead are two opinions, not a conflict — so the order there only decides whose ids survive when both name the same artist. `topTracks` and `similarTracks` take the FIRST usable answer and stop, so for those it decides whose judgement airs. Until `rotation.similarityOrder` that order was `record.id.localeCompare`, which on a station running all three bundled sources means `deadair.deezer`, then `deadair.lastfm`, then `deadair.musicbrainz`: an accident of spelling, and nothing an operator who trusted one source over another could change short of disabling the others. The setting is a `list` of plugin ids, and it is now one of six that share the same machinery: `plugins/plugin.order.ts` reads any of them with `pluginOrder` and sorts with `byOrderThen`, which puts the listed ones first in the order given and leaves everything else to the capability's own fallback — alphabetical here — so **an empty setting is exactly the old behaviour**. Which key belongs to which capability is one row of `plugins/plugin.providers.ts`, and `SimilarityService.plugins()` reaches its sources through `pluginsInOrder` over that row rather than composing the sort itself. It orders and never gates: an id that is listed but not installed is absent rather than an error, and a source left out is asked after the listed ones rather than switched off — a setting that could silently disable the only similarity plugin would turn a typo into a station with no discovery. `SimilarityService` is scoped, so the setting is read once per refill and a change applies at the next one; the day-long cache holds merged neighbours rather than the order, so nothing needs invalidating.
 
 **A playlist can ask for its neighbours to be mixed in, and they are seeded from the playlist, never from what aired.** Spotify's Smart Shuffle is a playlist with recommendations among it, and nothing here did that: the similar share of a refill only starts once a playlist runs out. `PutOnAirInput.mixInSimilar` (or `rotation.mixInSimilar`, off by default on the chart mix's argument: a playlist is what the operator chose) rides the broadcast's `rules`, and after the put-on-air commit the director sends one `director.mix_in_similar` job. `MixInSimilarJob` takes every `rotation.mixInEvery`-th planned record as an ANCHOR (four by default, at most `MAX_MIX_INS`), asks `SimilarPicker.pickLike` for one record like each anchor (the record-level `similarTracks` first, where a plugin implements it, then the anchor's artist through the same walk `SimilarSetGenerator` runs, lifted out of it for this), resolves the lot once through `PickResolver.resolve` with the broadcast's rules, and posts one `interleaveTracks` command naming each record's anchor. Three things are load-bearing. **The seed is the anchor, not the history**: at the moment a playlist goes on air the history is entirely the previous programme, which is the "Mitch Murder opened on thirteen thrash records" failure `SimilarSetGenerator.seeds` records. **Only a rotation mixes**: `resolveRules` ties the switch to `mayGenerate`, so a setlist or a feature refuses it whatever it asks, unlike crossfade, which a setlist may ask for; and a chart is excluded at the send, being somebody else's published document. **A pick that comes back from the resolver under a different name is dropped**, because the anchor is matched by song key and a guess would put a record after the wrong line. An operator who asked and got nothing is told: `order.mixInEmpty` on the feed, with no similarity plugin or with every pick refused.
@@ -180,6 +193,36 @@ model's answer against it. `apps/api/scripts/advisory.smoke.ts` covers the SQL.
 comes through the shim rather than the Web API and whether that filter binds on the fetch path is unmeasured;
 see [clean-copy-matching](https://github.com/robert-dean/deadair/discussions/9), which also holds the deferred matcher for a clean copy the playlists
 never carried.
+
+## Never-play rules, and the genre steer
+
+**A rule forbids a KIND of record, beside a dislike, which forbids one thing.** Ideas #22 is the design and
+`director/block.rules.ts` the evaluation: a `genre` rule refuses any record tagged with that genre or a kind
+of it (`genre.match.ts`: words compared after `normalizeKey`, the target a contiguous run inside the tag, so
+`Punk Rock` falls under `Punk`, plain `Pop` never under `Pop Punk`, and `Trap` never under `Rap`); a `tag`
+rule is exact. Scopes are a season of `MM-DD` days wrapping the year end, a window of hours wrapping midnight,
+station modes, schedule slots and an expiry, each optional and absent meaning always. Rows live in
+`deadair.block_rules` (0069). **Exclude only, and absolute**: no "only these genres", and no relaxing when the
+station runs short, including for a listener request. A record nobody tagged falls under nothing.
+
+**Enforced where a dislike is, never beside it.** `NeverPlay` (`never.play.ts`) narrows the rules once per
+call and reads tags only when one holds, through `CandidatesRepository.tagsFor`, the one place the tag union
+is written for the pick path (the enrichment `genres` arrays at the track and at its artist, never the
+promoted `tracks.genre` scalar). `PickResolver.judge` drops a blocked pick FIRST, beside `rejectDisliked`
+and not on `ResolvedRules`, so `NO_RULES` cannot zero it and a setlist still obeys it; `vet` holds it over a
+playlist, a chart, an album and a single record. Callers pass the broadcast they pick for (`PickBroadcast`:
+mode and slot) so a scoped rule is judged against it; one that cannot say leaves a scoped rule unjudged
+rather than guessing. The model's music search asks the same class and over-fetches three times so a model
+is not shown what the station will refuse and is not left with too few rows. Records already in a running
+order stay: a rule holds from the next pick.
+
+**The steer is the positive half #22 refused to make a rule, and it is a weight.** `deadair.genre_steers`
+holds one lean per station: genres until a time. `CatalogSetGenerator` draws a second, loose sample of
+records tagged with something CONTAINING a steered genre (positive, so loose is safe), matches the whole
+draw precisely, and gives a real match `STEER_LEAN` (four) times its weight through `RotationCandidate.lean`.
+`ModelSetGenerator` puts it in the user turn as "choose mostly from these, and still choose something else".
+Nothing ever removes a record for being outside a steer, so it can never leave the station with nothing to
+play: a lean toward a genre the library barely holds plays what it has and fills the rest as usual.
 
 ## What the model is offered
 

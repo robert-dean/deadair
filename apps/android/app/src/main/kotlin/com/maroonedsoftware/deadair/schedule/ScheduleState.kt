@@ -1,14 +1,17 @@
 package com.maroonedsoftware.deadair.schedule
 
 import com.maroonedsoftware.deadair.sdk.models.Persona
+import com.maroonedsoftware.deadair.sdk.models.PersonaPortrait
 import com.maroonedsoftware.deadair.sdk.models.ScheduleNow
 import com.maroonedsoftware.deadair.sdk.models.ScheduleSlot
 
-/** One reading of the schedule: the clock and the blocks, plus what is needed to name them. */
+/** One reading of the schedule: the clock and the blocks, plus what is needed to name them and to put a face to each host. */
 data class ScheduleReading(
     val now: ScheduleNow,
     val slots: List<ScheduleSlot>,
     val personas: List<Persona>,
+    /** Every persona that has a picture. Empty where none has, and where the station could not say. */
+    val portraits: List<PersonaPortrait> = emptyList(),
 )
 
 /**

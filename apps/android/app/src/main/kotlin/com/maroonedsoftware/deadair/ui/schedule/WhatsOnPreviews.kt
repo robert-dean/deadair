@@ -37,7 +37,7 @@ private val liveNow =
 
 @Composable
 private fun Framed(state: ScheduleState) {
-    DeadairTheme { Surface { WhatsOnScreen(state, onRetry = {}, onSignIn = {}) } }
+    DeadairTheme { Surface { WhatsOnScreen(state, artUrlFor = { it }, onRetry = {}, onSignIn = {}) } }
 }
 
 @PreviewLightDark

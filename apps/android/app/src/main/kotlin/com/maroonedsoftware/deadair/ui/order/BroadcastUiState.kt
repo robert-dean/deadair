@@ -1,7 +1,9 @@
 package com.maroonedsoftware.deadair.ui.order
 
 import com.maroonedsoftware.deadair.sdk.models.Persona
+import com.maroonedsoftware.deadair.sdk.models.PersonaPortrait
 import com.maroonedsoftware.deadair.sdk.models.StationOrder
+import com.maroonedsoftware.deadair.ui.portraitPathOf
 import com.maroonedsoftware.deadair.ui.text.Message
 
 /** Who is presenting, in the three states the answer actually has. */
@@ -27,7 +29,12 @@ sealed interface HostLine {
  * order that has an empty name and no items. So an empty name is no title, and the host cannot be
  * changed, but the header is still drawn: it is where Plan lives.
  */
-data class BroadcastUiState(val order: StationOrder, val personas: List<Persona>?) {
+data class BroadcastUiState(
+    val order: StationOrder,
+    val personas: List<Persona>?,
+    /** Every persona that has a picture. `null` until the list arrives, and when the station could not say. */
+    val portraits: List<PersonaPortrait>? = null,
+) {
     /**
      * There is no broadcast at all.
      *
@@ -67,6 +74,22 @@ data class BroadcastUiState(val order: StationOrder, val personas: List<Persona>
                 is HostLine.StationsOwn -> line.name?.let(Message::Text) ?: Message.StationsHost
                 HostLine.Nobody -> Message.NoHost
             }
+
+    /**
+     * The presenter's portrait beside [hostName], as the station's path (resolve it like a cover).
+     *
+     * Whoever the header names: the persona the broadcast named, or the station's own host when it
+     * named nobody. Nothing off air, where the header names nobody, and nothing for a host known
+     * only by the label the order carried, because a portrait is filed under a persona's id and a
+     * label is not one.
+     */
+    val hostPortraitPath: String?
+        get() {
+            if (nothingOn) return null
+            val known = portraits ?: return null
+            val presenter = order.personaId ?: personas?.stationHost()?.id
+            return known.portraitPathOf(presenter)
+        }
 
     /** There has to be a broadcast to recast. Off air the station is not presenting anything. */
     val canRecast: Boolean get() = !nothingOn

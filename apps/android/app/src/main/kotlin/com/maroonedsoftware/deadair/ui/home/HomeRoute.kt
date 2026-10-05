@@ -297,8 +297,14 @@ fun HomeRoute(
                 // when somebody edits one, not on a clock, and this is a `platform.view` read that
                 // a listener is allowed to make even though only an operator can act on it.
                 val personas = rememberDetail("personas") { graph.sessions.withSession { it.personas.listPersonas().personas } }
+                // Who has a picture, read once beside the personas and for their reason. A failure
+                // here (a station from before portraits answers 404) is a header with no face.
+                val portraits = rememberDetail("portraits") { graph.sessions.withSession { it.artPersonas.listPersonaPortraits().portraits } }
                 val loadedOrder = (order as? OrderState.Loaded)?.order
-                val broadcast = loadedOrder?.let { BroadcastUiState(it, (personas.state as? LoadState.Loaded)?.value) }
+                val broadcast =
+                    loadedOrder?.let {
+                        BroadcastUiState(it, (personas.state as? LoadState.Loaded)?.value, portraits = (portraits.state as? LoadState.Loaded)?.value)
+                    }
 
                 val handlers =
                     if (!isOperator) {
@@ -331,6 +337,7 @@ fun HomeRoute(
                     onSegment = { segmentId -> onScripts(segmentId) },
                     onHistory = onHistory,
                     broadcast = broadcast,
+                    hostPortraitUrl = station?.artUrl(broadcast?.hostPortraitPath),
                     handlers = handlers,
                     onHost = if (isOperator && broadcast?.canRecast == true) ({ pickingHost = true }) else null,
                     onAirArtworkUrl = artworkUrl,
@@ -355,7 +362,7 @@ fun HomeRoute(
                     )
                 }
             }
-            Tab.WHATS_ON -> WhatsOnScreen(state = schedule, onRetry = graph.schedule::retry, onSignIn = onSignIn)
+            Tab.WHATS_ON -> WhatsOnScreen(state = schedule, artUrlFor = { path -> station?.artUrl(path) }, onRetry = graph.schedule::retry, onSignIn = onSignIn)
             Tab.SETTINGS -> settingsTab()
         }
     }

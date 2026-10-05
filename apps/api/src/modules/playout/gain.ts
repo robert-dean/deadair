@@ -291,6 +291,37 @@ export function speechGainFor(measured: MeasuredLoudness, targetLufs: number, tr
 }
 
 /**
+ * How far under the voice the bed sits while the DJ talks over a record, in LU.
+ *
+ * Ten, because that is where the fixed -12 dB duck this replaced put a record levelled to the
+ * default target: -13 ducked to -25, against a voice at -15. So a record at target ducks exactly
+ * as it always did, and what changed is only that a quiet intro is no longer pushed twenty-seven
+ * under the voice and a loud chorus no longer sits five under it. See the duck in `radio.liq`.
+ */
+export const DUCK_UNDER_VOICE_DB = 10;
+
+/**
+ * The level the bed is ducked TO under a talk-over, in LUFS: where the voice lands, less
+ * {@link DUCK_UNDER_VOICE_DB}.
+ *
+ * Where the voice lands is the station's target less the operator's trim, which is what
+ * {@link speechGainFor} aims every break at, so the bed follows both settings without a restart.
+ * That is why this rides on the cue rather than living in `radio.env` beside the duck's bounds:
+ * anything there is read at startup, and moving `playout.targetLufs` would have cost a restart of
+ * the station to keep the bed in step with a voice that had already moved.
+ *
+ * Aimed at the voice's TARGET rather than at the segment's measurement, because the gain lands
+ * every segment at that target whatever it measured; the two can differ only by the clamp on
+ * {@link MAX_GAIN_DB}, and a break that far out is wrong in a way no bed level would fix.
+ */
+export function duckBedLufsFor(targetLufs: number, trimDb: number): number {
+    const trim = isFinite(trimDb) ? trimDb : DEFAULT_SPEECH_TRIM_DB;
+    const target = (isFinite(targetLufs) ? targetLufs : DEFAULT_TARGET_LUFS) - trim;
+
+    return round(target - DUCK_UNDER_VOICE_DB);
+}
+
+/**
  * The level a podcast episode is assumed to be at, in LUFS, when nothing has measured it.
  *
  * Minus sixteen is the figure the podcast platforms publish as their target for spoken word, and

@@ -285,6 +285,19 @@ because the skip lands a frame or more later; the next track's `on_track` restor
 python3 stream/fadeskip.check.py
 ```
 
+`duck.check.liq` measures where the duck lands the bed under the voice. The bed is one tone at about
+-30 LUFS for ten seconds and -8 for ten more, and a voice at -15 speaks over each half. It reports the
+gap between the voice and the bed under it, which is what a listener hears as "the music is too loud
+under the DJ" or "the DJ is talking over nothing". Against a fixed -12 dB duck that gap was 27 LU over
+the quiet half and 5 over the loud one; ducking to a level, it is 18 and 10. A third break straddles
+the step from quiet to loud, which is what caught the duck releasing and deepening at the same slow
+rate: a second after the kick the bed was 2.5 LU over the voice. Built like the fadeskip check, with
+no dev stack:
+
+```
+python3 stream/duck.check.py
+```
+
 `liveboundary.check.py` is the third, and it measures the real mount rather than a render: capture
 the stream with a listener connected (the connection is what holds the audience gate open), log
 `GET /nowplaying` alongside it, and it reports the level across each join and how abruptly the
@@ -343,13 +356,23 @@ never meets the strip above, so that one is load-bearing rather than belt-and-br
 
 The **duck** is ours, not `smooth_add`'s: `radio.liq` ramps a gain ref on the bed while the
 harbor source is ready, and `add`s the voice on top. `smooth_add` fades the bed down but never
-back up ([#3714](https://github.com/savonet/liquidsoap/issues/3714)). Depth and ramp are
-`DUCK_GAIN_DB` / `DUCK_FADE_MS` in `radio.env`, read at startup, so tuning them by ear needs a
-Liquidsoap restart.
+back up ([#3714](https://github.com/savonet/liquidsoap/issues/3714)).
+
+**It ducks the bed to a level, not by an amount.** The bed is metered (BS.1770, the louder of
+short-term and momentary) upstream of the duck's gain, and dropped as far as it takes to sit at the
+level the cue names while the DJ speaks, never deeper than `DUCK_GAIN_DB` and never shallower than
+`DUCK_MIN_DB`. The app stamps that level on every cue it arms (`deadair_duck_bed_lufs`, ten under
+where the voice is aimed), so the bed follows `playout.targetLufs` and the speech trim with no restart;
+`DUCK_BED_LUFS` is the figure for a cue that does not carry one. The defaults (-25, -18, -3) put a record levelled to -13 exactly where the old fixed
+-12 did, ten under the voice, so only quieter and louder passages move. During a break the depth
+deepens fast, so a record kicking in under a talk-up is pulled down within the second, and releases
+slowly, so the bed cannot pump between phrases. The ramp in and out is `DUCK_FADE_MS` whatever the
+depth. The other four are in `radio.env`, read at startup, so tuning them by ear needs a Liquidsoap
+restart.
 
 The **voice has a mic chain** of its own, between the voice queue and both mixes: a 40 ms `fade.in`,
-a compressor, then a `VOICE_GAIN_DB` trim. It exists because the duck is a fixed number of dB, so it
-only lands the voice where it belongs if the voice arrives somewhere predictable — and without this
+a compressor, then a `VOICE_GAIN_DB` trim. It exists because the duck lands the bed at a fixed level,
+so it only puts the voice where it belongs if the voice arrives somewhere predictable — and without this
 the level of a segment is entirely whatever the speech plugin produced. The fade has no matching
 `fade.out` and cannot have one: on a `request.queue` source Liquidsoap does not know the remaining
 time, so `fade.out` treats the whole clip as inside the fade zone and multiplies it to silence. Fade

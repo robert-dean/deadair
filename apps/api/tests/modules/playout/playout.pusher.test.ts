@@ -6,7 +6,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, speechGainFor } from '../../../src/modules/playout/gain.js';
+import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, duckBedLufsFor, speechGainFor } from '../../../src/modules/playout/gain.js';
 import { HARD_JOIN_MS } from '../../../src/modules/playout/annotate.js';
 import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
@@ -965,8 +965,21 @@ describe('PlayoutPusher arming a talk-over', () => {
 
         await pusher.reconcile();
 
-        const armed = `annotate:liq_amplify="${speechGainFor({}, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB)} dB":https://example.test/seg-1.ogg`;
+        const gain = speechGainFor({}, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
+        const bed = duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
+        const armed = `annotate:liq_amplify="${gain} dB",deadair_duck_bed_lufs="${bed}":https://example.test/seg-1.ogg`;
         expect(control.armVoice).toHaveBeenCalledWith(armed, itemId, 8000);
+    });
+
+    it('arms the cue with the level the bed ducks to under it', async () => {
+        // radio.liq ducks the bed to this rather than by a fixed amount, and reads it off the cue so
+        // that moving the station's target moves the bed with the voice, without a restart.
+        const { pusher, control } = build({ url: 'https://example.test/seg-1.ogg', atMs: 8000 });
+
+        await pusher.reconcile();
+
+        const bed = duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
+        expect(control.armVoice).toHaveBeenCalledWith(expect.stringContaining(`deadair_duck_bed_lufs="${bed}"`), expect.any(String), 8000);
     });
 
     it("arms the cue against the segment's own measurement where there is one", async () => {

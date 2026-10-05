@@ -13,6 +13,8 @@ import {
     MIN_GAIN_DB,
     DEFAULT_SPEECH_TRIM_DB,
     DEFAULT_TARGET_LUFS,
+    DUCK_UNDER_VOICE_DB,
+    duckBedLufsFor,
     MAX_SPEECH_TRIM_DB,
     MIN_SPEECH_TRIM_DB,
     resolveSpeechTrimDb,
@@ -204,5 +206,28 @@ describe('programmeGainFor', () => {
 
     it('is bounded by the same cap', () => {
         expect(programmeGainFor({ loudnessLufs: -70 }, TARGET, TRIM)).toBe(MAX_GAIN_DB);
+    });
+});
+
+describe('duckBedLufsFor', () => {
+    it('puts the bed DUCK_UNDER_VOICE_DB under where a break is aimed', () => {
+        // Where the voice lands is the target less the trim, whatever the segment measured: that is
+        // what `speechGainFor` aims every break at.
+        expect(duckBedLufsFor(TARGET, TRIM)).toBe(TARGET - TRIM - DUCK_UNDER_VOICE_DB);
+        expect(duckBedLufsFor(TARGET, TRIM)).toBe(TARGET + speechGainFor({ loudnessLufs: TARGET }, TARGET, TRIM) - DUCK_UNDER_VOICE_DB);
+    });
+
+    it('ducks a record at the default target exactly as the fixed -12 dB duck did', () => {
+        // The claim the default rests on: only quieter and louder passages should move.
+        expect(duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB)).toBe(DEFAULT_TARGET_LUFS - 12);
+    });
+
+    it('follows the target and the trim, which is why it rides on the cue', () => {
+        expect(duckBedLufsFor(TARGET - 3, TRIM)).toBe(duckBedLufsFor(TARGET, TRIM) - 3);
+        expect(duckBedLufsFor(TARGET, TRIM + 2)).toBe(duckBedLufsFor(TARGET, TRIM) - 2);
+    });
+
+    it('falls back to the defaults for a figure that is not a number', () => {
+        expect(duckBedLufsFor(Number.NaN, Number.NaN)).toBe(duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB));
     });
 });

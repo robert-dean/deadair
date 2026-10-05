@@ -78,8 +78,10 @@ const playout = (overrides: Partial<StreamPlayoutConfig> = {}): StreamPlayoutCon
     playoutStarveUrl: 'http://host.docker.internal:3333/api/playout/bridge/starve',
     playoutBridgeSecret: 'bridge-secret',
     talkOverTracks: true,
-    duckGainDb: -12,
+    duckGainDb: -18,
     duckFadeMs: 300,
+    duckMinDb: -3,
+    duckBedLufs: -25,
     voiceGainDb: 0,
     controlTtlS: 6,
     playoutPrefetch: 3,
@@ -198,9 +200,24 @@ describe('writeStreamConfig', () => {
 
         const env = parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8'));
         expect(env.get('TALK_OVER_TRACKS')).toBe('true');
-        expect(env.get('DUCK_GAIN_DB')).toBe('-12');
+        expect(env.get('DUCK_GAIN_DB')).toBe('-18');
         expect(env.get('DUCK_FADE_MS')).toBe('300');
+        expect(env.get('DUCK_MIN_DB')).toBe('-3');
+        expect(env.get('DUCK_BED_LUFS')).toBe('-25');
         expect(env.get('VOICE_GAIN_DB')).toBe('0');
+    });
+
+    it('appends the duck keys added later rather than filing them beside the first two', () => {
+        // The key order is what the config stamp hashes, so a key filed in the middle would make
+        // every running container read as stale; appended, the stamp moves once, on this upgrade.
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir });
+
+        const keys = readFileSync(join(configDir, 'radio.env'), 'utf8')
+            .split('\n')
+            .map(line => line.split('=')[0]);
+        expect(keys.indexOf('DUCK_MIN_DB')).toBeGreaterThan(keys.indexOf('LOG_LEVEL'));
+        expect(keys.indexOf('DUCK_BED_LUFS')).toBeGreaterThan(keys.indexOf('LOG_LEVEL'));
     });
 
     it('writes the audio chain log level, which radio.liq reads as an integer', () => {

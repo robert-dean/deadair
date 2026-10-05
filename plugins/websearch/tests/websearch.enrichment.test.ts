@@ -48,6 +48,15 @@ const queuePage = (text: string): void =>
         headers: { 'content-type': 'text/html' },
     });
 
+/**
+ * What `remainingMs()` reads at the top of a live `enrichArtist` call, the
+ * shorter of the two this file exercises (a record gets 36 seconds). The host
+ * gives an enrichment call 24 seconds rather than the 8 second default, and a
+ * page is only started with ARTICLE_TIMEOUT_MS in hand, so a test left on the
+ * fake's default would be testing a call the station never makes.
+ */
+const ENRICH_CALL_REMAINING_MS = 24_000 - 5;
+
 beforeEach(() => {
     host = createFakePluginHost();
     plugin = new WebSearchPlugin();
@@ -100,6 +109,10 @@ describe('with no trusted sites, which is the default', () => {
 });
 
 describe('enrichArtist', () => {
+    beforeEach(() => {
+        host.seedRemainingMs(ENRICH_CALL_REMAINING_MS);
+    });
+
     it('scopes the search to the trusted sites and reads the page it found', async () => {
         await initialize();
         queueSearch('https://www.example.com/portishead');

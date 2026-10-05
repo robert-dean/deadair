@@ -176,7 +176,8 @@ MediaPlayer calls from its own thread, and the remote-command handlers are all e
 **`Playback/Platform.swift` is the only file with iOS-only API in it**: the audio session, the
 background task and `UIImage`. Everything else in the app compiles for macOS as it stands, which is
 what let the app be type-checked against the real AVFoundation, MediaPlayer, Security and SwiftUI
-before this machine had Xcode, with that one file stubbed. Keep it that way.
+before this machine had Xcode, with that one file stubbed. Keep it that way. (`CarPlay/` is wrapped
+in `#if canImport(CarPlay)` for this reason, and `Intents/` is AppIntents, which the Mac has.)
 
 **The session is activated off the main thread; the category is not.** `setActive` waits on the media
 server, and a phone logged a "Hang Risk" fault on every play and stop while it ran on the main thread
@@ -202,7 +203,56 @@ has that problem.** A dropped stream in a pocket is exactly a silent app. So a p
 holds a background task, which the backoff's first waits fit inside, and after that the lock-screen
 tile is what the listener presses. The tile survives suspension but not termination: iOS has no
 `MediaButtonReceiver`, so a play press in a car cannot start an app that has been swiped away.
-CarPlay and an `AudioPlaybackIntent` are the two real routes to that, and neither is built.
+CarPlay and an `AudioPlaybackIntent` are the two real routes to that, and both are built (the next
+two paragraphs). The intent works today; CarPlay is built and waits on Apple.
+
+**`PlayStationIntent` is an `AudioPlaybackIntent`, and it is the route that starts a swiped-away
+app.** The system runs it in the app's own process, launching it in the background, and it calls
+`Listening.play()`, the Play button's own call. `AppModel.shared` is the one graph in the process
+(the window, the intent and the CarPlay scene all read it), and that is what stops a second player
+existing: do not build an `AppModel` anywhere else. `DeadairShortcuts` offers it to Siri and
+Shortcuts with no set-up. With no station kept it throws a sentence rather than reporting a start.
+
+**CarPlay's list holds exactly one row, the station, and must never hold a second.** Android Auto's
+rule (`apps/android/CLAUDE.md`, "Android Auto's library holds exactly one item"), for its reason: a
+second row (one per format) is a second thing to press, and a head unit reads a list as something with
+a next that is not the operator's Skip. `CarStationItem` in `DeadairCore` is a value, not a
+collection, and is what the row says: the station's name, the lock screen's two lines when tuned in
+(and nothing before, because a reading left over from before stop is not what is playing), the cover or
+the presenter's portrait (`coverArtUrl`), and a line sending the listener to the phone when no station
+is kept. The scene (`CarPlay/CarPlaySceneDelegate.swift`) draws it into a `CPListTemplate`, redraws
+only when the value changed, and on selection calls `Listening.play()` and pushes
+`CPNowPlayingTemplate.shared`. That template reads `MPNowPlayingInfoCenter` and sends its buttons to
+the remote commands `SystemNowPlaying` already answers, so nothing is published for the car a second
+time. The row reads `Listening.shown`, the reading the gate has RELEASED, so the car and the lock screen
+tile never disagree about which record is on. The root is built synchronously in `didConnect` from
+held state, the iOS counterpart of Android's root rule: nothing there waits on the network. The
+file is `#if canImport(CarPlay)`, so the macOS type-check described below still holds. Not looked at in
+a car or on the simulator's CarPlay window yet (2026-10-05): the build is clean and the phone's own
+window launches with the scene manifest, nothing more.
+
+**The CarPlay entitlement is the one thing in this tree that can break a device build, so it is
+applied by SDK and is OFF for every device build.** Apple has not granted `com.apple.developer.carplay-audio`
+to this app. A signed device or archive build that names an entitlement the provisioning profile does
+not hold fails to sign, which would stop TestFlight (`ios-release.yml` archives for
+`generic/platform=iOS` with automatic signing) and every personal-team run. So `Config/Deadair.carplay.entitlements`
+is referenced only by `CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]` in the target's two configurations:
+simulator builds carry it (the simulator's CarPlay window needs it to connect a scene, and a
+simulator build needs no profile), and `xcodebuild -showBuildSettings -sdk iphoneos` answers no
+entitlements file at all. CI builds for the simulator with signing off, so it embeds nothing either.
+Everything else is safe without it: the scene manifest in `Config/Info.plist` only declares a role
+CarPlay never connects to, and the delegate is never instantiated, so the app is exactly what it was.
+That is also why `INFOPLIST_KEY_UIApplicationSceneManifest_Generation` is `NO`: the generated manifest
+beats the file's, with an empty `UISceneConfigurations`, and the CarPlay role never reached the built
+plist. SwiftUI still makes the phone's window without a window role declared.
+
+**To turn CarPlay on for device builds once Apple grants it:** request the CarPlay Audio entitlement
+at developer.apple.com for `com.maroonedsoftware.deadair` (the CarPlay request form, which is
+reviewed by hand), then make sure the App ID has the capability and let automatic signing regenerate
+the profile (`-allowProvisioningUpdates` in the release workflow does so on the next archive). Only
+then change `CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]` to plain `CODE_SIGN_ENTITLEMENTS` in both
+target configurations in `project.pbxproj`, so the file applies to every SDK. Do that BEFORE the grant
+and the next TestFlight upload fails to sign.
 
 **With no network, a drop waits for one instead of spending the backoff.** `Platform.observeNetwork`
 (an `NWPathMonitor`, satisfied rather than internet-reaching, for a home station) feeds
@@ -338,5 +388,5 @@ History, What it said, the record pages, Settings and the sign-in page were laid
 and screenshotted on the 17 Pro and SE simulators, most in both light and dark (2026-10-02). The host
 picker, Manage, the plan form and setup were not looked at that way.
 
-Not yet: the lock-screen tile's appearance on the phone, an interruption from a call, a reconnect
+Not yet: CarPlay on a head unit or the simulator's CarPlay window, Siri starting a swiped-away app, the lock-screen tile's appearance on the phone, an interruption from a call, a reconnect
 after a dropped stream, the background task running out, and the system Camera opening a console code.

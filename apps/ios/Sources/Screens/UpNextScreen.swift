@@ -24,12 +24,19 @@ struct UpNextScreen: View {
         let broadcast: BroadcastUiState? =
             if case .loaded(let reading, _) = state { BroadcastUiState(order: reading.order, personas: reading.personas) } else { nil }
 
+        // Who is presenting, and nothing about a broadcast that has none: off air there is no one, and
+        // the line would name the station's own host over an empty order.
+        let hostName = broadcast.flatMap { $0.nothingOn ? nil : $0.hostName.words }
+
         VStack(spacing: 0) {
             UpNextHeader(
                 mesh: cover.palette?.mesh ?? [],
-                // Who is presenting, and nothing about a broadcast that has none: off air there is
-                // no one, and the line would name the station's own host over an empty order.
-                hostName: broadcast.flatMap { $0.nothingOn ? nil : $0.hostName.words },
+                hostName: hostName,
+                // Their picture from the public reading, and only while it names the same presenter
+                // the order does: a recast the poll has not seen yet keeps the bare name.
+                hostPortrait: hostPortraitUrl(station: model.settings.settings.station, reading: model.nowPlaying.state.latest?.value, naming: hostName)
+                    .flatMap(URL.init(string:)),
+                loader: model.artwork,
                 // Not while rows are being moved: the one thing to do then is finish.
                 onHost: model.isOperator && broadcast?.canRecast == true && !editMode.isEditing ? { pickingHost = true } : nil
             ) {
@@ -422,6 +429,9 @@ extension EnvironmentValues {
 private struct UpNextHeader<Actions: View>: View {
     let mesh: [RGB]
     let hostName: String?
+    /// The presenter's picture, drawn beside the name when there is one.
+    let hostPortrait: URL?
+    let loader: ArtworkLoader
     /// Where the reader may change the host, the name is the control, with a picker's chevron.
     let onHost: (() -> Void)?
     @ViewBuilder let actions: Actions
@@ -430,11 +440,14 @@ private struct UpNextHeader<Actions: View>: View {
         HStack(spacing: 8) {
             Group {
                 if let hostName {
-                    let host = VStack(alignment: .leading, spacing: 0) {
-                        Text(String(localized: "Host")).font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                        HStack(spacing: 2) {
-                            Text(hostName).font(.title2.weight(.semibold)).lineLimit(1)
-                            if onHost != nil { Image(systemName: "chevron.down").font(.body.weight(.semibold)) }
+                    let host = HStack(spacing: 10) {
+                        if let hostPortrait { HostPortrait(url: hostPortrait, loader: loader, size: 40) }
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(String(localized: "Host")).font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                            HStack(spacing: 2) {
+                                Text(hostName).font(.title2.weight(.semibold)).lineLimit(1)
+                                if onHost != nil { Image(systemName: "chevron.down").font(.body.weight(.semibold)) }
+                            }
                         }
                     }
                     .padding(.horizontal, 8)

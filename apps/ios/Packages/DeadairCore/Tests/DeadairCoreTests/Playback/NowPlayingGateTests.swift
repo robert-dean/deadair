@@ -161,6 +161,22 @@ struct NowPlayingGateTests {
         #expect(pushes.count == 2)
         #expect(pushes.last == after)
     }
+
+    @Test func aNewPictureOfTheHostReachesTheLockScreenWithNothingElseMoving() {
+        // A break's artwork is the host's picture, so a picture arriving mid-break is a change the
+        // lock screen shows.
+        let (gate, pushes) = gate()
+        let spoken = NowPlayingTrack(kind: .break, title: "Top of the hour", artist: "", startedAt: 1_000)
+        let before = NowPlaying(station: "Test FM", onAir: true, listeners: 1, mounts: [], show: NowPlayingShow(name: "Late Static", host: "Cass"), track: spoken)
+        var after = before
+        after.show = NowPlayingShow(name: "Late Static", host: "Cass", hostArtUrl: "art/portrait-1/cover.png")
+
+        gate.onPoll(before, buffered: .seconds(5))
+        gate.onPoll(after, buffered: .seconds(5))
+
+        #expect(pushes.count == 2)
+        #expect(pushes.last == after)
+    }
 }
 
 @MainActor

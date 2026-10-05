@@ -82,7 +82,7 @@ The speaker fetches the stream itself, from the station's public address (**Sett
 
 The speaker shows the station's name and the programme rather than each record, because a Chromecast's own player cannot be told what changed without starting the stream again. A Sonos and a BluOS player read the record from the stream itself.
 
-Some UPnP renderers, Samsung televisions among them, cannot play an `https://` stream at all and refuse it with error 716. For those, set **Settings**, **Stream**, **Address for speakers** to the station's plain `http://` address on your network, such as `http://192.168.1.10:8080`. Speakers are then handed that address while listeners keep the public one. It is also the fix for a speaker that cannot reach the public address from inside your network.
+When a speaker cannot reach the public address from inside your network, or you would rather it did not go out to the internet and back, set **Settings**, **Stream**, **Address for speakers** to the station's plain `http://` address on your network, such as `http://192.168.1.10:8080`. Speakers are then handed that address while listeners keep the public one.
 
 ## In the console
 

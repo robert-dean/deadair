@@ -21,9 +21,9 @@ export const STREAM_KEYS = {
     publicUrl: 'stream.publicUrl',
     /**
      * Where speakers the station casts to fetch the stream from, when that is not the public URL.
-     * A speaker is on the station's own network, and some cannot play HTTPS at all (a Samsung
-     * television's DLNA renderer refuses it), so the address it wants is often a plain `http://`
-     * LAN one while listeners outside keep the public HTTPS name.
+     * A speaker is on the station's own network, where the public name may not resolve or may
+     * route out and back through a tunnel, so the address it wants is often the station's plain
+     * `http://` LAN one while listeners outside keep the public HTTPS name.
      */
     speakerUrl: 'stream.speakerUrl',
     bitrate: 'stream.bitrate',

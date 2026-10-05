@@ -3,4 +3,4 @@
 '@deadair/plugin-cast': patch
 ---
 
-A new stream setting, **Address for speakers**, says where speakers the station plays on fetch the stream from, when that is not the public URL. Set it to the station's plain `http://` address on your network for a speaker that cannot play HTTPS (some televisions cannot) or cannot reach the public address from inside. Listeners keep the public URL.
+UPnP/DLNA speakers that check a stream before playing it, Samsung televisions among them, now play the station: the stream answers that check itself instead of refusing it, which those speakers read as "resource not found". And a new stream setting, **Address for speakers**, says where speakers fetch the stream from when that is not the public URL, for a speaker that cannot reach the public address from inside your network.

@@ -87,6 +87,28 @@ export const withinPeriod = (year: number | undefined, era: EraWindow): boolean 
     return (era.from === undefined || year >= era.from) && (era.to === undefined || year <= era.to);
 };
 
+/**
+ * What one draw must leave out beyond what {@link CandidatesRepository.sample} always does, for a
+ * caller drawing again round what a never-play rule refused.
+ */
+export interface SampleExclusions {
+    /**
+     * Genres or tags a never-play rule in force refuses, matched in SQL ONLY where the tag is the
+     * value itself, ignoring case and surrounding space.
+     *
+     * Deliberately narrower than the rule. `genre.match.ts` compares WORDS after the catalog's own
+     * `normalizeKey` (accents, punctuation, `&` read as `and`), and a SQL copy of that fold would be a
+     * second matcher that can drift from the first; in this, the exclude direction, a drift is a
+     * silent over-block (Ideas #22). Equality up to case is the one test that is provably a subset of
+     * what the matcher refuses: two tags equal here fold to the same words there. So this only spares
+     * the draw the common case, a record tagged exactly what the rule names; a refinement (`Punk Rock`
+     * under `Punk`) still arrives, and the caller's precise pass refuses it.
+     */
+    refusedTags?: readonly string[];
+    /** Records an earlier draw in the same refill already returned, so drawing again finds new ones. */
+    trackIds?: readonly string[];
+}
+
 /** A playable copy of a work, in one provider's id space. */
 export interface TrackBinding {
     trackId: string;
@@ -105,6 +127,9 @@ export interface TrackBinding {
  */
 const SAMPLE_MULTIPLIER = 12;
 const SAMPLE_CEILING = 500;
+
+/** How many rows one sample asks for, for `count` picks. See {@link SAMPLE_MULTIPLIER}. */
+export const sampleSize = (count: number): number => Math.min(SAMPLE_CEILING, Math.max(1, count) * SAMPLE_MULTIPLIER);
 
 /**
  * How the station feels about one work, as one number: `-1`, `0` or `1`.
@@ -198,8 +223,12 @@ export class CandidatesRepository extends DataRepository {
          * for a never-play rule, where loose would block what nobody asked to (Ideas #22).
          */
         taggedLike?: readonly string[],
+        /** What else to leave out, for a draw made round a never-play rule. See {@link SampleExclusions}. */
+        exclude?: SampleExclusions,
     ): Promise<CandidateTrack[]> {
-        const limit = Math.min(SAMPLE_CEILING, Math.max(1, count) * SAMPLE_MULTIPLIER);
+        const limit = sampleSize(count);
+        const refused = [...new Set((exclude?.refusedTags ?? []).map(tag => tag.trim().toLowerCase()).filter(tag => tag !== ''))];
+        const drawn = exclude?.trackIds ?? [];
 
         const rows = await this.db
             .selectFrom('deadair.tracks')
@@ -251,6 +280,8 @@ export class CandidatesRepository extends DataRepository {
             .where(eb => noCreditedDislike(eb))
             .$if(bindsAnything(era), qb => qb.where(withinEra(era!)))
             .$if(taggedLike !== undefined && taggedLike.length > 0, qb => qb.where(taggedLikeAny(taggedLike!)))
+            .$if(refused.length > 0, qb => qb.where(sql<boolean>`not ${taggedExactly(refused)}`))
+            .$if(drawn.length > 0, qb => qb.where('deadair.tracks.id', 'not in', [...drawn]))
             .orderBy(sql`random()`)
             .limit(limit)
             .execute();
@@ -510,6 +541,27 @@ function taggedLikeAny(genres: readonly string[]) {
             case when jsonb_typeof(e.data -> 'genres') = 'array' then e.data -> 'genres' else '[]'::jsonb end
         ) tag
         where e.${sql.raw(column)} = deadair.tracks.${sql.raw(id)} and tag ilike any (${patterns})
+    `;
+    return sql<boolean>`exists (
+        ${tagged('track_enrichment', 'track_id', 'id')}
+        union all
+        ${tagged('artist_enrichment', 'artist_id', 'artist_id')}
+    )`;
+}
+
+/**
+ * Whether a record, or its artist, carries a genre tag that IS one of these, once trimmed and
+ * lower-cased. `values` arrive folded the same way. The safe SQL half of a never-play rule; see
+ * {@link SampleExclusions.refusedTags} for why it is equality and nothing looser.
+ */
+function taggedExactly(values: readonly string[]) {
+    const tagged = (table: string, column: string, id: string) => sql`
+        select 1
+        from deadair.${sql.raw(table)} e
+        cross join lateral jsonb_array_elements_text(
+            case when jsonb_typeof(e.data -> 'genres') = 'array' then e.data -> 'genres' else '[]'::jsonb end
+        ) tag
+        where e.${sql.raw(column)} = deadair.tracks.${sql.raw(id)} and lower(btrim(tag)) = any (${[...values]})
     `;
     return sql<boolean>`exists (
         ${tagged('track_enrichment', 'track_id', 'id')}

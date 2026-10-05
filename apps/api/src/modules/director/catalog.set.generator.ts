@@ -8,7 +8,7 @@ import { StationIdentity } from '#modules/shared/station.identity.js';
 import { advisoryPolicy, demandsClean, type AdvisoryPolicy } from './advisory.policy.js';
 import { AdvisoryWatch } from './advisory.watch.js';
 import { EraWatch } from './era.watch.js';
-import { CandidatesRepository, bindsAnything, type CandidateTrack, type EraWindow } from './candidates.repository.js';
+import { CandidatesRepository, bindsAnything, sampleSize, type CandidateTrack, type EraWindow } from './candidates.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { albumKey, artistKey, songKey } from './rotation.keys.js';
 import { applyRules, spaceArtists, weightOf, type RotationCandidate } from './rotation.rules.js';
@@ -17,6 +17,20 @@ import { freshnessOf, historyDaysFor, resolveSmartShuffle } from './smart.shuffl
 import { trackLengthBounds } from './track.length.js';
 import { BlockRulesRepository } from './block.rules.repository.js';
 import { STEER_LEAN, steered } from './genre.steer.js';
+import type { CompiledRule } from './block.rules.js';
+import { NeverPlay } from './never.play.js';
+import type { TrackLengthBounds } from './track.length.js';
+
+/**
+ * How many draws one sample may take round what a never-play rule refused, at most.
+ *
+ * Each draw leaves out everything the ones before it returned, and is sized from how much of what
+ * they drew was refused, so a second draw is usually enough. Bounded because the alternative is
+ * reading the whole library on every refill for a station whose rules leave it almost nothing, and
+ * four draws of up to {@link sampleSize} each is already more than many libraries hold. What is
+ * still short after that is reported the way any short draw is: by the refill coming back short.
+ */
+const NEVER_PLAY_DRAWS = 4;
 
 /**
  * The station's own taste, for now: a weighted draw from the catalog, shaped by
@@ -69,6 +83,8 @@ export class CatalogSetGenerator extends SetGenerator {
         private readonly eraWatch: EraWatch,
         /** What mood each record was judged to be in, for a broadcast that leans into one. */
         private readonly labels: LyricLabelsRepository,
+        /** The never-play rules, applied to the draw itself so a refused record never takes a place in it. */
+        private readonly neverPlay: NeverPlay,
     ) {
         super();
     }
@@ -115,14 +131,14 @@ export class CatalogSetGenerator extends SetGenerator {
         // none of the guarantee that keeps it the floor. The brief beside it stays unread.
         const era = inputs.era;
         const bounds = trackLengthBounds(this.config);
-        const steer = await this.rules.steer();
+        const [steer, refusing] = await Promise.all([this.rules.steer(), this.refusing(inputs)]);
         const [ordinary, leaning] = await Promise.all([
-            this.candidates.sample(count, policy, era, bounds),
+            this.drawPlayable(count, policy, refusing, era, bounds),
             // A second, smaller draw from the steered genres, so a lean toward something the library
             // holds little of still has records to lean on. Loose here and precise below.
-            steer === undefined ? Promise.resolve([]) : this.candidates.sample(count, policy, era, bounds, steer.genres),
+            steer === undefined ? Promise.resolve([]) : this.drawPlayable(count, policy, refusing, era, bounds, steer.genres),
         ]);
-        await this.watchStarvation(policy, era, count, ordinary.length);
+        await this.watchStarvation(policy, era, count, ordinary.length, refusing);
         const sampled = mergeByTrack(ordinary, leaning);
         const leans = steer === undefined ? undefined : await this.leaningToward(sampled, steer.genres);
         // Freshness is stamped on what was SAMPLED, so it can only choose between the records the
@@ -168,6 +184,76 @@ export class CatalogSetGenerator extends SetGenerator {
         }));
     }
 
+    /**
+     * The never-play rules holding now for this broadcast, or none when they cannot be read.
+     *
+     * An unreadable rule table costs the early filter and never the batch: this is the floor, and
+     * `PickResolver` judges every pick against the same rules again, which is the guarantee.
+     */
+    private async refusing(inputs: SetInputs): Promise<CompiledRule[]> {
+        try {
+            return await this.neverPlay.holding(inputs.broadcast);
+        } catch {
+            return [];
+        }
+    }
+
+    /**
+     * A sample with whatever a never-play rule refuses already taken out, drawn again round the
+     * refusals until it is the size an ordinary sample would be.
+     *
+     * Rules are exclude-only and absolute, and they used to be applied only at `PickResolver`, AFTER
+     * this generator had drawn, weighed and chosen. A station refusing most of its library then drew
+     * a sample that was mostly refused records, chose among them, and handed back a batch the
+     * resolver emptied: the refill starved, and the lineup ran dry with records it may play still
+     * sitting in the library.
+     *
+     * **The precise test stays in TypeScript.** A genre rule matches on word boundaries after the
+     * catalog's own fold (`genre.match.ts`), and a SQL imitation of that is a second matcher that can
+     * disagree with the first, which in the exclude direction is a silent over-block. So SQL is given
+     * only exact equality (`SampleExclusions.refusedTags`), which is provably a subset and
+     * spares the draw the commonest case; each drawn batch is then judged by `NeverPlay`, the same
+     * code the resolver runs; and what that refuses is made up by drawing again, leaving out every
+     * record already drawn. The resolver's check is not made redundant by this and must not be
+     * deleted for it: picks reach it from generators that never read this repository.
+     */
+    private async drawPlayable(
+        count: number,
+        policy: AdvisoryPolicy,
+        refusing: readonly CompiledRule[],
+        era?: EraWindow,
+        bounds?: TrackLengthBounds,
+        taggedLike?: readonly string[],
+    ): Promise<CandidateTrack[]> {
+        if (refusing.length === 0) return await this.candidates.sample(count, policy, era, bounds, taggedLike);
+
+        const wanted = sampleSize(count);
+        const refusedTags = refusing.map(rule => rule.target);
+        const kept: CandidateTrack[] = [];
+        const drawnIds: string[] = [];
+        // The first draw is the ordinary size. Each one after it is sized from how much of the
+        // library the rules have refused so far, so a station refusing nine records in ten asks for
+        // ten times what it is short rather than walking the library a sample at a time.
+        let asking = count;
+
+        for (let draw = 0; draw < NEVER_PLAY_DRAWS && kept.length < wanted; draw++) {
+            const drawn = await this.candidates.sample(asking, policy, era, bounds, taggedLike, { refusedTags, trackIds: [...drawnIds] });
+            const ids = drawn.map(track => track.trackId);
+            drawnIds.push(...ids);
+
+            const blocked = await this.neverPlay.blockedUnder(refusing, ids);
+            kept.push(...drawn.filter(track => !blocked.has(track.trackId)));
+            // A short draw is the library running out: asking again would find nothing new.
+            if (drawn.length < sampleSize(asking)) break;
+
+            // A draw that kept nothing is counted as keeping one, so the next is large rather than infinite.
+            const surviving = Math.max(1, kept.length) / drawnIds.length;
+            // `sample` takes picks rather than rows, and turns one pick into `sampleSize(1)` rows.
+            asking = Math.ceil((wanted - kept.length) / surviving / sampleSize(1));
+        }
+        return kept.slice(0, wanted);
+    }
+
     /** Which drawn records really are in a steered genre, by the same matching a genre rule uses. */
     private async leaningToward(sampled: readonly CandidateTrack[], genres: readonly string[]): Promise<Set<string>> {
         const tags = await this.candidates.tagsFor(sampled.map(track => track.trackId));
@@ -185,7 +271,13 @@ export class CatalogSetGenerator extends SetGenerator {
      * change, the other is a library to fill. Without this the operator gets a silent station and
      * a feed saying the chain came up short, which is true of both.
      */
-    private async watchStarvation(policy: AdvisoryPolicy, era: EraWindow | undefined, count: number, drawn: number): Promise<void> {
+    private async watchStarvation(
+        policy: AdvisoryPolicy,
+        era: EraWindow | undefined,
+        count: number,
+        drawn: number,
+        refusing: readonly CompiledRule[],
+    ): Promise<void> {
         if (drawn > 0) {
             this.watch.clear();
             this.eraWatch.clear();
@@ -196,7 +288,8 @@ export class CatalogSetGenerator extends SetGenerator {
         // broadcast and can undo in one edit — where the advisory is a standing station policy. A
         // draw emptied by both would otherwise be reported as the harder of the two to fix.
         if (bindsAnything(era)) {
-            const withoutEra = await this.candidates.sample(count, policy);
+            // Still round the never-play rules, so a draw they emptied is not blamed on the period.
+            const withoutEra = await this.drawPlayable(count, policy, refusing);
             if (withoutEra.length > 0) {
                 this.eraWatch.starved(era, withoutEra.length);
                 return;
@@ -209,7 +302,7 @@ export class CatalogSetGenerator extends SetGenerator {
         // Asked WITHOUT the period as well, so a station that is both clean-only and inside a
         // narrow decade is not told its advisory is the problem when the decade is: this arm is only
         // reached when the period alone was not enough to explain the empty draw.
-        const withoutPolicy = await this.candidates.sample(count, 'prefer-explicit');
+        const withoutPolicy = await this.drawPlayable(count, 'prefer-explicit', refusing);
         // A library that is empty either way is not this rule's doing, and claiming it would send
         // the operator to change a setting that was never the problem.
         if (withoutPolicy.length === 0) return;

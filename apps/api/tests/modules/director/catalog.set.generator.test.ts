@@ -22,6 +22,9 @@ import type { BlockRulesRepository } from '../../../src/modules/director/block.r
 import type { LyricLabelsRepository } from '../../../src/modules/lyrics/lyric.labels.repository.js';
 import type { MoodDistribution } from '../../../src/modules/lyrics/lyric.moods.js';
 import { MOOD_BOOST } from '../../../src/modules/director/mood.lean.js';
+import { NeverPlay } from '../../../src/modules/director/never.play.js';
+import type { BlockRule } from '../../../src/modules/director/block.rules.js';
+import { sampleSize, type SampleExclusions } from '../../../src/modules/director/candidates.repository.js';
 
 const candidate = (title: string, artist: string, rating = 0): CandidateTrack => ({
     trackId: `id-${artist}-${title}`,
@@ -46,15 +49,43 @@ interface Options {
     moods?: Map<string, MoodDistribution>;
     /** The judged moods cannot be read at all. */
     moodsFail?: boolean;
+    /** The station's never-play rules, as the repository lists them. */
+    neverPlay?: BlockRule[];
+    /** The rules cannot be read at all. */
+    neverPlayFails?: boolean;
+    /**
+     * A whole library for `sample` to draw from the way the SQL does: in this order, without what a
+     * previous draw returned or what is tagged exactly a refused value, and no more than a sample's
+     * size. Replaces {@link Options.sample} when set.
+     */
+    library?: CandidateTrack[];
+}
+
+/** What `sample`'s SQL leaves out of a library for one draw, said again in memory. */
+function drawFrom(library: readonly CandidateTrack[], tags: Record<string, string[]>, count: number, exclude?: SampleExclusions): CandidateTrack[] {
+    const drawn = new Set(exclude?.trackIds ?? []);
+    const refused = new Set((exclude?.refusedTags ?? []).map(tag => tag.trim().toLowerCase()));
+    return library
+        .filter(track => !drawn.has(track.trackId))
+        .filter(track => !(tags[track.trackId] ?? []).some(tag => refused.has(tag.trim().toLowerCase())))
+        .slice(0, sampleSize(count));
 }
 
 function build(options: Options = {}) {
     const candidates = {
-        sample: vi.fn(async (...args: unknown[]) => (args[4] === undefined ? (options.sample ?? []) : (options.steer?.leaning ?? []))),
+        sample: vi.fn(async (...args: unknown[]) => {
+            if (args[4] !== undefined) return options.steer?.leaning ?? [];
+            if (options.library === undefined) return options.sample ?? [];
+            return drawFrom(options.library, options.tags ?? {}, args[0] as number, args[5] as SampleExclusions | undefined);
+        }),
         tagsFor: vi.fn(async (ids: readonly string[]) => new Map(ids.flatMap(id => (options.tags?.[id] ? [[id, options.tags[id]!]] : [])))),
     } as unknown as CandidatesRepository;
     const rules = {
         steer: vi.fn(async () => (options.steer === undefined ? undefined : { genres: options.steer.genres, endsAt: '2099-01-01T00:00:00.000Z' })),
+        list: vi.fn(async () => {
+            if (options.neverPlayFails) throw new Error('the rules table is gone');
+            return options.neverPlay ?? [];
+        }),
     } as unknown as BlockRulesRepository;
 
     const history = {
@@ -78,7 +109,17 @@ function build(options: Options = {}) {
     } as unknown as LyricLabelsRepository;
 
     return {
-        generator: new CatalogSetGenerator(candidates, rules, history, new StationIdentity(), config, watch, eraWatch, labels),
+        generator: new CatalogSetGenerator(
+            candidates,
+            rules,
+            history,
+            new StationIdentity(),
+            config,
+            watch,
+            eraWatch,
+            labels,
+            new NeverPlay(rules, candidates, config),
+        ),
         labels,
         candidates,
         history,
@@ -194,7 +235,7 @@ describe('CatalogSetGenerator', () => {
         const { generator, candidates } = build({ sample: [candidate('A', 'One')], settings: { [ADVISORY_KEY]: 'clean-only' } });
         await generator.generate({ count: 1, rules: rotation });
 
-        expect(candidates.sample).toHaveBeenCalledWith(1, 'clean-only', undefined, {});
+        expect(candidates.sample).toHaveBeenCalledWith(1, 'clean-only', undefined, {}, undefined);
     });
 
     it('narrows the draw by the PERIOD, which is the one thing the floor honours', async () => {
@@ -206,7 +247,7 @@ describe('CatalogSetGenerator', () => {
 
         await generator.generate({ count: 1, rules: rotation, era: { from: 1970, to: 1979 } });
 
-        expect(candidates.sample).toHaveBeenCalledWith(1, 'prefer-explicit', { from: 1970, to: 1979 }, {});
+        expect(candidates.sample).toHaveBeenCalledWith(1, 'prefer-explicit', { from: 1970, to: 1979 }, {}, undefined);
     });
 
     it('still ignores the brief beside it', async () => {
@@ -450,5 +491,94 @@ describe('CatalogSetGenerator leaning toward a mood', () => {
         // Two to one is two thirds. A generous band, because this is a draw.
         expect(fits / draws).toBeGreaterThan(0.6);
         expect(fits / draws).toBeLessThan(0.73);
+    });
+});
+
+describe('CatalogSetGenerator under a never-play rule', () => {
+    /**
+     * A library of `size` records by as many artists, nine in ten of them a KIND of country (so the
+     * SQL's exact test cannot see them and only the precise matcher refuses them), one in twenty of
+     * the rest tagged plain `country` (which the SQL leaves out), and the remainder rock.
+     */
+    function mostlyCountry(size: number) {
+        const library: CandidateTrack[] = [];
+        const tags: Record<string, string[]> = {};
+        for (let index = 0; index < size; index++) {
+            const track = candidate(`Song ${index}`, `Artist ${index}`);
+            library.push(track);
+            tags[track.trackId] = index % 10 === 0 ? ['Rock'] : index % 20 === 1 ? ['country'] : ['Country Pop'];
+        }
+        return { library, tags };
+    }
+
+    const country: BlockRule = { id: 'r1', field: 'genre', value: 'Country' };
+
+    it('is not starved by a library the rule refuses most of', async () => {
+        const { library, tags } = mostlyCountry(2000);
+        const { generator, candidates } = build({ library, tags, neverPlay: [country] });
+
+        const picks = await generator.generate({ count: 20, rules: rotation });
+
+        // One ordinary sample of this library is 240 records of which about 24 are rock. Drawn,
+        // weighed and chosen among without the rule, most of a batch of 20 was country, and the
+        // resolver refusing it afterwards left the refill a handful of records.
+        expect(picks).toHaveLength(20);
+        expect(picks.every(pick => tags[pick.trackId!]![0] === 'Rock')).toBe(true);
+        // The draws after the first are sized from its refusals, up to the ceiling a sample has.
+        const sizes = vi.mocked(candidates.sample).mock.calls.map(call => sampleSize(call[0] as number));
+        expect(sizes[0]).toBe(240);
+        expect(sizes[1]).toBe(500);
+    });
+
+    it('asks the SQL to leave out what is tagged exactly the rule, and never what was drawn already', async () => {
+        const { library, tags } = mostlyCountry(2000);
+        const { generator, candidates } = build({ library, tags, neverPlay: [country] });
+
+        await generator.generate({ count: 20, rules: rotation });
+
+        const calls = vi.mocked(candidates.sample).mock.calls;
+        expect(calls[0]![5]).toEqual({ refusedTags: ['Country'], trackIds: [] });
+        expect((calls[1]![5] as SampleExclusions).trackIds).toHaveLength(sampleSize(20));
+    });
+
+    it('draws no more than once when nothing is refused', async () => {
+        const { library, tags } = mostlyCountry(2000);
+        const { generator, candidates } = build({ library, tags });
+
+        await generator.generate({ count: 20, rules: rotation });
+
+        expect(candidates.sample).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(candidates.sample).mock.calls[0]![5]).toBeUndefined();
+    });
+
+    it('stops drawing once the library has run out', async () => {
+        const { library, tags } = mostlyCountry(40);
+        const { generator, candidates } = build({ library, tags, neverPlay: [country] });
+
+        const picks = await generator.generate({ count: 20, rules: rotation });
+
+        expect(picks.map(pick => pick.title).sort()).toEqual(['Song 0', 'Song 10', 'Song 20', 'Song 30']);
+        expect(candidates.sample).toHaveBeenCalledTimes(1);
+    });
+
+    it('judges a rule limited to a mode against the broadcast it is drawing for', async () => {
+        const { library, tags } = mostlyCountry(200);
+        const inFeatures: BlockRule = { ...country, modes: ['feature'] };
+
+        const forRotation = build({ library, tags, neverPlay: [inFeatures] });
+        await forRotation.generator.generate({ count: 5, rules: rotation, broadcast: { mode: 'rotation' } });
+        expect(vi.mocked(forRotation.candidates.sample).mock.calls[0]![5]).toBeUndefined();
+
+        const forFeature = build({ library, tags, neverPlay: [inFeatures] });
+        const picks = await forFeature.generator.generate({ count: 5, rules: rotation, broadcast: { mode: 'feature' } });
+        expect(picks.every(pick => tags[pick.trackId!]![0] === 'Rock')).toBe(true);
+    });
+
+    it('draws as it would with no rules when the rules cannot be read, leaving the refusal to the resolver', async () => {
+        const { library, tags } = mostlyCountry(200);
+        const { generator, candidates } = build({ library, tags, neverPlayFails: true });
+
+        expect(await generator.generate({ count: 5, rules: rotation })).toHaveLength(5);
+        expect(vi.mocked(candidates.sample).mock.calls[0]![5]).toBeUndefined();
     });
 });

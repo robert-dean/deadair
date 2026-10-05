@@ -5,7 +5,7 @@ import { createFakePluginHost, fakeHostFetchResponse } from '@deadair/plugin-sdk
 
 import type { SpeakerTarget } from '../../../src/drivers/speaker.driver.js';
 import { descriptionUrl, parseDescription, sinkContentTypes } from '../../../src/drivers/upnp/upnp.device.js';
-import { UPNP_OPENING_GRACE_MS, UpnpDriver, didl, fromTransportUri, sonosUri } from '../../../src/drivers/upnp/upnp.driver.js';
+import { UPNP_OPENING_GRACE_MS, UpnpDriver, didl, fromTransportUri, sonosUri, withLength } from '../../../src/drivers/upnp/upnp.driver.js';
 import { text, unescapeXml } from '../../../src/drivers/xml.js';
 
 const fixture = (name: string): string => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
@@ -177,6 +177,17 @@ describe('Sonos URIs', () => {
     });
 });
 
+describe('the length marker', () => {
+    it('asks the station for a declared length, and is taken back off when the renderer reports its URL', () => {
+        expect(withLength('https://radio.example.com/live.mp3')).toBe('https://radio.example.com/live.mp3?speaker=1');
+        expect(fromTransportUri('https://radio.example.com/live.mp3?speaker=1')).toBe('https://radio.example.com/live.mp3');
+    });
+
+    it('leaves any other query on the URL alone', () => {
+        expect(fromTransportUri(withLength('http://10.0.0.2:8080/live.mp3?a=b'))).toBe('http://10.0.0.2:8080/live.mp3?a=b');
+    });
+});
+
 describe('didl', () => {
     it('escapes what it carries, so a title with an ampersand is still a document', () => {
         const metadata = didl(request, request.url);
@@ -218,7 +229,8 @@ describe('UpnpDriver', () => {
         await driver.play(host, target, request);
 
         expect(renderer.actions).toEqual(['SetAVTransportURI', 'Play']);
-        expect(renderer.uri).toBe(request.url);
+        // Marked, so the station serves the renderer the mount with a declared length.
+        expect(renderer.uri).toBe(`${request.url}?speaker=1`);
         // One level of escaping undone by reading the SOAP argument, which leaves the DIDL's own.
         expect(renderer.metadata).toContain('<dc:title>deadair &amp; friends</dc:title>');
     });

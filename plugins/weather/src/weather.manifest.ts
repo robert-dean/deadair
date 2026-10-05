@@ -51,6 +51,19 @@ export const OPENWEATHERMAP_HOST = 'api.openweathermap.org';
 export const REQUEST_TIMEOUT_MS = 8_000;
 
 /**
+ * Budget below which a read is not worth starting.
+ *
+ * A floor, and deliberately well under {@link REQUEST_TIMEOUT_MS}. The host's
+ * default per-call deadline is that same 8 seconds, so a check against the
+ * ceiling read a few milliseconds short of it on every call and refused them
+ * all: every reading the model asked for came back empty without a service
+ * being asked, unless one was already cached. What is left of the call caps
+ * each request anyway, so all this has to rule out is a read that could not
+ * plausibly come back.
+ */
+export const READ_BUDGET_MS = 1_500;
+
+/**
  * How long a reading is reused.
  *
  * Ten minutes by default, which is shorter than any of these services updates.

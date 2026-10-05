@@ -14,6 +14,7 @@ import {
     OPENWEATHERMAP_HOST,
     OPEN_METEO_GEOCODING_HOST,
     OPEN_METEO_HOST,
+    READ_BUDGET_MS,
     REQUEST_TIMEOUT_MS,
     weatherManifest,
 } from '../src/weather.manifest.js';
@@ -314,9 +315,22 @@ describe('what it does when it cannot answer', () => {
         expect(host.calls).toHaveLength(0);
     });
 
+    it('asks with what a live call actually has left, which is a moment short of the 8 second default', async () => {
+        // The state every real reading starts in. The check used to want the
+        // whole request timeout, which this is a few milliseconds short of, so
+        // every reading the model asked for answered nothing.
+        await initialize();
+        host.seedRemainingMs(REQUEST_TIMEOUT_MS - 5);
+        queueJson(GEOCODED);
+        queueJson(OPEN_METEO_ANSWER);
+
+        expect(await plugin.getWeather({ place: 'Atlanta' })).toMatchObject({ place: 'Atlanta, Georgia' });
+        expect(host.calls).toHaveLength(2);
+    });
+
     it('sheds the work when there is not enough of the call left to finish it', async () => {
         await initialize();
-        host.seedRemainingMs(REQUEST_TIMEOUT_MS - 1);
+        host.seedRemainingMs(READ_BUDGET_MS - 1);
 
         expect(await plugin.getWeather({ place: 'Atlanta' })).toBeUndefined();
         expect(host.calls).toHaveLength(0);

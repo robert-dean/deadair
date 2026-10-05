@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { padGainDb } from '../../../src/modules/render/pad.level.js';
+import { padGainDb, padLoudness, SHORT_PAD_CREST_DB } from '../../../src/modules/render/pad.level.js';
 import { ASSUMED_SPEECH_LUFS, MAX_GAIN_DB } from '../../../src/modules/playout/gain.js';
 
 describe('padGainDb', () => {
@@ -34,5 +34,30 @@ describe('padGainDb', () => {
 
     it('rounds to a tenth of a decibel', () => {
         expect(padGainDb(-29.123, -6)).toBe(-3.4);
+    });
+});
+
+describe('padLoudness', () => {
+    it('takes a measured loudness over anything estimated from the peak', () => {
+        expect(padLoudness({ loudnessLufs: -20, peakDb: -1 })).toBe(-20);
+    });
+
+    it('estimates a short pad from its peak, one crest factor down', () => {
+        expect(padLoudness({ peakDb: -3 })).toBe(-3 - SHORT_PAD_CREST_DB);
+    });
+
+    it('puts a short pad PEAK the asked-for distance under the voice peaks', () => {
+        // The design: with the crest set to the speech's own peak-to-loudness ratio, a drop peaking at
+        // -6 dBTP set six under the words lands its peak six under where the voice peaks. (A hotter
+        // one asks for more than the twelve-decibel clamp allows, which is a different test.)
+        const speechPeak = ASSUMED_SPEECH_LUFS + SHORT_PAD_CREST_DB;
+        const gain = padGainDb(padLoudness({ peakDb: -6 }), -6)!;
+
+        expect(-6 + gain).toBeCloseTo(speechPeak - 6, 1);
+    });
+
+    it('has nothing to say about a pad with neither figure', () => {
+        expect(padLoudness({})).toBeUndefined();
+        expect(padLoudness({ peakDb: Number.NaN })).toBeUndefined();
     });
 });

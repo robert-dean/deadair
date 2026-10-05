@@ -6,6 +6,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { resolvePlayoutBaseUrl, storedAudioUrl } from '#modules/playout/playout.urls.js';
 import { AudioUrlSigner } from '#modules/playout/audio.url.signer.js';
+import { TRUE_PEAK_ALLOWANCE_DB } from '#modules/playout/gain.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { PAD_SOURCES, PadRepository, type Pad, type PadImport } from './pad.repository.js';
 import { PadSetRepository } from './pad.set.repository.js';
@@ -324,6 +325,18 @@ export class PadLibrary {
             // that used to be in this slot, and levelling a new sound against the old one is the
             // failure that column exists to prevent.
             await this.measure(pad);
+        } else if (pad.peakDb === undefined) {
+            // The backfill. A pad measured before peaks were recorded has none, and a short one has
+            // no loudness either, so it would go on playing at whatever level it was made at. The boot
+            // scan reads every file in the library, which makes it the one pass that is guaranteed to
+            // reach every pad, and it is where pads are measured already. Never on the render path: a
+            // break waits on nothing it can do without.
+            //
+            // Keyed on the PEAK rather than on "measured at all", because the peak is the figure every
+            // file with a sample in it has, so once a pad has one this stops. One that still comes back
+            // without (a station with no analyzer, which answers at once, or a file that is silence) is
+            // asked again on the next boot, which costs one decode of a sound a few seconds long.
+            await this.measure(pad);
         }
 
         return { pad, outcome, contested };
@@ -390,7 +403,9 @@ export class PadLibrary {
      * integrated loudness to BS.1770 is gated in 400ms blocks, so a 350ms rimshot produces no block
      * and the analyzer answers with cue points and peaks and no `integratedLufs`. Which is most
      * pads. A dash in that column is therefore the honest answer for a short sound rather than a
-     * measurement that failed, and nothing here should ever invent one.
+     * measurement that failed, and nothing here should ever invent one. The PEAK is kept instead,
+     * and the render path estimates a level from it at the moment it needs one (`padLoudness`),
+     * so the stored loudness stays a measurement and the guess stays labelled as one.
      *
      * The URL is the station's own content-addressed route, for the reason every other measurement
      * uses one: the bytes measured are the bytes that will air, and it is reachable from a sidecar
@@ -408,10 +423,12 @@ export class PadLibrary {
             // this silently records nothing forever.
             const durationMs = result.durationMs;
             const loudnessLufs = result.data.integratedLufs;
+            const peakDb = peakOf(result.data);
 
             await this.pads.measured(pad.id, {
                 ...(typeof durationMs === 'number' && Number.isFinite(durationMs) ? { durationMs } : {}),
                 ...(typeof loudnessLufs === 'number' && Number.isFinite(loudnessLufs) ? { loudnessLufs } : {}),
+                ...(peakDb === undefined ? {} : { peakDb }),
             });
         } catch (error) {
             this.logger.warn('render: could not measure a pad; it will play at whatever level it was made at', {
@@ -450,6 +467,24 @@ export class PadLibrary {
 
         return false;
     }
+}
+
+/**
+ * The pad's peak in dBTP, from an analyzer's measurement, or `undefined`.
+ *
+ * The TRUE peak where the analyzer gave one, since that is what the station's own levelling reads.
+ * A sample peak alone is taken as optimistic by `TRUE_PEAK_ALLOWANCE_DB`, on `gain.ts`' reasoning:
+ * the waveform between two samples routinely overshoots both, so treating the sample figure as the
+ * true one would estimate a pad quieter than it is and turn it up too far.
+ */
+export function peakOf(data: Record<string, unknown>): number | undefined {
+    const truePeak = data.truePeakDb;
+    if (typeof truePeak === 'number' && Number.isFinite(truePeak)) return truePeak;
+
+    const samplePeak = data.samplePeakDb;
+    if (typeof samplePeak === 'number' && Number.isFinite(samplePeak)) return samplePeak + TRUE_PEAK_ALLOWANCE_DB;
+
+    return undefined;
 }
 
 /** Which board a file loose at the top of the library lands on, absent a directory saying otherwise. */

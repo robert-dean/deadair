@@ -1,6 +1,7 @@
 package com.maroonedsoftware.deadair.ui.order
 
 import com.maroonedsoftware.deadair.sdk.models.Persona
+import com.maroonedsoftware.deadair.sdk.models.PersonaPortrait
 import com.maroonedsoftware.deadair.sdk.models.StationItemState
 import com.maroonedsoftware.deadair.sdk.models.StationMode
 import com.maroonedsoftware.deadair.sdk.models.StationOnEnd
@@ -8,6 +9,8 @@ import com.maroonedsoftware.deadair.sdk.models.StationOrder
 import com.maroonedsoftware.deadair.sdk.models.StationOrderItem
 import com.maroonedsoftware.deadair.sdk.models.StationOrderItemKind
 import com.maroonedsoftware.deadair.ui.text.Message
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -21,6 +24,7 @@ import org.junit.Test
  * whoever the station has on air, and before that list arrives the honest answer is that there is
  * no name yet rather than that there is nobody.
  */
+@OptIn(ExperimentalUuidApi::class)
 class BroadcastUiStateTest {
     private fun item(id: String) =
         StationOrderItem(id = id, kind = StationOrderItemKind.TRACK, state = StationItemState.PLANNED, title = id, artists = emptyList())
@@ -127,5 +131,35 @@ class BroadcastUiStateTest {
         assertEquals(listOf("Ash", "Cass"), ui.hostChoices.map { it.name })
         assertTrue(ui.hostChoices.single { it.id == "a" }.current)
         assertEquals("Ash", ui.stationsOwnName)
+    }
+
+    private val cassId = "0b5c6a52-9a3e-4f43-9d0c-6f1f0f0e7a11"
+    private val ashId = "7e0d2f3c-1b4a-4c8e-8f5d-2a9b6c3d4e5f"
+    private val portraits =
+        listOf(PersonaPortrait(personaId = Uuid.parse(cassId), url = "/art/cass"), PersonaPortrait(personaId = Uuid.parse(ashId), url = "/art/ash"))
+
+    @Test
+    fun `the header wears the portrait of the host the broadcast named`() {
+        val ui = BroadcastUiState(order(personaId = cassId, personaLabel = "Cass"), listOf(persona(ashId, "Ash", defaultHost = true)), portraits)
+
+        assertEquals("/art/cass", ui.hostPortraitPath)
+    }
+
+    @Test
+    fun `a broadcast that named nobody wears the station's own host's portrait`() {
+        val ui = BroadcastUiState(order(), listOf(persona(cassId, "Cass"), persona(ashId, "Ash", defaultHost = true)), portraits)
+
+        assertEquals("/art/ash", ui.hostPortraitPath)
+        // Before the persona list lands there is no knowing who that is, so no face either.
+        assertNull(BroadcastUiState(order(), personas = null, portraits = portraits).hostPortraitPath)
+    }
+
+    @Test
+    fun `no portrait off air, before the list arrives, or for a host without one`() {
+        assertNull(BroadcastUiState(order(name = "", items = 0), listOf(persona(ashId, "Ash", defaultHost = true)), portraits).hostPortraitPath)
+        assertNull(BroadcastUiState(order(personaId = cassId, personaLabel = "Cass"), emptyList(), portraits = null).hostPortraitPath)
+        assertNull(BroadcastUiState(order(personaId = "someone-else", personaLabel = "Bo"), emptyList(), portraits).hostPortraitPath)
+        // Named only by label: a portrait is filed under an id, and a label is not one.
+        assertNull(BroadcastUiState(order(personaLabel = "Cass"), emptyList(), portraits).hostPortraitPath)
     }
 }

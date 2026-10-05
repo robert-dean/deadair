@@ -3,8 +3,10 @@ package com.maroonedsoftware.deadair.schedule
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.net.Kick
 import com.maroonedsoftware.deadair.sdk.models.Persona
+import com.maroonedsoftware.deadair.sdk.models.PersonaPortrait
 import com.maroonedsoftware.deadair.sdk.models.ScheduleNow
 import com.maroonedsoftware.deadair.sdk.models.ScheduleSlot
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -24,13 +26,19 @@ import kotlinx.coroutines.flow.stateIn
  * than it would elsewhere, because every request is one a signed-in listener is spending a session
  * on and a line in the station's log.
  *
- * ## Three reads, two cadences
+ * ## Four reads, two cadences
  *
  * `/schedule/current` is the clock and the blocks and moves every half minute, which is what the
  * console polls it at. The slot list and the persona list are what turn a block id into a name and
  * a host, and they change when an operator edits the schedule — which is to say almost never, and
  * never on a timer. So they are read once when the screen opens and again only when they have gone
- * stale, rather than three times a minute for an answer that has not moved.
+ * stale, rather than three times a minute for an answer that has not moved. The portrait list is a
+ * name's face and rides on the same cadence.
+ *
+ * A portrait is decoration, so its read is the one that may fail without failing the reading: a
+ * station from before portraits answers it with a 404, and that is a schedule with no faces in it
+ * rather than a schedule that cannot be shown. It is asked again with the names, not on every poll,
+ * so such a station is not sent a 404 twice a minute.
  *
  * ## Signed out is not an error
  *
@@ -49,6 +57,7 @@ class ScheduleRepository(
     private val readCurrent: suspend () -> ScheduleNow,
     private val readSlots: suspend () -> List<ScheduleSlot>,
     private val readPersonas: suspend () -> List<Persona>,
+    private val readPortraits: suspend () -> List<PersonaPortrait>,
     /** The wall clock, for saying how old a stale reading is. Injected so the tests can hold it still. */
     private val nowEpochMs: () -> Long = System::currentTimeMillis,
     scope: CoroutineScope,
@@ -72,6 +81,7 @@ class ScheduleRepository(
         var failures = 0
         var slots: List<ScheduleSlot> = emptyList()
         var personas: List<Persona> = emptyList()
+        var portraits: List<PersonaPortrait> = emptyList()
         var namesReadAt = 0L
         var polls = 0L
 
@@ -83,10 +93,11 @@ class ScheduleRepository(
                 if (polls == 0L || polls - namesReadAt >= NAMES_EVERY_POLLS) {
                     slots = readSlots()
                     personas = readPersonas()
+                    portraits = portraitsOr(portraits)
                     namesReadAt = polls
                 }
 
-                val reading = ScheduleReading(now = readCurrent(), slots = slots, personas = personas)
+                val reading = ScheduleReading(now = readCurrent(), slots = slots, personas = personas, portraits = portraits)
                 lastGood = reading
                 lastGoodAtMs = nowEpochMs()
                 failures = 0
@@ -103,6 +114,16 @@ class ScheduleRepository(
             if (kick.awaitOrDelay(intervalFor(failures))) failures = 0
         }
     }
+
+    /** The portraits, or what was already held when the station could not say. */
+    private suspend fun portraitsOr(held: List<PersonaPortrait>): List<PersonaPortrait> =
+        try {
+            readPortraits()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            held
+        }
 
     /** Steady while it works, backing off while it does not — the same shape and bound as the now-playing poll. */
     private fun intervalFor(failures: Int): Long {

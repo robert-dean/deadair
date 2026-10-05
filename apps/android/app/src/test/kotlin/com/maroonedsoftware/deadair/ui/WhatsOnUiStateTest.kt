@@ -1,6 +1,7 @@
 package com.maroonedsoftware.deadair.ui
 
 import com.maroonedsoftware.deadair.sdk.models.Persona
+import com.maroonedsoftware.deadair.sdk.models.PersonaPortrait
 import com.maroonedsoftware.deadair.sdk.models.ScheduleNow
 import com.maroonedsoftware.deadair.sdk.models.ScheduleOccurrence
 import com.maroonedsoftware.deadair.sdk.models.ScheduleSlot
@@ -11,6 +12,8 @@ import com.maroonedsoftware.deadair.ui.schedule.whatsOn
 import com.maroonedsoftware.deadair.ui.text.Clock
 import com.maroonedsoftware.deadair.ui.text.Message
 import com.maroonedsoftware.deadair.ui.text.Span
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -24,6 +27,7 @@ import org.junit.Test
  * wording is the other half: an operator's own choice holds until the next slot begins, so the
  * schedule can want something the station is not doing, and the eyebrow is where that is said.
  */
+@OptIn(ExperimentalUuidApi::class)
 class WhatsOnUiStateTest {
     private val now = "2026-09-06 20:30:00"
 
@@ -189,5 +193,48 @@ class WhatsOnUiStateTest {
         val state = whatsOn(ScheduleNow(now = now, upcoming = listOf(over)), emptyList(), emptyList())
 
         assertEquals(1f, (state.onNow as OnNow.Live).progress, 0.001f)
+    }
+
+    private val cassId = "0b5c6a52-9a3e-4f43-9d0c-6f1f0f0e7a11"
+    private val ashId = "7e0d2f3c-1b4a-4c8e-8f5d-2a9b6c3d4e5f"
+    private val cassPortrait = PersonaPortrait(personaId = Uuid.parse(cassId), url = "/art/cass")
+
+    @Test
+    fun `each block wears its own host's portrait, ahead as well as on now`() {
+        val state =
+            whatsOn(
+                ScheduleNow(now = now, slotId = "slot-1", airingSlotId = "slot-1", upcoming = listOf(evening, next, after)),
+                listOf(slot("slot-1", personaId = cassId), slot("slot-2", personaId = ashId), slot("slot-3", personaId = cassId)),
+                listOf(persona(cassId, "Night persona", djName = "Cass"), persona(ashId, "Morning persona", djName = "Ash")),
+                listOf(cassPortrait),
+            )
+
+        assertEquals("/art/cass", (state.onNow as OnNow.Live).block.hostPortraitPath)
+        // Ash has no picture, so Ash's block draws the name alone.
+        assertNull(state.ahead[0].block.hostPortraitPath)
+        assertEquals("Ash", state.ahead[0].block.host)
+        assertEquals("/art/cass", state.ahead[1].block.hostPortraitPath)
+    }
+
+    @Test
+    fun `a portrait never stands beside nobody`() {
+        // The slot names nobody, or names a persona the list does not hold: there is no name for a
+        // face to stand beside, so there is no face either.
+        val nobody = whatsOn(ScheduleNow(now = now, upcoming = listOf(evening)), listOf(slot("slot-1")), emptyList(), listOf(cassPortrait))
+        assertNull((nobody.onNow as OnNow.Live).block.hostPortraitPath)
+
+        val unknown = whatsOn(ScheduleNow(now = now, upcoming = listOf(evening)), listOf(slot("slot-1", personaId = cassId)), emptyList(), listOf(cassPortrait))
+        val unnamed = (unknown.onNow as OnNow.Live).block
+        assertNull(unnamed.host)
+        assertNull(unnamed.hostPortraitPath)
+    }
+
+    @Test
+    fun `no portraits at all is the schedule as it was`() {
+        val state = whatsOn(ScheduleNow(now = now, upcoming = listOf(evening)), listOf(slot("slot-1", personaId = cassId)), listOf(persona(cassId, "Night persona", djName = "Cass")))
+
+        val block = (state.onNow as OnNow.Live).block
+        assertEquals("Cass", block.host)
+        assertNull(block.hostPortraitPath)
     }
 }

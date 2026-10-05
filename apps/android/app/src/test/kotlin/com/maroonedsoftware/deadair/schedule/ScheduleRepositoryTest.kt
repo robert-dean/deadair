@@ -2,9 +2,12 @@ package com.maroonedsoftware.deadair.schedule
 
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.sdk.models.Persona
+import com.maroonedsoftware.deadair.sdk.models.PersonaPortrait
 import com.maroonedsoftware.deadair.sdk.models.ScheduleNow
 import com.maroonedsoftware.deadair.sdk.models.ScheduleSlot
 import java.io.IOException
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -26,7 +29,7 @@ import org.junit.Test
  * slot and persona lists are not re-read on every poll. Both are about not spending a listener's
  * session on answers nobody asked for.
  */
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, ExperimentalUuidApi::class)
 class ScheduleRepositoryTest {
     private val now = ScheduleNow(now = "2026-09-06 20:30:00", upcoming = emptyList())
 
@@ -34,12 +37,14 @@ class ScheduleRepositoryTest {
         var current = 0
         var slots = 0
         var personas = 0
+        var portraits = 0
     }
 
     private fun repositoryFor(
         session: MutableStateFlow<SessionState>,
         counts: Counts,
         scope: kotlinx.coroutines.CoroutineScope,
+        portraits: suspend () -> List<PersonaPortrait> = { emptyList() },
         current: suspend () -> ScheduleNow,
     ) = ScheduleRepository(
         session = session,
@@ -54,6 +59,10 @@ class ScheduleRepositoryTest {
         readPersonas = {
             counts.personas += 1
             emptyList<Persona>()
+        },
+        readPortraits = {
+            counts.portraits += 1
+            portraits()
         },
         scope = scope,
     )
@@ -102,6 +111,7 @@ class ScheduleRepositoryTest {
         assertEquals(11, counts.current)
         assertEquals(1, counts.slots)
         assertEquals(1, counts.personas)
+        assertEquals(1, counts.portraits)
         job.cancel()
     }
 
@@ -182,6 +192,37 @@ class ScheduleRepositoryTest {
 
         assertEquals(ScheduleState.SignedOut, repository.state.first())
         assertEquals(whileSignedIn, counts.current)
+        job.cancel()
+    }
+
+    @Test
+    fun `a station that cannot say who has a picture still shows its schedule`() = runTest {
+        // A station from before portraits answers the list with a 404. That is a schedule with no
+        // faces in it, not a schedule that cannot be shown, and it is not asked again every poll.
+        val counts = Counts()
+        val session = MutableStateFlow<SessionState>(SessionState.SignedIn("operator@example.com"))
+        val repository = repositoryFor(session, counts, backgroundScope, portraits = { throw IOException("404") }) { now }
+
+        val job = backgroundScope.launch { repository.state.collect {} }
+        advanceTimeBy(ScheduleRepository.POLL_MS * 3 + 1)
+
+        val state = repository.state.value as ScheduleState.Answered
+        assertEquals(emptyList<PersonaPortrait>(), state.reading.portraits)
+        assertEquals(1, counts.portraits)
+        job.cancel()
+    }
+
+    @Test
+    fun `carries the portraits on every reading`() = runTest {
+        val cass = PersonaPortrait(personaId = Uuid.parse("0b5c6a52-9a3e-4f43-9d0c-6f1f0f0e7a11"), url = "/art/cass")
+        val counts = Counts()
+        val session = MutableStateFlow<SessionState>(SessionState.SignedIn("operator@example.com"))
+        val repository = repositoryFor(session, counts, backgroundScope, portraits = { listOf(cass) }) { now }
+
+        val job = backgroundScope.launch { repository.state.collect {} }
+        advanceTimeBy(ScheduleRepository.POLL_MS * 2 + 1)
+
+        assertEquals(listOf(cass), (repository.state.value as ScheduleState.Answered).reading.portraits)
         job.cancel()
     }
 }

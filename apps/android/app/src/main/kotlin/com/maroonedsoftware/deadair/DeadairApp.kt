@@ -99,6 +99,7 @@ class AppGraph(private val application: Application) {
             readCurrent = { sessions.withSession { it.schedule.readCurrentSlot() } },
             readSlots = { sessions.withSession { it.schedule.listSchedule().slots } },
             readPersonas = { sessions.withSession { it.personas.listPersonas().personas } },
+            readPortraits = { sessions.withSession { it.artPersonas.listPersonaPortraits().portraits } },
             scope = scope,
         )
 

@@ -4,9 +4,11 @@ import com.maroonedsoftware.deadair.schedule.hoursOf
 import com.maroonedsoftware.deadair.schedule.minutesBetween
 import com.maroonedsoftware.deadair.schedule.spanOf
 import com.maroonedsoftware.deadair.sdk.models.Persona
+import com.maroonedsoftware.deadair.sdk.models.PersonaPortrait
 import com.maroonedsoftware.deadair.sdk.models.ScheduleNow
 import com.maroonedsoftware.deadair.sdk.models.ScheduleOccurrence
 import com.maroonedsoftware.deadair.sdk.models.ScheduleSlot
+import com.maroonedsoftware.deadair.ui.portraitPathOf
 import com.maroonedsoftware.deadair.ui.text.Message
 
 /** A block, as a card shows it. */
@@ -16,6 +18,11 @@ data class BlockCard(
     /** The block's hours, with the weekday when it is not the station's own today. Absent for a stamp that cannot be read. */
     val hours: Message.BlockHours?,
     val host: String?,
+    /**
+     * The host's portrait, as the station's path. Only beside a [host], so a face never stands
+     * beside nobody, and `null` for a host with no picture, which draws the name alone.
+     */
+    val hostPortraitPath: String? = null,
     val brief: String?,
 )
 
@@ -61,9 +68,12 @@ data class WhatsOnUiState(val onNow: OnNow, val ahead: List<Ahead>)
  *
  * Ported from the console's `on.now.strip.tsx`, which is the same three cells for the same reasons.
  * One thing differs on purpose: the host is named by their DJ name where they have one, because a
- * listener knows the voice rather than the persona the operator filed it under.
+ * listener knows the voice rather than the persona the operator filed it under. And where the
+ * operator gave that persona a picture, it is drawn beside the name, on every block and not only the
+ * one on now: the slot says who presents it, so the face is as much a fact about a block ahead as
+ * about this one.
  */
-fun whatsOn(current: ScheduleNow, slots: List<ScheduleSlot>, personas: List<Persona>): WhatsOnUiState {
+fun whatsOn(current: ScheduleNow, slots: List<ScheduleSlot>, personas: List<Persona>, portraits: List<PersonaPortrait> = emptyList()): WhatsOnUiState {
     val blocks = current.upcoming
 
     // Covering `now` is what makes the first block the one ON now rather than the next one.
@@ -86,7 +96,7 @@ fun whatsOn(current: ScheduleNow, slots: List<ScheduleSlot>, personas: List<Pers
             val total = minutesBetween(live.start, live.end)
             val gone = minutesBetween(live.start, current.now)
             OnNow.Live(
-                block = cardFor(live, current.now, slots, personas),
+                block = cardFor(live, current.now, slots, personas, portraits),
                 eyebrow = if (takenOver) Message.DueNow else Message.OnAir,
                 leftLabel = Message.Left(spanOf(total - gone)),
                 // A block with no length cannot be part-way through one, so it reads as not started
@@ -103,13 +113,13 @@ fun whatsOn(current: ScheduleNow, slots: List<ScheduleSlot>, personas: List<Pers
                 Ahead(
                     eyebrow = if (index == 0) Message.UpNext else Message.AfterThat,
                     startsIn = Message.In(spanOf(minutesBetween(current.now, block.start))),
-                    block = cardFor(block, current.now, slots, personas),
+                    block = cardFor(block, current.now, slots, personas, portraits),
                 )
             },
     )
 }
 
-private fun cardFor(block: ScheduleOccurrence, now: String, slots: List<ScheduleSlot>, personas: List<Persona>): BlockCard {
+private fun cardFor(block: ScheduleOccurrence, now: String, slots: List<ScheduleSlot>, personas: List<Persona>, portraits: List<PersonaPortrait>): BlockCard {
     val slot = slots.firstOrNull { it.id == block.slotId }
     val host = personas.firstOrNull { it.id == slot?.personaId }
 
@@ -119,6 +129,9 @@ private fun cardFor(block: ScheduleOccurrence, now: String, slots: List<Schedule
         hours = hoursOf(block.start, block.end, now),
         // The name they are introduced by, falling back to the one the operator filed them under.
         host = host?.let { it.djName?.takeIf(String::isNotBlank) ?: it.label },
+        // Keyed on the persona the slot names, and only once that persona is known: a slot naming
+        // a persona the list does not hold has no name to stand beside.
+        hostPortraitPath = host?.let { portraits.portraitPathOf(it.id) },
         brief = slot?.brief?.takeIf(String::isNotBlank),
     )
 }

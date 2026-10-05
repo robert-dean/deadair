@@ -80,7 +80,7 @@ export class UpnpDriver implements SpeakerDriver {
 
     async play(host: PluginHost, target: SpeakerTarget, request: OutputPlayRequest): Promise<void> {
         const renderer = await this.renderer(host, target);
-        const uri = renderer.sonos ? sonosUri(request.url) : request.url;
+        const uri = renderer.sonos ? sonosUri(request.url) : withLength(request.url);
 
         await this.call(host, target, renderer, 'SetAVTransportURI', {
             InstanceID: '0',
@@ -174,9 +174,42 @@ export function sonosUri(url: string): string {
     return url.startsWith('http://') ? `${SONOS_RADIO_SCHEME}${url.slice('http://'.length)}` : url;
 }
 
-/** Undoes {@link sonosUri}, so a Sonos's answer can be compared with the URL the station handed it. */
+/** The query marker that asks the station's edge for the mount with a declared length. */
+export const SPEAKER_MARKER = 'speaker';
+
+/**
+ * The mount URL with the marker that asks the station for a declared length.
+ *
+ * A DLNA renderer will not play a live stream that has no length: a Samsung television answered
+ * "This file format is not supported" to the live mount over HTTPS and plain HTTP alike, and played
+ * the same mount once it declared one. The edge serves a request carrying this marker with a length
+ * no stream reaches (`nginx/snippets/icecast.conf`), and everybody else's stream is untouched. Not
+ * for a Sonos, which plays a radio stream as one under its own scheme.
+ */
+export function withLength(url: string): string {
+    try {
+        const marked = new URL(url);
+        marked.searchParams.set(SPEAKER_MARKER, '1');
+        return marked.toString();
+    } catch {
+        return url;
+    }
+}
+
+/**
+ * Undoes {@link sonosUri} and {@link withLength}, so a renderer's answer can be compared with the
+ * URL the station handed it.
+ */
 export function fromTransportUri(uri: string): string {
-    return uri.startsWith(SONOS_RADIO_SCHEME) ? `http://${uri.slice(SONOS_RADIO_SCHEME.length)}` : uri;
+    const unwrapped = uri.startsWith(SONOS_RADIO_SCHEME) ? `http://${uri.slice(SONOS_RADIO_SCHEME.length)}` : uri;
+    try {
+        const url = new URL(unwrapped);
+        if (!url.searchParams.has(SPEAKER_MARKER)) return unwrapped;
+        url.searchParams.delete(SPEAKER_MARKER);
+        return url.toString();
+    } catch {
+        return unwrapped;
+    }
 }
 
 /** The DIDL-Lite a renderer reads the title, the artist line and the artwork from. */

@@ -237,6 +237,17 @@ And **no pad landing means NO JOIN** — two takes still look joinable and are n
 for the sole purpose of putting a sound between them, so joining them without it produces a silent hole
 mid-sentence out of two separately-trimmed takes that no longer share their prosody.
 
+**A preview hears the pad too, through the same join.** `PadJoiner` (`render/pad.join.ts`) is the one
+place a hit becomes audio: `RenderSegmentJob` resolves the hit from its row and writes the result into the
+segment store, and `POST /voices/preview` with a `soundboard` resolves it by name against that board and
+keeps the result in the samples store. Sharing it is the point, since a preview that put the pad somewhere
+else or at another level would be a demonstration of a different station. The preview's key carries every
+pad's checksum and `padMixKey` (the gap, the overlay, the level and the duck), so a replaced pad or a moved
+level is a new file rather than the old mix played back. The takes on the way land in the segment store as
+a break's do, because the mixer fetches its parts from the content-addressed route. Anything that comes to
+nothing (no pad on that board, no mixer, a refusal) falls back to the words alone, which is what the route
+answered before; a take the engine could not speak is that route's 503 or 502, as it always was.
+
 **A production BEAT can hit one too, and two rules do not transfer from the break.** A beat is sent to
 `render.segment` like any other segment, so the join was already underneath it; what is new is the offer and
 its budget. A CALLER is never offered a board — the fiction rather than a limitation, since the board is the

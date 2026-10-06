@@ -13,6 +13,9 @@
  * station. So this carries the persona, the notebook, the story, the preoccupation, the records with
  * their facts, the time of day, the station's name and what the run has already said.
  *
+ * The soundboard is offered, because whether a character reaches for its pads, and how often, is
+ * part of how it holds up over a playlist. It is offered and never spent: see the job.
+ *
  * Four fields are deliberately absent, and each is absent for its own reason rather than by
  * oversight:
  *
@@ -23,9 +26,8 @@
  *   30-second default, which is the right patience for something an operator is watching.
  * - **`played`** — what this broadcast has played. An audition is not a broadcast, and the records
  *   it has been through are already the previous side of every transition it has written.
- * - **`pads` and `reactions`** — the soundboard and the engine's cues. Both exist to be PERFORMED,
- *   and an audition is read on a page. Offering them would have the host reach for a sting that
- *   nothing here can play, and `floorPad` would then append a cue to a script nobody renders.
+ * - **`reactions`** — the engine's cues. They belong to whichever engine is installed when a break
+ *   airs rather than to the character, so they say nothing about the sheet being auditioned.
  *
  * `priority` is `preview` at every transition. The station always outranks somebody at the desk, and
  * losing the race is a legitimate answer that the run reports as an ordinary decline.
@@ -53,6 +55,8 @@ export interface AuditionRequestInput {
     next: AuditionRecord;
     /** Short true things about each side, keyed by the catalog id. Absent for a record nothing knows. */
     facts?: { previous?: readonly string[]; next?: readonly string[] };
+    /** The names on this character's soundboard, least recently hit first. Absent for one with none. */
+    pads?: readonly string[];
     /** What this RUN has already said, newest first. Not the station's history: see the job. */
     recent: readonly string[];
     /** Something stable and unique to this transition, which the preoccupation is spread over. */
@@ -110,6 +114,9 @@ export function auditionRequest(input: AuditionRequestInput): BreakWriteRequest 
         ...(input.notebook === undefined ? {} : { notebook: input.notebook }),
         ...(input.story === undefined ? {} : { story: input.story }),
         ...(preoccupation === undefined ? {} : { preoccupation }),
+        // The rack exactly as `WriteBreakJob` offers it, and vetoed by the same talk-break shape. An
+        // empty list is left out rather than passed, so a character with no board is told nothing.
+        ...(input.pads === undefined || input.pads.length === 0 ? {} : { pads: input.pads }),
         // What this RUN has said, which is what makes the spent-signature rule mean anything over a
         // playlist. The rehearsal passes `[]` for repeatability, and that is the right call for one
         // break against a fixed pair; over twenty transitions it would measure a host landing its

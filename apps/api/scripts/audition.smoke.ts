@@ -97,6 +97,13 @@ const auditions = new PersonaAuditionRepository(db, station);
  */
 const enrichment = { factsForTracks: async () => new Map<string, string[]>() } as never;
 
+/**
+ * The soundboard, stubbed for the enrichment's reason: what this script counts is rows in tables the
+ * render path reads, and `pads` is not one of them. That an audition never marks a pad used is pinned
+ * in `persona.audition.job.test.ts`.
+ */
+const pads = { onSet: async () => [] } as never;
+
 // The floor alone. It cannot fail, it needs no plugin, and it writes from the station's own
 // phrasings — which is everything this script needs and nothing it does not.
 const writers = new BreakWriterRegistry([new TalkBreakWriter(config, quiet)], quiet);
@@ -114,6 +121,7 @@ const job = new PersonaAuditionJob(
     personas,
     notes,
     stories,
+    pads,
     enrichment,
     writers,
     jobs,

@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { PAD_LEVEL_BOUNDS, PAD_LEVEL_KEY, padLevelDb } from '../../../src/modules/render/pad.settings.js';
+import { PAD_LEVEL_BOUNDS, PAD_LEVEL_KEY, PAD_UNDER_KEY, padLevelDb, padMixKey } from '../../../src/modules/render/pad.settings.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
 const level = (value?: string) => padLevelDb(settingsConfig(value === undefined ? {} : { [PAD_LEVEL_KEY]: value }).config);
@@ -28,5 +28,16 @@ describe('padLevelDb', () => {
         // A bare `Number('')` is 0, which would quietly mean "level with the words".
         expect(level('loud')).toBe(-6);
         expect(level('')).toBe(-6);
+    });
+});
+
+describe('padMixKey', () => {
+    it('changes when a setting that changes the mix does, so a cached preview is not the old mix', () => {
+        expect(padMixKey(settingsConfig({ [PAD_LEVEL_KEY]: '-6' }).config)).not.toBe(padMixKey(settingsConfig({ [PAD_LEVEL_KEY]: '-12' }).config));
+        expect(padMixKey(settingsConfig({}).config)).not.toBe(padMixKey(settingsConfig({ [PAD_UNDER_KEY]: '400' }).config));
+    });
+
+    it('is the same for the same settings', () => {
+        expect(padMixKey(settingsConfig({ [PAD_LEVEL_KEY]: '-6' }).config)).toBe(padMixKey(settingsConfig({ [PAD_LEVEL_KEY]: '-6' }).config));
     });
 });

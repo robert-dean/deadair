@@ -5,6 +5,8 @@ import type { SpeechVoice } from '@deadair/plugin-sdk';
 
 import { RenderService } from '../../../src/modules/render/render.service.js';
 import { SAMPLE_TEXT } from '../../../src/modules/render/voice.sample.store.js';
+import type { PadJoined, PadJoinRequest } from '../../../src/modules/render/pad.join.js';
+import type { Pad } from '../../../src/modules/render/pad.repository.js';
 import type { SegmentLibrary } from '../../../src/modules/render/segment.library.js';
 import type { Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
 import type { SegmentStore } from '../../../src/modules/render/segment.store.js';
@@ -55,6 +57,10 @@ interface ServiceOptions {
     counts?: unknown[];
     /** Which deliveries the speaker performs right now. Absent is none, which is most engines. */
     deliveries?: string[];
+    /** The pads a board holds, by name, for a padded preview. */
+    board?: Record<string, Pad>;
+    /** What the joiner answers. Absent is nothing joined, which falls back to the words alone. */
+    join?: (request: PadJoinRequest) => Promise<PadJoined | undefined>;
 }
 
 const service = (options: ServiceOptions = {}) => {
@@ -87,6 +93,12 @@ const service = (options: ServiceOptions = {}) => {
         return options.counts;
     });
 
+    const named = vi.fn(async (_board: string, name: string) => options.board?.[name]);
+    const join = vi.fn(options.join ?? (async () => undefined));
+    const speak = vi.fn(async (request: { text: string }) => ({ checksum: 'c', ext: 'mp3', pluginId: 'deadair.kokoro', spokenText: request.text }));
+    const writeStreamAs = vi.fn(async () => 'key');
+    const config = { get: (_key: string, fallback: unknown) => fallback } as never;
+
     const samples = {
         // The text rides the key exactly as the real store puts it there, so a case can tell one
         // script's file from another's — which is the whole of what a speech preview caches on.
@@ -94,6 +106,7 @@ const service = (options: ServiceOptions = {}) => {
             `key:${pluginId}:${voiceId}${spec === undefined ? '' : `:${spec}`}${text === SAMPLE_TEXT ? '' : `:${text}`}${delivery === undefined ? '' : `:${delivery}`}`,
         extensions: ['mp3', 'wav'],
         read: sampleRead,
+        writeStreamAs,
     };
 
     return {
@@ -104,7 +117,7 @@ const service = (options: ServiceOptions = {}) => {
                 scan,
             } as unknown as SegmentLibrary,
             { send } as never,
-            { speaker, speakers, voices, speakAs, explainSpeaker, deliveriesOf } as never,
+            { speaker, speakers, voices, speakAs, speak, explainSpeaker, deliveriesOf } as never,
             samples as never,
             // Script history is a read most of this suite never makes, so it stays a stub rather
             // than a fake unless a case hands over `attempts`: a page() nobody calls that throws is
@@ -119,16 +132,22 @@ const service = (options: ServiceOptions = {}) => {
             // The lexicon is only reached through SpeechService, which this suite fakes whole, so
             // the repository itself is never called on any path here.
             {} as never,
-            // The rack, its sets and its inbox, on the same terms: no case here reaches a pad route,
-            // so a stub that throws on any call is a better failure than one that answers plausibly.
-            {} as never,
+            // The rack, read by name for a padded preview. Its sets and its inbox are stubs that throw
+            // on any call: no case here reaches a pad route.
+            { named } as never,
             {} as never,
             {} as never,
             logger as never,
             // The copies listeners share. No case here asks for one.
             {} as never,
+            { join } as never,
+            config,
         ),
         findById,
+        named,
+        join,
+        speak,
+        writeStreamAs,
         read,
         scan,
         plan,
@@ -448,6 +467,124 @@ describe('RenderService.getDefaultVoiceSample', () => {
     });
 });
 
+describe('RenderService.previewSpeech with a soundboard', () => {
+    const AIRHORN = { id: 'pad-1', name: 'airhorn', audioChecksum: 'abc', audioExt: 'wav' } as unknown as Pad;
+    const JOINED: PadJoined = {
+        audio: new ReadableStream<Uint8Array>(),
+        ext: 'mp3',
+        spokenText: 'Here we go. Hold on.',
+        parts: 2,
+        overlays: 1,
+    };
+
+    it('joins the words around the pad the board holds, and plays that', async () => {
+        const { service: render, join, named, writeStreamAs, sampleRead } = service({ board: { airhorn: AIRHORN }, join: async () => JOINED });
+        // Nothing cached under either extension, and then the joined file read back.
+        sampleRead.mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockResolvedValue(Buffer.from('joined'));
+
+        const response = await render.previewSpeech({ text: 'Here we go. [sfx:airhorn] Hold on.', voice: 'host', soundboard: 'pirate' });
+
+        expect(named).toHaveBeenCalledWith('pirate', 'airhorn');
+        expect(join).toHaveBeenCalledWith(expect.objectContaining({ script: 'Here we go. [sfx:airhorn] Hold on.' }));
+        expect(writeStreamAs).toHaveBeenCalledWith(expect.any(String), JOINED.audio, 'mp3');
+        expect(response.body).toEqual(Buffer.from('joined'));
+    });
+
+    it('resolves a hit to the pad on the board it was handed', async () => {
+        const { service: render, join, sampleRead } = service({ board: { airhorn: AIRHORN }, join: async () => JOINED });
+        sampleRead.mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockResolvedValue(Buffer.from('joined'));
+
+        await render.previewSpeech({ text: 'Here we go. [sfx:airhorn]', soundboard: 'pirate' });
+
+        const request = join.mock.calls[0]![0];
+        expect(await request.resolve('airhorn')).toBe(AIRHORN);
+        expect(await request.resolve('rimshot')).toBeUndefined();
+    });
+
+    it('speaks every take in the voice asked for, behind the station and bounded', async () => {
+        const { service: render, join, speak, sampleRead } = service({ board: { airhorn: AIRHORN }, join: async () => JOINED });
+        sampleRead.mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockResolvedValue(Buffer.from('joined'));
+
+        await render.previewSpeech({ text: 'Here we go. [sfx:airhorn]', voice: 'host', soundboard: 'pirate' });
+        await join.mock.calls[0]![0].say('Here we go.');
+
+        expect(speak).toHaveBeenCalledWith({ text: 'Here we go.', voice: 'host' }, { maxWaitMs: expect.any(Number), priority: 'preview' });
+    });
+
+    it('serves a joined preview it already holds without speaking or joining again', async () => {
+        const { service: render, join, speakAs } = service({ board: { airhorn: AIRHORN }, sample: Buffer.from('already joined') });
+
+        const response = await render.previewSpeech({ text: 'Here we go. [sfx:airhorn]', soundboard: 'pirate' });
+
+        expect(join).not.toHaveBeenCalled();
+        expect(speakAs).not.toHaveBeenCalled();
+        expect(response.body).toEqual(Buffer.from('already joined'));
+    });
+
+    it('keys a replaced pad as a new file, so the old sound is not played back', async () => {
+        const replaced = { ...AIRHORN, audioChecksum: 'def' } as Pad;
+        const keys: string[] = [];
+        for (const pad of [AIRHORN, replaced]) {
+            const { service: render, sampleRead } = service({ board: { airhorn: pad }, join: async () => JOINED });
+            sampleRead.mockImplementation(async (key: string) => {
+                keys.push(key);
+                return undefined;
+            });
+            await render.previewSpeech({ text: 'Here we go. [sfx:airhorn]', soundboard: 'pirate' }).catch(() => undefined);
+        }
+
+        expect(keys[0]).not.toBe(keys.at(-1));
+    });
+
+    it('speaks the words alone when the board holds none of the hits', async () => {
+        const { service: render, join, speakAs, sampleRead } = service({ board: {} });
+        sampleRead.mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockResolvedValue(Buffer.from('words'));
+
+        const response = await render.previewSpeech({ text: 'Here we go. [sfx:airhorn]', soundboard: 'pirate' });
+
+        expect(join).not.toHaveBeenCalled();
+        expect(speakAs).toHaveBeenCalled();
+        expect(response.body).toEqual(Buffer.from('words'));
+    });
+
+    it('speaks the words alone when nothing could join them', async () => {
+        // No mixer, or one that refused: the preview still answers, exactly as it did before pads.
+        const { service: render, join, speakAs, sampleRead } = service({ board: { airhorn: AIRHORN } });
+        sampleRead.mockResolvedValue(undefined);
+        speakAs.mockImplementation(async () => {
+            sampleRead.mockResolvedValue(Buffer.from('words'));
+            return 'mp3';
+        });
+
+        const response = await render.previewSpeech({ text: 'Here we go. [sfx:airhorn]', soundboard: 'pirate' });
+
+        expect(join).toHaveBeenCalled();
+        expect(response.body).toEqual(Buffer.from('words'));
+    });
+
+    it('never looks for a board when the caller named none', async () => {
+        const { service: render, named, join } = service({ sample: Buffer.from('words') });
+
+        await render.previewSpeech({ text: 'Here we go. [sfx:airhorn]' });
+
+        expect(named).not.toHaveBeenCalled();
+        expect(join).not.toHaveBeenCalled();
+    });
+
+    it('answers 503 when the engine is busy speaking a take', async () => {
+        const busy = new PluginError('queue').withCode('timeout');
+        const { service: render, sampleRead } = service({
+            board: { airhorn: AIRHORN },
+            join: async () => {
+                throw busy;
+            },
+        });
+        sampleRead.mockResolvedValue(undefined);
+
+        expect(await status(render.previewSpeech({ text: 'Here we go. [sfx:airhorn]', soundboard: 'pirate' }))).toBe(503);
+    });
+});
+
 describe('RenderService.previewSpeech', () => {
     it('speaks the words it was given, in the voice it was given', async () => {
         const { service: render, speakAs, sampleRead } = service();
@@ -670,6 +807,8 @@ describe('RenderService.uploadPad', () => {
             { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
             // The copies listeners share. No case here asks for one.
             {} as never,
+            {} as never,
+            {} as never,
         );
 
         return { service: render, ingest };
@@ -774,6 +913,9 @@ describe('RenderService.deletePad', () => {
             { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
             // The copies listeners share. No case here asks for one.
             {} as never,
+            // The joiner and the config, for a padded preview. No case here asks for one.
+            {} as never,
+            {} as never,
         );
 
         return { service: render, remove, discard };
@@ -830,6 +972,9 @@ describe('RenderService.fetchPad', () => {
             { ingest } as never,
             { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
             // The copies listeners share. No case here asks for one.
+            {} as never,
+            // The joiner and the config, for a padded preview. No case here asks for one.
+            {} as never,
             {} as never,
         );
 
@@ -938,6 +1083,9 @@ describe('RenderService.uploadSegment', () => {
             { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
             // The copies listeners share. No case here asks for one.
             {} as never,
+            // The joiner and the config, for a padded preview. No case here asks for one.
+            {} as never,
+            {} as never,
         );
 
         return { service: render, ingest };
@@ -1025,6 +1173,9 @@ describe('RenderService.deleteSegment', () => {
             {} as never,
             { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
             // The copies listeners share. No case here asks for one.
+            {} as never,
+            // The joiner and the config, for a padded preview. No case here asks for one.
+            {} as never,
             {} as never,
         );
 

@@ -122,6 +122,9 @@ const serve = async (segment: Segment | undefined, options: { shares?: Partial<S
         unused,
         // The copies listeners share, faked where a case asks for one.
         (options.shares ?? {}) as never,
+        // The joiner and the config, for a padded preview.
+        unused,
+        unused,
     );
     const app = new Koa();
 

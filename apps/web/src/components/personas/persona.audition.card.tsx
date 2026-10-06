@@ -31,6 +31,7 @@ export function PersonaAuditionCard({
     personaId,
     run,
     voice,
+    soundboard,
     open,
     onToggle,
     onCancel,
@@ -39,6 +40,8 @@ export function PersonaAuditionCard({
     personaId: string;
     run: PersonaAuditionSummary;
     voice?: string;
+    /** The character's soundboard, so a break that hit a pad is heard with it. */
+    soundboard?: string;
     open: boolean;
     onToggle: () => void;
     onCancel: () => void;
@@ -95,7 +98,12 @@ export function PersonaAuditionCard({
                     {detail.isError ? <ErrorAlert title={t('audition.readError')} error={detail.error} /> : undefined}
                     <Stack gap="md" mt="xs">
                         {(detail.data?.breaks ?? []).map(written => (
-                            <Transition key={written.ordinal} written={written} {...(voice === undefined ? {} : { voice })} />
+                            <Transition
+                                key={written.ordinal}
+                                written={written}
+                                {...(voice === undefined ? {} : { voice })}
+                                {...(soundboard === undefined ? {} : { soundboard })}
+                            />
                         ))}
                     </Stack>
                 </Collapse>
@@ -110,9 +118,10 @@ export function PersonaAuditionCard({
  * The winner can be HEARD, on the rehearsal panel's argument: what a character sounds like is the
  * thing being judged, and reading a break off a screen is not that — the diction that reads as
  * overdone is frequently the half that works out loud. It renders through the sample store, so it
- * has no segment row and cannot be planted or aired.
+ * has no segment row and cannot be planted or aired. A hit on the character's soundboard is heard
+ * with its pad, mixed as it would be on air, since reaching for one is part of the character too.
  */
-function Transition({ written, voice }: { written: PersonaAuditionBreak; voice?: string }) {
+function Transition({ written, voice, soundboard }: { written: PersonaAuditionBreak; voice?: string; soundboard?: string }) {
     const preview = useVoicePreview();
     const { t } = useTranslation('personas');
     const spoken = written.script;
@@ -132,7 +141,7 @@ function Transition({ written, voice }: { written: PersonaAuditionBreak; voice?:
                         size="sm"
                         loading={preview.isLoading(spoken)}
                         aria-label={t('audition.hear', { number: written.ordinal + 1 })}
-                        onClick={() => preview.play(spoken, () => fetchSpeechPreview(spoken, voice), t('shared.breakSpeakFailed'))}
+                        onClick={() => preview.play(spoken, () => fetchSpeechPreview(spoken, voice, soundboard), t('shared.breakSpeakFailed'))}
                     >
                         {preview.isPlaying(spoken) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
                     </ActionIcon>

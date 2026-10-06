@@ -141,6 +141,7 @@ export function PersonaAuditionsPage({ persona }: { persona?: string }) {
                         personaId={personaId}
                         run={run}
                         {...(host?.voice === undefined ? {} : { voice: host.voice })}
+                        {...(host?.soundboard === undefined ? {} : { soundboard: host.soundboard })}
                         open={open === run.id}
                         onToggle={() => setOpen(current => (current === run.id ? undefined : run.id))}
                         onCancel={() => cancel.mutate(run.id)}

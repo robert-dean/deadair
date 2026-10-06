@@ -5,16 +5,13 @@ import { Logger } from '@maroonedsoftware/logger';
 import { isPluginError } from '@deadair/plugin-sdk';
 import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
-import { resolvePlayoutBaseUrl, segmentAudioUrl, storedAudioUrl } from '#modules/playout/playout.urls.js';
+import { resolvePlayoutBaseUrl, segmentAudioUrl } from '#modules/playout/playout.urls.js';
 import { AudioUrlSigner } from '#modules/playout/audio.url.signer.js';
-import type { AudioOverlay } from '@deadair/plugin-sdk';
-import { splitOnPads, withoutPads } from './pad.cues.js';
+import { withoutPads } from './pad.cues.js';
 import { PadRepository } from './pad.repository.js';
-import { padGainDb, padLoudness } from './pad.level.js';
-import { padDuckDb, padGapMs, padLevelDb, padUnderMs } from './pad.settings.js';
-import { MixerService } from './mixer.service.js';
+import { PadJoiner } from './pad.join.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
-import { extensionForMime, SegmentStore } from './segment.store.js';
+import { SegmentStore } from './segment.store.js';
 import { SpeechService, type SpokenAudio } from './speech.service.js';
 import type { GatePriority } from '#modules/shared/gate.priority.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -76,7 +73,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         // What joins a padded break's takes around its hit, and the store the result lands in. Both
         // unused by the ordinary break, which is nearly all of them: a station with no soundboard
         // resolves these and never calls them.
-        private readonly mixer: MixerService,
+        private readonly joiner: PadJoiner,
         private readonly store: SegmentStore,
         private readonly pads: PadRepository,
         // The analyzer, for how loud the result came out. A module later in the list than this one,
@@ -84,7 +81,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         // resolves, and this is resolved when a job runs.
         private readonly analysis: AnalysisService,
         private readonly config: AppConfig,
-        // Every URL below is fetched by the mixer or the analyzer with no session, so each is signed.
+        // The measurement's URL is fetched by the analyzer with no session, so it is signed.
         private readonly signer: AudioUrlSigner,
         context: JobContext,
         container: Container,
@@ -233,140 +230,40 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
     /**
      * Several takes and a pad, joined into one file, or `undefined` for anything that did not work.
      *
-     * The parts are spoken one at a time through the same {@link SpeechGate} a single take goes
-     * through, so a padded break costs the engine no more concurrency than an ordinary one — it just
-     * takes two turns instead of one.
-     *
-     * The URLs are the station's own content-addressed route, for `StitchProductionJob`'s reason:
-     * the mixer runs in another container, so a path on this machine's disk is not something it can
-     * fetch. A take is not a segment and never will be, which is exactly why that route addresses the
-     * store rather than a row.
+     * The join itself is {@link PadJoiner}'s, shared with the console's preview so the two put a pad
+     * at the same level in the same place. What is this job's is where the answers come from: a hit
+     * is resolved from the ROW rather than by name against a board, because the row is what the
+     * writer decided under the character that was presenting then (see `segments.pads`), and the
+     * result lands in the segment store.
      */
     private async joinAround(segment: Segment, script: string, priority?: GatePriority): Promise<SpokenAudio | undefined> {
-        const parts = splitOnPads(script);
-        if (parts.length === 0) return undefined;
-
-        // Resolved from the ROW rather than by name against a board, because the row is what the
-        // writer decided under the character that was presenting then. See `segments.pads`.
         const byName = new Map(segment.pads.map(hit => [hit.name, hit.padId]));
 
-        const base = resolvePlayoutBaseUrl(this.config);
-        // Zero is a STING: the pad is a part, and the words wait for it. Anything above makes it an
-        // OVERLAY that starts that far before the words end, so nothing moves and the sound happens
-        // ON them. The whole difference is which of these two lists the pad goes into.
-        const under = padUnderMs(this.config);
-
-        const urls: string[] = [];
-        // One per entry in `urls`, by index: a gain for a sting, nothing for a take.
-        const gains: (number | undefined)[] = [];
-        const overlays: AudioOverlay[] = [];
-        const spoken: string[] = [];
-        let placed = 0;
-
-        for (const part of parts) {
-            if (part.kind === 'pad') {
-                const padId = byName.get(part.name);
-                const pad = padId === undefined ? undefined : await this.pads.findById(padId);
-                // A pad deleted between the write and the render. Skipped rather than abandoning the
-                // join, because the rest of the break is still several takes that want joining and
-                // the alternative loses the sound AND the timing.
-                if (pad === undefined) {
-                    this.logger.info('render: a break hit a pad that is no longer there', {
-                        job: this.context.id,
-                        segment: segment.id,
-                        pad: part.name,
-                    });
-                    continue;
-                }
-
-                const url = this.signer.sign(storedAudioUrl(base, pad.audioChecksum, pad.audioExt));
-                if (under > 0 && urls.length > 0) {
-                    // Anchored to the join AFTER the take just pushed, which is the boundary this
-                    // pad sits at in the sentence. `urls.length - 1` because a join is named by the
-                    // part it follows.
-                    //
-                    // Guarded on there being a preceding take at all: a script that OPENS on a hit
-                    // has no words for the sound to land under, so it stays a part. Sending an
-                    // overlay anchored to a join that does not exist is refused by the mixer, which
-                    // would cost the break its whole join rather than its timing.
-                    //
-                    // Levelled against the words it lands on rather than mixed at whatever its maker
-                    // mastered it to, by its measured loudness or, for a sound too short to have one,
-                    // by its peak. Omitted for a pad with neither, so that case puts exactly the
-                    // request on the wire it did before levelling existed.
-                    const gainDb = padGainDb(padLoudness(pad), padLevelDb(this.config));
-                    overlays.push({
-                        url,
-                        afterIndex: urls.length - 1,
-                        offsetMs: -under,
-                        ...(gainDb === undefined ? {} : { gainDb }),
-                        duckDb: padDuckDb(this.config),
-                    });
-                } else {
-                    // A STING plays alone between two takes, so nothing is underneath it to keep
-                    // intelligible and `render.padLevelDb` (how far UNDER the words) does not apply.
-                    // What it must not do is jump out of the break or vanish from it, so it is
-                    // levelled to the words either side. The joined break is then measured and
-                    // levelled as a whole, which keeps that ratio.
-                    urls.push(url);
-                    gains.push(padGainDb(padLoudness(pad), 0));
-                }
-                placed += 1;
-                continue;
-            }
-
-            const take = await this.say(part.text, segment, priority);
-
-            urls.push(this.signer.sign(storedAudioUrl(base, take.checksum, take.ext)));
-            gains.push(undefined);
-            spoken.push(take.spokenText);
-        }
-
-        // No pad actually landed, so there is nothing for a join to be FOR.
-        //
-        // Worth stating because the naive reading is that two takes still want joining: they do not.
-        // The words were split for the sole purpose of putting a sound between them, and joining
-        // them without it produces a break with a silent hole mid-sentence where the drop should
-        // have been, out of two separately-trimmed takes that no longer share their prosody. One
-        // take of the whole script is strictly better, and that is what the caller falls back to.
-        if (placed === 0) return undefined;
-
-        // Two parts is the floor for a join, and an overlaid pad does not raise it: one take with a
-        // drop mixed onto it is still one part, and a mixer asked to join a single file pays a decode
-        // to hand the same bytes back. It IS worth the call once there is something to mix on.
-        if (urls.length < 2 && overlays.length === 0) return undefined;
-
-        const joined = await this.mixer.join(segment.label, urls, padGapMs(this.config), { overlays, gainsDb: gains });
+        const joined = await this.joiner.join({
+            label: segment.label,
+            script,
+            resolve: async name => {
+                const padId = byName.get(name);
+                return padId === undefined ? undefined : await this.pads.findById(padId);
+            },
+            say: async text => await this.say(text, segment, priority),
+        });
         if (joined === undefined) return undefined;
 
-        const ext = extensionForMime(joined.mime);
-        if (ext === undefined) {
-            // Nothing here can serve it, and storing bytes under a guessed extension is how a
-            // segment airs as silence. The stream is let go, because the plugin is holding a socket
-            // open on our behalf.
-            await joined.audio.cancel().catch(() => {});
-            this.logger.warn('render: the joined break came back as something the station cannot serve', {
-                job: this.context.id,
-                segment: segment.id,
-                mime: joined.mime,
-            });
-            return undefined;
-        }
-
-        const checksum = await this.store.writeStream(joined.audio, ext);
+        const checksum = await this.store.writeStream(joined.audio, joined.ext);
 
         this.logger.info('render: joined a break around its soundboard hit', {
             job: this.context.id,
             segment: segment.id,
-            parts: urls.length,
-            overlays: overlays.length,
-            ext,
+            parts: joined.parts,
+            overlays: joined.overlays,
+            ext: joined.ext,
         });
 
         // The spoken text is the TAKES' words in order and says nothing about the pad, which is
         // right: this column is the record of what the engine was handed, and the engine was never
         // handed the pad. What was hit is on `segments.pads`.
-        return { checksum, ext, pluginId: 'joined', spokenText: spoken.join(' ') };
+        return { checksum, ext: joined.ext, pluginId: 'joined', spokenText: joined.spokenText };
     }
 
     /**

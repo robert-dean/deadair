@@ -970,6 +970,9 @@ describe('RenderService.setPadUse', () => {
             { list: vi.fn(async () => []), setsFor: vi.fn(async () => new Map()), personasNaming: vi.fn(async () => []) } as never,
             {} as never,
             { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
+            // The copies listeners share, the joiner and the config. No case here asks for any of them.
+            {} as never,
+            {} as never,
             {} as never,
         );
 

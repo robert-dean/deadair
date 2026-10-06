@@ -345,17 +345,21 @@ public struct SpeechPreviewRequest: Codable, Equatable, Sendable {
     public var voice: String?
     /// How to read it, as a segment's `delivery`: `hushed` or `frantic`, and refused otherwise. Absent is the voice's own ordinary reading
     public var delivery: String?
+    /// The board a `[sfx:name]` in the text is played from, as a character's `soundboard`. Absent, or a hit the board does not hold, and the hit is left out and only the words are spoken
+    public var soundboard: String?
 
-    public init(text: String, voice: String? = nil, delivery: String? = nil) {
+    public init(text: String, voice: String? = nil, delivery: String? = nil, soundboard: String? = nil) {
         self.text = text
         self.voice = voice
         self.delivery = delivery
+        self.soundboard = soundboard
     }
 
     private enum CodingKeys: String, CodingKey {
         case text = "text"
         case voice = "voice"
         case delivery = "delivery"
+        case soundboard = "soundboard"
     }
 
     public init(from decoder: Decoder) throws {
@@ -363,6 +367,7 @@ public struct SpeechPreviewRequest: Codable, Equatable, Sendable {
         self.text = try container.decode(String.self, forKey: .text)
         self.voice = try container.decodeIfPresent(String.self, forKey: .voice)
         self.delivery = try container.decodeIfPresent(String.self, forKey: .delivery)
+        self.soundboard = try container.decodeIfPresent(String.self, forKey: .soundboard)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -370,6 +375,7 @@ public struct SpeechPreviewRequest: Codable, Equatable, Sendable {
         try container.encode(self.text, forKey: .text)
         try container.encodeIfPresent(self.voice, forKey: .voice)
         try container.encodeIfPresent(self.delivery, forKey: .delivery)
+        try container.encodeIfPresent(self.soundboard, forKey: .soundboard)
     }
 }
 

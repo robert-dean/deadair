@@ -147,6 +147,8 @@ data class SpeechPreviewRequest(
     val voice: String? = null,
     /** How to read it, as a segment's `delivery`: `hushed` or `frantic`, and refused otherwise. Absent is the voice's own ordinary reading */
     val delivery: String? = null,
+    /** The board a `[sfx:name]` in the text is played from, as a character's `soundboard`. Absent, or a hit the board does not hold, and the hit is left out and only the words are spoken */
+    val soundboard: String? = null,
 )
 
 /** The window the counts cover */

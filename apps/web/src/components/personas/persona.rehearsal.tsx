@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { fetchSpeechPreview } from '../../api/voices.queries';
 import { useVoicePreview } from '../voices/voice.preview';
+import { PadScript } from '../pads/pad.script';
 import { Eyebrow } from '../shared/eyebrow';
 import { StatusLamp } from '../shared/status.lamp';
 import { type StatusTone } from '../shared/status';
@@ -102,7 +103,7 @@ export function Attempt({ attempt }: { attempt: PersonaRehearsalAttempt }) {
                 </Text>
             </Group>
             {attempt.script ? (
-                <Text size="sm">{attempt.script}</Text>
+                <PadScript script={attempt.script} />
             ) : (
                 <Text size="sm" c="dimmed">
                     {attempt.reason ?? t('rehearsal.nothingToSay')}

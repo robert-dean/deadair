@@ -186,12 +186,19 @@ export const SpeechPreviewRequest = z.strictObject({
         .describe(
             "How to read it, as a segment's `delivery`: `hushed` or `frantic`, and refused otherwise. Absent is the voice's own ordinary reading",
         ),
+    soundboard: z
+        .string()
+        .max(200)
+        .optional()
+        .describe(
+            "The board a `[sfx:name]` in the text is played from, as a character's `soundboard`. Absent, or a hit the board does not hold, and the hit is left out and only the words are spoken",
+        ),
 });
 export type SpeechPreviewRequest = z.infer<typeof SpeechPreviewRequest>;
 
 /**
  * The window the counts cover
- * generated from [ScriptHistorySummaryQuery](../../../../data/contracts/render/render.types.ck#L138)
+ * generated from [ScriptHistorySummaryQuery](../../../../data/contracts/render/render.types.ck#L139)
  */
 export const ScriptHistorySummaryQuery = z.strictObject({
     hours: z
@@ -205,7 +212,7 @@ export type ScriptHistorySummaryQuery = z.infer<typeof ScriptHistorySummaryQuery
 
 /**
  * One presenter's attempts in the window
- * generated from [ScriptHistorySummaryRow](../../../../data/contracts/render/render.types.ck#L142)
+ * generated from [ScriptHistorySummaryRow](../../../../data/contracts/render/render.types.ck#L143)
  */
 export const ScriptHistorySummaryRow = z.strictObject({
     personaKey: z
@@ -223,7 +230,7 @@ export type ScriptHistorySummaryRow = z.infer<typeof ScriptHistorySummaryRow>;
 
 /**
  * What one pass over the inbox did
- * generated from [SegmentScanResult](../../../../data/contracts/render/render.types.ck#L154)
+ * generated from [SegmentScanResult](../../../../data/contracts/render/render.types.ck#L155)
  */
 export const SegmentScanResult = z.strictObject({
     scanned: z
@@ -240,7 +247,7 @@ export type SegmentScanResult = z.infer<typeof SegmentScanResult>;
 
 /**
  * One name the station says differently from how it is written
- * generated from [Pronunciation](../../../../data/contracts/render/render.types.ck#L160)
+ * generated from [Pronunciation](../../../../data/contracts/render/render.types.ck#L161)
  */
 export const Pronunciation = z.strictObject({
     id: z.string().min(1).max(100),
@@ -271,7 +278,7 @@ export type Pronunciation = z.infer<typeof Pronunciation>;
 
 /**
  * A name and how to say it
- * generated from [PronunciationWrite](../../../../data/contracts/render/render.types.ck#L177)
+ * generated from [PronunciationWrite](../../../../data/contracts/render/render.types.ck#L178)
  */
 export const PronunciationWrite = z.strictObject({
     written: z.string().min(1).max(200),
@@ -281,7 +288,7 @@ export type PronunciationWrite = z.infer<typeof PronunciationWrite>;
 
 /**
  * Accepting a proposal, turning one down, or taking an entry out of use without losing it
- * generated from [PronunciationStateWrite](../../../../data/contracts/render/render.types.ck#L182)
+ * generated from [PronunciationStateWrite](../../../../data/contracts/render/render.types.ck#L183)
  */
 export const PronunciationStateWrite = z.strictObject({
     state: z.enum(['active', 'suggested', 'rejected']),
@@ -290,7 +297,7 @@ export type PronunciationStateWrite = z.infer<typeof PronunciationStateWrite>;
 
 /**
  * Which part of the lexicon to read
- * generated from [PronunciationQuery](../../../../data/contracts/render/render.types.ck#L186)
+ * generated from [PronunciationQuery](../../../../data/contracts/render/render.types.ck#L187)
  */
 export const PronunciationQuery = z.strictObject({
     state: z.enum(['active', 'suggested', 'rejected']).optional().describe('Absent is all of it'),
@@ -300,7 +307,7 @@ export type PronunciationQuery = z.infer<typeof PronunciationQuery>;
 /**
  * Where in a break a sound may fall. `start` is before the first word, `end` after the last, and
  * `middle` anywhere between two words
- * generated from [PadPlacement](../../../../data/contracts/render/render.types.ck#L213)
+ * generated from [PadPlacement](../../../../data/contracts/render/render.types.ck#L214)
  */
 export const PadPlacement = z.enum(['start', 'middle', 'end']);
 export type PadPlacement = z.infer<typeof PadPlacement>;
@@ -311,7 +318,7 @@ export type PadPlacement = z.infer<typeof PadPlacement>;
  * Documentation rather than validation: a multipart body reaches the service as the raw parser and
  * the generated client types the body as `FormData`, so nothing checks this shape. It says what to
  * send
- * generated from [PadUpload](../../../../data/contracts/render/render.types.ck#L226)
+ * generated from [PadUpload](../../../../data/contracts/render/render.types.ck#L227)
  */
 export const PadUpload = z.strictObject({
     file: _ZodBinary.describe('The audio itself. mp3, wav, ogg, flac or m4a, and at most 25 MB'),
@@ -332,7 +339,7 @@ export type PadUpload = z.infer<typeof PadUpload>;
  * The operator names the address, so this is them choosing a file exactly as dropping one in the
  * library is. Nothing inspects what comes back and nothing records a claim about its licence -- see
  * `docs/internals/render.md` under "Pads", whose line is redistribution rather than use
- * generated from [PadFetch](../../../../data/contracts/render/render.types.ck#L238)
+ * generated from [PadFetch](../../../../data/contracts/render/render.types.ck#L239)
  */
 export const PadFetch = z.strictObject({
     url: z.url().describe('Where the audio is. Followed once, bounded, and refused unless what comes back is a format the station serves'),
@@ -347,7 +354,7 @@ export type PadFetch = z.infer<typeof PadFetch>;
  *
  * One library, cut as many ways as an operator likes. `personas.soundboard` holds the `key`, so
  * renaming a set unpoints every persona naming it — which is why `personas` says who those are
- * generated from [PadSet](../../../../data/contracts/render/render.types.ck#L254)
+ * generated from [PadSet](../../../../data/contracts/render/render.types.ck#L255)
  */
 export const PadSet = z.strictObject({
     id: z.uuid(),
@@ -370,7 +377,7 @@ export type PadSetInput = z.infer<typeof PadSetInput>;
 
 /**
  * A set an operator is naming, or renaming
- * generated from [PadSetWrite](../../../../data/contracts/render/render.types.ck#L263)
+ * generated from [PadSetWrite](../../../../data/contracts/render/render.types.ck#L264)
  */
 export const PadSetWrite = z.strictObject({
     key: z.string().min(1).max(200),
@@ -381,7 +388,7 @@ export type PadSetWrite = z.infer<typeof PadSetWrite>;
 
 /**
  * Which pad, and whether it is on the set
- * generated from [PadSetMembership](../../../../data/contracts/render/render.types.ck#L269)
+ * generated from [PadSetMembership](../../../../data/contracts/render/render.types.ck#L270)
  */
 export const PadSetMembership = z.strictObject({
     padId: z.uuid(),
@@ -391,7 +398,7 @@ export type PadSetMembership = z.infer<typeof PadSetMembership>;
 
 /**
  * Turning a pad down, or putting one back
- * generated from [PadState](../../../../data/contracts/render/render.types.ck#L274)
+ * generated from [PadState](../../../../data/contracts/render/render.types.ck#L275)
  */
 export const PadState = z.strictObject({
     state: z.enum(['active', 'rejected']),
@@ -400,7 +407,7 @@ export type PadState = z.infer<typeof PadState>;
 
 /**
  * What one pass over the pad library did
- * generated from [PadScanResult](../../../../data/contracts/render/render.types.ck#L278)
+ * generated from [PadScanResult](../../../../data/contracts/render/render.types.ck#L279)
  */
 export const PadScanResult = z.strictObject({
     scanned: z
@@ -425,7 +432,7 @@ export type PadScanResult = z.infer<typeof PadScanResult>;
 
 /**
  * Which copy of a segment's audio. `original` is what the station airs. `share` is a small copy made for a listener to send on, AAC in an .m4a, never aired
- * generated from [SegmentAudioRendition](../../../../data/contracts/render/render.types.ck#L286)
+ * generated from [SegmentAudioRendition](../../../../data/contracts/render/render.types.ck#L287)
  */
 export const SegmentAudioRendition = z.enum(['original', 'share']);
 export type SegmentAudioRendition = z.infer<typeof SegmentAudioRendition>;
@@ -572,7 +579,7 @@ export type ScriptRatingInput = z.infer<typeof ScriptRatingInput>;
 
 /**
  * What each presenter has written lately, and over how long
- * generated from [ScriptHistorySummary](../../../../data/contracts/render/render.types.ck#L149)
+ * generated from [ScriptHistorySummary](../../../../data/contracts/render/render.types.ck#L150)
  */
 export const ScriptHistorySummary = z.strictObject({
     hours: z
@@ -584,7 +591,7 @@ export type ScriptHistorySummary = z.infer<typeof ScriptHistorySummary>;
 
 /**
  * The station's lexicon, oldest first
- * generated from [PronunciationList](../../../../data/contracts/render/render.types.ck#L173)
+ * generated from [PronunciationList](../../../../data/contracts/render/render.types.ck#L174)
  */
 export const PronunciationList = z.strictObject({
     pronunciations: z.array(Pronunciation),
@@ -597,7 +604,7 @@ export type PronunciationList = z.infer<typeof PronunciationList>;
  * `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
  * than one, because a token for a model and prose for an operator are different things and the
  * filename produces both
- * generated from [Pad](../../../../data/contracts/render/render.types.ck#L195)
+ * generated from [Pad](../../../../data/contracts/render/render.types.ck#L196)
  */
 export const Pad = z.strictObject({
     id: z.uuid(),
@@ -670,7 +677,7 @@ export type PadInput = z.infer<typeof PadInput>;
 
 /**
  * Where and when a pad may be hit, written together because the console edits them together
- * generated from [PadUse](../../../../data/contracts/render/render.types.ck#L216)
+ * generated from [PadUse](../../../../data/contracts/render/render.types.ck#L217)
  */
 export const PadUse = z.strictObject({
     placements: z
@@ -682,7 +689,7 @@ export const PadUse = z.strictObject({
 export type PadUse = z.infer<typeof PadUse>;
 
 /**
- * generated from [SegmentAudioQuery](../../../../data/contracts/render/render.types.ck#L288)
+ * generated from [SegmentAudioQuery](../../../../data/contracts/render/render.types.ck#L289)
  */
 export const SegmentAudioQuery = z.strictObject({
     rendition: SegmentAudioRendition.default('original').describe(
@@ -718,7 +725,7 @@ export type ScriptHistoryPageInput = z.infer<typeof ScriptHistoryPageInput>;
 
 /**
  * Every sound the station holds, and the sets over it
- * generated from [PadList](../../../../data/contracts/render/render.types.ck#L245)
+ * generated from [PadList](../../../../data/contracts/render/render.types.ck#L246)
  */
 export const PadList = z.strictObject({
     pads: z.array(Pad),

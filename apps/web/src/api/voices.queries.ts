@@ -52,9 +52,16 @@ export async function fetchVoiceSample(voiceId: string): Promise<string> {
  * wants anyway.
  *
  * The caller owns the URL and must `revokeObjectURL` it. `useVoicePreview` does.
+ *
+ * `soundboard` is the board a `[sfx:name]` in the words is played from, so a break that hit a pad is
+ * heard with it. Without one, or for a hit the board does not hold, only the words are spoken.
  */
-export async function fetchSpeechPreview(text: string, voice?: string): Promise<string> {
-    const result = await sdk.render.previewSpeech({ text, ...(voice === undefined ? {} : { voice }) });
+export async function fetchSpeechPreview(text: string, voice?: string, soundboard?: string): Promise<string> {
+    const result = await sdk.render.previewSpeech({
+        text,
+        ...(voice === undefined ? {} : { voice }),
+        ...(soundboard === undefined ? {} : { soundboard }),
+    });
 
     return URL.createObjectURL(result.data);
 }

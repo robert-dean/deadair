@@ -427,10 +427,45 @@ on_air_speech = ref(false)
 # side of the wire dropped it.
 on_air_gain = ref("")
 
+# Where the app aimed the voice on the air now, in LUFS: the station's target less the speech trim,
+# stamped on every spoken item as `deadair_voice_lufs` (annotate.ts, VOICE_AIM_KEY). The two
+# compressors below put their threshold HERE, so they treat a voice the same way whatever level the
+# operator has asked for. See `voice_comp_makeup_db` for why that matters.
+#
+# The fallback is where the default target and trim put a voice, for an item that does not say: a
+# record, which is compressed at 1:1 and so never reads it, or a push from an app older than this.
+# Set on every item rather than only when the key is present, so an aim cannot outlive its break.
+voice_aim_fallback_lufs = -15.
+on_air_voice_lufs = ref(voice_aim_fallback_lufs)
+
+# What the voice compressors give back, in dB, so that a voice levelled to its aim leaves at its aim.
+#
+# Both compressors used to sit at a FIXED -18 with no makeup, a threshold from when the voice itself
+# was aimed at -18. The target moved to -13 and the threshold did not, so it ended up five decibels
+# under the voice and squeezed all of it rather than its peaks. Measured off the mount on 2026-10-05:
+# fourteen breaks between records and a talk-over all aired at -19 LUFS against an aim of -13, the
+# presenter six decibels under the records either side, and the duck ten under a voice that was not
+# there. Two of those segments run through this chain in the pinned image landed at -19.1 and -18.8,
+# so the chain, and nothing upstream of it, was where the six went.
+#
+# With the threshold AT the aim, the reduction no longer depends on the aim at all: a compressor sees
+# only how far over its threshold the signal is, and the stamp puts every voice the same distance
+# over. Those two segments lost 2.75 dB at an aim of -13 and 2.75 at -18, to a hundredth. So the
+# makeup is one number, and it is that one. A different engine with a different crest factor would
+# lose a little more or less; `stream/voice.check.py` measures it, against a segment of your own if
+# you give it one.
+#
+# The makeup lifts the peaks by the same amount, into the bus limiter at the bottom of the file. On
+# the louder of those two segments that is about +2.7 dBFS on its plosives, a few decibels of a
+# brick wall on a handful of transients, which is what that stage is there for. It is not the fault
+# described in step 2 below, which was six decibels on every plosive with the body left under.
+voice_comp_makeup_db = 2.75
+
 def playout_note_on_air(m) =
   on_air_item := m["deadair_item"]
   on_air_speech := m["deadair_speech"] == "1"
   on_air_gain := m["liq_amplify"]
+  on_air_voice_lufs := string.to_float(default=voice_aim_fallback_lufs, string.trim(m["deadair_voice_lufs"]))
   # Reset HERE, in the streaming loop, which is the whole reason this hook is synchronous: the
   # counter below is what a voice cue is timed against, and starting it anywhere else would start
   # it late by however long an HTTP notify took to arrive.
@@ -594,16 +629,19 @@ playout_bed = amplify(override=null, {playout_fade_gain()}, playout_bed)
 # break, 1:1 otherwise` — and 1:1 is not an approximation of off, it is off: the reduction is the
 # distance over the threshold divided by the ratio.
 #
-# Placement mirrors the mic chain: AFTER the app's `amplify`, because a fixed threshold only means
+# Placement mirrors the mic chain: AFTER the app's `amplify`, because a threshold only means
 # anything against an input the app has already levelled, and BEFORE `normalize`, which is cut-only
 # and now sees a break whose peaks are already in order.
+#
+# The threshold and the makeup are the mic chain's too, and so is the reason they are getters: see
+# `voice_comp_makeup_db` there. A record is at 1:1 with no makeup, which leaves it untouched.
 playout_bed = compress(
   attack=5.0,
   release=120.0,
-  threshold=-18.0,
+  threshold={on_air_voice_lufs()},
   ratio={if on_air_speech() then 4.0 else 1.0 end},
   knee=2.0,
-  gain=0.0,
+  gain={if on_air_speech() then voice_comp_makeup_db else 0. end},
   playout_bed)
 
 # The follower, which is now the fallback for what the station has not measured rather than how the
@@ -1372,8 +1410,8 @@ thread.run(every=voice_tick, voice_cue_check)
 #      `annotate:` uri the cue was armed with, exactly as it stamps one on every record pushed to
 #      the playout queue. It is what actually lands the voice at the station's level, and it is
 #      here rather than after the compressor because it is the thing that MAKES the input
-#      consistent: the compressor's threshold is a fixed number, so a segment arriving three
-#      decibels low is a segment being compressed three decibels less.
+#      consistent: the compressor's threshold is the aim, so a segment arriving three decibels under
+#      it is a segment being compressed three decibels less.
 #
 #      An unstamped push is left alone (`amplify(1., …)`), which is the ordinary state for a
 #      station whose app is older than this. The app stamps every cue, so it should not arise.
@@ -1392,9 +1430,18 @@ thread.run(every=voice_tick, voice_cue_check)
 #      stamp a SECOND time and silently discards `x`. Measured off the mount before it was disabled:
 #      a break stamped +8.7 dB aired at -7.9 LUFS against a design target of -18, hard into the bus
 #      limiter, while VOICE_GAIN_DB did nothing at all because it was the discarded factor.
+#
+#      The threshold is where the app aimed this voice and the makeup gives back what the compressor
+#      takes there, so the voice leaves at its aim. See `voice_comp_makeup_db`. The aim is read off
+#      the cue's own track, synchronously, so it is in place before the first frame reaches here.
+voice_aim_lufs = ref(voice_aim_fallback_lufs)
+voice.on_track(
+  synchronous=true,
+  fun (m) -> voice_aim_lufs := string.to_float(default=voice_aim_fallback_lufs, string.trim(m["deadair_voice_lufs"]))
+)
 voice_bus = fade.in(duration=0.04, voice)
 voice_bus = amplify(1., override="liq_amplify", voice_bus)
-voice_bus = compress(attack=5.0, release=120.0, threshold=-18.0, ratio=4.0, knee=2.0, gain=0.0, voice_bus)
+voice_bus = compress(attack=5.0, release=120.0, threshold={voice_aim_lufs()}, ratio=4.0, knee=2.0, gain=voice_comp_makeup_db, voice_bus)
 voice_bus = amplify(lin_of_dB(voice_gain_db), override=null, voice_bus)
 
 # 4) Mix the voice with the bed, per the talk-over mode.

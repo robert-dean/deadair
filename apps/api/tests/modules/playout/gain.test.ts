@@ -10,6 +10,7 @@ import {
     ASSUMED_SPEECH_LUFS,
     CEILING_DBTP,
     MAX_GAIN_DB,
+    MAX_SPEECH_GAIN_DB,
     MIN_GAIN_DB,
     DEFAULT_SPEECH_TRIM_DB,
     DEFAULT_TARGET_LUFS,
@@ -18,6 +19,7 @@ import {
     MAX_SPEECH_TRIM_DB,
     MIN_SPEECH_TRIM_DB,
     resolveSpeechTrimDb,
+    speechAimLufs,
     TRUE_PEAK_ALLOWANCE_DB,
     gainFor,
     programmeGainFor,
@@ -152,14 +154,38 @@ describe('speechGainFor', () => {
     });
 
     it('bounds a measurement that cannot be right, and a target that is not one', () => {
-        expect(speechGainFor({ loudnessLufs: -70 }, TARGET, TRIM)).toBe(MAX_GAIN_DB);
-        expect(speechGainFor({ loudnessLufs: 12 }, TARGET, TRIM)).toBe(-MAX_GAIN_DB);
+        expect(speechGainFor({ loudnessLufs: -70 }, TARGET, TRIM)).toBe(MAX_SPEECH_GAIN_DB);
+        expect(speechGainFor({ loudnessLufs: 12 }, TARGET, TRIM)).toBe(-MAX_SPEECH_GAIN_DB);
         // A settings row holding nonsense still has to produce a break at a sane level, and the
         // level it falls back to is the station's DEFAULT target rather than this file's fixture
         // one: `TARGET` here is a number chosen to make the arithmetic above readable, where an
         // unreadable settings row is exactly the case `DEFAULT_TARGET_LUFS` exists to answer.
         expect(speechGainFor({}, Number.NaN, TRIM)).toBe(DEFAULT_TARGET_LUFS - TRIM - ASSUMED_SPEECH_LUFS);
         expect(speechGainFor({ loudnessLufs: '-24' as unknown as number }, TARGET, TRIM)).toBe(TARGET - TRIM - ASSUMED_SPEECH_LUFS);
+    });
+});
+
+describe('the speech cap', () => {
+    it('lets the quietest engine measured reach the default target with no trim', () => {
+        // Measured on the live station on 2026-10-05: segments at -25.5 to -28.3 LUFS, a trim of zero,
+        // and the record cap of twelve holding every break 0.8 to 1.5 dB short of where it was aimed.
+        expect(speechGainFor({ loudnessLufs: -28.3 }, DEFAULT_TARGET_LUFS, 0)).toBe(DEFAULT_TARGET_LUFS + 28.3);
+        expect(DEFAULT_TARGET_LUFS + 28.3).toBeGreaterThan(MAX_GAIN_DB);
+    });
+
+    it("leaves somebody else's programme under the record cap, since that is a mastered level", () => {
+        expect(programmeGainFor({ loudnessLufs: -40 }, DEFAULT_TARGET_LUFS, 0)).toBe(MAX_GAIN_DB);
+    });
+});
+
+describe('speechAimLufs', () => {
+    it('is the target less the trim, which is what a break is levelled to', () => {
+        expect(speechAimLufs(TARGET, TRIM)).toBe(TARGET - TRIM);
+        expect(speechGainFor({ loudnessLufs: speechAimLufs(TARGET, TRIM) }, TARGET, TRIM)).toBe(0);
+    });
+
+    it('falls back to the defaults for a figure that is not a number', () => {
+        expect(speechAimLufs(Number.NaN, Number.NaN)).toBe(DEFAULT_TARGET_LUFS - DEFAULT_SPEECH_TRIM_DB);
     });
 });
 

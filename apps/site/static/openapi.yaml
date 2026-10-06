@@ -12226,6 +12226,10 @@ components:
                     type: string
                     maxLength: 50
                     description: "How to read it, as a segment's `delivery`: `hushed` or `frantic`, and refused otherwise. Absent is the voice's own ordinary reading"
+                soundboard:
+                    type: string
+                    maxLength: 200
+                    description: "The board a `[sfx:name]` in the text is played from, as a character's `soundboard`. Absent, or a hit the board does not hold, and the hit is left out and only the words are spoken"
             required: [text]
             description: 'Words to hear before anything has aired them'
         ScriptHistorySummaryQuery:

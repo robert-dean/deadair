@@ -79,7 +79,15 @@ const NOTHING = {
 };
 
 function build(
-    options: { claimed?: Audition; result?: unknown; found?: Persona; recent?: string[]; facts?: Map<string, string[]>; shelf?: unknown[] } = {},
+    options: {
+        claimed?: Audition;
+        result?: unknown;
+        found?: Persona;
+        recent?: string[];
+        facts?: Map<string, string[]>;
+        shelf?: unknown[];
+        rack?: { name: string }[] | Error;
+    } = {},
 ) {
     const claim = vi.fn(async () => options.claimed);
     // Typed by its parameters rather than as a bare `vi.fn`, so the assertions below can read the
@@ -103,6 +111,14 @@ function build(
     const forPrompt = vi.fn(async () => ({ id: 's1', story: { title: 'The Barstow lights', story: 'Three lights.', details: [], timesTold: 1 } }));
     const tellable = vi.fn(async () => options.shelf ?? [{ title: 'The Barstow lights', story: 'Three lights.', details: [], timesTold: 1 }]);
     const stories = { forPrompt, tellable, markTold } as never;
+
+    // The rack, with its writing half faked so a test can assert a hit is never rested.
+    const onSet = vi.fn(async (_key: string) => {
+        if (options.rack instanceof Error) throw options.rack;
+        return options.rack ?? [];
+    });
+    const markPadUsed = vi.fn(async () => {});
+    const pads = { onSet, markUsed: markPadUsed } as never;
 
     // Typed by its parameters, so the assertions below can read the ids and the options off the
     // call rather than casting them back out of an empty tuple.
@@ -129,6 +145,7 @@ function build(
         personas,
         notes,
         stories,
+        pads,
         enrichment,
         writers,
         jobs,
@@ -140,7 +157,25 @@ function build(
 
     const run = (payload?: AuditionPayload) => (job as unknown as { execute: (input?: AuditionPayload) => Promise<void> }).execute(payload);
 
-    return { run, claim, recordBreak, finish, fail, recentScripts, find, markUsed, markTold, forPrompt, tellable, factsForTracks, write, send, seen };
+    return {
+        run,
+        claim,
+        recordBreak,
+        finish,
+        fail,
+        recentScripts,
+        find,
+        markUsed,
+        markTold,
+        forPrompt,
+        tellable,
+        factsForTracks,
+        onSet,
+        markPadUsed,
+        write,
+        send,
+        seen,
+    };
 }
 
 describe('PersonaAuditionJob: the claim', () => {
@@ -543,5 +578,72 @@ describe('PersonaAuditionJob: what it does not spend', () => {
         expect(seen[0]?.story?.title).toBe('The Barstow lights');
         // Stamping would report a telling nobody heard.
         expect(markTold).not.toHaveBeenCalled();
+    });
+});
+
+describe('PersonaAuditionJob: the soundboard', () => {
+    it('offers the character the rack it would have on air', async () => {
+        const { run, onSet, seen } = build({
+            claimed: audition(),
+            found: persona({ soundboard: 'pirate-board' }),
+            rack: [{ name: 'cannon' }, { name: 'parrot' }],
+        });
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(onSet).toHaveBeenCalledWith('pirate-board');
+        expect(seen[0]?.pads).toEqual(['cannon', 'parrot']);
+    });
+
+    it('never rests a pad, whatever the break hit', async () => {
+        const hit = { ...WROTE, written: { script: 'That was Green Onions. [sfx:cannon]' } };
+        const { run, markPadUsed } = build({
+            claimed: audition(),
+            found: persona({ soundboard: 'pirate-board' }),
+            rack: [{ name: 'cannon' }],
+            result: hit,
+        });
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(markPadUsed).not.toHaveBeenCalled();
+    });
+
+    it('records the hit in the script it wrote', async () => {
+        const hit = { ...WROTE, written: { script: 'That was Green Onions. [sfx:cannon]' } };
+        const { run, recordBreak } = build({
+            claimed: audition(),
+            found: persona({ soundboard: 'pirate-board' }),
+            rack: [{ name: 'cannon' }],
+            result: hit,
+        });
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(recordBreak.mock.calls[0]?.[2].script).toBe('That was Green Onions. [sfx:cannon]');
+    });
+
+    it('does not ask for a rack a character has not got', async () => {
+        const { run, onSet, seen } = build({ claimed: audition() });
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(onSet).not.toHaveBeenCalled();
+        expect(Object.keys(seen[0] ?? {})).not.toContain('pads');
+    });
+
+    it('offers nothing for a board that holds nothing', async () => {
+        const { run, seen } = build({ claimed: audition(), found: persona({ soundboard: 'empty' }), rack: [] });
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(Object.keys(seen[0] ?? {})).not.toContain('pads');
+    });
+
+    it('writes the break anyway when the rack cannot be read', async () => {
+        const { run, recordBreak, seen } = build({
+            claimed: audition(),
+            found: persona({ soundboard: 'pirate-board' }),
+            rack: new Error('connection reset'),
+        });
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(Object.keys(seen[0] ?? {})).not.toContain('pads');
+        expect(recordBreak).toHaveBeenCalled();
     });
 });

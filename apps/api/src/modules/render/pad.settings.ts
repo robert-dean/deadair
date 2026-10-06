@@ -215,3 +215,14 @@ export function padLevelDb(config: AppConfig): number {
 
 /** What the console draws, so the form and the resolver cannot disagree about the range. */
 export const PAD_LEVEL_BOUNDS = { default: DEFAULT_LEVEL_DB, min: MIN_LEVEL_DB, max: MAX_LEVEL_DB } as const;
+
+/**
+ * Every setting that changes how a padded script is joined, as one string.
+ *
+ * For a cache keyed on what it answers rather than on its bytes: a preview kept under its words and
+ * its pads alone would play back the old mix after an operator moved a pad's level or turned the
+ * overlay into a sting, and the console shows nothing to say it had.
+ */
+export function padMixKey(config: AppConfig): string {
+    return `gap=${padGapMs(config)};under=${padUnderMs(config)};level=${padLevelDb(config)};duck=${padDuckDb(config)}`;
+}

@@ -6,7 +6,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, duckBedLufsFor, speechGainFor } from '../../../src/modules/playout/gain.js';
+import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, duckBedLufsFor, speechAimLufs, speechGainFor } from '../../../src/modules/playout/gain.js';
 import { HARD_JOIN_MS } from '../../../src/modules/playout/annotate.js';
 import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
@@ -967,7 +967,8 @@ describe('PlayoutPusher arming a talk-over', () => {
 
         const gain = speechGainFor({}, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
         const bed = duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
-        const armed = `annotate:liq_amplify="${gain} dB",deadair_duck_bed_lufs="${bed}":https://example.test/seg-1.ogg`;
+        const aim = speechAimLufs(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
+        const armed = `annotate:liq_amplify="${gain} dB",deadair_voice_lufs="${aim}",deadair_duck_bed_lufs="${bed}":https://example.test/seg-1.ogg`;
         expect(control.armVoice).toHaveBeenCalledWith(armed, itemId, 8000);
     });
 
@@ -1003,6 +1004,49 @@ describe('PlayoutPusher arming a talk-over', () => {
         await pusher.reconcile();
 
         expect(control.armVoice).not.toHaveBeenCalled();
+    });
+
+    // radio.liq holds ONE cue and an arm replaces it. With a lead of one, the record after a talked-up
+    // one is pushed the moment the talked-up one starts, which is before its cue is due, so arming at
+    // push overwrote the cue two seconds before it would have fired. Live, a talk-up over "Pull Me
+    // Under" said nothing because the link over the record after it was armed on top of it.
+    it('arms the next cue only once the one before it has fired', async () => {
+        const rundown = new Rundown(new StubResolver(), logger);
+        seed(rundown, [
+            { ...track('a'), voice: { segmentId: 'seg-1', atMs: 2000 } },
+            { ...track('b'), voice: { segmentId: 'seg-2', atMs: 2000 } },
+        ]);
+        const [first, second] = rundown.upcoming();
+        let reading: QueueStatus = { queued: 0, ready: false, remainingMs: -1, driving: true };
+        const control = {
+            status: vi.fn(async () => reading),
+            assertOnAir: vi.fn(async () => reading),
+            releaseOnAir: vi.fn(async () => reading),
+            push: vi.fn(async () => true),
+            flush: vi.fn(async () => reading),
+            skip: vi.fn(async () => reading),
+            announce: vi.fn(async () => true),
+            armVoice: vi.fn(async () => true),
+            clearVoice: vi.fn(async () => true),
+        };
+        const audience = { gateOpen: () => true, onChange: () => () => {} } as unknown as AudienceWatch;
+        const pusher = new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, audience, config, new Heartbeat(), logger);
+
+        await pusher.reconcile();
+        expect(control.armVoice).toHaveBeenCalledTimes(1);
+        expect(control.armVoice).toHaveBeenLastCalledWith(expect.any(String), first!.id, 2000);
+
+        // 'a' starts, its cue still waiting for its moment, and 'b' is handed over behind it.
+        reading = { queued: 0, ready: true, onAir: first!.id, remainingMs: 200_000, driving: true, voice: 'armed' };
+        await pusher.reconcile();
+        expect(control.push).toHaveBeenCalledTimes(2);
+        expect(control.armVoice).toHaveBeenCalledTimes(1);
+
+        // Spoken. Now 'b' is the next record to start and its cue can have the slot.
+        reading = { ...reading, queued: 1, voice: 'fired' };
+        await pusher.reconcile();
+        expect(control.armVoice).toHaveBeenCalledTimes(2);
+        expect(control.armVoice).toHaveBeenLastCalledWith(expect.any(String), second!.id, 2000);
     });
 
     // A replacement does not go through /control/offair, so a cue left armed would fire over the

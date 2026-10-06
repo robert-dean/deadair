@@ -7,6 +7,7 @@ import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { MixerService } from './mixer.service.js';
 import { PadLibrary } from './pad.library.js';
 import { AudioUrlSigner } from '#modules/playout/audio.url.signer.js';
+import { PadJoiner } from './pad.join.js';
 import { PadRepository } from './pad.repository.js';
 import { PadSetRepository } from './pad.set.repository.js';
 import { DEFAULT_PRONUNCIATIONS } from './pronunciation.lexicon.js';
@@ -204,6 +205,8 @@ export const RenderModule: ServerKitModule = {
         // through one chosen plugin. No gate, because a join holds nothing exclusive the way a
         // single set of model weights does.
         registry.register(MixerService).useClass(MixerService).asScoped();
+        // What turns a script with a soundboard hit into one file: a break's render and a preview both.
+        registry.register(PadJoiner).useClass(PadJoiner).asScoped();
         // The same again for the copies a listener shares, and the service that keeps them.
         registry.register(TranscodeService).useClass(TranscodeService).asScoped();
         registry.register(SegmentShareService).useClass(SegmentShareService).asScoped();

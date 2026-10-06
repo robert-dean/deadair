@@ -4,6 +4,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { isPluginError, isSpeechDelivery, SPEECH_DELIVERIES, type SpeechDelivery } from '@deadair/plugin-sdk';
 
 import type { SpeechPlugin } from '#modules/plugins/plugin.capabilities.js';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { isMultipartFieldData, type MultipartBody, type MultipartData } from '@maroonedsoftware/multipart';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
@@ -38,6 +39,9 @@ import { DateTime } from 'luxon';
 import { DEFAULT_BOARD, labelFor as padLabelFor, MAX_PAD_BYTES, padName, padNameOf, PadLibrary } from './pad.library.js';
 import { PAD_SOURCES, padIsConsoleWritten, PadRepository, type Pad } from './pad.repository.js';
 import { PadSetRepository } from './pad.set.repository.js';
+import { padsIn } from './pad.cues.js';
+import { PadJoiner } from './pad.join.js';
+import { padMixKey } from './pad.settings.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
 import { ScriptRatingsRepository } from './script.ratings.repository.js';
 import { encodeScriptCursor, ScriptHistoryRepository, type HistoryTrack, type ScriptHistoryEntry } from './script.history.repository.js';
@@ -154,6 +158,9 @@ export class RenderService {
         private readonly logger: Logger,
         // The copy a listener shares. Last, for the rack's reason above.
         private readonly shares: SegmentShareService,
+        // What joins a previewed script around its pad. Last, for the same reason.
+        private readonly joiner: PadJoiner,
+        private readonly config: AppConfig,
     ) {}
 
     /**
@@ -805,8 +812,102 @@ export class RenderService {
      * @throws 503 when nothing can speak or the engine is busy, 502 when it refused.
      */
     async previewSpeech(request: SpeechPreviewRequest): Promise<SpeechPreviewResponse> {
-        const { bytes, ext } = await this.renderSample(request.voice ?? '', request.text, deliveryAsked(request.delivery));
+        const asked = deliveryAsked(request.delivery);
+
+        // A script that hits a pad is heard WITH the pad when the caller says whose board it is from,
+        // since the hit is part of what is being judged. Anything that cannot be joined falls through
+        // to the words alone, which is exactly what this answered before pads could be previewed:
+        // the engine never reads a pad cue aloud, so the same request still makes sense.
+        if (request.soundboard !== undefined && padsIn(request.text).length > 0) {
+            const padded = await this.renderPaddedSample(request.voice ?? '', request.text, request.soundboard, asked);
+            if (padded !== undefined) return { contentType: SEGMENT_CONTENT_TYPES[padded.ext], body: padded.bytes };
+        }
+
+        const { bytes, ext } = await this.renderSample(request.voice ?? '', request.text, asked);
         return { contentType: SEGMENT_CONTENT_TYPES[ext], body: bytes };
+    }
+
+    /**
+     * A script with a soundboard hit, spoken and joined around it, or `undefined` to fall back to the
+     * words alone.
+     *
+     * Joined by {@link PadJoiner}, the same seam a break's render goes through, so the pad lands at
+     * the level and in the place it would on air. The hits are resolved by NAME against the board the
+     * caller named, where a break resolves from its row: a preview has no row, and the board is
+     * what the character would reach for now.
+     *
+     * Kept in the samples store under a key that also carries every pad's checksum and the four mix
+     * settings, so a replaced pad or a changed level is a new file rather than the old one played
+     * back. The takes on the way to it land in the segment store, as a padded break's do: the mixer
+     * runs in another container and fetches its parts from the station's content-addressed route.
+     *
+     * Every way the join can come to nothing (no pad on that board, no mixer, a mixer that refused)
+     * answers `undefined`. A take the engine could not speak is thrown as {@link renderSample} throws
+     * it, because the words-only fallback would only meet the same engine again.
+     */
+    private async renderPaddedSample(
+        voiceId: string,
+        text: string,
+        board: string,
+        asked?: SpeechDelivery,
+    ): Promise<{ bytes: Buffer; ext: SegmentExtension } | undefined> {
+        const plugin = this.speech.speaker();
+        // Left to the words-only path, which says why nothing can speak.
+        if (plugin === undefined) return undefined;
+
+        const byName = new Map<string, Pad>();
+        for (const name of new Set(padsIn(text))) {
+            const pad = await this.pads.named(board, name);
+            if (pad !== undefined) byName.set(name, pad);
+        }
+        if (byName.size === 0) return undefined;
+
+        // As `renderSample`: only a delivery the engine performs is rendered, so only that is keyed.
+        const delivery = asked !== undefined && (await this.speech.deliveriesOf(plugin)).includes(asked) ? asked : undefined;
+        const mix = [...[...byName.values()].map(pad => `${pad.name}=${pad.audioChecksum}`).sort(), padMixKey(this.config)].join('|');
+        const key = this.samples.keyFor(plugin.record.id, voiceId, await this.voiceSpec(plugin, voiceId), `${text}\u0000${mix}`, delivery);
+
+        for (const ext of this.samples.extensions) {
+            const cached = await this.samples.read(key, ext);
+            if (cached !== undefined) return { bytes: cached, ext };
+        }
+
+        let joined;
+        try {
+            joined = await this.joiner.join({
+                label: 'speech preview',
+                script: text,
+                resolve: async name => byName.get(name),
+                // Every take at `preview` and bounded, for `renderSample`'s reason: somebody is
+                // waiting on this, and nothing the station is about to air may wait behind it.
+                say: async words =>
+                    await this.speech.speak(
+                        {
+                            text: words,
+                            ...(voiceId.length === 0 ? {} : { voice: voiceId }),
+                            ...(delivery === undefined ? {} : { delivery }),
+                        },
+                        { maxWaitMs: SAMPLE_QUEUE_MS, priority: 'preview' },
+                    ),
+            });
+        } catch (error) {
+            const message = errorText(error);
+            this.logger.warn('render: could not speak a padded preview', { plugin: plugin.record.id, voice: voiceId, error: message });
+            throw httpError(isBusy(error) ? 503 : 502).withDetails({ message });
+        }
+        if (joined === undefined) return undefined;
+
+        await this.samples.writeStreamAs(key, joined.audio, joined.ext);
+        const bytes = await this.samples.read(key, joined.ext);
+        if (bytes === undefined) return undefined;
+
+        this.logger.info('render: rendered a padded preview', {
+            plugin: plugin.record.id,
+            voice: voiceId,
+            parts: joined.parts,
+            overlays: joined.overlays,
+        });
+        return { bytes, ext: joined.ext };
     }
 
     /**

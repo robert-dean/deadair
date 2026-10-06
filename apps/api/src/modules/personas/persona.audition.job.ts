@@ -18,6 +18,7 @@ import { PersonaAuditionRepository } from './persona.audition.repository.js';
 import { PersonaRepository } from './persona.repository.js';
 import { PersonaNotesRepository } from './persona.notes.repository.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
+import { PadRepository } from '#modules/render/pad.repository.js';
 import type { Persona } from './persona.js';
 import type { PersonaStoryForPrompt } from './persona.story.js';
 
@@ -95,7 +96,7 @@ const BUSY: ReadonlySet<string> = new Set(['timeout', 'unavailable']);
  * ## It spends nothing the next real break is owed
  *
  * The notebook is read through `forPrompt` and never rested, and the stories the same, which is what
- * those repositories split the two calls for. A run of twenty transitions that stamped would hand
+ * those repositories split the two calls for. The soundboard is offered and no hit is marked used. A run of twenty transitions that stamped would hand
  * the next real break this character's twenty-first-best lines and report tellings nobody heard.
  * `recent` comes from the run's OWN breaks rather than from `script_history`, for the same reason
  * read the other way: an audition must not be shown what the station said, and the station must not
@@ -109,6 +110,8 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
         // Both read through their reading halves only. See the class note.
         private readonly notes: PersonaNotesRepository,
         private readonly stories: PersonaStoriesRepository,
+        // The rack, read for its names and never marked used. See {@link padsFor}.
+        private readonly pads: PadRepository,
         // What the station knows about the records, read without spending the claims' cooldown.
         private readonly enrichment: EnrichmentReadService,
         private readonly writers: BreakWriterRegistry,
@@ -198,6 +201,7 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
         const story = await this.storyFor(persona, ordinal, facts);
 
         const recent = await this.auditions.recentScripts(audition.id);
+        const pads = await this.padsFor(persona);
 
         const result = await this.writers.write(
             auditionRequest({
@@ -207,6 +211,7 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
                 previous: transition.previous,
                 next: transition.next,
                 ...(facts === undefined ? {} : { facts }),
+                ...(pads.length === 0 ? {} : { pads }),
                 recent,
                 // Stable and unique per transition, so re-reading a run reports the break it
                 // actually wrote rather than one spread over a different subject.
@@ -288,6 +293,34 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
         } catch (error) {
             this.logger.warn(`personas: could not read what the station knows about these records (${errorText(error)})`, { audition: auditionId });
             return undefined;
+        }
+    }
+
+    /**
+     * The names on this character's soundboard, least recently hit first, or none.
+     *
+     * The same read `WriteBreakJob.pads` makes, so a character is auditioned with the rack it would
+     * have on air: whether a host reaches for the air horn, and how often, is part of what the run
+     * is measuring. The order is the station's rotation as it stands, and nothing here moves it —
+     * `markUsed` is never called, for the notebook's reason: a run of twenty that rested its hits
+     * would hand the next real break the board's least-wanted sound.
+     *
+     * The FLOOR's sting is not part of this. `floorPad` spaces its hits by the station's own
+     * segments, which an audition cannot read, and a sound appended to words somebody else shaped is
+     * nothing a character chose, so it would say nothing about the sheet.
+     *
+     * Best-effort, like every other read here: a rack that could not be read costs the transition
+     * its offer and never its break.
+     */
+    private async padsFor(persona: Persona): Promise<readonly string[]> {
+        if (persona.soundboard === undefined) return [];
+
+        try {
+            const rack = await this.pads.onSet(persona.soundboard);
+            return rack.map(pad => pad.name);
+        } catch (error) {
+            this.logger.debug(`personas: could not read this character's soundboard (${errorText(error)})`, { persona: persona.key });
+            return [];
         }
     }
 

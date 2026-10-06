@@ -291,6 +291,14 @@ and dropped the record behind it with the cue marked skipped, and the record was
 That cost the first talk-ups the live station decided, and had the pusher topping up one item short
 while any cue was held. `LiveItem.over` is how the transport tells a cue from an item it handed over.
 
+**radio.liq holds one cue, so the pusher arms one at a time.** An arm replaces whatever is armed, and
+with a lead of one the record AFTER a talked-up record is pushed the moment that record starts, which
+is before its cue is due. Arming at push therefore overwrote the cue a couple of seconds before it
+would have fired, and of two talk-ups on consecutive records the first said nothing. `PlayoutPusher`
+now queues each pushed record's cue (`waitingCues`) and arms the head only once the slot is free:
+the reading says the armed cue `fired` or `missed`, or the record it rides is over or gone
+(`Rundown.isUnfinished`). With the slot free, a cue is still armed at push, as it always was.
+
 **Somebody else's programme is spoken word too, and differs in three places only.** An episode of a podcast
 the station carries is a segment, so the mixer never fades into it either; `RundownItem.programme` is what
 gives it its own title and show on the mount, a `record` on `/nowplaying`, and a gain assumed from a

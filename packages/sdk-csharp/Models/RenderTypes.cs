@@ -235,6 +235,11 @@ public sealed record SpeechPreviewRequest
     [JsonPropertyName("delivery")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Delivery { get; init; }
+
+    /// <summary>The board a `[sfx:name]` in the text is played from, as a character's `soundboard`. Absent, or a hit the board does not hold, and the hit is left out and only the words are spoken</summary>
+    [JsonPropertyName("soundboard")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Soundboard { get; init; }
 }
 
 /// <summary>The window the counts cover</summary>

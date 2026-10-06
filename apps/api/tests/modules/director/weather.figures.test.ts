@@ -160,6 +160,31 @@ describe('unofferedWeather', () => {
         expect(unofferedWeather('A bit of sunshine for your afternoon.')).toBeUndefined();
     });
 
+    it('finds the wind, the damp and the heat, which a presenter says about nothing else', () => {
+        expect(unofferedWeather('Pretty windy on the bridge this morning.')).toBe('windy');
+        expect(unofferedWeather('A gusty one out there, hold on to your hats.')).toBe('gusty');
+        expect(unofferedWeather('A blustery afternoon across town.')).toBe('blustery');
+        expect(unofferedWeather('Humid again, so stay in with the fan on.')).toBe('Humid');
+        expect(unofferedWeather('Another muggy evening.')).toBe('muggy');
+        expect(unofferedWeather('Day four of the heatwave.')).toBe('heatwave');
+        expect(unofferedWeather('Record rainfall overnight.')).toBe('rainfall');
+        expect(unofferedWeather("It's pouring down outside the studio.")).toBe('pouring down');
+        expect(unofferedWeather('It was pouring with rain on the way in.')).toBe('pouring with rain');
+        expect(unofferedWeather('Scattered showers on the way home.')).toBe('Scattered showers');
+    });
+
+    it('leaves the obvious words that ordinary talk about records uses for something else', () => {
+        // Each of these was a candidate and was left out on purpose. See WEATHER_WORDS.
+        expect(unofferedWeather('Hello sunshine, this one is for you.')).toBeUndefined();
+        expect(unofferedWeather('The band had a famously stormy relationship.')).toBeUndefined();
+        expect(unofferedWeather('Stormy Weather, the standard everybody has had a go at.')).toBeUndefined();
+        expect(unofferedWeather('The second album got a chilly reception.')).toBeUndefined();
+        expect(unofferedWeather('A frosty reception from the critics.')).toBeUndefined();
+        expect(unofferedWeather('Showers of praise for that one.')).toBeUndefined();
+        expect(unofferedWeather('Pouring their hearts out on this record.')).toBeUndefined();
+        expect(unofferedWeather('Straight out of the Windy City, here is some Chicago blues.')).toBeUndefined();
+    });
+
     it('asks nothing of a station that does not broadcast in English', () => {
         expect(unofferedWeather('Es ist sonnig und 22 Grad.', 'de')).toBeUndefined();
     });

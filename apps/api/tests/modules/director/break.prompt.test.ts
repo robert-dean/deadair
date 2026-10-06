@@ -2798,6 +2798,22 @@ describe('weather from a break that was given no reading', () => {
         expect(writeDecline(script, { names: [sunny] })).toBeUndefined();
     });
 
+    it('lets a record named after the wind be named, and still refuses the wind', () => {
+        const windy = { title: 'Windy', artist: 'The Association' };
+        const named = 'That was Windy by The Association, sunshine pop at its finest.';
+
+        expect(readAnswer(named, { names: [windy] })).toBe(named);
+        expect(writeDecline('Windy out there this morning, so wrap up.', {})?.reason).toContain('"Windy"');
+    });
+
+    it('lets Stormy Weather through, named or not', () => {
+        const stormy = { title: 'Stormy Weather', artist: 'Lena Horne' };
+        const script = 'Lena Horne there, with Stormy Weather.';
+
+        expect(readAnswer(script, { names: [stormy] })).toBe(script);
+        expect(readAnswer(script, {})).toBe(script);
+    });
+
     it('asks nothing of a station that does not broadcast in English', () => {
         expect(readAnswer('Draußen ist es sonnig und warm.', { language: 'de' })).toBeDefined();
     });

@@ -213,6 +213,13 @@ export function unofferedWeather(script: string, language?: string): string | un
 /**
  * The words a presenter only uses about the weather outside, as whole words, plus a figure in
  * degrees. A figure here is a claim by itself: with no reading behind it, any temperature is made up.
+ *
+ * Several obvious words are missing on purpose, each because ordinary speech about records uses it
+ * for something else, and a refusal over trivia is the expensive direction of error here. `sunshine`
+ * is a term of address and a metaphor ("hello, sunshine", "a ray of sunshine", sunshine pop).
+ * `stormy` is the usual word for a band's relationships. `chilly` and `frosty` are how a record's
+ * reception gets described. `showers` is praise as often as rain, `freezing` is somebody in the studio
+ * and `misty` is misty-eyed. `windy` stays, but not in front of "city", which is Chicago.
  */
 const WEATHER_WORDS = [
     'sunny',
@@ -235,6 +242,15 @@ const WEATHER_WORDS = [
     'blue skies',
     'clear skies',
     'gr[ae]y skies',
+    String.raw`windy(?!\s+city)`,
+    'gusty',
+    'blustery',
+    'humid',
+    'muggy',
+    'heatwaves?',
+    'rainfall',
+    String.raw`pouring\s+(?:down|with\s+rain)`,
+    String.raw`scattered\s+showers`,
 ];
 
 const WEATHER_CLAIM = new RegExp(String.raw`\b(?:${WEATHER_WORDS.join('|')})\b|-?\b\d+\s*(?:°|degrees?\b)`, 'i');

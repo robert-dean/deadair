@@ -1753,6 +1753,12 @@ describe('WriteBreakJob putting a pad in by itself', () => {
     ];
     const guitar = { ...rack[0]!, id: 'pad-2', name: 'guitarriff', label: 'Guitar riff', placements: ['middle'] };
     const punchline = { ...rack[0]!, id: 'pad-3', name: 'drumroll', label: 'Drum roll', cue: 'right after a punchline' };
+    /** A model's answer, shaped as the writers hand one back. */
+    const modelWrote = (script: string) => ({
+        written: { script, label: 'Talk break: one into two' },
+        writer: 'a-model',
+        attempts: [{ writer: 'a-model', outcome: 'written', written: { script, label: 'Talk break: one into two' }, durationMs: 1 }],
+    });
 
     it('adds a sting to a break the floor wrote, once one is due', async () => {
         const { job, segments } = harness({ lineup: await lineupWithBreak(), persona: withBoard as never, pads: rack as never, breaksSincePad: 4 });
@@ -1818,6 +1824,58 @@ describe('WriteBreakJob putting a pad in by itself', () => {
         await job.run({ segmentId: 'seg-1' });
 
         expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ pads: ['guitarriff', 'drumroll', 'rimshot'], stings: ['rimshot'] }));
+    });
+
+    it('drops a hit the model put where the pad may not land, from the row and from the words, and does not rest it', async () => {
+        // A guitar before the first word sounds like the tail of the record that just ended. The
+        // words are fine; they air without the sound, on the bargain a pad that has gone already keeps.
+        const { job, segments, pads } = harness({
+            lineup: await lineupWithBreak(),
+            persona: withBoard as never,
+            pads: [guitar, rack[0]!] as never,
+            written: modelWrote('[sfx:guitarriff] Here we go, baby!'),
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ script: 'Here we go, baby!', pads: [] }));
+        expect(pads.markUsed).not.toHaveBeenCalled();
+    });
+
+    it('keeps the same pad where it is allowed', async () => {
+        const { job, segments, pads } = harness({
+            lineup: await lineupWithBreak(),
+            persona: withBoard as never,
+            pads: [guitar, rack[0]!] as never,
+            written: modelWrote('Here we go [sfx:guitarriff] and there it was.'),
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith(
+            'seg-1',
+            expect.objectContaining({ script: 'Here we go [sfx:guitarriff] and there it was.', pads: [{ name: 'guitarriff', padId: 'pad-2' }] }),
+        );
+        expect(pads.markUsed).toHaveBeenCalledWith('pad-2');
+    });
+
+    it('tells the writers where each set-up pad may go and when, and nothing about the rest', async () => {
+        const { job, writers } = harness({
+            lineup: await lineupWithBreak(),
+            persona: withBoard as never,
+            pads: [guitar, punchline, rack[0]!] as never,
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(
+            expect.objectContaining({
+                padUse: {
+                    guitarriff: { placements: ['middle'] },
+                    drumroll: { placements: ['start', 'middle', 'end'], cue: 'right after a punchline' },
+                },
+            }),
+        );
     });
 
     it('waits when the last one was too recent', async () => {

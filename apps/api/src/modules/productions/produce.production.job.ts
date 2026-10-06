@@ -20,7 +20,7 @@ import { spentCatchphrases } from '#modules/personas/persona.sheet.js';
 import type { Persona } from '#modules/personas/persona.js';
 import { ScriptHistoryRepository, type ScriptWrite } from '#modules/render/script.history.repository.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
-import { padsIn } from '#modules/render/pad.cues.js';
+import { padPlacementsIn, padsIn, padUseNotes, type PadUseNote } from '#modules/render/pad.cues.js';
 import { PadRepository } from '#modules/render/pad.repository.js';
 import { SegmentRepository, type PadHit, type Segment } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
@@ -424,6 +424,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 ...(guestOf(casting) === undefined ? {} : { guest: guestOf(casting)! }),
                 ...(reactions.length === 0 ? {} : { reactions }),
                 ...(board.names.length === 0 ? {} : { pads: board.names }),
+                ...(board.use === undefined ? {} : { padUse: board.use }),
                 ...(await this.remembers(claimed, speaker, mine.length === 0)),
                 station,
                 dayPart: airs.words,
@@ -787,7 +788,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         speaker: CastMember | undefined,
         persona: Persona | undefined,
         spent: number,
-    ): Promise<{ name?: string; names: readonly string[] }> {
+    ): Promise<{ name?: string; names: readonly string[]; use?: Readonly<Record<string, PadUseNote>> }> {
         // `undefined` is a production with no cast at all, where the presenter says every word — so
         // it is the host, and only an explicit `caller` is refused.
         if (speaker?.role === 'caller') return { names: [] };
@@ -799,7 +800,10 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
 
         try {
             const rack = await this.pads.onSet(name);
-            return rack.length === 0 ? { names: [] } : { name, names: rack.map(pad => pad.name) };
+            if (rack.length === 0) return { names: [] };
+
+            const use = padUseNotes(rack);
+            return { name, names: rack.map(pad => pad.name), ...(use === undefined ? {} : { use }) };
         } catch (error) {
             this.logger.debug(`productions: could not read the soundboard (${errorText(error)})`);
             return { names: [] };
@@ -816,14 +820,20 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
     private async hits(board: string | undefined, script: string): Promise<PadHit[]> {
         if (board === undefined) return [];
 
-        const names = padsIn(script);
-        if (names.length === 0) return [];
+        const placed = padPlacementsIn(script);
+        if (placed.length === 0) return [];
 
         try {
             const found: PadHit[] = [];
-            for (const name of names) {
+            for (const { name, at } of placed) {
                 const pad = await this.pads.named(board, name);
                 if (pad === undefined) continue;
+                // `WriteBreakJob.hits`' rule: a sound where the operator said it may not go is
+                // dropped and not rested, and the beat airs as words.
+                if (!pad.placements.includes(at)) {
+                    this.logger.info('productions: a beat hit a pad where it may not land', { board, pad: name, at });
+                    continue;
+                }
 
                 found.push({ name, padId: pad.id });
                 await this.pads.markUsed(pad.id);

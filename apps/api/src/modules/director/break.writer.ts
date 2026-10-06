@@ -27,6 +27,7 @@
  * implementation's imports, exactly like {@link SetGenerator}.
  */
 
+import type { PadUseNote } from '#modules/render/pad.cues.js';
 import type { SpeechCue, SpeechDelivery } from '@deadair/plugin-sdk';
 
 import type { GatePriority } from '#modules/shared/gate.priority.js';
@@ -398,6 +399,14 @@ export interface BreakWriteRequest {
      * takes from this list or from nothing. Absent rather than empty, as `pads` is.
      */
     stings?: readonly string[];
+    /**
+     * Where each pad on the rack may land and when to reach for it, by name, for the pads that are
+     * not at the default (every placement, no cue), or absent when none are.
+     *
+     * Read by the model binding's prompt and by nothing deterministic: a template writer only ever
+     * appends from {@link BreakWriteRequest.stings}, which is this same information already applied.
+     */
+    padUse?: Readonly<Record<string, PadUseNote>>;
     /**
      * The one thing this character has had on its mind, from `PersonaSheet.preoccupations`.
      *

@@ -36,7 +36,7 @@
 
 import { SUBJECT_ECHO_WORDS } from '#modules/lyrics/lyric.subject.js';
 import { isSpeechDelivery, sentencesWithin, withoutCues, type LlmMessage, type SpeechCue, type SpeechDelivery } from '@deadair/plugin-sdk';
-import { padCue, withoutPads } from '#modules/render/pad.cues.js';
+import { padOffer, withoutPads, type PadUseNote } from '#modules/render/pad.cues.js';
 import { afterThinking, MAX_REACTIONS, speakableScript } from '#modules/render/speakable.script.js';
 
 import {
@@ -618,6 +618,15 @@ export interface PromptSettings {
      */
     pads?: readonly string[];
     /**
+     * Where each of those pads may land and when to reach for it, for the ones not at the default.
+     *
+     * Said beside the name and enforced by nothing in the guard, which is deliberate: placement is
+     * enforced when the hits are resolved (a misplaced one is dropped, the words air without it), and
+     * a cue names a moment no code can recognise. This is the model being told, so that the drop is
+     * rare rather than the rule.
+     */
+    padUse?: Readonly<Record<string, PadUseNote>>;
+    /**
      * The readings this break may ask for, or absent for an engine that performs none.
      *
      * {@link PromptSettings.reactions}' rule exactly, and resolved by the caller from the render side
@@ -770,10 +779,13 @@ function padRules(settings: PromptSettings, shape: BreakPromptShape): string[] {
     const pads = offeredPads(settings, shape);
     if (pads.length === 0) return [];
 
-    const written = pads.map(padCue).join(', ');
+    const written = pads.map(name => padOffer(name, settings.padUse?.[name.toLowerCase()])).join(', ');
+    // Only when there is a note to keep to, so a rack nobody has set up asks exactly what it did.
+    const noted = pads.some(name => settings.padUse?.[name.toLowerCase()] !== undefined);
     return [
         `- You have a soundboard: ${written}. Write one exactly like that, on its own, at the moment you hit it, and the sound is PLAYED — ` +
-            'do not describe it or say its name as words. At most one in a break, and most breaks want none: a soundboard is funny once.',
+            'do not describe it or say its name as words. At most one in a break, and most breaks want none: a soundboard is funny once.' +
+            (noted ? ' Where a sound has a note in brackets, keep to it: a sound put anywhere else is not played.' : ''),
     ];
 }
 

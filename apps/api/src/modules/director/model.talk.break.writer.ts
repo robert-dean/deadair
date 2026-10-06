@@ -229,6 +229,8 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // And the rack, on the same terms: the caller answers what this character has to hand
             // and `TALK_BREAK_SHAPE.allowsPads` is what says a link is where it may be used.
             ...(request.pads === undefined ? {} : { pads: request.pads }),
+            // With where each may go and when, so the prompt can say so beside the name.
+            ...(request.padUse === undefined ? {} : { padUse: request.padUse }),
             // And the subject, on those same terms one more time: the caller says which one came
             // round and `TALK_BREAK_SHAPE.allowsPreoccupation` says a link is where it may be raised.
             ...(request.preoccupation === undefined ? {} : { preoccupation: request.preoccupation }),

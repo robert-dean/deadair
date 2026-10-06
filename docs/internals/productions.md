@@ -159,6 +159,19 @@ a production has its own writing path. The check pass reads each speaker's `avoi
 of the host's dialect when he can see the host's turns. It is the `polished` mode's pass, so `outlined`
 and `quick` still only instruct. The marker floor is deliberately not applied to a turn.
 
+**The host may not describe weather the call was never given, and the caller may.** No production
+prompt is ever handed a weather reading, so for as long as productions existed the one sentence
+asking a beat not to reach for the weather was the whole of the defence, and a host will still put a
+caller on with "sunny out there". `checkBeat` now asks the break writers' `unoffered-weather`
+question (`unofferedWeather`, with the records the host brought named out first) of every PRESENTER
+turn: the host on a call, and whoever speaks a production with no cast. Not of a caller, because a
+caller is somewhere else and "it's been raining all week here" is their own afternoon rather than the
+station describing the sky over its listeners. And not of a host once the weather is on the call:
+when the brief an operator typed or an earlier caller turn already describes it, the host answering is
+following the conversation rather than inventing a scene. Like every beat fault it costs the turn its
+one re-draft, never the programme, and it is the `polished` mode's pass, so `outlined` and `quick`
+still only instruct.
+
 **A caller ARRIVES mid-programme**, so `firstTurn` is a fact about the SPEAKER rather than about the beat: it
 is the one place a greeting belongs, `checkBeat` is excused there, and the prompt says which way round the
 call went because the first live one opened with "thanks for calling", which is the presenter's line.

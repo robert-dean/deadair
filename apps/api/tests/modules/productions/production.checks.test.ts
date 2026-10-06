@@ -298,3 +298,48 @@ describe('wording a speaker never uses', () => {
         expect(beat(`I reckon so. ${words(200)}`)).toEqual([]);
     });
 });
+
+describe('weather nobody gave the call', () => {
+    const host = { role: 'host' as const };
+
+    it('catches a host describing the sky, and names the word', () => {
+        const problems = beat(`Sunny out there this afternoon, and Dale is on the line. ${words(200)}`, host);
+
+        expect(problems).toHaveLength(1);
+        expect(problems[0]).toContain('"Sunny"');
+        expect(problems[0]).toMatch(/no weather/i);
+    });
+
+    it('asks it of a production with no cast, whose presenter is the only voice on it', () => {
+        expect(beat(`A muggy one tonight. ${words(200)}`)[0]).toContain('"muggy"');
+    });
+
+    it('lets a caller describe their own weather, since they are somewhere else', () => {
+        expect(beat(`It has been raining all week out here. ${words(200)}`, { role: 'caller' })).toEqual([]);
+    });
+
+    it('lets the host answer weather a caller raised', () => {
+        const raised = ['It has been raining all week out here.'];
+
+        expect(beat(`Raining there too, is it? Pouring down here. ${words(200)}`, { ...host, raised })).toEqual([]);
+    });
+
+    it('lets the host talk about the weather when the brief asked for it', () => {
+        expect(beat(`Windy out there, so tell me about the roof. ${words(200)}`, { ...host, raised: ['Callers on the windy weekend'] })).toEqual([]);
+    });
+
+    it('lets a record the host brought be named', () => {
+        const records = [{ title: 'Sunny', artist: 'Bobby Hebb' }];
+
+        expect(beat(`Sunny by Bobby Hebb is the one we are on about. ${words(200)}`, { ...host, records })).toEqual([]);
+        expect(beat(`Sunny by Bobby Hebb is the one we are on about. ${words(200)}`, host)[0]).toContain('"Sunny"');
+    });
+
+    it('does not read a sound drop as a forecast', () => {
+        expect(beat(`[sfx:thunderstorm] Back to the phones. ${words(200)}`, host)).toEqual([]);
+    });
+
+    it('asks nothing of a station that does not broadcast in English', () => {
+        expect(beat(`Draußen ist es sonnig und 22 Grad. ${words(200)}`, { ...host, language: 'de' })).toEqual([]);
+    });
+});

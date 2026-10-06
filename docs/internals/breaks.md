@@ -654,10 +654,12 @@ figure check in both orders, as the `unoffered-weather` fault. It is the strict 
 only ones nobody says about anything but the sky (sunny, raining, overcast, a downpour, windy, muggy)
 plus a figure in degrees, and never `storm`, `clear` or a bare `rain`. The words that look obvious and
 are missing (`sunshine`, `stormy`, `chilly`, `frosty`) are missing because talk about records uses them
-for a person, a relationship or a reception, and the list's own comment says which is which. Record names are out of the script first, so
-"Sunny" by Bobby Hebb is a title. English only. Unlike `invented-figure` it IS retryable: the model was
-not wrong about something it was given, it set a scene the prompt said not to, which is
-`wrong-daypart`'s kind of mistake.
+for a person, a relationship or a reception, and the list's own comment says which is which. Record
+names are out of the script first, so "Sunny" by Bobby Hebb is a title. English only. Unlike
+`invented-figure` it IS retryable: the model was not wrong about something it was given, it set a
+scene the prompt said not to, which is `wrong-daypart`'s kind of mistake. A production asks the same
+question of its host's turns in `checkBeat`, and not of a caller's; see
+[productions](productions.md) § "What a caller may say, and what the host does with it".
 
 ## The date
 

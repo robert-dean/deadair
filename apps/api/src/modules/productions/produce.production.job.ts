@@ -544,6 +544,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         const engine = await this.performable();
         const station = this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
         const airs = this.whenItAirs(claimed);
+        const records = casting.find(member => member.role === 'host')?.records;
         let redrafted = 0;
 
         for (const [index, beat] of beats.entries()) {
@@ -575,6 +576,16 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // `scheduledFor` exactly as `whenItAirs` is, so the two cannot describe different
                 // afternoons.
                 moment: { at: claimed.scheduledFor ?? Date.now(), zone: stationZone(this.config) },
+                // No production is handed a weather reading, so the host is asked whether they
+                // described one anyway: with the records they brought named out first, and nothing
+                // asked once the brief or a caller has brought the weather up.
+                ...(records === undefined ? {} : { records }),
+                raised: [
+                    ...(claimed.brief === undefined ? [] : [claimed.brief]),
+                    ...beats
+                        .slice(0, index)
+                        .flatMap((earlier, before) => (casting[plan.beats[before]?.speaker ?? 0]?.role === 'caller' ? [earlier.script ?? ''] : [])),
+                ],
                 ...this.language(),
             });
             if (problems.length === 0) continue;

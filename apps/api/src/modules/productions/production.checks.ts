@@ -30,8 +30,12 @@
  * is a judgement nobody has measured.
  */
 
+import { withoutCues } from '@deadair/plugin-sdk';
+import { withoutRecordNames } from '#modules/director/break.prompt.js';
 import { contradictsDayPart, namesWrongTimeOfDay, type RoughTime } from '#modules/director/clock.words.js';
+import { unofferedWeather } from '#modules/director/weather.figures.js';
 import { avoidedWording } from '#modules/personas/persona.sheet.js';
+import { withoutPads } from '#modules/render/pad.cues.js';
 import { expectedWords, MAX_WORDS } from './production.plan.js';
 
 /**
@@ -134,8 +138,19 @@ export interface BeatCheckInput {
      */
     runIn?: string;
     /**
-     * The station's language when it is not English. The three checks that read English words, the
-     * two about the time of day and the one about a programme introducing itself twice, stand down.
+     * The records the host brought to the call, whose names are taken out before the weather is
+     * looked for, so a countdown host talking about "Sunny" is naming a record rather than the sky.
+     */
+    records?: readonly { title: string; artist: string }[];
+    /**
+     * Whatever on this call may have raised the weather before this beat: the brief an operator
+     * typed and the callers' earlier turns. See {@link skyNobodyGave}.
+     */
+    raised?: readonly string[];
+    /**
+     * The station's language when it is not English. The four checks that read English words, the
+     * two about the time of day, the one about the weather and the one about a programme introducing
+     * itself twice, stand down.
      */
     language?: string;
 }
@@ -192,6 +207,16 @@ export function checkBeat(input: BeatCheckInput): string[] {
         );
     }
 
+    // Still about what the beat SAYS. Named for the forbidden words' reason: a model told only that
+    // it described the weather cannot tell which sentence did it.
+    const sky = skyNobodyGave(input, text);
+    if (sky !== undefined) {
+        problems.push(
+            `This beat says "${sky}", but you were given no weather to report and do not know what it is doing outside. ` +
+                'Say nothing about the weather, and do not reach for it to set a scene.',
+        );
+    }
+
     const spoken = countWords(text);
     const target = expectedWords(input.words);
 
@@ -232,6 +257,29 @@ export function checkBeat(input: BeatCheckInput): string[] {
     }
 
     return problems;
+}
+
+/**
+ * The weather a presenter's beat described when nobody gave the call any, or `undefined`.
+ *
+ * The break writers' `unoffered-weather` question asked of a production, through the same
+ * `unofferedWeather` and with the record names out first for the same reason. No production prompt
+ * is ever handed a weather reading, so there is no reading to exempt a beat: the prompt's one
+ * sentence asking a beat not to reach for the weather was the whole of the defence, and a host will
+ * still put the caller on with "sunny out there".
+ *
+ * The PRESENTER only, which is the host on a call and whoever speaks a production with no cast. A
+ * caller is somebody somewhere else, and "it's pouring down here" is the caller's own afternoon
+ * rather than the station describing the sky over its listeners. Once a caller or the brief has
+ * raised the weather, the host answering it is following the conversation rather than inventing a
+ * scene, so that stands the check down for the rest of the call.
+ */
+function skyNobodyGave(input: BeatCheckInput, text: string): string | undefined {
+    if (input.language !== undefined || input.role === 'caller') return undefined;
+    if ((input.raised ?? []).some(earlier => unofferedWeather(withoutCues(earlier)) !== undefined)) return undefined;
+
+    // Cues and pads out first: a drop called `[sfx:thunderstorm]` is a sound, not a forecast.
+    return unofferedWeather(withoutRecordNames(withoutPads(withoutCues(text)), { names: input.records ?? [] }));
 }
 
 /**

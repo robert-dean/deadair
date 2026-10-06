@@ -277,3 +277,84 @@ describe('the last pass of a polished production', () => {
         expect(state()).toBe('rendering');
     });
 });
+
+// No production is ever handed a weather reading, so a host describing the sky made it up. The check
+// pass is where that is caught, and what it hands `checkBeat` decides whether a host answering a
+// caller's own weather is refused for it, so this runs the real pass over a real three-turn call.
+describe('weather in a phone-in', () => {
+    const PLAN = { beats: [0, 1, 0].map((speaker, ordinal) => ({ ordinal, speaker, words: 12 })) } as never;
+    const CAST = [
+        { role: 'host', name: 'Max' },
+        { role: 'caller', name: 'Dale' },
+    ] as never;
+
+    async function corrections(scripts: readonly string[], over: Partial<Production> = {}) {
+        const beats = scripts.map((script, index) => ({ id: `beat-${index}`, script, label: 'Phone-in', pads: [], productionOrdinal: index }));
+        const productions = {
+            claim: vi.fn(async () => production({ state: 'checking', writingMode: 'polished', plan: PLAN, casting: CAST, ...over })),
+            isCancelled: vi.fn(async () => false),
+        } as never;
+        const segments = { beatsOf: vi.fn(async () => beats), writeScript: vi.fn(async () => {}) } as never;
+        const personas = { presenting: vi.fn(async () => undefined), find: vi.fn(async () => undefined) } as never;
+        const speech = { cues: vi.fn(async () => []) } as never;
+        const converse = vi.fn(async (_conversation: { messages: { content: string }[] }) => ({ text: 'Rewritten.' }));
+        const config = { get: (_key: string, fallback: unknown) => fallback } as unknown as AppConfig;
+
+        const job = new ProduceProductionJob(
+            productions,
+            segments,
+            {} as never,
+            personas,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            speech,
+            { converse } as never,
+            {} as never,
+            config,
+            { record: vi.fn(async () => {}) } as never,
+            { id: 'job-1' } as never,
+            {} as never,
+            logger as never,
+        );
+
+        const check = (job as unknown as { check: (input: Production) => Promise<boolean> }).check.bind(job);
+        await check(production({ state: 'checking' }));
+
+        // Every re-draft's prompt. Beats this short are all re-drafted for their length, so a test
+        // asks what each one was TOLD rather than whether it was re-drafted at all.
+        return converse.mock.calls.map(([conversation]) => conversation.messages.map(message => message.content).join('\n'));
+    }
+
+    it("tells the host to drop weather nobody gave the call, and leaves the caller's own alone", async () => {
+        const told = await corrections([
+            'Sunny out there this afternoon, and Dale, you are on the air.',
+            'Thanks Max, it has been raining here all week, mind.',
+            'Glad you rang in, Dale, and do ring again soon.',
+        ]);
+
+        expect(told.filter(prompt => prompt.includes('no weather to report'))).toHaveLength(1);
+        expect(told.find(prompt => prompt.includes('no weather to report'))).toContain('"Sunny"');
+    });
+
+    it('lets the host answer weather the caller raised', async () => {
+        const told = await corrections([
+            'Dale, you are on the air, what is on your mind today?',
+            'Thanks Max, it has been raining here all week, mind.',
+            'Raining there too, is it, Dale? Do ring again soon.',
+        ]);
+
+        expect(told.some(prompt => prompt.includes('no weather to report'))).toBe(false);
+    });
+
+    it('lets the host talk about the weather an operator asked the call to be about', async () => {
+        const told = await corrections(
+            ['Windy out there, so Dale, you are on the air.', 'Thanks Max, the fence came down.', 'Glad you rang in, Dale, mind the fence.'],
+            { brief: 'Callers on the windy weekend' },
+        );
+
+        expect(told.some(prompt => prompt.includes('no weather to report'))).toBe(false);
+    });
+});

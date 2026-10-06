@@ -633,6 +633,27 @@ operation /pads/{id}/state: {
     }
 }
 
+operation /pads/{id}/use: {
+    params: {
+        id: uuid
+    }
+    put: { # Says where in a break a sound may land and when to reach for it. Answers the whole rack
+        name: Set pad use
+        security: {
+            policy: platform.manage
+        }
+        service: RenderService.setPadUse
+        request: {
+            application/json: PadUse
+        }
+        response: {
+            200: {
+                application/json: PadList
+            }
+        }
+    }
+}
+
 operation /pads/{id}/audio: {
     params: {
         id: uuid

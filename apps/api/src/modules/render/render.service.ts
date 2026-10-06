@@ -30,6 +30,7 @@ import type {
     PadSetMembership,
     PadSetWrite,
     PadState,
+    PadUse,
     SegmentScanResult,
     Segment as SegmentView,
     VoiceList,
@@ -636,6 +637,25 @@ export class RenderService {
      * state is one row moving between two sections of the same page, and a caller handed only what
      * it named is holding a list it has to refetch anyway.
      */
+    /**
+     * Where in a break a sound may land and when to reach for it, answering the whole rack for the
+     * same reason {@link setPadState} does.
+     *
+     * The contract already refuses an empty list, so the check here is for a list of nothing but
+     * duplicates, which collapses to the same thing and is the same refusal: a sound that may go
+     * nowhere is a sound turned down, and that is the state route's job.
+     */
+    async setPadUse(id: string, write: PadUse): Promise<PadList> {
+        if (write.placements.length === 0) {
+            throw httpError(400).withDetails({ placements: 'a pad has to be allowed somewhere; turn it down instead' });
+        }
+        if (!(await this.pads.setUse(id, { placements: write.placements, ...(write.cue === undefined ? {} : { cue: write.cue }) }))) {
+            throw httpError(404).withDetails({ message: `pad "${id}" does not exist` });
+        }
+
+        return await this.listPads();
+    }
+
     async setPadState(id: string, write: PadState): Promise<PadList> {
         if (!(await this.pads.setState(id, write.state))) {
             throw httpError(404).withDetails({ message: `pad "${id}" does not exist` });
@@ -1262,6 +1282,8 @@ function toPadView(pad: Pad) {
         source: pad.source,
         ...(pad.sourcePath === undefined ? {} : { sourcePath: pad.sourcePath }),
         ...(pad.lastUsedAt === undefined ? {} : { lastUsedAt: DateTime.fromISO(pad.lastUsedAt) }),
+        placements: pad.placements,
+        ...(pad.cue === undefined ? {} : { cue: pad.cue }),
     };
 }
 

@@ -31,6 +31,7 @@
  * one story in a ten-minute show came to be asked for 1300 spoken words.
  */
 
+import { padOffer, type PadUseNote } from '#modules/render/pad.cues.js';
 import type { LlmMessage, SpeechCue } from '@deadair/plugin-sdk';
 import type { Persona } from '#modules/personas/persona.js';
 import { latitudeOf, personaLines } from '#modules/personas/persona.sheet.js';
@@ -208,6 +209,12 @@ export interface BeatRequest {
      * enforcement. See `MAX_PRODUCTION_PADS`.
      */
     pads?: readonly string[];
+    /**
+     * Where each of those pads may land and when to reach for it, for the ones not at the default.
+     * Said beside the name, as the talk break says it; a beat that puts one elsewhere has it dropped
+     * when the hits are resolved, and airs as words.
+     */
+    padUse?: Readonly<Record<string, PadUseNote>>;
     /**
      * What this character has accumulated: what it has settled into, and what it has said before.
      *
@@ -429,7 +436,7 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
         ...reactionRules(request.reactions, caller),
         // Beside the reactions, because they are the same KIND of instruction — the only two things
         // a beat may carry that are not words — and a model reading them together reads one idea.
-        ...padRules(request.pads),
+        ...padRules(request.pads, request.padUse),
         // Stated as a fact about the moment rather than as words to use, which is exactly how
         // `break.prompt.ts` states it and for the same reason: this is context, and whoever is
         // speaking says it in whatever words they have for it. The negative half is spelled out
@@ -592,13 +599,15 @@ function reactionRules(reactions: readonly SpeechCue[] | undefined, caller: bool
  * caller is never given one, so this is never called with anything to say to them. The decision is
  * made where the board is resolved rather than re-litigated here.
  */
-function padRules(pads: readonly string[] | undefined): string[] {
+function padRules(pads: readonly string[] | undefined, padUse?: Readonly<Record<string, PadUseNote>>): string[] {
     if (pads === undefined || pads.length === 0) return [];
 
-    const written = pads.map(name => `[sfx:${name}]`).join(', ');
+    const written = pads.map(name => padOffer(name, padUse?.[name.toLowerCase()])).join(', ');
+    const noted = pads.some(name => padUse?.[name.toLowerCase()] !== undefined);
     return [
         `- There is a soundboard in front of you: ${written}. Write one exactly like that, on its own, at the moment you hit it, and the sound is ` +
-            'PLAYED — do not describe it or say its name as words. At most one in this turn, and only where you would actually have reached for it.',
+            'PLAYED — do not describe it or say its name as words. At most one in this turn, and only where you would actually have reached for it.' +
+            (noted ? ' Where a sound has a note in brackets, keep to it: a sound put anywhere else is not played.' : ''),
     ];
 }
 

@@ -949,6 +949,67 @@ describe('RenderService.deletePad', () => {
     });
 });
 
+// Where and when a sound may be hit. The repository owns the ordering and the trim; what the service
+// owns is the two refusals and handing the whole rack back.
+describe('RenderService.setPadUse', () => {
+    const user = (updated = true) => {
+        const setUse = vi.fn(async () => updated);
+
+        const render = new RenderService(
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            { setUse, list: vi.fn(async () => []) } as never,
+            { list: vi.fn(async () => []), setsFor: vi.fn(async () => new Map()), personasNaming: vi.fn(async () => []) } as never,
+            {} as never,
+            { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
+            // The copies listeners share, the joiner and the config. No case here asks for any of them.
+            {} as never,
+            {} as never,
+            {} as never,
+        );
+
+        return { render, setUse };
+    };
+
+    it('writes the placements and the cue together and answers the rack', async () => {
+        const { render, setUse } = user();
+
+        const answer = await render.setPadUse(ID, { placements: ['middle'], cue: 'right after a punchline' });
+
+        expect(setUse).toHaveBeenCalledWith(ID, { placements: ['middle'], cue: 'right after a punchline' });
+        expect(answer).toEqual({ pads: [], sets: [] });
+    });
+
+    it('leaves the cue out when none was sent, which is how one is cleared', async () => {
+        const { render, setUse } = user();
+
+        await render.setPadUse(ID, { placements: ['start', 'end'] });
+
+        expect(setUse).toHaveBeenCalledWith(ID, { placements: ['start', 'end'] });
+    });
+
+    it('refuses a sound that may go nowhere, because turning one down is the state route', async () => {
+        const { render, setUse } = user();
+
+        expect(await status(render.setPadUse(ID, { placements: [] }))).toBe(400);
+        expect(setUse).not.toHaveBeenCalled();
+    });
+
+    it('answers 404 for a pad this station does not hold', async () => {
+        const { render } = user(false);
+
+        expect(await status(render.setPadUse(ID, { placements: ['end'] }))).toBe(404);
+    });
+});
+
 // The third door. What is under test is the bounding — a body counted as it arrives rather than
 // trusted from a header — and the refusals, because everything past `ingest` is covered next door.
 describe('RenderService.fetchPad', () => {

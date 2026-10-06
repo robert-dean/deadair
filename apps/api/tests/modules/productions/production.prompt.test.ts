@@ -261,6 +261,14 @@ describe('the soundboard in a beat', () => {
         expect(system).toContain('There is a soundboard in front of you');
     });
 
+    it('says beside a sound where it may go and when, as a talk break does', () => {
+        const padUse = { guitarriff: { placements: ['middle' as const] } };
+        const system = systemOf(turn({ ...base, speaker: host, pads: ['airhorn', 'guitarriff'], padUse }));
+
+        expect(system).toContain('[sfx:airhorn], [sfx:guitarriff] (only between two of your words)');
+        expect(system).toContain('keep to it: a sound put anywhere else is not played');
+    });
+
     it('says nothing about a soundboard when there is none to reach for', () => {
         const system = systemOf(turn({ ...base, speaker: host }));
 

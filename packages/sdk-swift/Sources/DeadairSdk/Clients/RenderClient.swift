@@ -321,6 +321,15 @@ public final class RenderClient: Sendable {
         return try http.decodeJSON(PadList.self, from: response)
     }
 
+    /// Set pad use
+    /// Says where in a break a sound may land and when to reach for it. Answers the whole rack
+    public func setPadUse(id: UUID, body: PadUse) async throws -> PadList {
+        var request = try SdkRequest(method: "PUT", path: ["pads", http.segment(id), "use"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PadList.self, from: response)
+    }
+
     /// Get pad audio
     /// The sound itself, so an operator can hear what they dropped in
     public func getPadAudio(id: UUID) async throws -> GetPadAudioResponse {

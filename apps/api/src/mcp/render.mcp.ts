@@ -14,6 +14,7 @@ import {
     PadSetMembership,
     PadSetWrite,
     PadState,
+    PadUse,
     PronunciationList,
     PronunciationQuery,
     PronunciationStateWrite,
@@ -57,6 +58,7 @@ const ScanThePadLibraryArgs = z.object({});
 const FetchPadArgs = z.object({ body: PadFetch });
 const DeletePadArgs = z.object({ id: z.uuid() });
 const SetPadStateArgs = z.object({ id: z.uuid(), body: PadState });
+const SetPadUseArgs = z.object({ id: z.uuid(), body: PadUse });
 const CreatePadSetArgs = z.object({ body: PadSetWrite });
 const UpdatePadSetArgs = z.object({ id: z.uuid(), body: PadSetWrite });
 const DeletePadSetArgs = z.object({ id: z.uuid() });
@@ -486,7 +488,30 @@ export class SetPadStateMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L669)
+ * from [render.ck](../../data/contracts/render/render.ck#L640)
+ */
+@Injectable()
+export class SetPadUseMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'set_pad_use',
+        description: 'Says where in a break a sound may land and when to reach for it. Answers the whole rack',
+        inputSchema: z.toJSONSchema(SetPadUseArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(PadList, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { id, body } = await parseAndValidate(args, SetPadUseArgs);
+        const result = await container.get(RenderService).setPadUse(id, body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [render.ck](../../data/contracts/render/render.ck#L690)
  */
 @Injectable()
 export class CreatePadSetMcpTool implements McpToolHandler {
@@ -509,7 +534,7 @@ export class CreatePadSetMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L690)
+ * from [render.ck](../../data/contracts/render/render.ck#L711)
  */
 @Injectable()
 export class UpdatePadSetMcpTool implements McpToolHandler {
@@ -532,7 +557,7 @@ export class UpdatePadSetMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L705)
+ * from [render.ck](../../data/contracts/render/render.ck#L726)
  */
 @Injectable()
 export class DeletePadSetMcpTool implements McpToolHandler {
@@ -555,7 +580,7 @@ export class DeletePadSetMcpTool implements McpToolHandler {
 }
 
 /**
- * from [render.ck](../../data/contracts/render/render.ck#L723)
+ * from [render.ck](../../data/contracts/render/render.ck#L744)
  */
 @Injectable()
 export class SetPadMembershipMcpTool implements McpToolHandler {
@@ -597,6 +622,7 @@ export function registerRenderMcpCatalog(map: McpToolHandlerMap, container: Cont
     map.set('fetch_pad', container.get(FetchPadMcpTool));
     map.set('delete_pad', container.get(DeletePadMcpTool));
     map.set('set_pad_state', container.get(SetPadStateMcpTool));
+    map.set('set_pad_use', container.get(SetPadUseMcpTool));
     map.set('create_pad_set', container.get(CreatePadSetMcpTool));
     map.set('update_pad_set', container.get(UpdatePadSetMcpTool));
     map.set('delete_pad_set', container.get(DeletePadSetMcpTool));
@@ -623,6 +649,7 @@ export function registerRenderMcpToolClasses(registry: Registry): void {
     registry.register(FetchPadMcpTool).useClass(FetchPadMcpTool).asSingleton();
     registry.register(DeletePadMcpTool).useClass(DeletePadMcpTool).asSingleton();
     registry.register(SetPadStateMcpTool).useClass(SetPadStateMcpTool).asSingleton();
+    registry.register(SetPadUseMcpTool).useClass(SetPadUseMcpTool).asSingleton();
     registry.register(CreatePadSetMcpTool).useClass(CreatePadSetMcpTool).asSingleton();
     registry.register(UpdatePadSetMcpTool).useClass(UpdatePadSetMcpTool).asSingleton();
     registry.register(DeletePadSetMcpTool).useClass(DeletePadSetMcpTool).asSingleton();

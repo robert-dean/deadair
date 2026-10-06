@@ -359,100 +359,20 @@ public sealed record PronunciationQuery
 }
 
 /// <summary>
-/// One sound on a soundboard, as the console draws it.
-///
-/// `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
-/// than one, because a token for a model and prose for an operator are different things and the
-/// filename produces both
+/// Where in a break a sound may fall. `start` is before the first word, `end` after the last, and
+/// `middle` anywhere between two words
 /// </summary>
-public sealed record Pad
+[JsonConverter(typeof(JsonStringEnumConverter<PadPlacement>))]
+public enum PadPlacement
 {
-    [JsonPropertyName("id")]
-    public required Guid Id { get; init; }
+    [JsonStringEnumMemberName("start")]
+    Start,
 
-    /// <summary>Which directory it arrived in. Provenance: what reaches it is a set</summary>
-    [JsonPropertyName("board")]
-    public required string Board { get; init; }
+    [JsonStringEnumMemberName("middle")]
+    Middle,
 
-    /// <summary>The keys of the sets it is on. Empty means it is in the library and nothing can hit it</summary>
-    [JsonPropertyName("sets")]
-    public required List<string> Sets { get; init; }
-
-    /// <summary>What a script writes: `[sfx:airhorn]`</summary>
-    [JsonPropertyName("name")]
-    public required string Name { get; init; }
-
-    [JsonPropertyName("label")]
-    public required string Label { get; init; }
-
-    [JsonPropertyName("durationMs")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public long? DurationMs { get; init; }
-
-    /// <summary>How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary</summary>
-    [JsonPropertyName("loudnessLufs")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public double? LoudnessLufs { get; init; }
-
-    /// <summary>Who put the file there: `library` for one the operator dropped in, `upload` or `url` for one the console wrote. It decides whether the console may delete it</summary>
-    [JsonPropertyName("source")]
-    public required string Source { get; init; }
-
-    /// <summary>The file in the library directory it was imported from, so the console can say where it came from</summary>
-    [JsonPropertyName("sourcePath")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? SourcePath { get; init; }
-
-    /// <summary>When it was last hit. Absent for one nothing has reached for yet</summary>
-    [JsonPropertyName("lastUsedAt")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public DateTimeOffset? LastUsedAt { get; init; }
-
-    [JsonPropertyName("state")]
-    public required PadState2 State { get; init; }
-}
-
-/// <summary>
-/// One sound on a soundboard, as the console draws it.
-///
-/// `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
-/// than one, because a token for a model and prose for an operator are different things and the
-/// filename produces both
-/// </summary>
-public sealed record PadInput
-{
-    /// <summary>Which directory it arrived in. Provenance: what reaches it is a set</summary>
-    [JsonPropertyName("board")]
-    public required string Board { get; init; }
-
-    /// <summary>What a script writes: `[sfx:airhorn]`</summary>
-    [JsonPropertyName("name")]
-    public required string Name { get; init; }
-
-    [JsonPropertyName("label")]
-    public required string Label { get; init; }
-
-    [JsonPropertyName("durationMs")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public long? DurationMs { get; init; }
-
-    /// <summary>How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary</summary>
-    [JsonPropertyName("loudnessLufs")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public double? LoudnessLufs { get; init; }
-
-    /// <summary>The file in the library directory it was imported from, so the console can say where it came from</summary>
-    [JsonPropertyName("sourcePath")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? SourcePath { get; init; }
-
-    /// <summary>When it was last hit. Absent for one nothing has reached for yet</summary>
-    [JsonPropertyName("lastUsedAt")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public DateTimeOffset? LastUsedAt { get; init; }
-
-    [JsonPropertyName("state")]
-    public required PadState2 State { get; init; }
+    [JsonStringEnumMemberName("end")]
+    End,
 }
 
 /// <summary>
@@ -892,24 +812,132 @@ public sealed record PronunciationList
     public required List<Pronunciation> Pronunciations { get; init; }
 }
 
-/// <summary>Every sound the station holds, and the sets over it</summary>
-public sealed record PadList
+/// <summary>
+/// One sound on a soundboard, as the console draws it.
+///
+/// `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
+/// than one, because a token for a model and prose for an operator are different things and the
+/// filename produces both
+/// </summary>
+public sealed record Pad
 {
-    [JsonPropertyName("pads")]
-    public required List<Pad> Pads { get; init; }
+    [JsonPropertyName("id")]
+    public required Guid Id { get; init; }
 
+    /// <summary>Which directory it arrived in. Provenance: what reaches it is a set</summary>
+    [JsonPropertyName("board")]
+    public required string Board { get; init; }
+
+    /// <summary>The keys of the sets it is on. Empty means it is in the library and nothing can hit it</summary>
     [JsonPropertyName("sets")]
-    public required List<PadSet> Sets { get; init; }
+    public required List<string> Sets { get; init; }
+
+    /// <summary>What a script writes: `[sfx:airhorn]`</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("label")]
+    public required string Label { get; init; }
+
+    [JsonPropertyName("durationMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? DurationMs { get; init; }
+
+    /// <summary>How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary</summary>
+    [JsonPropertyName("loudnessLufs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? LoudnessLufs { get; init; }
+
+    /// <summary>Who put the file there: `library` for one the operator dropped in, `upload` or `url` for one the console wrote. It decides whether the console may delete it</summary>
+    [JsonPropertyName("source")]
+    public required string Source { get; init; }
+
+    /// <summary>The file in the library directory it was imported from, so the console can say where it came from</summary>
+    [JsonPropertyName("sourcePath")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourcePath { get; init; }
+
+    /// <summary>When it was last hit. Absent for one nothing has reached for yet</summary>
+    [JsonPropertyName("lastUsedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? LastUsedAt { get; init; }
+
+    [JsonPropertyName("state")]
+    public required PadState2 State { get; init; }
+
+    /// <summary>Where in a break it may land: before the first word, between two, or after the last. Every pad starts with all three</summary>
+    [JsonPropertyName("placements")]
+    public required List<PadPlacement> Placements { get; init; }
+
+    /// <summary>When to reach for it, in the operator's words ("right after a punchline"). Shown to the presenter beside the sound; the station's own writers leave a cued pad alone</summary>
+    [JsonPropertyName("cue")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Cue { get; init; }
 }
 
-/// <summary>Every sound the station holds, and the sets over it</summary>
-public sealed record PadListInput
+/// <summary>
+/// One sound on a soundboard, as the console draws it.
+///
+/// `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
+/// than one, because a token for a model and prose for an operator are different things and the
+/// filename produces both
+/// </summary>
+public sealed record PadInput
 {
-    [JsonPropertyName("pads")]
-    public required List<PadInput> Pads { get; init; }
+    /// <summary>Which directory it arrived in. Provenance: what reaches it is a set</summary>
+    [JsonPropertyName("board")]
+    public required string Board { get; init; }
 
-    [JsonPropertyName("sets")]
-    public required List<PadSetInput> Sets { get; init; }
+    /// <summary>What a script writes: `[sfx:airhorn]`</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("label")]
+    public required string Label { get; init; }
+
+    [JsonPropertyName("durationMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? DurationMs { get; init; }
+
+    /// <summary>How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary</summary>
+    [JsonPropertyName("loudnessLufs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? LoudnessLufs { get; init; }
+
+    /// <summary>The file in the library directory it was imported from, so the console can say where it came from</summary>
+    [JsonPropertyName("sourcePath")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourcePath { get; init; }
+
+    /// <summary>When it was last hit. Absent for one nothing has reached for yet</summary>
+    [JsonPropertyName("lastUsedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? LastUsedAt { get; init; }
+
+    [JsonPropertyName("state")]
+    public required PadState2 State { get; init; }
+
+    /// <summary>Where in a break it may land: before the first word, between two, or after the last. Every pad starts with all three</summary>
+    [JsonPropertyName("placements")]
+    public required List<PadPlacement> Placements { get; init; }
+
+    /// <summary>When to reach for it, in the operator's words ("right after a punchline"). Shown to the presenter beside the sound; the station's own writers leave a cued pad alone</summary>
+    [JsonPropertyName("cue")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Cue { get; init; }
+}
+
+/// <summary>Where and when a pad may be hit, written together because the console edits them together</summary>
+public sealed record PadUse
+{
+    /// <summary>At least one: a sound that may go nowhere is a sound turned down, which is what `PadState` is for</summary>
+    [JsonPropertyName("placements")]
+    public required List<PadPlacement> Placements { get; init; }
+
+    /// <summary>Absent clears it, so the pad is fair game wherever its placements allow</summary>
+    [JsonPropertyName("cue")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Cue { get; init; }
 }
 
 public sealed record SegmentAudioQuery
@@ -939,6 +967,26 @@ public sealed record ScriptHistoryPageInput
     [JsonPropertyName("nextBefore")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? NextBefore { get; init; }
+}
+
+/// <summary>Every sound the station holds, and the sets over it</summary>
+public sealed record PadList
+{
+    [JsonPropertyName("pads")]
+    public required List<Pad> Pads { get; init; }
+
+    [JsonPropertyName("sets")]
+    public required List<PadSet> Sets { get; init; }
+}
+
+/// <summary>Every sound the station holds, and the sets over it</summary>
+public sealed record PadListInput
+{
+    [JsonPropertyName("pads")]
+    public required List<PadInput> Pads { get; init; }
+
+    [JsonPropertyName("sets")]
+    public required List<PadSetInput> Sets { get; init; }
 }
 
 /// <summary>One state per stage of making it. Only `ready` can go on air; the station skips anything else rather than waiting for it</summary>

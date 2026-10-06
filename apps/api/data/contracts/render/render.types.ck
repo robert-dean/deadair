@@ -205,6 +205,18 @@ contract Pad: {
     sourcePath?: string(max=500) # The file in the library directory it was imported from, so the console can say where it came from
     lastUsedAt?: datetime # When it was last hit. Absent for one nothing has reached for yet
     state: enum(active, rejected)
+    placements: array(PadPlacement) # Where in a break it may land: before the first word, between two, or after the last. Every pad starts with all three
+    cue?: string(min=1, max=200) # When to reach for it, in the operator's words ("right after a punchline"). Shown to the presenter beside the sound; the station's own writers leave a cued pad alone
+}
+
+# Where in a break a sound may fall. `start` is before the first word, `end` after the last, and
+# `middle` anywhere between two words
+contract PadPlacement: enum(start, middle, end)
+
+# Where and when a pad may be hit, written together because the console edits them together
+contract PadUse: {
+    placements: array(PadPlacement, min=1) # At least one: a sound that may go nowhere is a sound turned down, which is what `PadState` is for
+    cue?: string(min=1, max=200) # Absent clears it, so the pad is fair game wherever its placements allow
 }
 
 # A sound arriving from the browser, as multipart form parts.

@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Pad, PadFetch, PadList, PadSet, PadSetMembership, PadSetWrite, PadState } from '@deadair/sdk';
+import type { Pad, PadFetch, PadList, PadSet, PadSetMembership, PadSetWrite, PadState, PadUse } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -29,6 +29,18 @@ export function useSetPadState() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ id, body }: { id: string; body: PadState }) => sdk.render.setPadState(id, body),
+        onSuccess: (list: PadList) => queryClient.setQueryData(queryKeys.pads.list(), list),
+    });
+}
+
+/**
+ * Where in a break a sound may land and when to reach for it. The answer is the whole rack, as the
+ * state's is, so nothing refetches.
+ */
+export function useSetPadUse() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, body }: { id: string; body: PadUse }) => sdk.render.setPadUse(id, body),
         onSuccess: (list: PadList) => queryClient.setQueryData(queryKeys.pads.list(), list),
     });
 }

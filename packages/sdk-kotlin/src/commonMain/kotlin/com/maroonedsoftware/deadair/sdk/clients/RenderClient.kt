@@ -9,6 +9,7 @@ import com.maroonedsoftware.deadair.sdk.models.PadScanResult
 import com.maroonedsoftware.deadair.sdk.models.PadSetMembership
 import com.maroonedsoftware.deadair.sdk.models.PadSetWrite
 import com.maroonedsoftware.deadair.sdk.models.PadState
+import com.maroonedsoftware.deadair.sdk.models.PadUse
 import com.maroonedsoftware.deadair.sdk.models.PronunciationList
 import com.maroonedsoftware.deadair.sdk.models.PronunciationQuery
 import com.maroonedsoftware.deadair.sdk.models.PronunciationStateWrite
@@ -399,6 +400,18 @@ class RenderClient(private val http: SdkHttp) {
     suspend fun setPadState(id: Uuid, body: PadState): PadList {
         val response = http.execute(HttpMethod.Put) {
             path("pads", segment(id), "state")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Set pad use
+     * Says where in a break a sound may land and when to reach for it. Answers the whole rack
+     */
+    suspend fun setPadUse(id: Uuid, body: PadUse): PadList {
+        val response = http.execute(HttpMethod.Put) {
+            path("pads", segment(id), "use")
             jsonBody(body, "application/json")
         }
         return http.decodeJson(response)

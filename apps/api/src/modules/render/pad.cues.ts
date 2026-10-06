@@ -26,6 +26,8 @@
  * a board.
  */
 
+import type { Pad, PadPlacement } from './pad.repository.js';
+
 /**
  * How many pads one script may hit.
  *
@@ -182,4 +184,86 @@ export function splitOnPads(text: string): ScriptPart[] {
     if (rest.length > 0) parts.push({ kind: 'words', text: rest });
 
     return parts;
+}
+
+/**
+ * Where each hit in a script falls: before the first word, between two, or after the last.
+ *
+ * Read off {@link splitOnPads} rather than off character offsets, so whitespace and punctuation
+ * around a hit never decide it — a hit is at the `start` when no words come before it and at the
+ * `end` when none come after. A script that is nothing but a hit has no words on either side, and
+ * counts as the `end`: it is a sting on its own, which is what an appending writer puts there.
+ *
+ * In script order, one entry per hit, so it lines up with {@link padsIn}.
+ */
+export function padPlacementsIn(text: string): { name: string; at: PadPlacement }[] {
+    const parts = splitOnPads(text);
+    const placed: { name: string; at: PadPlacement }[] = [];
+
+    parts.forEach((part, index) => {
+        if (part.kind !== 'pad') return;
+
+        const wordsBefore = parts.slice(0, index).some(other => other.kind === 'words');
+        const wordsAfter = parts.slice(index + 1).some(other => other.kind === 'words');
+        const at: PadPlacement = !wordsAfter ? 'end' : wordsBefore ? 'middle' : 'start';
+        placed.push({ name: part.name, at });
+    });
+
+    return placed;
+}
+
+/**
+ * Where a pad may land and when to reach for it, for one pad that is not left at the default.
+ *
+ * The default — every placement, no cue — is never carried, so a rack nobody has set up reaches a
+ * prompt exactly as it did before pads had either.
+ */
+export interface PadUseNote {
+    placements: readonly PadPlacement[];
+    cue?: string;
+}
+
+/** How each placement reads to a model, in the second person it is addressed in. */
+const PLACEMENT_WORDS: Record<PadPlacement, string> = {
+    start: 'before your first word',
+    middle: 'between two of your words',
+    end: 'after your last word',
+};
+
+/**
+ * The notes for the pads on a rack that are not at the default, by name, or `undefined` when every
+ * one of them is.
+ */
+export function padUseNotes(rack: readonly Pick<Pad, 'name' | 'placements' | 'cue'>[]): Record<string, PadUseNote> | undefined {
+    const notes: Record<string, PadUseNote> = {};
+
+    for (const pad of rack) {
+        const everywhere = (Object.keys(PLACEMENT_WORDS) as PadPlacement[]).every(placement => pad.placements.includes(placement));
+        if (everywhere && pad.cue === undefined) continue;
+
+        notes[pad.name.toLowerCase()] = { placements: pad.placements, ...(pad.cue === undefined ? {} : { cue: pad.cue }) };
+    }
+
+    return Object.keys(notes).length === 0 ? undefined : notes;
+}
+
+/**
+ * One pad as a prompt offers it: its cue, then the note on where it may go, after the token.
+ *
+ * `[sfx:rimshot] (right after a punchline)`, `[sfx:guitarriff] (only between two of your words)`. The
+ * cue comes first because it is the operator's own words about the moment, and the placement is the
+ * station's rule about the sentence; a pad with neither is the bare token, exactly as before.
+ */
+export function padOffer(name: string, note?: PadUseNote): string {
+    const token = padCue(name);
+    if (note === undefined) return token;
+
+    const said: string[] = [];
+    if (note.cue !== undefined) said.push(note.cue);
+
+    const order = Object.keys(PLACEMENT_WORDS) as PadPlacement[];
+    const allowed = order.filter(placement => note.placements.includes(placement));
+    if (allowed.length > 0 && allowed.length < order.length) said.push(`only ${allowed.map(placement => PLACEMENT_WORDS[placement]).join(' or ')}`);
+
+    return said.length === 0 ? token : `${token} (${said.join('; ')})`;
 }

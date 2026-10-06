@@ -481,6 +481,7 @@ export interface DeadairPads {
   audioExt: string;
   board: string;
   createdAt: Generated<DateTime>;
+  cue: string | null;
   durationMs: number | null;
   id: Generated<string>;
   label: string;
@@ -488,6 +489,7 @@ export interface DeadairPads {
   loudnessLufs: number | null;
   name: string;
   peakDb: number | null;
+  placements: Generated<string[]>;
   source: Generated<string>;
   sourcePath: string | null;
   state: Generated<"active" | "rejected">;

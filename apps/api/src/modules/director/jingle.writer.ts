@@ -142,18 +142,21 @@ export class JingleWriter extends BreakWriter {
 
         // No `listenerLabel`: the mount carries the station's name while this airs, which is what a
         // jingle is saying anyway. No claims, for the reason on the class.
-        return { script: this.withSting(chosen.script, request.pads), label: 'Jingle' };
+        return { script: this.withSting(chosen.script, request.stings), label: 'Jingle' };
     }
 
     /**
-     * The words, ending on the least recently hit pad where the presenter has a rack.
+     * The words, ending on the least recently hit pad that may close a break.
      *
-     * `request.pads` arrives least recently hit first, which is `PadRepository.onSet`'s order, so the
-     * first is the one to take. `WriteBreakJob` resolves the cue onto the row and rests the pad, and
+     * `request.stings` rather than `request.pads`: a jingle sits between two records, so a sound held
+     * to the middle of a break would run straight into the next one, and a cued sound ("right after a
+     * punchline") was never meant for a station ident. It arrives least recently hit first, which is
+     * `PadRepository.onSet`'s order, so the first is the one to take, and a rack with no such pad
+     * leaves the jingle as words. `WriteBreakJob` resolves the cue onto the row and rests the pad, and
      * a render that cannot join it speaks the words alone.
      */
-    private withSting(script: string, pads: readonly string[] | undefined): string {
-        const pad = pads?.[0];
+    private withSting(script: string, stings: readonly string[] | undefined): string {
+        const pad = stings?.[0];
         if (pad === undefined || !padsAreOn(this.config)) return script;
 
         return `${script} ${padCue(pad)}`;

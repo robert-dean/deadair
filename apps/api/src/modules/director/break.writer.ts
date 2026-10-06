@@ -27,6 +27,7 @@
  * implementation's imports, exactly like {@link SetGenerator}.
  */
 
+import type { PadUseNote } from '#modules/render/pad.cues.js';
 import type { SpeechCue, SpeechDelivery } from '@deadair/plugin-sdk';
 
 import type { GatePriority } from '#modules/shared/gate.priority.js';
@@ -383,11 +384,29 @@ export interface BreakWriteRequest {
      * a schedule is a station with a fault rather than a house style. What gives the floor a pad is
      * the spacing rule, which is a decision about the BREAK rather than about the words.
      *
-     * The exception is `JingleWriter`, which ends every jingle on the first of these. That sentence
-     * is about a presenter talking, and imaging is the one place a station makes the same noise on
-     * purpose.
+     * The exception is `JingleWriter`, which ends every jingle on a sound — the first of
+     * {@link BreakWriteRequest.stings}, not of these. That sentence is about a presenter talking, and
+     * imaging is the one place a station makes the same noise on purpose.
      */
     pads?: readonly string[];
+    /**
+     * The pads a writer may close a break on unprompted, by name, least recently hit first, or absent
+     * where there are none.
+     *
+     * The subset of {@link BreakWriteRequest.pads} that `padCanSting` allows: a sound placed at the
+     * `end`, with no cue. A model is offered the whole rack with each pad's placements and cue and
+     * judges for itself; a writer that APPENDS a sound to a template line cannot judge either, so it
+     * takes from this list or from nothing. Absent rather than empty, as `pads` is.
+     */
+    stings?: readonly string[];
+    /**
+     * Where each pad on the rack may land and when to reach for it, by name, for the pads that are
+     * not at the default (every placement, no cue), or absent when none are.
+     *
+     * Read by the model binding's prompt and by nothing deterministic: a template writer only ever
+     * appends from {@link BreakWriteRequest.stings}, which is this same information already applied.
+     */
+    padUse?: Readonly<Record<string, PadUseNote>>;
     /**
      * The one thing this character has had on its mind, from `PersonaSheet.preoccupations`.
      *

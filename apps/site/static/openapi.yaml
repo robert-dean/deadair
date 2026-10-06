@@ -4433,6 +4433,31 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/PadList'
+    '/pads/{id}/use':
+        put:
+            operationId: setPadUse
+            summary: 'Set pad use'
+            description: 'Says where in a break a sound may land and when to reach for it. Answers the whole rack'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PadUse'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PadList'
     '/pads/{id}/audio':
         get:
             operationId: getPadAudio
@@ -12401,8 +12426,38 @@ components:
                 state:
                     type: string
                     enum: [active, rejected]
-            required: [id, board, sets, name, label, source, state]
+                placements:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PadPlacement'
+                    description: 'Where in a break it may land: before the first word, between two, or after the last. Every pad starts with all three'
+                cue:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'When to reach for it, in the operator''s words ("right after a punchline"). Shown to the presenter beside the sound; the station''s own writers leave a cued pad alone'
+            required: [id, board, sets, name, label, source, state, placements]
             description: "One sound on a soundboard, as the console draws it.\n\n`name` is what a script writes to hit it and `label` is what a person reads: two columns rather\nthan one, because a token for a model and prose for an operator are different things and the\nfilename produces both"
+        PadPlacement:
+            type: string
+            enum: [start, middle, end]
+            description: "Where in a break a sound may fall. `start` is before the first word, `end` after the last, and\n`middle` anywhere between two words"
+        PadUse:
+            type: object
+            properties:
+                placements:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PadPlacement'
+                    minItems: 1
+                    description: 'At least one: a sound that may go nowhere is a sound turned down, which is what `PadState` is for'
+                cue:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'Absent clears it, so the pad is fair game wherever its placements allow'
+            required: [placements]
+            description: 'Where and when a pad may be hit, written together because the console edits them together'
         PadUpload:
             type: object
             properties:

@@ -8,6 +8,7 @@ import {
     PadSetMembership,
     PadSetWrite,
     PadState,
+    PadUse,
     PronunciationList,
     PronunciationQuery,
     PronunciationStateWrite,
@@ -487,8 +488,30 @@ RenderRouter.put('/pads/:id/state', requirePolicy({ policy: 'platform.manage' })
 });
 
 /**
- * The sound itself, so an operator can hear what they dropped in
+ * Says where in a break a sound may land and when to reach for it. Answers the whole rack
  * from [render.ck](../../data/contracts/render/render.ck#L640)
+ */
+RenderRouter.put('/pads/:id/use', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const body = await parseAndValidate(ctx.parsedBody, PadUse);
+
+    const service = ctx.container.get(RenderService);
+    const result: PadList = await service.setPadUse(id, body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * The sound itself, so an operator can hear what they dropped in
+ * from [render.ck](../../data/contracts/render/render.ck#L661)
  */
 RenderRouter.get('/pads/:id/audio', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -514,7 +537,7 @@ RenderRouter.get('/pads/:id/audio', requirePolicy({ policy: 'platform.view' }), 
 
 /**
  * Names a new set, or answers the one already under that key
- * from [render.ck](../../data/contracts/render/render.ck#L669)
+ * from [render.ck](../../data/contracts/render/render.ck#L690)
  */
 RenderRouter.post('/pads/sets', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, PadSetWrite);
@@ -529,7 +552,7 @@ RenderRouter.post('/pads/sets', requirePolicy({ policy: 'platform.manage' }), bo
 
 /**
  * Renames a set. The KEY moves with it, so every persona naming the old one stops finding it
- * from [render.ck](../../data/contracts/render/render.ck#L690)
+ * from [render.ck](../../data/contracts/render/render.ck#L711)
  */
 RenderRouter.put('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -551,7 +574,7 @@ RenderRouter.put('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' }),
 
 /**
  * Removes a set and its memberships, and no pads at all
- * from [render.ck](../../data/contracts/render/render.ck#L705)
+ * from [render.ck](../../data/contracts/render/render.ck#L726)
  */
 RenderRouter.delete('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -571,7 +594,7 @@ RenderRouter.delete('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' 
 
 /**
  * Puts a pad on a set or takes it off. Refused where the set already answers to that name, because a script writes a name
- * from [render.ck](../../data/contracts/render/render.ck#L723)
+ * from [render.ck](../../data/contracts/render/render.ck#L744)
  */
 RenderRouter.put('/pads/sets/:id/pads', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(

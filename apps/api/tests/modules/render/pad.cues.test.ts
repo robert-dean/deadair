@@ -6,7 +6,17 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { keepPads, MAX_PADS, padCue, padsIn, splitOnPads, withoutPads } from '../../../src/modules/render/pad.cues.js';
+import {
+    keepPads,
+    MAX_PADS,
+    padCue,
+    padOffer,
+    padPlacementsIn,
+    padsIn,
+    padUseNotes,
+    splitOnPads,
+    withoutPads,
+} from '../../../src/modules/render/pad.cues.js';
 import { speakableScript } from '../../../src/modules/render/speakable.script.js';
 import { transposeForSpeech } from '../../../src/modules/render/speech.transpose.js';
 
@@ -191,5 +201,61 @@ describe('splitOnPads', () => {
 
     it('answers nothing at all for a script with nothing in it', () => {
         expect(splitOnPads('   ')).toEqual([]);
+    });
+});
+
+// Where a hit falls is decided by the WORDS around it, never by spacing or punctuation, because that is
+// what a listener hears: a guitar after the last word runs into the next record whatever comma sits
+// before it.
+describe('padPlacementsIn', () => {
+    it('reads a hit before any words as the start, between words as the middle, after them as the end', () => {
+        expect(padPlacementsIn('[sfx:guitar] Here we go.')).toEqual([{ name: 'guitar', at: 'start' }]);
+        expect(padPlacementsIn('Here we go [sfx:guitar] and there it was.')).toEqual([{ name: 'guitar', at: 'middle' }]);
+        expect(padPlacementsIn('Here we go! [sfx:guitar]')).toEqual([{ name: 'guitar', at: 'end' }]);
+    });
+
+    it('counts a script that is nothing but a hit as the end, which is where an appended sting sits', () => {
+        expect(padPlacementsIn('[sfx:honk]')).toEqual([{ name: 'honk', at: 'end' }]);
+    });
+
+    it('lines up with padsIn, one entry per hit in script order', () => {
+        const script = '[SFX:Honk] Well, [sfx:rimshot] that happened. [sfx:guitar]';
+
+        expect(padPlacementsIn(script).map(hit => hit.name)).toEqual(padsIn(script));
+        expect(padPlacementsIn(script).map(hit => hit.at)).toEqual(['start', 'middle', 'end']);
+    });
+});
+
+describe('padUseNotes', () => {
+    it('carries only the pads somebody set, so an untouched rack reaches a prompt as it always did', () => {
+        const everywhere = ['start', 'middle', 'end'] as const;
+
+        expect(padUseNotes([{ name: 'honk', placements: [...everywhere] }])).toBeUndefined();
+        expect(
+            padUseNotes([
+                { name: 'honk', placements: [...everywhere] },
+                { name: 'GuitarRiff', placements: ['middle'] },
+                { name: 'rimshot', placements: [...everywhere], cue: 'right after a punchline' },
+            ]),
+        ).toEqual({
+            guitarriff: { placements: ['middle'] },
+            rimshot: { placements: ['start', 'middle', 'end'], cue: 'right after a punchline' },
+        });
+    });
+});
+
+describe('padOffer', () => {
+    it('is the bare token for a pad with no note', () => {
+        expect(padOffer('honk')).toBe('[sfx:honk]');
+    });
+
+    it('says the cue, then where the sound may go, after the token', () => {
+        expect(padOffer('rimshot', { placements: ['start', 'middle', 'end'], cue: 'right after a punchline' })).toBe(
+            '[sfx:rimshot] (right after a punchline)',
+        );
+        expect(padOffer('guitarriff', { placements: ['middle'] })).toBe('[sfx:guitarriff] (only between two of your words)');
+        expect(padOffer('horn', { placements: ['end', 'start'], cue: 'when you mention a car' })).toBe(
+            '[sfx:horn] (when you mention a car; only before your first word or after your last word)',
+        );
     });
 });

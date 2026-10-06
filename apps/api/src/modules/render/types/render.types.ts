@@ -305,59 +305,12 @@ export const PronunciationQuery = z.strictObject({
 export type PronunciationQuery = z.infer<typeof PronunciationQuery>;
 
 /**
- * One sound on a soundboard, as the console draws it.
- *
- * `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
- * than one, because a token for a model and prose for an operator are different things and the
- * filename produces both
- * generated from [Pad](../../../../data/contracts/render/render.types.ck#L196)
+ * Where in a break a sound may fall. `start` is before the first word, `end` after the last, and
+ * `middle` anywhere between two words
+ * generated from [PadPlacement](../../../../data/contracts/render/render.types.ck#L214)
  */
-export const Pad = z.strictObject({
-    id: z.uuid(),
-    board: z.string().min(1).max(200).describe('Which directory it arrived in. Provenance: what reaches it is a set'),
-    sets: z.array(z.string().min(1).max(200)).describe('The keys of the sets it is on. Empty means it is in the library and nothing can hit it'),
-    name: z.string().min(1).max(200).describe('What a script writes: `[sfx:airhorn]`'),
-    label: z.string().min(1).max(200),
-    durationMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).optional(),
-    loudnessLufs: z
-        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number())
-        .optional()
-        .describe('How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary'),
-    source: z
-        .string()
-        .min(1)
-        .max(50)
-        .describe(
-            'Who put the file there: `library` for one the operator dropped in, `upload` or `url` for one the console wrote. It decides whether the console may delete it',
-        ),
-    sourcePath: z
-        .string()
-        .max(500)
-        .optional()
-        .describe('The file in the library directory it was imported from, so the console can say where it came from'),
-    lastUsedAt: _ZodDatetime.optional().describe('When it was last hit. Absent for one nothing has reached for yet'),
-    state: z.enum(['active', 'rejected']),
-});
-export type Pad = z.infer<typeof Pad>;
-
-export const PadInput = z.strictObject({
-    board: z.string().min(1).max(200).describe('Which directory it arrived in. Provenance: what reaches it is a set'),
-    name: z.string().min(1).max(200).describe('What a script writes: `[sfx:airhorn]`'),
-    label: z.string().min(1).max(200),
-    durationMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).optional(),
-    loudnessLufs: z
-        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number())
-        .optional()
-        .describe('How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary'),
-    sourcePath: z
-        .string()
-        .max(500)
-        .optional()
-        .describe('The file in the library directory it was imported from, so the console can say where it came from'),
-    lastUsedAt: _ZodDatetime.optional().describe('When it was last hit. Absent for one nothing has reached for yet'),
-    state: z.enum(['active', 'rejected']),
-});
-export type PadInput = z.infer<typeof PadInput>;
+export const PadPlacement = z.enum(['start', 'middle', 'end']);
+export type PadPlacement = z.infer<typeof PadPlacement>;
 
 /**
  * A sound arriving from the browser, as multipart form parts.
@@ -365,7 +318,7 @@ export type PadInput = z.infer<typeof PadInput>;
  * Documentation rather than validation: a multipart body reaches the service as the raw parser and
  * the generated client types the body as `FormData`, so nothing checks this shape. It says what to
  * send
- * generated from [PadUpload](../../../../data/contracts/render/render.types.ck#L215)
+ * generated from [PadUpload](../../../../data/contracts/render/render.types.ck#L227)
  */
 export const PadUpload = z.strictObject({
     file: _ZodBinary.describe('The audio itself. mp3, wav, ogg, flac or m4a, and at most 25 MB'),
@@ -386,7 +339,7 @@ export type PadUpload = z.infer<typeof PadUpload>;
  * The operator names the address, so this is them choosing a file exactly as dropping one in the
  * library is. Nothing inspects what comes back and nothing records a claim about its licence -- see
  * `docs/internals/render.md` under "Pads", whose line is redistribution rather than use
- * generated from [PadFetch](../../../../data/contracts/render/render.types.ck#L227)
+ * generated from [PadFetch](../../../../data/contracts/render/render.types.ck#L239)
  */
 export const PadFetch = z.strictObject({
     url: z.url().describe('Where the audio is. Followed once, bounded, and refused unless what comes back is a format the station serves'),
@@ -401,7 +354,7 @@ export type PadFetch = z.infer<typeof PadFetch>;
  *
  * One library, cut as many ways as an operator likes. `personas.soundboard` holds the `key`, so
  * renaming a set unpoints every persona naming it — which is why `personas` says who those are
- * generated from [PadSet](../../../../data/contracts/render/render.types.ck#L243)
+ * generated from [PadSet](../../../../data/contracts/render/render.types.ck#L255)
  */
 export const PadSet = z.strictObject({
     id: z.uuid(),
@@ -424,7 +377,7 @@ export type PadSetInput = z.infer<typeof PadSetInput>;
 
 /**
  * A set an operator is naming, or renaming
- * generated from [PadSetWrite](../../../../data/contracts/render/render.types.ck#L252)
+ * generated from [PadSetWrite](../../../../data/contracts/render/render.types.ck#L264)
  */
 export const PadSetWrite = z.strictObject({
     key: z.string().min(1).max(200),
@@ -435,7 +388,7 @@ export type PadSetWrite = z.infer<typeof PadSetWrite>;
 
 /**
  * Which pad, and whether it is on the set
- * generated from [PadSetMembership](../../../../data/contracts/render/render.types.ck#L258)
+ * generated from [PadSetMembership](../../../../data/contracts/render/render.types.ck#L270)
  */
 export const PadSetMembership = z.strictObject({
     padId: z.uuid(),
@@ -445,7 +398,7 @@ export type PadSetMembership = z.infer<typeof PadSetMembership>;
 
 /**
  * Turning a pad down, or putting one back
- * generated from [PadState](../../../../data/contracts/render/render.types.ck#L263)
+ * generated from [PadState](../../../../data/contracts/render/render.types.ck#L275)
  */
 export const PadState = z.strictObject({
     state: z.enum(['active', 'rejected']),
@@ -454,7 +407,7 @@ export type PadState = z.infer<typeof PadState>;
 
 /**
  * What one pass over the pad library did
- * generated from [PadScanResult](../../../../data/contracts/render/render.types.ck#L267)
+ * generated from [PadScanResult](../../../../data/contracts/render/render.types.ck#L279)
  */
 export const PadScanResult = z.strictObject({
     scanned: z
@@ -479,7 +432,7 @@ export type PadScanResult = z.infer<typeof PadScanResult>;
 
 /**
  * Which copy of a segment's audio. `original` is what the station airs. `share` is a small copy made for a listener to send on, AAC in an .m4a, never aired
- * generated from [SegmentAudioRendition](../../../../data/contracts/render/render.types.ck#L275)
+ * generated from [SegmentAudioRendition](../../../../data/contracts/render/render.types.ck#L287)
  */
 export const SegmentAudioRendition = z.enum(['original', 'share']);
 export type SegmentAudioRendition = z.infer<typeof SegmentAudioRendition>;
@@ -646,23 +599,97 @@ export const PronunciationList = z.strictObject({
 export type PronunciationList = z.infer<typeof PronunciationList>;
 
 /**
- * Every sound the station holds, and the sets over it
- * generated from [PadList](../../../../data/contracts/render/render.types.ck#L234)
+ * One sound on a soundboard, as the console draws it.
+ *
+ * `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
+ * than one, because a token for a model and prose for an operator are different things and the
+ * filename produces both
+ * generated from [Pad](../../../../data/contracts/render/render.types.ck#L196)
  */
-export const PadList = z.strictObject({
-    pads: z.array(Pad),
-    sets: z.array(PadSet),
+export const Pad = z.strictObject({
+    id: z.uuid(),
+    board: z.string().min(1).max(200).describe('Which directory it arrived in. Provenance: what reaches it is a set'),
+    sets: z.array(z.string().min(1).max(200)).describe('The keys of the sets it is on. Empty means it is in the library and nothing can hit it'),
+    name: z.string().min(1).max(200).describe('What a script writes: `[sfx:airhorn]`'),
+    label: z.string().min(1).max(200),
+    durationMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).optional(),
+    loudnessLufs: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number())
+        .optional()
+        .describe('How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary'),
+    source: z
+        .string()
+        .min(1)
+        .max(50)
+        .describe(
+            'Who put the file there: `library` for one the operator dropped in, `upload` or `url` for one the console wrote. It decides whether the console may delete it',
+        ),
+    sourcePath: z
+        .string()
+        .max(500)
+        .optional()
+        .describe('The file in the library directory it was imported from, so the console can say where it came from'),
+    lastUsedAt: _ZodDatetime.optional().describe('When it was last hit. Absent for one nothing has reached for yet'),
+    state: z.enum(['active', 'rejected']),
+    placements: z
+        .array(PadPlacement)
+        .describe('Where in a break it may land: before the first word, between two, or after the last. Every pad starts with all three'),
+    cue: z
+        .string()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe(
+            'When to reach for it, in the operator\'s words ("right after a punchline"). Shown to the presenter beside the sound; the station\'s own writers leave a cued pad alone',
+        ),
 });
-export type PadList = z.infer<typeof PadList>;
+export type Pad = z.infer<typeof Pad>;
 
-export const PadListInput = z.strictObject({
-    pads: z.array(PadInput),
-    sets: z.array(PadSetInput),
+export const PadInput = z.strictObject({
+    board: z.string().min(1).max(200).describe('Which directory it arrived in. Provenance: what reaches it is a set'),
+    name: z.string().min(1).max(200).describe('What a script writes: `[sfx:airhorn]`'),
+    label: z.string().min(1).max(200),
+    durationMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).optional(),
+    loudnessLufs: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number())
+        .optional()
+        .describe('How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary'),
+    sourcePath: z
+        .string()
+        .max(500)
+        .optional()
+        .describe('The file in the library directory it was imported from, so the console can say where it came from'),
+    lastUsedAt: _ZodDatetime.optional().describe('When it was last hit. Absent for one nothing has reached for yet'),
+    state: z.enum(['active', 'rejected']),
+    placements: z
+        .array(PadPlacement)
+        .describe('Where in a break it may land: before the first word, between two, or after the last. Every pad starts with all three'),
+    cue: z
+        .string()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe(
+            'When to reach for it, in the operator\'s words ("right after a punchline"). Shown to the presenter beside the sound; the station\'s own writers leave a cued pad alone',
+        ),
 });
-export type PadListInput = z.infer<typeof PadListInput>;
+export type PadInput = z.infer<typeof PadInput>;
 
 /**
- * generated from [SegmentAudioQuery](../../../../data/contracts/render/render.types.ck#L277)
+ * Where and when a pad may be hit, written together because the console edits them together
+ * generated from [PadUse](../../../../data/contracts/render/render.types.ck#L217)
+ */
+export const PadUse = z.strictObject({
+    placements: z
+        .array(PadPlacement)
+        .min(1)
+        .describe('At least one: a sound that may go nowhere is a sound turned down, which is what `PadState` is for'),
+    cue: z.string().min(1).max(200).optional().describe('Absent clears it, so the pad is fair game wherever its placements allow'),
+});
+export type PadUse = z.infer<typeof PadUse>;
+
+/**
+ * generated from [SegmentAudioQuery](../../../../data/contracts/render/render.types.ck#L289)
  */
 export const SegmentAudioQuery = z.strictObject({
     rendition: SegmentAudioRendition.default('original').describe(
@@ -695,3 +722,19 @@ export const ScriptHistoryPageInput = z.strictObject({
         .describe('The cursor for the page after this one, absent once the history has been read to its end'),
 });
 export type ScriptHistoryPageInput = z.infer<typeof ScriptHistoryPageInput>;
+
+/**
+ * Every sound the station holds, and the sets over it
+ * generated from [PadList](../../../../data/contracts/render/render.types.ck#L246)
+ */
+export const PadList = z.strictObject({
+    pads: z.array(Pad),
+    sets: z.array(PadSet),
+});
+export type PadList = z.infer<typeof PadList>;
+
+export const PadListInput = z.strictObject({
+    pads: z.array(PadInput),
+    sets: z.array(PadSetInput),
+});
+export type PadListInput = z.infer<typeof PadListInput>;

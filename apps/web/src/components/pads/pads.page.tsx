@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActionIcon, Badge, Button, Card, Checkbox, Group, Stack, Table, Text, TextInput, Tooltip } from '@mantine/core';
 import {
+    IconAdjustmentsHorizontal,
     IconCheck,
     IconDownload,
     IconPencil,
@@ -24,10 +25,12 @@ import {
     useScanPads,
     useSetPadMembership,
     useSetPadState,
+    useSetPadUse,
     useUpdatePadSet,
 } from '../../api/pads.queries';
 import { useVoicePreview } from '../voices/voice.preview';
 import { PadUploadCard, sfxToken } from './pad.upload.card';
+import { PadUseModal, PadUseSummary } from './pad.use.modal';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { FeedMoment } from '../shared/dated.feed';
 import { EmptyState } from '../shared/empty.state';
@@ -67,6 +70,7 @@ export function PadsPage() {
     const rack = usePads();
     const scan = useScanPads();
     const setState = useSetPadState();
+    const setUse = useSetPadUse();
     const membership = useSetPadMembership();
     const createSet = useCreatePadSet();
 
@@ -77,6 +81,7 @@ export function PadsPage() {
     const remove = useDeletePad();
     const [newSet, setNewSet] = useState('');
     const [deleting, setDeleting] = useState<Pad | undefined>(undefined);
+    const [using, setUsing] = useState<Pad | undefined>(undefined);
 
     if (rack.isPending) return <PageSkeleton variant="rows" count={6} />;
     if (rack.isError) return <ErrorAlert title={t('page.loadFailed')} error={rack.error} />;
@@ -135,6 +140,7 @@ export function PadsPage() {
                             onToggle={(setId, padId, on) => void membership.mutateAsync({ id: setId, body: { padId, on } })}
                             onReject={id => void setState.mutateAsync({ id, body: { state: 'rejected' } })}
                             onDelete={setDeleting}
+                            onUse={setUsing}
                         />
                     </Stack>
                 </Card>
@@ -157,6 +163,15 @@ export function PadsPage() {
                     </Stack>
                 </Card>
             ) : undefined}
+
+            <PadUseModal
+                key={using?.id ?? 'closed'}
+                pad={using}
+                onClose={() => setUsing(undefined)}
+                onSave={async body => {
+                    if (using !== undefined) await setUse.mutateAsync({ id: using.id, body });
+                }}
+            />
 
             <ConfirmModal
                 opened={deleting !== undefined}
@@ -340,9 +355,11 @@ interface PadTableProps {
     onReject?: (id: string) => void;
     onRestore?: (id: string) => void;
     onDelete?: (pad: Pad) => void;
+    /** Opens where-and-when for a sound in use. Absent on the rejected list, where it would decide nothing. */
+    onUse?: (pad: Pad) => void;
 }
 
-function PadTable({ pads, sets, preview, onToggle, onReject, onRestore, onDelete }: PadTableProps) {
+function PadTable({ pads, sets, preview, onToggle, onReject, onRestore, onDelete, onUse }: PadTableProps) {
     const { t } = useTranslation('pads');
     return (
         <Table.ScrollContainer minWidth={700}>
@@ -383,6 +400,7 @@ function PadTable({ pads, sets, preview, onToggle, onReject, onRestore, onDelete
                             </Table.Td>
                             <Table.Td>
                                 <Text size="sm">{pad.label}</Text>
+                                <PadUseSummary pad={pad} />
                                 {pad.sourcePath ? (
                                     <Text size="xs" c="dimmed">
                                         {pad.sourcePath}
@@ -446,6 +464,17 @@ function PadTable({ pads, sets, preview, onToggle, onReject, onRestore, onDelete
                                             <IconDownload size={16} />
                                         </ActionIcon>
                                     </Tooltip>
+                                    {onUse ? (
+                                        <Tooltip label={t('table.use')}>
+                                            <ActionIcon
+                                                variant="subtle"
+                                                aria-label={t('table.useLabel', { label: pad.label })}
+                                                onClick={() => onUse(pad)}
+                                            >
+                                                <IconAdjustmentsHorizontal size={16} />
+                                            </ActionIcon>
+                                        </Tooltip>
+                                    ) : undefined}
                                     {onReject ? (
                                         <Tooltip label={t('table.reject')}>
                                             <ActionIcon

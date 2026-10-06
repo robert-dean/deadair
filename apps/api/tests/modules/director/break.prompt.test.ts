@@ -277,6 +277,25 @@ describe('breakPrompt', () => {
             expect(rules).toMatch(/do not describe it or say its name as words/i);
         });
 
+        it('says beside a sound where it may go and when, and asks the model to keep to it', () => {
+            const padUse = {
+                guitarriff: { placements: ['middle' as const] },
+                rimshot: { placements: ['start' as const, 'middle' as const, 'end' as const], cue: 'right after a punchline' },
+            };
+            const rules = system(
+                prompt({ kind: 'talkbreak', previous, next }, { reactions: laughs, pads: ['honk', 'guitarriff', 'rimshot'], padUse }),
+            );
+
+            expect(rules).toContain('[sfx:honk], [sfx:guitarriff] (only between two of your words), [sfx:rimshot] (right after a punchline)');
+            expect(rules).toMatch(/keep to it: a sound put anywhere else is not played/);
+        });
+
+        it('asks nothing new of a rack nobody has given notes', () => {
+            const rules = system(prompt({ kind: 'talkbreak', previous, next }, { reactions: laughs, pads: ['airhorn'] }));
+
+            expect(rules).not.toMatch(/note in brackets/);
+        });
+
         it('says nothing about a soundboard to a character with no rack', () => {
             const rules = system(prompt({ kind: 'talkbreak', previous, next }, { reactions: laughs }));
 

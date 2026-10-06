@@ -7,8 +7,8 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { EnrichmentReadService, type FactBudget } from '#modules/enrichment/enrichment.read.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
-import { padCue, padsIn } from '#modules/render/pad.cues.js';
-import { PadRepository } from '#modules/render/pad.repository.js';
+import { padCue, padPlacementsIn, padsIn, padUseNotes, withoutPads, type PadUseNote } from '#modules/render/pad.cues.js';
+import { padCanSting, PadRepository } from '#modules/render/pad.repository.js';
 import { padEveryBreaks, padsAreOn } from '#modules/render/pad.settings.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { PersonaNotesRepository } from '#modules/personas/persona.notes.repository.js';
@@ -496,8 +496,17 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // the sound joined would not be the one the words were written for.
         // The FLOOR runs first, because it can only ever change a script that hit nothing — so what
         // `hits` resolves below is the finished words either way, whoever decided them.
-        const script = await this.floorPad(result, persona, segment.kind);
-        const pads = await this.hits(script, persona);
+        const finished = await this.floorPad(result, persona, segment.kind);
+        const { hits: pads, misplaced } = await this.hits(finished, persona);
+        // A hit the pad may not take where it landed is out of the row already; taking its token out
+        // of the words too is what keeps the console showing the break that airs.
+        const script =
+            misplaced.length === 0
+                ? finished
+                : withoutPads(
+                      finished,
+                      padsIn(finished).filter(name => !misplaced.includes(name)),
+                  );
 
         if (
             !(await this.segments.writeScript(segmentId, {
@@ -853,8 +862,12 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             const since = await this.segments.breaksSincePad();
             if (since < every) return script;
 
-            // Least recently hit, which is the order the read already answers in.
-            return `${script} ${padCue(rack[0]!.name)}`;
+            // Least recently hit among those that may close a break unprompted, which is the order the
+            // read already answers in. A rack of nothing but mid-break and cued sounds gets no sting.
+            const sting = rack.find(padCanSting);
+            if (sting === undefined) return script;
+
+            return `${script} ${padCue(sting.name)}`;
         } catch (error) {
             // The floor cannot fail. A rack that could not be read costs the break its sting.
             this.logger.debug(`director: could not decide whether to hit a pad (${errorText(error)})`);
@@ -879,29 +892,39 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
      * Best-effort as a whole, like everything else read here: a rack that could not be reached costs
      * the break its noise and never the break.
      */
-    private async hits(script: string, persona: Persona | undefined): Promise<PadHit[]> {
+    private async hits(script: string, persona: Persona | undefined): Promise<{ hits: PadHit[]; misplaced: string[] }> {
         const board = persona?.soundboard;
-        if (board === undefined) return [];
+        if (board === undefined) return { hits: [], misplaced: [] };
 
-        const names = padsIn(script);
-        if (names.length === 0) return [];
+        const placed = padPlacementsIn(script);
+        if (placed.length === 0) return { hits: [], misplaced: [] };
 
         try {
             const hits: PadHit[] = [];
-            for (const name of names) {
+            const misplaced: string[] = [];
+            for (const { name, at } of placed) {
                 const pad = await this.padRepository.named(board, name);
                 if (pad === undefined) {
                     this.logger.info('director: a break hit a pad the board no longer holds', { job: this.context.id, board, pad: name });
                     continue;
                 }
 
+                // Where the operator said this sound may not go. Dropped, on the bargain above for a
+                // pad that has gone: the words are fine, they air without the sound. Not rested,
+                // since it never played.
+                if (!pad.placements.includes(at)) {
+                    this.logger.info('director: a break hit a pad where it may not land', { job: this.context.id, board, pad: name, at });
+                    misplaced.push(name);
+                    continue;
+                }
+
                 hits.push({ name, padId: pad.id });
                 await this.padRepository.markUsed(pad.id);
             }
-            return hits;
+            return { hits, misplaced };
         } catch (error) {
             this.logger.warn(`director: could not resolve a soundboard hit (${errorText(error)})`);
-            return [];
+            return { hits: [], misplaced: [] };
         }
     }
 
@@ -922,12 +945,18 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
      * pad is spent when one is actually chosen, and the model has not chosen yet: this is the offer.
      * `RenderSegmentJob` is what marks the hit, because it is what reads the answer back.
      */
-    private async pads(persona: Persona | undefined): Promise<{ pads?: readonly string[] }> {
+    private async pads(
+        persona: Persona | undefined,
+    ): Promise<{ pads?: readonly string[]; stings?: readonly string[]; padUse?: Readonly<Record<string, PadUseNote>> }> {
         if (persona?.soundboard === undefined) return {};
 
         try {
             const rack = await this.padRepository.onSet(persona.soundboard);
-            return rack.length === 0 ? {} : { pads: rack.map(pad => pad.name) };
+            if (rack.length === 0) return {};
+
+            const stings = rack.filter(padCanSting).map(pad => pad.name);
+            const padUse = padUseNotes(rack);
+            return { pads: rack.map(pad => pad.name), ...(stings.length === 0 ? {} : { stings }), ...(padUse === undefined ? {} : { padUse }) };
         } catch (error) {
             this.logger.debug(`director: could not read the soundboard (${errorText(error)})`);
             return {};

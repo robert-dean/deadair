@@ -6,6 +6,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PluginError } from '@deadair/plugin-sdk';
 
+import { PadJoiner } from '../../../src/modules/render/pad.join.js';
 import { RenderSegmentJob } from '../../../src/modules/render/render.segment.job.js';
 import type { SegmentRepository, Segment } from '../../../src/modules/render/segment.repository.js';
 import type { SpeechService } from '../../../src/modules/render/speech.service.js';
@@ -106,7 +107,9 @@ function harness(
     const job = new RenderSegmentJob(
         segments,
         speech,
-        mixer,
+        // The real joiner over the faked mixer, so every join assertion below still reads the
+        // request the mixer was handed.
+        new PadJoiner(mixer as never, signer as never, config, logger as never),
         store,
         pads,
         analysis,

@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.46.0] — 2026-10-06
+
+- The Pads page can now say where and when each sound is used. A new button beside each sound opens three boxes for where in a break it may land (before the words, between words, after the words) and a box for when to reach for it, in your own words. A sound with either set shows a short line under its name, such as "Only between words" or "“right after a punchline”", and a sound left as it was shows nothing new.
+- A soundboard sound can now say where in a break it may land and when to reach for it. Each pad carries its placements (before the first word, between two, after the last) and an optional cue in your own words, such as "right after a punchline", set through `PUT /pads/{id}/use`. Every pad starts out allowed everywhere with no cue, so nothing a station already airs changes until somebody sets one; the writers and the console start reading these in the releases that follow.
+- A presenter is now told where each soundboard sound may go and when to reach for it, and is held to the first. A sound that has been given placements or a cue is offered with a short note beside it, such as "(right after a punchline)" or "(only between two of your words)", in talk breaks and in programmes alike. A sound the model puts somewhere it is not allowed (a guitar lick before the first word or after the last, when it is kept to the middle) is dropped and the words air without it. A soundboard nobody has set up is offered exactly as before.
+- Jingles and the station's own fallback breaks now only end on a sound that is allowed at the end of a break and has no cue. A sound kept to the middle (a guitar lick that would otherwise run into the next record) or one waiting for its moment (a rimshot for a punchline) is no longer tacked onto a station ident or a template line; when nothing on the rack qualifies, those breaks are simply words. Breaks the model writes are unchanged.
+
 ## [0.45.0] — 2026-10-06
 
 - The play button on an audition card now plays a soundboard hit along with the words, mixed as it would be on air, when the character has a board and the break reached for one of its pads.
@@ -1117,7 +1124,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.45.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.46.0...HEAD
+[0.46.0]: https://github.com/robert-dean/deadair/compare/v0.45.0...v0.46.0
 [0.45.0]: https://github.com/robert-dean/deadair/compare/v0.44.7...v0.45.0
 [0.44.7]: https://github.com/robert-dean/deadair/compare/v0.44.6...v0.44.7
 [0.44.6]: https://github.com/robert-dean/deadair/compare/v0.44.5...v0.44.6

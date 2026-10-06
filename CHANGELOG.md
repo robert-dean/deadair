@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.44.7] — 2026-10-06
+
+- Two talk-ups on consecutive records now both air. The audio chain holds one talk-over at a time, and the second record's talk-over was armed as that record was queued, which is the moment the first record started and before its own talk-over was due, so the first was replaced without a word. Each talk-over now waits until the one before it has been spoken.
+- The presenter now speaks at the level you set instead of about 6 dB under it. Every spoken break was coming out about 6 dB quieter than your target loudness, so the presenter sat noticeably under the records either side and close to the music during a talk-over. The voice's compressor was set for an older, quieter target and was squeezing the whole voice instead of just its peaks. It now follows the level the voice is aimed at, so changing the target loudness or the "keep the DJ under the music" setting moves the voice exactly as far as you asked, with no restart. Breaks will sound louder than before; if you liked the presenter tucked under the music, raise "Keep the DJ under the music by (dB)".
+
 ## [0.44.6] — 2026-10-05
 
 - A never-play rule can now be limited to station modes (rotation, setlist, feature) and to particular schedule blocks from the Programme page, and the list of rules says which blocks each one is limited to. A station whose rules refuse most of its library no longer runs short: the ordinary rotation leaves refused records out of its draw and draws again to make up the difference, instead of choosing records the station was always going to refuse.
@@ -1105,7 +1110,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.44.6...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.44.7...HEAD
+[0.44.7]: https://github.com/robert-dean/deadair/compare/v0.44.6...v0.44.7
 [0.44.6]: https://github.com/robert-dean/deadair/compare/v0.44.5...v0.44.6
 [0.44.5]: https://github.com/robert-dean/deadair/compare/v0.44.4...v0.44.5
 [0.44.4]: https://github.com/robert-dean/deadair/compare/v0.44.3...v0.44.4

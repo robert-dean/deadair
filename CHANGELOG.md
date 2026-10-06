@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.45.0] — 2026-10-06
+
+- The play button on an audition card now plays a soundboard hit along with the words, mixed as it would be on air, when the character has a board and the break reached for one of its pads.
+- Auditions now offer the character its soundboard. A host with a board can reach for a pad during an audition exactly as it would on air, so a run shows whether a character uses its sounds and how often. The hit appears in the transition's script as `[sfx:name]`. An audition never marks a pad as used, so running one does not change which sound the next real break is offered first.
+- Audition and rehearsal cards now draw a soundboard hit as a `[sfx:name]` chip where it lands in the break, matching the token on the Pads page, instead of leaving it as bracketed text in the script.
+- A speech preview can now play a soundboard hit. `POST /voices/preview` takes an optional `soundboard`, and when the text contains `[sfx:name]` for a pad on that board, the preview is spoken around the pad and mixed exactly as the break would be on air, at the same level and in the same place. If the board does not hold the pad, or no mixer is installed, you hear the words alone as before. Replacing a pad or changing a pad level setting makes a fresh preview instead of replaying the old one.
+
 ## [0.44.7] — 2026-10-06
 
 - Two talk-ups on consecutive records now both air. The audio chain holds one talk-over at a time, and the second record's talk-over was armed as that record was queued, which is the moment the first record started and before its own talk-over was due, so the first was replaced without a word. Each talk-over now waits until the one before it has been spoken.
@@ -1110,7 +1117,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.44.7...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.45.0...HEAD
+[0.45.0]: https://github.com/robert-dean/deadair/compare/v0.44.7...v0.45.0
 [0.44.7]: https://github.com/robert-dean/deadair/compare/v0.44.6...v0.44.7
 [0.44.6]: https://github.com/robert-dean/deadair/compare/v0.44.5...v0.44.6
 [0.44.5]: https://github.com/robert-dean/deadair/compare/v0.44.4...v0.44.5

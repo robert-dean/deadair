@@ -237,58 +237,11 @@ export interface PronunciationQuery {
 }
 
 /**
- * One sound on a soundboard, as the console draws it.
- *
- * `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
- * than one, because a token for a model and prose for an operator are different things and the
- * filename produces both
- * generated from [Pad](../../../../../apps/api/data/contracts/render/render.types.ck#L195)
+ * Where in a break a sound may fall. `start` is before the first word, `end` after the last, and
+ * `middle` anywhere between two words
+ * generated from [PadPlacement](../../../../../apps/api/data/contracts/render/render.types.ck#L213)
  */
-export interface Pad {
-    id: string;
-    /** Which directory it arrived in. Provenance: what reaches it is a set */
-    board: string;
-    /** The keys of the sets it is on. Empty means it is in the library and nothing can hit it */
-    sets: string[];
-    /** What a script writes: `[sfx:airhorn]` */
-    name: string;
-    label: string;
-    durationMs?: number;
-    /** How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary */
-    loudnessLufs?: number;
-    /** Who put the file there: `library` for one the operator dropped in, `upload` or `url` for one the console wrote. It decides whether the console may delete it */
-    source: string;
-    /** The file in the library directory it was imported from, so the console can say where it came from */
-    sourcePath?: string;
-    /** When it was last hit. Absent for one nothing has reached for yet */
-    lastUsedAt?: DateTime;
-    state: 'active' | 'rejected';
-}
-
-export interface PadInput {
-    /** Which directory it arrived in. Provenance: what reaches it is a set */
-    board: string;
-    /** What a script writes: `[sfx:airhorn]` */
-    name: string;
-    label: string;
-    durationMs?: number;
-    /** How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary */
-    loudnessLufs?: number;
-    /** The file in the library directory it was imported from, so the console can say where it came from */
-    sourcePath?: string;
-    /** When it was last hit. Absent for one nothing has reached for yet */
-    lastUsedAt?: DateTime;
-    state: 'active' | 'rejected';
-}
-
-/** Rehydrates every wire-encoded scalar in a Pad into its runtime type. Mutates and returns `raw`. */
-export function revivePad(raw: Pad): Pad {
-    const __o0 = raw as unknown as Record<string, unknown>;
-    if (__o0['lastUsedAt'] != null) {
-        __o0['lastUsedAt'] = __dt(__o0['lastUsedAt'], 'Pad.lastUsedAt');
-    }
-    return raw;
-}
+export type PadPlacement = 'start' | 'middle' | 'end';
 
 /**
  * A sound arriving from the browser, as multipart form parts.
@@ -296,7 +249,7 @@ export function revivePad(raw: Pad): Pad {
  * Documentation rather than validation: a multipart body reaches the service as the raw parser and
  * the generated client types the body as `FormData`, so nothing checks this shape. It says what to
  * send
- * generated from [PadUpload](../../../../../apps/api/data/contracts/render/render.types.ck#L214)
+ * generated from [PadUpload](../../../../../apps/api/data/contracts/render/render.types.ck#L226)
  */
 export interface PadUpload {
     /** The audio itself. mp3, wav, ogg, flac or m4a, and at most 25 MB */
@@ -315,7 +268,7 @@ export interface PadUpload {
  * The operator names the address, so this is them choosing a file exactly as dropping one in the
  * library is. Nothing inspects what comes back and nothing records a claim about its licence -- see
  * `docs/internals/render.md` under "Pads", whose line is redistribution rather than use
- * generated from [PadFetch](../../../../../apps/api/data/contracts/render/render.types.ck#L226)
+ * generated from [PadFetch](../../../../../apps/api/data/contracts/render/render.types.ck#L238)
  */
 export interface PadFetch {
     /** Where the audio is. Followed once, bounded, and refused unless what comes back is a format the station serves */
@@ -332,7 +285,7 @@ export interface PadFetch {
  *
  * One library, cut as many ways as an operator likes. `personas.soundboard` holds the `key`, so
  * renaming a set unpoints every persona naming it — which is why `personas` says who those are
- * generated from [PadSet](../../../../../apps/api/data/contracts/render/render.types.ck#L242)
+ * generated from [PadSet](../../../../../apps/api/data/contracts/render/render.types.ck#L254)
  */
 export interface PadSet {
     id: string;
@@ -355,7 +308,7 @@ export interface PadSetInput {
 
 /**
  * A set an operator is naming, or renaming
- * generated from [PadSetWrite](../../../../../apps/api/data/contracts/render/render.types.ck#L251)
+ * generated from [PadSetWrite](../../../../../apps/api/data/contracts/render/render.types.ck#L263)
  */
 export interface PadSetWrite {
     key: string;
@@ -365,7 +318,7 @@ export interface PadSetWrite {
 
 /**
  * Which pad, and whether it is on the set
- * generated from [PadSetMembership](../../../../../apps/api/data/contracts/render/render.types.ck#L257)
+ * generated from [PadSetMembership](../../../../../apps/api/data/contracts/render/render.types.ck#L269)
  */
 export interface PadSetMembership {
     padId: string;
@@ -374,7 +327,7 @@ export interface PadSetMembership {
 
 /**
  * Turning a pad down, or putting one back
- * generated from [PadState](../../../../../apps/api/data/contracts/render/render.types.ck#L262)
+ * generated from [PadState](../../../../../apps/api/data/contracts/render/render.types.ck#L274)
  */
 export interface PadState {
     state: 'active' | 'rejected';
@@ -382,7 +335,7 @@ export interface PadState {
 
 /**
  * What one pass over the pad library did
- * generated from [PadScanResult](../../../../../apps/api/data/contracts/render/render.types.ck#L266)
+ * generated from [PadScanResult](../../../../../apps/api/data/contracts/render/render.types.ck#L278)
  */
 export interface PadScanResult {
     /** Audio files seen, whether or not anything changed */
@@ -399,7 +352,7 @@ export interface PadScanResult {
 
 /**
  * Which copy of a segment's audio. `original` is what the station airs. `share` is a small copy made for a listener to send on, AAC in an .m4a, never aired
- * generated from [SegmentAudioRendition](../../../../../apps/api/data/contracts/render/render.types.ck#L274)
+ * generated from [SegmentAudioRendition](../../../../../apps/api/data/contracts/render/render.types.ck#L286)
  */
 export type SegmentAudioRendition = 'original' | 'share';
 
@@ -549,33 +502,80 @@ export interface PronunciationList {
 }
 
 /**
- * Every sound the station holds, and the sets over it
- * generated from [PadList](../../../../../apps/api/data/contracts/render/render.types.ck#L233)
+ * One sound on a soundboard, as the console draws it.
+ *
+ * `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
+ * than one, because a token for a model and prose for an operator are different things and the
+ * filename produces both
+ * generated from [Pad](../../../../../apps/api/data/contracts/render/render.types.ck#L195)
  */
-export interface PadList {
-    pads: Pad[];
-    sets: PadSet[];
+export interface Pad {
+    id: string;
+    /** Which directory it arrived in. Provenance: what reaches it is a set */
+    board: string;
+    /** The keys of the sets it is on. Empty means it is in the library and nothing can hit it */
+    sets: string[];
+    /** What a script writes: `[sfx:airhorn]` */
+    name: string;
+    label: string;
+    durationMs?: number;
+    /** How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary */
+    loudnessLufs?: number;
+    /** Who put the file there: `library` for one the operator dropped in, `upload` or `url` for one the console wrote. It decides whether the console may delete it */
+    source: string;
+    /** The file in the library directory it was imported from, so the console can say where it came from */
+    sourcePath?: string;
+    /** When it was last hit. Absent for one nothing has reached for yet */
+    lastUsedAt?: DateTime;
+    state: 'active' | 'rejected';
+    /** Where in a break it may land: before the first word, between two, or after the last. Every pad starts with all three */
+    placements: PadPlacement[];
+    /** When to reach for it, in the operator's words ("right after a punchline"). Shown to the presenter beside the sound; the station's own writers leave a cued pad alone */
+    cue?: string;
 }
 
-export interface PadListInput {
-    pads: PadInput[];
-    sets: PadSetInput[];
+export interface PadInput {
+    /** Which directory it arrived in. Provenance: what reaches it is a set */
+    board: string;
+    /** What a script writes: `[sfx:airhorn]` */
+    name: string;
+    label: string;
+    durationMs?: number;
+    /** How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary */
+    loudnessLufs?: number;
+    /** The file in the library directory it was imported from, so the console can say where it came from */
+    sourcePath?: string;
+    /** When it was last hit. Absent for one nothing has reached for yet */
+    lastUsedAt?: DateTime;
+    state: 'active' | 'rejected';
+    /** Where in a break it may land: before the first word, between two, or after the last. Every pad starts with all three */
+    placements: PadPlacement[];
+    /** When to reach for it, in the operator's words ("right after a punchline"). Shown to the presenter beside the sound; the station's own writers leave a cued pad alone */
+    cue?: string;
 }
 
-/** Rehydrates every wire-encoded scalar in a PadList into its runtime type. Mutates and returns `raw`. */
-export function revivePadList(raw: PadList): PadList {
+/** Rehydrates every wire-encoded scalar in a Pad into its runtime type. Mutates and returns `raw`. */
+export function revivePad(raw: Pad): Pad {
     const __o0 = raw as unknown as Record<string, unknown>;
-    {
-        const __a1 = __o0['pads'] as unknown[];
-        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
-            revivePad(__a1[__i2] as never);
-        }
+    if (__o0['lastUsedAt'] != null) {
+        __o0['lastUsedAt'] = __dt(__o0['lastUsedAt'], 'Pad.lastUsedAt');
     }
     return raw;
 }
 
 /**
- * generated from [SegmentAudioQuery](../../../../../apps/api/data/contracts/render/render.types.ck#L276)
+ * Where and when a pad may be hit, written together because the console edits them together
+ * generated from [PadUse](../../../../../apps/api/data/contracts/render/render.types.ck#L216)
+ */
+export interface PadUse {
+    /** At least one: a sound that may go nowhere is a sound turned down, which is what `PadState` is for */
+    placements: PadPlacement[];
+    /** Absent clears it, so the pad is fair game wherever its placements allow */
+    cue?: string;
+}
+
+/**
+ * generated from [SegmentAudioQuery](../../../../../apps/api/data/contracts/render/render.types.ck#L288)
  */
 export interface SegmentAudioQuery {
     /** A purpose the station interprets rather than a format the caller picks, so what `share` means can change without any caller changing */
@@ -604,6 +604,32 @@ export function reviveScriptHistoryPage(raw: ScriptHistoryPage): ScriptHistoryPa
         const __a1 = __o0['attempts'] as unknown[];
         for (let __i2 = 0; __i2 < __a1.length; __i2++) {
             reviveScriptAttempt(__a1[__i2] as never);
+        }
+    }
+    return raw;
+}
+
+/**
+ * Every sound the station holds, and the sets over it
+ * generated from [PadList](../../../../../apps/api/data/contracts/render/render.types.ck#L245)
+ */
+export interface PadList {
+    pads: Pad[];
+    sets: PadSet[];
+}
+
+export interface PadListInput {
+    pads: PadInput[];
+    sets: PadSetInput[];
+}
+
+/** Rehydrates every wire-encoded scalar in a PadList into its runtime type. Mutates and returns `raw`. */
+export function revivePadList(raw: PadList): PadList {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    {
+        const __a1 = __o0['pads'] as unknown[];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            revivePad(__a1[__i2] as never);
         }
     }
     return raw;

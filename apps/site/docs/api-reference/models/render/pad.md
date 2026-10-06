@@ -12,7 +12,7 @@ mdx:
 > filename produces both
 
 <details>
-<summary>Attributes (11)</summary>
+<summary>Attributes (13)</summary>
 
 | Attribute      | Type                     | Required | Description                                                                                                                                                               |
 | -------------- | ------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -27,5 +27,7 @@ mdx:
 | `sourcePath`   | `string`                 | No       | The file in the library directory it was imported from, so the console can say where it came from                                                                         |
 | `lastUsedAt`   | `string`                 | No       | When it was last hit. Absent for one nothing has reached for yet                                                                                                          |
 | `state`        | `'active' \| 'rejected'` | Yes      |                                                                                                                                                                           |
+| `placements`   | `PadPlacement[]`         | Yes      | Where in a break it may land: before the first word, between two, or after the last. Every pad starts with all three                                                      |
+| `cue`          | `string`                 | No       | When to reach for it, in the operator's words ("right after a punchline"). Shown to the presenter beside the sound; the station's own writers leave a cued pad alone      |
 
 </details>

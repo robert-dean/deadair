@@ -7,6 +7,7 @@ import type {
     PadSetMembership,
     PadSetWrite,
     PadState,
+    PadUse,
     PronunciationList,
     PronunciationQuery,
     PronunciationStateWrite,
@@ -395,6 +396,19 @@ export class RenderClient {
      */
     async setPadState(id: string, body: PadState): Promise<PadList> {
         const result = await this.fetch(`/pads/${encodeURIComponent(id)}/state`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return revivePadList(await parseJson<PadList>(result));
+    }
+
+    /**
+     * @name Set pad use
+     * @description Says where in a break a sound may land and when to reach for it. Answers the whole rack
+     */
+    async setPadUse(id: string, body: PadUse): Promise<PadList> {
+        const result = await this.fetch(`/pads/${encodeURIComponent(id)}/use`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),

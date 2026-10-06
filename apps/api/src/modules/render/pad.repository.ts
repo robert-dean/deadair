@@ -8,6 +8,20 @@ import { isSegmentExtension, type SegmentExtension } from './segment.store.js';
 export type PadState = 'active' | 'rejected';
 
 /**
+ * Where in a break a pad may land: before the first word, between two, or after the last.
+ *
+ * A closed list the table holds a pad to (`pads_placements_check`), in the order a break reads.
+ */
+export const PAD_PLACEMENTS = ['start', 'middle', 'end'] as const;
+
+export type PadPlacement = (typeof PAD_PLACEMENTS)[number];
+
+/** Whether a string is one of {@link PAD_PLACEMENTS}. */
+export function isPadPlacement(value: string): value is PadPlacement {
+    return (PAD_PLACEMENTS as readonly string[]).includes(value);
+}
+
+/**
  * One sound on a board.
  *
  * `audioChecksum` and `audioExt` are required rather than a pair to be narrowed, which is the whole
@@ -45,6 +59,17 @@ export interface Pad {
     /** When it was last chosen, as an ISO-8601 string. Absent for one never hit. */
     lastUsedAt?: string;
     state: PadState;
+    /** Where in a break it may land, in {@link PAD_PLACEMENTS} order. Never empty. */
+    placements: PadPlacement[];
+    /**
+     * When to reach for it, in the operator's words. Absent for a pad that is fair game wherever its
+     * placements allow.
+     *
+     * Read by a MODEL and checked by nothing, because no code can tell a punchline from any other
+     * sentence. What it does decide is that a writer appending a sound to a template line leaves a
+     * cued pad alone, since that line was never the moment the cue describes.
+     */
+    cue?: string;
 }
 
 /** A pad as it arrives from the library or the console: audio first, everything else described. */
@@ -367,6 +392,24 @@ export class PadRepository extends DataRepository {
         return Number(result.numDeletedRows) > 0;
     }
 
+    /**
+     * Where in a break a pad may land and when to reach for it, written together because the console
+     * edits them together. Placements are stored in break order with duplicates dropped; an empty
+     * list is the caller's to refuse, and the table refuses it again if one gets this far.
+     */
+    async setUse(id: string, use: { placements: readonly PadPlacement[]; cue?: string }): Promise<boolean> {
+        const placements = PAD_PLACEMENTS.filter(placement => use.placements.includes(placement));
+        const cue = use.cue?.trim();
+        const result = await this.db
+            .updateTable('deadair.pads')
+            .set({ placements, cue: cue ? cue : null })
+            .where('id', '=', id)
+            .where('stationKey', '=', this.station.stationKey)
+            .executeTakeFirst();
+
+        return Number(result.numUpdatedRows) > 0;
+    }
+
     async setState(id: string, state: PadState): Promise<boolean> {
         const result = await this.db
             .updateTable('deadair.pads')
@@ -428,7 +471,14 @@ function toPad(row: {
     sourcePath: string | null;
     lastUsedAt: { toISO(): string | null } | null;
     state: PadState;
+    placements: string[];
+    cue: string | null;
 }): Pad {
+    // Narrowed rather than trusted, as the extension is, and an unreadable list falls back to every
+    // placement: that is what a pad could do before the column existed, which is a better failure
+    // than a sound that silently can go nowhere.
+    const placements = PAD_PLACEMENTS.filter(placement => (row.placements ?? []).includes(placement));
+
     return {
         id: row.id,
         board: row.board,
@@ -443,5 +493,7 @@ function toPad(row: {
         ...(row.sourcePath == null ? {} : { sourcePath: row.sourcePath }),
         ...(row.lastUsedAt == null ? {} : { lastUsedAt: row.lastUsedAt.toISO() ?? '' }),
         state: row.state,
+        placements: placements.length > 0 ? placements : [...PAD_PLACEMENTS],
+        ...(row.cue == null ? {} : { cue: row.cue }),
     };
 }

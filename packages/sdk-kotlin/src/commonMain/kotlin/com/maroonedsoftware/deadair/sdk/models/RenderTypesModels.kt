@@ -222,57 +222,18 @@ data class PronunciationQuery(
 )
 
 /**
- * One sound on a soundboard, as the console draws it.
- *
- * `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
- * than one, because a token for a model and prose for an operator are different things and the
- * filename produces both
+ * Where in a break a sound may fall. `start` is before the first word, `end` after the last, and
+ * `middle` anywhere between two words
  */
 @Serializable
-data class Pad(
-    val id: Uuid,
-    /** Which directory it arrived in. Provenance: what reaches it is a set */
-    val board: String,
-    /** The keys of the sets it is on. Empty means it is in the library and nothing can hit it */
-    val sets: List<String>,
-    /** What a script writes: `[sfx:airhorn]` */
-    val name: String,
-    val label: String,
-    val durationMs: Long? = null,
-    /** How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary */
-    val loudnessLufs: Double? = null,
-    /** Who put the file there: `library` for one the operator dropped in, `upload` or `url` for one the console wrote. It decides whether the console may delete it */
-    val source: String,
-    /** The file in the library directory it was imported from, so the console can say where it came from */
-    val sourcePath: String? = null,
-    /** When it was last hit. Absent for one nothing has reached for yet */
-    val lastUsedAt: Instant? = null,
-    val state: PadState2,
-)
-
-/**
- * One sound on a soundboard, as the console draws it.
- *
- * `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
- * than one, because a token for a model and prose for an operator are different things and the
- * filename produces both
- */
-@Serializable
-data class PadInput(
-    /** Which directory it arrived in. Provenance: what reaches it is a set */
-    val board: String,
-    /** What a script writes: `[sfx:airhorn]` */
-    val name: String,
-    val label: String,
-    val durationMs: Long? = null,
-    /** How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary */
-    val loudnessLufs: Double? = null,
-    /** The file in the library directory it was imported from, so the console can say where it came from */
-    val sourcePath: String? = null,
-    /** When it was last hit. Absent for one nothing has reached for yet */
-    val lastUsedAt: Instant? = null,
-    val state: PadState2,
-)
+enum class PadPlacement {
+    @SerialName("start")
+    START,
+    @SerialName("middle")
+    MIDDLE,
+    @SerialName("end")
+    END,
+}
 
 /**
  * A sound arriving from the browser, as multipart form parts.
@@ -515,18 +476,74 @@ data class PronunciationList(
     val pronunciations: List<Pronunciation>,
 )
 
-/** Every sound the station holds, and the sets over it */
+/**
+ * One sound on a soundboard, as the console draws it.
+ *
+ * `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
+ * than one, because a token for a model and prose for an operator are different things and the
+ * filename produces both
+ */
 @Serializable
-data class PadList(
-    val pads: List<Pad>,
-    val sets: List<PadSet>,
+data class Pad(
+    val id: Uuid,
+    /** Which directory it arrived in. Provenance: what reaches it is a set */
+    val board: String,
+    /** The keys of the sets it is on. Empty means it is in the library and nothing can hit it */
+    val sets: List<String>,
+    /** What a script writes: `[sfx:airhorn]` */
+    val name: String,
+    val label: String,
+    val durationMs: Long? = null,
+    /** How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary */
+    val loudnessLufs: Double? = null,
+    /** Who put the file there: `library` for one the operator dropped in, `upload` or `url` for one the console wrote. It decides whether the console may delete it */
+    val source: String,
+    /** The file in the library directory it was imported from, so the console can say where it came from */
+    val sourcePath: String? = null,
+    /** When it was last hit. Absent for one nothing has reached for yet */
+    val lastUsedAt: Instant? = null,
+    val state: PadState2,
+    /** Where in a break it may land: before the first word, between two, or after the last. Every pad starts with all three */
+    val placements: List<PadPlacement>,
+    /** When to reach for it, in the operator's words ("right after a punchline"). Shown to the presenter beside the sound; the station's own writers leave a cued pad alone */
+    val cue: String? = null,
 )
 
-/** Every sound the station holds, and the sets over it */
+/**
+ * One sound on a soundboard, as the console draws it.
+ *
+ * `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
+ * than one, because a token for a model and prose for an operator are different things and the
+ * filename produces both
+ */
 @Serializable
-data class PadListInput(
-    val pads: List<PadInput>,
-    val sets: List<PadSetInput>,
+data class PadInput(
+    /** Which directory it arrived in. Provenance: what reaches it is a set */
+    val board: String,
+    /** What a script writes: `[sfx:airhorn]` */
+    val name: String,
+    val label: String,
+    val durationMs: Long? = null,
+    /** How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary */
+    val loudnessLufs: Double? = null,
+    /** The file in the library directory it was imported from, so the console can say where it came from */
+    val sourcePath: String? = null,
+    /** When it was last hit. Absent for one nothing has reached for yet */
+    val lastUsedAt: Instant? = null,
+    val state: PadState2,
+    /** Where in a break it may land: before the first word, between two, or after the last. Every pad starts with all three */
+    val placements: List<PadPlacement>,
+    /** When to reach for it, in the operator's words ("right after a punchline"). Shown to the presenter beside the sound; the station's own writers leave a cued pad alone */
+    val cue: String? = null,
+)
+
+/** Where and when a pad may be hit, written together because the console edits them together */
+@Serializable
+data class PadUse(
+    /** At least one: a sound that may go nowhere is a sound turned down, which is what `PadState` is for */
+    val placements: List<PadPlacement>,
+    /** Absent clears it, so the pad is fair game wherever its placements allow */
+    val cue: String? = null,
 )
 
 @Serializable
@@ -547,6 +564,20 @@ data class ScriptHistoryPageInput(
     val attempts: List<ScriptAttemptInput>,
     /** The cursor for the page after this one, absent once the history has been read to its end */
     val nextBefore: String? = null,
+)
+
+/** Every sound the station holds, and the sets over it */
+@Serializable
+data class PadList(
+    val pads: List<Pad>,
+    val sets: List<PadSet>,
+)
+
+/** Every sound the station holds, and the sets over it */
+@Serializable
+data class PadListInput(
+    val pads: List<PadInput>,
+    val sets: List<PadSetInput>,
 )
 
 /** One state per stage of making it. Only `ready` can go on air; the station skips anything else rather than waiting for it */

@@ -624,155 +624,12 @@ public struct PronunciationQuery: Codable, Equatable, Sendable {
     }
 }
 
-/// One sound on a soundboard, as the console draws it.
-///
-/// `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
-/// than one, because a token for a model and prose for an operator are different things and the
-/// filename produces both
-public struct Pad: Codable, Equatable, Sendable {
-    public var id: UUID
-    /// Which directory it arrived in. Provenance: what reaches it is a set
-    public var board: String
-    /// The keys of the sets it is on. Empty means it is in the library and nothing can hit it
-    public var sets: [String]
-    /// What a script writes: `[sfx:airhorn]`
-    public var name: String
-    public var label: String
-    public var durationMs: Int?
-    /// How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary
-    public var loudnessLufs: Double?
-    /// Who put the file there: `library` for one the operator dropped in, `upload` or `url` for one the console wrote. It decides whether the console may delete it
-    public var source: String
-    /// The file in the library directory it was imported from, so the console can say where it came from
-    public var sourcePath: String?
-    /// When it was last hit. Absent for one nothing has reached for yet
-    public var lastUsedAt: Date?
-    public var state: PadState2
-
-    public init(id: UUID, board: String, sets: [String], name: String, label: String, durationMs: Int? = nil, loudnessLufs: Double? = nil, source: String, sourcePath: String? = nil, lastUsedAt: Date? = nil, state: PadState2) {
-        self.id = id
-        self.board = board
-        self.sets = sets
-        self.name = name
-        self.label = label
-        self.durationMs = durationMs
-        self.loudnessLufs = loudnessLufs
-        self.source = source
-        self.sourcePath = sourcePath
-        self.lastUsedAt = lastUsedAt
-        self.state = state
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case board = "board"
-        case sets = "sets"
-        case name = "name"
-        case label = "label"
-        case durationMs = "durationMs"
-        case loudnessLufs = "loudnessLufs"
-        case source = "source"
-        case sourcePath = "sourcePath"
-        case lastUsedAt = "lastUsedAt"
-        case state = "state"
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.id = try container.decode(UUID.self, forKey: .id)
-        self.board = try container.decode(String.self, forKey: .board)
-        self.sets = try container.decode([String].self, forKey: .sets)
-        self.name = try container.decode(String.self, forKey: .name)
-        self.label = try container.decode(String.self, forKey: .label)
-        self.durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
-        self.loudnessLufs = try container.decodeIfPresent(Double.self, forKey: .loudnessLufs)
-        self.source = try container.decode(String.self, forKey: .source)
-        self.sourcePath = try container.decodeIfPresent(String.self, forKey: .sourcePath)
-        self.lastUsedAt = try container.decodeIfPresent(Date.self, forKey: .lastUsedAt)
-        self.state = try container.decode(PadState2.self, forKey: .state)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.id, forKey: .id)
-        try container.encode(self.board, forKey: .board)
-        try container.encode(self.sets, forKey: .sets)
-        try container.encode(self.name, forKey: .name)
-        try container.encode(self.label, forKey: .label)
-        try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
-        try container.encodeIfPresent(self.loudnessLufs, forKey: .loudnessLufs)
-        try container.encode(self.source, forKey: .source)
-        try container.encodeIfPresent(self.sourcePath, forKey: .sourcePath)
-        try container.encodeIfPresent(self.lastUsedAt, forKey: .lastUsedAt)
-        try container.encode(self.state, forKey: .state)
-    }
-}
-
-/// One sound on a soundboard, as the console draws it.
-///
-/// `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
-/// than one, because a token for a model and prose for an operator are different things and the
-/// filename produces both
-public struct PadInput: Codable, Equatable, Sendable {
-    /// Which directory it arrived in. Provenance: what reaches it is a set
-    public var board: String
-    /// What a script writes: `[sfx:airhorn]`
-    public var name: String
-    public var label: String
-    public var durationMs: Int?
-    /// How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary
-    public var loudnessLufs: Double?
-    /// The file in the library directory it was imported from, so the console can say where it came from
-    public var sourcePath: String?
-    /// When it was last hit. Absent for one nothing has reached for yet
-    public var lastUsedAt: Date?
-    public var state: PadState2
-
-    public init(board: String, name: String, label: String, durationMs: Int? = nil, loudnessLufs: Double? = nil, sourcePath: String? = nil, lastUsedAt: Date? = nil, state: PadState2) {
-        self.board = board
-        self.name = name
-        self.label = label
-        self.durationMs = durationMs
-        self.loudnessLufs = loudnessLufs
-        self.sourcePath = sourcePath
-        self.lastUsedAt = lastUsedAt
-        self.state = state
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case board = "board"
-        case name = "name"
-        case label = "label"
-        case durationMs = "durationMs"
-        case loudnessLufs = "loudnessLufs"
-        case sourcePath = "sourcePath"
-        case lastUsedAt = "lastUsedAt"
-        case state = "state"
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.board = try container.decode(String.self, forKey: .board)
-        self.name = try container.decode(String.self, forKey: .name)
-        self.label = try container.decode(String.self, forKey: .label)
-        self.durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
-        self.loudnessLufs = try container.decodeIfPresent(Double.self, forKey: .loudnessLufs)
-        self.sourcePath = try container.decodeIfPresent(String.self, forKey: .sourcePath)
-        self.lastUsedAt = try container.decodeIfPresent(Date.self, forKey: .lastUsedAt)
-        self.state = try container.decode(PadState2.self, forKey: .state)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.board, forKey: .board)
-        try container.encode(self.name, forKey: .name)
-        try container.encode(self.label, forKey: .label)
-        try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
-        try container.encodeIfPresent(self.loudnessLufs, forKey: .loudnessLufs)
-        try container.encodeIfPresent(self.sourcePath, forKey: .sourcePath)
-        try container.encodeIfPresent(self.lastUsedAt, forKey: .lastUsedAt)
-        try container.encode(self.state, forKey: .state)
-    }
+/// Where in a break a sound may fall. `start` is before the first word, `end` after the last, and
+/// `middle` anywhere between two words
+public enum PadPlacement: String, Codable, CaseIterable, Sendable {
+    case start = "start"
+    case middle = "middle"
+    case end = "end"
 }
 
 /// A sound arriving from the browser, as multipart form parts.
@@ -1545,59 +1402,208 @@ public struct PronunciationList: Codable, Equatable, Sendable {
     }
 }
 
-/// Every sound the station holds, and the sets over it
-public struct PadList: Codable, Equatable, Sendable {
-    public var pads: [Pad]
-    public var sets: [PadSet]
+/// One sound on a soundboard, as the console draws it.
+///
+/// `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
+/// than one, because a token for a model and prose for an operator are different things and the
+/// filename produces both
+public struct Pad: Codable, Equatable, Sendable {
+    public var id: UUID
+    /// Which directory it arrived in. Provenance: what reaches it is a set
+    public var board: String
+    /// The keys of the sets it is on. Empty means it is in the library and nothing can hit it
+    public var sets: [String]
+    /// What a script writes: `[sfx:airhorn]`
+    public var name: String
+    public var label: String
+    public var durationMs: Int?
+    /// How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary
+    public var loudnessLufs: Double?
+    /// Who put the file there: `library` for one the operator dropped in, `upload` or `url` for one the console wrote. It decides whether the console may delete it
+    public var source: String
+    /// The file in the library directory it was imported from, so the console can say where it came from
+    public var sourcePath: String?
+    /// When it was last hit. Absent for one nothing has reached for yet
+    public var lastUsedAt: Date?
+    public var state: PadState2
+    /// Where in a break it may land: before the first word, between two, or after the last. Every pad starts with all three
+    public var placements: [PadPlacement]
+    /// When to reach for it, in the operator's words ("right after a punchline"). Shown to the presenter beside the sound; the station's own writers leave a cued pad alone
+    public var cue: String?
 
-    public init(pads: [Pad], sets: [PadSet]) {
-        self.pads = pads
+    public init(id: UUID, board: String, sets: [String], name: String, label: String, durationMs: Int? = nil, loudnessLufs: Double? = nil, source: String, sourcePath: String? = nil, lastUsedAt: Date? = nil, state: PadState2, placements: [PadPlacement], cue: String? = nil) {
+        self.id = id
+        self.board = board
         self.sets = sets
+        self.name = name
+        self.label = label
+        self.durationMs = durationMs
+        self.loudnessLufs = loudnessLufs
+        self.source = source
+        self.sourcePath = sourcePath
+        self.lastUsedAt = lastUsedAt
+        self.state = state
+        self.placements = placements
+        self.cue = cue
     }
 
     private enum CodingKeys: String, CodingKey {
-        case pads = "pads"
+        case id = "id"
+        case board = "board"
         case sets = "sets"
+        case name = "name"
+        case label = "label"
+        case durationMs = "durationMs"
+        case loudnessLufs = "loudnessLufs"
+        case source = "source"
+        case sourcePath = "sourcePath"
+        case lastUsedAt = "lastUsedAt"
+        case state = "state"
+        case placements = "placements"
+        case cue = "cue"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.pads = try container.decode([Pad].self, forKey: .pads)
-        self.sets = try container.decode([PadSet].self, forKey: .sets)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.board = try container.decode(String.self, forKey: .board)
+        self.sets = try container.decode([String].self, forKey: .sets)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.label = try container.decode(String.self, forKey: .label)
+        self.durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
+        self.loudnessLufs = try container.decodeIfPresent(Double.self, forKey: .loudnessLufs)
+        self.source = try container.decode(String.self, forKey: .source)
+        self.sourcePath = try container.decodeIfPresent(String.self, forKey: .sourcePath)
+        self.lastUsedAt = try container.decodeIfPresent(Date.self, forKey: .lastUsedAt)
+        self.state = try container.decode(PadState2.self, forKey: .state)
+        self.placements = try container.decode([PadPlacement].self, forKey: .placements)
+        self.cue = try container.decodeIfPresent(String.self, forKey: .cue)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.pads, forKey: .pads)
+        try container.encode(self.id, forKey: .id)
+        try container.encode(self.board, forKey: .board)
         try container.encode(self.sets, forKey: .sets)
+        try container.encode(self.name, forKey: .name)
+        try container.encode(self.label, forKey: .label)
+        try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
+        try container.encodeIfPresent(self.loudnessLufs, forKey: .loudnessLufs)
+        try container.encode(self.source, forKey: .source)
+        try container.encodeIfPresent(self.sourcePath, forKey: .sourcePath)
+        try container.encodeIfPresent(self.lastUsedAt, forKey: .lastUsedAt)
+        try container.encode(self.state, forKey: .state)
+        try container.encode(self.placements, forKey: .placements)
+        try container.encodeIfPresent(self.cue, forKey: .cue)
     }
 }
 
-/// Every sound the station holds, and the sets over it
-public struct PadListInput: Codable, Equatable, Sendable {
-    public var pads: [PadInput]
-    public var sets: [PadSetInput]
+/// One sound on a soundboard, as the console draws it.
+///
+/// `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
+/// than one, because a token for a model and prose for an operator are different things and the
+/// filename produces both
+public struct PadInput: Codable, Equatable, Sendable {
+    /// Which directory it arrived in. Provenance: what reaches it is a set
+    public var board: String
+    /// What a script writes: `[sfx:airhorn]`
+    public var name: String
+    public var label: String
+    public var durationMs: Int?
+    /// How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary
+    public var loudnessLufs: Double?
+    /// The file in the library directory it was imported from, so the console can say where it came from
+    public var sourcePath: String?
+    /// When it was last hit. Absent for one nothing has reached for yet
+    public var lastUsedAt: Date?
+    public var state: PadState2
+    /// Where in a break it may land: before the first word, between two, or after the last. Every pad starts with all three
+    public var placements: [PadPlacement]
+    /// When to reach for it, in the operator's words ("right after a punchline"). Shown to the presenter beside the sound; the station's own writers leave a cued pad alone
+    public var cue: String?
 
-    public init(pads: [PadInput], sets: [PadSetInput]) {
-        self.pads = pads
-        self.sets = sets
+    public init(board: String, name: String, label: String, durationMs: Int? = nil, loudnessLufs: Double? = nil, sourcePath: String? = nil, lastUsedAt: Date? = nil, state: PadState2, placements: [PadPlacement], cue: String? = nil) {
+        self.board = board
+        self.name = name
+        self.label = label
+        self.durationMs = durationMs
+        self.loudnessLufs = loudnessLufs
+        self.sourcePath = sourcePath
+        self.lastUsedAt = lastUsedAt
+        self.state = state
+        self.placements = placements
+        self.cue = cue
     }
 
     private enum CodingKeys: String, CodingKey {
-        case pads = "pads"
-        case sets = "sets"
+        case board = "board"
+        case name = "name"
+        case label = "label"
+        case durationMs = "durationMs"
+        case loudnessLufs = "loudnessLufs"
+        case sourcePath = "sourcePath"
+        case lastUsedAt = "lastUsedAt"
+        case state = "state"
+        case placements = "placements"
+        case cue = "cue"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.pads = try container.decode([PadInput].self, forKey: .pads)
-        self.sets = try container.decode([PadSetInput].self, forKey: .sets)
+        self.board = try container.decode(String.self, forKey: .board)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.label = try container.decode(String.self, forKey: .label)
+        self.durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
+        self.loudnessLufs = try container.decodeIfPresent(Double.self, forKey: .loudnessLufs)
+        self.sourcePath = try container.decodeIfPresent(String.self, forKey: .sourcePath)
+        self.lastUsedAt = try container.decodeIfPresent(Date.self, forKey: .lastUsedAt)
+        self.state = try container.decode(PadState2.self, forKey: .state)
+        self.placements = try container.decode([PadPlacement].self, forKey: .placements)
+        self.cue = try container.decodeIfPresent(String.self, forKey: .cue)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.pads, forKey: .pads)
-        try container.encode(self.sets, forKey: .sets)
+        try container.encode(self.board, forKey: .board)
+        try container.encode(self.name, forKey: .name)
+        try container.encode(self.label, forKey: .label)
+        try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
+        try container.encodeIfPresent(self.loudnessLufs, forKey: .loudnessLufs)
+        try container.encodeIfPresent(self.sourcePath, forKey: .sourcePath)
+        try container.encodeIfPresent(self.lastUsedAt, forKey: .lastUsedAt)
+        try container.encode(self.state, forKey: .state)
+        try container.encode(self.placements, forKey: .placements)
+        try container.encodeIfPresent(self.cue, forKey: .cue)
+    }
+}
+
+/// Where and when a pad may be hit, written together because the console edits them together
+public struct PadUse: Codable, Equatable, Sendable {
+    /// At least one: a sound that may go nowhere is a sound turned down, which is what `PadState` is for
+    public var placements: [PadPlacement]
+    /// Absent clears it, so the pad is fair game wherever its placements allow
+    public var cue: String?
+
+    public init(placements: [PadPlacement], cue: String? = nil) {
+        self.placements = placements
+        self.cue = cue
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case placements = "placements"
+        case cue = "cue"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.placements = try container.decode([PadPlacement].self, forKey: .placements)
+        self.cue = try container.decodeIfPresent(String.self, forKey: .cue)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.placements, forKey: .placements)
+        try container.encodeIfPresent(self.cue, forKey: .cue)
     }
 }
 
@@ -1677,6 +1683,62 @@ public struct ScriptHistoryPageInput: Codable, Equatable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.attempts, forKey: .attempts)
         try container.encodeIfPresent(self.nextBefore, forKey: .nextBefore)
+    }
+}
+
+/// Every sound the station holds, and the sets over it
+public struct PadList: Codable, Equatable, Sendable {
+    public var pads: [Pad]
+    public var sets: [PadSet]
+
+    public init(pads: [Pad], sets: [PadSet]) {
+        self.pads = pads
+        self.sets = sets
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case pads = "pads"
+        case sets = "sets"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.pads = try container.decode([Pad].self, forKey: .pads)
+        self.sets = try container.decode([PadSet].self, forKey: .sets)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.pads, forKey: .pads)
+        try container.encode(self.sets, forKey: .sets)
+    }
+}
+
+/// Every sound the station holds, and the sets over it
+public struct PadListInput: Codable, Equatable, Sendable {
+    public var pads: [PadInput]
+    public var sets: [PadSetInput]
+
+    public init(pads: [PadInput], sets: [PadSetInput]) {
+        self.pads = pads
+        self.sets = sets
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case pads = "pads"
+        case sets = "sets"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.pads = try container.decode([PadInput].self, forKey: .pads)
+        self.sets = try container.decode([PadSetInput].self, forKey: .sets)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.pads, forKey: .pads)
+        try container.encode(self.sets, forKey: .sets)
     }
 }
 

@@ -487,6 +487,20 @@ public sealed class RenderClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Set pad use
+    /// Says where in a break a sound may land and when to reach for it. Answers the whole rack
+    /// </summary>
+    public async Task<PadList> SetPadUseAsync(Guid id, PadUse body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Put,
+            http.Path("pads", http.Segment(id), "use"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<PadList>(response);
+    }
+
+    /// <summary>
     /// Get pad audio
     /// The sound itself, so an operator can hear what they dropped in
     /// </summary>

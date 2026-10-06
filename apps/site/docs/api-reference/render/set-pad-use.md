@@ -1,17 +1,17 @@
 ---
-title: 'Update pad set'
-sidebar_label: 'Update pad set'
-sidebar_position: 29
+title: 'Set pad use'
+sidebar_label: 'Set pad use'
+sidebar_position: 26
 mdx:
     format: 'md'
 ---
 
-Renames a set. The KEY moves with it, so every persona naming the old one stops finding it
+Says where in a break a sound may land and when to reach for it. Answers the whole rack
 
-**`PUT`** `/pads/sets/{id}`
+**`PUT`** `/pads/{id}/use`
 
 :::note
-SDK method: `updatePadSet`
+SDK method: `setPadUse`
 Security: authenticated (policy: platform.manage)
 :::
 
@@ -28,7 +28,7 @@ Security: authenticated (policy: platform.manage)
 
 ## Request body (`application/json`)
 
-Accepts a [PadSetWrite](../models/render/pad-set-write.md) object.
+Accepts a [PadUse](../models/render/pad-use.md) object.
 
 ## Response
 

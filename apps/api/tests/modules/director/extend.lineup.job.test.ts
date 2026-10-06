@@ -239,6 +239,40 @@ describe('ExtendLineupJob', () => {
         expect(generate.mock.calls[0]![0]!.avoidArtistKeys).toBeUndefined();
     });
 
+    it('holds the last refill’s artists against the next one, by when each will air', async () => {
+        // Two refills of fifteen unmeasured records, each counted at four and a half minutes. The
+        // second batch begins sixty-seven and a half minutes out, so the records starting in the
+        // last forty of that (the eighth onwards) are inside the cooldown and the first seven are
+        // not. The fixed tail window saw three of them.
+        const { job, generate, resolve } = build();
+
+        await job.run({ count: 15 });
+        await job.run({ count: 15 });
+
+        const inside = Array.from({ length: 8 }, (_, index) => artistKey([`Artist${index + 7}`]));
+        const outside = Array.from({ length: 7 }, (_, index) => artistKey([`Artist${index}`]));
+        const asked = generate.mock.calls[1]![0]!.queuedArtistKeys;
+        expect(asked).toEqual(new Set(inside));
+        for (const key of outside) expect(asked).not.toContain(key);
+
+        // The resolver judges the same set, and is told how many the station needs so it gives way
+        // rather than starve.
+        const options = (resolve.mock.calls[1] as unknown[])[2] as { queuedArtistKeys?: ReadonlySet<string>; want?: number };
+        expect(options.queuedArtistKeys).toEqual(new Set(inside));
+        expect(options.want).toBe(15);
+    });
+
+    it.each(['0', ''])('holds nothing against the queue with the cooldown set to %j', async value => {
+        const { job, generate, resolve } = build({
+            stationRules: { [ROTATION_KEYS.artistCooldownMinutes]: value },
+        });
+
+        await job.run({ count: 15 });
+
+        expect(generate.mock.calls[0]![0]!.queuedArtistKeys).toBeUndefined();
+        expect(((resolve.mock.calls[0] as unknown[])[1] as { artistCooldownMinutes: number }).artistCooldownMinutes).toBe(0);
+    });
+
     it('adds only what could actually be resolved', async () => {
         const { job, lineup } = build({
             picks: [

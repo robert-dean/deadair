@@ -80,6 +80,12 @@ export interface SetInputs {
     /** Artists not to choose, for the same reason. */
     avoidArtistKeys?: ReadonlySet<string>;
     /**
+     * Artists queued inside the cooldown of where this batch begins. A generator that filters early
+     * holds them as it holds aired artists, and lets them back in rather than coming back short; see
+     * `applyRulesHoldingQueue`. `PickResolver` judges them again whatever a generator did.
+     */
+    queuedArtistKeys?: ReadonlySet<string>;
+    /**
      * The broadcast these records are for, so a generator that filters on never-play rules early
      * judges a mode- or slot-scoped one the same way `PickResolver` will. Absent leaves those rules
      * unjudged, exactly as it does there. See `PickBroadcast`.

@@ -11,6 +11,7 @@
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import type { PickBroadcast, PickResolver } from './pick.resolver.js';
+import { estimateStartOffsets } from './air.estimate.js';
 import { artistKey, songKey } from './rotation.keys.js';
 import type { ResolvedRules } from './rotation.rules.js';
 import type { SetGenerator, TrackPick } from './set.generator.js';
@@ -51,6 +52,13 @@ export interface PlanRequest {
      * lineup holds, which is what keeps it out of the same starvation trap.
      */
     avoidArtistKeys?: ReadonlySet<string>;
+    /**
+     * Artists queued close enough to where this batch begins that choosing them again would break
+     * the cooldown: see {@link artistsQueuedWithin}. Held like aired history, and unlike
+     * {@link avoidArtistKeys} let back in when holding them would leave the batch short; see
+     * `applyRulesHoldingQueue`.
+     */
+    queuedArtistKeys?: ReadonlySet<string>;
     /**
      * The artist already at the tail of the order, so a refill's batch does not reopen with them.
      *
@@ -128,6 +136,7 @@ export const planRecords = async (
             ...(request.mood === undefined ? {} : { mood: request.mood }),
             avoidSongKeys: request.avoidSongKeys,
             ...(request.avoidArtistKeys === undefined ? {} : { avoidArtistKeys: request.avoidArtistKeys }),
+            ...(request.queuedArtistKeys === undefined ? {} : { queuedArtistKeys: request.queuedArtistKeys }),
             ...(request.broadcast === undefined ? {} : { broadcast: request.broadcast }),
         });
 
@@ -142,8 +151,12 @@ export const planRecords = async (
     const resolved = await resolver.resolve(picks, request.rules, {
         ...(request.era === undefined ? {} : { era: request.era }),
         ...(request.avoidArtistKeys === undefined ? {} : { avoidArtistKeys: request.avoidArtistKeys }),
+        ...(request.queuedArtistKeys === undefined ? {} : { queuedArtistKeys: request.queuedArtistKeys }),
         ...(request.seedArtistKey === undefined ? {} : { seedArtistKey: request.seedArtistKey }),
         ...(request.broadcast === undefined ? {} : { broadcast: request.broadcast }),
+        // What the cooldown gives way to: the batch this was asked for, not the oversample. See
+        // `applyRulesHoldingQueue` and `holdArtistCooldown`.
+        want: request.count,
     });
 
     return {
@@ -183,3 +196,30 @@ export const songKeysOf = (items: readonly StationLineupItem[]): Set<string> =>
  */
 export const artistKeysOf = (items: readonly StationLineupItem[]): Set<string> =>
     new Set(items.filter(isTrackItem).map(item => artistKey([item.track.artist])));
+
+/**
+ * The artists queued to start inside the cooldown of where the next batch begins.
+ *
+ * `items` is what is still to come and will stay in the order, in airing order: `upcoming()` for a
+ * refill, the handed records for a replan. Each item's start is estimated with `estimateStartOffsets`,
+ * and an artist counts when the batch would begin less than the cooldown after one of their records
+ * starts: start to start, which is how `play_history` measures the same rule against what aired.
+ *
+ * Measured back from the batch's own start, so how long is left of the record playing now cancels
+ * out and nothing here needs to ask the player. An unmeasured record counts as an average one; a
+ * segment counts as nothing, which errs toward holding an artist a few seconds longer than needed.
+ *
+ * Empty when the cooldown is off, which is what keeps `0` meaning exactly what it did.
+ */
+export const artistsQueuedWithin = (items: readonly StationLineupItem[], cooldownMinutes: number): Set<string> => {
+    const cooldownMs = cooldownMinutes * 60_000;
+    if (!(cooldownMs > 0)) return new Set();
+
+    const offsets = estimateStartOffsets(items);
+    const batchStartsAt = offsets[items.length]!;
+    const queued = new Set<string>();
+    items.forEach((item, index) => {
+        if (isTrackItem(item) && batchStartsAt - offsets[index]! < cooldownMs) queued.add(artistKey([item.track.artist]));
+    });
+    return queued;
+};

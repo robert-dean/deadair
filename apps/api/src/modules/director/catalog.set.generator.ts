@@ -11,7 +11,7 @@ import { EraWatch } from './era.watch.js';
 import { CandidatesRepository, bindsAnything, sampleSize, type CandidateTrack, type EraWindow } from './candidates.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { albumKey, artistKey, songKey } from './rotation.keys.js';
-import { applyRules, spaceArtists, weightOf, type RotationCandidate } from './rotation.rules.js';
+import { applyRulesHoldingQueue, spaceArtists, weightOf, type RotationCandidate } from './rotation.rules.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { freshnessOf, historyDaysFor, resolveSmartShuffle } from './smart.shuffle.js';
 import { trackLengthBounds } from './track.length.js';
@@ -175,7 +175,10 @@ export class CatalogSetGenerator extends SetGenerator {
         // the draw from spending its weight on candidates that cannot air, and filtering at the
         // resolver is what makes the rules true for a generator that never read this repository.
         // Neither one is safe to delete on the grounds that the other exists.
-        const eligible = applyRules(scored, rules, recent);
+        //
+        // Artists queued inside the cooldown are held here too, and let back in rather than leaving
+        // the draw short: this is the floor, and on a small library holding them could empty it.
+        const eligible = applyRulesHoldingQueue(scored, rules, recent, inputs.queuedArtistKeys, count);
 
         return spaceArtists(drawWeighted(eligible, count)).map(candidate => ({
             title: candidate.track.title,

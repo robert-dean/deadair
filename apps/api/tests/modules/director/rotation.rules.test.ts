@@ -10,12 +10,14 @@ import { describe, expect, it } from 'vitest';
 import { albumKey, artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
 import {
     applyRules,
+    applyRulesHoldingQueue,
     capPerAlbum,
     capPerArtist,
     DEFAULT_AUTO_EXTEND,
     DEFAULT_RULES,
     filterByHistory,
     FRESH_FLOOR,
+    holdArtistCooldown,
     MIX_IN_EVERY_RANGE,
     stationAutoExtends,
     rejectDisliked,
@@ -510,5 +512,106 @@ describe('spaceArtists', () => {
         const spaced = spaceArtists([candidate('A', ['One']), candidate('B', ['Two'])], artistKey(['Three']));
 
         expect(spaced.map(c => c.artistKey)).toEqual([artistKey(['One']), artistKey(['Two'])]);
+    });
+});
+
+describe('holdArtistCooldown', () => {
+    // Four minutes a record, so the arithmetic below reads in records: ten of them is the default
+    // forty-minute cooldown exactly.
+    const FOUR_MINUTES = 240_000;
+    const length = () => FOUR_MINUTES;
+    const titles = (batch: readonly RotationCandidate[]) => batch.map(c => c.songKey);
+
+    it('drops the capped artist whose second record spacing put eight minutes after the first', () => {
+        // The case this exists for. Spacing keeps X off its own heels and nothing more: with the cap
+        // at two, `[A, X, X, B, ...]` comes out `X A X B ...`, two X records eight minutes apart
+        // against a forty-minute cooldown.
+        const batch = [
+            candidate('A', ['A']),
+            candidate('X1', ['X']),
+            candidate('X2', ['X']),
+            candidate('B', ['B']),
+            candidate('C', ['C']),
+            candidate('D', ['D']),
+        ];
+        const spaced = spaceArtists(capPerArtist(batch, DEFAULT_RULES.maxPerArtist));
+        expect(spaced.slice(0, 3).map(c => c.artistKey)).toEqual([artistKey(['X']), artistKey(['A']), artistKey(['X'])]);
+
+        const held = holdArtistCooldown(spaced, DEFAULT_RULES.artistCooldownMinutes, length);
+
+        expect(titles(held)).toEqual(
+            titles([candidate('X1', ['X']), candidate('A', ['A']), candidate('B', ['B']), candidate('C', ['C']), candidate('D', ['D'])]),
+        );
+    });
+
+    it('keeps a second record that starts a whole cooldown after the first', () => {
+        const others = Array.from({ length: 9 }, (_, index) => candidate(`O${index}`, [`Other${index}`]));
+        const batch = [candidate('X1', ['X']), ...others, candidate('X2', ['X'])];
+
+        expect(holdArtistCooldown(batch, 40, length)).toHaveLength(11);
+    });
+
+    it('counts only the records it kept, since a dropped one takes no time', () => {
+        // X at 0, X dropped, then eight others: the third X starts thirty-two minutes in, not
+        // thirty-six, and is still too soon.
+        const others = Array.from({ length: 8 }, (_, index) => candidate(`O${index}`, [`Other${index}`]));
+        const batch = [candidate('X1', ['X']), candidate('X2', ['X']), ...others, candidate('X3', ['X'])];
+
+        const held = holdArtistCooldown(batch, 40, length);
+
+        expect(held.filter(c => c.artistKey === artistKey(['X']))).toHaveLength(1);
+    });
+
+    it('changes nothing with the cooldown off', () => {
+        const batch = [candidate('X1', ['X']), candidate('A', ['A']), candidate('X2', ['X'])];
+
+        expect(holdArtistCooldown(batch, 0, length)).toEqual(batch);
+        expect(holdArtistCooldown(batch, Number.NaN, length)).toEqual(batch);
+    });
+
+    it('gives way on a library too small to honour it, keeping the earliest dropped first', () => {
+        // Two artists cannot fill a batch of three forty minutes apart. A station that ran down
+        // instead would be worse than one that repeats an act, so it keeps what it must, in place.
+        const batch = [candidate('X1', ['X']), candidate('Y1', ['Y']), candidate('X2', ['X']), candidate('Y2', ['Y'])];
+
+        expect(titles(holdArtistCooldown(batch, 40, length, 3))).toEqual(titles(batch.slice(0, 3)));
+        expect(titles(holdArtistCooldown(batch, 40, length, 4))).toEqual(titles(batch));
+        expect(titles(holdArtistCooldown(batch, 40, length))).toEqual(titles(batch.slice(0, 2)));
+    });
+});
+
+describe('applyRulesHoldingQueue', () => {
+    const queued = new Set([artistKey(['Queued'])]);
+    const offered = [candidate('Q', ['Queued']), candidate('A', ['One']), candidate('B', ['Two'])];
+
+    it('holds an artist queued inside the cooldown as though they had aired', () => {
+        const kept = applyRulesHoldingQueue(offered, DEFAULT_RULES, none, queued, 2);
+
+        expect(kept.map(c => c.artistKey)).toEqual([artistKey(['One']), artistKey(['Two'])]);
+    });
+
+    it('lets them back in rather than leaving the batch short', () => {
+        const kept = applyRulesHoldingQueue(offered, DEFAULT_RULES, none, queued, 3);
+
+        expect(kept).toHaveLength(3);
+    });
+
+    it('never lets an artist back in that has actually aired inside the cooldown', () => {
+        const aired = { songKeys: new Set<string>(), artistKeys: new Set([artistKey(['Queued'])]) };
+
+        expect(applyRulesHoldingQueue(offered, DEFAULT_RULES, aired, queued, 3)).toHaveLength(2);
+    });
+
+    it('lets back in no more than it needs, and only what every other rule passes', () => {
+        const more = [...offered, candidate('Q2', ['Queued']), candidate('Q3', ['Queued'], -1)];
+
+        const kept = applyRulesHoldingQueue(more, DEFAULT_RULES, none, queued, 3);
+
+        expect(kept.map(c => c.songKey)).toEqual([songKey('Q', ['Queued']), songKey('A', ['One']), songKey('B', ['Two'])]);
+    });
+
+    it('is exactly applyRules with nothing queued', () => {
+        expect(applyRulesHoldingQueue(offered, DEFAULT_RULES, none, undefined, 3)).toEqual(applyRules(offered, DEFAULT_RULES, none));
+        expect(applyRulesHoldingQueue(offered, DEFAULT_RULES, none, new Set(), 3)).toEqual(applyRules(offered, DEFAULT_RULES, none));
     });
 });

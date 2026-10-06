@@ -182,6 +182,29 @@ describe('CatalogSetGenerator', () => {
         expect(picks.map(pick => pick.title)).toEqual(['B']);
     });
 
+    it('holds an artist queued inside the cooldown when there is enough else to draw', async () => {
+        const { generator } = build({ sample: [candidate('A', 'One'), candidate('B', 'Two'), candidate('C', 'Three')] });
+
+        const picks = await generator.generate({ count: 2, rules: rotation, queuedArtistKeys: new Set([artistKey(['One'])]) });
+
+        expect(picks.map(pick => pick.artist).sort()).toEqual(['Three', 'Two']);
+    });
+
+    it('draws a queued artist after all on a library too small to fill the batch without them', async () => {
+        // Every artist this library holds is already queued inside the cooldown. Holding them all
+        // would hand back nothing and the running order would run down; the floor fills instead.
+        const sample = [candidate('A', 'One'), candidate('B', 'Two'), candidate('C', 'Three')];
+        const { generator } = build({ sample });
+
+        const picks = await generator.generate({
+            count: 3,
+            rules: rotation,
+            queuedArtistKeys: new Set([artistKey(['One']), artistKey(['Two']), artistKey(['Three'])]),
+        });
+
+        expect(picks).toHaveLength(3);
+    });
+
     it('keeps at most the per-artist cap', async () => {
         const sample = [candidate('A', 'One'), candidate('B', 'One'), candidate('C', 'One'), candidate('D', 'Two')];
         const { generator } = build({ sample });

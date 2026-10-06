@@ -1284,3 +1284,62 @@ describe('never-play rules', () => {
         expect(candidates.tagsFor).not.toHaveBeenCalled();
     });
 });
+
+describe('PickResolver holding the artist cooldown inside a batch', () => {
+    // Four-minute records, six artists, X offered twice: the shape the per-artist cap lets through
+    // and spacing alone leaves eight minutes apart.
+    const artists = ['A', 'X', 'X', 'B', 'C', 'D'];
+    const ids = artists.map((artist, index) => `${artist.toLowerCase()}-${index}`);
+    const library = {
+        bindings: Object.fromEntries(ids.map(id => [id, binding(id, 'deadair.spotify', 240_000)])),
+        metadata: Object.fromEntries(ids.map((id, index) => [id, { title: id, credit: artists[index]! }])),
+    };
+    const picks: TrackPick[] = ids.map((id, index) => ({ title: id, artist: artists[index]!, trackId: id }));
+    const cooled = (minutes: number): ResolvedRules => ({ ...OPEN_RULES, maxPerArtist: 2, artistCooldownMinutes: minutes });
+    const xs = (tracks: readonly RundownTrack[]) => tracks.filter(track => track.artist === 'X');
+
+    it('drops the second X rather than airing it eight minutes after the first', async () => {
+        const { resolver } = build(library);
+
+        const resolved = await resolver.resolve(picks, cooled(40));
+
+        expect(xs(resolved)).toHaveLength(1);
+        expect(resolved).toHaveLength(5);
+    });
+
+    it('keeps both with the cooldown off, spaced but no further apart, as it always did', async () => {
+        const { resolver } = build(library);
+
+        const resolved = await resolver.resolve(picks, cooled(0));
+
+        expect(xs(resolved)).toHaveLength(2);
+        expect(resolved.map(track => track.artist).slice(0, 3)).toEqual(['X', 'A', 'X']);
+    });
+
+    it('keeps the second X when dropping it would leave fewer records than the caller needs', async () => {
+        const { resolver } = build(library);
+
+        const resolved = await resolver.resolve(picks, cooled(40), { want: 6 });
+
+        expect(resolved).toHaveLength(6);
+    });
+
+    it('leaves a batch whose order is kept alone, as a request or a countdown is', async () => {
+        const { resolver } = build(library);
+
+        const resolved = await resolver.resolve(picks, cooled(40), { keepOrder: true });
+
+        expect(resolved.map(track => track.artist)).toEqual(artists);
+    });
+
+    it('holds an artist queued inside the cooldown, and lets them back in only when it must', async () => {
+        const { resolver } = build(library);
+        const queuedArtistKeys = new Set([artistKey(['A'])]);
+
+        const held = await resolver.resolve(picks, cooled(0), { queuedArtistKeys, want: 5 });
+        expect(held.map(track => track.artist)).not.toContain('A');
+
+        const short = await resolver.resolve(picks, cooled(0), { queuedArtistKeys, want: 6 });
+        expect(short.map(track => track.artist)).toContain('A');
+    });
+});

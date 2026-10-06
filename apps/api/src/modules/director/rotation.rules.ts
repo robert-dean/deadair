@@ -587,6 +587,53 @@ export const applyRules = <T extends RotationCandidate>(candidates: readonly T[]
     capPerAlbum(capPerArtist(filterByHistory(rejectDisliked(candidates), recent), rules.maxPerArtist), rules.maxPerAlbum);
 
 /**
+ * {@link applyRules}, with the artists already queued inside the cooldown held as though they had aired.
+ *
+ * The cooldown used to be judged against `play_history` alone, and nothing in the queue has aired:
+ * an artist booked for twenty minutes from now was as free to be chosen again as one last heard a
+ * week ago, and only the last `maxPerArtist + 1` items of the order were kept out of a refill. So
+ * `queued` (see `artistsQueuedWithin`) joins the aired artists in the same {@link filterByHistory}
+ * check, which is the one place a cooldown is judged.
+ *
+ * **It gives way rather than starving the batch.** An aired artist is refused outright, as before.
+ * A queued one is refused only while there is enough else to choose from: when holding them leaves
+ * fewer than `want` candidates, the records by queued artists that every other rule passes are let
+ * back in, in the order offered, until there are `want` or there are none left. The precedent is
+ * {@link spaceArtists}, which takes the head when everything left is by the artist just placed
+ * because stalling would be worse; here the alternative is a refill that comes back empty on a small
+ * library and a running order that runs down. What it falls back to is exactly the station before
+ * this existed: the aired cooldown and whatever the caller already put in `recent`.
+ *
+ * @param want - How many the caller needs. `0` never lets anybody back in.
+ */
+export const applyRulesHoldingQueue = <T extends RotationCandidate>(
+    candidates: readonly T[],
+    rules: ResolvedRules,
+    recent: RecentlyAired,
+    queued: ReadonlySet<string> | undefined,
+    want = 0,
+): T[] => {
+    if (queued === undefined || queued.size === 0) return applyRules(candidates, rules, recent);
+
+    const held = applyRules(candidates, rules, { songKeys: recent.songKeys, artistKeys: new Set([...recent.artistKeys, ...queued]) });
+    if (held.length >= want) return held;
+
+    // Only the queued artists' records, judged by every other rule. Their artists are disjoint from
+    // `held`'s, so the per-artist cap needs nothing more; the album cap is applied again over the
+    // two together because a release can carry more than one artist.
+    const reserve = applyRules(
+        candidates.filter(candidate => queued.has(candidate.artistKey)),
+        rules,
+        recent,
+    );
+    const admitted = new Set<T>([...held, ...reserve.slice(0, want - held.length)]);
+    return capPerAlbum(
+        candidates.filter(candidate => admitted.has(candidate)),
+        rules.maxPerAlbum,
+    );
+};
+
+/**
  * Reorder so the same artist is never back to back.
  *
  * Cosmetic in a way the other rules are not: it changes nothing about WHICH
@@ -641,4 +688,52 @@ export const spaceArtists = <T extends RotationCandidate>(candidates: readonly T
         previous = next!.artistKey;
     }
     return spaced;
+};
+
+/**
+ * Drop any record that would start inside the cooldown of the same artist's earlier record in this
+ * batch, counting time down the batch as it will air.
+ *
+ * Runs on a batch {@link spaceArtists} has already ordered, because that is the order it airs in and
+ * the cooldown is a fact about when. Spacing alone only prevents back to back: with the per-artist cap
+ * at two, `[A, X, X, B, ...]` comes out `X A X B ...` and the two X records are about eight minutes
+ * apart against a forty-minute setting. Times are each kept record's length (`lengthOf`, which counts
+ * an unmeasured one as average; see `air.estimate.ts`), so a dropped record takes no time.
+ *
+ * A dropped record is not replaced here. A caller asks for more than it needs (`planRecords`
+ * oversamples) and cuts the answer to length afterwards, so the next candidate down simply moves up,
+ * which is how every other rule's drops are made good.
+ *
+ * **It gives way rather than starving the batch**, on {@link applyRulesHoldingQueue}'s argument: when
+ * holding the cooldown leaves fewer than `want`, the earliest dropped records are kept after all, in
+ * their spaced places, until there are `want`. A library of three artists still fills its hour.
+ *
+ * @param cooldownMinutes - `0` turns it off and the batch comes back as it went in.
+ * @param want - How many the caller needs. `0` never keeps a dropped record.
+ */
+export const holdArtistCooldown = <T extends RotationCandidate>(
+    spaced: readonly T[],
+    cooldownMinutes: number,
+    lengthOf: (candidate: T) => number,
+    want = 0,
+): T[] => {
+    const cooldownMs = cooldownMinutes * 60_000;
+    if (!(cooldownMs > 0)) return [...spaced];
+
+    const startedAt = new Map<string, number>();
+    const tooSoon = new Set<T>();
+    let at = 0;
+    for (const candidate of spaced) {
+        const previous = startedAt.get(candidate.artistKey);
+        if (previous !== undefined && at - previous < cooldownMs) {
+            tooSoon.add(candidate);
+            continue;
+        }
+        startedAt.set(candidate.artistKey, at);
+        at += lengthOf(candidate);
+    }
+    if (tooSoon.size === 0) return [...spaced];
+
+    let room = want - (spaced.length - tooSoon.size);
+    return spaced.filter(candidate => !tooSoon.has(candidate) || room-- > 0);
 };

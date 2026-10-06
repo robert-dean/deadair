@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.46.1] — 2026-10-06
+
+- "Do not repeat an artist for (minutes)" now holds for records still waiting in the running order, not only for ones that have aired. Two records by the same artist could land about eight minutes apart inside one refill, and a refill could choose an artist already queued a few records earlier; the station now keeps an artist's records at least that many minutes apart by when each is expected to air. On a library too small to fill the hour that way, the station repeats an artist sooner rather than running out of music. Setting it to 0 still turns it off.
+- The presenter no longer makes up the weather. A break that was given no weather reading was already refused for describing the sky anyway; that check now also catches "windy", "gusty", "blustery", "humid", "muggy", "heatwave", "rainfall", "pouring down" and "scattered showers", while words that usually mean something else on air ("sunshine", "stormy", "chilly") still pass. Phone-ins and other programmes written in polished mode now apply the same check to the host: a host turn that describes the weather is re-drafted once without it. A caller may still talk about the weather where they are, and once a caller or the programme's brief has brought it up, the host may answer.
+
 ## [0.46.0] — 2026-10-06
 
 - The Pads page can now say where and when each sound is used. A new button beside each sound opens three boxes for where in a break it may land (before the words, between words, after the words) and a box for when to reach for it, in your own words. A sound with either set shows a short line under its name, such as "Only between words" or "“right after a punchline”", and a sound left as it was shows nothing new.
@@ -1124,7 +1129,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.46.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.46.1...HEAD
+[0.46.1]: https://github.com/robert-dean/deadair/compare/v0.46.0...v0.46.1
 [0.46.0]: https://github.com/robert-dean/deadair/compare/v0.45.0...v0.46.0
 [0.45.0]: https://github.com/robert-dean/deadair/compare/v0.44.7...v0.45.0
 [0.44.7]: https://github.com/robert-dean/deadair/compare/v0.44.6...v0.44.7

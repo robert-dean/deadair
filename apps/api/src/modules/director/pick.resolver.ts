@@ -12,7 +12,15 @@ import { CandidatesRepository, bindsAnything, withinPeriod, type EraWindow } fro
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { ProviderTrackLookup } from './provider.track.lookup.js';
 import { artistKey, songKey } from './rotation.keys.js';
-import { applyRules, rejectDisliked, spaceArtists, type ResolvedRules, type RotationCandidate } from './rotation.rules.js';
+import { recordSpacingLength } from './air.estimate.js';
+import {
+    applyRulesHoldingQueue,
+    holdArtistCooldown,
+    rejectDisliked,
+    spaceArtists,
+    type ResolvedRules,
+    type RotationCandidate,
+} from './rotation.rules.js';
 import type { TrackPick } from './set.generator.js';
 import { fitsLength, trackLengthBounds } from './track.length.js';
 import { measurementOf } from './track.measurement.js';
@@ -185,6 +193,11 @@ export class PickResolver {
      *   scoped it to — see `PlanRequest.avoidArtistKeys` for why that window is narrow.
      * @param options.seedArtistKey - The artist already at the tail of the order, so
      *   {@link spaceArtists} does not open this batch with them.
+     * @param options.queuedArtistKeys - Artists queued inside the cooldown of where this batch
+     *   begins, held like aired ones until holding them would leave fewer than `want`. See
+     *   `applyRulesHoldingQueue`.
+     * @param options.want - How many records the caller needs, which is what the cooldown gives way
+     *   to rather than starve. Absent, it never gives way.
      */
     async resolve(
         picks: readonly TrackPick[],
@@ -194,6 +207,8 @@ export class PickResolver {
             era?: EraWindow;
             avoidArtistKeys?: ReadonlySet<string>;
             seedArtistKey?: string;
+            queuedArtistKeys?: ReadonlySet<string>;
+            want?: number;
             /**
              * How many of these picks may cost a provider lookup, overriding
              * {@link discoveryCap}.
@@ -225,13 +240,13 @@ export class PickResolver {
     ): Promise<RundownTrack[]> {
         if (picks.length === 0) return [];
 
-        const { preference = [], era, avoidArtistKeys, seedArtistKey, discoveries, keepOrder, broadcast } = options;
+        const { preference = [], era, avoidArtistKeys, seedArtistKey, queuedArtistKeys, want = 0, discoveries, keepOrder, broadcast } = options;
         const policy = advisoryPolicy(this.config);
 
         const identified = await this.identify(picks, discoveries);
         if (identified.length === 0) return [];
 
-        const eligible = await this.judge(identified, rules, era, avoidArtistKeys, broadcast);
+        const eligible = await this.judge(identified, rules, { era, avoidArtistKeys, queuedArtistKeys, want, broadcast });
         if (eligible.length === 0) return [];
 
         const trackIds = eligible.map(entry => entry.trackId);
@@ -318,7 +333,11 @@ export class PickResolver {
         // `keepOrder` skips all of that: a chart countdown's order is the content, and respacing
         // it would pull the most frequent act forward, which is exactly what reorders a countdown.
         if (keepOrder) return resolved.map(toRundownTrack);
-        return spaceArtists(resolved, seedArtistKey).map(toRundownTrack);
+        // Then the cooldown inside the batch, which only the spaced order can be judged in: spacing
+        // keeps one artist off their own heels, and this keeps their second record a cooldown after
+        // the first rather than two records after it. Not for `keepOrder` either: a countdown, a
+        // request and a mixed-in record are placed rather than programmed, and keep the order given.
+        return holdArtistCooldown(spaceArtists(resolved, seedArtistKey), rules.artistCooldownMinutes, recordSpacingLength, want).map(toRundownTrack);
     }
 
     /**
@@ -453,9 +472,19 @@ export class PickResolver {
     private async judge(
         identified: readonly Identified[],
         rules: ResolvedRules,
-        era?: EraWindow,
-        avoidArtistKeys?: ReadonlySet<string>,
-        broadcast?: PickBroadcast,
+        {
+            era,
+            avoidArtistKeys,
+            queuedArtistKeys,
+            want,
+            broadcast,
+        }: {
+            era?: EraWindow | undefined;
+            avoidArtistKeys?: ReadonlySet<string> | undefined;
+            queuedArtistKeys?: ReadonlySet<string> | undefined;
+            want: number;
+            broadcast?: PickBroadcast | undefined;
+        },
     ): Promise<Identified[]> {
         const trackIds = identified.map(entry => entry.trackId);
         const [blocked, ratings, songKeys, recentArtistKeys, years] = await Promise.all([
@@ -503,7 +532,9 @@ export class PickResolver {
             });
         }
 
-        const eligible = applyRules(inPeriod, rules, { songKeys, artistKeys });
+        // The queued artists ride the same check as the aired ones and give way only when holding
+        // them would leave the batch short. See `applyRulesHoldingQueue`.
+        const eligible = applyRulesHoldingQueue(inPeriod, rules, { songKeys, artistKeys }, queuedArtistKeys, want);
         if (eligible.length < inPeriod.length) {
             this.logger.debug('director: the rotation rules dropped some chosen tracks', {
                 offered: inPeriod.length,

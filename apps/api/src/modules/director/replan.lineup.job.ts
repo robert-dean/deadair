@@ -7,7 +7,7 @@ import { DirectorService } from './director.service.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { PickResolver } from './pick.resolver.js';
-import { DEFAULT_COUNT, artistKeysOf, planRecords, songKeysOf } from './plan.records.js';
+import { DEFAULT_COUNT, artistKeysOf, artistsQueuedWithin, planRecords, songKeysOf } from './plan.records.js';
 import { artistKey } from './rotation.keys.js';
 import { resolveRules, stationRules } from './rotation.rules.js';
 import { SetGenerator } from './set.generator.js';
@@ -155,6 +155,17 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
                 // Off entirely when the cap is off: an operator who has said "no limit on one
                 // artist" has said nothing about spacing, which `seedArtistKey` below still handles.
                 ...(rules.maxPerArtist > 0 ? { avoidArtistKeys: artistKeysOf(tail) } : {}),
+                // The cooldown held against the records that will still air ahead of the new tail,
+                // as a refill holds it against `upcoming()`: here that is only what the player is
+                // holding, because every planned record is about to be thrown away.
+                ...(rules.artistCooldownMinutes > 0
+                    ? {
+                          queuedArtistKeys: artistsQueuedWithin(
+                              surviving.filter(item => item.state === 'handed'),
+                              rules.artistCooldownMinutes,
+                          ),
+                      }
+                    : {}),
                 // Always, whatever the cap says: seeding is about adjacency, not about the per-artist
                 // limit, so it applies even when that limit is switched off.
                 ...(seed ? { seedArtistKey: artistKey([seed.track.artist]) } : {}),

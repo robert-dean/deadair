@@ -8,7 +8,7 @@ import { DirectorService } from './director.service.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { PickResolver } from './pick.resolver.js';
-import { DEFAULT_COUNT, artistKeysOf, planRecords, songKeysOf } from './plan.records.js';
+import { DEFAULT_COUNT, artistKeysOf, artistsQueuedWithin, planRecords, songKeysOf } from './plan.records.js';
 import { artistKey } from './rotation.keys.js';
 import { resolveRules, stationRules } from './rotation.rules.js';
 import { SetGenerator } from './set.generator.js';
@@ -152,6 +152,15 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
                 // Off entirely when the cap is off: an operator who has said "no limit on one
                 // artist" has said nothing about spacing, which `seedArtistKey` below still handles.
                 ...(rules.maxPerArtist > 0 ? { avoidArtistKeys: artistKeysOf(tail) } : {}),
+                // The cooldown held against the QUEUE as well as against what aired. The tail window
+                // above is a handful of records, so an artist six records back (half an hour of a
+                // forty-minute cooldown still to run) was free to be chosen again. Every artist whose
+                // record starts inside the cooldown of where this batch begins is held, which at the
+                // default covers the tail window and then some; the window stays as the part that
+                // never gives way, so a small library that cannot honour the rest falls back to
+                // exactly what this did before. Not the whole order, for the starvation reason above:
+                // the cooldown bounds it.
+                ...(rules.artistCooldownMinutes > 0 ? { queuedArtistKeys: artistsQueuedWithin(lineup.upcoming(), rules.artistCooldownMinutes) } : {}),
                 // Always, whatever the cap says: seeding is about adjacency, not about the per-artist
                 // limit, so it applies even when that limit is switched off.
                 ...(seed ? { seedArtistKey: artistKey([seed.track.artist]) } : {}),

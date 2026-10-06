@@ -151,6 +151,16 @@ describe('ReplanLineupJob', () => {
         expect(options.avoidArtistKeys).not.toContain(artistKey(['Discarded']));
     });
 
+    it('holds the cooldown against the records the player is holding, not the ones it discards', async () => {
+        const { job, seed, lineup, generate } = build({ existing: [track('Stays', 'Survivor'), track('Goes', 'Discarded')] });
+        await seed();
+        lineup.markHanded(lineup.all()[0]!.id);
+
+        await job.run({ count: 2 });
+
+        expect(generate.mock.calls[0]![0]!.queuedArtistKeys).toEqual(new Set([artistKey(['Survivor'])]));
+    });
+
     it('programmes against the brief the broadcast is already carrying', async () => {
         const { job, generate } = build({ brief: 'heavy metal hits' });
 

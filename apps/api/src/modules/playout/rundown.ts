@@ -1132,6 +1132,17 @@ export class Rundown {
         return (this.order?.all() ?? []).filter(item => item.state === 'handed' && item.over === undefined).map(item => item.id);
     }
 
+    /**
+     * Whether an item is still to finish: handed to the player and not yet started, or on air now.
+     *
+     * What the pusher asks of a record carrying a talk-over cue, to know whether that cue can still
+     * fire. Anything else (played, skipped, taken back to be offered again) means it never will.
+     */
+    isUnfinished(id: string): boolean {
+        const state = this.stateOf(id);
+        return state === 'handed' || state === 'airing';
+    }
+
     private stateOf(id: string): string | undefined {
         return this.order?.all().find(item => item.id === id)?.state;
     }

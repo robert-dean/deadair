@@ -426,9 +426,9 @@ internal static class Fakes
             ],
             Pads =
             [
-                new() { Id = Guid.NewGuid(), Board = "station", Sets = ["station", "late-night-and-other-quiet-hours"], Name = "airhorn", Label = "Air horn", DurationMs = 1_400, LoudnessLufs = -9.2, Source = "upload", SourcePath = "station/airhorn.mp3", LastUsedAt = DateTimeOffset.Parse("2026-09-29T09:12:00Z", System.Globalization.CultureInfo.InvariantCulture), State = PadState2.Active },
-                new() { Id = Guid.NewGuid(), Board = "station", Sets = ["station"], Name = "rimshot-with-a-very-long-name-from-the-sample-pack", Label = "Rimshot", DurationMs = 400, Source = "library", SourcePath = "station/rimshot-with-a-very-long-name-from-the-sample-pack.wav", State = PadState2.Active },
-                new() { Id = Guid.NewGuid(), Board = "station", Sets = ["station"], Name = "laugh-track", Label = "Laugh track", DurationMs = 3_200, LoudnessLufs = -14.8, Source = "library", State = PadState2.Rejected },
+                new() { Id = Guid.NewGuid(), Board = "station", Sets = ["station", "late-night-and-other-quiet-hours"], Name = "airhorn", Label = "Air horn", DurationMs = 1_400, LoudnessLufs = -9.2, Source = "upload", SourcePath = "station/airhorn.mp3", LastUsedAt = DateTimeOffset.Parse("2026-09-29T09:12:00Z", System.Globalization.CultureInfo.InvariantCulture), State = PadState2.Active, Placements = [PadPlacement.Start, PadPlacement.Middle, PadPlacement.End] },
+                new() { Id = Guid.NewGuid(), Board = "station", Sets = ["station"], Name = "rimshot-with-a-very-long-name-from-the-sample-pack", Label = "Rimshot", DurationMs = 400, Source = "library", SourcePath = "station/rimshot-with-a-very-long-name-from-the-sample-pack.wav", State = PadState2.Active, Placements = [PadPlacement.Start, PadPlacement.Middle, PadPlacement.End] },
+                new() { Id = Guid.NewGuid(), Board = "station", Sets = ["station"], Name = "laugh-track", Label = "Laugh track", DurationMs = 3_200, LoudnessLufs = -14.8, Source = "library", State = PadState2.Rejected, Placements = [PadPlacement.Start, PadPlacement.Middle, PadPlacement.End] },
             ],
         });
         voice.Pronunciations.Present(

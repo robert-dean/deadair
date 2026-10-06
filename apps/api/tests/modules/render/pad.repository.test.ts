@@ -7,7 +7,7 @@ import type { DatabaseConnection, Dialect, Driver, QueryResult } from 'kysely';
 import { KyselyDefaultPlugins } from '@maroonedsoftware/kysely';
 import { describe, expect, it } from 'vitest';
 
-import { PAD_PLACEMENTS, PadRepository, isPadPlacement } from '../../../src/modules/render/pad.repository.js';
+import { PAD_PLACEMENTS, PadRepository, isPadPlacement, padCanSting } from '../../../src/modules/render/pad.repository.js';
 import type { DB } from '../../../src/modules/data/db.js';
 import type { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 
@@ -129,5 +129,17 @@ describe('isPadPlacement', () => {
         expect(PAD_PLACEMENTS.every(isPadPlacement)).toBe(true);
         expect(isPadPlacement('sideways')).toBe(false);
         expect(isPadPlacement('End')).toBe(false);
+    });
+});
+
+describe('padCanSting', () => {
+    it('lets an appending writer close on a sound placed at the end with no cue', () => {
+        expect(padCanSting({ placements: ['end'] })).toBe(true);
+        expect(padCanSting({ placements: ['start', 'middle', 'end'] })).toBe(true);
+    });
+
+    it('holds back a sound kept off the end, and one waiting for its moment', () => {
+        expect(padCanSting({ placements: ['start', 'middle'] })).toBe(false);
+        expect(padCanSting({ placements: ['end'], cue: 'right after a punchline' })).toBe(false);
     });
 });

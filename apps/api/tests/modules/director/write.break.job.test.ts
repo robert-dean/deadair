@@ -1748,8 +1748,11 @@ describe('WriteBreakJob putting a pad in by itself', () => {
             audioExt: 'mp3',
             source: 'library',
             state: 'active',
+            placements: ['start', 'middle', 'end'],
         },
     ];
+    const guitar = { ...rack[0]!, id: 'pad-2', name: 'guitarriff', label: 'Guitar riff', placements: ['middle'] };
+    const punchline = { ...rack[0]!, id: 'pad-3', name: 'drumroll', label: 'Drum roll', cue: 'right after a punchline' };
 
     it('adds a sting to a break the floor wrote, once one is due', async () => {
         const { job, segments } = harness({ lineup: await lineupWithBreak(), persona: withBoard as never, pads: rack as never, breaksSincePad: 4 });
@@ -1773,6 +1776,48 @@ describe('WriteBreakJob putting a pad in by itself', () => {
 
         expect(pads.markUsed).toHaveBeenCalledWith('pad-1');
         expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ pads: [{ name: 'rimshot', padId: 'pad-1' }] }));
+    });
+
+    it('never closes on a sound held to the middle, or one waiting for its cue', async () => {
+        // Both are least recently hit, so the rotation alone would have put them first. A guitar
+        // after the last word sounds like the next record starting, and a template line was never
+        // the punchline a cue names.
+        const { job, segments, pads } = harness({
+            lineup: await lineupWithBreak(),
+            persona: withBoard as never,
+            pads: [guitar, punchline, rack[0]!] as never,
+            breaksSincePad: 4,
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ script: 'talking [sfx:rimshot]' }));
+        expect(pads.markUsed).toHaveBeenCalledWith('pad-1');
+    });
+
+    it('adds nothing when no sound on the rack may close a break, however overdue', async () => {
+        const { job, segments } = harness({
+            lineup: await lineupWithBreak(),
+            persona: withBoard as never,
+            pads: [guitar, punchline] as never,
+            breaksSincePad: 40,
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ script: 'talking', pads: [] }));
+    });
+
+    it('offers the writers the whole rack, and the closing sounds apart', async () => {
+        const { job, writers } = harness({
+            lineup: await lineupWithBreak(),
+            persona: withBoard as never,
+            pads: [guitar, punchline, rack[0]!] as never,
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ pads: ['guitarriff', 'drumroll', 'rimshot'], stings: ['rimshot'] }));
     });
 
     it('waits when the last one was too recent', async () => {

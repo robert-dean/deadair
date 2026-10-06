@@ -8,7 +8,7 @@ import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { EnrichmentReadService, type FactBudget } from '#modules/enrichment/enrichment.read.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { padCue, padsIn } from '#modules/render/pad.cues.js';
-import { PadRepository } from '#modules/render/pad.repository.js';
+import { padCanSting, PadRepository } from '#modules/render/pad.repository.js';
 import { padEveryBreaks, padsAreOn } from '#modules/render/pad.settings.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { PersonaNotesRepository } from '#modules/personas/persona.notes.repository.js';
@@ -853,8 +853,12 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             const since = await this.segments.breaksSincePad();
             if (since < every) return script;
 
-            // Least recently hit, which is the order the read already answers in.
-            return `${script} ${padCue(rack[0]!.name)}`;
+            // Least recently hit among those that may close a break unprompted, which is the order the
+            // read already answers in. A rack of nothing but mid-break and cued sounds gets no sting.
+            const sting = rack.find(padCanSting);
+            if (sting === undefined) return script;
+
+            return `${script} ${padCue(sting.name)}`;
         } catch (error) {
             // The floor cannot fail. A rack that could not be read costs the break its sting.
             this.logger.debug(`director: could not decide whether to hit a pad (${errorText(error)})`);
@@ -922,12 +926,15 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
      * pad is spent when one is actually chosen, and the model has not chosen yet: this is the offer.
      * `RenderSegmentJob` is what marks the hit, because it is what reads the answer back.
      */
-    private async pads(persona: Persona | undefined): Promise<{ pads?: readonly string[] }> {
+    private async pads(persona: Persona | undefined): Promise<{ pads?: readonly string[]; stings?: readonly string[] }> {
         if (persona?.soundboard === undefined) return {};
 
         try {
             const rack = await this.padRepository.onSet(persona.soundboard);
-            return rack.length === 0 ? {} : { pads: rack.map(pad => pad.name) };
+            if (rack.length === 0) return {};
+
+            const stings = rack.filter(padCanSting).map(pad => pad.name);
+            return { pads: rack.map(pad => pad.name), ...(stings.length === 0 ? {} : { stings }) };
         } catch (error) {
             this.logger.debug(`director: could not read the soundboard (${errorText(error)})`);
             return {};

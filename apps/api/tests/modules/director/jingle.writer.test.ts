@@ -96,17 +96,30 @@ describe('JingleWriter', () => {
         expect(written).toBeUndefined();
     });
 
-    it('ends on the least recently hit pad where the presenter has a rack', async () => {
-        const written = await build({ [JINGLE_KEYS.templates]: 'This is {{station.name}}.' }).write(asking({ pads: ['whoosh', 'airhorn'] }));
+    it('ends on the least recently hit pad that may close a break', async () => {
+        const written = await build({ [JINGLE_KEYS.templates]: 'This is {{station.name}}.' }).write(
+            asking({ pads: ['guitar', 'whoosh', 'airhorn'], stings: ['whoosh', 'airhorn'] }),
+        );
 
         expect(written?.script).toBe('This is Deadair. [sfx:whoosh]');
+    });
+
+    it('is only words when nothing on the rack may close a break', async () => {
+        // A jingle sits between two records, so a sound held to the middle of a break would run into
+        // the next one, and a cued sound was never meant for an ident. The caller leaves `stings`
+        // absent then, and the whole rack in `pads` is not a fallback.
+        const written = await build({ [JINGLE_KEYS.templates]: 'This is {{station.name}}.' }).write(asking({ pads: ['guitar', 'rimshot'] }));
+
+        expect(written?.script).toBe('This is Deadair.');
     });
 
     it('is only words with no rack, or with the soundboard switched off', async () => {
         const bare = await build({ [JINGLE_KEYS.templates]: 'This is {{station.name}}.' }).write(asking());
         expect(bare?.script).toBe('This is Deadair.');
 
-        const off = await build({ [JINGLE_KEYS.templates]: 'This is {{station.name}}.', [PADS_KEY]: 'false' }).write(asking({ pads: ['whoosh'] }));
+        const off = await build({ [JINGLE_KEYS.templates]: 'This is {{station.name}}.', [PADS_KEY]: 'false' }).write(
+            asking({ pads: ['whoosh'], stings: ['whoosh'] }),
+        );
         expect(off?.script).toBe('This is Deadair.');
     });
 

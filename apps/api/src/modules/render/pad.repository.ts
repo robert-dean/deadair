@@ -72,6 +72,19 @@ export interface Pad {
     cue?: string;
 }
 
+/**
+ * Whether a writer that APPENDS a sound may close a break on this pad unprompted.
+ *
+ * Two conditions, and they are the two the jingle and the floor cannot judge for themselves. The pad
+ * has to allow `end`, because a guitar after the last word sounds like the next record starting; and
+ * it has to carry no cue, because a cue names a moment ("right after a punchline") and a template
+ * line was never that moment. A model is shown both and decides; an appending writer only ever takes
+ * a pad this answers true for, and takes none when the rack holds no such pad.
+ */
+export function padCanSting(pad: Pick<Pad, 'placements' | 'cue'>): boolean {
+    return pad.placements.includes('end') && pad.cue === undefined;
+}
+
 /** A pad as it arrives from the library or the console: audio first, everything else described. */
 export interface ImportedPad {
     board: string;

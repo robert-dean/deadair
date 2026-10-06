@@ -37,6 +37,18 @@ overrides:
     # the advisory is esbuild's own dev server on Windows, which nothing here runs. Vite and the rest
     # already allow 0.28. The image strips tsup and esbuild with the rest of the dev half.
     'tsup>esbuild': ^0.28.1
+    # The website's production build. Docusaurus 3.10's CSS minifier is cssnano 6, whose plugins pin
+    # postcss-selector-parser ^6 and the fix is only in 7, which postcss-preset-env already runs on in
+    # the same build. Never in the image.
+    'postcss-calc@9>postcss-selector-parser': ^7.1.6
+    'postcss-discard-unused@6>postcss-selector-parser': ^7.1.6
+    'postcss-merge-rules@6>postcss-selector-parser': ^7.1.6
+    'postcss-minify-selectors@6>postcss-selector-parser': ^7.1.6
+    'postcss-unique-selectors@6>postcss-selector-parser': ^7.1.6
+    'stylehacks@6>postcss-selector-parser': ^7.1.6
+    # The website's build. Docusaurus 3.10 asks for tinypool ^1 and the fix is only in 2, which keeps
+    # the default-export `Tinypool` class, `run()` and `destroy()` its SSG workers call. Never in the image.
+    '@docusaurus/core@3>tinypool': ^2.1.2
     # IN THE IMAGE, under plugin-llm. The AI SDK's v5 line pins undici ^5.29.0 and 5.29.0 is the last
     # 5.x; the fix is v6 (undici ^6.28.0), which is a migration of the plugin rather than a bump. The
     # SDK loads this copy only for its download helper, which fetches a file or image URL a model

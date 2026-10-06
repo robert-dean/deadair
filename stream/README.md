@@ -298,6 +298,17 @@ no dev stack:
 python3 stream/duck.check.py
 ```
 
+`voice.check.liq` measures where the voice leaves the compressor. It levels speech to an aim the way
+the stamp does, runs the shared compressor at two aims, and checks that the voice comes out at its aim
+both times. The speech is synthesised unless you pass a real segment, which is how the makeup was
+measured: a break from your own station is `GET /api/segments/{id}/audio`. It also renders the fixed
+-18 threshold this replaced, which leaves a real segment 5.5 dB short at an aim of -13:
+
+```
+python3 stream/voice.check.py
+python3 stream/voice.check.py --segment break.mp3
+```
+
 `liveboundary.check.py` is the third, and it measures the real mount rather than a render: capture
 the stream with a listener connected (the connection is what holds the audience gate open), log
 `GET /nowplaying` alongside it, and it reports the level across each join and how abruptly the
@@ -378,8 +389,7 @@ the level of a segment is entirely whatever the speech plugin produced. The fade
 time, so `fade.out` treats the whole clip as inside the fade zone and multiplies it to silence. Fade
 a tail at render time instead.
 
-**The level itself is decided by the app, per segment, and stamped.** The compressor runs with no
-makeup gain, so the chain can only ever make a segment quieter, and a speech engine aims at nothing:
+**The level itself is decided by the app, per segment, and stamped.** A speech engine aims at nothing:
 four voices of the bundled one measure between -25.5 and -28.3 LUFS (BS.1770) against records the
 station airs at -16. So the app stamps `liq_amplify` on the `annotate:` uri it arms the cue with,
 exactly as it does on every record it pushes, and the `amplify(1., override="liq_amplify", …)` at the
@@ -390,6 +400,14 @@ The target it aims at is the station's less `playout.speechTrimDb` (a setting, 2
 station's own. BS.1770 is a gated average and speech is the denser, more continuous signal, so a
 break levelled to exactly what the records measure arrives on top of them. The voice sits a little
 under the bed, which is where every desk puts it.
+
+**The compressor's threshold is that aim, and its makeup gives back what it takes there.** The app
+stamps the aim on every spoken item as `deadair_voice_lufs`, beside the gain, and both compressors
+read it. They used to sit at a fixed -18 with no makeup, from when the voice itself was aimed at -18;
+once the target moved to -13 that threshold was five decibels under the voice and squeezed all of it.
+Measured off the mount on 2026-10-05, every break aired at -19 LUFS against an aim of -13. With the
+threshold at the aim the reduction stops depending on the aim (2.75 dB on two real segments at both
+-13 and -18), so the makeup in `radio.liq` is that one measured number.
 
 **It is stamped on both routes, and that is the point.** A break aired between two records is an
 ordinary running-order item: it goes down the playout queue and never touches this chain at all. A

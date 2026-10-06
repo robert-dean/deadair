@@ -6,7 +6,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, duckBedLufsFor, speechGainFor } from '../../../src/modules/playout/gain.js';
+import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, duckBedLufsFor, speechAimLufs, speechGainFor } from '../../../src/modules/playout/gain.js';
 import { HARD_JOIN_MS } from '../../../src/modules/playout/annotate.js';
 import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
@@ -967,7 +967,8 @@ describe('PlayoutPusher arming a talk-over', () => {
 
         const gain = speechGainFor({}, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
         const bed = duckBedLufsFor(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
-        const armed = `annotate:liq_amplify="${gain} dB",deadair_duck_bed_lufs="${bed}":https://example.test/seg-1.ogg`;
+        const aim = speechAimLufs(DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
+        const armed = `annotate:liq_amplify="${gain} dB",deadair_voice_lufs="${aim}",deadair_duck_bed_lufs="${bed}":https://example.test/seg-1.ogg`;
         expect(control.armVoice).toHaveBeenCalledWith(armed, itemId, 8000);
     });
 

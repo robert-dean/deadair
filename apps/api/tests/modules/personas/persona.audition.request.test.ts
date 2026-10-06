@@ -208,13 +208,17 @@ describe('auditionRequest', () => {
         expect(Object.keys(auditionRequest(input()))).not.toContain('airsAt');
     });
 
-    it('offers no pads and no cues, which are things to PERFORM', () => {
-        // An audition is read on a page. Offering a soundboard would have the host reach for a sting
-        // nothing here can play.
-        const request = auditionRequest(input());
+    it('offers the soundboard it was handed, as a character on air would have it', () => {
+        expect(auditionRequest(input({ pads: ['airhorn', 'rimshot'] })).pads).toEqual(['airhorn', 'rimshot']);
+    });
 
-        expect(Object.keys(request)).not.toContain('pads');
-        expect(Object.keys(request)).not.toContain('reactions');
+    it('says nothing about pads to a character with no board, rather than offering an empty one', () => {
+        expect(Object.keys(auditionRequest(input()))).not.toContain('pads');
+        expect(Object.keys(auditionRequest(input({ pads: [] })))).not.toContain('pads');
+    });
+
+    it('offers no engine cues, which belong to the engine rather than the character', () => {
+        expect(Object.keys(auditionRequest(input({ pads: ['airhorn'] })))).not.toContain('reactions');
     });
 
     it('offers no play history, which belongs to a broadcast', () => {

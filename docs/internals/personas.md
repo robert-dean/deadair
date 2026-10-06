@@ -433,7 +433,7 @@ that is the right shape for the question it answers, which is what one sheet EDI
 to be pinned or two readings a minute apart are not comparable. What it cannot answer is whether a character
 holds up over real material, and that was previously knowable only by switching the station over and waiting
 an evening. `POST /personas/{id}/auditions` (migrations 0024 and 0059, `PersonaAuditionJob`, and the Auditions tab on
-Voice) is the half in between: one host, one source, one talk break per transition, and nothing airs. Seven
+Voice) is the half in between: one host, one source, one talk break per transition, and nothing airs. Eight
 things are load-bearing, and every one of them is about not measuring the wrong thing.
 
 **It is a chain of jobs over one row, never a request.** Each transition is a generation at the `preview`
@@ -455,6 +455,15 @@ false })` — the same reading/resting split those stores were built around, app
 twenty-transition run that stamped would hand the next real break this character's twenty-first-best lines,
 report tellings nobody heard, and put a week of the station's best claims on cooldown for breaks that were
 going to say them.
+
+**It is offered the soundboard, and hits nothing on it.** Whether a character reaches for its pads, and how
+often, is part of how it holds up over a playlist, so each transition is offered the rack `WriteBreakJob`
+would offer (`PadRepository.onSet` on `personas.soundboard`, least recently hit first) and the hit stays in
+the recorded script as `[sfx:name]`. No pad is marked used, for the notebook's reason: a run of twenty that
+rested its hits would hand the next real break the board's least-wanted sound. The floor's sting is left
+out, because `floorPad` spaces it by the station's own segments and a sound appended to somebody else's
+words says nothing about the sheet. The engine's `reactions` stay absent: they belong to whichever engine is
+installed when a break airs, not to the character.
 
 **`recent` comes from the RUN and not from the station.** This is the one place an audition deliberately
 diverges from the rehearsal: `recent: []` is what makes one reading repeatable, and over a playlist it would

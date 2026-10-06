@@ -3,6 +3,9 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { nextBoundaryAtOrAfter, projectAirTimes } from './air.clock.js';
+// Counted with an unmeasured record as an average one, deliberately NOT `air.clock.ts`'s zero: a
+// spacing rule would rather be roughly right than certainly late. See `air.estimate.ts`.
+import { spacingLengthOf } from './air.estimate.js';
 import { brokenClaim, reasonFor, type BrokenClaim } from './break.claims.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { isAnchored, nextOccurrence, type ClockBand, type ClockBandSubject } from './clock.bands.js';
@@ -19,7 +22,7 @@ import { stationZone } from './clock.words.js';
 import { SegmentRepository, type Segment, type StrandedRelease } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
-import { isTrackItem, type StationLineup, type StationLineupItem, type StationLineupSegmentItem } from './station.lineup.js';
+import { type StationLineup, type StationLineupItem, type StationLineupSegmentItem } from './station.lineup.js';
 import type { ResolvedRules } from './rotation.rules.js';
 import type { BreakRequestResult, BreakUrgency, StoredBreakRequest } from './break.request.js';
 import { TALK_BREAK_KIND } from './talk.break.writer.js';
@@ -149,24 +152,6 @@ export const expiryFor = (urgency: BreakUrgency): number | undefined => URGENCY[
  * the interruption is heard as one.
  */
 export const INTERRUPT_OVER_AT_MS = 30_000;
-
-/**
- * How long an unmeasured record is assumed to run when spacing is being decided.
- *
- * **The one place this file deliberately disagrees with `air.clock.ts`,** which counts everything
- * unknown as zero so that a boundary is never projected later than it really is. The two rules want
- * opposite things from a guess. An anchored break must never land EARLY, because "just after nine"
- * said at four minutes to is a lie no phrasing can absorb, so there a missing duration contributes
- * nothing and the break slides late. Spacing only wants to be roughly right, and a run of records
- * that each counted zero would mean a station that never reached its interval and never talked at
- * all — which is far worse than a break arriving two minutes off.
- *
- * Four and a half minutes, which is what this catalog actually averages. Nothing is measured off
- * the library at runtime: a constant that is close is worth more than a query on every boundary,
- * and every record the station owns carries a real duration anyway, so this is reached for only by
- * something newly discovered and not yet ingested.
- */
-const NOMINAL_TRACK_MS = 270_000;
 
 /**
  * How late a boundary may be and still count as the slot an operator asked for.
@@ -1788,25 +1773,6 @@ function elapsedSinceLastOfKind(items: readonly StationLineupItem[], cursor: num
         elapsed += spacingLengthOf(item);
     }
     return elapsed;
-}
-
-/**
- * How much of the clock an item spends, for spacing.
- *
- * Deliberately NOT `air.clock.ts`'s answer. See {@link NOMINAL_TRACK_MS}: a record nobody measured
- * counts as an average one here and as nothing there, because a spacing rule would rather be
- * roughly right than certainly late and an anchored one would rather be late than early.
- *
- * A segment counts as nothing, which is the one thing both agree on: nothing has ever measured one,
- * and an ident is a few seconds against an interval of a quarter of an hour.
- */
-function spacingLengthOf(item: StationLineupItem): number {
-    if (!isTrackItem(item)) return 0;
-
-    const { durationMs, cueInMs, cueOutMs } = item.track;
-    if (cueOutMs !== undefined) return Math.max(0, cueOutMs - (cueInMs ?? 0));
-
-    return durationMs === undefined ? NOMINAL_TRACK_MS : Math.max(0, durationMs - (cueInMs ?? 0));
 }
 
 /**

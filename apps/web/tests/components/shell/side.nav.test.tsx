@@ -12,20 +12,28 @@ let pathname = '/nowhere';
 // to answer where we are.
 vi.mock('@tanstack/react-router', () => ({
     // `activeOptions` is drawn as an attribute, since how a row matches is the router's to apply and
-    // this test's only to see asked for. `search` is dropped: an anchor has no use for it.
+    // this test's only to see asked for. So is an empty `activeProps`, which is a row asking never to
+    // be lit. `search` is dropped: an anchor has no use for it.
     Link: ({
         to,
         children,
         activeOptions,
+        activeProps,
         search: _search,
         ...props
     }: {
         to?: string;
         children?: ReactNode;
         activeOptions?: { exact?: boolean };
+        activeProps?: object;
         search?: unknown;
     }) => (
-        <a href={to} data-exact={activeOptions?.exact ? 'true' : undefined} {...props}>
+        <a
+            href={to}
+            data-exact={activeOptions?.exact ? 'true' : undefined}
+            data-never-active={activeProps !== undefined && Object.keys(activeProps).length === 0 ? 'true' : undefined}
+            {...props}
+        >
             {children}
         </a>
     ),
@@ -114,6 +122,38 @@ describe('SideNav', () => {
 
         expect(screen.getByRole('link', { name: /^Characters/ })).toHaveAttribute('data-exact', 'true');
         expect(screen.getByRole('link', { name: /^What it said/ })).not.toHaveAttribute('data-exact');
+    });
+
+    /**
+     * On Tracks the rail lit three rows. Library is `/catalog/tracks` exactly as Tracks is, and Artists
+     * is `/catalog`, which the router's prefix match counts as a parent of `/catalog/tracks`.
+     */
+    it('lights only the Library section the operator is on', () => {
+        pathname = '/catalog/tracks';
+        render(<SideNav />);
+
+        expect(screen.getByRole('link', { name: 'Library' })).toHaveAttribute('data-never-active', 'true');
+        expect(screen.getByRole('link', { name: /^Artists/ })).toHaveAttribute('data-exact', 'true');
+        expect(screen.getByRole('link', { name: /^Tracks/ })).not.toHaveAttribute('data-never-active');
+        // Collapsed destinations have nothing beneath them to say so instead.
+        expect(screen.getByRole('link', { name: 'Voice' })).not.toHaveAttribute('data-never-active');
+    });
+
+    it('draws one badge for one thing, on the section rather than beside it on Library too', () => {
+        pathname = '/catalog/tracks';
+        render(<SideNav attention={[{ code: 'benchedCopies', severity: 'warning', title: 'a', detail: 'a', route: '/catalog' }]} />);
+
+        expect(screen.getAllByText('1')).toHaveLength(1);
+        expect(screen.getByRole('link', { name: /^Tracks, 1 thing needs attention/ })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Library' })).toBeInTheDocument();
+    });
+
+    it('draws one badge on Voice’s first section, not on all eight that share its route', () => {
+        pathname = '/voice';
+        render(<SideNav attention={[{ code: 'persona', severity: 'warning', title: 'a', detail: 'a', route: '/personas' }]} />);
+
+        expect(screen.getAllByText('1')).toHaveLength(1);
+        expect(screen.getByRole('link', { name: /^Characters, 1 thing needs attention/ })).toBeInTheDocument();
     });
 
     /**

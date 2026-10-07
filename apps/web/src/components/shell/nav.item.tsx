@@ -67,6 +67,15 @@ export interface NavItemProps {
      * rail would say the operator is in two places at once.
      */
     exact?: boolean;
+    /**
+     * Whether this row stays unlit even on its own route, because a row beneath it says so instead.
+     *
+     * A destination whose sections are drawn is a way in rather than where the operator is. Library
+     * is `/catalog/tracks` and so is its Tracks, so an exact match still lit both, and Check-up and
+     * Machinery did the same. Done through the router's `activeProps` rather than a class, so the row
+     * loses `aria-current` along with the bar and a screen reader hears one current page too.
+     */
+    neverActive?: boolean;
 }
 
 /**
@@ -87,7 +96,7 @@ export interface NavItemProps {
  * So the label is written out only when there IS attention, and a link with nothing waiting keeps
  * its plain name rather than announcing that nothing is wrong with it.
  */
-export function NavItem({ to, search, label, hint, hintText, attention, nested = false, exact = false }: NavItemProps) {
+export function NavItem({ to, search, label, hint, hintText, attention, nested = false, exact = false, neverActive = false }: NavItemProps) {
     // For `aria-describedby`. Mantine gives its description element no id of its own, so the id goes
     // on a span inside it, which is what the attribute can then point at.
     const describedBy = useId();
@@ -140,8 +149,17 @@ export function NavItem({ to, search, label, hint, hintText, attention, nested =
             // route that exists. This is the nav, so that check is the one worth having most.
             // `activeOptions` only where it is actually wanted. Passing `{ exact: false }` on every
             // link would read as the same thing and is not: it replaces the router's whole default,
-            // `includeSearch` and all, on links that were relying on it.
-            renderRoot={(props: object) => <Link to={to} search={search} activeOptions={exact ? { exact: true } : undefined} {...props} />}
+            // `includeSearch` and all, on links that were relying on it. An empty `activeProps` is what
+            // keeps a row unlit: the router's default active props ARE `data-status` and `aria-current`.
+            renderRoot={(props: object) => (
+                <Link
+                    to={to}
+                    search={search}
+                    activeOptions={exact ? { exact: true } : undefined}
+                    activeProps={neverActive ? {} : undefined}
+                    {...props}
+                />
+            )}
         />
     );
 

@@ -26,6 +26,14 @@
  * `ran-long` is mechanical and is also not here, because the trim already answers it: a script past
  * the ceiling is cut to its last whole sentence and aired, so there is nothing to ask for.
  *
+ * A year, a figure or a run of lyric the model was not given USED to sit with the substrate faults,
+ * and they are not the same kind of mistake. A model that wrote about neither record misread the
+ * whole of what it was handed; one that dated a record to 1987 wrote a sound break and added one
+ * claim to it, which is `unoffered-weather`'s mistake about a different subject, and that one was
+ * always retried. Told which year (`BreakRetry.said`) and asked for the same break without it, the
+ * fix is a deletion. The second answer goes through the same checks as the first, so a model that
+ * invents another year reaches the floor exactly as it did before, one generation later.
+ *
  * **One retry, never two.** The registry passes {@link BreakRetry} on the second ask and refuses to
  * build a third, so a model that fails the same way twice reaches the floor exactly as it does now,
  * one generation later.
@@ -52,6 +60,13 @@ export interface BreakRetry {
     fault: WriteFault;
     /** The sentence `writeDecline` produced, which for some faults names the wording that caused it. */
     reason: string;
+    /**
+     * The wording the check caught, where it names one: the daypart word, the year, the figure, the
+     * sky, the two subjects. Shown to the model as its own line, because the nudge names the RULE
+     * and the refused answer is a paragraph, and between them a model still has to guess which of
+     * its words broke it.
+     */
+    said?: string;
     /** What the model actually said, where it said anything at all. */
     refused?: string;
 }
@@ -77,6 +92,11 @@ export const RETRYABLE_FAULTS: ReadonlySet<WriteFault> = new Set<WriteFault>([
     // `invented-figure`'s: the model was not wrong about something it was given, it reached for
     // something it was not, and a reminder is what that wants.
     'unoffered-weather',
+    // A claim the model reached for rather than one it got wrong about what it was given, on the
+    // argument at the top of this file. `quoted-lyric` is the same rule about a different source.
+    'invented-year',
+    'invented-figure',
+    'quoted-lyric',
     'nothing-said',
 ]);
 
@@ -115,6 +135,11 @@ const NUDGES: Record<string, string> = {
         'That named the wrong part of the day. Say the same break again, fitting the time you were told, or saying nothing about the time at all.',
     'unoffered-weather':
         'That described the weather, and you have not been told what it is doing outside. Say the same break again without saying anything about the weather.',
+    'invented-year':
+        'That stated a year you were not given, and a listener cannot tell it from one the station knows. Say the same break again without the year.',
+    'invented-figure':
+        'That gave a figure you were not given, and it sounds exactly like one somebody measured. Say the same break again using only the figures you were told, or none.',
+    'quoted-lyric': 'That quoted the words of a record, which the station never says on air. Say the same break again in your own words.',
     'nothing-said': 'That answered with nothing the station could read aloud. Write the break.',
 };
 
@@ -122,12 +147,19 @@ const NUDGES: Record<string, string> = {
  * The second ask as one user turn, or nothing where the fault has no nudge.
  *
  * The refused answer is quoted back under a label rather than pasted bare, so a model that reads it
- * as the next thing to continue has something to disagree with instead.
+ * as the next thing to continue has something to disagree with instead. The caught wording comes
+ * before it, short and on its own line, so the correction is read before the paragraph it corrects.
  */
 export function retryNudge(retry: BreakRetry): string | undefined {
     const nudge = NUDGES[retry.fault];
     if (nudge === undefined) return undefined;
 
-    const refused = retry.refused?.trim() ?? '';
-    return refused.length === 0 ? nudge : `${nudge}\n\nWhat you said, which the station refused:\n"${refused}"`;
+    const said = retry.said?.trim() ?? '';
+    const caught = said.length === 0 ? nudge : `${nudge}\n\nThe words that caused it: "${said}"`;
+
+    // Not for a lyric: the refused answer IS the quotation, and putting it back in front of the
+    // model is the surest way to have it said again. Asked without it, the model writes the break
+    // fresh from the prompt, which for this fault is the fix rather than the risk.
+    const refused = retry.fault === 'quoted-lyric' ? '' : (retry.refused?.trim() ?? '');
+    return refused.length === 0 ? caught : `${caught}\n\nWhat you said, which the station refused:\n"${refused}"`;
 }

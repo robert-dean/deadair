@@ -3,7 +3,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { isPluginError } from '@deadair/plugin-sdk';
 import type { BreakWriteRequest, BreakWriter, WriteDetail, WrittenBreak } from './break.writer.js';
 import { worthRetrying, type BreakRetry } from './break.retry.js';
-import type { WriteFault } from './break.prompt.js';
+import { saidIn, type WriteFault } from './break.prompt.js';
 import { errorText } from '#modules/shared/error.text.js';
 
 /**
@@ -194,9 +194,12 @@ export class BreakWriterRegistry {
         const fault = attempt.detail?.fault;
         if (!worthRetrying(fault)) return undefined;
 
+        const reason = attempt.reason ?? '';
+        const said = saidIn(reason);
         return {
             fault: fault as WriteFault,
-            reason: attempt.reason ?? '',
+            reason,
+            ...(said === undefined ? {} : { said }),
             ...(attempt.detail?.refused === undefined ? {} : { refused: attempt.detail.refused }),
         };
     }

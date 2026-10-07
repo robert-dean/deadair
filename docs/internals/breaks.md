@@ -24,14 +24,20 @@ and a floor that covered for it are two facts and the second alone reads as a st
 `readAnswer` still declines rather than re-drafting, and the registry is what asks again: a declined attempt
 whose `WriteDetail.fault` is in `RETRYABLE_FAULTS` (`break.retry.ts`) is put back to the same writer once,
 with the fault and the refused answer on `BreakWriteRequest.retry`, which `breakPrompt` renders as a third
-turn saying which rule was broken and asking for the same break again. The second attempt is recorded like
+turn saying which rule was broken and asking for the same break again. Where the check caught particular
+wording (the daypart word, the year, the figure, the sky, the two subjects) that goes in on its own line
+ahead of the refused answer, read back out of the reason by `saidIn`, so the model is not left to guess
+which of its words did it. The second attempt is recorded like
 any other, so `script_history` keeps both the refusal and the rewrite. What made this worth its generation
 is that the floor stopped being an equal substitute: a quarter of this station's talk breaks were landing on
 six phrasings, so a character whose model keeps being refused repeats inside an hour. What keeps it safe is
 that the substrate faults are excluded — a break about neither record means the model misread what it was
 handed, and asking again invites it to invent something that fits — and that the second ask goes through the
 same `patienceFor(airsAt)` as the first, so a retry with no time left is refused by the gate and the floor
-writes the break exactly as it would have.
+writes the break exactly as it would have. A year, a figure or a run of lyric the model was never given
+(`invented-year`, `invented-figure`, `quoted-lyric`) is retried too, since 2026-10-07: those are one claim
+added to an otherwise sound break, the same mistake as `unoffered-weather`, and the fix is to drop it. A
+lyric is the one fault whose refused answer is not quoted back, because the answer is the quotation.
 
 **The talk-break phrasings are the character's.** A persona's own `templates`, one per line, with the
 station's own five (`DEFAULT_TEMPLATES`) behind them, so clearing a character's box restores those rather

@@ -3128,6 +3128,26 @@ export type WriteFault =
     | 'unoffered-weather'
     | 'character-trimmed';
 
+/** How {@link writeDecline} introduces the wording it caught, which {@link saidIn} reads back. */
+const SAID = ': it said "';
+
+/**
+ * The wording a {@link writeDecline} reason caught, or `undefined` where it named none.
+ *
+ * Read back out of the sentence rather than carried beside it, for the reason `writeDecline` gives:
+ * the sentence is what already reaches every writer's `WriteDetail.reason`, and a second field would
+ * be threaded through all of them. The second ask is what wants it (`BreakRetry.said`), because a
+ * model told "the wrong half of the day" and shown its own paragraph has to guess which word did it.
+ * Kept beside the one place the suffix is written, so the two cannot drift apart.
+ */
+export function saidIn(reason: string): string | undefined {
+    const at = reason.lastIndexOf(SAID);
+    if (at < 0 || !reason.endsWith('"')) return undefined;
+
+    const said = reason.slice(at + SAID.length, -1);
+    return said.length === 0 ? undefined : said;
+}
+
 /**
  * Why a raw answer was refused, for a writer that wants to say so, or `undefined` when it was not.
  *
@@ -3155,7 +3175,7 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     // `scripts/break.declines.ts`, which groups on the reason and is the report this is for.
     const reasoned = (fault: WriteFault, said?: string) => ({
         fault,
-        reason: said === undefined ? FAULT_REASONS[fault] : `${FAULT_REASONS[fault]}: it said "${said}"`,
+        reason: said === undefined ? FAULT_REASONS[fault] : `${FAULT_REASONS[fault]}${SAID}${said}"`,
     });
 
     const tidied = tidyAnswer(text, guard);

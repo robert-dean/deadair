@@ -1088,6 +1088,7 @@ export interface DeadairTracks {
   albumId: string | null;
   artistId: string;
   artists: string;
+  benchAcknowledgedAt: DateTime | null;
   createdAt: Generated<DateTime>;
   discNumber: number | null;
   durationMs: number | null;
@@ -1119,6 +1120,7 @@ export interface DeadairTrackSources {
   playable: Generated<boolean>;
   pluginId: string;
   raw: Json | null;
+  refusedAt: DateTime | null;
   trackId: string;
   updatedAt: Generated<DateTime>;
   uri: string | null;

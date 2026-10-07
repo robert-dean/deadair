@@ -1059,7 +1059,9 @@ export class TracksRepository extends DataRepository {
     async markBindingUnplayable(pluginId: string, externalId: string): Promise<boolean> {
         const result = await this.db
             .updateTable('deadair.trackSources')
-            .set({ playable: false })
+            // The moment beside the mark, because an operator's acknowledgement of a benched record
+            // is measured against it: a refusal later than the acknowledgement is news.
+            .set({ playable: false, refusedAt: sql<never>`now()` })
             .where('pluginId', '=', pluginId)
             .where('externalId', '=', externalId)
             .where('playable', '=', true)
@@ -1082,7 +1084,7 @@ export class TracksRepository extends DataRepository {
     async offerBindingsAgain(trackId: string): Promise<number> {
         const result = await this.db
             .updateTable('deadair.trackSources')
-            .set({ playable: true })
+            .set({ playable: true, refusedAt: null })
             .where('trackId', '=', trackId)
             .where('playable', '=', false)
             .executeTakeFirst();

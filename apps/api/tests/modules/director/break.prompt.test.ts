@@ -19,6 +19,7 @@ import {
     readAnswer,
     shownWithoutRecent,
     TALK_BREAK_SHAPE,
+    saidIn,
     writeDecline,
     writeTrim,
     yearsIn,
@@ -1813,6 +1814,19 @@ describe('readAnswer, against the half of the day it was told', () => {
         const declined = writeDecline('Tonight we are back to back.', { dayPart: at(9) });
 
         expect(declined?.reason).toContain('it said "tonight"');
+    });
+
+    // The second ask reads the word back out of the sentence, so the sentence's shape is a contract
+    // between the two and this is where it is held.
+    it('gives the caught word back to whoever reads the reason', () => {
+        const declined = writeDecline('Tonight we are back to back.', { dayPart: at(9) });
+
+        expect(saidIn(declined?.reason ?? '')).toBe('tonight');
+    });
+
+    it('gives back nothing for a reason that caught no wording', () => {
+        expect(saidIn(writeDecline('', {})?.reason ?? '')).toBeUndefined();
+        expect(saidIn('')).toBeUndefined();
     });
 
     // A record's name is full of words that say what time it is, and back-announcing one says

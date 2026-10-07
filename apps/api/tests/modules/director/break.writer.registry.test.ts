@@ -368,6 +368,34 @@ describe('BreakWriterRegistry asking a second time', () => {
         expect(writer.asked[1]?.retry).toMatchObject({ fault: 'avoided-wording', refused: 'it was merely a spectacle' });
     });
 
+    it('passes on the words the check caught, read out of the reason', async () => {
+        const writer = new RecordingWriter(
+            'talkbreak',
+            'model',
+            [undefined, { script: 'better', label: 'a break' }],
+            [{ ...declined('wrong-daypart'), reason: 'the model called it the wrong half of the day: it said "tonight"' }, undefined],
+        );
+        const registry = new BreakWriterRegistry([writer], logger() as never);
+
+        await registry.write({ kind: 'talkbreak' });
+
+        expect(writer.asked[1]?.retry).toMatchObject({ fault: 'wrong-daypart', said: 'tonight' });
+    });
+
+    it('passes on no caught words for a reason that named none', async () => {
+        const writer = new RecordingWriter(
+            'talkbreak',
+            'model',
+            [undefined, { script: 'better', label: 'a break' }],
+            [declined('avoided-wording'), undefined],
+        );
+        const registry = new BreakWriterRegistry([writer], logger() as never);
+
+        await registry.write({ kind: 'talkbreak' });
+
+        expect(writer.asked[1]?.retry?.said).toBeUndefined();
+    });
+
     it('does not ask again about the records, since a model that misread them will misread them again', async () => {
         const writer = new RecordingWriter('talkbreak', 'model', [undefined, undefined], [declined('named-nothing'), undefined]);
         const registry = new BreakWriterRegistry([writer, new StubWriter('talkbreak', 'floor', words('the floor'))], logger() as never);

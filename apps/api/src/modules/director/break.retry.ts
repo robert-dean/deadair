@@ -52,6 +52,13 @@ export interface BreakRetry {
     fault: WriteFault;
     /** The sentence `writeDecline` produced, which for some faults names the wording that caused it. */
     reason: string;
+    /**
+     * The wording the check caught, where it names one: the daypart word, the year, the figure, the
+     * sky, the two subjects. Shown to the model as its own line, because the nudge names the RULE
+     * and the refused answer is a paragraph, and between them a model still has to guess which of
+     * its words broke it.
+     */
+    said?: string;
     /** What the model actually said, where it said anything at all. */
     refused?: string;
 }
@@ -122,12 +129,16 @@ const NUDGES: Record<string, string> = {
  * The second ask as one user turn, or nothing where the fault has no nudge.
  *
  * The refused answer is quoted back under a label rather than pasted bare, so a model that reads it
- * as the next thing to continue has something to disagree with instead.
+ * as the next thing to continue has something to disagree with instead. The caught wording comes
+ * before it, short and on its own line, so the correction is read before the paragraph it corrects.
  */
 export function retryNudge(retry: BreakRetry): string | undefined {
     const nudge = NUDGES[retry.fault];
     if (nudge === undefined) return undefined;
 
+    const said = retry.said?.trim() ?? '';
+    const caught = said.length === 0 ? nudge : `${nudge}\n\nThe words that caused it: "${said}"`;
+
     const refused = retry.refused?.trim() ?? '';
-    return refused.length === 0 ? nudge : `${nudge}\n\nWhat you said, which the station refused:\n"${refused}"`;
+    return refused.length === 0 ? caught : `${caught}\n\nWhat you said, which the station refused:\n"${refused}"`;
 }

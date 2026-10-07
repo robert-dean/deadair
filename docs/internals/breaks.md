@@ -24,7 +24,10 @@ and a floor that covered for it are two facts and the second alone reads as a st
 `readAnswer` still declines rather than re-drafting, and the registry is what asks again: a declined attempt
 whose `WriteDetail.fault` is in `RETRYABLE_FAULTS` (`break.retry.ts`) is put back to the same writer once,
 with the fault and the refused answer on `BreakWriteRequest.retry`, which `breakPrompt` renders as a third
-turn saying which rule was broken and asking for the same break again. The second attempt is recorded like
+turn saying which rule was broken and asking for the same break again. Where the check caught particular
+wording (the daypart word, the year, the figure, the sky, the two subjects) that goes in on its own line
+ahead of the refused answer, read back out of the reason by `saidIn`, so the model is not left to guess
+which of its words did it. The second attempt is recorded like
 any other, so `script_history` keeps both the refusal and the rewrite. What made this worth its generation
 is that the floor stopped being an equal substitute: a quarter of this station's talk breaks were landing on
 six phrasings, so a character whose model keeps being refused repeats inside an hour. What keeps it safe is

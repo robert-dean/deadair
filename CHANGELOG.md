@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.47.0] — 2026-10-07
+
+- The "records have no copy left that will play" row on the desk and Check-up can now be dismissed. Some of those records can never come back (their provider refused them), so the row used to stay there for good. Dismiss accepts the records benched at that moment. The row comes back on its own if another record loses its last copy, or if one you dismissed recovers and then loses its copies again. Dismissed records stay benched and the catalog's Benched filter still lists them; the row says how many it is leaving out. Dismissing needs an admin.
+- Check-up's sections in the side rail no longer fold away when one is opened. Choosing What it has been doing, What it cost, Logs or What's new used to collapse the list, because those pages live outside `/checkup`; the rail now stays open on any of them, the way Settings and Library always have.
+- A talk break now shows the presenter's portrait on the stream, where it showed the station logo before. Anything that reads the picture from the mount (VLC, cast speakers, BluOS) sees it, and so does the console's running order. A break whose kind has a picture of its own, such as the weather or the news, keeps that picture.
+- The side rail lights one row for the page you are on. On Tracks it lit Library, Tracks and Artists together, and Library and Tracks both showed the same badge; Check-up and Machinery did the same. A destination's own row now stays unlit while its sections are listed under it, Artists no longer lights on every record's page, and each thing waiting is one badge on one row.
+
 ## [0.46.1] — 2026-10-06
 
 - "Do not repeat an artist for (minutes)" now holds for records still waiting in the running order, not only for ones that have aired. Two records by the same artist could land about eight minutes apart inside one refill, and a refill could choose an artist already queued a few records earlier; the station now keeps an artist's records at least that many minutes apart by when each is expected to air. On a library too small to fill the hour that way, the station repeats an artist sooner rather than running out of music. Setting it to 0 still turns it off.
@@ -1129,7 +1136,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.46.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.47.0...HEAD
+[0.47.0]: https://github.com/robert-dean/deadair/compare/v0.46.1...v0.47.0
 [0.46.1]: https://github.com/robert-dean/deadair/compare/v0.46.0...v0.46.1
 [0.46.0]: https://github.com/robert-dean/deadair/compare/v0.45.0...v0.46.0
 [0.45.0]: https://github.com/robert-dean/deadair/compare/v0.44.7...v0.45.0

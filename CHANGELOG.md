@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.47.1] — 2026-10-07
+
+- A break refused for stating a year or a figure the station never gave the model, or for quoting a record's lyrics, now gets one more ask before the station falls back to its stock phrasings, as the other fixable refusals already did.
+- When the model's break is refused and it is asked once more, it is now told the exact words that were caught (the wrong time of day, a year or figure it was never given, the two subjects it mixed), not only which rule it broke.
+- A talk break that runs past its word limit no longer loses the record it names. The trim used to keep the start of the break and cut the end, which for an outro is where the next record is named, and the break was then thrown out for naming no record at all. Now the trim cuts the sentences just before the name instead, and when no cut can keep the name within the limit, the break is recorded as too long, which is the real reason. The plugin SDK gains `sentencesOf`, which splits a passage into whole sentences on the same rule `sentencesWithin` cuts at.
+
 ## [0.47.0] — 2026-10-07
 
 - The "records have no copy left that will play" row on the desk and Check-up can now be dismissed. Some of those records can never come back (their provider refused them), so the row used to stay there for good. Dismiss accepts the records benched at that moment. The row comes back on its own if another record loses its last copy, or if one you dismissed recovers and then loses its copies again. Dismissed records stay benched and the catalog's Benched filter still lists them; the row says how many it is leaving out. Dismissing needs an admin.
@@ -1136,7 +1142,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.47.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.47.1...HEAD
+[0.47.1]: https://github.com/robert-dean/deadair/compare/v0.47.0...v0.47.1
 [0.47.0]: https://github.com/robert-dean/deadair/compare/v0.46.1...v0.47.0
 [0.46.1]: https://github.com/robert-dean/deadair/compare/v0.46.0...v0.46.1
 [0.46.0]: https://github.com/robert-dean/deadair/compare/v0.45.0...v0.46.0

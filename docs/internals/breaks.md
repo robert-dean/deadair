@@ -34,7 +34,10 @@ six phrasings, so a character whose model keeps being refused repeats inside an 
 that the substrate faults are excluded — a break about neither record means the model misread what it was
 handed, and asking again invites it to invent something that fits — and that the second ask goes through the
 same `patienceFor(airsAt)` as the first, so a retry with no time left is refused by the gate and the floor
-writes the break exactly as it would have.
+writes the break exactly as it would have. A year, a figure or a run of lyric the model was never given
+(`invented-year`, `invented-figure`, `quoted-lyric`) is retried too, since 2026-10-07: those are one claim
+added to an otherwise sound break, the same mistake as `unoffered-weather`, and the fix is to drop it. A
+lyric is the one fault whose refused answer is not quoted back, because the answer is the quotation.
 
 **The talk-break phrasings are the character's.** A persona's own `templates`, one per line, with the
 station's own five (`DEFAULT_TEMPLATES`) behind them, so clearing a character's box restores those rather

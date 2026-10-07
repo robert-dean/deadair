@@ -20,6 +20,9 @@ describe('worthRetrying', () => {
             'quoted-sample',
             'wrong-daypart',
             'unoffered-weather',
+            'invented-year',
+            'invented-figure',
+            'quoted-lyric',
         ] as WriteFault[]) {
             expect(worthRetrying(fault), fault).toBe(true);
         }
@@ -30,9 +33,9 @@ describe('worthRetrying', () => {
     });
 
     it('leaves the substrate faults to the floor', () => {
-        // A model that wrote about neither record, put one on the wrong side, or stated a year
-        // nobody gave it has misunderstood what it was handed rather than how to say it.
-        for (const fault of ['named-nothing', 'cued-wrong', 'invented-year'] as WriteFault[]) {
+        // A model that wrote about neither record, or put one on the wrong side, has misunderstood
+        // what it was handed rather than how to say it.
+        for (const fault of ['named-nothing', 'cued-wrong'] as WriteFault[]) {
             expect(worthRetrying(fault), fault).toBe(false);
         }
     });
@@ -73,6 +76,13 @@ describe('retryNudge', () => {
 
     it('leaves the caught words out when the check named none', () => {
         expect(retryNudge({ fault: 'out-of-character', reason: 'because', said: '  ' })).not.toMatch(/caused it/);
+    });
+
+    it('never quotes a lyric back, since that is the quickest way to have it said again', () => {
+        const nudge = retryNudge({ fault: 'quoted-lyric', reason: 'because', refused: 'Saw it written and I saw it say' });
+
+        expect(nudge).toBeTruthy();
+        expect(nudge).not.toContain('Saw it written');
     });
 
     it('drops the quote when there was nothing to quote', () => {

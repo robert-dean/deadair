@@ -186,6 +186,11 @@ public sealed record AttentionItem
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? Count { get; init; }
 
+    /// <summary>The operator may accept this row as it stands, through `POST /station/attention/{code}/dismiss`. It comes back by itself when something new joins it. Absent on a row that only goes away when its cause does</summary>
+    [JsonPropertyName("dismissible")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Dismissible { get; init; }
+
     /// <summary>A HANDFUL of the things this row is about, never all of them: this answer is polled and a row about four hundred records must not be four hundred sentences. `count` stays the true figure, and a console showing fewer than it says so</summary>
     [JsonPropertyName("evidence")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

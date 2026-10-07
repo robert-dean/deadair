@@ -46,6 +46,12 @@ export interface FaultingCopy {
     lastError?: string;
 }
 
+/**
+ * Which records {@link TracksRepository.faultingTracks} samples. `newlyBenched` is benched with no
+ * operator acknowledgement covering it, which is what the desk's attention row reports.
+ */
+export type FaultState = 'benched' | 'newlyBenched' | 'failing';
+
 /** A record in a fault state, with the copies that put it there. */
 export interface FaultingTrack {
     trackId: string;
@@ -173,6 +179,32 @@ const isBenched = (eb: TrackScope) =>
                     .where('s.missingAt', 'is', null),
             ),
         ),
+    ]);
+
+/**
+ * Benched, and no operator has accepted THIS bench.
+ *
+ * An acknowledgement covers a record while it is later than the moment its last copy went: the
+ * latest `missing_at` or `refused_at` among its copies. So it quiets exactly what the operator saw
+ * and nothing after it. A copy written off or refused later is news and the record counts again,
+ * which is also what happens to a record that recovered and then lost its copies a second time,
+ * without anything having to clear the acknowledgement when it recovered.
+ *
+ * A record whose copies were all refused before `refused_at` existed has no moment at all, and
+ * `max` over nothing but nulls is null, so any acknowledgement covers it. That is the right answer:
+ * those refusals are older than any acknowledgement could be.
+ */
+const isNewlyBenched = (eb: TrackScope) =>
+    eb.and([
+        isBenched(eb),
+        eb.or([
+            eb('deadair.tracks.benchAcknowledgedAt', 'is', null),
+            sql<boolean>`deadair.tracks.bench_acknowledged_at < (
+                select max(greatest(s.missing_at, s.refused_at))
+                from deadair.track_sources s
+                where s.track_id = deadair.tracks.id
+            )`,
+        ]),
     ]);
 
 /**
@@ -440,16 +472,17 @@ export class TracksRepository extends DataRepository {
      * A HANDFUL, deliberately, and bounded by `limit`: this is read on a polled endpoint and the
      * count stays the true figure. `benched` and `failing` reuse {@link stateFilter}'s own predicates
      * rather than restating them, so a record listed here is exactly one the state chip lists.
+     * `newlyBenched` is the narrower set the desk reports: benched, and no acknowledgement covers it.
      *
      * Two queries rather than one aggregate. The copies are the answer — a record is benched because
      * of what happened to each of them — and folding them into `bool_or`s would decide in SQL what
      * `station.attention.ts` exists to decide, which is which of them is worth a sentence. Both are
      * bounded: `limit` records, and the copies of those records alone.
      */
-    async faultingTracks(state: 'benched' | 'failing', limit: number, schemaVersion: number): Promise<FaultingTrack[]> {
+    async faultingTracks(state: FaultState, limit: number, schemaVersion: number): Promise<FaultingTrack[]> {
         const tracks = await this.readable()
             .select(['deadair.tracks.id', 'deadair.tracks.title', 'deadair.tracks.artists'])
-            .where(eb => stateFilter(eb, state, schemaVersion))
+            .where(eb => (state === 'newlyBenched' ? isNewlyBenched(eb) : stateFilter(eb, state, schemaVersion)))
             // By title rather than by anything about the fault, so the sample an operator is looking
             // at does not reshuffle under them between polls.
             .orderBy('deadair.tracks.title', 'asc')
@@ -458,6 +491,43 @@ export class TracksRepository extends DataRepository {
             .execute();
 
         return await this.withCopies(tracks);
+    }
+
+    /**
+     * How many benched records no acknowledgement covers, and how many one does.
+     *
+     * Beside {@link trackStateCounts} rather than in it, because those counts are the catalog's and
+     * an acknowledgement is not a catalog state: the Benched filter lists every record with no copy
+     * that will play, acknowledged or not, and only the desk's attention row is quieted.
+     */
+    async benchAcknowledgement(): Promise<{ unacknowledged: number; acknowledged: number }> {
+        const counted = await this.readable()
+            .select(eb => [
+                eb.fn.count<number>(eb.case().when(isNewlyBenched(eb)).then(1).end()).as('unacknowledged'),
+                eb.fn.count<number>(eb.case().when(isBenched(eb)).then(1).end()).as('benched'),
+            ])
+            .executeTakeFirstOrThrow();
+
+        const unacknowledged = Number(counted.unacknowledged);
+        return { unacknowledged, acknowledged: Number(counted.benched) - unacknowledged };
+    }
+
+    /**
+     * Accept every benched record no acknowledgement covers yet, and answer how many that was.
+     *
+     * Stamps only the ones not already covered, so the answer is what this call changed. Through the
+     * ids `readable` selects rather than a predicate on the update itself, because the predicates in
+     * this file are written against the list query's scope, and so a record merged into another is
+     * left alone here as it is everywhere else.
+     */
+    async acknowledgeBenched(): Promise<number> {
+        const result = await this.db
+            .updateTable('deadair.tracks')
+            .set({ benchAcknowledgedAt: sql<never>`now()` })
+            .where('deadair.tracks.id', 'in', this.readable().select('deadair.tracks.id').where(isNewlyBenched))
+            .executeTakeFirst();
+
+        return Number(result.numUpdatedRows ?? 0n);
     }
 
     /**

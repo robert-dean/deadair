@@ -40,13 +40,22 @@ function plugin(over: { id: string; name: string; capabilities: string[]; usesTr
 /** The shim answering as it does in the production image: up, and holding no login of its own. */
 const unauthorized: FetcherAuthorizationState = { reachable: true, configured: true, authorized: false, session: false };
 
-function service(over: { plugins?: unknown[]; authorization?: FetcherAuthorizationState; floor?: { since: number; breaks: number } } = {}) {
+function service(
+    over: {
+        plugins?: unknown[];
+        authorization?: FetcherAuthorizationState;
+        floor?: { since: number; breaks: number };
+        tracks?: Partial<Record<keyof TracksRepository, unknown>>;
+    } = {},
+) {
     const playout = { getStatus: () => Promise.resolve({ silence: airing }) } as unknown as PlayoutService;
     const director = { getOrder: () => Promise.resolve({ items: [] }) } as unknown as DirectorConsoleService;
     const tracks = {
         trackStateCounts: () => Promise.resolve(counts),
         faultingTracks: () => Promise.resolve([]),
         faultsForTracks: () => Promise.resolve([]),
+        benchAcknowledgement: () => Promise.resolve({ unacknowledged: 0, acknowledged: 0 }),
+        ...over.tracks,
     } as unknown as TracksRepository;
     const plugins = { listPlugins: () => Promise.resolve(over.plugins ?? []) } as unknown as PluginsService;
     const fetcher = { authorization: () => Promise.resolve(over.authorization ?? unauthorized) } as unknown as SpotifyShimClient;
@@ -143,5 +152,36 @@ describe('StationAttentionService.read', () => {
         const { items } = await service({ floor: { since: Date.parse('2026-10-03T18:00:00Z'), breaks: 7 } }).read();
 
         expect(items).toEqual([expect.objectContaining({ code: 'breaksOnFloor', severity: 'warning', count: 7, route: '/checkup' })]);
+    });
+
+    it('counts only the benched records nobody dismissed, and samples the same set', async () => {
+        resetForwardedHop();
+        const faultingTracks = vi.fn(() => Promise.resolve([]));
+
+        const { items } = await service({
+            tracks: { benchAcknowledgement: () => Promise.resolve({ unacknowledged: 2, acknowledged: 74 }), faultingTracks },
+        }).read();
+
+        const benched = items.find(item => item.code === 'benchedCopies');
+        expect(benched?.count).toBe(2);
+        expect(benched?.detail).toContain('74 more were dismissed');
+        expect(faultingTracks).toHaveBeenCalledWith('newlyBenched', expect.any(Number), expect.any(Number));
+    });
+});
+
+describe('StationAttentionService.dismiss', () => {
+    it('accepts the benched records as they stand', async () => {
+        const acknowledgeBenched = vi.fn(() => Promise.resolve(74));
+
+        await service({ tracks: { acknowledgeBenched } }).dismiss('benchedCopies');
+
+        expect(acknowledgeBenched).toHaveBeenCalledOnce();
+    });
+
+    it('refuses a row that cannot be dismissed rather than ignoring it', async () => {
+        const acknowledgeBenched = vi.fn();
+
+        await expect(service({ tracks: { acknowledgeBenched } }).dismiss('silence')).rejects.toMatchObject({ statusCode: 404 });
+        expect(acknowledgeBenched).not.toHaveBeenCalled();
     });
 });

@@ -109,6 +109,8 @@ try {
     const facts: AttentionFacts = {
         silence: airing,
         benched: counts.benched,
+        // Every benched record, dismissed or not: this prints what the station would say about all of them.
+        benchedAcknowledged: 0,
         failing: counts.failing,
         benchedExamples,
         failingExamples,

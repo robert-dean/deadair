@@ -51,6 +51,14 @@ export class StationClient {
     }
 
     /**
+     * @name Dismiss station attention
+     * @description Accept an attention row as it stands, until something new joins it
+     */
+    async dismissStationAttention(code: string): Promise<void> {
+        await this.fetch(`/station/attention/${encodeURIComponent(code)}/dismiss`, { method: 'POST' });
+    }
+
+    /**
      * @name Read station checkup
      * @description The loops the station runs and how much of the library it has looked at
      */

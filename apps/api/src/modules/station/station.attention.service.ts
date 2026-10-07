@@ -1,8 +1,9 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { httpError } from '@maroonedsoftware/errors';
 import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
 import { readForwardedHop } from '#modules/shared/forwarded.reading.js';
-import { TracksRepository, type FaultingTrack } from '#modules/catalog/tracks.repository.js';
+import { TracksRepository, type FaultingTrack, type FaultState } from '#modules/catalog/tracks.repository.js';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
 import { BreakFloorWatch } from '#modules/director/break.floor.watch.js';
 import { PlayoutService } from '#modules/playout/playout.service.js';
@@ -21,9 +22,10 @@ import type { StationAttention } from './types/station.types.js';
 /**
  * Gathering one reading of the station, for the ordered list next door.
  *
- * Everything here is a read of somebody else's answer. This module owns no table and writes nothing:
- * the whole of it is that five facts an operator needs together live on five surfaces they would
- * have to visit one at a time. See `station.attention.ts` for what that list refuses to invent.
+ * Everything here is a read of somebody else's answer. This module owns no table: the whole of it is
+ * that five facts an operator needs together live on five surfaces they would have to visit one at a
+ * time. See `station.attention.ts` for what that list refuses to invent. The one write, {@link
+ * StationAttentionService.dismiss}, is the catalog's own, made because an operator asked here.
  *
  * ## It reads five services and fails on none of them
  *
@@ -58,18 +60,20 @@ export class StationAttentionService {
     ) {}
 
     async read(): Promise<StationAttention> {
-        const [silence, counts, dropped, plugins, benchedExamples, failingExamples] = await Promise.all([
+        const [silence, counts, bench, dropped, plugins, benchedExamples, failingExamples] = await Promise.all([
             this.silence(),
             this.counts(),
+            this.benchAcknowledgement(),
             this.unavailableItems(),
             this.pluginFacts(),
-            this.faulting('benched'),
+            this.faulting('newlyBenched'),
             this.faulting('failing'),
         ]);
 
         const facts: AttentionFacts = {
             silence,
-            benched: counts.benched,
+            benched: bench.unacknowledged,
+            benchedAcknowledged: bench.acknowledged,
             failing: counts.failing,
             benchedExamples,
             failingExamples,
@@ -87,6 +91,19 @@ export class StationAttentionService {
         };
 
         return { items: attention(facts) };
+    }
+
+    /**
+     * Accept an attention row as it stands, for the rows that say `dismissible`.
+     *
+     * Only `benchedCopies` today, and what it accepts is the records benched NOW: each is stamped,
+     * and the row counts a record again only when one of its copies is written off or refused after
+     * that. Every other code is refused rather than ignored, so a console offering a button the
+     * station does not honour finds out instead of watching the row stay put.
+     */
+    async dismiss(code: string): Promise<void> {
+        if (code !== 'benchedCopies') throw httpError(404).withDetails({ message: `the "${code}" row cannot be dismissed` });
+        await this.tracks.acknowledgeBenched();
     }
 
     /**
@@ -139,6 +156,16 @@ export class StationAttentionService {
         }
     }
 
+    /** How many benched records the row counts, and how many it leaves out because they were dismissed. */
+    private async benchAcknowledgement() {
+        try {
+            return await this.tracks.benchAcknowledgement();
+        } catch (error) {
+            this.logger.warn(`station: the dismissed records could not be read (${message(error)})`);
+            return { unacknowledged: 0, acknowledged: 0 };
+        }
+    }
+
     /**
      * A few of the records in a fault state, with the copies that put them there.
      *
@@ -147,7 +174,7 @@ export class StationAttentionService {
      * a page of counts pay for a list nobody looked at. Both are caught the same way, so a station
      * whose catalog is unhappy still gets every other row of the list.
      */
-    private async faulting(state: 'benched' | 'failing'): Promise<FaultingTrack[]> {
+    private async faulting(state: FaultState): Promise<FaultingTrack[]> {
         try {
             return await this.tracks.faultingTracks(state, EVIDENCE_LIMIT, ANALYSIS_SCHEMA_VERSION);
         } catch (error) {

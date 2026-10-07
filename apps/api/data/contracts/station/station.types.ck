@@ -25,6 +25,7 @@ contract AttentionItem: {
     detail: string(min=1, max=800) # The whole of it, in a sentence. Where the station already has words for a fact, these are those words rather than a second phrasing of them
     route: string(min=1, max=200) # The console page that can do something about it
     count?: int(min=0) # How many things this is about, where that is a number rather than a state
+    dismissible?: boolean # The operator may accept this row as it stands, through `POST /station/attention/{code}/dismiss`. It comes back by itself when something new joins it. Absent on a row that only goes away when its cause does
     evidence?: array(AttentionEvidence) # A HANDFUL of the things this row is about, never all of them: this answer is polled and a row about four hundred records must not be four hundred sentences. `count` stays the true figure, and a console showing fewer than it says so
 }
 

@@ -4929,6 +4929,22 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/StationAttention'
+    '/station/attention/{code}/dismiss':
+        post:
+            operationId: dismiss
+            summary: 'Dismiss station attention'
+            description: 'Accept an attention row as it stands, until something new joins it'
+            parameters:
+                - name: code
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 60
+            responses:
+                '204':
+                    description: 'No content'
     '/station/checkup':
         get:
             operationId: read
@@ -13210,6 +13226,9 @@ components:
                     type: integer
                     minimum: 0
                     description: 'How many things this is about, where that is a number rather than a state'
+                dismissible:
+                    type: boolean
+                    description: 'The operator may accept this row as it stands, through `POST /station/attention/{code}/dismiss`. It comes back by itself when something new joins it. Absent on a row that only goes away when its cause does'
                 evidence:
                     type: array
                     items:

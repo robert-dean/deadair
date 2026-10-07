@@ -21,6 +21,16 @@ class StationClient(private val http: SdkHttp) {
     }
 
     /**
+     * Dismiss station attention
+     * Accept an attention row as it stands, until something new joins it
+     */
+    suspend fun dismissStationAttention(code: String) {
+        http.execute(HttpMethod.Post) {
+            path("station", "attention", segment(code), "dismiss")
+        }
+    }
+
+    /**
      * Read station checkup
      * The loops the station runs and how much of the library it has looked at
      */

@@ -84,6 +84,16 @@ describe('NavFooter', () => {
         expect(screen.getByRole('link', { name: /^Station\./ })).toBeInTheDocument();
     });
 
+    // Check-up's sections are routes of their own rather than paths under `/checkup`, so a prefix
+    // match on the destination alone folded the list away the moment one of them was clicked.
+    it('keeps Check-up open on a section that lives outside its own path', () => {
+        pathname = '/logs';
+        render(<NavFooter />);
+
+        expect(screen.getByRole('link', { name: /^Logs\./ })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /^What it has been doing\./ })).toBeInTheDocument();
+    });
+
     /**
      * "Words" and "Measurement" name subjects rather than settings, so the label alone does not tell
      * an operator looking for the model which one to open — and the sentence saying so is now a

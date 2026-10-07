@@ -2860,6 +2860,11 @@ export class DirectorService {
         // reason: an operator who replaces the weather picture has replaced it for the forecast
         // that is about to air, not for the one after the next refill.
         const breakArtwork = await this.breakArtwork(segments);
+        // And, for a break with no picture of either kind, the face of whoever is presenting it: the
+        // portrait the transport already holds beside the host's name, so the mount shows the
+        // person talking rather than the logo. Read from the broadcast rather than looked up again,
+        // so the stream and `/nowplaying` can never name two different hosts.
+        const hostArtwork = this.rundown.broadcast()?.hostArtUrl;
 
         // Where the singing starts on each record a link in this batch could be talked up over, read
         // once for the batch and only when talking up is switched on. See `talk.up.ts`.
@@ -3162,14 +3167,15 @@ export class DirectorService {
             }
 
             const spoken = segmentRundownTrack(segment);
-            const picture = breakArtwork.get(segment.kind);
+            const picture = breakArtwork.get(segment.kind) ?? hostArtwork;
 
             playable.push({
                 ...spoken,
                 id: item.id,
                 // Only where the line has no cover of its own, which is what keeps a syndicated
                 // episode's artwork ({@link programmeRundownTrack}) from being replaced by the
-                // picture for whatever kind its band happens to be called.
+                // picture for whatever kind its band happens to be called. The kind's picture wins
+                // over the host's portrait: an operator who gave the forecast one chose it for that.
                 ...(spoken.artworkUrl === undefined && picture !== undefined ? { artworkUrl: picture } : {}),
             });
         }

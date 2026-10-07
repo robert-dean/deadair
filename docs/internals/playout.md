@@ -158,8 +158,9 @@ read the row itself and still show the producer's label, which is what it is for
 update, the one Radio Paradise fills with cover art, and Icecast 2.5 forwards the `url` tag of a
 metadata update into it where 2.4 dropped the tag (xiph/icecast-server#2385). `listenerArtwork` stamps
 every item with one: a record's cover made absolute against `stream.publicUrl`, the picture a KIND OF
-BREAK wears where the station holds one, and the station's logo for everything else — a break with no
-picture of its own, the bed, off air, and ALSO a record with no cover, because Icecast KEEPS a tag an
+BREAK wears where the station holds one, the presenter's portrait on a break whose kind has none
+(read from the broadcast the transport already holds, so it is the same face `/nowplaying` names), and
+the station's logo for everything else — a break with neither, the bed, off air, and ALSO a record with no cover, because Icecast KEEPS a tag an
 update does not mention (`mp3_set_tag` returns on a null value rather than clearing) and an item that
 said nothing would leave the previous record's cover under a caption naming a different one.
 

@@ -59,6 +59,8 @@ interface Options {
      * `deadair:break-art/<kind>` row key, so a case reads as "a weather forecast has a picture".
      */
     breakArt?: Record<string, { id: string; ext?: ArtAsset['ext']; checksum?: string }>;
+    /** The presenter's portrait on the broadcast the transport holds. None unless a case gives one. */
+    hostArtUrl?: string;
     /** What the art table does when the order is drawn, for the case where it cannot be read. */
     artError?: Error;
     /** What the station thinks of the records in the order, keyed by canonical track id. */
@@ -310,6 +312,7 @@ function build(options: Options = {}) {
     // landed, which is how a case can tell the edit happened first.
     const rundown = {
         nowPlaying: vi.fn(() => (options.airing ? { item: { id: options.onAirId ?? 'on-air', title: 'Echoes' }, startedAt: 0 } : undefined)),
+        broadcast: vi.fn(() => (options.hostArtUrl === undefined ? undefined : { name: 'Afternoons', hostArtUrl: options.hostArtUrl })),
     };
     // A playlist the station owns, read-only from here: the playlists module owns its rows.
     const stationPlaylists = {
@@ -1589,6 +1592,27 @@ describe('DirectorConsoleService editing the running order', () => {
 
         expect(drawn.items[1]).toMatchObject({ kind: 'segment', artworkUrl: 'art/art-weather/cover.png' });
         expect(drawn.items[2]!.artworkUrl).toBeUndefined();
+    });
+
+    it("draws a break whose kind has no picture wearing the host's portrait, and the kind's own picture over it", async () => {
+        // The same order the commit pass puts on the mount, so the desk and a listener's player agree.
+        const order = onAirWith(1);
+        order.insertSegment('seg-weather', 1);
+        order.insertSegment('seg-talk', 2);
+        const { service } = build({
+            order,
+            segments: [
+                { id: 'seg-weather', kind: 'weather', state: 'ready', label: 'The weather', source: 'library' },
+                { id: 'seg-talk', kind: 'talkbreak', state: 'ready', label: 'Talk break', source: 'library' },
+            ],
+            breakArt: { weather: { id: 'art-weather' } },
+            hostArtUrl: 'art/portrait-1/cover.png',
+        });
+
+        const drawn = await service.getOrder();
+
+        expect(drawn.items[1]!.artworkUrl).toBe('art/art-weather/cover.png');
+        expect(drawn.items[2]!.artworkUrl).toBe('art/portrait-1/cover.png');
     });
 
     // One read for the order, and one key per KIND rather than per break: a clock that alternates

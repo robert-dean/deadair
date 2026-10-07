@@ -4411,6 +4411,38 @@ describe("DirectorService putting the station's own cover on a record", () => {
         expect(coverOf(rundown.upcoming().find(item => item.externalId === 'seg-1')!)).toBeUndefined();
     });
 
+    it("puts the host's portrait on a break whose kind has no picture", async () => {
+        // The mount would otherwise show the logo while the person talking has a face of their own.
+        const { director, rundown, lineup, seed } = build({
+            items: ['a'],
+            personas: { active: 'classic', known: ['classic'], names: { classic: 'Ray' } },
+            portraits: { classic: 'art/portrait-1/cover.png' },
+            segments: [{ id: 'seg-1', kind: 'talkbreak', state: 'ready', label: 'Talk break', audioChecksum: 'x', audioExt: 'mp3' }],
+        });
+        await seed();
+        lineup.insertSegment('seg-1', 0);
+
+        await director.start();
+
+        expect(coverOf(rundown.upcoming().find(item => item.externalId === 'seg-1')!)).toBe('art/portrait-1/cover.png');
+    });
+
+    it("keeps the kind's own picture over the host's portrait", async () => {
+        const { director, rundown, lineup, seed } = build({
+            items: ['a'],
+            personas: { active: 'classic', known: ['classic'], names: { classic: 'Ray' } },
+            portraits: { classic: 'art/portrait-1/cover.png' },
+            heldArt: ['deadair:break-art/weather'],
+            segments: [{ id: 'seg-1', kind: 'weather', state: 'ready', label: 'Weather: this afternoon', audioChecksum: 'x', audioExt: 'mp3' }],
+        });
+        await seed();
+        lineup.insertSegment('seg-1', 0);
+
+        await director.start();
+
+        expect(coverOf(rundown.upcoming().find(item => item.externalId === 'seg-1')!)).toBe('art/asset-weather/cover.jpg');
+    });
+
     it("never replaces a programme's own cover with its band's picture", async () => {
         // A syndicated episode carries the show's artwork, and the band it airs in can be called
         // anything an operator likes — including a kind that has a picture. The episode's own cover

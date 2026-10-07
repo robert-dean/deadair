@@ -1457,6 +1457,9 @@ export class DirectorConsoleService {
         // station's to change, so an operator who replaces it sees the forecast already in the
         // order wearing the new one rather than the one it was built with.
         const pictures = await this.breakArtwork(segments);
+        // And the presenter's portrait for a break whose kind has none, read from the broadcast the
+        // transport holds exactly as the commit pass reads it, so the desk and the mount agree.
+        const hostArtwork = this.rundown.broadcast()?.hostArtUrl;
 
         return {
             name: order.name,
@@ -1476,7 +1479,7 @@ export class DirectorConsoleService {
             items: order.items.map(item => {
                 if (item.kind === 'segment') {
                     const segment = segments.get(item.segmentId);
-                    return toOrderSegment(item, segment, segment === undefined ? undefined : pictures.get(segment.kind));
+                    return toOrderSegment(item, segment, segment === undefined ? undefined : (pictures.get(segment.kind) ?? hostArtwork));
                 }
 
                 // One lookup for the opinion and both links: absent means the catalog has never
@@ -1517,8 +1520,9 @@ export class DirectorConsoleService {
  *
  * `artworkUrl` is the picture its KIND wears rather than anything the segment itself holds —
  * every weather forecast wears the same sky — which is why it is resolved once for the order
- * and handed in. Absent for a kind nobody has given a picture to, and absent for a segment the
- * library has lost, which has no kind left to look one up by.
+ * and handed in. The presenter's portrait for a kind nobody has given a picture to, nothing when
+ * they have none either, and nothing for a segment the library has lost, which has no kind left
+ * to look one up by.
  */
 const toOrderSegment = (item: StationLineupSegmentItem, segment: Segment | undefined, artworkUrl: string | undefined): StationOrderItem => ({
     id: item.id,

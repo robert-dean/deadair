@@ -2212,14 +2212,37 @@ describe('readAnswer, past the ceiling', () => {
         expect(writeDecline(frontloaded, {})?.fault).toBe('ran-long');
     });
 
-    // The half that keeps the cut honest: what airs is the fitted script, so the fitted script is
-    // what the rest of the guard has to judge. A break whose only record was in the tail named none.
-    it('judges the words it will actually air, not the ones the model sent', () => {
+    // An outro names the next record in its closing line, which is exactly the sentence a front-keeping
+    // trim throws away. Measured on the live station: an 83-word break on an 80-word ceiling lost
+    // "Walk by Pantera." and was then refused as having named nothing.
+    describe('when the only record is named in the tail', () => {
         const madhouse = { title: 'Madhouse', artist: 'Anthrax' };
-        const named = `${[1, 2, 3, 4].map(index => sentence(index, 10)).join(' ')} That was Madhouse, from Anthrax.`;
+        const closing = 'That was Madhouse, from Anthrax.';
+        const named = `${[1, 2, 3, 4].map(index => sentence(index, 10)).join(' ')} ${closing}`;
 
-        expect(readAnswer(named, { names: [madhouse] })).toBeUndefined();
-        expect(writeDecline(named, { names: [madhouse] })?.fault).toBe('named-nothing');
+        it('cuts in front of the naming sentence instead, so the name airs', () => {
+            expect(readAnswer(named, { names: [madhouse] })).toBe(`${[1, 2, 3].map(index => sentence(index, 10)).join(' ')} ${closing}`);
+            expect(writeDecline(named, { names: [madhouse] })).toBeUndefined();
+        });
+
+        it('drops everything after the naming sentence, as the ordinary trim does', () => {
+            const trailing = `${named} ${sentence(9, 10)}`;
+
+            expect(readAnswer(trailing, { names: [madhouse] })).toBe(`${[1, 2, 3].map(index => sentence(index, 10)).join(' ')} ${closing}`);
+        });
+
+        it('says the cut was not at the end', () => {
+            expect(writeTrim(named, { names: [madhouse] })?.reason).toMatch(/keep the one naming a record/);
+        });
+
+        // Still the words that air being judged: when no cut can keep the name, the break was too long
+        // to say, and that is what the row should say rather than blaming the model for naming nothing.
+        it('declines as too long when the name cannot be kept within the ceiling', () => {
+            const longName = `${sentence(1, 30)} ${sentence(2, 10)} That was Madhouse, from Anthrax, ${Array.from({ length: 10 }, () => 'and').join(' ')} more.`;
+
+            expect(readAnswer(longName, { names: [madhouse] })).toBeUndefined();
+            expect(writeDecline(longName, { names: [madhouse] })?.fault).toBe('ran-long');
+        });
     });
 
     describe('writeTrim', () => {

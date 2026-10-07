@@ -8,9 +8,9 @@ options {
         StationReleasesService: "#src/modules/station/station.releases.service.js"
     }
     security: {
-        # Reads, so the floor is the read gate every console page sits on. Nothing in this area writes
-        # anything: it composes facts other modules own. The one action, asking GitHub for releases
-        # now, raises its own gate below.
+        # Reads, so the floor is the read gate every console page sits on. This area composes facts
+        # other modules own. Its two actions, asking GitHub for releases now and dismissing an
+        # attention row, raise their own gate below.
         policy: platform.view
     }
 }
@@ -31,6 +31,27 @@ operation /station/attention: {
             200: {
                 application/json: StationAttention
             }
+        }
+    }
+}
+
+# Accept an attention row as it stands. Only a row that says `dismissible` takes it, and today that is
+# `benchedCopies`: records with no copy that will play, where the operator has looked and decided
+# nothing more can be done. What is accepted is THOSE records as they are now. A record benched
+# later, or one that recovers and is benched again, puts the row back.
+operation /station/attention/{code}/dismiss: {
+    params: {
+        code: string(min=1, max=60)
+    }
+    post: { # Accept an attention row as it stands, until something new joins it
+        name: Dismiss station attention
+        service: StationAttentionService.dismiss
+        security: {
+            # It changes what the desk reports to every operator, so it is an operator action.
+            policy: platform.manage
+        }
+        response: {
+            204:
         }
     }
 }

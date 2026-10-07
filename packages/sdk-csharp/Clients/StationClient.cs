@@ -34,6 +34,18 @@ public sealed class StationClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Dismiss station attention
+    /// Accept an attention row as it stands, until something new joins it
+    /// </summary>
+    public async Task DismissStationAttentionAsync(string code, CancellationToken cancellationToken = default)
+    {
+        await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("station", "attention", http.Segment(code), "dismiss"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Read station checkup
     /// The loops the station runs and how much of the library it has looked at
     /// </summary>

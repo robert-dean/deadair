@@ -5,6 +5,7 @@ import { z } from 'zod';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import { requireMcpPolicy, type McpToolHandler, type McpToolHandlerMap, type McpToolContext } from '@maroonedsoftware/mcp';
 import { PolicyService } from '@maroonedsoftware/policies';
+import { parseAndValidate } from '@maroonedsoftware/zod';
 import { StationAttentionService } from '#src/modules/station/station.attention.service.js';
 import { StationCheckupService } from '#src/modules/station/station.checkup.service.js';
 import { StationReleasesService } from '#src/modules/station/station.releases.service.js';
@@ -19,6 +20,7 @@ function requireMcpContainer(context: McpToolContext): Container {
 }
 
 const ReadStationAttentionArgs = z.object({});
+const DismissStationAttentionArgs = z.object({ code: z.string().min(1).max(60) });
 const ReadStationCheckupArgs = z.object({});
 const ReadStationReleasesArgs = z.object({});
 const CheckStationReleasesArgs = z.object({});
@@ -46,7 +48,29 @@ export class ReadStationAttentionMcpTool implements McpToolHandler {
 }
 
 /**
- * from [station.ck](../../data/contracts/station/station.ck#L50)
+ * from [station.ck](../../data/contracts/station/station.ck#L46)
+ */
+@Injectable()
+export class DismissStationAttentionMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'dismiss_station_attention',
+        description: 'Accept an attention row as it stands, until something new joins it',
+        inputSchema: z.toJSONSchema(DismissStationAttentionArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { code } = await parseAndValidate(args, DismissStationAttentionArgs);
+        await container.get(StationAttentionService).dismiss(code);
+        return { content: [{ type: 'text', text: 'OK' }] };
+    }
+}
+
+/**
+ * from [station.ck](../../data/contracts/station/station.ck#L71)
  */
 @Injectable()
 export class ReadStationCheckupMcpTool implements McpToolHandler {
@@ -68,7 +92,7 @@ export class ReadStationCheckupMcpTool implements McpToolHandler {
 }
 
 /**
- * from [station.ck](../../data/contracts/station/station.ck#L65)
+ * from [station.ck](../../data/contracts/station/station.ck#L86)
  */
 @Injectable()
 export class ReadStationReleasesMcpTool implements McpToolHandler {
@@ -91,7 +115,7 @@ export class ReadStationReleasesMcpTool implements McpToolHandler {
 }
 
 /**
- * from [station.ck](../../data/contracts/station/station.ck#L80)
+ * from [station.ck](../../data/contracts/station/station.ck#L101)
  */
 @Injectable()
 export class CheckStationReleasesMcpTool implements McpToolHandler {
@@ -116,6 +140,7 @@ export class CheckStationReleasesMcpTool implements McpToolHandler {
 /** Add a handler for each of this file's operations to the catalog, unlisted in `tools/list`. */
 export function registerStationMcpCatalog(map: McpToolHandlerMap, container: Container): void {
     map.set('read_station_attention', container.get(ReadStationAttentionMcpTool));
+    map.set('dismiss_station_attention', container.get(DismissStationAttentionMcpTool));
     map.set('read_station_checkup', container.get(ReadStationCheckupMcpTool));
     map.set('read_station_releases', container.get(ReadStationReleasesMcpTool));
     map.set('check_station_releases', container.get(CheckStationReleasesMcpTool));
@@ -124,6 +149,7 @@ export function registerStationMcpCatalog(map: McpToolHandlerMap, container: Con
 /** Register this file's tool classes on the registry, so the tool maps can resolve them. */
 export function registerStationMcpToolClasses(registry: Registry): void {
     registry.register(ReadStationAttentionMcpTool).useClass(ReadStationAttentionMcpTool).asSingleton();
+    registry.register(DismissStationAttentionMcpTool).useClass(DismissStationAttentionMcpTool).asSingleton();
     registry.register(ReadStationCheckupMcpTool).useClass(ReadStationCheckupMcpTool).asSingleton();
     registry.register(ReadStationReleasesMcpTool).useClass(ReadStationReleasesMcpTool).asSingleton();
     registry.register(CheckStationReleasesMcpTool).useClass(CheckStationReleasesMcpTool).asSingleton();

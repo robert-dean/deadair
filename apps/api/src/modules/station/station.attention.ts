@@ -73,8 +73,16 @@ export const EVIDENCE_LIMIT = 5;
 export interface AttentionFacts {
     /** The transport's own answer about why the station cannot be heard, quoted rather than re-derived. */
     silence: QuotedSilence;
-    /** Records whose every copy has been written off, so they cannot air at all. */
+    /**
+     * Records whose every copy has been written off, so they cannot air at all, and which no
+     * operator has dismissed as they stand. See `isNewlyBenched` in the tracks repository.
+     */
     benched: number;
+    /**
+     * Records just as benched that an operator has already dismissed. Not counted by the row, and
+     * named in its detail, so a row reading 3 beside a catalog filter listing 77 explains itself.
+     */
+    benchedAcknowledged: number;
     /** Records with a fetch failing and backing off. Not benched yet, and usually the state before it. */
     failing: number;
     /**
@@ -344,12 +352,17 @@ function library(facts: AttentionFacts): AttentionItem[] {
             // for a sync is advice that cannot work. The evidence below says which each record is.
             detail:
                 'Their copies have all been written off, so they cannot be chosen at all. The next catalog sync un-benches any the ' +
-                'provider still lists — but a copy the provider REFUSED stays off until somebody offers it again on the record’s own page.',
+                'provider still lists — but a copy the provider REFUSED stays off until somebody offers it again on the record’s own page.' +
+                acknowledgedNote(facts.benchedAcknowledged),
             // The STATE as well as the page. A row about four records that lands on the whole library
             // has told an operator to go and find them, which on a station of eight hundred is the
             // work this list exists to remove. The console owns which of its pages holds the filter.
             route: '/catalog?state=benched',
             count: facts.benched,
+            // The one row an operator can accept. A refused copy may never come back, and a row
+            // that can only be cleared by fixing something unfixable is a row that teaches skimming.
+            // Accepting covers these records as they stand; the row returns when a new one joins.
+            dismissible: true,
             evidence: facts.benchedExamples.map(track => evidenceFor(track, benchedReason(track))),
         });
     }
@@ -367,6 +380,13 @@ function library(facts: AttentionFacts): AttentionItem[] {
     }
 
     return items;
+}
+
+/** The sentence saying how many benched records are not in the count because somebody dismissed them. */
+function acknowledgedNote(acknowledged: number): string {
+    if (acknowledged === 0) return '';
+    const subject = acknowledged === 1 ? '1 more was' : `${acknowledged} more were`;
+    return ` ${subject} dismissed earlier and ${acknowledged === 1 ? 'is' : 'are'} not counted here; the catalog still lists ${acknowledged === 1 ? 'it' : 'them'}.`;
 }
 
 /** One record, named the way a person names it, pointed at the page holding the whole of it. */

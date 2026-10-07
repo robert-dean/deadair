@@ -1,7 +1,7 @@
 ---
 title: 'Check station releases'
 sidebar_label: 'Check station releases'
-sidebar_position: 7
+sidebar_position: 8
 mdx:
     format: 'md'
 ---

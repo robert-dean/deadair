@@ -17,6 +17,13 @@ public final class StationClient: Sendable {
         return try http.decodeJSON(StationAttention.self, from: response)
     }
 
+    /// Dismiss station attention
+    /// Accept an attention row as it stands, until something new joins it
+    public func dismissStationAttention(code: String) async throws {
+        let request = try SdkRequest(method: "POST", path: ["station", "attention", http.segment(code), "dismiss"])
+        _ = try await http.execute(request)
+    }
+
     /// Read station checkup
     /// The loops the station runs and how much of the library it has looked at
     public func readStationCheckup() async throws -> StationCheckup {

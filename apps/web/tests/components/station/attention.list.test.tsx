@@ -8,7 +8,14 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AttentionItem } from '@deadair/sdk';
 
 import { AttentionList } from '../../../src/components/station/attention.list';
+import { SdkError } from '@deadair/sdk';
 import { render, screen, setupUser, waitFor } from '../../utils/render';
+
+const dismissStationAttention = vi.fn();
+vi.mock('../../../src/api/client', () => ({
+    BASE_URL: '/api',
+    sdk: { station: { dismissStationAttention: (...args: unknown[]) => dismissStationAttention(...args) } },
+}));
 
 vi.mock('@tanstack/react-router', () => ({
     Link: ({ to, params, children, ...rest }: { to: string; params?: Record<string, string>; children?: ReactNode }) => {
@@ -106,5 +113,27 @@ describe('AttentionList', () => {
         render(<AttentionList items={[item({ code: 'unavailableItems', route: '/onair' })]} />);
 
         expect(screen.getByRole('link', { name: 'Desk →' })).toBeInTheDocument();
+    });
+
+    it('offers Dismiss only on a row the station says may be dismissed, and sends its code', async () => {
+        dismissStationAttention.mockReset().mockResolvedValue(undefined);
+        const user = setupUser();
+        render(<AttentionList items={[item({ dismissible: true }), item({ code: 'failingFetches', title: '2 records are failing to download' })]} />);
+
+        const buttons = screen.getAllByRole('button', { name: 'Dismiss' });
+        expect(buttons).toHaveLength(1);
+
+        await user.click(buttons[0]!);
+        await waitFor(() => expect(dismissStationAttention).toHaveBeenCalledWith('benchedCopies'));
+    });
+
+    it("says in the console's own words when the operator may not dismiss", async () => {
+        dismissStationAttention.mockReset().mockRejectedValue(new SdkError(403, 'Forbidden', {}, new Headers()));
+        const user = setupUser();
+        render(<AttentionList items={[item({ dismissible: true })]} />);
+
+        await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+
+        expect(await screen.findByText('Only an admin can dismiss this.')).toBeInTheDocument();
     });
 });

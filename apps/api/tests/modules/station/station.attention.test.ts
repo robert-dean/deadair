@@ -20,6 +20,7 @@ function facts(overrides: Partial<AttentionFacts> = {}): AttentionFacts {
     return {
         silence: airing,
         benched: 0,
+        benchedAcknowledged: 0,
         failing: 0,
         benchedExamples: [],
         failingExamples: [],
@@ -192,6 +193,32 @@ describe('attention', () => {
             ['benchedCopies', 4],
             ['failingFetches', 11],
         ]);
+    });
+
+    it('offers to dismiss the benched row and no other', () => {
+        // A refused copy may never come back, so the benched row is the one an operator has to be
+        // able to accept. A failing fetch is still being retried and goes away on its own.
+        const items = attention(facts({ benched: 4, failing: 11 }));
+
+        expect(items.map(item => [item.code, item.dismissible])).toEqual([
+            ['benchedCopies', true],
+            ['failingFetches', undefined],
+        ]);
+    });
+
+    it('says how many benched records were dismissed, without counting them', () => {
+        // The row reads 3 while the catalog filter it links to lists 77, and the detail is what
+        // stops that reading as a disagreement.
+        const [row] = attention(facts({ benched: 3, benchedAcknowledged: 74 }));
+
+        expect(row?.count).toBe(3);
+        expect(row?.detail).toContain('74 more were dismissed earlier and are not counted here; the catalog still lists them.');
+        expect(attention(facts({ benched: 3, benchedAcknowledged: 1 }))[0]?.detail).toContain('1 more was dismissed earlier and is not counted here');
+        expect(attention(facts({ benched: 3 }))[0]?.detail).not.toContain('dismissed');
+    });
+
+    it('has no benched row once every benched record is dismissed', () => {
+        expect(attention(facts({ benched: 0, benchedAcknowledged: 74 }))).toEqual([]);
     });
 
     it('sends the state as well as the page, so the row lands on the records it counted', () => {

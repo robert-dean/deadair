@@ -285,16 +285,19 @@ public struct AttentionItem: Codable, Equatable, Sendable {
     public var route: String
     /// How many things this is about, where that is a number rather than a state
     public var count: Int?
+    /// The operator may accept this row as it stands, through `POST /station/attention/{code}/dismiss`. It comes back by itself when something new joins it. Absent on a row that only goes away when its cause does
+    public var dismissible: Bool?
     /// A HANDFUL of the things this row is about, never all of them: this answer is polled and a row about four hundred records must not be four hundred sentences. `count` stays the true figure, and a console showing fewer than it says so
     public var evidence: [AttentionEvidence]?
 
-    public init(code: String, severity: AttentionItemSeverity, title: String, detail: String, route: String, count: Int? = nil, evidence: [AttentionEvidence]? = nil) {
+    public init(code: String, severity: AttentionItemSeverity, title: String, detail: String, route: String, count: Int? = nil, dismissible: Bool? = nil, evidence: [AttentionEvidence]? = nil) {
         self.code = code
         self.severity = severity
         self.title = title
         self.detail = detail
         self.route = route
         self.count = count
+        self.dismissible = dismissible
         self.evidence = evidence
     }
 
@@ -305,6 +308,7 @@ public struct AttentionItem: Codable, Equatable, Sendable {
         case detail = "detail"
         case route = "route"
         case count = "count"
+        case dismissible = "dismissible"
         case evidence = "evidence"
     }
 
@@ -316,6 +320,7 @@ public struct AttentionItem: Codable, Equatable, Sendable {
         self.detail = try container.decode(String.self, forKey: .detail)
         self.route = try container.decode(String.self, forKey: .route)
         self.count = try container.decodeIfPresent(Int.self, forKey: .count)
+        self.dismissible = try container.decodeIfPresent(Bool.self, forKey: .dismissible)
         self.evidence = try container.decodeIfPresent([AttentionEvidence].self, forKey: .evidence)
     }
 
@@ -327,6 +332,7 @@ public struct AttentionItem: Codable, Equatable, Sendable {
         try container.encode(self.detail, forKey: .detail)
         try container.encode(self.route, forKey: .route)
         try container.encodeIfPresent(self.count, forKey: .count)
+        try container.encodeIfPresent(self.dismissible, forKey: .dismissible)
         try container.encodeIfPresent(self.evidence, forKey: .evidence)
     }
 }

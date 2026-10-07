@@ -140,6 +140,8 @@ data class AttentionItem(
     val route: String,
     /** How many things this is about, where that is a number rather than a state */
     val count: Long? = null,
+    /** The operator may accept this row as it stands, through `POST /station/attention/{code}/dismiss`. It comes back by itself when something new joins it. Absent on a row that only goes away when its cause does */
+    val dismissible: Boolean? = null,
     /** A HANDFUL of the things this row is about, never all of them: this answer is polled and a row about four hundred records must not be four hundred sentences. `count` stays the true figure, and a console showing fewer than it says so */
     val evidence: List<AttentionEvidence>? = null,
 )

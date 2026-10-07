@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeEntities, firstSentence, plainText, sentencesWithin, truncateSentences, truncateWords } from '../src/html.text.js';
+import { decodeEntities, firstSentence, plainText, sentencesOf, sentencesWithin, truncateSentences, truncateWords } from '../src/html.text.js';
 
 describe('plainText', () => {
     it('takes the tags out and the entities down', () => {
@@ -144,5 +144,27 @@ describe('sentencesWithin', () => {
 describe('truncateWords', () => {
     it('cuts on a word boundary and marks it', () => {
         expect(truncateWords('The council voted to reopen the crossing this morning', 20)).toBe('The council voted…');
+    });
+});
+
+describe('sentencesOf', () => {
+    it('splits a passage into its whole sentences, in order', () => {
+        expect(sentencesOf('The record still holds up. The single after it did not! Make of that what you will?')).toEqual([
+            'The record still holds up.',
+            'The single after it did not!',
+            'Make of that what you will?',
+        ]);
+    });
+
+    it('answers a passage with no boundary as one sentence', () => {
+        expect(sentencesOf('  Walk by Pantera  ')).toEqual(['Walk by Pantera']);
+    });
+
+    it('keeps a closing quote with the sentence it ends, and does not split at an abbreviation', () => {
+        expect(sentencesOf('A guitar lesson masquerading as “love.” It sold 3.5 million by Aug. 15. Nobody expected it.')).toEqual([
+            'A guitar lesson masquerading as “love.”',
+            'It sold 3.5 million by Aug. 15.',
+            'Nobody expected it.',
+        ]);
     });
 });

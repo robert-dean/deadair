@@ -35,7 +35,15 @@
  */
 
 import { SUBJECT_ECHO_WORDS } from '#modules/lyrics/lyric.subject.js';
-import { isSpeechDelivery, sentencesWithin, withoutCues, type LlmMessage, type SpeechCue, type SpeechDelivery } from '@deadair/plugin-sdk';
+import {
+    isSpeechDelivery,
+    sentencesOf,
+    sentencesWithin,
+    withoutCues,
+    type LlmMessage,
+    type SpeechCue,
+    type SpeechDelivery,
+} from '@deadair/plugin-sdk';
 import { padOffer, withoutPads, type PadUseNote } from '#modules/render/pad.cues.js';
 import { afterThinking, MAX_REACTIONS, speakableScript } from '#modules/render/speakable.script.js';
 
@@ -2572,7 +2580,39 @@ function fitToCeiling(script: string, guard: AnswerGuard): string | undefined {
     const fitted = sentencesWithin(script, ceiling);
     if (fitted === undefined) return undefined;
 
-    return wordsIn(fitted) < ceiling * MIN_KEPT_SHARE ? undefined : fitted;
+    // The front-keeping cut threw away the only sentence that named a record, which is the usual
+    // shape of an outro: the model rambles about the last record and names the next one in its
+    // closing line. Kept as it was, the trim is then refused as `named-nothing`, a fault the model
+    // did not commit. So the naming sentence is kept and the cut moves in front of it instead.
+    const kept = namesNothing(fitted, guard) && !namesNothing(script, guard) ? keepingTheName(script, ceiling, guard) : fitted;
+    if (kept === undefined) return undefined;
+
+    return wordsIn(kept) < ceiling * MIN_KEPT_SHARE ? undefined : kept;
+}
+
+/**
+ * A run-long script cut to the ceiling with its first record-naming sentence kept, or nothing.
+ *
+ * Whole sentences are dropped from just in front of the naming one, walking back, until the rest
+ * fits. The sentences nearest the name are the ones a model spends winding up to it ("this next
+ * one, this riff"), so they read worst once the name has moved; the opening is where the break
+ * found its subject and is kept longest. Everything after the naming sentence goes, as in the
+ * ordinary trim.
+ *
+ * Nothing when even the opening sentence and the name together are over, which `writeDecline`
+ * then reports as `ran-long` — the true reason, rather than a `named-nothing` the cut caused.
+ */
+function keepingTheName(script: string, ceiling: number, guard: AnswerGuard): string | undefined {
+    const sentences = sentencesOf(script);
+    const naming = sentences.findIndex(sentence => !namesNothing(sentence, guard));
+    if (naming < 0) return undefined;
+
+    const name = sentences[naming] ?? '';
+    for (let lead = naming; lead >= 0; lead--) {
+        const candidate = [...sentences.slice(0, lead), name].join(' ');
+        if (wordsIn(candidate) <= ceiling) return candidate;
+    }
+    return undefined;
 }
 
 /**
@@ -3200,9 +3240,7 @@ export function writeTrim(text: string, guard: AnswerGuard): { kept: number; dro
     const kept = wordsIn(fitted);
     const dropped = wordsIn(tidied) - kept;
 
-    return {
-        kept,
-        dropped,
-        reason: `the model wrote ${dropped} words past the word ceiling, so the break was cut back to its last whole sentence`,
-    };
+    // A fitted script that is not the answer's front was cut in front of its naming sentence instead.
+    const where = tidied.startsWith(fitted) ? 'cut back to its last whole sentence' : 'cut to whole sentences that keep the one naming a record';
+    return { kept, dropped, reason: `the model wrote ${dropped} words past the word ceiling, so the break was ${where}` };
 }

@@ -205,3 +205,29 @@ export function sentencesWithin(value: string, maxWords: number): string | undef
 
     return fits;
 }
+
+/**
+ * A passage as its whole sentences, in order, each with its closing quotes kept.
+ *
+ * On the same boundary {@link sentencesWithin} cuts at, so a caller choosing
+ * WHICH sentences to keep rather than how many sees exactly the sentences that
+ * function would have seen. A passage with no boundary is one sentence.
+ */
+export function sentencesOf(value: string): string[] {
+    const text = value.trim();
+    const sentences: string[] = [];
+    let start = 0;
+
+    SENTENCE_END.lastIndex = 0;
+    for (let match = SENTENCE_END.exec(text); match !== null; match = SENTENCE_END.exec(text)) {
+        if (!endsSentence(text, match.index)) continue;
+
+        const end = match.index + 1 + closersIn(match[0]).length;
+        sentences.push(text.slice(start, end).trim());
+        start = match.index + match[0].length;
+    }
+
+    const rest = text.slice(start).trim();
+    if (rest.length > 0) sentences.push(rest);
+    return sentences;
+}

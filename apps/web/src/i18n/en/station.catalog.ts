@@ -18,6 +18,10 @@ export const station = {
         showEvidence: 'Show what failed',
         hideEvidence: 'Hide what failed',
         more: '… and {{more}} more',
+        dismiss: 'Dismiss',
+        dismissHint: 'Accept these as they stand. The row comes back if another one joins them.',
+        dismissFailed: 'The station did not take that. Try again.',
+        dismissForbidden: 'Only an admin can dismiss this.',
     },
     checkup: {
         title: 'Check-up',

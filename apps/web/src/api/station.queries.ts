@@ -99,6 +99,22 @@ export function useStationReleasesPoll(enabled: boolean) {
 }
 
 /**
+ * Accepts an attention row as it stands. Needs `platform.manage`, so a non-admin gets a 403.
+ *
+ * Invalidated rather than answered, because the station decides what is left: dismissing the benched
+ * row quiets the records benched now, and one benched since the last poll is still reported.
+ */
+export function useDismissAttention() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (code: string) => sdk.station.dismissStationAttention(code),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.station.attention() });
+        },
+    });
+}
+
+/**
  * Asks the station to check GitHub now. Needs `platform.manage`, so a non-admin gets a 403.
  *
  * The answer is the whole reading, written straight into the cache rather than invalidated: it is

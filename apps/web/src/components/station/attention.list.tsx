@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Anchor, Box, Button, Card, Collapse, Divider, Group, Stack, Text } from '@mantine/core';
+import { Anchor, Box, Button, Card, Collapse, Divider, Group, Stack, Text, Tooltip } from '@mantine/core';
 import { Link, type LinkProps } from '@tanstack/react-router';
 import type { AttentionEvidence, AttentionItem } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
+import { useDismissAttention } from '../../api/station.queries';
+import { apiErrorMessage, sdkError } from '../../api/sdk.error';
 import { attentionDestinationOf } from '../shell/attention.destination';
 import { useDisclosureIds } from '../shared/disclosure';
 import { EmptyState } from '../shared/empty.state';
@@ -102,21 +104,56 @@ function Row({ item, here }: { item: AttentionItem; here?: LinkProps['to'] }) {
                 station sends a route and no verb, so a button reading "Reconnect Spotify" would be
                 this console inventing a claim about what the click does; "Plugin →" is exactly what
                 it does. See the note in `desk.page.tsx`. */}
-            {elsewhere ? (
-                <Button
-                    variant="light"
-                    size="compact-sm"
-                    style={{ flexShrink: 0 }}
-                    // Spread whole rather than picked apart into three branches, one per shape a
-                    // destination might have. The branches existed because `params` and `search`
-                    // were loose records here and could not be handed to a typed `Link` together;
-                    // they are the router's own props now, so there is one shape and one arm.
-                    renderRoot={(props: object) => <Link {...destination.link} {...props} />}
-                >
-                    {destination.label} →
-                </Button>
-            ) : undefined}
+            <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
+                {item.dismissible === true ? <Dismiss code={item.code} /> : undefined}
+                {elsewhere ? (
+                    <Button
+                        variant="light"
+                        size="compact-sm"
+                        // Spread whole rather than picked apart into three branches, one per shape a
+                        // destination might have. The branches existed because `params` and `search`
+                        // were loose records here and could not be handed to a typed `Link` together;
+                        // they are the router's own props now, so there is one shape and one arm.
+                        renderRoot={(props: object) => <Link {...destination.link} {...props} />}
+                    >
+                        {destination.label} →
+                    </Button>
+                ) : undefined}
+            </Group>
         </Group>
+    );
+}
+
+/**
+ * Accept a row as it stands, for the rows the station says may be.
+ *
+ * The station decides which rows those are and what accepting one means, so this draws a button
+ * only where `dismissible` says to and says nothing about what happens next: the row going away is
+ * the answer. Subtle rather than light, so it never reads as the row's action, which is the fix.
+ */
+function Dismiss({ code }: { code: string }) {
+    const { t } = useTranslation('station');
+    const dismiss = useDismissAttention();
+    const failure =
+        dismiss.error === null
+            ? undefined
+            : sdkError(dismiss.error)?.status === 403
+              ? t('attention.dismissForbidden')
+              : apiErrorMessage(dismiss.error, t('attention.dismissFailed'));
+
+    return (
+        <Stack gap={2} align="flex-end">
+            <Tooltip label={t('attention.dismissHint')} multiline w={240} withArrow>
+                <Button variant="subtle" color="gray" size="compact-sm" loading={dismiss.isPending} onClick={() => dismiss.mutate(code)}>
+                    {t('attention.dismiss')}
+                </Button>
+            </Tooltip>
+            {failure === undefined ? undefined : (
+                <Text size="xs" c="red" maw={240} ta="right">
+                    {failure}
+                </Text>
+            )}
+        </Stack>
     );
 }
 

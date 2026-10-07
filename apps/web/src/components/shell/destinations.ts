@@ -201,9 +201,11 @@ export const DESTINATION_KEYS: { hint: string; to: NavLink['to'] }[] = NAV_DESTI
 /**
  * Whether the operator is inside a destination, which is what decides if its sections are drawn.
  *
- * A prefix match on the pathname, plus the two exceptions the console has always had. Library's own
- * tabs live under four different paths, so its sections show on any of them; and `/plugins` counts
- * as Settings, being a section of it that happens to have been a route first.
+ * A prefix match on the pathname, against the destination's own route or any of its sections'.
+ * Library's and Check-up's sections live under paths of their own (`/catalog/albums`, `/activity`,
+ * `/logs`), so matching the destination's route alone collapsed Check-up's the moment one of them
+ * was clicked. `/plugins` counts as Settings, being a section of it that happens to have been a
+ * route first.
  *
  * Deliberately NOT a search-param comparison. Whether the rail is expanded is a question about the
  * destination, not about which of its sections is open — the router decides that second question for
@@ -213,8 +215,7 @@ export function isInsideDestination(destination: NavDestination, pathname: strin
     const at = (path: string): boolean => pathname === path || pathname.startsWith(`${path}/`);
 
     if (destination.to === '/') return pathname === '/';
-    if (destination.to === '/settings') return at('/settings') || at('/plugins');
-    if (destination.to === '/catalog/tracks') return destination.sections.some(section => at(section.to as string));
+    if (destination.to === '/settings' && at('/plugins')) return true;
 
-    return at(destination.to as string);
+    return at(destination.to as string) || destination.sections.some(section => at(section.to as string));
 }

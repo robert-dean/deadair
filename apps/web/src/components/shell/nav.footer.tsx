@@ -4,7 +4,7 @@ import { useRouterState } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import type { AttentionItem } from '@deadair/sdk';
 
-import { attentionCounts } from './attention.destination';
+import { attentionCounts, attentionForDestination } from './attention.destination';
 import { isInsideDestination, NAV_FOOTER_DESTINATIONS } from './destinations';
 import { NavItem } from './nav.item';
 import classes from './side.nav.module.css';
@@ -69,36 +69,44 @@ export function NavFooter({ attention = [], onLogout, loggingOut }: NavFooterPro
     return (
         <Box ref={rows} py="xs" style={{ borderTop: '1px solid var(--da-border)' }}>
             <Stack gap={2}>
-                {NAV_FOOTER_DESTINATIONS.map(destination => (
-                    <Fragment key={destination.label}>
-                        <NavItem
-                            to={destination.to}
-                            label={destination.label}
-                            attention={typeof destination.to === 'string' ? counts.get(destination.to) : undefined}
-                            // Both of these have children, so both prefix-match their own sections.
-                            // Without this the parent lights up beside whichever child is open and
-                            // the rail says the operator is in two places.
-                            exact
-                        />
+                {NAV_FOOTER_DESTINATIONS.map(destination => {
+                    const expanded = isInsideDestination(destination, pathname);
+                    const attention = attentionForDestination(counts, destination, expanded);
 
-                        {/* Drawn only while the operator is inside it, the same rule the rail above
-                            follows. Check-up's four are here for the first time: they were a tab
-                            strip, and the console navigates one way now. */}
-                        {isInsideDestination(destination, pathname)
-                            ? destination.sections.map(section => (
-                                  <NavItem
-                                      key={section.label}
-                                      to={section.to}
-                                      search={section.search}
-                                      label={section.label}
-                                      hintText={section.hintText}
-                                      nested
-                                      attention={typeof section.to === 'string' ? counts.get(section.to) : undefined}
-                                  />
-                              ))
-                            : undefined}
-                    </Fragment>
-                ))}
+                    return (
+                        <Fragment key={destination.label}>
+                            <NavItem
+                                to={destination.to}
+                                label={destination.label}
+                                attention={attention.destination}
+                                // Both of these have children, so both prefix-match their own sections.
+                                // Without this the parent lights up beside whichever child is open and
+                                // the rail says the operator is in two places.
+                                exact
+                                // Check-up IS `/checkup`, which is also Machinery, so while its
+                                // sections are drawn the parent is not lit at all.
+                                neverActive={expanded}
+                            />
+
+                            {/* Drawn only while the operator is inside it, the same rule the rail above
+                                follows. Check-up's four are here for the first time: they were a tab
+                                strip, and the console navigates one way now. */}
+                            {expanded
+                                ? destination.sections.map((section, index) => (
+                                      <NavItem
+                                          key={section.label}
+                                          to={section.to}
+                                          search={section.search}
+                                          label={section.label}
+                                          hintText={section.hintText}
+                                          nested
+                                          attention={attention.sections[index]}
+                                      />
+                                  ))
+                                : undefined}
+                        </Fragment>
+                    );
+                })}
 
                 {/* Drawn as one of the rail's own rows rather than as a button placed near them.
                     A `Button` beside two `NavLink`s needs a hand-set left margin to line its label

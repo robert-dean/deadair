@@ -3,7 +3,7 @@ import { Stack } from '@mantine/core';
 import { useRouterState } from '@tanstack/react-router';
 import type { AttentionItem } from '@deadair/sdk';
 
-import { attentionCounts } from './attention.destination';
+import { attentionCounts, attentionForDestination } from './attention.destination';
 import { isInsideDestination, NAV_DESTINATIONS } from './destinations';
 import { NavItem } from './nav.item';
 
@@ -66,39 +66,47 @@ export function SideNav({ attention = [] }: SideNavProps) {
 
     return (
         <Stack gap={2} py="xs">
-            {NAV_DESTINATIONS.map(destination => (
-                <Fragment key={destination.label}>
-                    <NavItem
-                        to={destination.to}
-                        label={destination.label}
-                        hint={destination.hint}
-                        attention={typeof destination.to === 'string' ? counts.get(destination.to) : undefined}
-                        // A destination with children uses an exact match, or it lights up beside
-                        // whichever child is open and the rail says the operator is in two places.
-                        // The Desk has none and keeps the router's prefix default.
-                        {...(destination.sections.length > 0 ? { exact: true } : {})}
-                    />
+            {NAV_DESTINATIONS.map(destination => {
+                const expanded = isInsideDestination(destination, pathname);
+                const attention = attentionForDestination(counts, destination, expanded);
 
-                    {/* Drawn only while the operator is inside this destination. Four destinations
-                        with every section permanently listed is 24 rows of standing furniture, and
-                        the rail's own argument for being flat was that a nav should be the places
-                        you are choosing between rather than everywhere the console has. */}
-                    {isInsideDestination(destination, pathname)
-                        ? destination.sections.map(section => (
-                              <NavItem
-                                  key={section.label}
-                                  to={section.to}
-                                  search={section.search}
-                                  label={section.label}
-                                  hintText={section.hintText}
-                                  exact={section.exact}
-                                  nested
-                                  attention={typeof section.to === 'string' ? counts.get(section.to) : undefined}
-                              />
-                          ))
-                        : undefined}
-                </Fragment>
-            ))}
+                return (
+                    <Fragment key={destination.label}>
+                        <NavItem
+                            to={destination.to}
+                            label={destination.label}
+                            hint={destination.hint}
+                            attention={attention.destination}
+                            // A destination with children uses an exact match, or it lights up beside
+                            // whichever child is open and the rail says the operator is in two places.
+                            // The Desk has none and keeps the router's prefix default.
+                            {...(destination.sections.length > 0 ? { exact: true } : {})}
+                            // And while those children are drawn, it is not lit at all: Library IS
+                            // `/catalog/tracks`, so even an exact match lit it beside Tracks.
+                            neverActive={expanded && destination.sections.length > 0}
+                        />
+
+                        {/* Drawn only while the operator is inside this destination. Four destinations
+                            with every section permanently listed is 24 rows of standing furniture, and
+                            the rail's own argument for being flat was that a nav should be the places
+                            you are choosing between rather than everywhere the console has. */}
+                        {expanded
+                            ? destination.sections.map((section, index) => (
+                                  <NavItem
+                                      key={section.label}
+                                      to={section.to}
+                                      search={section.search}
+                                      label={section.label}
+                                      hintText={section.hintText}
+                                      exact={section.exact}
+                                      nested
+                                      attention={attention.sections[index]}
+                                  />
+                              ))
+                            : undefined}
+                    </Fragment>
+                );
+            })}
         </Stack>
     );
 }

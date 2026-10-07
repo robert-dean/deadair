@@ -147,3 +147,37 @@ export function attentionCounts(items: readonly AttentionItem[]): Map<string, At
 
     return counts;
 }
+
+/** Which row of one destination carries each count: its own, and one per section in order. */
+export interface DestinationAttention {
+    destination?: AttentionCount;
+    sections: (AttentionCount | undefined)[];
+}
+
+/**
+ * Hands each count to exactly one row of a destination, so one thing waiting is one badge.
+ *
+ * Counts are keyed by path, and a destination's rows share paths: Library and its Tracks are both
+ * `/catalog/tracks`, Check-up and Machinery both `/checkup`, and all eight of Voice's sections are
+ * `/voice`. Read naively, one benched copy drew a 1 on Library and another on Tracks, and one persona
+ * fault would have badged every Voice tab.
+ *
+ * While the sections are drawn, the first section on a path takes its count, since that is the row
+ * the operator would press. The destination keeps only what no drawn section claimed, which is all
+ * of it while it is collapsed.
+ */
+export function attentionForDestination(
+    counts: ReadonlyMap<string, AttentionCount>,
+    destination: { to?: LinkProps['to']; sections: readonly { to?: LinkProps['to'] }[] },
+    expanded: boolean,
+): DestinationAttention {
+    const claimed = new Set<string>();
+    const claim = (to: LinkProps['to']): AttentionCount | undefined => {
+        if (typeof to !== 'string' || claimed.has(to)) return undefined;
+        claimed.add(to);
+        return counts.get(to);
+    };
+
+    const sections = expanded ? destination.sections.map(section => claim(section.to)) : [];
+    return { destination: claim(destination.to), sections };
+}

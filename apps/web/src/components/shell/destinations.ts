@@ -54,7 +54,11 @@ export interface NavSection extends NavLink {
     /** What is behind it, drawn as the row's tooltip. Straight off the tab table. */
     hintText?: string;
     /**
-     * Whether this row's search must match the URL's exactly, which only a destination's DEFAULT tab needs.
+     * Whether this row must match the URL exactly rather than as a prefix.
+     *
+     * Two kinds of row need it. A route that is a prefix of a sibling's: Library's Artists is
+     * `/catalog`, which the router counts as a parent of Tracks' `/catalog/tracks`, so Artists was lit
+     * beside Tracks. And a destination's DEFAULT tab, whose search has to match exactly.
      *
      * The route strips a default from the URL, so the default tab's link asks for no search at all, and
      * the router's prefix match counts an empty search as a subset of every other tab's. Left alone,
@@ -118,6 +122,9 @@ export const NAV_DESTINATIONS: NavDestination[] = [
         hint: 'L',
         sections: LIBRARY_TABS.map(tab => ({
             to: LIBRARY_ROUTES[tab.key],
+            // `/catalog` is a prefix of Tracks' `/catalog/tracks`. Exact costs Artists its glow on one
+            // artist's page, which is better than lighting it on every record's.
+            exact: tab.key === 'artists',
             get label() {
                 return tab.label;
             },

@@ -13,14 +13,26 @@ let pathname = '/';
 
 // `Link` renders an anchor and `useRouterState` answers the one selector this component runs. Both
 // are the whole of its router surface; `activeOptions` is dropped with the rest, since the active
-// state is the router's own `data-status` and nothing here draws it.
+// state is the router's own `data-status` and nothing here draws it. An empty `activeProps` is the
+// one thing drawn, as an attribute, because it is how a row asks never to be lit at all.
 vi.mock('@tanstack/react-router', () => ({
-    Link: ({ to, children, activeOptions, ...props }: { to?: string; children?: ReactNode; activeOptions?: { exact?: boolean } }) => {
+    Link: ({
+        to,
+        children,
+        activeOptions,
+        activeProps,
+        ...props
+    }: {
+        to?: string;
+        children?: ReactNode;
+        activeOptions?: { exact?: boolean };
+        activeProps?: object;
+    }) => {
         // Keyed by route rather than by label: Mantine hands `renderRoot` its already-rendered
         // content, so `children` here is an element and never the text of the link.
         if (to !== undefined) activeOptionsByRoute.set(to, activeOptions);
         return (
-            <a href={to} {...props}>
+            <a href={to} data-never-active={activeProps !== undefined && Object.keys(activeProps).length === 0 ? 'true' : undefined} {...props}>
                 {children}
             </a>
         );
@@ -113,6 +125,20 @@ describe('NavFooter', () => {
         // read the same and are not: naming it replaces the router's whole default, `includeSearch`
         // included.
         expect(activeOptionsByRoute.get('/settings/rotation')).toBeUndefined();
+    });
+
+    /**
+     * Check-up is `/checkup` and so is Machinery, so an exact match still lit both. While its sections
+     * are drawn the parent is a way in, and Machinery is the row that says where the operator is.
+     */
+    it('does not light Check-up beside Machinery, which is the same route', () => {
+        pathname = '/checkup';
+        render(<NavFooter />);
+
+        expect(screen.getByRole('link', { name: 'Check-up' })).toHaveAttribute('data-never-active', 'true');
+        expect(screen.getByRole('link', { name: /^Machinery/ })).not.toHaveAttribute('data-never-active');
+        // Collapsed, Settings has nothing beneath it to say so instead, and lights as it always did.
+        expect(screen.getByRole('link', { name: 'Settings' })).not.toHaveAttribute('data-never-active');
     });
 
     /**

@@ -19,7 +19,7 @@ import type { PersonaStoryDraft } from './persona.story.js';
  * says this to the model on every break; these are what it looks like when it is followed.
  *
  * **Each one stays inside its character's own fence.** The two sheets that carry a `latitude` are the
- * two that most need it, and their fences turn out to be the same fence: the shock jock's stories are
+ * two that most need it, and their fences turn out to be the same fence: the hype man's stories are
  * about things that happened TO HIM and are rude about nobody but himself, and the paranormal host's
  * are about what was done TO HIM and to nobody else. The government in his is one nobody can name —
  * no country, no agency, no official — and never a real event, a death, an illness or an election,
@@ -42,7 +42,8 @@ import type { PersonaStoryDraft } from './persona.story.js';
  * Two is enough for the rotation to be visible — a second story means the first does not come round
  * every time — and few enough that an operator reading the page can tell these were written for them
  * rather than generated at them. `conspiracy` carries three, one for each theory he has actually
- * seen with his own eyes. Details are deliberately absent: a detail is what a story PICKS UP,
+ * seen with his own eyes, and `shockjock` three, the third being the thing he is still building
+ * towards. A film he loves is not a real person, so the speaker wall in it is his to name. Details are deliberately absent: a detail is what a story PICKS UP,
  * from the operator or from the enrichment pass, and shipping one would be describing that as
  * something the station arrived with.
  */
@@ -79,13 +80,19 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
         },
     ],
     shockjock: [
+        // Rewritten with his sheet on 2026-10-08, when he became a hype man. Still at his own
+        // expense and nobody else's: what the music did to HIM.
         {
-            title: 'The time I got stuck in a lift',
-            story: 'Got stuck in the lift in this building for two hours once. On my own. Talking. To nobody. Two hours. And you know the worst part? I ran out of material after about forty minutes, which explains more or less everything about this show.',
+            title: 'The subwoofer',
+            story: 'Put a subwoofer in my car the size of a fridge. Took the back seat out for it. First time I cranked it at a red light, the mirror fell off the windshield, the guy in the next lane gave me a thumbs up, and I drove home holding that mirror out the window like a trophy. Worth every damn penny.',
         },
         {
-            title: 'The haircut',
-            story: 'I let a listener choose my haircut on air once. One listener. It grew back eventually, and I looked, and I mean this sincerely, like a thumb. That is what I get for asking you people anything.',
+            title: 'The air guitar contest',
+            story: 'Entered an air guitar contest once. Went all in. Big solo, knee slide across the stage, and I slid straight off the front and into a table of nachos. Got up, kept playing, finished the solo covered in cheese. Came third. Out of four. But hell yeah, the crowd went nuts.',
+        },
+        {
+            title: 'The speaker wall',
+            story: "You know the start of Back to the Future? Marty walks into the lab, plugs his guitar into that speaker the size of a wall, cranks every knob all the way up, hits one chord, and it blows him clean across the room. I have watched that scene more times than I have done my taxes. And one day I'm gonna build one. A whole wall of speakers, right here in this booth. I'm gonna hit one chord, and it is gonna rock your socks off. Hell yeah.",
         },
     ],
     conspiracy: [

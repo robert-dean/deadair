@@ -516,24 +516,6 @@ export class ModelSetGenerator extends SetGenerator {
     }
 
     /**
-     * What the searches found, when the model would not say which of it to play.
-     *
-     * Not a set the model programmed and not pretending to be one: these are search results in the
-     * order the tool answered, owned rows first, and the ONLY claim being made for them is that
-     * every one came back from a query the model wrote out of the brief. That is a far stronger
-     * claim than the floor beneath this can make, which seeds from what has already aired and so
-     * answers a brief-switch with the previous programme's taste.
-     *
-     * It stays inside the chain's ordinary contract by naming records and deciding nothing:
-     * `PickResolver` runs the dislike veto, the repeat window, the artist cooldown and the
-     * per-artist cap over these exactly as over a chosen set, and looks up anything the library has
-     * never held. So a duplicate or a banned record costs a slot and cannot reach the air, which is
-     * the same bargain `SimilarSetGenerator` already makes and the reason nothing is filtered here.
-     *
-     * Spaced by artist on the way out, because three searches for one act answer with three of its
-     * records in a row and that is audible in a way the unspaced list is not.
-     */
-    /**
      * Tell the search which records aired lately, so its rows can say so. See `AiredRecords`.
      *
      * A failed read costs the marks and nothing else: the refill goes ahead with the search as it was
@@ -553,10 +535,34 @@ export class ModelSetGenerator extends SetGenerator {
         }
     }
 
+    /**
+     * What the searches found, when the model would not say which of it to play.
+     *
+     * Not a set the model programmed and not pretending to be one: these are search results in the
+     * order the tool answered, owned rows first, and the ONLY claim being made for them is that
+     * every one came back from a query the model wrote out of the brief. That is a far stronger
+     * claim than the floor beneath this can make, which seeds from what has already aired and so
+     * answers a brief-switch with the previous programme's taste.
+     *
+     * It stays inside the chain's ordinary contract by naming records and deciding nothing:
+     * `PickResolver` runs the dislike veto, the repeat window, the artist cooldown and the
+     * per-artist cap over these exactly as over a chosen set, and looks up anything the library has
+     * never held. So a duplicate or a banned record costs a slot and cannot reach the air, which is
+     * the same bargain `SimilarSetGenerator` already makes and the reason nothing is filtered here.
+     *
+     * Spread across the artists searched for rather than taken from the top, and that is not tidiness.
+     * The tool answers a search with around twenty rows, so a run that searched fifteen acts holds
+     * three hundred, oldest search first, and the first `count` of them are the first two acts the
+     * model looked up. A rock-and-roll replan on the live station searched fifteen acts in that order,
+     * and rescued from the top it would have named twenty-four records by Chuck Berry and Little
+     * Richard, of which the per-artist cap at the resolver keeps four. Nothing tops the batch back up after that, because the chain
+     * counts names rather than survivors. So each artist gives one record in turn, at most the cap's
+     * worth, and the searches the model made last count as much as the ones it made first.
+     */
     private rescue(inputs: SetInputs, why: string): TrackPick[] {
         if (this.searched.size === 0) return [];
 
-        const picks = spaceOwnArtists(this.searched.all()).slice(0, inputs.count);
+        const picks = spreadAcrossArtists(this.searched.all(), inputs.count, inputs.rules.maxPerArtist);
         if (picks.length === 0) return [];
 
         // Info rather than warn: something went wrong upstream and it has already been reported
@@ -731,4 +737,43 @@ function spaceOwnArtists(picks: readonly TrackPick[]): TrackPick[] {
         previous = artistKey([next!.artist]);
     }
     return spaced;
+}
+
+/**
+ * Up to `count` records, one per artist in turn, in the order the artists were first seen.
+ *
+ * Round-robin rather than {@link spaceOwnArtists}, because that function reorders a list it keeps
+ * whole and this one CHOOSES: given more rows than it may hand back, which ones it keeps is the whole
+ * question, and taking from the top keeps whoever was searched first. Each artist's own rows stay in
+ * the order the search answered them, owned copies first, so an artist's first turn is the record the
+ * library is likeliest to play.
+ *
+ * `maxPerArtist` is the resolver's cap, applied here so the slots go to records that will survive it
+ * rather than being spent on ones it is certain to drop. Zero means the cap is off, as it does in
+ * `ResolvedRules`, and then an artist with rows left keeps taking turns.
+ *
+ * Spaced as a side effect: consecutive picks are by different artists until only one has rows left.
+ */
+function spreadAcrossArtists(rows: readonly TrackPick[], count: number, maxPerArtist: number): TrackPick[] {
+    const byArtist = new Map<string, TrackPick[]>();
+    for (const row of rows) {
+        const key = artistKey([row.artist]);
+        const own = byArtist.get(key);
+        if (own === undefined) byArtist.set(key, [row]);
+        else own.push(row);
+    }
+
+    const spread: TrackPick[] = [];
+    for (let turn = 0; maxPerArtist <= 0 || turn < maxPerArtist; turn++) {
+        let took = false;
+        for (const own of byArtist.values()) {
+            if (spread.length >= count) return spread;
+            const row = own[turn];
+            if (row === undefined) continue;
+            spread.push(row);
+            took = true;
+        }
+        if (!took) break;
+    }
+    return spread;
 }

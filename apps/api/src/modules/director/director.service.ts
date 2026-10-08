@@ -41,7 +41,7 @@ import { ScrobbleService } from '#modules/scrobble/scrobble.service.js';
 import type { ScrobblePlay } from '@deadair/plugin-sdk';
 import { brokenClaim } from './break.claims.js';
 import { PRODUCTION_SHELF_LIFE_MS, productionExpired, standingCall } from './production.shelf.js';
-import { BreakPlanner, expiryFor, type AirClock } from './break.planner.js';
+import { BreakPlanner, expiryFor, landingFor, type AirClock } from './break.planner.js';
 import { isRenderedFirst, type BreakRequest, type BreakRequestResult, type StoredBreakRequest } from './break.request.js';
 import { BreakRequestRepository } from './break.request.repository.js';
 import { ArtRepository } from '#modules/art/art.repository.js';
@@ -1170,16 +1170,12 @@ export class DirectorService {
      *
      * The same answer `injectRequested` gives a break whose audio already exists, and for the same
      * reason — the words are spoken and the only thing left is a position, so it takes the earliest
-     * one the order will accept. A boundary already holding a segment is walked past, because putting
-     * a programme immediately after a talk break is two lots of talking in a row.
+     * one the order will accept. A boundary with a break on either side is walked past, because putting
+     * a programme immediately after a talk break is two lots of talking in a row. This used to check
+     * only the item it landed in front of, so it walked past a talk break and aired straight after it.
      */
     private slotForProduction(lineup: StationLineup): number | undefined {
-        const items = lineup.all();
-        for (let index = Math.max(0, lineup.committedThrough()); index < items.length; index++) {
-            if (items[index]!.kind === 'segment') continue;
-            return index;
-        }
-        return undefined;
+        return landingFor(lineup.all(), lineup.committedThrough());
     }
 
     private async injectReady(lineup: StationLineup): Promise<void> {

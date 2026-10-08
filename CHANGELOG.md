@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.47.3] — 2026-10-08
+
+- When a talk break interrupts the model twice while it is choosing records, the station now plays from what its searches for the brief found, instead of falling back to records similar to what already aired. A brief that switches style (adding modern rock to a classic rock show, say) no longer loses the switch to a busy hour.
+- When the model searches for records and then fails to name any, the hour the station fills from those searches now takes a record from each artist it searched for in turn, instead of filling up on the first one or two artists and losing most of them to the per-artist limit.
+
 ## [0.47.2] — 2026-10-08
 
 - A welcome, a changeover or a phone-in no longer airs straight after a talk break. Anything placed once its audio was ready used to skip only the slot holding a break and take the record right behind it, so the listener heard two lots of talking with no record between them. It now waits for a slot with a record on both sides, as planted breaks already did.
@@ -1146,7 +1151,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.47.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.47.3...HEAD
+[0.47.3]: https://github.com/robert-dean/deadair/compare/v0.47.2...v0.47.3
 [0.47.2]: https://github.com/robert-dean/deadair/compare/v0.47.1...v0.47.2
 [0.47.1]: https://github.com/robert-dean/deadair/compare/v0.47.0...v0.47.1
 [0.47.0]: https://github.com/robert-dean/deadair/compare/v0.46.1...v0.47.0

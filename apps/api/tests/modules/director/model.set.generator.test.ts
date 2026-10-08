@@ -659,10 +659,57 @@ describe('when the model goes quiet, what its searches found', () => {
         expect(await generator.generate(inputs(2))).toHaveLength(2);
     });
 
-    it('leaves a PREEMPTED refill alone, because that one is owed a retry', async () => {
-        // A retry against a model the station interrupted is better than the leftovers of one
-        // search, and `RefillPreemption` is what asks for it. Rescuing here would spend the slot
-        // that retry was going to use and hide the interruption behind an answer.
+    // A search answers with around twenty rows, oldest search first. Taken from the top, a run that
+    // searched fifteen acts rescues its first two and the per-artist cap then keeps four records.
+    const threeSearches = [
+        { title: 'Maybellene', artist: 'Chuck Berry' },
+        { title: 'Johnny B. Goode', artist: 'Chuck Berry' },
+        { title: 'Roll Over Beethoven', artist: 'Chuck Berry' },
+        { title: 'Tutti Frutti', artist: 'Little Richard' },
+        { title: 'Lucille', artist: 'Little Richard' },
+        { title: 'Long Tall Sally', artist: 'Little Richard' },
+        { title: 'Everlong', artist: 'Foo Fighters' },
+        { title: 'My Hero', artist: 'Foo Fighters' },
+    ];
+
+    it('takes one record from each artist searched in turn, rather than the first search’s rows', async () => {
+        const { generator } = build({ enabled: true, text: '', toolCallsMade: 3, finishReason: 'stop', searched: threeSearches });
+
+        const picked = await generator.generate(inputs(4));
+
+        expect(picked.map(pick => pick.title)).toEqual(['Maybellene', 'Tutti Frutti', 'Everlong', 'Johnny B. Goode']);
+    });
+
+    it('takes no more of one artist than the resolver would keep', async () => {
+        const { generator } = build({ enabled: true, text: '', toolCallsMade: 3, finishReason: 'stop', searched: threeSearches });
+
+        const picked = await generator.generate(inputs(20, { rules: { ...DEFAULT_RULES, maxPerArtist: 2 } }));
+
+        expect(picked.map(pick => pick.title)).toEqual(['Maybellene', 'Tutti Frutti', 'Everlong', 'Johnny B. Goode', 'Lucille', 'My Hero']);
+    });
+
+    it('keeps taking turns while an artist has rows left when the cap is off', async () => {
+        const { generator } = build({ enabled: true, text: '', toolCallsMade: 3, finishReason: 'stop', searched: threeSearches });
+
+        const picked = await generator.generate(inputs(20, { rules: { ...DEFAULT_RULES, maxPerArtist: 0 } }));
+
+        expect(picked.map(pick => pick.artist)).toEqual([
+            'Chuck Berry',
+            'Little Richard',
+            'Foo Fighters',
+            'Chuck Berry',
+            'Little Richard',
+            'Foo Fighters',
+            'Chuck Berry',
+            'Little Richard',
+        ]);
+    });
+
+    it('fills a PREEMPTED refill from its searches, and still asks for the retry', async () => {
+        // The retry is `planRecords`' and is owed whatever this returns, so a rescued first attempt
+        // is thrown away and costs nothing. The last attempt has no retry behind it, and there the
+        // choice is these or the floor's neighbours of what already aired. A replan briefed for
+        // modern rock was preempted twice after twenty searches and aired the morning's classic rock.
         const { generator, preemption } = build({
             enabled: true,
             text: '',
@@ -670,6 +717,15 @@ describe('when the model goes quiet, what its searches found', () => {
             finishReason: 'preempted',
             searched: found,
         });
+
+        const picked = await generator.generate(inputs(5));
+
+        expect(picked.map(pick => pick.artist)).toEqual(['Mitch Murder', 'Lost Years', 'Kavinsky']);
+        expect(preemption.took()).toBe(true);
+    });
+
+    it('leaves a PREEMPTED refill that never searched for the chain to fill', async () => {
+        const { generator, preemption } = build({ enabled: true, text: '', toolCallsMade: 0, finishReason: 'preempted' });
 
         expect(await generator.generate(inputs(5))).toEqual([]);
         expect(preemption.took()).toBe(true);

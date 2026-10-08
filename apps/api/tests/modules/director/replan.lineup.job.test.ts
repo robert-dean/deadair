@@ -42,8 +42,8 @@ interface Options {
      * How many of the planning attempts a break interrupts, marked up front.
      *
      * 1 is the ordinary case this was built for: the first plan is preempted and the second is not.
-     * 2 is the station too busy to ever give the refill the model, where the floor's hour is the
-     * honest answer.
+     * 2 is the station too busy to ever give the refill the model, where the last attempt answers
+     * with whatever its searches found.
      */
     preemptedTimes?: number;
     mode?: StationLineupMode;

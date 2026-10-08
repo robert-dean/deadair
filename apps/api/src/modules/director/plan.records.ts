@@ -87,9 +87,10 @@ export interface PlannedRecords {
  * answers and asking twice would produce the same one at twice the cost.
  *
  * The bound is what keeps a busy hour from starving a refill entirely. A station taking a break
- * every few records can preempt the retry too, and at that point the floor's hour is the honest
- * outcome: it is a station whose model is genuinely oversubscribed, and the fix for that is not
- * more attempts.
+ * every few records can preempt the retry too, and the fix for a model that oversubscribed is not
+ * more attempts. What the last attempt answers with then is what both attempts' searches found,
+ * spread across the artists they were for, and the floor only where those came up short: see
+ * `ModelSetGenerator.rescue`.
  */
 const MAX_PLANNING_ATTEMPTS = 2;
 

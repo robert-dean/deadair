@@ -51,8 +51,8 @@ interface Options {
      * How many of the planning attempts a break interrupts, marked up front.
      *
      * 1 is the ordinary case this was built for: the first plan is preempted and the second is not.
-     * 2 is the station too busy to ever give the refill the model, where the floor's hour is the
-     * honest answer.
+     * 2 is the station too busy to ever give the refill the model, where the last attempt answers
+     * with whatever its searches found.
      */
     preemptedTimes?: number;
     mode?: StationLineupMode;
@@ -439,10 +439,23 @@ describe('ExtendLineupJob not writing the lineup itself', () => {
         expect(command?.kind === 'appendTracks' ? command.tracks.length : 0).toBe(4);
     });
 
+    it('throws the interrupted attempt’s picks away, whatever they were', async () => {
+        // A preempted attempt can still answer: `ModelSetGenerator` fills it from what its searches
+        // found, so the retry does not lose them when it is the last one. That is only free because
+        // the first attempt's answer goes nowhere, which is what this pins.
+        const { job, generate, resolve } = build({ preemptedTimes: 1 });
+        generate.mockResolvedValueOnce([{ title: 'Interrupted', artist: 'First' }]);
+
+        await job.run({ count: 4 });
+
+        const resolved = resolve.mock.calls[0]![0] as readonly TrackPick[];
+        expect(resolved.map(pick => pick.title)).not.toContain('Interrupted');
+    });
+
     it('gives up after one retry, so a busy hour cannot loop', async () => {
-        // A station taking a break every few records can preempt the retry too. At that point the
-        // floor's hour is the honest outcome -- the model is genuinely oversubscribed, and the fix
-        // for that is not more attempts.
+        // A station taking a break every few records can preempt the retry too, and the fix for an
+        // oversubscribed model is not more attempts. The last attempt answers with what both
+        // attempts' searches found, which is `ModelSetGenerator`'s half and tested there.
         const { job, generate } = build({ preemptedTimes: 2 });
 
         await job.run({ count: 4 });

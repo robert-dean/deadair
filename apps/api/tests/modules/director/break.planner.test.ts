@@ -6,7 +6,14 @@
 import { Logger } from '@maroonedsoftware/logger';
 import { describe, expect, it, vi } from 'vitest';
 
-import { BreakPlanner, INTERRUPT_OVER_AT_MS, PLANT_AHEAD, WRITE_AHEAD, type AirClock } from '../../../src/modules/director/break.planner.js';
+import {
+    BreakPlanner,
+    INTERRUPT_OVER_AT_MS,
+    PLANT_AHEAD,
+    WRITE_AHEAD,
+    landingFor,
+    type AirClock,
+} from '../../../src/modules/director/break.planner.js';
 import type { StoredBreakRequest } from '../../../src/modules/director/break.request.js';
 import type { ClockBand } from '../../../src/modules/director/clock.bands.js';
 import { TALK_BREAK_KIND } from '../../../src/modules/director/talk.break.writer.js';
@@ -1925,7 +1932,8 @@ describe('BreakPlanner.ripen', () => {
             const result = await planner.plantRequested(lineup, rules(), { now, anchorAt: now, from: 0 }, asking());
 
             expect(result.accepted).toBe(true);
-            expect(result.atIndex).not.toBe(1);
+            // Not 1, which holds it, and not 2 either: that is the boundary directly AFTER it.
+            expect(result.atIndex).toBe(3);
         });
 
         it('declines when nothing can write the kind, or nothing can speak it', async () => {
@@ -2221,5 +2229,54 @@ describe('BreakPlanner.greetedAlready', () => {
         segmentAt(lineup, 2, 'ident');
 
         expect(build().planner.greetedAlready(lineup)).toBeUndefined();
+    });
+});
+
+describe('BreakPlanner.injectRequested', () => {
+    const welcome = { id: 'req-1', kind: WELCOME_KIND, urgency: 'next', source: 'audience', state: 'ready' } as StoredBreakRequest;
+
+    it('lands at the head when nothing is talking there', async () => {
+        const lineup = await lineupOf(6, 2);
+
+        expect(await build().planner.injectRequested(lineup, welcome, 'welcome-seg')).toBe(2);
+    });
+
+    it('walks past a talk break at the head rather than airing straight after it', async () => {
+        const lineup = await lineupOf(6, 2);
+        lineup.insertSegments([{ segmentId: 'talk', atIndex: 2, segmentKind: TALK_BREAK_KIND }]);
+
+        // Index 2 is the talk break and 3 is the boundary directly behind it, so the first one with a
+        // record on both sides is 4.
+        expect(await build().planner.injectRequested(lineup, welcome, 'welcome-seg')).toBe(4);
+        const kinds = lineup.all().map(item => (item.kind === 'segment' ? (item.segmentKind ?? 'segment') : 'record'));
+        expect(kinds.slice(2, 5)).toEqual([TALK_BREAK_KIND, 'record', WELCOME_KIND]);
+    });
+
+    it('walks past a talk break the player already holds', async () => {
+        const lineup = await lineupOf(6, 2);
+        lineup.insertSegments([{ segmentId: 'talk', atIndex: 2, segmentKind: TALK_BREAK_KIND }]);
+        hand(lineup, 1);
+
+        expect(await build().planner.injectRequested(lineup, welcome, 'welcome-seg')).toBe(4);
+    });
+});
+
+describe('landingFor', () => {
+    it('takes the head when a record is on both sides of it', async () => {
+        expect(landingFor((await lineupOf(6, 2)).all(), 2)).toBe(2);
+    });
+
+    it('skips the boundary on either side of a break', async () => {
+        const lineup = await lineupOf(6, 2);
+        lineup.insertSegments([{ segmentId: 'talk', atIndex: 2, segmentKind: TALK_BREAK_KIND }]);
+
+        expect(landingFor(lineup.all(), 2)).toBe(4);
+    });
+
+    it('answers undefined for an order with no open boundary left', async () => {
+        const lineup = await lineupOf(2, 1);
+        lineup.insertSegments([{ segmentId: 'talk', atIndex: 1, segmentKind: TALK_BREAK_KIND }]);
+
+        expect(landingFor(lineup.all(), 1)).toBeUndefined();
     });
 });

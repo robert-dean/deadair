@@ -515,22 +515,16 @@ export class BreakPlanner {
      * the file is on disk, and the only thing left is a position. So it takes the earliest one the
      * order will accept, which is the next boundary the station reaches.
      *
-     * A boundary already holding a break is walked past for {@link slotFor}'s reason — two breaks
-     * back to back is worse than one boundary later — and an interruption rides the record it lands
-     * in front of rather than sitting in the gap.
+     * A boundary with a break on either side of it is walked past for {@link slotFor}'s reason — two
+     * breaks back to back is worse than one boundary later — and an interruption rides the record it
+     * lands in front of rather than sitting in the gap. See {@link landingFor}.
      *
      * Answers the index it took, or `undefined` for an order with nothing left to put a break in
      * front of. That is an ordinary answer rather than a failure: the request stays `ready` and the
      * next pass tries again against an order that has since been topped up.
      */
     async injectRequested(lineup: StationLineup, request: StoredBreakRequest, segmentId: string): Promise<number | undefined> {
-        const items = lineup.all();
-        let atIndex: number | undefined;
-        for (let index = Math.max(0, lineup.committedThrough()); index < items.length; index++) {
-            if (items[index]!.kind === 'segment') continue;
-            atIndex = index;
-            break;
-        }
+        const atIndex = landingFor(lineup.all(), lineup.committedThrough());
         if (atIndex === undefined) return undefined;
 
         const over = request.urgency === 'interrupt' ? { atMs: INTERRUPT_OVER_AT_MS } : undefined;
@@ -561,8 +555,8 @@ export class BreakPlanner {
     greetedAlready(lineup: StationLineup): string | undefined {
         const items = lineup.all();
         const head = lineup.committedThrough();
-        const landing = items.findIndex((item, index) => index >= head && item.kind !== 'segment');
-        const heard = landing < 0 ? items : items.slice(0, landing);
+        const landing = landingFor(items, head);
+        const heard = landing === undefined ? items : items.slice(0, landing);
 
         const greeting = heard.find(
             item =>
@@ -593,8 +587,8 @@ export class BreakPlanner {
      * rather than about positions: a record with twenty seconds left and one with four minutes left
      * occupy the same INDEX and offer completely different amounts of time to write and speak in.
      *
-     * A boundary already holding a segment is walked past rather than declined. Landing on one would
-     * put two breaks back to back, and declining outright would lose a welcome because an ordinary
+     * A boundary with a break on either side of it is walked past rather than declined (see
+     * {@link isOpenBoundary}). Landing beside one would put two breaks back to back, and declining outright would lose a welcome because an ordinary
      * talk break happened to be planted where it wanted to go.
      *
      * `undefined` when the order does not reach far enough, or when everything inside a `soon`
@@ -615,7 +609,7 @@ export class BreakPlanner {
             const at = projected[index];
             if (at === undefined || at < clock.now + bounds.leadMs) continue;
             if (deadline !== undefined && at > deadline) return undefined;
-            if (items[index]!.kind === 'segment') continue;
+            if (!isOpenBoundary(items, index)) continue;
 
             return { atIndex: index, airsAt: at };
         }
@@ -1645,6 +1639,34 @@ const servedAlready = (
 const isBreakAt = (items: readonly StationLineupItem[], index: number): boolean => {
     const item = items[index];
     return item?.kind === 'segment' && !isCarriedKind(item.segmentKind ?? '');
+};
+
+/**
+ * Whether a break inserted at this index would have a record on both sides of it.
+ *
+ * A break inserted at `index` sits between `items[index - 1]` and `items[index]`, so BOTH have to be
+ * checked, exactly as {@link placementsFor} checks both. The rendered-first path used to check only
+ * the item it landed in front of: it walked past a planted talk break and took the record directly
+ * behind it, so a welcome aired as "talk break, welcome, record", two hosts' worth of talking with
+ * nothing between them. The item before may be the one airing, which is still a break the listener
+ * has only just heard.
+ */
+const isOpenBoundary = (items: readonly StationLineupItem[], index: number): boolean =>
+    items[index]?.kind !== 'segment' && !isBreakAt(items, index - 1);
+
+/**
+ * Where a break whose audio already exists lands: the first open boundary at or after the head, or
+ * `undefined` for an order with none left.
+ *
+ * Shared by {@link BreakPlanner.injectRequested}, which puts it there,
+ * {@link BreakPlanner.greetedAlready}, which has to agree about what a newcomer hears first, and the
+ * director placing a finished production, which is talking too.
+ */
+export const landingFor = (items: readonly StationLineupItem[], head: number): number | undefined => {
+    for (let index = Math.max(0, head); index < items.length; index++) {
+        if (isOpenBoundary(items, index)) return index;
+    }
+    return undefined;
 };
 
 /** Every segment the order already names, for a fill that must not place one twice. */

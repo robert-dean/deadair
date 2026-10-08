@@ -110,8 +110,14 @@ gives its segment no position on purpose and `DirectorService.injectReady` finds
 carries the re-offer that `ripen` cannot, since `ripen` walks the order and this break is deliberately outside
 it.
 
-**A jingle the listener is about to hear IS their welcome.** A rendered welcome lands in front of the first
-record at or after the head, so anything before that record is what a new listener hears first. When a
+**A rendered break never lands beside another one.** `injectRequested` takes the first record at or after
+the head that has no break directly in front of it (`landingFor`), and `slotFor` checks the same pair for a
+routine request. Both used to check only the item they landed in front of, so they walked past a planted
+talk break and took the record right behind it: a welcome aired as talk break, welcome, record. The planted
+path (`placementsFor`) already checked both neighbours; this is the same rule on the other road.
+
+**A jingle the listener is about to hear IS their welcome.** A rendered welcome lands where `landingFor`
+says, so anything before that record is what a new listener hears first. When a
 jingle is in that stretch (still to come, with the player, or airing), `DirectorService.takeRequest` declines
 the welcome before writing anything down (`BreakPlanner.greetedAlready`), because the station saying its own
 name twice in a row is worse than once. Nothing is removed: the decline is not an acceptance, so it spends no

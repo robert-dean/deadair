@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.47.2] — 2026-10-08
+
+- A welcome, a changeover or a phone-in no longer airs straight after a talk break. Anything placed once its audio was ready used to skip only the slot holding a break and take the record right behind it, so the listener heard two lots of talking with no record between them. It now waits for a slot with a record on both sides, as planted breaks already did.
+
 ## [0.47.1] — 2026-10-07
 
 - A break refused for stating a year or a figure the station never gave the model, or for quoting a record's lyrics, now gets one more ask before the station falls back to its stock phrasings, as the other fixable refusals already did.
@@ -1142,7 +1146,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.47.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.47.2...HEAD
+[0.47.2]: https://github.com/robert-dean/deadair/compare/v0.47.1...v0.47.2
 [0.47.1]: https://github.com/robert-dean/deadair/compare/v0.47.0...v0.47.1
 [0.47.0]: https://github.com/robert-dean/deadair/compare/v0.46.1...v0.47.0
 [0.46.1]: https://github.com/robert-dean/deadair/compare/v0.46.0...v0.46.1

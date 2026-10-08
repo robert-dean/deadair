@@ -1,6 +1,6 @@
 {
     "name": "@deadair/plugin-chatterbox",
-    "version": "0.47.3",
+    "version": "0.47.4",
     "private": true,
     "type": "module",
     "main": "./dist/index.js",

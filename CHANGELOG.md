@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.47.4] — 2026-10-08
+
+- The seeded shock jock (Chaz) is a crude hype man now, labelled "Hype man": he loves fast, loud, upbeat records and tells the listener the next one is gonna kick their ass, where he used to take every song title as a joke about his own life. His hype is rough fun aimed at what a record does (blowing your doors off, melting your face) and never an injury or an insult, and he says only what he was told about a record, never its lawsuits or its business. He swears casually unless the station is broadcast-clean, in which case the clean rule wins and he is loud without the language; his phrasings never swear, because they air without the model. "Crank it", "Let's go" and "gonna kick your ass" are rationed catchphrases rather than words every break must use, which four auditions on the live station showed was what turned them into the same sign-off on every break. His preoccupations are new too, and so are his three stories, one of them about the speaker wall at the start of Back to the Future that he is going to build one day. This changes the character a fresh station starts with. A station that already has him keeps its own sheet, which can be edited on the Personas page.
+
 ## [0.47.3] — 2026-10-08
 
 - When a talk break interrupts the model twice while it is choosing records, the station now plays from what its searches for the brief found, instead of falling back to records similar to what already aired. A brief that switches style (adding modern rock to a classic rock show, say) no longer loses the switch to a busy hour.
@@ -1151,7 +1155,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.47.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.47.4...HEAD
+[0.47.4]: https://github.com/robert-dean/deadair/compare/v0.47.3...v0.47.4
 [0.47.3]: https://github.com/robert-dean/deadair/compare/v0.47.2...v0.47.3
 [0.47.2]: https://github.com/robert-dean/deadair/compare/v0.47.1...v0.47.2
 [0.47.1]: https://github.com/robert-dean/deadair/compare/v0.47.0...v0.47.1

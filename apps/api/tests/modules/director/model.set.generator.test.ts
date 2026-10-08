@@ -705,10 +705,11 @@ describe('when the model goes quiet, what its searches found', () => {
         ]);
     });
 
-    it('leaves a PREEMPTED refill alone, because that one is owed a retry', async () => {
-        // A retry against a model the station interrupted is better than the leftovers of one
-        // search, and `RefillPreemption` is what asks for it. Rescuing here would spend the slot
-        // that retry was going to use and hide the interruption behind an answer.
+    it('fills a PREEMPTED refill from its searches, and still asks for the retry', async () => {
+        // The retry is `planRecords`' and is owed whatever this returns, so a rescued first attempt
+        // is thrown away and costs nothing. The last attempt has no retry behind it, and there the
+        // choice is these or the floor's neighbours of what already aired. A replan briefed for
+        // modern rock was preempted twice after twenty searches and aired the morning's classic rock.
         const { generator, preemption } = build({
             enabled: true,
             text: '',
@@ -716,6 +717,15 @@ describe('when the model goes quiet, what its searches found', () => {
             finishReason: 'preempted',
             searched: found,
         });
+
+        const picked = await generator.generate(inputs(5));
+
+        expect(picked.map(pick => pick.artist)).toEqual(['Mitch Murder', 'Lost Years', 'Kavinsky']);
+        expect(preemption.took()).toBe(true);
+    });
+
+    it('leaves a PREEMPTED refill that never searched for the chain to fill', async () => {
+        const { generator, preemption } = build({ enabled: true, text: '', toolCallsMade: 0, finishReason: 'preempted' });
 
         expect(await generator.generate(inputs(5))).toEqual([]);
         expect(preemption.took()).toBe(true);

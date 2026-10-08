@@ -481,8 +481,9 @@ export class ModelSetGenerator extends SetGenerator {
                 // banjo` refill preempted 4.6 seconds in read as `searches=0` and was accused of not
                 // using its tools, when it had asked to search and been cut off. The finish reason
                 // now says so on its own, which is what makes the capture beside this readable
-                // without the log line; this branch stays because a sentence is not a token.
-                this.logger.info('director: a break took the model back before the refill could programme; the floor filled the hour', {
+                // without the log line; this branch stays because a sentence is not a token. What
+                // filled the batch is said by whichever line follows: the rescue's own, or the chain's.
+                this.logger.info('director: a break took the model back before the refill could programme', {
                     ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
                     searches: result.toolCallsMade,
                 });
@@ -502,14 +503,21 @@ export class ModelSetGenerator extends SetGenerator {
                 });
             }
 
-            // Every empty answer EXCEPT a preemption, which is deliberately left alone: that branch
-            // marks `RefillPreemption` and is owed a retry, and a retry against a model the station
-            // interrupted is better than the leftovers of one search. The other two shapes have no
-            // second attempt coming and nothing else to offer.
-            if (result.finishReason !== 'preempted') {
-                const rescued = this.rescue(inputs, `the model named nothing (${result.finishReason})`);
-                if (rescued.length > 0) return rescued;
-            }
+            // Every empty answer, a preemption included.
+            //
+            // A preemption used to be left out, on the argument that it is owed a retry and a retry is
+            // better than the leftovers of a search. The first half is still true and this does not
+            // touch it: `planRecords` retries on the mark above whatever this returns, and throws a
+            // preempted attempt's picks away, so rescuing the first attempt costs nothing. What the
+            // exclusion cost was the LAST attempt, which has no retry behind it — there the choice was
+            // never this or a retry but this or the floor, and the floor seeds from what has already
+            // aired. Measured on the live station: a replan briefed for classic, hard and modern rock
+            // was preempted twice, the second time after twenty searches between the two attempts,
+            // Foo Fighters, the White Stripes and Arctic Monkeys among them, and the hour came from the
+            // morning's classic rock with not one modern record in it. `SearchedRecords` is per scope
+            // and never cleared, so the last attempt's rescue draws on both attempts' searches.
+            const rescued = this.rescue(inputs, `the model named nothing (${result.finishReason})`);
+            if (rescued.length > 0) return rescued;
         }
 
         return picks;

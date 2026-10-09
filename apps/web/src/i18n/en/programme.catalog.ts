@@ -17,7 +17,8 @@ export const programme = {
     },
     chartOrder: {
         label: 'Played',
-        description: 'A countdown ends on number one, which is the shape a chart show has.',
+        description:
+            'A countdown ends on number one, which is the shape a chart show has. The chart is cut to what fits in the block, keeping the top, so a one-hour block is a shorter countdown than a five-hour one.',
         countdown: 'Countdown, ending on number one',
         ranked: 'Number one first',
         unordered: 'No fixed order',

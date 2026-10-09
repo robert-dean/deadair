@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     minutesIntoSlot,
+    minutesLeftInSlot,
     occurrenceOf,
     overlap,
     resolveSlot,
@@ -168,6 +169,21 @@ describe('minutesIntoSlot', () => {
     it('counts a late block from the evening it began, not the morning it spills into', () => {
         // 22:00 to 06:00, asked at 02:00 on the morning after.
         expect(minutesIntoSlot(slot('overnight', at(22), at(6)), WED_0200, LONDON)).toBe(240);
+    });
+});
+
+describe('minutesLeftInSlot', () => {
+    it('is the length less what has gone, on the station clock', () => {
+        expect(minutesLeftInSlot(slot('breakfast', at(7), at(10)), WED_0900, LONDON)).toBe(60);
+    });
+
+    it('is the whole block at its start', () => {
+        expect(minutesLeftInSlot(slot('breakfast', at(9), at(12)), WED_0900, LONDON)).toBe(180);
+    });
+
+    it('counts a late block through midnight to its end', () => {
+        // 22:00 to 06:00 is eight hours; at 02:00 four have gone.
+        expect(minutesLeftInSlot(slot('overnight', at(22), at(6)), WED_0200, LONDON)).toBe(240);
     });
 });
 

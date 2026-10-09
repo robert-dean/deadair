@@ -23,7 +23,10 @@ import { cannotPresent } from '#modules/personas/persona.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
-import type { ScheduleSlot } from './schedule.js';
+import { minutesLeftInSlot, type ScheduleSlot } from './schedule.js';
+import { fitAirtime, lookupsFor, recordBudget } from './chart.airtime.js';
+import { DEFAULT_OVERRUN_MINUTES, OVERRUN_MINUTES_KEY, resolveOverrunMinutes } from '#modules/schedule/changeover.overrun.js';
+import { stationZone } from './clock.words.js';
 import { ScheduleService } from '#modules/schedule/schedule.service.js';
 import { SettingsService } from '#modules/settings/settings.service.js';
 import type { OrderEdit } from './director.mailbox.js';
@@ -35,11 +38,18 @@ import { songKey } from './rotation.keys.js';
 import { advisoryPolicy } from './advisory.policy.js';
 import { CHANGEOVER_KIND } from './changeover.writer.js';
 import { changeoverContext } from './changeover.source.js';
-import { NO_RULES, stationAutoExtends } from './rotation.rules.js';
+import { NO_RULES, resolveRules, stationAutoExtends, stationRules } from './rotation.rules.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { resolveSmartShuffle } from './smart.shuffle.js';
 import { StationAirRepository } from './station.air.repository.js';
-import type { EditResult, StationLineupBinding, StationLineupRules, StationLineupSegmentItem, StationLineupSnapshot } from './station.lineup.js';
+import type {
+    EditResult,
+    StationLineupBinding,
+    StationLineupMode,
+    StationLineupRules,
+    StationLineupSegmentItem,
+    StationLineupSnapshot,
+} from './station.lineup.js';
 import type {
     AirSource,
     AddStationSegmentInput,
@@ -375,7 +385,6 @@ export class DirectorConsoleService {
      * @throws 422 when the playlist has nothing to play.
      */
     async putOnAir(input: PutOnAirInput, onSlot?: ScheduleSlot, bySchedule = false, night?: ScheduledNight): Promise<StationAir> {
-        const tracks = await this.sourceTracks(input);
         const mode = input.mode ?? 'rotation';
 
         // Which slot of the day this lands in, stamped even though the operator chose the source
@@ -399,6 +408,11 @@ export class DirectorConsoleService {
                 this.logger.warn(`director: could not read the schedule while going on air (${errorText(error)})`);
                 return undefined;
             }));
+
+        // Read after the slot rather than before it, because a chart is cut to the time the slot has
+        // left: see `chart.airtime.ts`. Only a chart, and only inside a slot; a station with no
+        // schedule airs the whole document, as it always did.
+        const tracks = await this.sourceTracks(input, slot === undefined ? undefined : this.airtimeLeft(slot, input, mode));
 
         const binding: StationLineupBinding = {
             name: input.name ?? (await this.nameFor(input)),
@@ -550,8 +564,9 @@ export class DirectorConsoleService {
      * generator this station never asked its rules about, and a dislike, a period, and the advisory
      * policy are instructions rather than preferences a source gets to route around.
      */
-    private async sourceTracks(input: PutOnAirInput): Promise<RundownTrack[]> {
-        if (input.chartId !== undefined) return await this.chartTracks(input.chartId, input.chartOrder, this.era(input), broadcastOf(input));
+    private async sourceTracks(input: PutOnAirInput, airtimeMs?: number): Promise<RundownTrack[]> {
+        if (input.chartId !== undefined)
+            return await this.chartTracks(input.chartId, input.chartOrder, this.era(input), broadcastOf(input), airtimeMs);
         if (input.stationPlaylistId !== undefined)
             return await this.stationPlaylistTracks(input.stationPlaylistId, this.era(input), broadcastOf(input));
         if (input.albumId !== undefined) return await this.albumTracks(input.albumId, this.era(input), broadcastOf(input));
@@ -801,12 +816,17 @@ export class DirectorConsoleService {
         order: PutOnAirInput['chartOrder'],
         era: EraWindow,
         broadcast: PickBroadcast,
+        airtimeMs?: number,
     ): Promise<RundownTrack[]> {
         const { address, entries } = await this.readChart(chartId);
 
         const chartName = await this.charts.nameOf(chartId);
+        // Resolved in RANK order whichever way round it will play, and turned round only at the end.
+        // A countdown cut to its slot has to keep the top of the chart, so the cut is made on the
+        // ranked list: cutting a list already reversed would keep ranks 100 down to whatever fit.
         const picks = chartPicks(entries, {
-            order: order ?? DEFAULT_CHART_ORDER,
+            order: 'ranked',
+            ...(airtimeMs === undefined ? {} : { want: lookupsFor(airtimeMs) }),
             ...(bindsAnything(era) ? { era } : {}),
             ...(chartName === undefined ? {} : { chartName }),
         });
@@ -836,7 +856,36 @@ export class DirectorConsoleService {
                     : 'nothing on that chart is in the library, and "rotation.discover" is off, so the station may not look these records up',
             });
         }
-        return tracks;
+
+        const countdown = (order ?? DEFAULT_CHART_ORDER) === 'countdown';
+        const fitted =
+            airtimeMs === undefined
+                ? tracks
+                : fitAirtime(tracks, airtimeMs, {
+                      overrunMs: resolveOverrunMinutes(this.config.get(OVERRUN_MINUTES_KEY, DEFAULT_OVERRUN_MINUTES)) * 60_000,
+                      lastAirs: countdown ? 'top' : 'bottom',
+                  });
+        if (fitted.length < tracks.length) {
+            this.logger.info('director: cut a chart to the time its slot has left', {
+                chartId,
+                kept: fitted.length,
+                resolved: tracks.length,
+                minutes: Math.round((airtimeMs ?? 0) / 60_000),
+            });
+        }
+        return countdown ? fitted.reverse() : fitted;
+    }
+
+    /**
+     * How much airtime a chart's records may have in `slot`: what is left of it, less talk.
+     *
+     * Talk is judged from the rules the broadcast will run under, so a `setlist`, which takes no
+     * breaks, gets the whole of the time and a rotation holds `CHART_TALK_SHARE` back.
+     */
+    private airtimeLeft(slot: ScheduleSlot, input: PutOnAirInput, mode: StationLineupMode): number {
+        const minutes = minutesLeftInSlot(slot, Date.now(), stationZone(this.config));
+        const talks = resolveRules(mode, rulesAskedFor(input).rules, stationRules(this.config)).breaks;
+        return recordBudget(minutes * 60_000, talks);
     }
 
     /**

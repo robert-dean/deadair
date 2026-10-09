@@ -36,7 +36,8 @@ export interface PrepareSlotPayload {
  * **It writes nothing that airs.** The set is prepared material: the changeover hands it to
  * `putOnAir`, which posts it to the director like any playlist, and the ordinary refill takes over
  * from there. So the schedule is still a timer rather than an actor, and the director is still the
- * only writer of the running order.
+ * only writer of the running order. The argument in full, with the fixes refused for it, is in
+ * `docs/internals/director.md` § "Who owns the running order".
  *
  * The same call `ExtendLineupJob` makes, under the rules the show will air with: the slot's mode
  * resolved against the station's rules, and the slot as its broadcast, so a never-play rule scoped to

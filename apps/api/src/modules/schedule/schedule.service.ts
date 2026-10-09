@@ -6,7 +6,18 @@ import { readClock } from '#modules/director/clock.bands.js';
 import { stationZone } from '#modules/director/clock.words.js';
 import { DirectorService } from '#modules/director/director.service.js';
 import type { ChartOrder } from '#modules/director/chart.picks.js';
-import { isChartSource, isStationPlaylistSource, minutesIntoSlot, overlap, resolveSlot, type ScheduleSlot } from '#modules/director/schedule.js';
+import {
+    dateKey,
+    isChartSource,
+    isSpecial,
+    isStationPlaylistSource,
+    minutesIntoSlot,
+    overlap,
+    resolveSlot,
+    stationDateOf,
+    type ScheduleSlot,
+    type SpecialDates,
+} from '#modules/director/schedule.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import {
     CAP_OVERRUN_KEY,
@@ -405,7 +416,9 @@ export class ScheduleService {
         if (clash === undefined) return;
 
         throw httpError(409).withDetails({
-            message: `that overlaps "${clash.label || 'another slot'}", which is already on then. Two blocks cannot be on at once — take the days they share off one of them.`,
+            message: isSpecial(candidate)
+                ? `that overlaps the special "${clash.label || 'another special'}", which is already on then. Two specials cannot be on at once — move the dates or the hours of one of them.`
+                : `that overlaps "${clash.label || 'another slot'}", which is already on then. Two blocks cannot be on at once — take the days they share off one of them.`,
         });
     }
 
@@ -448,9 +461,37 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         // no calls, which is not the same as never having been asked.
         ...(body.callins === undefined ? {} : { callins: body.callins }),
         ...(body.mixInSimilar === undefined ? {} : { mixInSimilar: body.mixInSimilar }),
+        ...specialDatesOf(body),
         mode: body.mode,
         onEnd: body.onEnd,
     };
+}
+
+/**
+ * A body's dates as a special's, or nothing for a weekly slot, refusing a range the table would.
+ *
+ * Refused here with a sentence rather than left to the check constraints in `0074`, because a
+ * constraint violation reaches the operator as a 500 with a constraint name in it. Both ends or
+ * neither, real dates, in order, and a yearly range shorter than a year: one of a year or more would
+ * be every day, which is a weekly slot.
+ */
+function specialDatesOf(body: ScheduleSlotInput): { dates?: SpecialDates } {
+    if (body.startsOn === undefined && body.endsOn === undefined) return {};
+    if (body.startsOn === undefined || body.endsOn === undefined) {
+        throw httpError(400).withDetails({ message: 'a special needs both a first and a last date' });
+    }
+
+    const from = stationDateOf(body.startsOn);
+    const to = stationDateOf(body.endsOn);
+    if (from === undefined || to === undefined) throw httpError(400).withDetails({ message: "a special's dates must be real dates, as YYYY-MM-DD" });
+    if (body.endsOn < body.startsOn) throw httpError(400).withDetails({ message: "a special's last date cannot come before its first" });
+
+    const yearly = body.yearly === true;
+    if (yearly && body.endsOn >= dateKey({ ...from, year: from.year + 1 })) {
+        throw httpError(400).withDetails({ message: 'a special that repeats every year has to be shorter than a year' });
+    }
+
+    return { dates: { from: body.startsOn, to: body.endsOn, yearly } };
 }
 
 /** The stored shape flattened back to the wire's, where a source is optional fields rather than one object. */
@@ -475,6 +516,7 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
         ...(slot.mood === undefined ? {} : { mood: slot.mood }),
         ...(slot.callins === undefined ? {} : { callins: slot.callins }),
         ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
+        ...(slot.dates === undefined ? {} : { startsOn: slot.dates.from, endsOn: slot.dates.to, yearly: slot.dates.yearly }),
         mode: slot.mode,
         onEnd: slot.onEnd,
     };

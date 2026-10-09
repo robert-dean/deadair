@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { minutesIntoSlot, overlap, resolveSlot, type ScheduleSlot } from '../../../src/modules/director/schedule.js';
+import { minutesIntoSlot, overlap, resolveSlot, slotOn, type ScheduleSlot, type SpecialDates } from '../../../src/modules/director/schedule.js';
 
 const LONDON = 'Europe/London';
 
@@ -22,6 +22,12 @@ const slot = (id: string, startsAtMinutes: number, endsAtMinutes: number, days: 
     days,
     mode: 'rotation',
     onEnd: 'extend',
+});
+
+/** A special: the same block, on dates. */
+const special = (id: string, startsAtMinutes: number, endsAtMinutes: number, dates: SpecialDates, days: readonly number[] = []): ScheduleSlot => ({
+    ...slot(id, startsAtMinutes, endsAtMinutes, days),
+    dates,
 });
 
 /** Wednesday 19 August 2026, in London. */
@@ -196,5 +202,122 @@ describe('overlap', () => {
         const tuesdayEarly = slot('tuesday-early', at(2), at(6), [2]);
 
         expect(overlap(mondayLate, tuesdayEarly)).toBe(false);
+    });
+});
+
+describe('specials', () => {
+    // A special wins over the weekly schedule for its hours on its dates, and the weekly show is
+    // answered again the minute it ends. Every date below is written with its weekday, because a
+    // special that resolved on the wrong date would air Halloween on the 30th.
+    const weekly = slot('boneyard', at(16, 30), at(0));
+    const HALLOWEEN = { year: 2026, month: 10, day: 31, weekday: 6 };
+    const NOV_1 = { year: 2026, month: 11, day: 1, weekday: 0 };
+    const OCT_30 = { year: 2026, month: 10, day: 30, weekday: 5 };
+
+    it('takes over the hours it covers on its date', () => {
+        const halloween = special('halloween', at(20), at(23), { from: '2026-10-31', to: '2026-10-31', yearly: false });
+
+        expect(slotOn(HALLOWEEN, at(21), [weekly, halloween])?.id).toBe('halloween');
+    });
+
+    it('hands back to the weekly show either side of it', () => {
+        const halloween = special('halloween', at(20), at(23), { from: '2026-10-31', to: '2026-10-31', yearly: false });
+
+        expect(slotOn(HALLOWEEN, at(19, 59), [weekly, halloween])?.id).toBe('boneyard');
+        expect(slotOn(HALLOWEEN, at(23), [weekly, halloween])?.id).toBe('boneyard');
+    });
+
+    it('is not on outside its dates', () => {
+        const halloween = special('halloween', at(20), at(23), { from: '2026-10-31', to: '2026-10-31', yearly: false });
+
+        expect(slotOn(OCT_30, at(21), [weekly, halloween])?.id).toBe('boneyard');
+    });
+
+    it('is never answered by the weekly resolver', () => {
+        // `slotAt` is the weekly clock, which has no dates, so a special there would air every week.
+        const halloween = special('halloween', at(20), at(23), { from: '2026-10-31', to: '2026-10-31', yearly: false });
+
+        expect(slotOn(OCT_30, at(21), [halloween])).toBeUndefined();
+    });
+
+    it('carries past midnight onto the morning after its last date', () => {
+        const night = special('night', at(22), at(2), { from: '2026-10-31', to: '2026-10-31', yearly: false });
+
+        expect(slotOn(NOV_1, at(1), [night])?.id).toBe('night');
+        expect(slotOn(NOV_1, at(2), [night])).toBeUndefined();
+    });
+
+    it('repeats every year when it is yearly', () => {
+        const halloween = special('halloween', at(20), at(23), { from: '2026-10-31', to: '2026-10-31', yearly: true });
+
+        expect(slotOn({ year: 2031, month: 10, day: 31, weekday: 5 }, at(21), [halloween])?.id).toBe('halloween');
+        expect(slotOn({ year: 2031, month: 10, day: 30, weekday: 4 }, at(21), [halloween])).toBeUndefined();
+    });
+
+    it('runs a yearly range across New Year', () => {
+        const turn = special('turn', at(10), at(12), { from: '2026-12-30', to: '2027-01-02', yearly: true });
+
+        expect(slotOn({ year: 2030, month: 12, day: 31, weekday: 2 }, at(11), [turn])?.id).toBe('turn');
+        expect(slotOn({ year: 2031, month: 1, day: 2, weekday: 4 }, at(11), [turn])?.id).toBe('turn');
+        expect(slotOn({ year: 2031, month: 1, day: 3, weekday: 5 }, at(11), [turn])).toBeUndefined();
+        expect(slotOn({ year: 2030, month: 12, day: 29, weekday: 0 }, at(11), [turn])).toBeUndefined();
+    });
+
+    it('applies its day mask inside the range', () => {
+        // The Fridays in December.
+        const fridays = special('fridays', at(18), at(20), { from: '2026-12-01', to: '2026-12-31', yearly: false }, [5]);
+
+        expect(slotOn({ year: 2026, month: 12, day: 4, weekday: 5 }, at(19), [fridays])?.id).toBe('fridays');
+        expect(slotOn({ year: 2026, month: 12, day: 5, weekday: 6 }, at(19), [fridays])).toBeUndefined();
+    });
+
+    it('is resolved from an instant in the station zone', () => {
+        const halloween = special('halloween', at(20), at(23), { from: '2026-10-31', to: '2026-10-31', yearly: false });
+
+        // 21:00 GMT on 31 October; London has left summer time by then.
+        expect(resolveSlot(new Date('2026-10-31T21:00:00Z'), LONDON, [weekly, halloween])?.id).toBe('halloween');
+    });
+
+    describe('overlap', () => {
+        it('lets a special cut into a weekly block', () => {
+            expect(overlap(weekly, special('halloween', at(20), at(23), { from: '2026-10-31', to: '2026-10-31', yearly: false }))).toBe(false);
+        });
+
+        it('refuses two specials on the same date at the same time', () => {
+            const one = special('one', at(20), at(23), { from: '2026-10-31', to: '2026-10-31', yearly: false });
+            const two = special('two', at(22), at(23, 30), { from: '2026-10-25', to: '2026-11-02', yearly: false });
+
+            expect(overlap(one, two)).toBe(true);
+        });
+
+        it('lets two specials share hours on dates that do not meet', () => {
+            const one = special('one', at(20), at(23), { from: '2026-10-31', to: '2026-10-31', yearly: false });
+            const two = special('two', at(20), at(23), { from: '2026-12-24', to: '2026-12-25', yearly: false });
+
+            expect(overlap(one, two)).toBe(false);
+        });
+
+        it("catches one special's tail past midnight running into the next day's special", () => {
+            const eve = special('eve', at(22), at(2), { from: '2026-12-24', to: '2026-12-24', yearly: false });
+            const day = special('day', at(1), at(5), { from: '2026-12-25', to: '2026-12-25', yearly: false });
+
+            expect(overlap(eve, day)).toBe(true);
+        });
+
+        it('compares a yearly special against a one-off in any year', () => {
+            const halloween = special('halloween', at(20), at(23), { from: '2020-10-31', to: '2020-10-31', yearly: true });
+            const oneOff = special('one-off', at(21), at(22), { from: '2029-10-31', to: '2029-10-31', yearly: false });
+
+            expect(overlap(halloween, oneOff)).toBe(true);
+        });
+
+        it('compares two yearly specials across New Year', () => {
+            const turn = special('turn', at(10), at(12), { from: '2026-12-30', to: '2027-01-02', yearly: true });
+            const newYear = special('new-year', at(11), at(13), { from: '2026-01-01', to: '2026-01-01', yearly: true });
+            const july = special('july', at(11), at(13), { from: '2026-07-04', to: '2026-07-04', yearly: true });
+
+            expect(overlap(turn, newYear)).toBe(true);
+            expect(overlap(turn, july)).toBe(false);
+        });
     });
 });

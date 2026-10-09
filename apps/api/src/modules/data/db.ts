@@ -819,6 +819,7 @@ export interface DeadairScheduleSlots {
   createdAt: Generated<DateTime>;
   days: Generated<Json>;
   endsAtMinutes: number;
+  endsOn: DateTime | null;
   eraFrom: number | null;
   eraTo: number | null;
   id: Generated<string>;
@@ -834,8 +835,10 @@ export interface DeadairScheduleSlots {
   sourcePluginId: string | null;
   sourceStationPlaylistId: string | null;
   startsAtMinutes: number;
+  startsOn: DateTime | null;
   stationKey: Generated<string>;
   updatedAt: Generated<DateTime>;
+  yearly: Generated<boolean>;
 }
 
 export interface DeadairScriptHistory {

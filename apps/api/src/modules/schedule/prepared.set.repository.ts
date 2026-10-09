@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { Kysely, sql } from 'kysely';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
+import { toJsonb } from '#modules/data/jsonb.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 
@@ -45,6 +46,28 @@ export class PreparedSetRepository extends DataRepository {
 
         if (row === undefined || !Array.isArray(row.tracks) || row.tracks.length === 0) return undefined;
         return row.tracks as unknown as RundownTrack[];
+    }
+
+    /**
+     * Keep the records chosen for one night of a slot, replacing whatever the slot held before.
+     *
+     * One row per slot, so a set left over from a night that never aired is overwritten here rather
+     * than swept: it was for that night, and this one is for the next.
+     */
+    async save(slotId: string, occurrence: string, tracks: readonly RundownTrack[]): Promise<void> {
+        const values = {
+            // Cast in SQL, as `station_lineup.slot_occurrence` is: a date is a reading of the station's
+            // calendar rather than an instant.
+            occurrence: sql<never>`${occurrence}::date`,
+            tracks: toJsonb(tracks),
+            preparedAt: sql<never>`now()`,
+        };
+
+        await this.db
+            .insertInto('deadair.schedulePreparedSets')
+            .values({ slotId, stationKey: this.station.stationKey, ...values })
+            .onConflict(oc => oc.column('slotId').doUpdateSet(values))
+            .execute();
     }
 
     /** Let a slot's prepared set go, once it has aired or no longer describes the slot. */

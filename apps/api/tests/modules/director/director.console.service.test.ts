@@ -1857,11 +1857,25 @@ describe('DirectorConsoleService building a running order from a chart', () => {
         afterEach(() => vi.useRealTimers());
 
         it('counts down from the top of the chart that fits the time left, so it still ends on number one', async () => {
-            const { service, posted } = build({ chart: TOP_THREE, slot: shortSlot, settings: { 'station.timezone': 'UTC' } });
+            const { service, posted } = build({
+                chart: TOP_THREE,
+                slot: shortSlot,
+                settings: { 'station.timezone': 'UTC', 'schedule.overrunMinutes': '0' },
+            });
 
             await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
 
             expect(titles(posted())).toEqual(['Windowlicker', 'Glory Box']);
+        });
+
+        it('lets number one run into the next block, since a changeover leaves the record on air playing', async () => {
+            // Three average records are 13.5 minutes against 10: number one starts at 9 and runs
+            // four and a half minutes into the next block, inside the station's five.
+            const { service, posted } = build({ chart: TOP_THREE, slot: shortSlot, settings: { 'station.timezone': 'UTC' } });
+
+            await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
+
+            expect(titles(posted())).toEqual(['Teardrop', 'Windowlicker', 'Glory Box']);
         });
 
         it('looks up only what could fit, rather than the whole chart', async () => {

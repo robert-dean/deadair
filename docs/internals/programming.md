@@ -158,8 +158,12 @@ a countdown everybody waits for never aired. `putOnAir` reads the slot before th
 `chartTracks` resolves the chart in RANK order, keeps the longest run from number one whose lengths fit
 (`fitAirtime` in `chart.airtime.ts`, counting each record by `recordSpacingLength`), and only then turns it
 round for a countdown, for the same reason `chartPicks` caps before it reverses. The budget is
-`minutesLeftInSlot` less `CHART_TALK_SHARE` (a twentieth, measured from what the station says) when the broadcast takes breaks:
-a countdown that ends early is topped up by its `onEnd`, and one that runs long loses number one. Lookups
+`minutesLeftInSlot` less `CHART_TALK_SHARE` (a twentieth, measured from what the station says) when the
+broadcast takes breaks, and the run may go PAST it by the record that airs last, up to
+`schedule.overrunMinutes`: a changeover leaves the record on air playing, so number one only has to start
+before the boundary, and fitting strictly inside finished a setlist early into silence, since a setlist
+cannot top itself up. Number one never starts after the boundary, which is what a changeover would drop.
+Lookups
 are capped to about half again what fits (`lookupsFor`), so a one-hour slot does not search a hundred
 records. A station with no schedule airs the whole chart, and so does `ChartSetGenerator`'s share of a
 refill, which has no shape to end on.

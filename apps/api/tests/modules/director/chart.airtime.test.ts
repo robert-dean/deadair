@@ -48,6 +48,38 @@ describe('fitAirtime', () => {
     });
 });
 
+describe('fitAirtime, running over', () => {
+    it('lets a countdown run past the end by its last record, number one', () => {
+        // 12 minutes of records against 10: number one starts at 8 and ends 2 minutes over.
+        const chart = [record(1, 4), record(2, 4), record(3, 4)];
+
+        expect(ranks(fitAirtime(chart, 10 * MINUTE, { overrunMs: 5 * MINUTE, lastAirs: 'top' }))).toEqual([1, 2, 3]);
+    });
+
+    it('never lets number one START after the end, whatever the overrun', () => {
+        // Four records end 16 minutes in against 10, inside 10 plus a generous overrun, but number
+        // one would start at 12, after the next block has begun, and a changeover drops it.
+        const chart = [record(1, 4), record(2, 4), record(3, 4), record(4, 4)];
+
+        expect(ranks(fitAirtime(chart, 10 * MINUTE, { overrunMs: 30 * MINUTE, lastAirs: 'top' }))).toEqual([1, 2, 3]);
+    });
+
+    it('keeps number one inside the overrun, so a capped station never fades it', () => {
+        // Number one is nine minutes long. After one record it ends 3 over; after two, at 17, it would
+        // end 7 over, past the 5 allowed, so the third is dropped.
+        const chart = [record(1, 9), record(2, 4), record(3, 4)];
+
+        expect(ranks(fitAirtime(chart, 10 * MINUTE, { overrunMs: 5 * MINUTE, lastAirs: 'top' }))).toEqual([1, 2]);
+    });
+
+    it('lets the lowest record run over instead when the chart is walked from the top', () => {
+        const chart = [record(1, 4), record(2, 4), record(3, 4)];
+
+        expect(ranks(fitAirtime(chart, 10 * MINUTE, { overrunMs: 5 * MINUTE, lastAirs: 'bottom' }))).toEqual([1, 2, 3]);
+        expect(ranks(fitAirtime(chart, 7 * MINUTE, { overrunMs: 5 * MINUTE, lastAirs: 'bottom' }))).toEqual([1, 2]);
+    });
+});
+
 describe('recordBudget', () => {
     it('holds a share back for talk only when the broadcast talks', () => {
         expect(recordBudget(100 * MINUTE, true)).toBe(100 * MINUTE * (1 - CHART_TALK_SHARE));

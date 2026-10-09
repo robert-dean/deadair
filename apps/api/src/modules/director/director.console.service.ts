@@ -25,6 +25,7 @@ import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { minutesLeftInSlot, type ScheduleSlot } from './schedule.js';
 import { fitAirtime, lookupsFor, recordBudget } from './chart.airtime.js';
+import { DEFAULT_OVERRUN_MINUTES, OVERRUN_MINUTES_KEY, resolveOverrunMinutes } from '#modules/schedule/changeover.overrun.js';
 import { stationZone } from './clock.words.js';
 import { ScheduleService } from '#modules/schedule/schedule.service.js';
 import { SettingsService } from '#modules/settings/settings.service.js';
@@ -856,7 +857,14 @@ export class DirectorConsoleService {
             });
         }
 
-        const fitted = airtimeMs === undefined ? tracks : fitAirtime(tracks, airtimeMs);
+        const countdown = (order ?? DEFAULT_CHART_ORDER) === 'countdown';
+        const fitted =
+            airtimeMs === undefined
+                ? tracks
+                : fitAirtime(tracks, airtimeMs, {
+                      overrunMs: resolveOverrunMinutes(this.config.get(OVERRUN_MINUTES_KEY, DEFAULT_OVERRUN_MINUTES)) * 60_000,
+                      lastAirs: countdown ? 'top' : 'bottom',
+                  });
         if (fitted.length < tracks.length) {
             this.logger.info('director: cut a chart to the time its slot has left', {
                 chartId,
@@ -865,7 +873,7 @@ export class DirectorConsoleService {
                 minutes: Math.round((airtimeMs ?? 0) / 60_000),
             });
         }
-        return (order ?? DEFAULT_CHART_ORDER) === 'countdown' ? fitted.reverse() : fitted;
+        return countdown ? fitted.reverse() : fitted;
     }
 
     /**

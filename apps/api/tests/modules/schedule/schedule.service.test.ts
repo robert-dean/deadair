@@ -291,6 +291,20 @@ describe('ScheduleService.update', () => {
             });
         });
 
+        it('says who presents tonight on the current route, and whose show it is', async () => {
+            vi.useFakeTimers();
+            // 18:00 London on Friday 9 October 2026.
+            vi.setSystemTime(new Date('2026-10-09T17:00:00Z'));
+            try {
+                const boneyard: ScheduleSlot = { ...slot('b', 990, 0), personaId: 'ozzy', guestHosts: [{ personaId: 'rockzo', days: [5] }] };
+                const now = await build({ slots: [boneyard] }).current();
+
+                expect(now).toMatchObject({ slotId: 'b', hostPersonaId: 'rockzo', regularPersonaId: 'ozzy' });
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
         it('says which night is on and who presents it', () => {
             const service = build();
             const boneyard: ScheduleSlot = { ...slot('b', 990, 0), personaId: 'ozzy', guestHosts: [{ personaId: 'rockzo', days: [5] }] };

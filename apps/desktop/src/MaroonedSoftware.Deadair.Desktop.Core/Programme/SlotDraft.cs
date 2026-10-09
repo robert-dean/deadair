@@ -58,7 +58,7 @@ public sealed record SlotDraft
 
     /// <summary>
     /// What this editor does not draw and must still send back, because <c>PUT</c> replaces the row:
-    /// a slot's mood, and a special's dates. Without them, saving a special here would turn Halloween
+    /// a slot's mood, a special's dates, and its guest hosts. Without them, saving a special here would turn Halloween
     /// into a show every night. Carried exactly as read, and changed only on the web console.
     /// </summary>
     public SlotPassthrough Kept { get; init; } = new();
@@ -99,6 +99,7 @@ public sealed record SlotDraft
                 StartsOn = slot.StartsOn,
                 EndsOn = slot.EndsOn,
                 Yearly = slot.Yearly,
+                GuestHosts = slot.GuestHosts,
             },
         };
     }
@@ -201,6 +202,7 @@ public sealed record SlotDraft
             StartsOn = Kept.StartsOn,
             EndsOn = Kept.EndsOn,
             Yearly = Kept.Yearly,
+            GuestHosts = Kept.GuestHosts,
             Mode = Mode,
             OnEnd = OnEnd,
         };
@@ -283,4 +285,7 @@ public sealed record SlotPassthrough
     public string? EndsOn { get; init; }
 
     public bool? Yearly { get; init; }
+
+    /// <summary>Who sits in for the slot's host, and when; set on the web console.</summary>
+    public List<SlotGuestHost>? GuestHosts { get; init; }
 }

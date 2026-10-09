@@ -152,6 +152,10 @@ export interface ScheduleNow {
     timezone?: string;
     /** The slot in force at this instant. Absent means the station has no schedule */
     slotId?: string;
+    /** Who presents tonight's night of the slot in force: a guest sitting in, or the slot's own host. Absent when it names nobody, which is the station's own host. Only the night that is ON is answered, so a guest who comes at random stays a surprise until their night begins */
+    hostPersonaId?: string;
+    /** Whose show it usually is, while a guest sits in on the slot in force. Absent on an ordinary night, and while the station's own host would be the regular one */
+    regularPersonaId?: string;
     /** The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins */
     airingSlotId?: string;
     /** The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block */

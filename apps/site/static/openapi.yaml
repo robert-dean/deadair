@@ -12992,6 +12992,14 @@ components:
                     type: string
                     maxLength: 100
                     description: 'The slot in force at this instant. Absent means the station has no schedule'
+                hostPersonaId:
+                    type: string
+                    maxLength: 100
+                    description: "Who presents tonight's night of the slot in force: a guest sitting in, or the slot's own host. Absent when it names nobody, which is the station's own host. Only the night that is ON is answered, so a guest who comes at random stays a surprise until their night begins"
+                regularPersonaId:
+                    type: string
+                    maxLength: 100
+                    description: "Whose show it usually is, while a guest sits in on the slot in force. Absent on an ordinary night, and while the station's own host would be the regular one"
                 airingSlotId:
                     type: string
                     maxLength: 100

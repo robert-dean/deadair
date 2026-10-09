@@ -312,6 +312,16 @@ public sealed record ScheduleNow
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SlotId { get; init; }
 
+    /// <summary>Who presents tonight's night of the slot in force: a guest sitting in, or the slot's own host. Absent when it names nobody, which is the station's own host. Only the night that is ON is answered, so a guest who comes at random stays a surprise until their night begins</summary>
+    [JsonPropertyName("hostPersonaId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? HostPersonaId { get; init; }
+
+    /// <summary>Whose show it usually is, while a guest sits in on the slot in force. Absent on an ordinary night, and while the station's own host would be the regular one</summary>
+    [JsonPropertyName("regularPersonaId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RegularPersonaId { get; init; }
+
     /// <summary>The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins</summary>
     [JsonPropertyName("airingSlotId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

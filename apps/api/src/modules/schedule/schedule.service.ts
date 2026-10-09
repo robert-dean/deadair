@@ -326,10 +326,16 @@ export class ScheduleService {
             .filter(occurrence => occurrence.end > now)
             .slice(0, UPCOMING_BLOCKS);
 
+        // Tonight's presenter of the block on now, and only that block: the nights to come are not
+        // answered, so a guest who comes at random is a surprise in the console as well as on air.
+        const night = inForce === undefined ? undefined : this.nightOf(inForce).host;
+
         return {
             now,
             timezone: zone,
             ...(inForce === undefined ? {} : { slotId: inForce.id }),
+            ...(night?.personaId === undefined ? {} : { hostPersonaId: night.personaId }),
+            ...(night?.regularPersonaId === undefined ? {} : { regularPersonaId: night.regularPersonaId }),
             ...(airing === undefined ? {} : { airingSlotId: airing }),
             upcoming,
         };

@@ -454,15 +454,21 @@ public struct ScheduleNow: Codable, Equatable, Sendable {
     public var timezone: String?
     /// The slot in force at this instant. Absent means the station has no schedule
     public var slotId: String?
+    /// Who presents tonight's night of the slot in force: a guest sitting in, or the slot's own host. Absent when it names nobody, which is the station's own host. Only the night that is ON is answered, so a guest who comes at random stays a surprise until their night begins
+    public var hostPersonaId: String?
+    /// Whose show it usually is, while a guest sits in on the slot in force. Absent on an ordinary night, and while the station's own host would be the regular one
+    public var regularPersonaId: String?
     /// The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins
     public var airingSlotId: String?
     /// The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block
     public var upcoming: [ScheduleOccurrence]
 
-    public init(now: String, timezone: String? = nil, slotId: String? = nil, airingSlotId: String? = nil, upcoming: [ScheduleOccurrence]) {
+    public init(now: String, timezone: String? = nil, slotId: String? = nil, hostPersonaId: String? = nil, regularPersonaId: String? = nil, airingSlotId: String? = nil, upcoming: [ScheduleOccurrence]) {
         self.now = now
         self.timezone = timezone
         self.slotId = slotId
+        self.hostPersonaId = hostPersonaId
+        self.regularPersonaId = regularPersonaId
         self.airingSlotId = airingSlotId
         self.upcoming = upcoming
     }
@@ -471,6 +477,8 @@ public struct ScheduleNow: Codable, Equatable, Sendable {
         case now = "now"
         case timezone = "timezone"
         case slotId = "slotId"
+        case hostPersonaId = "hostPersonaId"
+        case regularPersonaId = "regularPersonaId"
         case airingSlotId = "airingSlotId"
         case upcoming = "upcoming"
     }
@@ -480,6 +488,8 @@ public struct ScheduleNow: Codable, Equatable, Sendable {
         self.now = try container.decode(String.self, forKey: .now)
         self.timezone = try container.decodeIfPresent(String.self, forKey: .timezone)
         self.slotId = try container.decodeIfPresent(String.self, forKey: .slotId)
+        self.hostPersonaId = try container.decodeIfPresent(String.self, forKey: .hostPersonaId)
+        self.regularPersonaId = try container.decodeIfPresent(String.self, forKey: .regularPersonaId)
         self.airingSlotId = try container.decodeIfPresent(String.self, forKey: .airingSlotId)
         self.upcoming = try container.decode([ScheduleOccurrence].self, forKey: .upcoming)
     }
@@ -489,6 +499,8 @@ public struct ScheduleNow: Codable, Equatable, Sendable {
         try container.encode(self.now, forKey: .now)
         try container.encodeIfPresent(self.timezone, forKey: .timezone)
         try container.encodeIfPresent(self.slotId, forKey: .slotId)
+        try container.encodeIfPresent(self.hostPersonaId, forKey: .hostPersonaId)
+        try container.encodeIfPresent(self.regularPersonaId, forKey: .regularPersonaId)
         try container.encodeIfPresent(self.airingSlotId, forKey: .airingSlotId)
         try container.encode(self.upcoming, forKey: .upcoming)
     }

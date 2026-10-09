@@ -310,6 +310,20 @@ export const ScheduleNow = z.strictObject({
             "The IANA zone the station reads its clock in: `station.timezone`, or the machine's own when that is empty. Optional because a station from before it existed does not send it. For a console showing the station's time beside an operator's own when the two differ, which a zone-naive reading cannot tell it",
         ),
     slotId: z.string().max(100).optional().describe('The slot in force at this instant. Absent means the station has no schedule'),
+    hostPersonaId: z
+        .string()
+        .max(100)
+        .optional()
+        .describe(
+            "Who presents tonight's night of the slot in force: a guest sitting in, or the slot's own host. Absent when it names nobody, which is the station's own host. Only the night that is ON is answered, so a guest who comes at random stays a surprise until their night begins",
+        ),
+    regularPersonaId: z
+        .string()
+        .max(100)
+        .optional()
+        .describe(
+            "Whose show it usually is, while a guest sits in on the slot in force. Absent on an ordinary night, and while the station's own host would be the regular one",
+        ),
     airingSlotId: z
         .string()
         .max(100)

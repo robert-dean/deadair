@@ -44,6 +44,9 @@ public sealed partial class SlotDialogViewModel : DialogViewModel
     private readonly bool _isNew;
     private readonly Func<ScheduleSlotInput, CancellationToken, Task<bool>> _save;
 
+    /// <summary>What the slot holds that this dialog does not draw, sent back as it was read.</summary>
+    private readonly SlotPassthrough _kept;
+
     public SlotDialogViewModel(
         SlotDraft draft,
         bool isNew,
@@ -58,6 +61,7 @@ public sealed partial class SlotDialogViewModel : DialogViewModel
 
         _isNew = isNew;
         _save = save;
+        _kept = draft.Kept;
         IsAiring = airing;
         Sources = sources;
         Hosts = hosts;
@@ -192,6 +196,7 @@ public sealed partial class SlotDialogViewModel : DialogViewModel
         MixInSimilar = MixInSimilar,
         Mode = Mode.Value,
         OnEnd = OnEnd.Value,
+        Kept = _kept,
     };
 
     partial void OnLabelChanged(string value) => Changed();

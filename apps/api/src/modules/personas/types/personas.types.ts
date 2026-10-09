@@ -8,10 +8,10 @@ export const Persona = z.strictObject({
     id: z.string().min(1).max(100),
     key: z.string().min(1).max(100).describe('A stable slug, unique per station. What a log line names and what a seeded persona is recognised by'),
     kind: z
-        .enum(['host', 'caller', 'newsreader'])
+        .enum(['host', 'caller', 'newsreader', 'guest'])
         .optional()
         .describe(
-            "What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant",
+            "What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant",
         ),
     label: z.string().min(1).max(200),
     style: z.string().min(1).max(2000).describe('Completes "You are …". Who they ARE; the sheet below carries how they talk'),
@@ -112,10 +112,10 @@ export type Persona = z.infer<typeof Persona>;
 export const PersonaInput = z.strictObject({
     key: z.string().min(1).max(100).describe('A stable slug, unique per station. What a log line names and what a seeded persona is recognised by'),
     kind: z
-        .enum(['host', 'caller', 'newsreader'])
+        .enum(['host', 'caller', 'newsreader', 'guest'])
         .optional()
         .describe(
-            "What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant",
+            "What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant",
         ),
     label: z.string().min(1).max(200),
     style: z.string().min(1).max(2000).describe('Completes "You are …". Who they ARE; the sheet below carries how they talk'),
@@ -726,7 +726,7 @@ export type PersonaFileStory = z.infer<typeof PersonaFileStory>;
 export const PersonaImportEntry = z.strictObject({
     key: z.string().min(1).max(100).describe('What identifies this character across two installs'),
     label: z.string().min(1).max(200),
-    kind: z.enum(['host', 'caller', 'newsreader']).optional(),
+    kind: z.enum(['host', 'caller', 'newsreader', 'guest']).optional(),
     outcome: z
         .enum(['create', 'update'])
         .describe(
@@ -869,7 +869,7 @@ export type PersonaStoryListInput = z.infer<typeof PersonaStoryListInput>;
  * generated from [PersonaFilePersona](../../../../data/contracts/personas/personas.types.ck#L187)
  */
 export const PersonaFilePersona = PersonaDraftView.extend({
-    kind: z.enum(['host', 'caller', 'newsreader']).optional().describe('Absent means `host`, as everywhere else'),
+    kind: z.enum(['host', 'caller', 'newsreader', 'guest']).optional().describe('Absent means `host`, as everywhere else'),
     soundboard: z
         .string()
         .max(200)

@@ -84,12 +84,14 @@ export class PersonaRepository extends DataRepository {
      * `undefined` is a station presenting as nobody in particular, and it casts only the untied —
      * a regular rings a host, and a programme with no host has nobody for them to ring.
      */
-    async castable(hostId?: string): Promise<Persona[]> {
+    async castable(hostId?: string, kind: 'caller' | 'guest' = 'caller'): Promise<Persona[]> {
         const rows = await this.db
             .selectFrom('deadair.personas as caller')
             .selectAll('caller')
             .where('caller.stationKey', '=', this.station.stationKey)
-            .where('caller.kind', '=', 'caller')
+            // Callers for a phone-in, guests for a visit. The ties are the same table for both: a
+            // tie says which hosts somebody belongs with, whether they ring or drop by.
+            .where('caller.kind', '=', kind)
             .where(eb => {
                 const untied = eb.not(
                     eb.exists(eb.selectFrom('deadair.callerHosts as tie').select('tie.hostId').whereRef('tie.callerId', '=', 'caller.id')),

@@ -184,6 +184,17 @@ export function PersonasPage() {
                         >
                             {t('page.newCaller')}
                         </Button>
+                        {/* A guest drops by somebody's show for a chat, and like a caller never
+                            presents, so the roster draws guests in a half of their own. */}
+                        <Button
+                            variant="default"
+                            onClick={() => {
+                                setWriting('guest');
+                                setEditing(null);
+                            }}
+                        >
+                            {t('page.newGuest')}
+                        </Button>
                         {/* Only while the station has none: it reads the news in one voice, and the
                             database refuses a second. A button that always failed would be a question
                             the page should not ask. */}
@@ -652,11 +663,16 @@ function ordered(personas: Persona[]): Persona[] {
     );
 }
 
-/** Hosts, then the newsreader, then callers. */
-const rank = (kind: PersonaKind): number => ({ host: 0, newsreader: 1, caller: 2 })[kind];
+/** Hosts, then the newsreader, then callers, then guests. */
+const rank = (kind: PersonaKind): number => ({ host: 0, newsreader: 1, caller: 2, guest: 3 })[kind];
 
 /** The heading over each half of the roster. */
-const HEADINGS = { host: 'page.heading.hosts', newsreader: 'page.heading.newsreader', caller: 'page.heading.callers' } as const;
+const HEADINGS = {
+    host: 'page.heading.hosts',
+    newsreader: 'page.heading.newsreader',
+    caller: 'page.heading.callers',
+    guest: 'page.heading.guests',
+} as const;
 
 /** Everything a character can be looked up by: what it is called, what it is, and who it says it is. */
 function matching(personas: Persona[], filter: string): Persona[] {
@@ -685,10 +701,10 @@ function matching(personas: Persona[], filter: string): Persona[] {
 function summarise(persona: Persona, t: TFunction<'personas'>): string | undefined {
     const parts: string[] = [];
 
-    // A caller is deliberately not asked about phrasings: they are the station's floor under a
+    // A caller (or a guest) is deliberately not asked about phrasings: they are the station's floor under a
     // break, and a caller writes no breaks. Saying one has none would report the design as a gap.
     const phrasings = (persona.templates ?? '').split('\n').filter(line => line.trim().length > 0).length;
-    if (phrasings === 0 && kindOf(persona) !== 'caller') {
+    if (phrasings === 0 && kindOf(persona) !== 'caller' && kindOf(persona) !== 'guest') {
         parts.push(t('card.summary.noPhrasings'));
     }
 

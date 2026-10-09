@@ -14,10 +14,10 @@ Extends [`PersonaDraftView`](./persona-draft-view.md)
 <details>
 <summary>Attributes (3)</summary>
 
-| Attribute    | Type                                 | Required | Description                                                                                                                                                                                                            |
-| ------------ | ------------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kind`       | `'host' \| 'caller' \| 'newsreader'` | No       | Absent means `host`, as everywhere else                                                                                                                                                                                |
-| `soundboard` | `string`                             | No       | The board this character reaches for. Carried even though the receiving station may not hold it: a persona naming a rack that does not exist and one with no rack are the same state, and the import says which it got |
-| `stories`    | `PersonaFileStory[]`                 | Yes      |                                                                                                                                                                                                                        |
+| Attribute    | Type                                            | Required | Description                                                                                                                                                                                                            |
+| ------------ | ----------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kind`       | `'host' \| 'caller' \| 'newsreader' \| 'guest'` | No       | Absent means `host`, as everywhere else                                                                                                                                                                                |
+| `soundboard` | `string`                                        | No       | The board this character reaches for. Carried even though the receiving station may not hold it: a persona naming a rack that does not exist and one with no rack are the same state, and the import says which it got |
+| `stories`    | `PersonaFileStory[]`                            | Yes      |                                                                                                                                                                                                                        |
 
 </details>

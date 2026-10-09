@@ -171,27 +171,32 @@ export function DeskPage() {
                 <PageSkeleton variant="card" />
             )}
 
-            <Stack gap="sm">
-                <Group gap="sm" align="baseline">
-                    <Title order={2}>{t('page.needsYou')}</Title>
-                    <Text size="sm" c="dimmed">
-                        {needsYouBlurb(t, attention.data?.items.length)}
-                    </Text>
-                </Group>
+            {/* Gone entirely when the list has loaded empty: an all-clear card on every visit is
+                noise the operator learns to skip, and the section returning is the signal. Still
+                drawn while pending or failed, because neither of those means nothing is wrong. */}
+            {attention.data?.items.length === 0 ? undefined : (
+                <Stack gap="sm">
+                    <Group gap="sm" align="baseline">
+                        <Title order={2}>{t('page.needsYou')}</Title>
+                        <Text size="sm" c="dimmed">
+                            {needsYouBlurb(t, attention.data?.items.length)}
+                        </Text>
+                    </Group>
 
-                {attention.isPending ? <PageSkeleton variant="card" /> : undefined}
+                    {attention.isPending ? <PageSkeleton variant="card" /> : undefined}
 
-                {/* The list failing is not the station failing, and saying which is the difference
+                    {/* The list failing is not the station failing, and saying which is the difference
                     between a console an operator trusts and one they second-guess. */}
-                {attention.error ? (
-                    <ErrorAlert title={t('page.attentionFailed')} error={attention.error} fallback={t('page.attentionFailedFallback')} />
-                ) : undefined}
+                    {attention.error ? (
+                        <ErrorAlert title={t('page.attentionFailed')} error={attention.error} fallback={t('page.attentionFailedFallback')} />
+                    ) : undefined}
 
-                {/* `here` because this page is what `/onair` resolves to: without it every row
+                    {/* `here` because this page is what `/onair` resolves to: without it every row
                     about the broadcast carried a `Desk →` button that navigated to the page it was
                     already drawn on. Its evidence links still work — they point at records. */}
-                {attention.data ? <AttentionList items={attention.data.items} here="/" /> : undefined}
-            </Stack>
+                    {attention.data ? <AttentionList items={attention.data.items} here="/" /> : undefined}
+                </Stack>
+            )}
 
             <Stack gap="sm">
                 <Group justify="space-between" align="baseline" gap="md" wrap="wrap">
@@ -305,7 +310,6 @@ export function DeskPage() {
  * an operator who has learned that reads it without their stomach dropping.
  */
 function needsYouBlurb(t: TFunction<'desk'>, count: number | undefined): string {
-    if (count === undefined) return '';
-    if (count === 0) return t('page.nothingWaiting');
+    if (count === undefined || count === 0) return '';
     return t('page.waiting', { count });
 }

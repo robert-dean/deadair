@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.50.1] — 2026-10-09
+
+- A scheduled show that is only a brief no longer starts in silence. Such a show used to go on air with an empty running order and wait for the model to choose its first records and for them to download, which was two to three minutes of dead air at every one of its changeovers. Ten minutes before it starts, the station now chooses its opening records under the show's own brief, period and mood, and the changeover airs them at once; the ordinary refill takes over from there. The first of those records are downloaded in the same ten minutes, so the show does not wait on its opening record's audio either, and a cache sweep in between will not take them. A dislike made in between still holds, and editing the slot throws the prepared records away so they are chosen again. If nothing could be prepared, the show opens exactly as it did before. The activity feed says when a show has been prepared.
+
 ## [0.50.0] — 2026-10-09
 
 - A chart airing inside a scheduled block is cut to fit the time the block has left, keeping the top of the chart, so a countdown reaches number one before the next show starts instead of being cut off halfway. A one-hour block is roughly a top fourteen and a five-hour block a top seventy, from the same chart. A twentieth of the time, about what the station's talk measures, is held back for the host when the show takes breaks. Number one may start just before the block ends and finish a few minutes into the next show, up to the station's "Let a record run into the next show for (minutes)" setting (five by default), so the countdown ends on it rather than a few minutes early. A station with no schedule still airs the whole chart.
@@ -1180,7 +1184,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.50.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.50.1...HEAD
+[0.50.1]: https://github.com/robert-dean/deadair/compare/v0.50.0...v0.50.1
 [0.50.0]: https://github.com/robert-dean/deadair/compare/v0.49.0...v0.50.0
 [0.49.0]: https://github.com/robert-dean/deadair/compare/v0.48.0...v0.49.0
 [0.48.0]: https://github.com/robert-dean/deadair/compare/v0.47.4...v0.48.0

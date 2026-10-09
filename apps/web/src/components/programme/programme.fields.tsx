@@ -385,6 +385,19 @@ export function CallinsField(input: GetInputPropsReturnType) {
 }
 
 /**
+ * Whether the host says where the chart placed each record: "number seven on the Hot 100".
+ *
+ * The other way round from {@link CallinsField}: absent is YES, because a countdown that never says
+ * where a record placed is the odd case, so the box starts ticked, ticked sends nothing and only
+ * unticked sends `false`. Only worth drawing beside a chart, since no other source has a position
+ * to say.
+ */
+export function ChartPositionsField(input: GetInputPropsReturnType) {
+    const { t } = useTranslation('programme');
+    return <Checkbox label={t('chartPositions.label')} description={t('chartPositions.description')} {...input} />;
+}
+
+/**
  * Whether records that sound like the playlist's own are mixed in among them.
  *
  * {@link CallinsField}'s three-way, for its reason: ticked sends `true` and unticked sends nothing,

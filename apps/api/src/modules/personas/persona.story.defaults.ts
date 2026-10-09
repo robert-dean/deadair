@@ -142,12 +142,12 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
     ],
     millennium: [
         {
-            title: 'The request that came every week',
-            story: 'Same girl, same record, every week for a year and a half, and she gave me a different first name every single time. Ruth, then Sadie, then Ruth again. I played it every time. By the end the whole show was waiting to find out who she was going to be.',
+            title: 'The disc that never came back',
+            story: 'I burned a disc for a girl in my maths class once. Nineteen tracks, tracklist on the case in silver pen, and I spent a whole weekend on the order. She lent it to her cousin and I never saw it again. I still know what track seven was. I could play you all nineteen right now.',
         },
         {
-            title: 'The night the phones broke',
-            story: 'The line went down for a whole show once and nobody told me, so I sat here for two hours saying it was open. It was not open. Somebody eventually texted in to say they had been trying since eight, and I have never got over the fact that she kept trying.',
+            title: 'The song that would not fit',
+            story: 'There was one song I tried to get onto a disc for about two years. Every time, the disc came out a minute too long, so something had to go, and every time it was that one. I never did get it on. I still think about where it would have gone. Track twelve.',
         },
     ],
 };

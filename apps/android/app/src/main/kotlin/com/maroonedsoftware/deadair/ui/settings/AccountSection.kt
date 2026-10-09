@@ -165,6 +165,13 @@ private fun PasswordForm(account: AccountState, onEmailChange: (String) -> Unit,
 }
 
 /**
+ * The autofill hint for a code from an authenticator app, `HintConstants.AUTOFILL_HINT_2FA_APP_OTP`
+ * in androidx.autofill 1.2. Spelt out because the autofill this build resolves is 1.0, which has
+ * only the SMS one, and a whole dependency bump for one string is the wrong trade.
+ */
+private val AuthenticatorOtpCode = ContentType("2faAppOTPCode")
+
+/**
  * The code box, once the station has asked for one.
  *
  * A separate step rather than a third field on the form, because it is a separate exchange: the
@@ -191,9 +198,11 @@ private fun SecondFactor(account: AccountState, onCodeChange: (String) -> Unit, 
         supportingText = account.error?.let { { Text(it.resolve(), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) } },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { if (account.canSubmit) onSubmit() else focus.clearFocus() }),
-        // The one-time-code content type is what offers the code from a notification, which on a
-        // phone is where a good half of them arrive.
-        modifier = Modifier.fillMaxWidth().focusRequester(box).semantics { contentType = ContentType.SmsOtpCode },
+        // Two hints, because they reach two different sources. The SMS one offers a code from a
+        // notification. The authenticator-app one is what a password manager holding the account's
+        // TOTP secret (1Password, Bitwarden, Google's) looks for before it offers to fill the code
+        // itself; the SMS hint alone left this box empty for exactly the factor it asks for.
+        modifier = Modifier.fillMaxWidth().focusRequester(box).semantics { contentType = ContentType.SmsOtpCode + AuthenticatorOtpCode },
     )
 
     Button(onClick = onSubmit, enabled = account.canSubmit, modifier = Modifier.fillMaxWidth().height(PillHeight)) {

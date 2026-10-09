@@ -149,7 +149,9 @@ export class ChartSetGenerator extends SetGenerator {
         }
 
         const era = bindsAnything(inputs.era) ? inputs.era : undefined;
+        const chartName = await this.charts.nameOf(chartId);
         const picks = chartPicks(entries, {
+            ...(chartName === undefined ? {} : { chartName }),
             want,
             ...(era === undefined ? {} : { era }),
             // The chain checks this too, and doing it here as well is what makes the oversample

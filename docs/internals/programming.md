@@ -143,6 +143,15 @@ and must not count toward quarantine the way a failed upstream call does. The tr
 `PlaylistsService.getPlaylistTracks`, so the access narrowing and Spotify's refused-playlist fallback both
 apply exactly as they do when the console lists one.
 
+**A chart pick carries where the chart placed it, and nothing else in a pick does.** `chartPicks` sets
+`TrackPick.chart` (rank, the chart's name from `ChartsService.nameOf`, and the peak and the run only where the
+source gave a positive whole number), `PickResolver` copies it onto the record it resolves to as the one field
+taken from the PICK rather than the matched row, and it rides `station_lineup.items` inside the track, so a
+restart keeps it. Both chart paths set it: a chart aired whole and `ChartSetGenerator`'s share of a refill. It
+is a fact about the edition the station read and is never updated; a chart that moves on afterwards does not
+move a record already in the order. It decides nothing about what airs. What reads it is the break writer
+(`breaks.md`), and whether a show says it is `StationLineupRules.chartPositions`, absent meaning yes.
+
 ## The station's opinion, and the policy over it
 
 **An opinion is held at three levels and inherits DOWNWARD in both directions.** `artists`, `albums` and `tracks` each carry a `rating` of `-1 / 0 / 1`, written from the console through `PUT /catalog/{artists,albums,tracks}/{id}/rating` (`platform.manage`; the wire spells it `liked / neutral / disliked` and `catalog/rating.ts` is the only place that meets the column, because the ORDERING is what the SQL below needs and nothing outside the database reads it as a number). `CandidatesRepository.effectiveRating` is the one expression that collapses the three into one, and it is **not** a `least()`: a dislike anywhere wins outright, because a dislike is an instruction no lineup may turn off, and otherwise the strongest LIKE carries, because liking an artist means play more of them and liking one song means play that song more. It was a plain `least()` for as long as it existed, which got the veto right and silently swallowed the other half — a liked song on an unrated record by an unrated artist came out `0`, so `weightOf` doubled nothing an operator could produce without rating all three levels identically, and liking a record did nothing whatsoever. Both `sample` and `ratingsFor` go through it so the draw and the resolver cannot disagree. Nothing unit-tests it, since it is SQL: `apps/api/scripts/rating.smoke.ts` is what covers it, against the real database.

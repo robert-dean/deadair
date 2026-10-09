@@ -20,6 +20,8 @@ import { SlotEditor, type EditorTarget } from './slot.editor';
 import { RulesPanel } from './rules.panel';
 import { RequestsPanel } from '../requests/requests.panel';
 import { SustainingPanel } from './sustaining.panel';
+import { SpecialsPanel } from './specials.panel';
+import { isSpecial } from './schedule.specials';
 import { i18n } from '../../i18n/i18n.setup';
 
 /**
@@ -91,12 +93,13 @@ export const PROGRAMME_TABS = [
     // panel, so a tab called Week containing a control called Week read as two of the same switch.
     // The key stays `week` — `?tab=week` links and `attention.destination.ts` depend on it.
     programmeTab('week'),
+    programmeTab('specials'),
     programmeTab('sustaining'),
     programmeTab('requests'),
     programmeTab('rules'),
 ] as const satisfies readonly DestinationTab<string>[];
 
-function programmeTab<TKey extends 'today' | 'week' | 'sustaining' | 'requests' | 'rules'>(key: TKey) {
+function programmeTab<TKey extends 'today' | 'week' | 'specials' | 'sustaining' | 'requests' | 'rules'>(key: TKey) {
     return {
         key,
         get label(): string {
@@ -200,13 +203,15 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
      * view we can only answer wrongly is worse than not offering it.
      */
     const shared = {
-        events: toEvents(timetable.data, airingId, t('untitled')),
+        events: toEvents(timetable.data, airingId, slots, t),
         view,
         onViewChange: (next: 'day' | 'week' | 'month' | 'year') => {
             if (next === 'day' || next === 'week') setView(next);
         },
         viewSelectProps: { views: ['day', 'week'] as const },
-        onDateChange: setAnchor,
+        // The package answers a `YYYY-MM-DD HH:mm:ss` stamp, and the API takes a date alone (and
+        // refuses anything longer), so paging a week forward used to answer "Bad Request".
+        onDateChange: (date: string) => setAnchor(date.slice(0, 10)),
         onEventClick: openSlot,
         onTimeSlotClick: ({ slotStart }: { slotStart: string }) => setEditing(newSlotAt(slotStart)),
         withEventsDragAndDrop: true,
@@ -309,6 +314,18 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
                 </Stack>
             )}
 
+            {/* The year's specials as a list, since the grid shows a special only in the week it
+                lands in. Today comes from the station's clock, never the browser's. */}
+            {tab === 'specials' && current.data ? (
+                <SpecialsPanel
+                    slots={slots}
+                    today={current.data.now.slice(0, 10)}
+                    airingId={airingId}
+                    onEdit={slot => setEditing({ kind: 'edit', slot })}
+                    onNew={() => setEditing({ kind: 'new', special: true })}
+                />
+            ) : undefined}
+
             {/* Its own tab rather than a fold under the grid. What plays through an unclaimed hour
                 is a whole answer with fields of its own — a playlist or a chart, or a brief and a period —
                 and it was competing for attention with the week it applies to. */}
@@ -355,10 +372,19 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
  * The slot ON AIR is drawn filled rather than in a different colour, so it reads as emphasis on a
  * show rather than as a show of a different kind — the colours are identities here, not states.
  */
-function toEvents(timetable: ScheduleTimetable | undefined, airingSlotId: string | undefined, untitled: string): ScheduleEventData[] {
+function toEvents(
+    timetable: ScheduleTimetable | undefined,
+    airingSlotId: string | undefined,
+    slots: readonly ScheduleSlot[],
+    t: TFunction<'schedule'>,
+): ScheduleEventData[] {
+    // A special is NAMED as one rather than coloured as one, because the colours here are identities
+    // of shows and a special is a show. The name is what says the block is not the weekly pattern.
+    const specials = new Set(slots.filter(isSpecial).map(slot => slot.id));
+
     return (timetable?.occurrences ?? []).map(block => ({
         id: `${block.slotId}@${block.start}`,
-        title: block.label || untitled,
+        title: specials.has(block.slotId) ? t('specials.onTimetable', { name: block.label || t('untitled') }) : block.label || t('untitled'),
         start: block.start,
         end: drawnEnd(block.start, block.end),
         color: colorOf(block.slotId),
@@ -406,7 +432,7 @@ function keyOf(target: EditorTarget | undefined): string {
     if (target === undefined) return 'closed';
     if (target.kind === 'edit') return target.slot.id;
 
-    return `new:${target.startsAtMinutes ?? ''}:${(target.days ?? []).join(',')}`;
+    return `new:${target.special === true ? 'special' : 'weekly'}:${target.startsAtMinutes ?? ''}:${(target.days ?? []).join(',')}`;
 }
 
 /** The slice of a rendered event the edit rules read, or nothing for one that carries no slot. */
@@ -429,7 +455,8 @@ function beginsItsSlot(event: ScheduleEventData, slots: readonly ScheduleSlot[])
  * A slot as the shape a write takes.
  *
  * Every field has to go back, because `PUT` replaces the row rather than patching it — so a drag
- * that sent only the new time would quietly clear the brief, the host and the source.
+ * that sent only the new time would quietly clear the brief, the host and the source. A special's
+ * dates most of all: a drag that dropped them would turn Halloween into a show every night.
  */
 function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
     return {
@@ -447,7 +474,12 @@ function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
         ...(slot.eraFrom === undefined ? {} : { eraFrom: slot.eraFrom }),
         ...(slot.eraTo === undefined ? {} : { eraTo: slot.eraTo }),
         ...(slot.callins === undefined ? {} : { callins: slot.callins }),
+        ...(slot.mood === undefined ? {} : { mood: slot.mood }),
         ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
+        ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),
+        ...(slot.startsOn === undefined ? {} : { startsOn: slot.startsOn }),
+        ...(slot.endsOn === undefined ? {} : { endsOn: slot.endsOn }),
+        ...(slot.yearly === undefined ? {} : { yearly: slot.yearly }),
         mode: slot.mode,
         onEnd: slot.onEnd,
     };

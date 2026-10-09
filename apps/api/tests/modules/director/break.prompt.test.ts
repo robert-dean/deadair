@@ -739,6 +739,21 @@ describe('breakPrompt', () => {
             expect(said).toContain('- Length: 6 minutes 41 seconds');
         });
 
+        it('says where a chart placed the record, as the reason it is on', () => {
+            const said = user(prompt({ kind: 'talkbreak', next: { ...previous, chart: { rank: 7, name: 'Top 100', peak: 3, weeksOn: 11 } } }));
+
+            expect(said).toContain(
+                '- Chart: it is here because it is number 7 on Top 100; its highest position so far is number 3; it has been on the chart for 11 weeks.',
+            );
+            // The ban on chart placings is narrowed to the ones it was not shown, or the prompt
+            // argues with itself about the line above.
+            expect(said).not.toContain('no chart placings,');
+        });
+
+        it('says nothing about a chart for a record no chart named', () => {
+            expect(user(prompt({ kind: 'talkbreak', previous: known }))).not.toContain('- Chart:');
+        });
+
         it('leaves out what the order does not know rather than showing it blank', () => {
             // The weather describer's rule, and this follows it: a model given an empty field fills
             // it in. Absent is the honest shape and a blank is an invitation.

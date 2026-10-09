@@ -147,6 +147,42 @@ public class SlotDraftTests
     public void ASlotsHoursReadInTheList(long start, long end, string expected) => Assert.Equal(expected, SlotText.Window(start, end));
 
     [Fact]
+    public void ASpecialsDatesAndAMoodSurviveASave_ThoughTheEditorDrawsNeither()
+    {
+        var special = Slot() with
+        {
+            StartsOn = "2026-10-31",
+            EndsOn = "2026-10-31",
+            Yearly = true,
+            Mood = ScheduleSlotMood.Fear,
+        };
+
+        var input = SlotDraft.From(special).ToInput()!;
+
+        Assert.Equal("2026-10-31", input.StartsOn);
+        Assert.Equal("2026-10-31", input.EndsOn);
+        Assert.True(input.Yearly);
+        Assert.Equal(ScheduleSlotMood.Fear, input.Mood);
+    }
+
+    [Fact]
+    public void AWeeklySlotSendsNoDates()
+    {
+        var input = SlotDraft.From(Slot()).ToInput()!;
+
+        Assert.Null(input.StartsOn);
+        Assert.Null(input.EndsOn);
+    }
+
+    [Fact]
+    public void ASpecialReadsAsItsDatesRatherThanItsDays()
+    {
+        Assert.Equal("Every day", SlotText.When(Slot()));
+        Assert.Equal("Special: 2026-12-24 to 2026-12-26", SlotText.When(Slot() with { StartsOn = "2026-12-24", EndsOn = "2026-12-26" }));
+        Assert.Equal("Special, every year: 10-31", SlotText.When(Slot() with { StartsOn = "2020-10-31", EndsOn = "2020-10-31", Yearly = true }));
+    }
+
+    [Fact]
     public void NoDaysOrAllSevenIsEveryDay()
     {
         Assert.Equal("Every day", SlotText.Days(null));

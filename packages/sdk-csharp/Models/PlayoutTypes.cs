@@ -67,6 +67,11 @@ public sealed record PlayoutChartInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PlayoutChartInputChartOrder? ChartOrder { get; init; }
 
+    /// <summary>Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes. Set it false to air a chart without its positions read out. A record no chart named has no position to say whatever this says</summary>
+    [JsonPropertyName("chartPositions")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ChartPositions { get; init; }
+
     /// <summary>Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it</summary>
     [JsonPropertyName("callins")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

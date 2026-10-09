@@ -25,7 +25,6 @@ export const desk = {
         runsDry: 'The order runs dry at about <num>{{time}}</num>.',
         refillQueued: 'Refill asked for. The records land in a few seconds.',
         extend: 'Extend now',
-        nothingWaiting: 'Nothing is waiting on you.',
         waiting_one: '{{count}} thing, worst first. Nothing here is urgent enough to take the station off air.',
         waiting_other: '{{count}} things, worst first. Nothing here is urgent enough to take the station off air.',
     },

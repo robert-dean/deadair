@@ -296,6 +296,16 @@ describe('ScheduleTickJob', () => {
         expect(declining.console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ mixInSimilar: false }), expect.anything());
     });
 
+    it('carries a slot keeping its chart positions quiet, and says nothing when it does not', async () => {
+        const quiet = build({ inForce: slot('quiet', { chartPositions: false }) });
+        await quiet.tick();
+        expect(quiet.console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ chartPositions: false }), expect.anything());
+
+        const { tick, console } = build({ inForce: slot('morning') });
+        await tick();
+        expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('chartPositions');
+    });
+
     it('says nothing about mixing when a slot does not, so the station setting stands', async () => {
         const { tick, console } = build({ inForce: slot('morning') });
 
@@ -470,6 +480,30 @@ describe('ScheduleTickJob', () => {
         await tick();
 
         expect(vi.mocked(console.putOnAir).mock.calls[0]?.[1]).toBe(inForce);
+    });
+
+    describe('a special', () => {
+        // No new state: a special is a slot with its own id, so the tick's one comparison (the slot
+        // in force against the slot the order is stamped with) changes over into it in the middle of
+        // the weekly show and back out of it when it ends.
+        const halloween = slot('halloween', { label: 'Halloween', dates: { from: '2026-10-31', to: '2026-10-31', yearly: true } });
+        const boneyard = slot('boneyard', { label: 'The Boneyard' });
+
+        it('takes over from the weekly show it interrupts', async () => {
+            const { tick, console } = build({ inForce: halloween, airing: 'boneyard' });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ name: 'Halloween' }), halloween);
+        });
+
+        it('hands back to the weekly show when it ends, part-way through that show', async () => {
+            const { tick, console } = build({ inForce: boneyard, airing: 'halloween' });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ name: 'The Boneyard' }), boneyard);
+        });
     });
 
     it('changes over a station that has never been stamped with a slot', async () => {

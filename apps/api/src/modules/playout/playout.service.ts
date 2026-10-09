@@ -377,6 +377,7 @@ export class PlayoutService {
         await this.director.airChart({
             chartId: input.chartId,
             ...(input.chartOrder === undefined ? {} : { chartOrder: input.chartOrder }),
+            ...(input.chartPositions === undefined ? {} : { chartPositions: input.chartPositions }),
             ...(input.callins === undefined ? {} : { callins: input.callins }),
         });
 

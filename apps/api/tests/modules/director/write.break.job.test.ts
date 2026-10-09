@@ -1253,6 +1253,30 @@ describe('WriteBreakJob', () => {
         expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ previous: { title: 'Yeah!', artist: 'USHER' } }));
     });
 
+    it('tells the writer where a chart placed the record coming up', async () => {
+        const lineup = new StationLineup({ name: 'Top 100', mode: 'rotation', onEnd: 'extend', source: 'chart' });
+        lineup.append([track('Solid Air', 'John Martyn'), { ...track('Pink Moon', 'Nick Drake'), chart: { rank: 7, name: 'Top 100' } }]);
+        lineup.insertSegment('seg-1', 1);
+        const { job, writers } = harness({ lineup });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(
+            expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake', chart: { rank: 7, name: 'Top 100' } } }),
+        );
+    });
+
+    it('keeps the position from the writer on a show that does not say them', async () => {
+        const lineup = new StationLineup({ name: 'Top 100', mode: 'rotation', onEnd: 'extend', source: 'chart', rules: { chartPositions: false } });
+        lineup.append([track('Solid Air', 'John Martyn'), { ...track('Pink Moon', 'Nick Drake'), chart: { rank: 7, name: 'Top 100' } }]);
+        lineup.insertSegment('seg-1', 1);
+        const { job, writers } = harness({ lineup });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake' } }));
+    });
+
     describe('a break the running order does not hold', () => {
         /** The same two records, and no break planted between them. */
         const withoutBreak = (): StationLineup => {

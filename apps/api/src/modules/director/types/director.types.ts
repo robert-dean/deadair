@@ -52,7 +52,7 @@ export type StationItemState = z.infer<typeof StationItemState>;
 
 /**
  * Change who is presenting the broadcast that is on air
- * generated from [SetStationHostInput](../../../../data/contracts/director/director.types.ck#L99)
+ * generated from [SetStationHostInput](../../../../data/contracts/director/director.types.ck#L100)
  */
 export const SetStationHostInput = z.strictObject({
     personaId: z
@@ -68,7 +68,7 @@ export type SetStationHostInput = z.infer<typeof SetStationHostInput>;
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](../../../../data/contracts/director/director.types.ck#L103)
+ * generated from [AddStationSegmentInput](../../../../data/contracts/director/director.types.ck#L104)
  */
 export const AddStationSegmentInput = z.strictObject({
     segmentId: z.string().min(1).max(100),
@@ -87,7 +87,7 @@ export type AddStationSegmentInput = z.infer<typeof AddStationSegmentInput>;
 
 /**
  * Put a catalog record into the running order. Refused at the door — 404 for a record the catalog does not hold, 422 for one whose audio is not local yet — rather than accepted and left to fail when it comes round
- * generated from [AddStationTrackInput](../../../../data/contracts/director/director.types.ck#L109)
+ * generated from [AddStationTrackInput](../../../../data/contracts/director/director.types.ck#L110)
  */
 export const AddStationTrackInput = z.strictObject({
     trackId: z.uuid(),
@@ -100,7 +100,7 @@ export type AddStationTrackInput = z.infer<typeof AddStationTrackInput>;
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](../../../../data/contracts/director/director.types.ck#L114)
+ * generated from [MoveStationItemInput](../../../../data/contracts/director/director.types.ck#L115)
  */
 export const MoveStationItemInput = z.strictObject({
     toIndex: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
@@ -109,7 +109,7 @@ export type MoveStationItemInput = z.infer<typeof MoveStationItemInput>;
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](../../../../data/contracts/director/director.types.ck#L118)
+ * generated from [ExtendStationInput](../../../../data/contracts/director/director.types.ck#L119)
  */
 export const ExtendStationInput = z.strictObject({
     count: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(100)).optional(),
@@ -118,7 +118,7 @@ export type ExtendStationInput = z.infer<typeof ExtendStationInput>;
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](../../../../data/contracts/director/director.types.ck#L122)
+ * generated from [ReplanStationInput](../../../../data/contracts/director/director.types.ck#L123)
  */
 export const ReplanStationInput = z.strictObject({
     count: z
@@ -214,6 +214,12 @@ export const PutOnAirInput = z.strictObject({
         .optional()
         .describe(
             "Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId`",
+        ),
+    chartPositions: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes. Set it false to air a chart without its positions read out. A record no chart named has no position to say whatever this says',
         ),
     albumId: z
         .uuid()

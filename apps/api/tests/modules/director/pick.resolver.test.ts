@@ -227,6 +227,19 @@ describe('PickResolver', () => {
         ]);
     });
 
+    it('carries where a chart placed the record onto the record it resolves to', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'Windowlicker', credit: 'Aphex Twin' } },
+        });
+
+        const [resolved] = await resolve(resolver, [
+            { title: 'Windowlicker', artist: 'Aphex Twin', trackId: 'track-1', chart: { rank: 7, name: 'Top 100', peak: 3 } },
+        ]);
+
+        expect(resolved?.chart).toEqual({ rank: 7, name: 'Top 100', peak: 3 });
+    });
+
     it('shows the credit as written on the release, not the identity it was chosen by', async () => {
         // The pick's artist is the lead, which is what a cooldown counts. A listener
         // should see what the record says.

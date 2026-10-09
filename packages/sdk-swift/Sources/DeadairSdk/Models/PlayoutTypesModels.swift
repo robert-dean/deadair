@@ -105,18 +105,22 @@ public struct PlayoutChartInput: Codable, Equatable, Sendable {
     public var chartId: String
     /// Which way round to play it. Absent is `countdown`, which opens on the lowest rank and ends on number one
     public var chartOrder: PlayoutChartInputChartOrder?
+    /// Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes. Set it false to air a chart without its positions read out. A record no chart named has no position to say whatever this says
+    public var chartPositions: Bool?
     /// Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it
     public var callins: Bool?
 
-    public init(chartId: String, chartOrder: PlayoutChartInputChartOrder? = nil, callins: Bool? = nil) {
+    public init(chartId: String, chartOrder: PlayoutChartInputChartOrder? = nil, chartPositions: Bool? = nil, callins: Bool? = nil) {
         self.chartId = chartId
         self.chartOrder = chartOrder
+        self.chartPositions = chartPositions
         self.callins = callins
     }
 
     private enum CodingKeys: String, CodingKey {
         case chartId = "chartId"
         case chartOrder = "chartOrder"
+        case chartPositions = "chartPositions"
         case callins = "callins"
     }
 
@@ -124,6 +128,7 @@ public struct PlayoutChartInput: Codable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.chartId = try container.decode(String.self, forKey: .chartId)
         self.chartOrder = try container.decodeIfPresent(PlayoutChartInputChartOrder.self, forKey: .chartOrder)
+        self.chartPositions = try container.decodeIfPresent(Bool.self, forKey: .chartPositions)
         self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
     }
 
@@ -131,6 +136,7 @@ public struct PlayoutChartInput: Codable, Equatable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.chartId, forKey: .chartId)
         try container.encodeIfPresent(self.chartOrder, forKey: .chartOrder)
+        try container.encodeIfPresent(self.chartPositions, forKey: .chartPositions)
         try container.encodeIfPresent(self.callins, forKey: .callins)
     }
 }

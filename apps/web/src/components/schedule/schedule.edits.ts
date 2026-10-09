@@ -96,6 +96,11 @@ export function blockEdit(block: DraggedBlock, newStart: string, newEnd: string,
 
     const wasOn = weekdayOf(dateOf(block.start));
     const nowOn = weekdayOf(dateOf(newStart));
+    // A special is on its DATES, and a drag into another column would change its weekdays instead,
+    // which is never what dragging Halloween to the 1st of November means. Its times still drag.
+    if (slot.startsOn !== undefined && dateOf(newStart) !== dateOf(block.start)) {
+        return { kind: 'refused', reason: i18n.t('schedule:edits.specialDates') };
+    }
     // A block pinned to one day can be moved to another, because there is only one thing that could
     // mean. One running on several stays where it is: dragging Wednesday's block sideways cannot say
     // which of its days was intended.

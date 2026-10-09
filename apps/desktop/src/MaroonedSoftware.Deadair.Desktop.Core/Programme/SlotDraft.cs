@@ -57,6 +57,13 @@ public sealed record SlotDraft
     public ScheduleSlotOnEnd OnEnd { get; init; } = ScheduleSlotOnEnd.Extend;
 
     /// <summary>
+    /// What this editor does not draw and must still send back, because <c>PUT</c> replaces the row:
+    /// a slot's mood, and a special's dates. Without them, saving a special here would turn Halloween
+    /// into a show every night. Carried exactly as read, and changed only on the web console.
+    /// </summary>
+    public SlotPassthrough Kept { get; init; } = new();
+
+    /// <summary>
     /// A slot as the editor opens on it, or a new one.
     /// </summary>
     /// <remarks>
@@ -86,6 +93,13 @@ public sealed record SlotDraft
             MixInSimilar = slot.MixInSimilar == true,
             Mode = slot.Mode,
             OnEnd = slot.OnEnd,
+            Kept = new SlotPassthrough
+            {
+                Mood = slot.Mood,
+                StartsOn = slot.StartsOn,
+                EndsOn = slot.EndsOn,
+                Yearly = slot.Yearly,
+            },
         };
     }
 
@@ -183,6 +197,10 @@ public sealed record SlotDraft
             EraTo = to,
             Callins = Callins ? true : null,
             MixInSimilar = MixInSimilar && ProgrammeSource.MixesInto(Source) ? true : null,
+            Mood = Kept.Mood,
+            StartsOn = Kept.StartsOn,
+            EndsOn = Kept.EndsOn,
+            Yearly = Kept.Yearly,
             Mode = Mode,
             OnEnd = OnEnd,
         };
@@ -230,4 +248,39 @@ public static class SlotText
 
         return string.Join(", ", chosen.Select(day => StationTime.WeekdayNames[(int)day]));
     }
+
+    /// <summary>
+    /// When a slot runs: its weekdays for a weekly slot, and its dates for a special, which runs on
+    /// those dates rather than every week (and is added and changed on the web console's Specials tab).
+    /// </summary>
+    public static string When(ScheduleSlot slot)
+    {
+        ArgumentNullException.ThrowIfNull(slot);
+
+        if (slot.StartsOn is not { } from || slot.EndsOn is not { } to)
+        {
+            return Days(slot.Days);
+        }
+
+        // A yearly special's year is not part of it, so only the month and day are said.
+        if (slot.Yearly == true)
+        {
+            return from == to ? $"Special, every year: {from[5..]}" : $"Special, every year: {from[5..]} to {to[5..]}";
+        }
+
+        return from == to ? $"Special: {from}" : $"Special: {from} to {to}";
+    }
+}
+
+/// <summary>The fields of a slot the desktop editor carries without drawing. See <see cref="SlotDraft.Kept"/>.</summary>
+public sealed record SlotPassthrough
+{
+    public ScheduleSlotMood? Mood { get; init; }
+
+    /// <summary>A special's first date, <c>YYYY-MM-DD</c>; null on a weekly slot.</summary>
+    public string? StartsOn { get; init; }
+
+    public string? EndsOn { get; init; }
+
+    public bool? Yearly { get; init; }
 }

@@ -34,6 +34,15 @@
  * days: a show that is different on Wednesdays is the ordinary block running on the other six days
  * and a second block on Wednesday. That is visible on the grid, where a precedence rule would be a
  * fact about the schedule that only the code knew.
+ *
+ * ## A special is the one precedence there is, and it is visible too
+ *
+ * A slot with {@link ScheduleSlot.dates} runs on those dates rather than every week, and on them it
+ * WINS over the weekly schedule for its hours: Halloween night cuts into whatever usually airs then,
+ * and the weekly show resumes when the special ends. That is a precedence rule, and the argument
+ * above does not forbid it, because it is not a fact only the code knows: the timetable is projected
+ * per date, so the special and the weekly blocks trimmed around it are both on the grid. Two specials
+ * still may not overlap each other, for the original reason.
  */
 
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
@@ -46,6 +55,39 @@ export const MINUTES_IN_DAY = 24 * 60;
 
 /** Days in a week, walked back over when nothing has started today. */
 const DAYS_IN_WEEK = 7;
+
+/**
+ * A date on the station's own calendar, with the weekday it falls on. Sunday is `0`.
+ *
+ * Wall-clock throughout: a date here is a reading of the station's clock rather than an instant, which
+ * is what keeps everything that walks over dates free of daylight-saving arithmetic.
+ */
+export interface StationDate {
+    year: number;
+    /** 1-12, matching {@link StationClock}. */
+    month: number;
+    day: number;
+    weekday: number;
+}
+
+/**
+ * The dates a special runs on, inclusive at both ends, as `YYYY-MM-DD`.
+ *
+ * `yearly` reads only the month and day of each end and repeats every year. Such a range may run past
+ * New Year, which is why it is still two real dates in order (`2026-12-31` to `2027-01-01`) rather
+ * than two month-days that would have to be compared the other way round.
+ */
+export interface SpecialDates {
+    from: string;
+    to: string;
+    yearly: boolean;
+}
+
+/** One stretch of one day, in minutes. `to` is exclusive and never past midnight. */
+export interface DayPiece {
+    from: number;
+    to: number;
+}
 
 /**
  * Where a slot's records come from, or absent for a slot the station fills itself.
@@ -141,12 +183,108 @@ export interface ScheduleSlot {
      * never mixes whatever this says.
      */
     mixInSimilar?: boolean;
+    /**
+     * Whether the host says where the chart placed each record it named.
+     *
+     * Absent is yes, as it is on `PutOnAirInput.chartPositions`; see
+     * `StationLineupRules.chartPositions` for why there is no station setting behind it. Only a
+     * slot whose source is a chart, or a rotation that takes a chart's share, has anything to say.
+     */
+    chartPositions?: boolean;
+    /**
+     * The dates this slot runs on, which makes it a SPECIAL. Absent is an ordinary weekly slot.
+     *
+     * {@link days} still applies inside the range, so "the Fridays in December" is a range and a mask.
+     * On its dates a special wins over the weekly schedule for its hours; see the module note.
+     */
+    dates?: SpecialDates;
     mode: StationLineupMode;
     onEnd: StationLineupOnEnd;
 }
 
 /** Whether this slot runs on a given weekday. Empty `days` is every day. */
 const runsOn = (slot: ScheduleSlot, weekday: number): boolean => slot.days.length === 0 || slot.days.includes(weekday);
+
+/** Whether a slot is a special, running on dates rather than every week. */
+export const isSpecial = (slot: ScheduleSlot): slot is ScheduleSlot & { dates: SpecialDates } => slot.dates !== undefined;
+
+const pad = (value: number, width = 2) => String(value).padStart(width, '0');
+
+/** A station date as `YYYY-MM-DD`, the shape {@link SpecialDates} holds and compares as strings. */
+export const dateKey = (date: Pick<StationDate, 'year' | 'month' | 'day'>): string => `${pad(date.year, 4)}-${pad(date.month)}-${pad(date.day)}`;
+
+/**
+ * A `YYYY-MM-DD` string as a station date, or `undefined` when it is not one.
+ *
+ * Through UTC, which is safe because this is civil arithmetic on a date rather than a claim about a
+ * moment: UTC has no daylight saving, so it is the calendar with no opinions. The weekday is DERIVED
+ * here rather than taken from anybody, since it is the one field a caller could get wrong in a way
+ * that silently resolves the wrong show.
+ */
+export function stationDateOf(key: string): StationDate | undefined {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+    if (!match) return undefined;
+
+    const asUtc = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+    if (dateKey({ year: asUtc.getUTCFullYear(), month: asUtc.getUTCMonth() + 1, day: asUtc.getUTCDate() }) !== key) return undefined;
+
+    return { year: asUtc.getUTCFullYear(), month: asUtc.getUTCMonth() + 1, day: asUtc.getUTCDate(), weekday: asUtc.getUTCDay() };
+}
+
+/** The day `offset` days from `date` on the station's calendar. Plain civil arithmetic; see {@link stationDateOf}. */
+export function addDays(date: StationDate, offset: number): StationDate {
+    const asUtc = new Date(Date.UTC(date.year, date.month - 1, date.day + offset));
+
+    return {
+        year: asUtc.getUTCFullYear(),
+        month: asUtc.getUTCMonth() + 1,
+        day: asUtc.getUTCDate(),
+        weekday: (((date.weekday + offset) % DAYS_IN_WEEK) + DAYS_IN_WEEK) % DAYS_IN_WEEK,
+    };
+}
+
+/**
+ * Whether a date falls inside a special's range.
+ *
+ * A yearly range compares month and day only, and one whose end comes before its start in the year
+ * runs past New Year: from the start to the end of December, then from January to the end.
+ */
+function inRange(dates: SpecialDates, date: StationDate): boolean {
+    if (!dates.yearly) {
+        const key = dateKey(date);
+        return key >= dates.from && key <= dates.to;
+    }
+
+    const monthDay = dateKey(date).slice(5);
+    const [from, to] = [dates.from.slice(5), dates.to.slice(5)];
+
+    return from <= to ? monthDay >= from && monthDay <= to : monthDay >= from || monthDay <= to;
+}
+
+/**
+ * Whether a slot STARTS an occurrence on this date: on one of its weekdays and, for a special, inside
+ * its range. A block that runs past midnight is still "on" the following morning without starting
+ * there, which is what {@link piecesOn} adds.
+ */
+export function startsOn(slot: ScheduleSlot, date: StationDate): boolean {
+    return runsOn(slot, date.weekday) && (slot.dates === undefined || inRange(slot.dates, date));
+}
+
+/**
+ * The stretches of one date a slot occupies, ignoring every other slot.
+ *
+ * At most two: the tail of last night's block that ran past midnight, and today's own, cut off at
+ * midnight when it runs past it. The resolver, the timetable and the overlap check all ask this one
+ * function, so they cannot disagree about where a block is.
+ */
+export function piecesOn(slot: ScheduleSlot, date: StationDate): DayPiece[] {
+    const pieces: DayPiece[] = [];
+
+    if (wraps(slot) && slot.endsAtMinutes > 0 && startsOn(slot, addDays(date, -1))) pieces.push({ from: 0, to: slot.endsAtMinutes });
+    if (startsOn(slot, date)) pieces.push({ from: slot.startsAtMinutes, to: wraps(slot) ? MINUTES_IN_DAY : slot.endsAtMinutes });
+
+    return pieces;
+}
 
 /**
  * The slot in force at an instant, or `undefined` when nothing is scheduled then.
@@ -173,7 +311,21 @@ const runsOn = (slot: ScheduleSlot, weekday: number): boolean => slot.days.lengt
 export function resolveSlot(at: Date | number, zone: string, slots: readonly ScheduleSlot[]): ScheduleSlot | undefined {
     const clock = readClock(typeof at === 'number' ? at : at.getTime(), zone);
 
-    return slotAt(clock.weekday, clock.hour * 60 + clock.minute, slots);
+    return slotOn(clock, clock.hour * 60 + clock.minute, slots);
+}
+
+/**
+ * The slot in force at a minute of a date on the station's clock.
+ *
+ * A special covering that minute first, then the weekly schedule through {@link slotAt}: on its dates
+ * a special wins for its hours, and the weekly show it interrupted is answered again the minute it
+ * ends. The timetable asks the same question per date through `project`, which shares
+ * {@link piecesOn} with this, so a special cannot be on the grid at one time and on air at another.
+ */
+export function slotOn(date: StationDate, minutesOfDay: number, slots: readonly ScheduleSlot[]): ScheduleSlot | undefined {
+    const special = slots.find(slot => isSpecial(slot) && piecesOn(slot, date).some(piece => piece.from <= minutesOfDay && minutesOfDay < piece.to));
+
+    return special ?? slotAt(date.weekday, minutesOfDay, slots);
 }
 
 /**
@@ -206,15 +358,20 @@ export function minutesIntoSlot(slot: ScheduleSlot, at: Date | number, zone: str
  * thing — and sharing the function is what makes that structurally impossible rather than merely
  * tested for.
  *
+ * **Weekly slots only.** A special has dates, which a point on the weekly clock does not, so it is
+ * skipped here and answered by {@link slotOn} instead.
+ *
  * @param weekday - Sunday `0`, matching `Date.getDay()` and `StationClock`.
  * @param minutesOfDay - `0` to `1439`, on the station's own clock.
  */
 export function slotAt(weekday: number, minutesOfDay: number, slots: readonly ScheduleSlot[]): ScheduleSlot | undefined {
+    const weekly = slots.filter(slot => !isSpecial(slot));
+
     // Today's blocks, and YESTERDAY's, because a block that runs past midnight is still on. Nothing
     // further back can reach: a block is at most a day long, so two days is the whole of it.
     return (
-        slots.find(slot => runsOn(slot, weekday) && covers(slot, minutesOfDay)) ??
-        slots.find(slot => runsOn(slot, (weekday - 1 + DAYS_IN_WEEK) % DAYS_IN_WEEK) && wraps(slot) && minutesOfDay < slot.endsAtMinutes)
+        weekly.find(slot => runsOn(slot, weekday) && covers(slot, minutesOfDay)) ??
+        weekly.find(slot => runsOn(slot, (weekday - 1 + DAYS_IN_WEEK) % DAYS_IN_WEEK) && wraps(slot) && minutesOfDay < slot.endsAtMinutes)
     );
 }
 
@@ -260,15 +417,52 @@ function occupies(slot: ScheduleSlot): Occupied[] {
 }
 
 /**
- * Whether two blocks are ever on at the same time.
+ * Whether two blocks are ever on at the same time, in a way the schedule refuses.
  *
  * The schedule refuses these rather than resolving them by precedence, and the reason is the editor:
  * an operator saying "the usual show, except Wednesdays" writes the usual one on the other six days
  * and a second block on Wednesday. That is visible on the grid, where a precedence rule would be a
  * fact about the schedule that only the code knew.
+ *
+ * A special against a weekly block is never a clash: cutting into the weekly schedule is what a
+ * special is FOR, and the module note says why that precedence is allowed. Two specials are compared
+ * date by date, since two ranges that share no date cannot collide whatever their hours.
  */
 export function overlap(left: ScheduleSlot, right: ScheduleSlot): boolean {
+    if (isSpecial(left) !== isSpecial(right)) return false;
+    if (isSpecial(left) && isSpecial(right)) return specialsClash(left, right);
+
     const theirs = occupies(right);
 
     return occupies(left).some(ours => theirs.some(other => ours.weekday === other.weekday && ours.from < other.to && other.from < ours.to));
+}
+
+/** A yearly range compared against another yearly one is compared across a leap year and both New Years around it. */
+const YEARLY_WINDOW = { from: '2027-12-31', to: '2029-01-01' };
+
+/**
+ * Whether two specials are ever on at the same time.
+ *
+ * Walked date by date over the only dates they could share, asking {@link piecesOn} of each: the
+ * same function the resolver and the timetable use, so the check cannot disagree with either about
+ * where a block is. A fixed range bounds the walk (plus the day after, for a tail past its last
+ * midnight); two yearly ones are walked over {@link YEARLY_WINDOW}, which holds every month-day once
+ * including the 29th of February.
+ */
+function specialsClash(left: ScheduleSlot & { dates: SpecialDates }, right: ScheduleSlot & { dates: SpecialDates }): boolean {
+    const fixed = [left.dates, right.dates].filter(dates => !dates.yearly);
+    const from = fixed.length === 0 ? YEARLY_WINDOW.from : fixed.map(dates => dates.from).reduce((a, b) => (a > b ? a : b));
+    const last = fixed.length === 0 ? YEARLY_WINDOW.to : fixed.map(dates => dates.to).reduce((a, b) => (a < b ? a : b));
+
+    const start = stationDateOf(from);
+    const end = stationDateOf(last);
+    if (start === undefined || end === undefined) return false;
+
+    const until = dateKey(addDays(end, 1));
+    for (let date = start; dateKey(date) <= until; date = addDays(date, 1)) {
+        const theirs = piecesOn(right, date);
+        if (piecesOn(left, date).some(ours => theirs.some(other => ours.from < other.to && other.from < ours.to))) return true;
+    }
+
+    return false;
 }

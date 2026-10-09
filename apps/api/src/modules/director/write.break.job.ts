@@ -1176,6 +1176,8 @@ function neighboursOf(lineup: StationLineup, segmentId: string, programmes: Read
     const items = lineup.all();
     const at = items.findIndex(item => item.kind === 'segment' && item.segmentId === segmentId);
     if (at < 0) return undefined;
+    // The show's call rather than the persona's: see `StationLineupRules.chartPositions`.
+    const sayChart = lineup.rules.chartPositions !== false;
 
     const nearest = (from: number, step: number, adjacentOnly = false): Neighbour | undefined => {
         for (let index = from; index >= 0 && index < items.length; index += step) {
@@ -1235,6 +1237,8 @@ function neighboursOf(lineup: StationLineup, segmentId: string, programmes: Read
                     ...(item.track.year === undefined ? {} : { year: item.track.year }),
                     ...(item.track.album === undefined ? {} : { album: item.track.album }),
                     ...(item.track.durationMs === undefined ? {} : { durationMs: item.track.durationMs }),
+                    // Why it is here, when a chart is the reason and the show says so. See `BreakTrack.chart`.
+                    ...(item.track.chart === undefined || !sayChart ? {} : { chart: item.track.chart }),
                 },
             };
         }

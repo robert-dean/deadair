@@ -1,6 +1,7 @@
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import type { ResolvedRules } from './rotation.rules.js';
 import type { PickBroadcast } from './never.play.js';
+import type { ChartPlacing } from '#modules/playout/rundown.js';
 
 /**
  * Choosing what the station should play next, as one DI seam.
@@ -27,6 +28,13 @@ export interface TrackPick {
      * Absent from anything that chose by name, which resolves by matching.
      */
     trackId?: string;
+    /**
+     * Where a published chart placed this record, when a chart named it.
+     *
+     * Carried through `PickResolver` onto the record it resolves to, so a break can say where the
+     * record stands. Absent from every pick a chart did not make.
+     */
+    chart?: ChartPlacing;
 }
 
 /**

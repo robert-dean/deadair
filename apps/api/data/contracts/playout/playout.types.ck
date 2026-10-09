@@ -24,6 +24,7 @@ contract PlayoutAlbumInput: { # An album the library holds, to play whole
 contract PlayoutChartInput: { # The published chart to build the running order from
     chartId: string(min=1, max=400) # As `pluginId:chartId`, which is how `GET /charts` lists them
     chartOrder?: enum(countdown, ranked, unordered) # Which way round to play it. Absent is `countdown`, which opens on the lowest rank and ends on number one
+    chartPositions?: boolean # Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes. Set it false to air a chart without its positions read out. A record no chart named has no position to say whatever this says
     callins?: boolean # Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it
 }
 

@@ -30,6 +30,48 @@ const systemOf = (messages: ReturnType<typeof beatPrompt>) => String(messages[0]
 const userOf = (messages: ReturnType<typeof beatPrompt>) => String(messages[1]?.content);
 
 const base = { kind: 'callin', title: 'Phone-in', ordinal: 2, words: 70 } as const;
+const mira: CastMember = { role: 'guest', personaId: 'g1', personaKey: 'guitarist', name: 'Mira', voice: 'guitarist' };
+const visit = { kind: 'visit', title: 'In the studio', ordinal: 2, words: 70 } as const;
+
+describe('a turn in a studio visit', () => {
+    it('tells the guest they are in the studio, not on a telephone', () => {
+        const system = systemOf(turn({ ...visit, speaker: mira, previousSpeaker: host }));
+
+        expect(system).toContain('You are a guest who has dropped by the studio');
+        expect(system).not.toContain('phoned in');
+        expect(system).toContain('You are already in the conversation');
+    });
+
+    it('has the guest say hello on their first turn, without welcoming anybody to a show that is not theirs', () => {
+        const system = systemOf(turn({ ...visit, speaker: mira, previousSpeaker: host, firstTurn: true }));
+
+        expect(system).toContain('The presenter has just welcomed you on air');
+        expect(system).toContain('Do not welcome the listener to the show');
+        expect(system).not.toContain('YOU rang THEM');
+    });
+
+    it('has the host welcome the guest into the studio rather than put them on the line', () => {
+        const system = systemOf(turn({ ...visit, ordinal: 0, speaker: host, guest: mira }));
+
+        expect(system).toContain('Mira has dropped by the studio');
+        expect(system).toContain('joining me in the studio is Mira');
+        expect(system).not.toContain("you're on the air");
+    });
+
+    it('has the host thank the guest for dropping by at the end', () => {
+        const system = systemOf(turn({ ...visit, speaker: host, previousSpeaker: mira, guest: mira, lastTurn: true }));
+
+        expect(system).toContain('where the visit ENDS');
+        expect(system).toContain('Thank Mira for dropping by');
+    });
+
+    it('tells the host the guest is in the room, and that a guest may say things nobody can check', () => {
+        const messages = turn({ ...visit, speaker: host, previousSpeaker: mira, guest: mira });
+
+        expect(userOf(messages)).toContain('Mira is here in the studio with you');
+        expect(systemOf(messages)).toContain('Your guest may say things you cannot check');
+    });
+});
 
 describe('a turn written by a caller', () => {
     it('is told it is a listener on the phone rather than the person writing the programme', () => {

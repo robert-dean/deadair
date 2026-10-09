@@ -52,7 +52,9 @@ export const personas = {
         exportAll: 'Export all',
         import: 'Import',
         restore: 'Restore built-ins',
+        newOther: 'New caller or guest…',
         newCaller: 'New caller',
+        newGuest: 'New guest',
         newNewsreader: 'New newsreader',
         newHost: 'New host',
         loadError: {
@@ -77,6 +79,7 @@ export const personas = {
             hosts: 'Hosts',
             newsreader: 'Newsreader',
             callers: 'Callers',
+            guests: 'Guests',
         },
     },
     card: {
@@ -121,6 +124,7 @@ export const personas = {
     editor: {
         title: {
             newCaller: 'New caller',
+            newGuest: 'New guest',
             newNewsreader: 'New newsreader',
             newHost: 'New host',
             edit: 'Edit {{label}}',
@@ -133,6 +137,7 @@ export const personas = {
         generate: {
             eyebrow: 'Start from a description',
             placeholderCaller: 'a taxi driver who rings in every week to argue about the charts',
+            placeholderGuest: 'a touring guitarist who drops by the studio between soundchecks',
             placeholderHost: 'a 1970s northern soul DJ who broadcasts from the back of a chip shop',
             description: 'Fills in the fields below. Nothing is saved until you press Save, and you can change any of it first.',
             errorTitle: 'Nothing was written',
@@ -154,6 +159,10 @@ export const personas = {
             ring: {
                 title: 'Who they ring',
                 blurb: 'A phone-in is cast from the callers who ring whoever is presenting it. Among them, whoever rang longest ago goes first.',
+            },
+            visit: {
+                title: 'Whose shows they drop by',
+                blurb: 'A visit is cast from the guests who drop by whoever is presenting it. Among them, whoever visited longest ago goes first.',
             },
             talk: {
                 title: 'How they talk',
@@ -406,6 +415,7 @@ export const personas = {
             stories: 'Stories',
         },
         caller: 'Caller',
+        guest: 'Guest',
         newsreader: 'Newsreader',
         outcome: {
             create: 'New',

@@ -94,11 +94,15 @@ export function ProductionsPage() {
  * card. A member with no name is one whose station is presenting as nobody in particular.
  */
 function cast(production: Production, t: TFunction<'productions'>): string {
-    const named = (role: 'host' | 'caller'): string[] =>
+    const named = (role: 'host' | 'caller' | 'guest'): string[] =>
         production.cast.filter(member => member.role === role).flatMap(member => (member.name === undefined ? [] : [member.name]));
 
     const callers = named('caller');
+    const guests = named('guest');
     const host = named('host')[0];
+
+    // A guest in the studio is said as one, rather than counted among people who rang.
+    if (host !== undefined && guests.length > 0) return t('cast.hostWithGuest', { host, guest: guests.join(t('cast.joiner')) });
 
     const names = callers.join(t('cast.joiner'));
     if (host !== undefined && callers.length > 0) return t('cast.hostWithCallers', { host, callers: names });

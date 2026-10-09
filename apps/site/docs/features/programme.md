@@ -21,6 +21,10 @@ A schedule need not cover the day. The hours no block claims play the sustaining
 
 The running order makes each changeover at a record boundary, so by default the record playing when a block starts is left to finish, however long it is: a seventeen-minute record at the top of the hour starts the new show at seventeen past. **Start shows on time** (off by default) sets a limit. A record from the programme that ended that is still playing five minutes into the new block (or however many you choose; zero ends it at once) is faded out over four seconds (or however long you choose; zero cuts it the way **Skip** does), and the activity feed names the record and the show it was holding up. Only the schedule's own changeovers are affected: a programme you put on by hand always lets the record finish.
 
+## Guest hosts
+
+A block can have **guest hosts** who sit in for its own host on some nights. A guest comes on fixed nights (Wednesdays, say), or at random: about one night in however many you choose, with a gap between visits (half of that by default, so an about-weekly guest never lands two nights running). Random nights are worked out from the date, so nobody can predict them, but the station and the console always agree on who is on tonight. On a guest's night the station puts them on, and they know whose show they are sitting in on, so they can say so. Only a host can sit in. **Today** shows "sitting in for" on the block that is on; nights still to come are not given away.
+
 ## Specials
 
 A special is a block on dates rather than every week: Halloween night, the week before Christmas, an evening somebody else presents. It has everything a block has, plus a first and a last date, and it can repeat every year on the same dates (a yearly range may run past New Year). Inside its dates it still runs only on the days you tick, so "the Fridays in December" is a range and a day. On its dates a special takes over from the weekly schedule for its hours, and whatever usually airs then resumes when it ends, part-way through if it was still on. Two specials may not overlap each other.

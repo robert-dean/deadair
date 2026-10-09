@@ -181,6 +181,9 @@ public enum ProductionCastMemberRole
 
     [JsonStringEnumMemberName("caller")]
     Caller,
+
+    [JsonStringEnumMemberName("guest")]
+    Guest,
 }
 
 /// <summary>How many passes to spend on it</summary>

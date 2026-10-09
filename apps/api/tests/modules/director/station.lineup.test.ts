@@ -647,6 +647,17 @@ describe('StationLineup editing', () => {
         expect(lineup.toSnapshot().broadcastId).toBe(before);
     });
 
+    it("ends a guest's sitting-in when an operator recasts the show, and keeps which night it is", () => {
+        // "Sitting in for" is the schedule's statement about a night. A person choosing the host has
+        // replaced it, so the new presenter must not claim to be covering for anybody.
+        const lineup = new StationLineup({ ...binding(), personaId: 'rockzo', regularPersonaId: 'ozzy', slotOccurrence: '2026-10-09' });
+
+        lineup.recast('ozzy');
+
+        expect(lineup.regularPersonaId).toBeUndefined();
+        expect(lineup.slotOccurrence).toBe('2026-10-09');
+    });
+
     it('hands the show back to the station when it is recast to nobody', () => {
         // The same thing an empty brief does one field over, and the reason `presenting` has a
         // fallback at all: absent means "whoever the station has on air", not "no host".

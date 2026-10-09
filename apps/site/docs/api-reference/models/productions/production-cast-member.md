@@ -12,10 +12,10 @@ mdx:
 <details>
 <summary>Attributes (3)</summary>
 
-| Attribute | Type                 | Required | Description                                       |
-| --------- | -------------------- | -------- | ------------------------------------------------- |
-| `role`    | `'host' \| 'caller'` | Yes      |                                                   |
-| `name`    | `string`             | No       | What they are called on air                       |
-| `persona` | `string`             | No       | The persona key, for a link back to the character |
+| Attribute | Type                            | Required | Description                                       |
+| --------- | ------------------------------- | -------- | ------------------------------------------------- |
+| `role`    | `'host' \| 'caller' \| 'guest'` | Yes      |                                                   |
+| `name`    | `string`                        | No       | What they are called on air                       |
+| `persona` | `string`                        | No       | The persona key, for a link back to the character |
 
 </details>

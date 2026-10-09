@@ -46,6 +46,7 @@ export const shell = {
         deskDescription: 'What is going out, what needs you, and what is next',
         artist: 'Artist',
         caller: 'Caller',
+        guest: 'Guest',
         host: 'Host',
         searching: 'Searching…',
         nothingFound: 'No page, record or character by that name.',

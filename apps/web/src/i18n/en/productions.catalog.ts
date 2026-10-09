@@ -29,6 +29,7 @@ export const productions = {
     cast: {
         joiner: ' and ',
         hostWithCallers: 'presented by {{host}}, with {{callers}}',
+        hostWithGuest: 'presented by {{host}}, with {{guest}} in the studio',
         host: 'presented by {{host}}',
         callers: 'with {{callers}}',
         voices_one: '{{count}} voice',

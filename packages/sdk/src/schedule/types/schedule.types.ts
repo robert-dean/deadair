@@ -1,4 +1,43 @@
 /**
+ * A host who sits in on a slot on some nights, saying whose show it usually is
+ * generated from [SlotGuestHost](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L37)
+ */
+export interface SlotGuestHost {
+    /** Who sits in. A host; a caller or a guest who drops by can never present a show */
+    personaId: string;
+    /** The nights they present, by the weekday the night begins on, Sunday 0. Send this or `everyN`, not both */
+    days?: number[];
+    /** Or at random: about one of this slot's nights in this many, on nights nobody can predict. 7 is about one in seven */
+    everyN?: number;
+    /** With `everyN`, the fewest days between two of their nights. Absent is half of `everyN`, so even one in seven never lands two nights running */
+    cooldownDays?: number;
+}
+
+/**
+ * A window of the station's day to draw
+ * generated from [ScheduleTimetableQuery](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L49)
+ */
+export interface ScheduleTimetableQuery {
+    /** The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor */
+    from?: string;
+    /** How many days from `from`. Defaults to a week */
+    days?: number;
+}
+
+/**
+ * One block: this slot, on this day, between these two times
+ * generated from [ScheduleOccurrence](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L62)
+ */
+export interface ScheduleOccurrence {
+    slotId: string;
+    label: string;
+    /** `YYYY-MM-DD HH:mm:ss` on the station's own clock, deliberately carrying no timezone offset: it is a reading rather than a moment, so it draws as written wherever the console is running */
+    start: string;
+    /** The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two */
+    end: string;
+}
+
+/**
  * One stretch of the station's day: from this time, on these days, the station plays this
  * generated from [ScheduleSlot](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L8)
  */
@@ -43,6 +82,8 @@ export interface ScheduleSlot {
     startsOn?: string;
     /** The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask */
     endsOn?: string;
+    /** Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time */
+    guestHosts?: SlotGuestHost[];
     /** Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year */
     yearly?: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
@@ -89,6 +130,8 @@ export interface ScheduleSlotInput {
     startsOn?: string;
     /** The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask */
     endsOn?: string;
+    /** Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time */
+    guestHosts?: SlotGuestHost[];
     /** Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year */
     yearly?: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
@@ -96,43 +139,8 @@ export interface ScheduleSlotInput {
 }
 
 /**
- * A window of the station's day to draw
- * generated from [ScheduleTimetableQuery](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L40)
- */
-export interface ScheduleTimetableQuery {
-    /** The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor */
-    from?: string;
-    /** How many days from `from`. Defaults to a week */
-    days?: number;
-}
-
-/**
- * One block: this slot, on this day, between these two times
- * generated from [ScheduleOccurrence](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L53)
- */
-export interface ScheduleOccurrence {
-    slotId: string;
-    label: string;
-    /** `YYYY-MM-DD HH:mm:ss` on the station's own clock, deliberately carrying no timezone offset: it is a reading rather than a moment, so it draws as written wherever the console is running */
-    start: string;
-    /** The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two */
-    end: string;
-}
-
-/**
- * generated from [ScheduleSlotList](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L35)
- */
-export interface ScheduleSlotList {
-    slots: ScheduleSlot[];
-}
-
-export interface ScheduleSlotListInput {
-    slots: ScheduleSlotInput[];
-}
-
-/**
  * The station's day as blocks, ready to draw
- * generated from [ScheduleTimetable](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L46)
+ * generated from [ScheduleTimetable](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L55)
  */
 export interface ScheduleTimetable {
     /** The range actually drawn, echoed so a caller steps forward and back by adding days to a string rather than by knowing the station's timezone */
@@ -143,7 +151,7 @@ export interface ScheduleTimetable {
 
 /**
  * Which slot the clock says should be on right now, and what follows it
- * generated from [ScheduleNow](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L61)
+ * generated from [ScheduleNow](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L70)
  */
 export interface ScheduleNow {
     /** What time it is on the station's own clock, in the same zone-naive `YYYY-MM-DD HH:mm:ss` shape as a block's ends. It is here so a caller can say how much of the block is left without knowing the station's timezone: subtracting two readings taken in one frame is arithmetic, deriving one is not */
@@ -152,8 +160,23 @@ export interface ScheduleNow {
     timezone?: string;
     /** The slot in force at this instant. Absent means the station has no schedule */
     slotId?: string;
+    /** Who presents tonight's night of the slot in force: a guest sitting in, or the slot's own host. Absent when it names nobody, which is the station's own host. Only the night that is ON is answered, so a guest who comes at random stays a surprise until their night begins */
+    hostPersonaId?: string;
+    /** Whose show it usually is, while a guest sits in on the slot in force. Absent on an ordinary night, and while the station's own host would be the regular one */
+    regularPersonaId?: string;
     /** The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins */
     airingSlotId?: string;
     /** The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block */
     upcoming: ScheduleOccurrence[];
+}
+
+/**
+ * generated from [ScheduleSlotList](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L44)
+ */
+export interface ScheduleSlotList {
+    slots: ScheduleSlot[];
+}
+
+export interface ScheduleSlotListInput {
+    slots: ScheduleSlotInput[];
 }

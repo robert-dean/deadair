@@ -62,7 +62,21 @@ export function OnNowStrip({ current, slots, personas, onEdit }: Props) {
                 {live === undefined ? (
                     <Sustaining next={blocks[0]} now={current.now} />
                 ) : (
-                    <Live block={live} now={current.now} slot={slotOf(slots, live)} personas={personas} takenOver={takenOver} onEdit={onEdit} />
+                    <Live
+                        block={live}
+                        now={current.now}
+                        slot={slotOf(slots, live)}
+                        personas={personas}
+                        takenOver={takenOver}
+                        onEdit={onEdit}
+                        // Tonight's presenter, which only the station can say: a guest sits in on
+                        // nights of its own choosing. Only for the block the clock says is on.
+                        tonight={
+                            live.slotId === current.slotId
+                                ? { hostPersonaId: current.hostPersonaId, regularPersonaId: current.regularPersonaId }
+                                : undefined
+                        }
+                    />
                 )}
 
                 {ahead.map((block, index) => (
@@ -89,6 +103,7 @@ function Live({
     personas,
     takenOver,
     onEdit,
+    tonight,
 }: {
     block: ScheduleOccurrence;
     now: string;
@@ -96,6 +111,7 @@ function Live({
     personas: readonly Persona[];
     takenOver: boolean;
     onEdit?: (slot: ScheduleSlot) => void;
+    tonight?: Tonight;
 }) {
     const { t } = useTranslation('schedule');
     const total = minutesBetween(block.start, block.end);
@@ -114,7 +130,7 @@ function Live({
                 </Text>
             </Group>
 
-            <BlockName block={block} slot={slot} personas={personas} onEdit={onEdit} />
+            <BlockName block={block} slot={slot} personas={personas} onEdit={onEdit} tonight={tonight} />
 
             <Progress value={total <= 0 ? 0 : Math.min(100, Math.max(0, (gone / total) * 100))} size="xs" color={colorOf(block.slotId)} />
 
@@ -125,6 +141,12 @@ function Live({
             ) : undefined}
         </Stack>
     );
+}
+
+/** Who the station says presents tonight's night of the block on now. See `ScheduleNow.hostPersonaId`. */
+interface Tonight {
+    hostPersonaId?: string;
+    regularPersonaId?: string;
 }
 
 /** A block that has not started yet. */
@@ -185,14 +207,29 @@ function BlockName({
     slot,
     personas,
     onEdit,
+    tonight,
 }: {
     block: ScheduleOccurrence;
     slot?: ScheduleSlot;
     personas: readonly Persona[];
     onEdit?: (slot: ScheduleSlot) => void;
+    tonight?: Tonight;
 }) {
     const { t } = useTranslation('schedule');
-    const host = personas.find(persona => persona.id === slot?.personaId);
+    // Tonight's presenter where the station said, and the slot's own host otherwise. A guest is a
+    // presenter who is not the slot's own, and is named with whose show it is.
+    const hostId = tonight?.hostPersonaId ?? slot?.personaId;
+    const host = personas.find(persona => persona.id === hostId);
+    const guest = tonight?.hostPersonaId !== undefined && tonight.hostPersonaId !== slot?.personaId;
+    const regular = personas.find(persona => persona.id === tonight?.regularPersonaId);
+    const hostLine =
+        host === undefined
+            ? undefined
+            : !guest
+              ? host.label
+              : regular === undefined
+                ? t('onNow.sittingIn', { guest: host.label })
+                : t('onNow.sittingInFor', { guest: host.label, regular: regular.label });
 
     return (
         <>
@@ -223,7 +260,7 @@ function BlockName({
 
             <Text size="xs" c="dimmed" className="da-num">
                 {when(block)}
-                {host ? <Text component="span" c="dimmed">{` · ${host.label}`}</Text> : undefined}
+                {hostLine ? <Text component="span" c="dimmed">{` · ${hostLine}`}</Text> : undefined}
             </Text>
 
             {slot?.brief ? (

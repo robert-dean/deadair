@@ -6,8 +6,8 @@ export interface Persona {
     id: string;
     /** A stable slug, unique per station. What a log line names and what a seeded persona is recognised by */
     key: string;
-    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant */
-    kind?: 'host' | 'caller' | 'newsreader';
+    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
+    kind?: 'host' | 'caller' | 'newsreader' | 'guest';
     label: string;
     /** Completes "You are …". Who they ARE; the sheet below carries how they talk */
     style: string;
@@ -60,8 +60,8 @@ export interface Persona {
 export interface PersonaInput {
     /** A stable slug, unique per station. What a log line names and what a seeded persona is recognised by */
     key: string;
-    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant */
-    kind?: 'host' | 'caller' | 'newsreader';
+    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
+    kind?: 'host' | 'caller' | 'newsreader' | 'guest';
     label: string;
     /** Completes "You are …". Who they ARE; the sheet below carries how they talk */
     style: string;
@@ -543,7 +543,7 @@ export interface PersonaImportEntry {
     /** What identifies this character across two installs */
     key: string;
     label: string;
-    kind?: 'host' | 'caller' | 'newsreader';
+    kind?: 'host' | 'caller' | 'newsreader' | 'guest';
     /** Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote */
     outcome: 'create' | 'update';
     storiesNew: number;
@@ -677,7 +677,7 @@ export interface PersonaStoryListInput {
  */
 export interface PersonaFilePersona extends Omit<PersonaDraftView, 'soundboard'> {
     /** Absent means `host`, as everywhere else */
-    kind?: 'host' | 'caller' | 'newsreader';
+    kind?: 'host' | 'caller' | 'newsreader' | 'guest';
     /** The board this character reaches for. Carried even though the receiving station may not hold it: a persona naming a rack that does not exist and one with no rack are the same state, and the import says which it got */
     soundboard?: string;
     stories: PersonaFileStory[];

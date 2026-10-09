@@ -318,6 +318,10 @@ describe('weather nobody gave the call', () => {
         expect(beat(`It has been raining all week out here. ${words(200)}`, { role: 'caller' })).toEqual([]);
     });
 
+    it('holds a studio guest to it like the host, since a guest is under the station’s sky', () => {
+        expect(beat(`Sunny out there this afternoon. ${words(200)}`, { role: 'guest' })[0]).toContain('"Sunny"');
+    });
+
     it('lets the host answer weather a caller raised', () => {
         const raised = ['It has been raining all week out here.'];
 

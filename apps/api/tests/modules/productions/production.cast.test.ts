@@ -14,6 +14,7 @@ import {
     MAX_CALLERS,
     MIN_TURNS_FOR_A_CALLER,
     speakerOrder,
+    turnWeights,
     type CastMember,
     type ProductionCast,
 } from '../../../src/modules/productions/production.cast.js';
@@ -331,5 +332,31 @@ describe('what a programme is about when nobody said', () => {
 
     it('calls a host with no name the host', () => {
         expect(callSubjectOf(undefined, [{ role: 'host', preoccupation: 'chemtrails' }, dale])?.host).toBe('the host');
+    });
+});
+
+describe('a studio guest', () => {
+    const host = { role: 'host' as const, name: 'Ray' };
+    const guest = { role: 'guest' as const, name: 'Mira', preoccupation: 'the new record they made in a barn' };
+
+    it('makes the production a conversation, with the host opening and closing', () => {
+        expect(isDialogue([host, guest])).toBe(true);
+        expect(speakerOrder([host, guest], 5)).toEqual([0, 1, 0, 1, 0]);
+    });
+
+    it('answers at more length than a caller, which is an interview rather than a phone-in', () => {
+        const [hostWeight, guestWeight] = turnWeights([host, guest], [0, 1]);
+        const [, callerWeight] = turnWeights([host, { role: 'caller' }], [0, 1]);
+
+        expect(guestWeight).toBeGreaterThan(callerWeight!);
+        expect(guestWeight).toBeGreaterThan(hostWeight!);
+    });
+
+    it('survives being stored and read back', () => {
+        expect(coerceCast([host, guest])).toEqual([host, guest]);
+    });
+
+    it('marks the subject as a visit, so it is worded as dropping by', () => {
+        expect(callSubjectOf(undefined, [host, guest])).toMatchObject({ caller: 'Mira', about: guest.preoccupation, visit: true });
     });
 });

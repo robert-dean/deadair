@@ -73,7 +73,7 @@ import type { SpokenWeather } from '#modules/weather/weather.words.js';
 import type { AlmanacEntry } from '@deadair/plugin-sdk';
 import { languageName, languageRule } from '#modules/shared/language.name.js';
 import { inventedFigure, unofferedWeather } from './weather.figures.js';
-import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
+import type { BreakStory, BreakTrack, BreakWriteRequest, SittingIn } from './break.writer.js';
 import type { ChartPlacing } from '#modules/playout/rundown.js';
 import { contradictsDayPart, namesWrongSky, namesWrongTimeOfDay, type RoughTime } from './clock.words.js';
 import { retryNudge } from './break.retry.js';
@@ -517,6 +517,12 @@ export interface PromptSettings {
      */
     persona?: PersonaCharacter;
     /**
+     * Whose show this is while the presenter is a guest host sitting in. Rendered as one line under
+     * the role sentence, so the guest can say so and never claims the show as theirs. Absent leaves
+     * the prompt byte-identical to an ordinary night's.
+     */
+    sittingInFor?: SittingIn;
+    /**
      * What this character has accumulated, from `deadair.persona_notes`.
      *
      * Called a NOTEBOOK here and not "notes", which is not fussiness: in this file "the notes" has
@@ -845,6 +851,16 @@ export function breakPrompt(request: BreakWriteRequest, settings: PromptSettings
     return nudge === undefined ? asked : [...asked, { role: 'user', content: nudge }];
 }
 
+/** The one line a guest host is given about whose show they are on. */
+function sittingInLine(regular: SittingIn): string {
+    const show = regular.show?.trim();
+
+    return (
+        `Tonight you are sitting in for ${regular.name}${show ? ` on ${show}` : ''}: it is their show and you are the guest presenter. ` +
+        'Say so where it fits, and never call the show yours.'
+    );
+}
+
 function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string {
     const station = settings.station?.trim();
     const dj = settings.dj?.trim();
@@ -864,6 +880,10 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
 
     const lines = [
         role,
+        // Straight under the role, because it is part of who the presenter is tonight rather than
+        // something about the records: a guest who forgot whose show it is would welcome listeners
+        // to "my show", and the regular host's listeners would notice.
+        ...(settings.sittingInFor === undefined ? [] : [sittingInLine(settings.sittingInFor)]),
         // The station before the character, because it is what the character is on. Both are
         // background: the second especially is put as something to know rather than to say, or a
         // fundraiser the operator mentioned once would open every break of the day.

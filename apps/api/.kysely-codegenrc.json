@@ -33,7 +33,7 @@
             "deadair.script_history.outcome": "'written' | 'declined' | 'failed'",
             "deadair.station_events.module": "'playout' | 'director' | 'render' | 'catalog' | 'plugins' | 'storage'",
             "deadair.station_events.severity": "Generated<'info' | 'warn' | 'fault'>",
-            "deadair.personas.kind": "Generated<'host' | 'caller' | 'newsreader'>",
+            "deadair.personas.kind": "Generated<'host' | 'caller' | 'newsreader' | 'guest'>",
             "deadair.break_requests.urgency": "'interrupt' | 'next' | 'soon' | 'whenever'",
             "deadair.break_requests.state": "Generated<'pending' | 'ready' | 'placed' | 'expired' | 'failed'>",
             "deadair.facts.category": "Generated<'summary' | 'placement' | 'chart' | 'recording' | 'personnel' | 'controversy' | 'cover_or_sample' | 'ending'>",
@@ -72,7 +72,8 @@
             "deadair.console_languages.direction": "Generated<'ltr' | 'rtl'>",
             "deadair.schedule_slots.mood": "'love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear' | null",
             "deadair.station_lineup.mood": "'love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear' | null",
-            "deadair.block_rules.field": "'genre' | 'tag'"
+            "deadair.block_rules.field": "'genre' | 'tag'",
+            "deadair.schedule_slot_hosts.role": "'guest' | 'cohost'"
         }
     },
     "partitions": false,

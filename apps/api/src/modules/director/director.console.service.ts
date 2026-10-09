@@ -19,7 +19,7 @@ import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
 import { AIR_MODE_KEY } from '#modules/playout/air.mode.js';
 import { PlayoutPusher } from '#modules/playout/playout.pusher.js';
 import { Rundown, type RundownTrack } from '#modules/playout/rundown.js';
-import { DEFAULT_PERSONA_KIND } from '#modules/personas/persona.js';
+import { cannotPresent } from '#modules/personas/persona.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
@@ -368,9 +368,13 @@ export class DirectorConsoleService {
      * passes neither, so a person reaching here is recorded as one even inside a scheduled block.
      * That is a third thing the slot stamp cannot say on its own — see `placedBy` on the binding.
      *
+     * `night` is the tick saying WHICH night of `onSlot` this is, and whether a guest host is sitting
+     * in on it. It is what lets the tick tell one night of a slot from the next, and what lets the
+     * guest say whose show it is.
+     *
      * @throws 422 when the playlist has nothing to play.
      */
-    async putOnAir(input: PutOnAirInput, onSlot?: ScheduleSlot, bySchedule = false): Promise<StationAir> {
+    async putOnAir(input: PutOnAirInput, onSlot?: ScheduleSlot, bySchedule = false, night?: ScheduledNight): Promise<StationAir> {
         const tracks = await this.sourceTracks(input);
         const mode = input.mode ?? 'rotation';
 
@@ -419,6 +423,8 @@ export class DirectorConsoleService {
             // whatever these say, because `NO_RULES` is what those modes resolve from.
             ...rulesAskedFor(input),
             ...(slot === undefined ? {} : { slotId: slot.id }),
+            ...(night === undefined ? {} : { slotOccurrence: night.date }),
+            ...(await this.regularHostFor(night, input.personaId)),
             // Who chose this, which the slot stamp above cannot answer. `onSlot` is the tick handing
             // back what it resolved, and `sustaining` is the tick filling a gap; everything else
             // reaching here is a person, including a person who happens to be inside a scheduled
@@ -456,6 +462,29 @@ export class DirectorConsoleService {
             tracks: tracks.length,
         });
         return await this.getAir();
+    }
+
+    /**
+     * Whose show it usually is, on a night a guest host sits in.
+     *
+     * The slot's own host when it names one, and otherwise the station's default host, since that is
+     * who presents a slot that names nobody. Nothing when the answer is the guest themselves, which
+     * would have somebody sitting in for themselves. Never fatal: a station whose roster cannot be
+     * read loses the line, not the broadcast.
+     */
+    private async regularHostFor(night: ScheduledNight | undefined, guestId: string | undefined): Promise<{ regularPersonaId?: string }> {
+        if (night?.guest !== true) return {};
+
+        const regular =
+            night.regularPersonaId ??
+            (
+                await this.personas.defaultHost().catch(error => {
+                    this.logger.warn(`director: could not read the station's host for a guest night (${errorText(error)})`);
+                    return undefined;
+                })
+            )?.id;
+
+        return regular === undefined || regular === guestId ? {} : { regularPersonaId: regular };
     }
 
     /**
@@ -991,9 +1020,8 @@ export class DirectorConsoleService {
         const personaId = input.personaId?.trim();
         const host = personaId === undefined ? undefined : await this.personas.find(personaId);
         if (personaId !== undefined && host === undefined) throw httpError(404).withDetails({ message: 'no such persona' });
-        if (host !== undefined && host.kind !== DEFAULT_PERSONA_KIND) {
-            throw httpError(400).withDetails({ message: `"${host.label}" is a caller, and a caller cannot present the station` });
-        }
+        const refusal = host === undefined ? undefined : cannotPresent(host);
+        if (refusal !== undefined) throw httpError(400).withDetails({ message: refusal });
 
         await this.director.post({ kind: 'recast', bind: { ...(personaId === undefined ? {} : { personaId }) } });
 
@@ -1689,4 +1717,16 @@ function airSourceOf(status: { active: boolean; slotId?: string; placedBy?: 'ope
     if (status.placedBy !== 'schedule') return 'operator';
 
     return status.slotId === undefined ? 'sustaining' : 'schedule';
+}
+
+/**
+ * Which night of a slot the schedule is putting on, as `putOnAir` takes it from the tick.
+ *
+ * `date` is the date the night began on, `YYYY-MM-DD`. `guest` is whether a guest host is sitting
+ * in, and `regularPersonaId` the slot's own host when it names one.
+ */
+export interface ScheduledNight {
+    date: string;
+    guest: boolean;
+    regularPersonaId?: string;
 }

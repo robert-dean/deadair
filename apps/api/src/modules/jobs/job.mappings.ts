@@ -22,6 +22,7 @@ import { MixInSimilarJob } from '#modules/director/mix.in.similar.job.js';
 import { ProduceProductionJob } from '#modules/productions/produce.production.job.js';
 import { StitchProductionJob } from '#modules/productions/stitch.production.job.js';
 import { ScheduleTickJob } from '#modules/schedule/schedule.tick.job.js';
+import { PrepareSlotJob } from '#modules/schedule/prepare.slot.job.js';
 import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
 import { PruneScriptHistoryJob } from '#modules/render/prune.script.history.job.js';
@@ -398,6 +399,17 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'schedule.tick': {
         job: ScheduleTickJob,
         cron: '* * * * *',
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 5 }) },
+    },
+
+    // No cron: the tick sends this when a show that is only a brief is about to start.
+    //
+    // NO retry, for the tick's own reason: the tick sends it again every minute until a set is
+    // there, so the cron behind the tick IS the retry. One worker, the default, and that is what
+    // makes those repeat sends cheap: a run queued behind the one that prepared the set finds it and
+    // returns. `expiresIn` sits above a model refill, which takes a minute or two.
+    'schedule.prepare_slot': {
+        job: PrepareSlotJob,
         policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 5 }) },
     },
 

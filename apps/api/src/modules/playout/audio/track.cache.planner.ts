@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { isTrackItem, type StationLineup } from '#modules/director/station.lineup.js';
+import type { RundownTrack } from '#modules/playout/rundown.js';
 import { TrackAudioRepository } from './track.audio.repository.js';
 import { CACHE_AHEAD, TrackAudioService } from './track.audio.service.js';
 
@@ -261,5 +262,50 @@ export class TrackCachePlanner {
         // makes the bytes start coming, and a pass that asked for two records has done something
         // about the silence even though nothing has arrived yet.
         return { asked: wanted.length, unfetchable, warming: inFlight + wanted.length };
+    }
+
+    /**
+     * Fetch the opening records of a show that has not started yet, and answer how many were asked for.
+     *
+     * {@link ripen} only ever looks at the running order on air, so a show's first records used to be
+     * asked for at its boundary and the commit gate held the show until they arrived. A prepared set
+     * (`PrepareSlotJob`) is known ten minutes earlier, and this is what makes that head start reach the
+     * audio as well as the choosing.
+     *
+     * On `ripen`'s terms: catalogued records only, nothing already on disk or in flight, nothing
+     * backing off, and no more than {@link FETCH_PER_PASS} asked for, nearest first. That cap is the
+     * same restraint `ripen` shows a rate-limited credential, and it also keeps the show on air from
+     * queueing behind the next one's downloads. Two is enough: the commit gate waits on the FIRST
+     * record, and the changeover's own passes fetch the rest of the window as they always have.
+     *
+     * It judges nothing unfetchable, because there is no running order yet to take a record out of:
+     * the changeover's own pass does that. Every record in the first {@link CACHE_AHEAD} it found is
+     * marked wanted, on disk already or not, so a sweep in the minutes before the show does not take
+     * one. See {@link TrackAudioRepository.markWanted}.
+     */
+    async warm(tracks: readonly RundownTrack[]): Promise<number> {
+        const records = tracks.filter(track => track.trackId !== undefined).slice(0, CACHE_AHEAD);
+        if (records.length === 0) return 0;
+
+        const states = await this.audio.findForBindings(records.map(track => ({ pluginId: track.pluginId, externalId: track.externalId })));
+        await this.audio.markWanted(states.map(state => state.sourceId));
+
+        // Walked in the set's order rather than the query's, so the nearest records are the ones asked for.
+        const bySource = new Map(states.map(state => [`${state.pluginId} ${state.externalId}`, state]));
+        const now = Date.now();
+        const wanted = records
+            .flatMap(track => {
+                const state = bySource.get(`${track.pluginId} ${track.externalId}`);
+                return state === undefined ? [] : [state];
+            })
+            .filter(state => state.checksum === undefined && !this.service.isFetching(state.sourceId))
+            .filter(state => state.nextAttemptAt === undefined || state.nextAttemptAt.toMillis() <= now)
+            .slice(0, FETCH_PER_PASS)
+            .map(state => state.sourceId);
+
+        for (const sourceId of wanted) await this.jobs.send('playout.cache_track', { sourceId });
+
+        if (wanted.length > 0) this.logger.info('playout: fetching the opening of the next show', { count: wanted.length });
+        return wanted.length;
     }
 }

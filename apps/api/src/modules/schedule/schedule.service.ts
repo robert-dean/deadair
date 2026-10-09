@@ -197,7 +197,9 @@ export class ScheduleService {
      * **Ask it for NOW.** It takes an instant because that is what keeps `resolveSlot` pure, not
      * because anything should look ahead: a caller resolving for a later airtime would straddle a
      * boundary and disagree with a live-clock caller about which show is on, and whoever wrote
-     * second would win. See the note on `resolveSlot`.
+     * second would win. See the note on `resolveSlot`. The one later instant asked for is the tick's
+     * `prepareAhead`, which writes nothing that airs: it learns which show is next so that show's
+     * opening records can be chosen early, and the changeover itself still resolves for now.
      */
     async inForce(at: Date = new Date()): Promise<ScheduleSlot | undefined> {
         return resolveSlot(at, stationZone(this.config), await this.slots.list());

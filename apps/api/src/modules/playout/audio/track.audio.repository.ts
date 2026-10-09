@@ -524,6 +524,25 @@ export class TrackAudioRepository extends DataRepository {
     }
 
     /**
+     * Notes that these records are about to be wanted, which keeps a sweep off them until they air.
+     *
+     * For a show's opening fetched before it starts (`TrackCachePlanner.warm`). The protected set
+     * covers only the running order on air, and a record evicted once and fetched again keeps the
+     * `last_served_at` of its last real serve, so without this an opening fetched ten minutes early
+     * could be the first thing a sweep takes. Moving it to the warm end of the order is enough: the
+     * sweep evicts coldest first and only when the cache is over its cap.
+     */
+    async markWanted(sourceIds: readonly string[]): Promise<void> {
+        if (sourceIds.length === 0) return;
+
+        await this.db
+            .updateTable('deadair.trackAudio')
+            .set({ lastServedAt: sql<never>`now()` })
+            .where('sourceId', 'in', [...sourceIds])
+            .execute();
+    }
+
+    /**
      * Records that a fetch did not produce bytes, and when it is worth trying again.
      *
      * The row is kept rather than deleted: without it nothing can tell a binding never tried from one

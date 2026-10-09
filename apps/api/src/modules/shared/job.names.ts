@@ -18,6 +18,7 @@ export type JobNames =
     | 'director.write_break'
     | 'director.produce'
     | 'schedule.tick'
+    | 'schedule.prepare_slot'
     | 'personas.distil_notes'
     | 'personas.write_stories'
     | 'personas.audition'

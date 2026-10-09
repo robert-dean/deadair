@@ -1,5 +1,6 @@
 import { Container, Injectable } from 'injectkit';
 import { JobContext } from '@maroonedsoftware/jobbroker';
+import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { IsHttpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
@@ -9,9 +10,12 @@ import { DirectorService } from '#modules/director/director.service.js';
 import { isChartSource, isStationPlaylistSource, type ScheduleSlot, type ScheduleSlotSource } from '#modules/director/schedule.js';
 import type { NightHost } from '#modules/director/slot.visits.js';
 import type { PutOnAirInput } from '#modules/director/types/director.types.js';
+import type { RundownTrack } from '#modules/playout/rundown.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { hasOverrun } from './changeover.overrun.js';
+import { PREPARE_AHEAD_MS, type PrepareSlotPayload } from './prepare.slot.job.js';
+import { PreparedSetRepository } from './prepared.set.repository.js';
 import { ScheduleNotices } from './schedule.notices.js';
 import { ScheduleService } from './schedule.service.js';
 
@@ -85,6 +89,10 @@ export class ScheduleTickJob extends PlainJob {
         private readonly activity: ActivityRecorder,
         // What has already been said, so a standing failure is one line rather than sixty an hour.
         private readonly notices: ScheduleNotices,
+        // Tonight's opening records for a show that is only a brief, chosen before it starts.
+        private readonly prepared: PreparedSetRepository,
+        // For asking for the next show's set: see {@link prepareAhead}.
+        private readonly jobs: PgBossJobBroker,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -98,6 +106,13 @@ export class ScheduleTickJob extends PlainJob {
         const active = this.director.status().active;
         if (!active && !this.director.ranOut()) return;
 
+        await this.reconcile(active);
+        // After, so nothing about preparing the next show can delay or stop this one changing over.
+        await this.prepareAhead();
+    }
+
+    /** Whether the station is airing what the clock says, and the changeover when it is not. */
+    private async reconcile(active: boolean): Promise<void> {
         // Resolved ONCE, for now, and carried into the changeover below. Asking twice would open a
         // window across a boundary in which the order is built from one slot's source and stamped
         // with the next slot's id, which nothing afterwards could tell from a station that is
@@ -137,6 +152,41 @@ export class ScheduleTickJob extends PlainJob {
         }
 
         await this.changeOver(slot, airing);
+    }
+
+    /**
+     * Ask for the next show's opening records, when it is only a brief and starts soon.
+     *
+     * Asked of the clock {@link PREPARE_AHEAD_MS} from now, which tells this which show will be on
+     * then and decides nothing about now: the changeover still resolves for the present instant, and
+     * a set prepared for a show that never airs is a wasted refill rather than a wrong one.
+     *
+     * Sent every minute until the set is there, which is what makes a lost send or a failed run cost
+     * nothing: `schedule.prepare_slot` runs one at a time and a run that finds the set returns. Never
+     * throws, because a station that cannot prepare a show must still change over to it.
+     */
+    private async prepareAhead(): Promise<void> {
+        const ahead = Date.now() + PREPARE_AHEAD_MS;
+        // A hold that outlasts the next boundary keeps the station where it is, so that show will not
+        // open at its start and there is nothing to prepare for. One that lapses before it is the
+        // operator holding until the next show, which is exactly the one to be ready for.
+        const held = this.director.holdUntil();
+        if (held !== undefined && held > ahead) return;
+
+        try {
+            const next = await this.schedule.inForce(new Date(ahead));
+            if (next === undefined || next.source !== undefined) return;
+
+            const { date } = this.schedule.nightOf(next, ahead);
+            const order = this.director.order();
+            // Already on air for that night, so its moment has passed.
+            if (order?.slotId === next.id && order.slotOccurrence === date) return;
+            if ((await this.prepared.forNight(next.id, date)) !== undefined) return;
+
+            await this.jobs.send('schedule.prepare_slot', { slotId: next.id, occurrence: date } satisfies PrepareSlotPayload);
+        } catch (error) {
+            this.logger.warn(`schedule: could not ask for the next show to be prepared (${errorText(error)})`);
+        }
     }
 
     /**
@@ -283,11 +333,15 @@ export class ScheduleTickJob extends PlainJob {
         // Which night this is and who presents it, read once for both attempts below so the order
         // cannot be built for one host and stamped for another.
         const { date, host, coHosts } = this.schedule.nightOf(slot);
+        // Only a slot with no source is prepared for: one with a playlist or a chart has its records
+        // at the boundary already. See `PreparedSetRepository`.
+        const prepared = slot.source === undefined ? await this.preparedFor(slot, date) : undefined;
         const night: ScheduledNight = {
             date,
             guest: host.guest,
             ...(host.regularPersonaId === undefined ? {} : { regularPersonaId: host.regularPersonaId }),
             ...(coHosts.length === 0 ? {} : { coHostIds: coHosts }),
+            ...(prepared === undefined ? {} : { prepared }),
         };
 
         let withoutSource: unknown;
@@ -309,7 +363,10 @@ export class ScheduleTickJob extends PlainJob {
         }
 
         this.notices.settled();
-        this.logger.info('schedule: the station changed over', { slot: slot.id, label: slot.label, from });
+        this.logger.info('schedule: the station changed over', { slot: slot.id, label: slot.label, from, prepared: prepared?.length ?? 0 });
+        // Aired, so it is spent. Kept when the changeover was declined, since the next minute's tick
+        // tries the same night again.
+        if (prepared !== undefined) await this.discardPrepared(slot);
 
         if (withoutSource !== undefined) {
             this.logger.warn(
@@ -359,6 +416,32 @@ export class ScheduleTickJob extends PlainJob {
         // The host, or who is beside them: a visiting co-host's night starts at the top of the show
         // like a guest host's does, and so does the night after it, when they have gone again.
         return then?.personaId !== now.host.personaId || (then?.coHosts ?? []).join('|') !== now.coHosts.join('|');
+    }
+
+    /**
+     * Tonight's prepared set, or nothing. A read that fails is nothing too: the show opens empty and
+     * refills, which is what every brief-only show did before anything was prepared, and is far
+     * better than a changeover that does not happen.
+     */
+    private async preparedFor(slot: ScheduleSlot, date: string): Promise<RundownTrack[] | undefined> {
+        try {
+            return await this.prepared.forNight(slot.id, date);
+        } catch (error) {
+            this.logger.warn(`schedule: could not read the set prepared for "${slot.label}", so it opens without one (${errorText(error)})`);
+            return undefined;
+        }
+    }
+
+    /**
+     * Let a prepared set go after it aired. Logged rather than thrown: the station has already changed
+     * over, and a row left behind is for a night that has started, so nothing will air it twice.
+     */
+    private async discardPrepared(slot: ScheduleSlot): Promise<void> {
+        try {
+            await this.prepared.discard(slot.id);
+        } catch (error) {
+            this.logger.warn(`schedule: could not let go of the set prepared for "${slot.label}" (${errorText(error)})`);
+        }
     }
 
     /** This slot cannot be aired at all, so the station keeps doing what it was doing. */

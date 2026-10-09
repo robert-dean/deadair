@@ -100,6 +100,37 @@ foreign key on `putOnAir`'s rule for its host, and the tick changes over at the 
 co-hosts differ from the last night's, so a visit begins at the top of the show and ends with it. A
 recast keeps the co-hosts (less whoever was made the lead) and leaves their breaks as written.
 
+**A show that is only a brief is chosen before it starts, and that does not make the schedule an
+actor** (migration 0080, `schedule/prepare.slot.job.ts`). A slot with no playlist or chart used to go
+on air with an EMPTY order: `putOnAir` retracted the outgoing show's queue, the director sent a refill,
+the model chose a set and the set downloaded, and the mount was silent throughout. Measured on the live
+station: 2m20s at The Boneyard on 2026-10-08 and 2m50s at Glam Slam on 2026-10-09, while a chart show
+the same day aired its first record inside the minute. Now the tick asks the clock which show will be
+on `PREPARE_AHEAD_MS` (ten minutes) from now, and for a brief-only one it sends `schedule.prepare_slot`.
+That job makes the refill's own `planRecords` call from the slot's brief, period and mood and keeps the
+result in `schedule_prepared_sets`, one row per slot, keyed on the night (`slot_occurrence`'s date)
+because a block running through midnight is one id on two nights. The changeover reads tonight's row and
+hands it to `putOnAir` on the `ScheduledNight`, which vets it as it vets a playlist, since a dislike can
+land in those ten minutes, and the ordinary refill carries on from there. Three things keep this inside
+the ownership rule. **The tick still decides nothing about now**: the look ahead learns which show is
+next, the changeover still resolves for the present instant, and a set prepared for a show that never
+airs is a wasted refill rather than a wrong one. **Nothing prepared is a running order**: the director
+is its only writer and receives the set as tracks on `putOnAir`, exactly as it receives a playlist read
+at the boundary. And **everything fails open**: no set, an unreadable one, one the veto empties, or a
+job that never ran each opens the show empty and refilling, as every brief-only show did before. Three
+obvious fixes were refused. Holding the outgoing show's queue until the new one had records would air
+a programme that has ended and break `putOnAir`'s retract-first rule. Writing the set to a station
+playlist, which this file's own "if it is prepared it is a playlist" seems to ask for, would put a
+machine's scratch list on the operator's playlists page with nothing to clean it up; the rule is about
+what may be EDITED, and nobody edits this. And Redis was refused because it holds sessions on the
+promise that losing it costs a sign-in and nothing else, and because a foreign key on the slot is what
+deletes a set with its slot (`ScheduleRepository.update` deletes it on an edit, since it was chosen
+against the brief the edit replaced). The tick sends every minute until the row exists, and the queue's
+one worker plus the job's own "already prepared" check is what makes that cheap. A hold that outlasts
+the next boundary prepares nothing, and one that lapses before it is preparing for exactly the show it
+lapses into. Chart and provider-playlist slots are not prepared: their opening is known only by reading
+the source, which the changeover does anyway, and a chart reads by looking up every entry.
+
 **A broadcast has an IDENTITY, and everything written while it runs carries it.**
 `station_lineup.broadcast_id` is minted when a running order is built and kept for as long as it
 airs, so `play_history`, `segment_events`, `script_history` and `station_events` can all answer "what
@@ -380,6 +411,20 @@ the first download hears the station say so — canned from `media/segments/inbo
 recorded one, `WarmUpWriter`'s own phrasings otherwise, one at a time, only with the gate open, and only
 while the wait is an ordinary one. It names no record, because the records it covers for are the ones
 `thin` may yet remove.
+
+**A show prepared ahead has its opening fetched ahead too, because choosing early is not enough on its
+own.** The gate above holds a record until its bytes are here, and `ripen` only looks at the order on
+air, so a brief-only show whose records were chosen ten minutes early (see [who owns the running
+order](#who-owns-the-running-order)) would still wait on its first download at the boundary.
+`TrackCachePlanner.warm` is asked once the set is saved and works on `ripen`'s terms: catalogued records
+only, nothing on disk, in flight or backing off, and at most `FETCH_PER_PASS`, nearest first. The cap is
+`ripen`'s restraint toward a rate-limited credential, and it also keeps the show on air from queueing
+behind the next one's downloads; two is enough because the gate waits on the FIRST record and the
+changeover's own passes fetch the rest. It marks nothing unfetchable, since there is no order yet to take
+a record out of. It does mark every record it found as wanted (`TrackAudioRepository.markWanted`), on disk
+or not, because the sweep's protected set covers only the order on air and a record evicted once and
+fetched again keeps the `last_served_at` of its last real serve: without the mark, an opening fetched
+early could be the first thing a sweep took.
 
 ## Where a record's audio comes from
 

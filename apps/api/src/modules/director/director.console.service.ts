@@ -412,7 +412,7 @@ export class DirectorConsoleService {
         // Read after the slot rather than before it, because a chart is cut to the time the slot has
         // left: see `chart.airtime.ts`. Only a chart, and only inside a slot; a station with no
         // schedule airs the whole document, as it always did.
-        const tracks = await this.sourceTracks(input, slot === undefined ? undefined : this.airtimeLeft(slot, input, mode));
+        const tracks = await this.openingTracks(input, night, slot === undefined ? undefined : this.airtimeLeft(slot, input, mode));
 
         const binding: StationLineupBinding = {
             name: input.name ?? (await this.nameFor(input)),
@@ -550,6 +550,22 @@ export class DirectorConsoleService {
         } catch (error) {
             this.logger.warn(`director: could not ask the station to mark the change of programme (${errorText(error)})`);
         }
+    }
+
+    /**
+     * What a broadcast opens with: its source's records, or for a show that has none, the set the
+     * schedule prepared for tonight.
+     *
+     * A prepared set goes through the same veto as a playlist, because it was chosen minutes before
+     * the boundary and a dislike or a policy change since then still has to hold. One the veto
+     * empties is simply not used: the show opens empty and refills, which is what it did before
+     * anything was prepared, rather than a 422 that would leave the last show on air.
+     */
+    private async openingTracks(input: PutOnAirInput, night: ScheduledNight | undefined, airtimeMs?: number): Promise<RundownTrack[]> {
+        const tracks = await this.sourceTracks(input, airtimeMs);
+        if (tracks.length > 0 || night?.prepared === undefined || night.prepared.length === 0) return tracks;
+
+        return await this.resolver.vet(night.prepared, { era: this.era(input), broadcast: broadcastOf(input) });
     }
 
     /**
@@ -1783,6 +1799,11 @@ export interface ScheduledNight {
     regularPersonaId?: string;
     /** Who presents beside the host tonight, in order. Absent or empty is one voice. */
     coHostIds?: readonly string[];
+    /**
+     * The records prepared for tonight, for a slot with no source of its own. Ignored when the input
+     * names a source, which always wins. See `PreparedSetRepository`.
+     */
+    prepared?: readonly RundownTrack[];
 }
 
 /** A night's co-hosts as the binding holds them: never the lead, never empty. */

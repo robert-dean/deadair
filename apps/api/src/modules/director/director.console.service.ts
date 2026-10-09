@@ -862,7 +862,7 @@ export class DirectorConsoleService {
      *
      * @throws 422 when the id names no chart, or when nothing could read one.
      */
-    async airChart(input: { chartId: string; chartOrder?: PutOnAirInput['chartOrder']; callins?: boolean }): Promise<void> {
+    async airChart(input: { chartId: string; chartOrder?: PutOnAirInput['chartOrder']; callins?: boolean; chartPositions?: boolean }): Promise<void> {
         // Read and discarded. The job reads it again for the reason `readChart` gives; what this
         // call is for is refusing at the door rather than accepting an ask that cannot land.
         await this.readChart(input.chartId);
@@ -875,6 +875,7 @@ export class DirectorConsoleService {
             chartId: input.chartId,
             ...(input.chartOrder === undefined ? {} : { chartOrder: input.chartOrder }),
             ...(input.callins === undefined ? {} : { callins: input.callins }),
+            ...(input.chartPositions === undefined ? {} : { chartPositions: input.chartPositions }),
             ...(broadcastId === undefined ? {} : { broadcastId }),
         });
 
@@ -1633,6 +1634,7 @@ function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRules } {
     const rules: StationLineupRules = {
         ...(input.callins === undefined ? {} : { callins: input.callins }),
         ...(input.mixInSimilar === undefined ? {} : { mixInSimilar: input.mixInSimilar }),
+        ...(input.chartPositions === undefined ? {} : { chartPositions: input.chartPositions }),
     };
     return Object.keys(rules).length === 0 ? {} : { rules };
 }

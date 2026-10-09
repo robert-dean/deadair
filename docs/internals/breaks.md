@@ -338,7 +338,7 @@ a countdown the position is the content. The "knows nothing beyond what is liste
 placings beyond any listed above" rather than chart placings outright, or the prompt argues with its own
 listing. No "this week": the edition's date is not something the station holds. There is no guard behind it
 yet: an invented position for a record that has none is refused by the prompt alone, as it was before this
-existed, and a `invented-chart` check wants measuring against `script_history` before it refuses anything,
+existed, and an `invented-chart` check wants measuring against `script_history` before it refuses anything,
 since "number one" is also something a presenter says about a fan. The floor reaches it through
 `{{next.chart.rank}}` and `{{next.chart.name}}` (and the `previous.` pair), outside `SPOKEN_VALUES`, so a
 countdown phrasing is `[[At number {{next.chart.rank}}, ]]{{next.title}}` and simply says less for a record no

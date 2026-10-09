@@ -42,6 +42,8 @@ data class PlayoutChartInput(
     val chartId: String,
     /** Which way round to play it. Absent is `countdown`, which opens on the lowest rank and ends on number one */
     val chartOrder: PlayoutChartInputChartOrder? = null,
+    /** Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes. Set it false to air a chart without its positions read out. A record no chart named has no position to say whatever this says */
+    val chartPositions: Boolean? = null,
     /** Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it */
     val callins: Boolean? = null,
 )

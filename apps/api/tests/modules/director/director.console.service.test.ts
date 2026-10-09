@@ -531,6 +531,14 @@ describe('DirectorConsoleService building a running order from a playlist', () =
         expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { rules: { mixInSimilar: true, callins: false } } });
     });
 
+    it("binds keeping a chart's positions quiet as a rule of the broadcast", async () => {
+        const { service, posted } = build({ chart: [{ rank: 1, title: 'Glory Box', artist: 'Portishead' }] });
+
+        await service.putOnAir({ chartId: 'deadair.lastfm:top-100', chartPositions: false });
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { rules: { chartPositions: false } } });
+    });
+
     it('leaves the rules off the binding when the operator asked for none, so the station settings stand', async () => {
         const { service, posted } = build();
 
@@ -1726,6 +1734,14 @@ describe('DirectorConsoleService building a running order from a chart', () => {
             await service.airChart({ chartId: 'deadair.lastfm:top-100', callins: false });
 
             expect(jobs.send).toHaveBeenCalledWith('director.air_chart', { chartId: 'deadair.lastfm:top-100', callins: false });
+        });
+
+        it('queues whether the host says the positions with it', async () => {
+            const { service, jobs } = build({ chart: TOP_THREE });
+
+            await service.airChart({ chartId: 'deadair.lastfm:top-100', chartPositions: false });
+
+            expect(jobs.send).toHaveBeenCalledWith('director.air_chart', { chartId: 'deadair.lastfm:top-100', chartPositions: false });
         });
 
         it('records the ask with the operator on it, since the outcome will carry nobody', async () => {

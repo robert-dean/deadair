@@ -22,6 +22,8 @@ export interface AirChartPayload {
     chartOrder?: ChartOrder;
     /** Whether the broadcast takes calls. Absent is no calls. */
     callins?: boolean;
+    /** Whether the host says each record's position. Absent is yes; see `StationLineupRules.chartPositions`. */
+    chartPositions?: boolean;
     /**
      * The broadcast on air when the operator pressed, absent when the station was stood down at
      * the time. Compared against the broadcast on air when this job actually runs: a Stop pressed
@@ -129,6 +131,7 @@ export class AirChartJob extends PlainJob<AirChartPayload> {
             chartId: payload.chartId,
             ...(payload.chartOrder === undefined ? {} : { chartOrder: payload.chartOrder }),
             ...(payload.callins === undefined ? {} : { callins: payload.callins }),
+            ...(payload.chartPositions === undefined ? {} : { chartPositions: payload.chartPositions }),
         });
 
         await this.pusher.reconcile();

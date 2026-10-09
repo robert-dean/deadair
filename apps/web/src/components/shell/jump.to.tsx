@@ -170,7 +170,8 @@ export function JumpTo() {
                       .map(persona => ({
                           id: `persona:${persona.key}`,
                           label: persona.label,
-                          description: persona.kind === 'caller' ? t('jumpTo.caller') : t('jumpTo.host'),
+                          description:
+                              persona.kind === 'caller' ? t('jumpTo.caller') : persona.kind === 'guest' ? t('jumpTo.guest') : t('jumpTo.host'),
                           onClick: () => void navigate({ to: '/voice', search: { tab: 'characters', segment: '', persona: persona.key } }),
                       })),
               },

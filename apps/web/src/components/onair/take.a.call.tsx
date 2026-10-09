@@ -34,22 +34,33 @@ export interface TakeACallProps {
     /** Who is hosting the broadcast, when it named somebody. Absent presents it as the station's own host. */
     personaId?: string;
     disabled?: boolean;
+    /**
+     * A guest dropping by the studio rather than a listener ringing in: a `visit` rather than a
+     * `callin`. Everything else about asking for one is the same, which is why it is this component.
+     */
+    visit?: boolean;
 }
 
-export function TakeACall({ personaId, disabled = false }: TakeACallProps) {
+/** {@link TakeACall} for a guest in the studio. */
+export const BringInAGuest = (props: Omit<TakeACallProps, 'visit'>) => <TakeACall {...props} visit />;
+
+export function TakeACall({ personaId, disabled = false, visit = false }: TakeACallProps) {
     const { t } = useTranslation(['onair', 'common']);
+    // One set of words or the other, each a whole sentence, so neither is assembled from fragments.
+    const words = visit ? ('visit' as const) : ('call' as const);
     const [open, setOpen] = useState(false);
     const [about, setAbout] = useState('');
     const request = useRequestProduction();
 
-    const failure = request.isError ? apiErrorMessage(request.error, t('call.failed')) : undefined;
+    const failure = request.isError ? apiErrorMessage(request.error, t(`${words}.failed`)) : undefined;
 
     const send = () => {
         const subject = about.trim();
         request.mutate({
             // The kind is what decides there is a caller at all: `render.dialogueKinds` names it,
             // and a kind that is not in that list produces one voice reading for three minutes.
-            kind: 'callin',
+            // `visit` casts a guest from the studio rather than a caller from the phone.
+            kind: visit ? 'visit' : 'callin',
             // No title. The station names it after its kind and the moment, which is what somebody
             // pressing this wants rather than a box standing between them and the button.
             ...(subject.length === 0 ? {} : { brief: subject }),
@@ -61,7 +72,7 @@ export function TakeACall({ personaId, disabled = false }: TakeACallProps) {
     return (
         <Popover opened={open} onChange={setOpen} position="bottom-start" width={380} withArrow shadow="md" trapFocus>
             <Popover.Target>
-                <Tooltip label={failure ?? t('call.hint')} color={failure ? 'red' : undefined} multiline maw={320}>
+                <Tooltip label={failure ?? t(`${words}.hint`)} color={failure ? 'red' : undefined} multiline maw={320}>
                     <Button
                         variant="light"
                         color={failure ? 'red' : undefined}
@@ -69,16 +80,16 @@ export function TakeACall({ personaId, disabled = false }: TakeACallProps) {
                         disabled={disabled}
                         onClick={() => setOpen(current => !current)}
                     >
-                        {t('call.take')}
+                        {t(`${words}.take`)}
                     </Button>
                 </Tooltip>
             </Popover.Target>
             <Popover.Dropdown>
                 <Stack gap="sm">
-                    <Text size="sm">{t('call.intro')}</Text>
+                    <Text size="sm">{t(`${words}.intro`)}</Text>
                     <TextInput
-                        label={t('call.aboutLabel')}
-                        placeholder={t('call.aboutPlaceholder')}
+                        label={t(`${words}.aboutLabel`)}
+                        placeholder={t(`${words}.aboutPlaceholder`)}
                         value={about}
                         maxLength={4000}
                         onChange={event => setAbout(event.currentTarget.value)}
@@ -87,16 +98,16 @@ export function TakeACall({ personaId, disabled = false }: TakeACallProps) {
                         }}
                     />
                     <Text size="xs" c="dimmed">
-                        {t('call.unbriefed')}
+                        {t(`${words}.unbriefed`)}
                     </Text>
                     <Group justify="flex-end">
                         <Button variant="subtle" color="gray" onClick={() => setOpen(false)}>
                             {t('common:action.cancel')}
                         </Button>
-                        <Button onClick={send}>{t('call.take')}</Button>
+                        <Button onClick={send}>{t(`${words}.take`)}</Button>
                     </Group>
                     <Text size="xs" c="dimmed">
-                        {t('call.wait')}
+                        {t(`${words}.wait`)}
                     </Text>
                 </Stack>
             </Popover.Dropdown>

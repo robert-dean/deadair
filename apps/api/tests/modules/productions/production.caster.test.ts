@@ -27,7 +27,7 @@ const production = (over: Partial<Production> = {}): Production =>
 
 function build(
     options: {
-        roster?: ReturnType<typeof caller>[];
+        roster?: (Omit<ReturnType<typeof caller>, 'kind'> & { kind: 'caller' | 'guest' })[];
         heard?: Map<string, number>;
         rosterThrows?: boolean;
         kinds?: string;
@@ -247,5 +247,31 @@ describe('the records a keen host brings to a call', () => {
 
         expect(cast.map(member => member.role)).toEqual(['host', 'caller']);
         expect(cast[0]).not.toHaveProperty('records');
+    });
+});
+
+describe('casting a visit', () => {
+    const guest = (key: string) => ({ ...caller(key), kind: 'guest' as const });
+
+    it('casts one guest, least recently heard, from the guests this host may have', async () => {
+        const { caster, personas } = build({ roster: [guest('guitarist'), guest('chef')], heard: new Map([['id-guitarist', 100]]) });
+
+        const cast = await caster.cast(production({ kind: 'visit' }), 9);
+
+        expect(personas.castable).toHaveBeenCalledWith('host-1', 'guest');
+        expect(cast.map(member => member.role)).toEqual(['host', 'guest']);
+        expect(cast[1]?.personaKey).toBe('chef');
+    });
+
+    it('is a visit even on a station whose dialogue setting never mentions one', async () => {
+        const { caster } = build({ roster: [guest('guitarist')], kinds: 'callin' });
+
+        expect((await caster.cast(production({ kind: 'visit' }), 9)).map(member => member.role)).toEqual(['host', 'guest']);
+    });
+
+    it('fails rather than airing the host alone under a guest’s billing when there is nobody to visit', async () => {
+        const { caster } = build({ roster: [] });
+
+        await expect(caster.cast(production({ kind: 'visit' }), 9)).rejects.toThrow(/nobody to visit/);
     });
 });

@@ -29,10 +29,19 @@ import { preoccupationOf, type PersonaSheet } from '#modules/personas/persona.sh
 // move whenever it does. Dropping the import would take that link with it, which is the one
 // thing standing between a reader and a coupling the file says is not obvious.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { CALLER_TURN_WEIGHT, HOST_TURN_WEIGHT, TURN_BAND } from './production.plan.js';
+import { CALLER_TURN_WEIGHT, GUEST_TURN_WEIGHT, HOST_TURN_WEIGHT, TURN_BAND } from './production.plan.js';
 
-/** What a member of a cast is doing here. */
-export type CastRole = 'host' | 'caller';
+/**
+ * What a member of a cast is doing here: presenting, ringing in, or in the studio as a guest.
+ *
+ * A caller and a guest are both somebody ELSE on the host's programme, and most rules (who opens and
+ * closes, who is answered, who gets no soundboard) are about that. What differs is WHERE they are: a
+ * caller is on a telephone, a guest is in the room. See {@link isVisitor}.
+ */
+export type CastRole = 'host' | 'caller' | 'guest';
+
+/** Whether a cast member is somebody other than the presenter: a caller or a studio guest. */
+export const isVisitor = (member: Pick<CastMember, 'role'> | undefined): boolean => member !== undefined && member.role !== 'host';
 
 /**
  * One person in a production.
@@ -109,6 +118,8 @@ export interface CallSubject {
      * {@link CastMember.records}. The call is about these, and {@link show} becomes the host's take.
      */
     records?: readonly ShowRecord[];
+    /** Whether the other person dropped by the studio rather than rang, which is how the subject is worded. */
+    visit?: boolean;
 }
 
 /**
@@ -142,7 +153,7 @@ export function callSubjectOf(brief: string | undefined, cast: ProductionCast): 
 
     const host = cast.find(member => member.role === 'host');
     const show = host?.preoccupation?.trim();
-    const caller = cast.find(member => member.role === 'caller' && (member.preoccupation?.trim().length ?? 0) > 0);
+    const caller = cast.find(member => isVisitor(member) && (member.preoccupation?.trim().length ?? 0) > 0);
     const about = caller?.preoccupation?.trim();
 
     const records = host?.records !== undefined && host.records.length > 0 ? host.records : undefined;
@@ -153,12 +164,15 @@ export function callSubjectOf(brief: string | undefined, cast: ProductionCast): 
         ...(show || records !== undefined ? { host: host?.name?.trim() || 'the host' } : {}),
         ...(show ? { show } : {}),
         ...(records === undefined ? {} : { records }),
-        ...(about ? { caller: caller?.name?.trim() || 'the caller', about } : {}),
+        ...(about ? { caller: caller?.name?.trim() || (caller?.role === 'guest' ? 'the guest' : 'the caller'), about } : {}),
+        // How they came to be on it, which is how the subject is worded: why somebody RANG, or why
+        // they DROPPED BY. A visit has one guest, so any visitor answers for all of them.
+        ...(cast.some(member => member.role === 'guest') ? { visit: true } : {}),
     };
 }
 
-/** Whether this production has anybody on the phone, which is what makes it a dialogue. */
-export const isDialogue = (cast: ProductionCast | undefined): boolean => (cast ?? []).some(member => member.role === 'caller');
+/** Whether this production has anybody besides the presenter on it, which is what makes it a dialogue. */
+export const isDialogue = (cast: ProductionCast | undefined): boolean => (cast ?? []).some(member => isVisitor(member));
 
 /**
  * Who speaks each turn, as indexes into the cast.
@@ -177,7 +191,7 @@ export const isDialogue = (cast: ProductionCast | undefined): boolean => (cast ?
  */
 export function speakerOrder(cast: ProductionCast, turns: number): number[] {
     if (turns <= 0) return [];
-    const callers = cast.flatMap((member, index) => (member.role === 'caller' ? [index] : []));
+    const callers = cast.flatMap((member, index) => (isVisitor(member) ? [index] : []));
     if (callers.length === 0) return Array.from({ length: turns }, () => 0);
 
     // The host is index 0 by construction; `hostMember` goes in first and the repository reads the
@@ -215,7 +229,10 @@ export function speakerOrder(cast: ProductionCast, turns: number): number[] {
  * A cast with no callers answers a flat list, which {@link planProduction} treats as an even split.
  */
 export function turnWeights(cast: ProductionCast, speakers: readonly number[]): number[] {
-    return speakers.map(index => (cast[index]?.role === 'caller' ? CALLER_TURN_WEIGHT : HOST_TURN_WEIGHT));
+    return speakers.map(index => {
+        const role = cast[index]?.role;
+        return role === 'guest' ? GUEST_TURN_WEIGHT : role === 'caller' ? CALLER_TURN_WEIGHT : HOST_TURN_WEIGHT;
+    });
 }
 
 /**
@@ -302,6 +319,11 @@ export function callerMember(persona: PersonaToCast, productionId: string): Cast
     return { ...hostMember(persona, productionId), role: 'caller' };
 }
 
+/** A studio guest as a cast member, on {@link callerMember}'s terms. */
+export function guestMember(persona: PersonaToCast, productionId: string): CastMember {
+    return { ...hostMember(persona, productionId), role: 'guest' };
+}
+
 /**
  * What casting needs off a persona row.
  *
@@ -325,7 +347,7 @@ export function coerceCast(raw: unknown): ProductionCast | undefined {
         .filter((entry): entry is Record<string, unknown> => entry !== null && typeof entry === 'object')
         .flatMap(entry => {
             const role = entry.role;
-            if (role !== 'host' && role !== 'caller') return [];
+            if (role !== 'host' && role !== 'caller' && role !== 'guest') return [];
 
             return [
                 {

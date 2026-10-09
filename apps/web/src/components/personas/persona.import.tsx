@@ -184,9 +184,13 @@ function ImportPlan({ plan }: { plan: PersonaImportPlan }) {
                                     <Stack gap="xxs">
                                         <Group gap="xs">
                                             <Text size="sm">{entry.label}</Text>
-                                            {entry.kind === 'caller' || entry.kind === 'newsreader' ? (
+                                            {entry.kind === 'caller' || entry.kind === 'newsreader' || entry.kind === 'guest' ? (
                                                 <Badge size="xs" variant="outline" color="gray">
-                                                    {entry.kind === 'caller' ? t('import.caller') : t('import.newsreader')}
+                                                    {entry.kind === 'caller'
+                                                        ? t('import.caller')
+                                                        : entry.kind === 'guest'
+                                                          ? t('import.guest')
+                                                          : t('import.newsreader')}
                                                 </Badge>
                                             ) : undefined}
                                         </Group>

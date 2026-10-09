@@ -11,9 +11,15 @@ A phone-in is not a break, which is one script in one voice. A call is a short p
 
 ## Callers
 
-A caller is a [character](./characters.md) with a different job. It can never present, and it has no phrasings of its own: phrasings are the station's floor under a break, and a phone-in whose caller was written from a template has nobody on the phone. Five callers ship with the station, each with a voice no host uses, since the two are in one programme talking to each other. Add more with "New caller" on Voice, Characters. A caller keeps their own voice on the line: every caller is barred from the host's dialect, because a caller writes each turn with the host's turns in front of them and once came back talking like the host.
+A caller is a [character](./characters.md) with a different job. It can never present, and it has no phrasings of its own: phrasings are the station's floor under a break, and a phone-in whose caller was written from a template has nobody on the phone. Five callers ship with the station, each with a voice no host uses, since the two are in one programme talking to each other. Add more with "New caller or guest…", then "New caller", on Voice, Characters. A caller keeps their own voice on the line: every caller is barred from the host's dialect, because a caller writes each turn with the host's turns in front of them and once came back talking like the host.
 
 A caller can be tied to the hosts they ring in to, under "Rings in to" when you edit them, which is how one host's regulars stay on that host's show and off the breakfast show. A call casts only the callers tied to whoever is presenting it, plus any caller tied to nobody. Among those, it is a rotation: the caller heard from least recently goes first. Deleting a host unties its callers rather than silencing them. A station with no callers makes the programme with the host alone.
+
+## Guests in the studio
+
+A **visit** is the same kind of short programme with a **guest** in the room instead of a caller on the line: your host welcomes them on ("joining me in the studio is…"), they talk, and the host thanks them for dropping by at the end. A guest is written as somebody sitting in the studio, answers at more length than a caller, and is held to the same rules about the weather as the host, since they are under the same sky. One guest per visit.
+
+No guests ship with the station. Write them with "New caller or guest…", then "New guest", on Voice, Characters, and give each a voice no host uses. Like a caller, a guest never presents, has no phrasings, and can be tied to the hosts whose shows they visit. Ask for a visit with **Bring in a guest** on the Desk, or put a `visit` band on the format clock. A visit asked for on a station with no guests fails, and Productions says why, rather than airing your host alone.
 
 ## Three ways to take a call
 

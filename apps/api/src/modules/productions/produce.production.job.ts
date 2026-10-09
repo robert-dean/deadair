@@ -28,7 +28,7 @@ import { speakableScript } from '#modules/render/speakable.script.js';
 import { STREAM_DEFAULTS, STREAM_KEYS, stationLanguage } from '#modules/stream/stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { checkBeat, correctionNote } from './production.checks.js';
-import { callSubjectOf, isDialogue, speakerOrder, turnWeights, type CastMember, type ProductionCast } from './production.cast.js';
+import { callSubjectOf, isDialogue, isVisitor, speakerOrder, turnWeights, type CastMember, type ProductionCast } from './production.cast.js';
 import { ProductionCaster } from './production.caster.js';
 import { cuesFor } from './production.cues.js';
 import { planProduction, turnsFor } from './production.plan.js';
@@ -584,7 +584,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                     ...(claimed.brief === undefined ? [] : [claimed.brief]),
                     ...beats
                         .slice(0, index)
-                        .flatMap((earlier, before) => (casting[plan.beats[before]?.speaker ?? 0]?.role === 'caller' ? [earlier.script ?? ''] : [])),
+                        .flatMap((earlier, before) => (isVisitor(casting[plan.beats[before]?.speaker ?? 0]) ? [earlier.script ?? ''] : [])),
                 ],
                 ...this.language(),
             });
@@ -802,7 +802,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
     ): Promise<{ name?: string; names: readonly string[]; use?: Readonly<Record<string, PadUseNote>> }> {
         // `undefined` is a production with no cast at all, where the presenter says every word — so
         // it is the host, and only an explicit `caller` is refused.
-        if (speaker?.role === 'caller') return { names: [] };
+        // A caller or a guest alike: the board is the presenter's, at the desk, and nobody else's.
+        if (isVisitor(speaker)) return { names: [] };
         if (PLAIN_KINDS.includes(production.kind.trim().toLowerCase())) return { names: [] };
         if (spent >= MAX_PRODUCTION_PADS) return { names: [] };
 
@@ -879,7 +880,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // a caller who tells the same anecdote three times in four minutes — and the presenter's
         // own stories belong to the talk break, where the operator's `storytelling` rung and the
         // `story` band already decide when one is told.
-        if (!firstTurn || speaker?.role !== 'caller') return notebook;
+        if (!firstTurn || !isVisitor(speaker)) return notebook;
 
         return { ...notebook, ...(await this.storyOf(key)) };
     }
@@ -1110,7 +1111,7 @@ const onAir = (production: Production): { title?: string } => {
  * off. A programme with two of them still has one opening and one ending, and the second caller
  * arrives the way any caller does — on their own first turn, which `firstTurn` already marks.
  */
-const guestOf = (cast: ProductionCast): CastMember | undefined => cast.find(member => member.role === 'caller');
+const guestOf = (cast: ProductionCast): CastMember | undefined => cast.find(member => isVisitor(member));
 
 /**
  * A model's answer as JSON, or `undefined`.

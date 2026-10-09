@@ -297,6 +297,7 @@ public struct ProductionListInput: Codable, Equatable, Sendable {
 public enum ProductionCastMemberRole: String, Codable, CaseIterable, Sendable {
     case host = "host"
     case caller = "caller"
+    case guest = "guest"
 }
 
 /// How many passes to spend on it

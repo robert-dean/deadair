@@ -84,6 +84,15 @@ renders one line under the role sentence: sitting in for them, their show, never
 presenter's alone, so a bulletin read by the newsreader is not given it, and a recast clears it with the
 host it described. The floor's phrasings say nothing of it: a phrasing has no placeholder for the regular
 host, and a guest whose model declined reads exactly as any host's floor does.
+## The guest
+
+**A fourth kind, `guest`, drops by the studio for a short back-and-forth with the host** (migration
+0076). It is a caller in every way the roster cares about: on somebody else's show, never presenting
+(`cannotPresent` refuses making one the station's host or recasting a show onto one, and is now the one
+wording for every kind that cannot present, so a newsreader is no longer told it is a caller), with no
+phrasings or portrait, and tied to the hosts it belongs with through the same `caller_hosts` rows.
+`castable(hostId, kind)` reads either half. What differs is the programme it appears in, a `visit`,
+which `docs/internals/productions.md` covers.
 
 ## A pasted character
 

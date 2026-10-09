@@ -89,8 +89,10 @@ describe('PersonasPage', () => {
 
     it('offers a newsreader only while the station has none', async () => {
         listPersonas.mockResolvedValue({ personas: [persona()] });
+        const user = setupUser();
         const { unmount } = render(<PersonasPage />);
-        expect(await screen.findByRole('button', { name: 'New newsreader' })).toBeInTheDocument();
+        await user.click(await screen.findByRole('button', { name: 'New caller or guest…' }));
+        expect(await screen.findByRole('menuitem', { name: 'New newsreader' })).toBeInTheDocument();
         unmount();
 
         listPersonas.mockResolvedValue({
@@ -98,7 +100,9 @@ describe('PersonasPage', () => {
         });
         render(<PersonasPage />);
         await screen.findByText('Newsdesk');
-        expect(screen.queryByRole('button', { name: 'New newsreader' })).not.toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'New caller or guest…' }));
+        expect(await screen.findByRole('menuitem', { name: 'New guest' })).toBeInTheDocument();
+        expect(screen.queryByRole('menuitem', { name: 'New newsreader' })).not.toBeInTheDocument();
     });
 
     it('never offers the host button for the station\u2019s own host, since it already is', async () => {

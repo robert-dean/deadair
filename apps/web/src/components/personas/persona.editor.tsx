@@ -88,7 +88,11 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
     // Fixed for the life of the form rather than a field. What a character is FOR decides which
     // half of the roster it lands in and whether it can ever present, and flipping it under a
     // character an operator has already cast would be a quieter change than it looks.
-    const caller = kind === 'caller';
+    // A guest is the same shape as a caller everywhere this form cares: on somebody else's show, tied
+    // to the hosts they belong with, never presenting and so with no phrasings or portrait. Only the
+    // words differ, for somebody who drops by the studio rather than rings it.
+    const guest = kind === 'guest';
+    const caller = kind === 'caller' || guest;
     const voices = useVoices(opened);
     const pads = usePads();
     // The roster, for the hosts a caller may ring in to. Already cached by the page this opens from.
@@ -214,7 +218,13 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                             <Stack gap="xs">
                                 <Eyebrow>{t('editor.generate.eyebrow')}</Eyebrow>
                                 <Textarea
-                                    placeholder={caller ? t('editor.generate.placeholderCaller') : t('editor.generate.placeholderHost')}
+                                    placeholder={
+                                        guest
+                                            ? t('editor.generate.placeholderGuest')
+                                            : caller
+                                              ? t('editor.generate.placeholderCaller')
+                                              : t('editor.generate.placeholderHost')
+                                    }
                                     description={t('editor.generate.description')}
                                     autosize
                                     minRows={2}
@@ -346,7 +356,10 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         programme, and one with none rings in to anybody's. */}
                     {caller ? (
                         <>
-                            <Section title={t('editor.section.ring.title')} blurb={t('editor.section.ring.blurb')} />
+                            <Section
+                                title={guest ? t('editor.section.visit.title') : t('editor.section.ring.title')}
+                                blurb={guest ? t('editor.section.visit.blurb') : t('editor.section.ring.blurb')}
+                            />
                             <MultiSelect
                                 label={t('editor.field.hosts.label')}
                                 description={t('editor.field.hosts.description')}
@@ -998,9 +1011,11 @@ const titleFor = (persona: Persona | undefined, kind: PersonaKind, t: TFunction<
         ? t('editor.title.edit', { label: persona.label })
         : kind === 'caller'
           ? t('editor.title.newCaller')
-          : kind === 'newsreader'
-            ? t('editor.title.newNewsreader')
-            : t('editor.title.newHost');
+          : kind === 'guest'
+            ? t('editor.title.newGuest')
+            : kind === 'newsreader'
+              ? t('editor.title.newNewsreader')
+              : t('editor.title.newHost');
 
 /**
  * A saved persona or a generated draft, as the form's values.
@@ -1111,7 +1126,7 @@ function draftOf(values: FormValues, kind: PersonaKind): PersonaInput {
             exclusiveSubjects: list(values.exclusiveSubjects),
             samples: list(values.samples),
             // Only a caller rings in. Absent unties it, which is what the API reads it as.
-            hosts: kind === 'caller' && values.hosts.length > 0 ? values.hosts : undefined,
+            hosts: (kind === 'caller' || kind === 'guest') && values.hosts.length > 0 ? values.hosts : undefined,
         }),
     };
 }

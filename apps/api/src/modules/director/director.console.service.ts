@@ -19,7 +19,7 @@ import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
 import { AIR_MODE_KEY } from '#modules/playout/air.mode.js';
 import { PlayoutPusher } from '#modules/playout/playout.pusher.js';
 import { Rundown, type RundownTrack } from '#modules/playout/rundown.js';
-import { DEFAULT_PERSONA_KIND } from '#modules/personas/persona.js';
+import { cannotPresent } from '#modules/personas/persona.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
@@ -1020,9 +1020,8 @@ export class DirectorConsoleService {
         const personaId = input.personaId?.trim();
         const host = personaId === undefined ? undefined : await this.personas.find(personaId);
         if (personaId !== undefined && host === undefined) throw httpError(404).withDetails({ message: 'no such persona' });
-        if (host !== undefined && host.kind !== DEFAULT_PERSONA_KIND) {
-            throw httpError(400).withDetails({ message: `"${host.label}" is a caller, and a caller cannot present the station` });
-        }
+        const refusal = host === undefined ? undefined : cannotPresent(host);
+        if (refusal !== undefined) throw httpError(400).withDetails({ message: refusal });
 
         await this.director.post({ kind: 'recast', bind: { ...(personaId === undefined ? {} : { personaId }) } });
 

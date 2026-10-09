@@ -31,6 +31,7 @@
  */
 
 import { withoutCues } from '@deadair/plugin-sdk';
+import type { CastRole } from './production.cast.js';
 import { withoutRecordNames } from '#modules/director/break.prompt.js';
 import { contradictsDayPart, namesWrongTimeOfDay, type RoughTime } from '#modules/director/clock.words.js';
 import { unofferedWeather } from '#modules/director/weather.figures.js';
@@ -86,7 +87,7 @@ export interface BeatCheckInput {
      * The {@link OPENING} check is about the PROGRAMME being introduced twice, which is a thing only
      * the presenter can do. A caller saying hello is not a programme introducing itself.
      */
-    role?: 'host' | 'caller';
+    role?: CastRole;
     /**
      * This is the first the listener has heard of this speaker.
      *
@@ -233,7 +234,8 @@ export function checkBeat(input: BeatCheckInput): string[] {
     // several short programmes played back to back rather than one. A caller arriving is excused:
     // being put on air mid-programme is exactly when a greeting belongs, and the prompt asked for
     // one.
-    if (english && input.ordinal > 0 && !(input.role === 'caller' && input.firstTurn === true) && OPENING.test(text)) {
+    // A studio guest arriving is excused on the same terms: brought on mid-programme, and asked to say hello.
+    if (english && input.ordinal > 0 && !(input.role !== undefined && input.role !== 'host' && input.firstTurn === true) && OPENING.test(text)) {
         problems.push('This beat is mid-programme but it introduces the programme again. Cut the greeting and pick it up in progress.');
     }
 
@@ -270,7 +272,8 @@ export function checkBeat(input: BeatCheckInput): string[] {
  *
  * The PRESENTER only, which is the host on a call and whoever speaks a production with no cast. A
  * caller is somebody somewhere else, and "it's pouring down here" is the caller's own afternoon
- * rather than the station describing the sky over its listeners. Once a caller or the brief has
+ * rather than the station describing the sky over its listeners. A GUEST is held to it like the host,
+ * because a guest is in the studio, under the same sky as the station. Once a caller or the brief has
  * raised the weather, the host answering it is following the conversation rather than inventing a
  * scene, so that stands the check down for the rest of the call.
  */

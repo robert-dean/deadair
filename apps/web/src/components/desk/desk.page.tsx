@@ -22,7 +22,7 @@ import { useStationAttention } from '../../api/station.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { runsDryAt, whatHappensThen } from '../onair/order.runs.dry';
 import { PlanTheStation } from '../onair/plan.the.station';
-import { TakeACall } from '../onair/take.a.call';
+import { BringInAGuest, TakeACall } from '../onair/take.a.call';
 import { StationOrderTable } from '../onair/station.order.table';
 import { AttentionList } from '../station/attention.list';
 import { EmptyState } from '../shared/empty.state';
@@ -232,6 +232,7 @@ export function DeskPage() {
                                 It inherits this broadcast's host, which is why it is here rather
                                 than on Voice. */}
                             <TakeACall {...(loaded?.personaId === undefined ? {} : { personaId: loaded.personaId })} disabled={nothingOn} />
+                            <BringInAGuest {...(loaded?.personaId === undefined ? {} : { personaId: loaded.personaId })} disabled={nothingOn} />
                         </Group>
                     ) : undefined}
                 </Group>

@@ -6,7 +6,7 @@ public struct Persona: Codable, Equatable, Sendable {
     public var id: String
     /// A stable slug, unique per station. What a log line names and what a seeded persona is recognised by
     public var key: String
-    /// What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant
+    /// What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant
     public var kind: PersonaKind?
     public var label: String
     /// Completes "You are …". Who they ARE; the sheet below carries how they talk
@@ -183,7 +183,7 @@ public struct Persona: Codable, Equatable, Sendable {
 public struct PersonaInput: Codable, Equatable, Sendable {
     /// A stable slug, unique per station. What a log line names and what a seeded persona is recognised by
     public var key: String
-    /// What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant
+    /// What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant
     public var kind: PersonaKind?
     public var label: String
     /// Completes "You are …". Who they ARE; the sheet below carries how they talk
@@ -2613,11 +2613,12 @@ public struct PersonaImportResultInput: Codable, Equatable, Sendable {
     }
 }
 
-/// What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant
+/// What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant
 public enum PersonaKind: String, Codable, CaseIterable, Sendable {
     case host = "host"
     case caller = "caller"
     case newsreader = "newsreader"
+    case guest = "guest"
 }
 
 /// How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one
@@ -2777,6 +2778,7 @@ public enum PersonaFilePersonaKind: String, Codable, CaseIterable, Sendable {
     case host = "host"
     case caller = "caller"
     case newsreader = "newsreader"
+    case guest = "guest"
 }
 
 /// Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it
@@ -2807,6 +2809,7 @@ public enum PersonaImportEntryKind: String, Codable, CaseIterable, Sendable {
     case host = "host"
     case caller = "caller"
     case newsreader = "newsreader"
+    case guest = "guest"
 }
 
 /// Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote

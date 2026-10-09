@@ -40,8 +40,10 @@ import type { PersonaSheet } from './persona.sheet.js';
  * A closed list rather than free text, unlike `segments.kind`, because each value is a rule the code
  * has to know how to apply. `newsreader` is [personas](https://github.com/robert-dean/deadair/discussions/25) §1's: the one persona
  * every news bulletin is read as, whoever is hosting. At most one per station (migration 0061).
+ * `guest` drops by the studio for a short back-and-forth with the host (a `visit` production) and,
+ * like a caller, never presents (migration 0076).
  */
-export const PERSONA_KINDS = ['host', 'caller', 'newsreader'] as const;
+export const PERSONA_KINDS = ['host', 'caller', 'newsreader', 'guest'] as const;
 
 /** One of {@link PERSONA_KINDS}. */
 export type PersonaKind = (typeof PERSONA_KINDS)[number];
@@ -57,6 +59,25 @@ export const NEWSREADER_READS: ReadonlySet<string> = new Set(['news']);
 
 /** What a persona is when nobody said: the station's own voice, which is what the table held before callers. */
 export const DEFAULT_PERSONA_KIND: PersonaKind = 'host';
+
+/**
+ * Why a persona of this kind cannot present the station, as one sentence, or nothing for a host.
+ *
+ * One wording for every place that refuses (making it the station's host, recasting a show onto it),
+ * so a newsreader is not told it is a caller, which `recast` used to say of anybody who was not a host.
+ */
+export function cannotPresent(persona: { kind: PersonaKind; label: string }): string | undefined {
+    switch (persona.kind) {
+        case 'host':
+            return undefined;
+        case 'newsreader':
+            return `"${persona.label}" reads the news, and the newsreader cannot present the station`;
+        case 'guest':
+            return `"${persona.label}" is a guest who drops by the studio, and a guest cannot present the station`;
+        case 'caller':
+            return `"${persona.label}" is a caller, and a caller cannot present the station`;
+    }
+}
 
 /** Whether a stored or submitted value is one this code knows how to apply. */
 export const isPersonaKind = (value: unknown): value is PersonaKind => PERSONA_KINDS.includes(value as PersonaKind);

@@ -57,7 +57,7 @@ class PlaybackConductor(
     private val displayOn: Flow<Boolean> = flowOf(false),
     /**
      * The phone's default network, by handle, or `null` for none. A drop with none waits for one
-     * rather than spending the reconnect budget, and a move to another network restarts a mount
+     * rather than spending the reconnect budget, and a move to another network restarts a stream
      * that would otherwise be left on the old one; see `ReconnectPolicy.onNetwork`.
      */
     private val network: Flow<Long?> = emptyFlow(),
@@ -106,7 +106,6 @@ class PlaybackConductor(
                     player.play()
                 }
             },
-            heldConnection = { current?.format != StreamFormat.HLS },
         )
     /**
      * Mirrors `player.playWhenReady`, so the poll below can be gated on it. A separate listener

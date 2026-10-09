@@ -23,12 +23,14 @@ typealias Cancel = () -> Unit
  * not the station. The wait has its own, longer limit ([offlineLimitMs]), after which it stops for
  * the same reason the budget does.
  *
- * **A stream held on one connection moves with the network.** An Icecast mount is a single socket,
- * bound to whichever network was the default when it connected, and a handover leaves it on the
- * old one: dead outright when wifi fades, or running on until Android tears the lingering mobile
- * network down. Waiting for it to fail cost up to the read timeout in silence, so a change of
- * network [restart]s it at once instead. HLS is a request per segment, each on the network of the
- * moment, and is left alone ([heldConnection]).
+ * **A stream moves with the network.** An Icecast mount is a single socket, bound to whichever
+ * network was the default when it connected, and a handover leaves it on the old one: dead outright
+ * when wifi fades, or running on until Android tears the lingering mobile network down. Waiting for
+ * it to fail cost up to the read timeout in silence, so a change of network [restart]s it at once
+ * instead. HLS is restarted too, although it is a request per segment: a request already in flight
+ * when wifi goes is on the old network all the same, and so is a kept-alive connection the next one
+ * reuses. Left alone, a phone leaving the house went eighteen seconds without noticing, failed on
+ * the read timeout, and dropped its buffer before the retry fetched a new one (measured 2026-10-09).
  */
 class ReconnectPolicy(
     private val backoff: Backoff,
@@ -38,8 +40,6 @@ class ReconnectPolicy(
     private val stop: () -> Unit,
     /** Connect again from scratch, for a stream that has not failed but is on the wrong network. */
     private val restart: () -> Unit = reconnect,
-    /** Whether the stream rides one long connection, which a change of network leaves behind. */
-    private val heldConnection: () -> Boolean = { true },
     private val offlineLimitMs: Long = OFFLINE_LIMIT_MS,
 ) : Player.Listener {
     private var pending: Cancel? = null
@@ -62,7 +62,7 @@ class ReconnectPolicy(
      * is already scheduled, which would otherwise fire against nothing and spend budget doing it.
      *
      * A DIFFERENT network than the last one, with or without a spell of none between them, is a
-     * move: a scheduled retry is made now rather than at the end of its wait, and a held connection
+     * move: a scheduled retry is made now rather than at the end of its wait, and a stream
      * that has not failed yet is restarted, because it is on a network that is going or gone. The
      * SAME network coming back is not a move, and a connection that survived the blip is left be.
      */
@@ -91,7 +91,7 @@ class ReconnectPolicy(
                 backoff.reset()
                 reconnect()
             }
-            moved && heldConnection() -> restart()
+            moved -> restart()
         }
     }
 

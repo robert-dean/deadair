@@ -406,6 +406,19 @@ export function minutesIntoSlot(slot: ScheduleSlot, at: Date | number, zone: str
 }
 
 /**
+ * How many whole minutes of `slot` are left at `at`, on the station's clock.
+ *
+ * Its length less {@link minutesIntoSlot}, with that function's precondition (the slot is in force at
+ * `at`) and its daylight-saving caveat: the answer is an hour out across a clock change, which its
+ * caller, cutting a chart to fit, absorbs as a countdown that ends early or a little late.
+ */
+export function minutesLeftInSlot(slot: ScheduleSlot, at: Date | number, zone: string): number {
+    const length = wraps(slot) ? slot.endsAtMinutes + MINUTES_IN_DAY - slot.startsAtMinutes : slot.endsAtMinutes - slot.startsAtMinutes;
+
+    return Math.max(0, length - minutesIntoSlot(slot, at, zone));
+}
+
+/**
  * The slot in force at a point on the station's WEEKLY clock, rather than at an instant.
  *
  * The whole of {@link resolveSlot}'s decision, with the reading of the clock lifted out. It is split

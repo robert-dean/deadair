@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.50.0] — 2026-10-09
+
+- A chart airing inside a scheduled block is cut to fit the time the block has left, keeping the top of the chart, so a countdown reaches number one before the next show starts instead of being cut off halfway. A one-hour block is roughly a top fourteen and a five-hour block a top seventy, from the same chart. A twentieth of the time, about what the station's talk measures, is held back for the host when the show takes breaks. Number one may start just before the block ends and finish a few minutes into the next show, up to the station's "Let a record run into the next show for (minutes)" setting (five by default), so the countdown ends on it rather than a few minutes early. A station with no schedule still airs the whole chart.
+- A setlist can have a host now, which is what a chart countdown is. A schedule slot and `PutOnAirInput` each take `breaks`, and the console shows it as "Host talks between records" under a setlist, on the Schedule's slot form and when starting a new show from On Air: set it true on a setlist and the host talks between the records as often as the station's own settings say, plays its jingles, greets a new listener and marks a change of programme, while the records play exactly as the setlist has them (nothing cut by a cooldown or a cap, nothing generated or mixed in, and no calls unless they are asked for too). Leaving it unset keeps each mode's own answer, so a rotation talks and a setlist stays silent exactly as before; `false` makes a rotation play without talking. A feature stays silent whatever it says, since an album played whole is the case nothing talks over. Before this a setlist told to talk turned breaks on with a spacing of zero, which is off, so a scheduled countdown played record after record with its host silent.
+
 ## [0.49.0] — 2026-10-09
 
 - A schedule slot can have co-hosts who present beside its host (`coHosts`): every night, on fixed nights, or as a visitor who turns up at random (`everyN`, with `cooldownDays` between visits), like a guest host. Up to three are on air on any one night. The running order and `GET /schedule/current` say who is co-presenting tonight, and a visiting co-host's night begins at the top of the show. On a show with co-hosts, talk breaks go round them: each one is written and spoken by whichever presenter was heard least recently, and every break knows who else is presenting tonight. A **banter** is a new kind of production for a show with co-hosts: the presenters trade lines for a few minutes, the lead bringing the others in and handing back to the music at the end. Put a `banter` band on the format clock to have a few a show; one asked for on a show with nobody beside the host fails with a reason. In the console, the slot editor has Co-hosts under Guest hosts (every night, on these nights, or visiting), and Today names tonight's co-hosts beside the host. The desktop editor carries a slot's co-hosts through untouched.
@@ -1175,7 +1180,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.49.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.50.0...HEAD
+[0.50.0]: https://github.com/robert-dean/deadair/compare/v0.49.0...v0.50.0
 [0.49.0]: https://github.com/robert-dean/deadair/compare/v0.48.0...v0.49.0
 [0.48.0]: https://github.com/robert-dean/deadair/compare/v0.47.4...v0.48.0
 [0.47.4]: https://github.com/robert-dean/deadair/compare/v0.47.3...v0.47.4

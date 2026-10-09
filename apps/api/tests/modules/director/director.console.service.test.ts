@@ -3,7 +3,7 @@
 // refusal an edit can produce has to arrive as the status code that says the same thing, because a
 // console has to tell somebody standing at the desk why nothing happened.
 
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { JobBroker } from '@maroonedsoftware/jobbroker';
 
@@ -1886,6 +1886,56 @@ describe('DirectorConsoleService building a running order from a chart', () => {
         await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
 
         expect(titles(posted())).toEqual(['Teardrop', 'Windowlicker', 'Glory Box']);
+    });
+
+    describe('inside a slot', () => {
+        // Ten minutes left of a block on a UTC station: room for two average records and no third.
+        const shortSlot = { id: 'countdown', label: 'Countdown', startsAtMinutes: 9 * 60, endsAtMinutes: 9 * 60 + 10, days: [] } as never;
+
+        beforeEach(() => {
+            vi.useFakeTimers({ toFake: ['Date'] });
+            vi.setSystemTime(new Date('2026-10-09T09:00:00Z'));
+        });
+        afterEach(() => vi.useRealTimers());
+
+        it('counts down from the top of the chart that fits the time left, so it still ends on number one', async () => {
+            const { service, posted } = build({
+                chart: TOP_THREE,
+                slot: shortSlot,
+                settings: { 'station.timezone': 'UTC', 'schedule.overrunMinutes': '0' },
+            });
+
+            await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
+
+            expect(titles(posted())).toEqual(['Windowlicker', 'Glory Box']);
+        });
+
+        it('lets number one run into the next block, since a changeover leaves the record on air playing', async () => {
+            // Three average records are 13.5 minutes against 10: number one starts at 9 and runs
+            // four and a half minutes into the next block, inside the station's five.
+            const { service, posted } = build({ chart: TOP_THREE, slot: shortSlot, settings: { 'station.timezone': 'UTC' } });
+
+            await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
+
+            expect(titles(posted())).toEqual(['Teardrop', 'Windowlicker', 'Glory Box']);
+        });
+
+        it('looks up only what could fit, rather than the whole chart', async () => {
+            const { service, resolver } = build({ chart: TOP_THREE, slot: shortSlot, settings: { 'station.timezone': 'UTC' } });
+
+            await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
+
+            // Two average records fit; half again for the names that come to nothing is three.
+            expect(vi.mocked(resolver.resolve).mock.calls[0]![0]).toHaveLength(3);
+        });
+    });
+
+    it('airs the whole chart on a station with no schedule', async () => {
+        const { service, posted } = build({ chart: TOP_THREE });
+
+        await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
+
+        expect(titles(posted())).toHaveLength(3);
     });
 
     it('walks the published document from the top when the operator asks for that instead', async () => {

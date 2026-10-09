@@ -461,6 +461,7 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         // no calls, which is not the same as never having been asked.
         ...(body.callins === undefined ? {} : { callins: body.callins }),
         ...(body.mixInSimilar === undefined ? {} : { mixInSimilar: body.mixInSimilar }),
+        ...(body.chartPositions === undefined ? {} : { chartPositions: body.chartPositions }),
         ...specialDatesOf(body),
         mode: body.mode,
         onEnd: body.onEnd,
@@ -516,6 +517,7 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
         ...(slot.mood === undefined ? {} : { mood: slot.mood }),
         ...(slot.callins === undefined ? {} : { callins: slot.callins }),
         ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
+        ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),
         ...(slot.dates === undefined ? {} : { startsOn: slot.dates.from, endsOn: slot.dates.to, yearly: slot.dates.yearly }),
         mode: slot.mode,
         onEnd: slot.onEnd,

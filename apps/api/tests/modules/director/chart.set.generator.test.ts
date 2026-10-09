@@ -50,7 +50,8 @@ function build(options: Options = {}) {
 
     const listCharts = vi.fn(async () => options.charts ?? [{ id: CHART, pluginId: 'deadair.lastfm', name: 'Top 100', country: 'GB' }]);
     const fetchChart = vi.fn(async (_id: string, _limit: number, _date?: string): Promise<ChartEntry[]> => options.entries ?? TOP_TEN);
-    const charts = { hasCharts: () => options.hasCharts ?? true, listCharts, fetchChart } as unknown as ChartsService;
+    const nameOf = vi.fn(async (id: string) => (options.charts ?? [{ id: CHART, name: 'Top 100' }]).find(chart => chart.id === id)?.name);
+    const charts = { hasCharts: () => options.hasCharts ?? true, listCharts, fetchChart, nameOf } as unknown as ChartsService;
     const logger = stubLogger();
 
     return { generator: new ChartSetGenerator(charts, config, logger as unknown as Logger), listCharts, fetchChart, logger };
@@ -145,7 +146,7 @@ describe('taking its share', () => {
 
         const picks = await generator.generate(inputs({ count: 4 }));
 
-        expect(picks[0]).toEqual({ title: 'Glory Box', artist: 'Portishead' });
+        expect(picks[0]).toEqual({ title: 'Glory Box', artist: 'Portishead', chart: { rank: 1, name: 'Top 100' } });
         expect(picks[0]).not.toHaveProperty('trackId');
     });
 

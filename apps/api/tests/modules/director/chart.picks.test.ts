@@ -54,7 +54,31 @@ describe('chartPicks', () => {
 
     it('names a title and an artist and never a trackId', () => {
         // The whole reason the resolver is allowed to be the only thing that matches a name.
-        for (const pick of chartPicks(TOP_FIVE)) expect(pick).toEqual({ title: pick.title, artist: pick.artist });
+        for (const pick of chartPicks(TOP_FIVE)) expect(pick).toEqual({ title: pick.title, artist: pick.artist, chart: pick.chart });
+    });
+
+    it('carries where each record placed, by its own rank whichever way round it is played', () => {
+        const picks = chartPicks(TOP_FIVE, { order: 'countdown', chartName: 'Top 100' });
+
+        expect(picks.map(pick => [pick.title, pick.chart?.rank])).toEqual([
+            ['Angel', 5],
+            ['Sour Times', 4],
+            ['Teardrop', 3],
+            ['Windowlicker', 2],
+            ['Glory Box', 1],
+        ]);
+        expect(picks.every(pick => pick.chart?.name === 'Top 100')).toBe(true);
+    });
+
+    it('passes on a peak and a run only where the source gave a real one', () => {
+        const [placed, blank] = chartPicks([
+            { ...entry(1, 'Glory Box', 'Portishead'), peak: 1, weeksOn: 12 },
+            { ...entry(2, 'Windowlicker', 'Aphex Twin'), peak: 0, weeksOn: 2.5 },
+        ]);
+
+        expect(placed!.chart).toEqual({ rank: 1, peak: 1, weeksOn: 12 });
+        // A "peak of zero" read out on air is worse than no peak at all.
+        expect(blank!.chart).toEqual({ rank: 2 });
     });
 
     it('drops records outside the period, and keeps one whose year is unknown', () => {

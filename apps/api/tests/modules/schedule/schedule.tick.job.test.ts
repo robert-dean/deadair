@@ -296,6 +296,16 @@ describe('ScheduleTickJob', () => {
         expect(declining.console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ mixInSimilar: false }), expect.anything());
     });
 
+    it('carries a slot keeping its chart positions quiet, and says nothing when it does not', async () => {
+        const quiet = build({ inForce: slot('quiet', { chartPositions: false }) });
+        await quiet.tick();
+        expect(quiet.console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ chartPositions: false }), expect.anything());
+
+        const { tick, console } = build({ inForce: slot('morning') });
+        await tick();
+        expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('chartPositions');
+    });
+
     it('says nothing about mixing when a slot does not, so the station setting stands', async () => {
         const { tick, console } = build({ inForce: slot('morning') });
 

@@ -184,6 +184,14 @@ export interface ScheduleSlot {
      */
     mixInSimilar?: boolean;
     /**
+     * Whether the host says where the chart placed each record it named.
+     *
+     * Absent is yes, as it is on `PutOnAirInput.chartPositions`; see
+     * `StationLineupRules.chartPositions` for why there is no station setting behind it. Only a
+     * slot whose source is a chart, or a rotation that takes a chart's share, has anything to say.
+     */
+    chartPositions?: boolean;
+    /**
      * The dates this slot runs on, which makes it a SPECIAL. Absent is an ordinary weekly slot.
      *
      * {@link days} still applies inside the range, so "the Fridays in December" is a range and a mask.

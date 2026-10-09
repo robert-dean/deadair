@@ -58,6 +58,18 @@ describe('PlayChartButton', () => {
         expect(playAChart).toHaveBeenCalledWith({ chartId: 'deadair.lastfm:top-100', chartOrder: 'countdown', callins: true });
     });
 
+    it('keeps the positions quiet only when the box is unticked, since absent is yes', async () => {
+        playAChart.mockResolvedValue(status);
+        const user = setupUser();
+        render(<PlayChartButton chartId="deadair.lastfm:top-100" />);
+
+        expect(screen.getByRole('checkbox', { name: "Say each record's chart position" })).toBeChecked();
+        await user.click(screen.getByRole('checkbox', { name: "Say each record's chart position" }));
+        await user.click(screen.getByRole('button', { name: 'Air this chart' }));
+
+        expect(playAChart).toHaveBeenCalledWith({ chartId: 'deadair.lastfm:top-100', chartOrder: 'countdown', chartPositions: false });
+    });
+
     it('offers nothing for a chart that came back empty, since airing one is a refusal', async () => {
         render(<PlayChartButton chartId="deadair.lastfm:top-100" playable={false} />);
 

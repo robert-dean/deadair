@@ -60,6 +60,8 @@ export function PlayChartButton({ chartId, playable = true }: PlayChartButtonPro
     const [order, setOrder] = useState<ChartOrder>('countdown');
     // The same terms: a property of this broadcast, off unless ticked, and sent only when it is on.
     const [callins, setCallins] = useState(false);
+    // The other way round: on unless unticked, and sent only when it is off, because absent is yes.
+    const [positions, setPositions] = useState(true);
 
     if (!playable) {
         return undefined;
@@ -87,13 +89,21 @@ export function PlayChartButton({ chartId, playable = true }: PlayChartButtonPro
                         variant="light"
                         color={failure ? 'red' : undefined}
                         loading={play.isPending}
-                        onClick={() => play.mutate({ chartId, chartOrder: order, ...(callins ? { callins } : {}) })}
+                        onClick={() =>
+                            play.mutate({
+                                chartId,
+                                chartOrder: order,
+                                ...(callins ? { callins } : {}),
+                                ...(positions ? {} : { chartPositions: false }),
+                            })
+                        }
                     >
                         {failure ? t('chart.failedLabel') : t('chart.air')}
                     </Button>
                 </Tooltip>
             </Group>
             <Checkbox label={t('chart.callins')} checked={callins} onChange={event => setCallins(event.currentTarget.checked)} />
+            <Checkbox label={t('chart.positions')} checked={positions} onChange={event => setPositions(event.currentTarget.checked)} />
             <Text size="xs" c="dimmed">
                 {t('chart.hint')}
             </Text>

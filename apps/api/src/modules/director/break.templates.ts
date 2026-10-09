@@ -228,6 +228,12 @@ const trackFields = (which: 'previous' | 'next'): Record<string, Resolver> => ({
     [`${which}.name`]: inputs => inputs[which]?.title,
     [`${which}.artist`]: inputs => inputs[which]?.artist,
     [`${which}.artist.name`]: inputs => inputs[which]?.artist,
+    // Where a chart placed it, so a floor phrasing can count down: "[[At number {{next.chart.rank}}, ]]".
+    // Absent for a record no chart named, or on a show that keeps its positions to itself, and a
+    // phrasing that needs one then does not apply. Out of `SPOKEN_VALUES`: a number and a chart's
+    // own name have no catalogue furniture to strip.
+    [`${which}.chart.rank`]: inputs => (inputs[which]?.chart === undefined ? undefined : String(inputs[which]!.chart!.rank)),
+    [`${which}.chart.name`]: inputs => inputs[which]?.chart?.name,
 });
 
 const VALUES: Record<string, Resolver> = {
@@ -276,7 +282,9 @@ const VALUES: Record<string, Resolver> = {
 const PHRASE_VALUES: readonly string[] = ['greeting', 'clock.rough'];
 
 /** Which placeholders are read out loud, and so go through {@link spoken}. */
-const SPOKEN_VALUES = new Set(Object.keys(VALUES).filter(key => key.startsWith('previous.') || key.startsWith('next.')));
+const SPOKEN_VALUES = new Set(
+    Object.keys(VALUES).filter(key => (key.startsWith('previous.') || key.startsWith('next.')) && !key.includes('.chart.')),
+);
 
 /**
  * The inputs a template may be filled from on a station that is not English: everything but the

@@ -10,6 +10,7 @@ import {
     BriefField,
     CallinsField,
     ChartOrderField,
+    ChartPositionsField,
     chartSourceValue,
     EraFields,
     EraNote,
@@ -101,7 +102,12 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             ...(source === undefined
                 ? {}
                 : source.kind === 'chart'
-                  ? { sourceChartId: source.chartId, sourceChartOrder: values.chartOrder }
+                  ? {
+                        sourceChartId: source.chartId,
+                        sourceChartOrder: values.chartOrder,
+                        // Sent only when it is OFF: absent is yes. See `ChartPositionsField`.
+                        ...(values.chartPositions ? {} : { chartPositions: false }),
+                    }
                   : source.kind === 'station'
                     ? { sourceStationPlaylistId: source.stationPlaylistId }
                     : { sourcePluginId: source.pluginId, sourcePlaylistId: source.playlistId }),
@@ -233,7 +239,12 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                     {/* Only under a chart, because it means nothing under anything else. A row that
                         sat there greyed out for every playlist would be a control explaining its own
                         irrelevance on the page an operator uses most. */}
-                    {splitSource(form.values.source)?.kind === 'chart' ? <ChartOrderField {...form.getInputProps('chartOrder')} /> : undefined}
+                    {splitSource(form.values.source)?.kind === 'chart' ? (
+                        <>
+                            <ChartOrderField {...form.getInputProps('chartOrder')} />
+                            <ChartPositionsField {...form.getInputProps('chartPositions', { type: 'checkbox' })} />
+                        </>
+                    ) : undefined}
 
                     <HostField {...form.getInputProps('personaId')} />
 
@@ -346,6 +357,8 @@ interface FormValues {
     source: string;
     /** Which way round a chart is played. Sent only when the source IS one; meaningless otherwise. */
     chartOrder: NonNullable<ScheduleSlot['sourceChartOrder']>;
+    /** Ticked sends nothing, which is yes; unticked sends `false`. Drawn only for a chart. */
+    chartPositions: boolean;
     personaId: string;
     brief: string;
     /** Empty string is Mantine's "nothing typed" for a NumberInput, and it means no bound. */
@@ -387,6 +400,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         // Only ever sent alongside a chart, so a slot that has never been one still carries the
         // default the API would have applied anyway.
         chartOrder: slot?.sourceChartOrder ?? 'countdown',
+        chartPositions: slot?.chartPositions ?? true,
         personaId: slot?.personaId ?? '',
         brief: slot?.brief ?? '',
         eraFrom: slot?.eraFrom ?? '',

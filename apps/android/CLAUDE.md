@@ -147,12 +147,20 @@ validate. The wait has its own fifteen-minute limit and ends in the same `stop`.
 default network (by handle, kept through a spell with none) is a move: a mount is restarted on it at
 once, by setting the same item again, because its socket is bound to the network it connected on
 and would otherwise hang until the read timeout or the lingering mobile network is torn down. Not
-`stop()`, which in `LivePlayer` is the listener's stop. HLS is left alone. **The emulator cannot show the
+`stop()`, which in `LivePlayer` is the listener's stop. **HLS is restarted too.** It used to be left
+alone on the grounds that each segment is a fresh request on the network of the moment, and a
+Pixel leaving home on 2026-10-09 showed otherwise: wifi went at 10:34:22, the player failed on its
+fifteen-second read timeout at 10:34:40, dropped its buffer, and the one-second retry played. A
+request in flight at the handover, and a kept-alive connection the next one reuses, are on the old
+network exactly as a mount is. **The emulator cannot show the
 socket dying**: its wifi and mobile data sit on one subnet behind one virtual router, so a socket
 on either address keeps receiving through the other, and the base build survived wifi going off as
 well (ExoPlayer's own load retry reconnected it, silently). What it does show (2026-10-03): data
 back to wifi left the base build's mount on mobile data, and with this change the mount was on a
-fresh wifi socket after about two seconds of buffering, no player error. Look for the stream with
+fresh wifi socket after about two seconds of buffering, no player error. The same check on HLS (2026-10-09):
+the base build still had every station connection on mobile data forty seconds after wifi became
+the default, and with HLS restarted the audio was on a fresh wifi socket after about two seconds
+of buffering, no player error. Look for the stream with
 `ss -tni` under `adb root`, and match on the local address rather than the peer: the station's
 Cloudflare address differs between the two networks.
 

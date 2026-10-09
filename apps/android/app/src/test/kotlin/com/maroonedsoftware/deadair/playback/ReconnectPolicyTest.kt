@@ -34,7 +34,6 @@ class ReconnectPolicyTest {
         backoff: Backoff = Backoff(),
         offlineLimitMs: Long = 15 * 60_000L,
         restart: () -> Unit = {},
-        heldConnection: () -> Boolean = { true },
     ) = ReconnectPolicy(
         backoff = backoff,
         // `.let` rather than a `{ job.cancel() }` on a line of its own, which Kotlin reads as a
@@ -44,7 +43,6 @@ class ReconnectPolicyTest {
         reconnect = reconnect,
         stop = stop,
         restart = restart,
-        heldConnection = heldConnection,
         offlineLimitMs = offlineLimitMs,
     )
 
@@ -457,17 +455,6 @@ class ReconnectPolicyTest {
         var restarts = 0
         val policy = policy(wantsPlay = { true }, restart = { restarts += 1 })
 
-        policy.onNetwork(CELL)
-
-        assertEquals(0, restarts)
-    }
-
-    @Test
-    fun `HLS is left alone when the network moves`() = runTest {
-        var restarts = 0
-        val policy = policy(wantsPlay = { true }, restart = { restarts += 1 }, heldConnection = { false })
-
-        policy.onNetwork(WIFI)
         policy.onNetwork(CELL)
 
         assertEquals(0, restarts)

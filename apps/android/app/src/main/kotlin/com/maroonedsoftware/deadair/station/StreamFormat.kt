@@ -18,7 +18,7 @@ enum class StreamFormat(val wire: NowPlayingMountFormat, val label: String, val 
     /**
      * What Automatic plays where the station publishes it. An Icecast mount is a single long-lived
      * TCP connection, so moving between wifi and mobile data kills it; HLS is a sequence of requests
-     * and survives.
+     * and recovers from a move more cheaply. It is still restarted on one: see `ReconnectPolicy`.
      */
     HLS(NowPlayingMountFormat.HLS, "HLS", "application/x-mpegURL"),
     AAC(NowPlayingMountFormat.AAC, "AAC", "audio/aac"),

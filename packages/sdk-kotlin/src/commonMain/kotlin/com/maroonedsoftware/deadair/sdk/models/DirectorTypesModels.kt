@@ -182,6 +182,8 @@ data class PutOnAirInput(
     val eraTo: Long? = null,
     /** The mood this broadcast leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean */
     val mood: PutOnAirInputMood? = null,
+    /** Whether the host talks between the records. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says */
+    val breaks: Boolean? = null,
     /** Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent is no calls: there is no station-wide default behind it */
     val callins: Boolean? = null,
     /** Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records, found through the similarity plugin. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off. A setlist and a feature never have anything mixed in */

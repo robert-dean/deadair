@@ -814,6 +814,7 @@ export interface DeadairProviderPlaylistListings {
 }
 
 export interface DeadairScheduleSlots {
+  breaks: boolean | null;
   brief: Generated<string>;
   callins: boolean | null;
   chartPositions: boolean | null;

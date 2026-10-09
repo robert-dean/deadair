@@ -401,6 +401,8 @@ function slotInput(slot: ScheduleSlot, options: { withoutSource?: boolean } = {}
         ...(slot.mixInSimilar === undefined || withoutSource ? {} : { mixInSimilar: slot.mixInSimilar }),
         // The same three-way again, except that absent is yes: see `StationLineupRules.chartPositions`.
         ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),
+        // The same three-way, and absent is the mode's answer: a countdown slot is a setlist that says yes.
+        ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),
         mode: withoutSource ? 'rotation' : slot.mode,
         onEnd: withoutSource ? 'extend' : slot.onEnd,
     };

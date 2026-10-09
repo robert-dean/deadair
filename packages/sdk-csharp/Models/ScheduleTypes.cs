@@ -83,6 +83,11 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ScheduleSlotMood? Mood { get; init; }
 
+    /// <summary>Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says</summary>
+    [JsonPropertyName("breaks")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Breaks { get; init; }
+
     /// <summary>Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says</summary>
     [JsonPropertyName("callins")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -188,6 +193,11 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("mood")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ScheduleSlotMood? Mood { get; init; }
+
+    /// <summary>Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says</summary>
+    [JsonPropertyName("breaks")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Breaks { get; init; }
 
     /// <summary>Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says</summary>
     [JsonPropertyName("callins")]

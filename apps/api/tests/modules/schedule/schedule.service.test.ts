@@ -243,6 +243,14 @@ describe('ScheduleService.update', () => {
         expect(saved).not.toHaveProperty('sourcePlaylistId');
     });
 
+    it('stores whether the host talks, and hands it back the same way', async () => {
+        const service = build({ slots: [slot('countdown', 9 * 60, 13 * 60)] });
+
+        const { slots } = await service.update('countdown', body({ mode: 'setlist', breaks: true }));
+
+        expect(slots[0]).toMatchObject({ mode: 'setlist', breaks: true });
+    });
+
     describe('a special', () => {
         const halloween = (over: Partial<ScheduleSlotInput> = {}) =>
             body({

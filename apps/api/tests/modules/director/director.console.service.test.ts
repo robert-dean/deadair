@@ -539,6 +539,14 @@ describe('DirectorConsoleService building a running order from a playlist', () =
         expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { rules: { chartPositions: false } } });
     });
 
+    it('binds a setlist asking its host to talk as a rule of the broadcast, which is how a countdown gets a host', async () => {
+        const { service, posted } = build({ chart: [{ rank: 1, title: 'Glory Box', artist: 'Portishead' }] });
+
+        await service.putOnAir({ chartId: 'deadair.lastfm:top-100', mode: 'setlist', breaks: true });
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { rules: { breaks: true } } });
+    });
+
     it('leaves the rules off the binding when the operator asked for none, so the station settings stand', async () => {
         const { service, posted } = build();
 

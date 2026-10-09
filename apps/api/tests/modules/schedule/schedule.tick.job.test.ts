@@ -296,6 +296,18 @@ describe('ScheduleTickJob', () => {
         expect(declining.console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ mixInSimilar: false }), expect.anything());
     });
 
+    it("carries a slot asking its host to talk, and leaves the mode's answer standing when it does not", async () => {
+        // A Friday countdown is a setlist slot that says yes. Before this the schedule had no way to
+        // say it, and the live countdown played 31 records with its host silent.
+        const countdown = build({ inForce: slot('countdown', { mode: 'setlist', breaks: true }) });
+        await countdown.tick();
+        expect(countdown.console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ mode: 'setlist', breaks: true }), expect.anything());
+
+        const { tick, console } = build({ inForce: slot('morning') });
+        await tick();
+        expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('breaks');
+    });
+
     it('carries a slot keeping its chart positions quiet, and says nothing when it does not', async () => {
         const quiet = build({ inForce: slot('quiet', { chartPositions: false }) });
         await quiet.tick();

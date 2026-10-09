@@ -167,6 +167,15 @@ export interface ScheduleSlot {
      */
     mood?: LyricMood;
     /**
+     * Whether the host talks between the records during this stretch of the day.
+     *
+     * Absent is the mode's own answer, a rotation talking and a setlist not, as on
+     * `PutOnAirInput.breaks`. `true` on a setlist is a chart countdown with a host: the talk spacing
+     * comes from the station's settings and the records stay exactly as the setlist has them (see
+     * `resolveRules`). A feature stays silent whatever this says.
+     */
+    breaks?: boolean;
+    /**
      * Whether somebody phones in during this stretch of the day.
      *
      * Absent is no calls, exactly as it is on `PutOnAirInput.callins`: there is no station-wide

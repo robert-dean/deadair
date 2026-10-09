@@ -1,5 +1,6 @@
 ---
-'@deadair/api': patch
+'@deadair/api': minor
+'@deadair/sdk': minor
 ---
 
-A setlist whose broadcast turns breaks on now actually talks. It takes the station's own spacing for talk breaks and jingles, and greets a new listener and marks a change of programme as the station does, where before the spacing stayed at zero and the switch turned nothing on. Everything about the records stays as a setlist has it: nothing is cut by a cooldown or a cap, nothing is generated or mixed in, and nobody rings in unless the broadcast asks for that too. A setlist that says nothing about breaks is silent exactly as before, and a feature stays silent whatever it asks. This is the first step towards a chart countdown with a host; a scheduled slot cannot ask for it yet.
+A setlist can have a host now, which is what a chart countdown is. A schedule slot and `PutOnAirInput` each take `breaks`: set it true on a setlist and the host talks between the records as often as the station's own settings say, plays its jingles, greets a new listener and marks a change of programme, while the records play exactly as the setlist has them (nothing cut by a cooldown or a cap, nothing generated or mixed in, and no calls unless they are asked for too). Leaving it unset keeps each mode's own answer, so a rotation talks and a setlist stays silent exactly as before; `false` makes a rotation play without talking. A feature stays silent whatever it says, since an album played whole is the case nothing talks over. Before this a setlist told to talk turned breaks on with a spacing of zero, which is off, so a scheduled countdown played record after record with its host silent.

@@ -66,6 +66,12 @@ export const ScheduleSlot = z.strictObject({
         .describe(
             'The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean',
         ),
+    breaks: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says",
+        ),
     callins: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
@@ -168,6 +174,12 @@ export const ScheduleSlotInput = z.strictObject({
         .describe(
             'The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean',
         ),
+    breaks: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says",
+        ),
     callins: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
@@ -211,7 +223,7 @@ export type ScheduleSlotInput = z.infer<typeof ScheduleSlotInput>;
 
 /**
  * A window of the station's day to draw
- * generated from [ScheduleTimetableQuery](../../../../data/contracts/schedule/schedule.types.ck#L39)
+ * generated from [ScheduleTimetableQuery](../../../../data/contracts/schedule/schedule.types.ck#L40)
  */
 export const ScheduleTimetableQuery = z.strictObject({
     from: z
@@ -231,7 +243,7 @@ export type ScheduleTimetableQuery = z.infer<typeof ScheduleTimetableQuery>;
 
 /**
  * One block: this slot, on this day, between these two times
- * generated from [ScheduleOccurrence](../../../../data/contracts/schedule/schedule.types.ck#L52)
+ * generated from [ScheduleOccurrence](../../../../data/contracts/schedule/schedule.types.ck#L53)
  */
 export const ScheduleOccurrence = z.strictObject({
     slotId: z.string().min(1).max(100),
@@ -248,7 +260,7 @@ export const ScheduleOccurrence = z.strictObject({
 export type ScheduleOccurrence = z.infer<typeof ScheduleOccurrence>;
 
 /**
- * generated from [ScheduleSlotList](../../../../data/contracts/schedule/schedule.types.ck#L34)
+ * generated from [ScheduleSlotList](../../../../data/contracts/schedule/schedule.types.ck#L35)
  */
 export const ScheduleSlotList = z.strictObject({
     slots: z.array(ScheduleSlot),
@@ -262,7 +274,7 @@ export type ScheduleSlotListInput = z.infer<typeof ScheduleSlotListInput>;
 
 /**
  * The station's day as blocks, ready to draw
- * generated from [ScheduleTimetable](../../../../data/contracts/schedule/schedule.types.ck#L45)
+ * generated from [ScheduleTimetable](../../../../data/contracts/schedule/schedule.types.ck#L46)
  */
 export const ScheduleTimetable = z.strictObject({
     from: z
@@ -279,7 +291,7 @@ export type ScheduleTimetable = z.infer<typeof ScheduleTimetable>;
 
 /**
  * Which slot the clock says should be on right now, and what follows it
- * generated from [ScheduleNow](../../../../data/contracts/schedule/schedule.types.ck#L60)
+ * generated from [ScheduleNow](../../../../data/contracts/schedule/schedule.types.ck#L61)
  */
 export const ScheduleNow = z.strictObject({
     now: z

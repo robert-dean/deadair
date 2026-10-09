@@ -335,7 +335,7 @@ describe('ScheduleTickJob', () => {
         // say it, and the live countdown played 31 records with its host silent.
         const countdown = build({ inForce: slot('countdown', { mode: 'setlist', breaks: true }) });
         await countdown.tick();
-        expect(countdown.console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ mode: 'setlist', breaks: true }), expect.anything());
+        expect(vi.mocked(countdown.console.putOnAir).mock.calls[0]?.[0]).toMatchObject({ mode: 'setlist', breaks: true });
 
         const { tick, console } = build({ inForce: slot('morning') });
         await tick();

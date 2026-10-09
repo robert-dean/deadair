@@ -122,18 +122,18 @@ describe('the length a production is picked at', () => {
 });
 
 describe('which kinds have callers', () => {
-    it('is the call-in unless the station says otherwise, and always the visit', () => {
-        expect([...dialogueKinds(config())]).toEqual(['callin', 'visit']);
+    it('is the call-in unless the station says otherwise, and always the visit and the banter', () => {
+        expect([...dialogueKinds(config())]).toEqual(['callin', 'visit', 'banter']);
     });
 
     it('takes the list the operator wrote, trimmed and lowercased', () => {
-        expect([...dialogueKinds(config({ [PRODUCTION_KEYS.dialogueKinds]: ' Callin , PHONE-IN ' }))]).toEqual(['callin', 'phone-in', 'visit']);
+        expect([...dialogueKinds(config({ [PRODUCTION_KEYS.dialogueKinds]: ' Callin , PHONE-IN ' }))]).toEqual(['callin', 'phone-in', 'visit', 'banter']);
     });
 
-    it('keeps the visit when an operator empties it, since a visit made alone would be a guest who never speaks', () => {
+    it('keeps the visit and the banter when an operator empties it, since either made alone would be somebody who never speaks', () => {
         // Emptying the setting still means no phone-ins. A visit is only ever made when a band or the
         // desk asks for one, so keeping it a conversation starts nothing on its own.
-        expect([...dialogueKinds(config({ [PRODUCTION_KEYS.dialogueKinds]: '' }))]).toEqual(['visit']);
+        expect([...dialogueKinds(config({ [PRODUCTION_KEYS.dialogueKinds]: '' }))]).toEqual(['visit', 'banter']);
     });
 });
 

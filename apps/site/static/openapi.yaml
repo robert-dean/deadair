@@ -11775,7 +11775,7 @@ components:
             properties:
                 role:
                     type: string
-                    enum: [host, caller, guest]
+                    enum: [host, caller, guest, cohost]
                 name:
                     type: string
                     maxLength: 200

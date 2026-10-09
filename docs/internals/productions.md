@@ -83,6 +83,20 @@ whatever `render.dialogueKinds` says, so a station that wrote that setting befor
 not get monologues by having written it. Guests ship with no defaults: an operator writes them, and
 gives each a voice, on the Personas page.
 
+## Banter between co-hosts
+
+**A `banter` is the show's presenters trading lines, and a co-host is a second voice who is not a
+visitor.** The cast role `cohost` is `besideTheLead` (so the lead opens and closes and the co-hosts take
+the turns between, on `speakerOrder`'s pattern) and NOT `isVisitor`: a co-host is at the desk, so they
+get a presenter's cues, soundboard and weather rule, and the prompt frames them as co-presenting rather
+than as somebody who rang or dropped by. `COHOST_TURN_WEIGHT` is about the lead's, because peers trade
+lines rather than one asking and the other answering. The lead's first beat brings the others in by
+name, a co-host's first turn answers being brought in without welcoming anybody, and the lead's last
+beat wraps up and hands back to the music. The caster reads the co-hosts off the running order of the
+broadcast the banter airs in (tonight's, which is where a visiting co-host's night is stamped) and
+throws, as a visit does, when nobody presents beside the host. `banter` is a default production kind
+and always a dialogue kind; a `banter` band on the format clock is how a station asks for a few a show.
+
 ## Commissioning one
 
 **All three commission through one path** and every one of them hands over the SHOW — a production airs as a

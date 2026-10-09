@@ -298,6 +298,7 @@ public enum ProductionCastMemberRole: String, Codable, CaseIterable, Sendable {
     case host = "host"
     case caller = "caller"
     case guest = "guest"
+    case cohost = "cohost"
 }
 
 /// How many passes to spend on it

@@ -98,6 +98,8 @@ enum class ProductionCastMemberRole {
     CALLER,
     @SerialName("guest")
     GUEST,
+    @SerialName("cohost")
+    COHOST,
 }
 
 /** How many passes to spend on it */

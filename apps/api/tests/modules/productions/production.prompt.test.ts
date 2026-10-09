@@ -32,6 +32,32 @@ const userOf = (messages: ReturnType<typeof beatPrompt>) => String(messages[1]?.
 const base = { kind: 'callin', title: 'Phone-in', ordinal: 2, words: 70 } as const;
 const mira: CastMember = { role: 'guest', personaId: 'g1', personaKey: 'guitarist', name: 'Mira', voice: 'guitarist' };
 const visit = { kind: 'visit', title: 'In the studio', ordinal: 2, words: 70 } as const;
+const lemmy: CastMember = { role: 'cohost', personaId: 'l1', personaKey: 'lemmy', name: 'Lemmy', voice: 'lemmy' };
+const banter = { kind: 'banter', title: 'Banter', ordinal: 2, words: 40, coHosts: [lemmy] } as const;
+
+describe('a turn in a banter', () => {
+    it('has the lead open by bringing the co-hosts in by name', () => {
+        const system = systemOf(turn({ ...banter, ordinal: 0, speaker: host }));
+
+        expect(system).toContain('You are presenting with Lemmy');
+        expect(system).not.toContain("you're on the air");
+    });
+
+    it('frames a co-host as presenting, never as a caller or a guest', () => {
+        const messages = turn({ ...banter, speaker: lemmy, previousSpeaker: host });
+
+        expect(systemOf(messages)).toContain('You co-present a banter');
+        expect(systemOf(messages)).not.toContain('phoned in');
+        expect(userOf(messages)).toContain('Ray is presenting this with you');
+    });
+
+    it('has the lead close it and hand back to the music, with no caller to see off', () => {
+        const system = systemOf(turn({ ...banter, speaker: host, previousSpeaker: lemmy, lastTurn: true }));
+
+        expect(system).toContain('Wrap the chat up');
+        expect(system).not.toContain('Your caller may say');
+    });
+});
 
 describe('a turn in a studio visit', () => {
     it('tells the guest they are in the studio, not on a telephone', () => {

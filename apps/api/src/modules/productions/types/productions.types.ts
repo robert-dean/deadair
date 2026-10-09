@@ -13,7 +13,7 @@ const _ZodDatetime = z.preprocess(
  * generated from [ProductionCastMember](../../../../data/contracts/productions/productions.types.ck#L10)
  */
 export const ProductionCastMember = z.strictObject({
-    role: z.enum(['host', 'caller', 'guest']),
+    role: z.enum(['host', 'caller', 'guest', 'cohost']),
     name: z.string().max(200).optional().describe('What they are called on air'),
     persona: z.string().max(100).optional().describe('The persona key, for a link back to the character'),
 });

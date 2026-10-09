@@ -21,19 +21,29 @@ A schedule need not cover the day. The hours no block claims play the sustaining
 
 The running order makes each changeover at a record boundary, so by default the record playing when a block starts is left to finish, however long it is: a seventeen-minute record at the top of the hour starts the new show at seventeen past. **Start shows on time** (off by default) sets a limit. A record from the programme that ended that is still playing five minutes into the new block (or however many you choose; zero ends it at once) is faded out over four seconds (or however long you choose; zero cuts it the way **Skip** does), and the activity feed names the record and the show it was holding up. Only the schedule's own changeovers are affected: a programme you put on by hand always lets the record finish.
 
-## Guest hosts
-
-A block can have **guest hosts** who sit in for its own host on some nights. A guest comes on fixed nights (Wednesdays, say), or at random: about one night in however many you choose, with a gap between visits (half of that by default, so an about-weekly guest never lands two nights running). Random nights are worked out from the date, so nobody can predict them, but the station and the console always agree on who is on tonight. On a guest's night the station puts them on, and they know whose show they are sitting in on, so they can say so. Only a host can sit in. **Today** shows "sitting in for" on the block that is on; nights still to come are not given away.
-
-## Specials
-
-A special is a block on dates rather than every week: Halloween night, the week before Christmas, an evening somebody else presents. It has everything a block has, plus a first and a last date, and it can repeat every year on the same dates (a yearly range may run past New Year). Inside its dates it still runs only on the days you tick, so "the Fridays in December" is a range and a day. On its dates a special takes over from the weekly schedule for its hours, and whatever usually airs then resumes when it ends, part-way through if it was still on. Two specials may not overlap each other.
-
 If you put something on yourself inside a block, yours holds until the next block begins, and the Desk offers to keep it on longer.
 
 A block set to stop when it runs out goes quiet for the rest of its hours, and the next block still starts on time. Pressing **Stop** yourself is different: the schedule leaves a station you stopped off until you put it back on.
 
 At each changeover the station says so between the two shows, with the new host thanking the last one. See [When the show changes](./breaks.md#when-the-show-changes).
+
+## Guest hosts
+
+A block can have **guest hosts** who sit in for its own host on some nights. A guest comes on fixed nights (Wednesdays, say), or at random: about one night in however many you choose, with a gap between visits (half of that by default, so an about-weekly guest never lands two nights running). Random nights are worked out from the date, so nobody can predict them, but the station and the console always agree on who is on tonight. On a guest's night the station puts them on, and they know whose show they are sitting in on, so they can say so. Only a host can sit in. **Today** shows "sitting in for" on the block that is on; nights still to come are not given away.
+
+## Co-hosts
+
+A block can have **co-hosts** who present beside its host: every night, on fixed nights, or as a **visitor** who turns up at random (about one night in however many you choose, with a gap between visits). Up to three are on any one night. On a show with co-hosts the talk breaks go round them, each said by whoever was heard from least recently, and every presenter knows who else is on. Put a `banter` band on the format clock for a few minutes of the presenters trading lines. **Today** names tonight's co-hosts beside the host once their night is on.
+
+## Specials
+
+A special is a block on dates rather than every week: Halloween night, the week before Christmas, an evening somebody else presents. It has everything a block has, plus a first and a last date, and it can repeat every year on the same dates (a yearly range may run past New Year). Inside its dates it still runs only on the days you tick, so "the Fridays in December" is a range and a day. On its dates a special takes over from the weekly schedule for its hours, and whatever usually airs then resumes when it ends, part-way through if it was still on. Two specials may not overlap each other.
+
+![Programme, Specials: shows on dates rather than every week](/img/console/schedule.specials.webp)
+*Fig. 2. Specials.*
+
+![A new special: a block with a first and last date, and whether it repeats every year](/img/console/schedule.special.editor.webp)
+*Fig. 3. A new special.*
 
 ## Modes
 
@@ -72,10 +82,10 @@ Every pick from every source passes through one final step that applies your dis
 
 ## The format clock
 
-The format clock is a list of rules about what the station says inside the hour, each written as a sentence: say a news bulletin every hour at half past, say the weather once a day at 07:00, say what happened on today's date mid-morning, say an ident every so many minutes. When two rules want the same boundary, the higher one in the list wins.
+The format clock is a list of rules about what the station says inside the hour, each written as a sentence: say a news bulletin every hour at half past, say the weather once a day at 07:00, say what happened on today's date mid-morning, say an ident every so many minutes. A rule can also commission a short programme: `callin` for a phone-in, `visit` for a guest dropping by the studio, `banter` for a show's co-hosts trading lines (see [phone-ins](./phone-ins.md)). When two rules want the same boundary, the higher one in the list wins.
 
 A rule can be about a subject, such as a news category or a weather location. A bulletin asked for a category it cannot fill declines the slot rather than air the wrong story under the right name. A category marked off air is kept out of every bulletin, which is how a publisher's deals desk stays off your news. Edits apply from the next boundary.
 
 ## In the console
 
-**Programme** has these tabs. **Today** shows what is on now and the format clock. **Timetable** is the week: drag a block to move it, drag an edge to change its times, click an empty hour to add one. A special is drawn there on its dates, named as one, with the weekly blocks trimmed around it; its times drag, but it cannot be dragged to another day. **Specials** lists every special, on today first, then the soonest, then the one-offs that are over, and **New special** adds one. **Start shows on time** is under the grid, in **At a boundary**. **Sustaining** is what plays in the hours no block claims. Ratings are set from the Desk's running order, the Library's pages, and the Like and Dislike keys on a [Stream Deck](./console.md#on-a-stream-deck). Rotation rules, explicit content and a binding brief are under **Settings**, **Rotation**; letting a model choose records is under **Settings**, **Words**. Subjects are under **Voice**, **Subjects**.
+**Programme** has these tabs. **Today** shows what is on now and the format clock. **Timetable** is the week: drag a block to move it, drag an edge to change its times, click an empty hour to add one. A special is drawn there on its dates, named as one, with the weekly blocks trimmed around it; its times drag, but it cannot be dragged to another day. **Specials** lists every special, on today first, then the soonest, then the one-offs that are over, and **New special** adds one. A block's editor has **Guest hosts** (who sits in, on fixed nights or at random) and **Co-hosts** (who presents beside the host: every night, on fixed nights, or visiting), and **Today** says who is presenting tonight, sitting in or with co-hosts. **Start shows on time** is under the grid, in **At a boundary**. **Sustaining** is what plays in the hours no block claims. Ratings are set from the Desk's running order, the Library's pages, and the Like and Dislike keys on a [Stream Deck](./console.md#on-a-stream-deck). Rotation rules, explicit content and a binding brief are under **Settings**, **Rotation**; letting a model choose records is under **Settings**, **Words**. Subjects are under **Voice**, **Subjects**.

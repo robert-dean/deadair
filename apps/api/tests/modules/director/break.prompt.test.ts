@@ -2821,6 +2821,12 @@ describe('the station in its own words', () => {
         expect(rules).toContain('never call the show yours');
     });
 
+    it('tells a co-host who else is on the show tonight', () => {
+        const rules = system(prompt(talk, { station: 'deadair', coPresenters: ["Ozzy's Ghost", 'Dr. Rockzo'] }));
+
+        expect(rules).toContain("You co-host this show with Ozzy's Ghost and Dr. Rockzo");
+    });
+
     it('says nothing about sitting in on an ordinary night', () => {
         expect(system(prompt(talk, { station: 'deadair' }))).not.toContain('sitting in');
     });

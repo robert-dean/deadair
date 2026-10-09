@@ -103,24 +103,34 @@ export class ScheduleRepository extends DataRepository {
 
         return slots.map(slot => {
             const guests = rows.filter(row => row.slotId === slot.id && row.role === 'guest').map(toPerson);
-            return guests.length === 0 ? slot : { ...slot, guestHosts: guests };
+            const coHosts = rows.filter(row => row.slotId === slot.id && row.role === 'cohost').map(toPerson);
+            return {
+                ...slot,
+                ...(guests.length === 0 ? {} : { guestHosts: guests }),
+                ...(coHosts.length === 0 ? {} : { coHosts }),
+            };
         });
     }
 
-    /** A slot's guest hosts replaced by the draft's, which is what a `PUT` of the whole slot means. */
+    /** A slot's guest hosts and co-hosts replaced by the draft's, which is what a `PUT` of the whole slot means. */
     private async writePeople(slotId: string, draft: ScheduleSlotDraft): Promise<void> {
-        await this.db.deleteFrom('deadair.scheduleSlotHosts').where('slotId', '=', slotId).where('role', '=', 'guest').execute();
+        await this.db.deleteFrom('deadair.scheduleSlotHosts').where('slotId', '=', slotId).execute();
 
-        const guests = draft.guestHosts ?? [];
-        if (guests.length === 0) return;
+        // Position is per role, which is precedence within it: the first guest whose night it is
+        // takes it, and the first co-hosts listed fill a night before a visitor does.
+        const people = [
+            ...(draft.guestHosts ?? []).map((person, position) => ({ person, position, role: 'guest' as const })),
+            ...(draft.coHosts ?? []).map((person, position) => ({ person, position, role: 'cohost' as const })),
+        ];
+        if (people.length === 0) return;
 
         await this.db
             .insertInto('deadair.scheduleSlotHosts')
             .values(
-                guests.map((person, position) => ({
+                people.map(({ person, position, role }) => ({
                     slotId,
                     personaId: person.personaId,
-                    role: 'guest' as const,
+                    role,
                     position,
                     days: person.days === undefined ? null : sql<string>`${JSON.stringify([...person.days])}::jsonb`,
                     everyN: person.everyN ?? null,
@@ -178,8 +188,10 @@ function columnsOf(draft: ScheduleSlotDraft) {
 }
 
 /** The people half of a draft, as the slot written back carries it. */
-const peopleOf = (draft: ScheduleSlotDraft): Pick<ScheduleSlot, 'guestHosts'> =>
-    draft.guestHosts === undefined || draft.guestHosts.length === 0 ? {} : { guestHosts: draft.guestHosts };
+const peopleOf = (draft: ScheduleSlotDraft): Pick<ScheduleSlot, 'guestHosts' | 'coHosts'> => ({
+    ...(draft.guestHosts === undefined || draft.guestHosts.length === 0 ? {} : { guestHosts: draft.guestHosts }),
+    ...(draft.coHosts === undefined || draft.coHosts.length === 0 ? {} : { coHosts: draft.coHosts }),
+});
 
 /** A stored row as a slot person, dropping what is absent per the `== null` rule. */
 function toPerson(row: { personaId: string; days: unknown; everyN: number | null; cooldownDays: number | null }): SlotPerson {

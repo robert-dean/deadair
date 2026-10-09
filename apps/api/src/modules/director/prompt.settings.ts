@@ -7,7 +7,7 @@ import type { BreakWriteRequest } from './break.writer.js';
 
 /** The part of a break prompt's settings that is the station's rather than the break's. */
 export type StationPromptSettings = Required<Pick<PromptSettings, 'station' | 'dj' | 'cleanLanguage'>> &
-    Pick<PromptSettings, 'language' | 'stationIdentity' | 'stationContext' | 'sittingInFor'>;
+    Pick<PromptSettings, 'language' | 'stationIdentity' | 'stationContext' | 'sittingInFor' | 'coPresenters'>;
 
 /**
  * Who the station is, in the operator's words: what it plays, who it is for, what it stands for.
@@ -45,7 +45,10 @@ const stationText = (config: AppConfig, key: string): string | undefined => {
  * Read per break, like every other setting a writer reads, so an operator's change lands on the
  * next break rather than after a restart.
  */
-export function stationPromptSettings(config: AppConfig, request: Pick<BreakWriteRequest, 'persona' | 'sittingInFor'>): StationPromptSettings {
+export function stationPromptSettings(
+    config: AppConfig,
+    request: Pick<BreakWriteRequest, 'persona' | 'sittingInFor' | 'coPresenters'>,
+): StationPromptSettings {
     const language = stationLanguage(config);
     return {
         station: config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
@@ -61,6 +64,7 @@ export function stationPromptSettings(config: AppConfig, request: Pick<BreakWrit
         // Whose show a guest host is sitting in on. Here rather than in each writer because it is
         // part of who is presenting, which every kind of break the presenter writes has to know.
         ...(request.sittingInFor === undefined ? {} : { sittingInFor: request.sittingInFor }),
+        ...(request.coPresenters === undefined || request.coPresenters.length === 0 ? {} : { coPresenters: request.coPresenters }),
     };
 }
 
@@ -85,9 +89,21 @@ const optional = <K extends string>(key: K, value: string | undefined): Partial<
  * changeover, the outgoing host's: a model writing a handover as a scene is the one most likely to
  * put a name and a colon in front of it. See `SpeakableOptions.speakers`.
  */
-export function speakerGuard(config: AppConfig, request: Pick<BreakWriteRequest, 'persona' | 'changeover'>): Pick<AnswerGuard, 'speakers'> {
+export function speakerGuard(
+    config: AppConfig,
+    request: Pick<BreakWriteRequest, 'persona' | 'changeover' | 'coPresenters'>,
+): Pick<AnswerGuard, 'speakers'> {
     const outgoing = request.changeover?.outgoing;
-    const names = [request.persona?.djName, request.persona?.label, config.get(TEMPLATE_KEYS.djName, ''), outgoing?.djName, outgoing?.label]
+    // The co-presenters too: a break that mentions a co-host by name and a colon is a script reading
+    // a scene, which is the same failure as naming the presenter that way.
+    const names = [
+        request.persona?.djName,
+        request.persona?.label,
+        config.get(TEMPLATE_KEYS.djName, ''),
+        outgoing?.djName,
+        outgoing?.label,
+        ...(request.coPresenters ?? []),
+    ]
         .map(name => name?.trim() ?? '')
         .filter(name => name !== '');
 

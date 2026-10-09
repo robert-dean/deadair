@@ -425,6 +425,8 @@ export class DirectorConsoleService {
             ...(slot === undefined ? {} : { slotId: slot.id }),
             ...(night === undefined ? {} : { slotOccurrence: night.date }),
             ...(await this.regularHostFor(night, input.personaId)),
+            // Tonight's co-hosts, never the lead among them.
+            ...coHostsOn(night, input.personaId),
             // Who chose this, which the slot stamp above cannot answer. `onSlot` is the tick handing
             // back what it resolved, and `sustaining` is the tick filling a gap; everything else
             // reaching here is a person, including a person who happens to be inside a scheduled
@@ -1498,6 +1500,7 @@ export class DirectorConsoleService {
             // table holds the name, so an operator who renames their host sees the new name on the
             // show that is already running.
             ...(host?.label === undefined ? {} : { personaLabel: host.label }),
+            ...(order.coHostPersonaIds === undefined || order.coHostPersonaIds.length === 0 ? {} : { coHostPersonaIds: [...order.coHostPersonaIds] }),
             mode: order.mode,
             onEnd: order.onEnd,
             source: order.source,
@@ -1728,4 +1731,12 @@ export interface ScheduledNight {
     date: string;
     guest: boolean;
     regularPersonaId?: string;
+    /** Who presents beside the host tonight, in order. Absent or empty is one voice. */
+    coHostIds?: readonly string[];
+}
+
+/** A night's co-hosts as the binding holds them: never the lead, never empty. */
+function coHostsOn(night: ScheduledNight | undefined, leadId: string | undefined): { coHostPersonaIds?: string[] } {
+    const coHosts = (night?.coHostIds ?? []).filter(id => id !== leadId?.trim());
+    return coHosts.length === 0 ? {} : { coHostPersonaIds: coHosts };
 }

@@ -41,7 +41,7 @@ export type StationItemState = 'planned' | 'handed' | 'airing' | 'played' | 'ski
 
 /**
  * Change who is presenting the broadcast that is on air
- * generated from [SetStationHostInput](../../../../../apps/api/data/contracts/director/director.types.ck#L100)
+ * generated from [SetStationHostInput](../../../../../apps/api/data/contracts/director/director.types.ck#L101)
  */
 export interface SetStationHostInput {
     /** Who hosts it from here on. Absent hands it back to whichever persona the station has on air, which is what a broadcast that never named one already does */
@@ -50,7 +50,7 @@ export interface SetStationHostInput {
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](../../../../../apps/api/data/contracts/director/director.types.ck#L104)
+ * generated from [AddStationSegmentInput](../../../../../apps/api/data/contracts/director/director.types.ck#L105)
  */
 export interface AddStationSegmentInput {
     segmentId: string;
@@ -62,7 +62,7 @@ export interface AddStationSegmentInput {
 
 /**
  * Put a catalog record into the running order. Refused at the door — 404 for a record the catalog does not hold, 422 for one whose audio is not local yet — rather than accepted and left to fail when it comes round
- * generated from [AddStationTrackInput](../../../../../apps/api/data/contracts/director/director.types.ck#L110)
+ * generated from [AddStationTrackInput](../../../../../apps/api/data/contracts/director/director.types.ck#L111)
  */
 export interface AddStationTrackInput {
     trackId: string;
@@ -72,7 +72,7 @@ export interface AddStationTrackInput {
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](../../../../../apps/api/data/contracts/director/director.types.ck#L115)
+ * generated from [MoveStationItemInput](../../../../../apps/api/data/contracts/director/director.types.ck#L116)
  */
 export interface MoveStationItemInput {
     toIndex: number;
@@ -80,7 +80,7 @@ export interface MoveStationItemInput {
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](../../../../../apps/api/data/contracts/director/director.types.ck#L119)
+ * generated from [ExtendStationInput](../../../../../apps/api/data/contracts/director/director.types.ck#L120)
  */
 export interface ExtendStationInput {
     count?: number;
@@ -88,7 +88,7 @@ export interface ExtendStationInput {
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](../../../../../apps/api/data/contracts/director/director.types.ck#L123)
+ * generated from [ReplanStationInput](../../../../../apps/api/data/contracts/director/director.types.ck#L124)
  */
 export interface ReplanStationInput {
     /** How many records to programme. Absent is roughly an hour */
@@ -132,7 +132,7 @@ export interface StationAir {
 
 /**
  * Put the station on air, building its running order from the top
- * generated from [PutOnAirInput](../../../../../apps/api/data/contracts/director/director.types.ck#L80)
+ * generated from [PutOnAirInput](../../../../../apps/api/data/contracts/director/director.types.ck#L81)
  */
 export interface PutOnAirInput {
     /** The plugin whose playlist to build from. Absent starts empty and lets the station generate its own programming */
@@ -227,6 +227,8 @@ export interface StationOrder {
     personaId?: string;
     /** What that host is called, resolved as the order is read so a console need not fetch the persona list to draw a name */
     personaLabel?: string;
+    /** Who presents beside the host on this broadcast, in order: the co-hosts the schedule put on for tonight. Absent is one voice */
+    coHostPersonaIds?: string[];
     mode: StationMode;
     onEnd: StationOnEnd;
     /** Who built it: `import`, `chart` or `director` */

@@ -21,6 +21,10 @@ A **visit** is the same kind of short programme with a **guest** in the room ins
 
 No guests ship with the station. Write them with "New caller or guest…", then "New guest", on Voice, Characters, and give each a voice no host uses. Like a caller, a guest never presents, has no phrasings, and can be tied to the hosts whose shows they visit. Ask for a visit with **Bring in a guest** on the Desk, or put a `visit` band on the format clock. A visit asked for on a station with no guests fails, and Productions says why, rather than airing your host alone.
 
+## Banter between co-hosts
+
+On a show with [co-hosts](./programme.md#co-hosts), a **banter** is the presenters trading lines for a few minutes: the host brings the others in by name, they react to each other, and the host hands back to the music. Put a `banter` band on the format clock to have a few a show. One asked for on a night with nobody beside the host fails, and Productions says why.
+
 ## Three ways to take a call
 
 - **Take a call** on the Desk puts somebody on the phone now, about what the broadcast is playing unless you type another subject. It lands a few minutes later, because the turns are written and spoken one at a time.
@@ -55,4 +59,4 @@ The same machinery makes longer programmes in one voice. A clock band naming `po
 
 ## In the console
 
-Voice, Productions lists what the station is making and has made: its state (queued, planning it, writing it, checking it, speaking it, joining it up, ready, in the running order), its length, how many turns are written, who is on it, and a Stop button while one can still be stopped. The words are on Voice, What it said. Call spacing is under Settings, Breaks; length, passes and pause under Settings, Voice and audio; which plugin joins the turns up under Settings, Providers.
+On the Desk, **Take a call** asks for a phone-in now and **Bring in a guest** asks for a visit, each with an optional subject. Voice, Productions lists what the station is making and has made: its state (queued, planning it, writing it, checking it, speaking it, joining it up, ready, in the running order), its length, how many turns are written, who is on it, and a Stop button while one can still be stopped. The words are on Voice, What it said. Call spacing is under Settings, Breaks; length, passes and pause under Settings, Voice and audio; which plugin joins the turns up under Settings, Providers.

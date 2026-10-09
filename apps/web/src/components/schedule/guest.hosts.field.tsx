@@ -1,6 +1,6 @@
 import { ActionIcon, Button, Chip, Group, InputWrapper, NumberInput, SegmentedControl, Select, Stack, Text } from '@mantine/core';
 import { IconPlus, IconX } from '@tabler/icons-react';
-import type { SlotGuestHost } from '@deadair/sdk';
+import type { SlotCoHost, SlotGuestHost } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
 import { usePersonas } from '../../api/personas.queries';
@@ -14,7 +14,8 @@ import { DAYS } from './schedule.day';
  */
 export interface GuestRow {
     personaId: string;
-    when: 'days' | 'random';
+    /** `always` is a co-host's alone: a guest host on every night would be the slot's own host. */
+    when: 'always' | 'days' | 'random';
     days: string[];
     /** Empty string is Mantine's "nothing typed" for a `NumberInput`. */
     everyN: number | string;
@@ -22,10 +23,10 @@ export interface GuestRow {
 }
 
 /** A stored guest host as a form row. */
-export function guestRowOf(guest: SlotGuestHost): GuestRow {
+export function guestRowOf(guest: SlotGuestHost | SlotCoHost): GuestRow {
     return {
         personaId: guest.personaId,
-        when: guest.everyN === undefined ? 'days' : 'random',
+        when: guest.everyN !== undefined ? 'random' : (guest.days?.length ?? 0) > 0 ? 'days' : 'always',
         days: (guest.days ?? []).map(String),
         everyN: guest.everyN ?? 7,
         cooldownDays: guest.cooldownDays ?? '',
@@ -40,13 +41,15 @@ export function guestHostsOf(rows: readonly GuestRow[]): SlotGuestHost[] {
     return rows
         .filter(row => row.personaId !== '')
         .map(row =>
-            row.when === 'days'
-                ? { personaId: row.personaId, days: row.days.map(Number) }
-                : {
-                      personaId: row.personaId,
-                      everyN: typeof row.everyN === 'number' ? row.everyN : 7,
-                      ...(typeof row.cooldownDays === 'number' ? { cooldownDays: row.cooldownDays } : {}),
-                  },
+            row.when === 'always'
+                ? { personaId: row.personaId }
+                : row.when === 'days'
+                  ? { personaId: row.personaId, days: row.days.map(Number) }
+                  : {
+                        personaId: row.personaId,
+                        everyN: typeof row.everyN === 'number' ? row.everyN : 7,
+                        ...(typeof row.cooldownDays === 'number' ? { cooldownDays: row.cooldownDays } : {}),
+                    },
         );
 }
 
@@ -75,26 +78,28 @@ export function guestRowProblem(row: GuestRow): 'slot.guests.pickHost' | 'slot.g
  * anybody can hear. The API refuses both too; leaving them out of the list is the console not
  * offering a choice that can only fail.
  */
-export function GuestHostsField({ rows, onChange, ownHostId, errors }: Props) {
+export function GuestHostsField({ rows, onChange, ownHostId, errors, role = 'guest', taken = [] }: Props) {
     const { t } = useTranslation('schedule');
+    // One set of words or the other, each a whole sentence. A co-host is offered "every night" too.
+    const words = role === 'cohost' ? ('slot.coHosts' as const) : ('slot.guests' as const);
     const personas = usePersonas();
     const hosts = (personas.data?.personas ?? []).filter(presents).filter(persona => persona.id !== ownHostId);
 
     const set = (index: number, change: Partial<GuestRow>) => onChange(rows.map((row, at) => (at === index ? { ...row, ...change } : row)));
 
     return (
-        <InputWrapper label={t('slot.guests.label')} description={t('slot.guests.description')}>
+        <InputWrapper label={t(`${words}.label`)} description={t(`${words}.description`)}>
             <Stack gap="sm" mt="xs">
                 {rows.map((row, index) => {
-                    const taken = new Set(rows.filter((_, at) => at !== index).map(other => other.personaId));
-                    const options = hosts.filter(host => !taken.has(host.id)).map(host => ({ value: host.id, label: host.label }));
+                    const used = new Set([...taken, ...rows.filter((_, at) => at !== index).map(other => other.personaId)]);
+                    const options = hosts.filter(host => !used.has(host.id)).map(host => ({ value: host.id, label: host.label }));
 
                     return (
                         <Stack key={index} gap={6}>
                             <Group gap="xs" align="flex-start" wrap="wrap">
                                 <Select
-                                    aria-label={t('slot.guests.host')}
-                                    placeholder={t('slot.guests.host')}
+                                    aria-label={t(`${words}.host`)}
+                                    placeholder={t(`${words}.host`)}
                                     data={options}
                                     value={row.personaId || null}
                                     onChange={value => set(index, { personaId: value ?? '' })}
@@ -102,10 +107,11 @@ export function GuestHostsField({ rows, onChange, ownHostId, errors }: Props) {
                                     error={errors?.[index] === 'slot.guests.pickHost' ? t('slot.guests.pickHost') : undefined}
                                 />
                                 <SegmentedControl
-                                    aria-label={t('slot.guests.whenLabel')}
+                                    aria-label={t(`${words}.whenLabel`)}
                                     data={[
-                                        { value: 'days', label: t('slot.guests.onNights') },
-                                        { value: 'random', label: t('slot.guests.atRandom') },
+                                        ...(role === 'cohost' ? [{ value: 'always', label: t('slot.coHosts.always') }] : []),
+                                        { value: 'days', label: t(`${words}.onNights`) },
+                                        { value: 'random', label: t(`${words}.atRandom`) },
                                     ]}
                                     value={row.when}
                                     onChange={value => set(index, { when: value as GuestRow['when'] })}
@@ -113,7 +119,7 @@ export function GuestHostsField({ rows, onChange, ownHostId, errors }: Props) {
                                 <ActionIcon
                                     variant="subtle"
                                     color="gray"
-                                    aria-label={t('slot.guests.remove')}
+                                    aria-label={t(`${words}.remove`)}
                                     onClick={() => onChange(rows.filter((_, at) => at !== index))}
                                     mt={6}
                                 >
@@ -138,7 +144,7 @@ export function GuestHostsField({ rows, onChange, ownHostId, errors }: Props) {
                                         </Text>
                                     ) : undefined}
                                 </Stack>
-                            ) : (
+                            ) : row.when === 'always' ? undefined : (
                                 <Group gap="xs" align="flex-end" wrap="wrap">
                                     <NumberInput
                                         label={t('slot.guests.everyN')}
@@ -172,9 +178,20 @@ export function GuestHostsField({ rows, onChange, ownHostId, errors }: Props) {
                         size="xs"
                         variant="light"
                         leftSection={<IconPlus size={14} />}
-                        onClick={() => onChange([...rows, { personaId: '', when: 'random', days: [], everyN: 7, cooldownDays: '' }])}
+                        onClick={() =>
+                            onChange([
+                                ...rows,
+                                {
+                                    personaId: '',
+                                    when: role === 'cohost' ? 'always' : 'random',
+                                    days: [],
+                                    everyN: role === 'cohost' ? 25 : 7,
+                                    cooldownDays: '',
+                                },
+                            ])
+                        }
                     >
-                        {t('slot.guests.add')}
+                        {t(`${words}.add`)}
                     </Button>
                 </Group>
             </Stack>
@@ -189,4 +206,8 @@ interface Props {
     ownHostId?: string;
     /** Per row, what stops it being saved, as {@link guestRowProblem} answers. */
     errors?: readonly (ReturnType<typeof guestRowProblem> | undefined)[];
+    /** Guest hosts or co-hosts. The rows are the same; a co-host may also be on every night. */
+    role?: 'guest' | 'cohost';
+    /** Characters already listed in the OTHER field, left out of this one: nobody is both. */
+    taken?: readonly string[];
 }

@@ -7849,6 +7849,13 @@ components:
                     type: string
                     maxLength: 200
                     description: 'What that host is called, resolved as the order is read so a console need not fetch the persona list to draw a name'
+                coHostPersonaIds:
+                    type: array
+                    items:
+                        type: string
+                        maxLength: 100
+                    maxItems: 3
+                    description: 'Who presents beside the host on this broadcast, in order: the co-hosts the schedule put on for tonight. Absent is one voice'
                 mode:
                     '$ref': '#/components/schemas/StationMode'
                 onEnd:
@@ -11768,7 +11775,7 @@ components:
             properties:
                 role:
                     type: string
-                    enum: [host, caller, guest]
+                    enum: [host, caller, guest, cohost]
                 name:
                     type: string
                     maxLength: 200
@@ -12878,6 +12885,12 @@ components:
                     type: string
                     pattern: '^\d{4}-\d{2}-\d{2}$'
                     description: 'The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask'
+                coHosts:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/SlotCoHost'
+                    maxItems: 8
+                    description: "Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out"
                 guestHosts:
                     type: array
                     items:
@@ -12922,6 +12935,33 @@ components:
                     description: 'With `everyN`, the fewest days between two of their nights. Absent is half of `everyN`, so even one in seven never lands two nights running'
             required: [personaId]
             description: 'A host who sits in on a slot on some nights, saying whose show it usually is'
+        SlotCoHost:
+            type: object
+            properties:
+                personaId:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: 'Who co-presents. A host; a caller or a guest who drops by can never present a show'
+                days:
+                    type: array
+                    items:
+                        type: integer
+                        minimum: 0
+                        maximum: 6
+                    description: 'The nights they co-present, by the weekday the night begins on, Sunday 0. Absent with no `everyN` is every night. Send this or `everyN`, not both'
+                everyN:
+                    type: integer
+                    minimum: 2
+                    maximum: 366
+                    description: "Or as a visitor: about one of this slot's nights in this many, on nights nobody can predict"
+                cooldownDays:
+                    type: integer
+                    minimum: 0
+                    maximum: 366
+                    description: 'With `everyN`, the fewest days between two of their nights. Absent is half of `everyN`'
+            required: [personaId]
+            description: "Somebody who presents beside a slot's host, every night or some of them"
         ScheduleSlotList:
             type: object
             properties:
@@ -13005,6 +13045,13 @@ components:
                     type: string
                     maxLength: 100
                     description: "Who presents tonight's night of the slot in force: a guest sitting in, or the slot's own host. Absent when it names nobody, which is the station's own host. Only the night that is ON is answered, so a guest who comes at random stays a surprise until their night begins"
+                coHostPersonaIds:
+                    type: array
+                    items:
+                        type: string
+                        maxLength: 100
+                    maxItems: 3
+                    description: "Who presents beside tonight's host on the slot in force, in order. Only the night that is ON is answered, so a visitor stays a surprise until their night begins"
                 regularPersonaId:
                     type: string
                     maxLength: 100

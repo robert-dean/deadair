@@ -56,6 +56,10 @@ function harness(
         persona?: Persona;
         /** The regular host a guest sits in for, for the tests about saying whose show it is. */
         regular?: Persona;
+        /** Tonight's co-hosts, as the roster reads them, for the tests about who speaks. */
+        coHosts?: Persona[];
+        /** When each persona was last heard, for the rotation. */
+        heard?: Map<string, number>;
         /** What that character has accumulated, for the tests about carrying and resting it. */
         notebook?: { trait: readonly string[]; said: readonly string[] };
         /** One of that character's own stories, for the tests about the rung and the rest. */
@@ -110,6 +114,7 @@ function harness(
         recentScripts: vi.fn(async () => []),
         writeScript: vi.fn(async () => options.wrote ?? true),
         breaksSincePad: vi.fn(async () => options.breaksSincePad ?? 0),
+        lastSpokenBy: vi.fn(async () => options.heard ?? new Map<string, number>()),
         markFailed: vi.fn(async () => {}),
         // Read only for an order that carries a programme, which none of these do unless a test says.
         findByIds: vi.fn(
@@ -144,7 +149,7 @@ function harness(
     // that has chosen no persona is the state every assertion below was written against.
     const personas = {
         presentingFor: vi.fn(async () => options.persona),
-        find: vi.fn(async (id: string) => (options.regular?.id === id ? options.regular : undefined)),
+        find: vi.fn(async (id: string) => (options.regular?.id === id ? options.regular : options.coHosts?.find(host => host.id === id))),
     };
     // A rack with nothing on it, which is what every persona in these tests has: `pads` answers `{}`
     // for an empty set, so the request is byte-identical to one built before soundboards existed.
@@ -611,6 +616,65 @@ describe('WriteBreakJob', () => {
         await job.run({ segmentId: 'seg-1' });
 
         expect(personas.presentingFor).toHaveBeenCalledWith('talkbreak', 'p-tonight');
+    });
+
+    describe('a show with co-hosts', () => {
+        const ozzy = { id: 'ozzy', key: 'ozzysghost', label: "Ozzy's Ghost", djName: "Ozzy's Ghost", kind: 'host' } as Persona;
+        const lemmy = { id: 'lemmy', key: 'lemmy', label: "Lemmy's Ghost", djName: "Lemmy's Ghost", kind: 'host', voice: 'lemmy' } as Persona;
+        const show = (): StationLineup => {
+            const lineup = new StationLineup({
+                name: 'The Boneyard',
+                mode: 'rotation',
+                onEnd: 'extend',
+                source: 'import',
+                personaId: 'ozzy',
+                coHostPersonaIds: ['lemmy'],
+            });
+            lineup.append([track('Iron Man', 'Black Sabbath'), track('Ace of Spades', 'Motörhead')]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+            return lineup;
+        };
+
+        it('gives a talk break to whoever was heard least recently, and tells them who else is on', async () => {
+            const { job, writers } = harness({
+                lineup: show(),
+                persona: ozzy,
+                coHosts: [lemmy],
+                heard: new Map([
+                    ['ozzy', 200],
+                    ['lemmy', 100],
+                ]),
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ persona: lemmy, coPresenters: ["Ozzy's Ghost"] }));
+        });
+
+        it('keeps a talk break with the lead when nobody has been heard yet', async () => {
+            const { job, writers } = harness({ lineup: show(), persona: ozzy, coHosts: [lemmy] });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ persona: ozzy, coPresenters: ["Lemmy's Ghost"] }));
+        });
+
+        it('leaves every other kind of break with the lead, who still knows who is beside them', async () => {
+            const { job, writers } = harness({
+                lineup: show(),
+                persona: ozzy,
+                coHosts: [lemmy],
+                heard: new Map([
+                    ['ozzy', 200],
+                    ['lemmy', 100],
+                ]),
+                segment: planned({ kind: 'welcome' }),
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ persona: ozzy, coPresenters: ["Lemmy's Ghost"] }));
+        });
     });
 
     describe('a guest host sitting in', () => {

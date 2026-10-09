@@ -7,13 +7,14 @@ import { stationZone } from '#modules/director/clock.words.js';
 import { DirectorService } from '#modules/director/director.service.js';
 import type { ChartOrder } from '#modules/director/chart.picks.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
-import { hostFor, type NightHost } from '#modules/director/slot.visits.js';
+import { coHostsFor, hostFor, type NightHost } from '#modules/director/slot.visits.js';
 import {
     dateKey,
     isChartSource,
     occurrenceOf,
     isSpecial,
     isStationPlaylistSource,
+    MAX_CO_HOSTS,
     minutesIntoSlot,
     overlap,
     resolveSlot,
@@ -208,17 +209,20 @@ export class ScheduleService {
      * The tick reads this to put the right host on and to tell one night of a slot from the next. It
      * is a function of the slot and the clock alone, so it answers the same every minute of a night.
      */
-    nightOf(slot: ScheduleSlot, at: number = Date.now()): { date: string; host: NightHost } {
+    nightOf(slot: ScheduleSlot, at: number = Date.now()): { date: string; host: NightHost; coHosts: string[] } {
         const date = occurrenceOf(slot, at, stationZone(this.config));
+        const host = hostFor(slot, date);
 
-        return { date: dateKey(date), host: hostFor(slot, date) };
+        return { date: dateKey(date), host, coHosts: coHostsFor(slot, date, host.personaId) };
     }
 
     /** Who presents the night of `slot` that began on `date` (`YYYY-MM-DD`), or `undefined` for a date that is not one. */
-    hostOn(slot: ScheduleSlot, date: string): NightHost | undefined {
+    hostOn(slot: ScheduleSlot, date: string): (NightHost & { coHosts: string[] }) | undefined {
         const day = stationDateOf(date);
+        if (day === undefined) return undefined;
 
-        return day === undefined ? undefined : hostFor(slot, day);
+        const host = hostFor(slot, day);
+        return { ...host, coHosts: coHostsFor(slot, day, host.personaId) };
     }
 
     /**
@@ -328,7 +332,8 @@ export class ScheduleService {
 
         // Tonight's presenter of the block on now, and only that block: the nights to come are not
         // answered, so a guest who comes at random is a surprise in the console as well as on air.
-        const night = inForce === undefined ? undefined : this.nightOf(inForce).host;
+        const tonight = inForce === undefined ? undefined : this.nightOf(inForce);
+        const night = tonight?.host;
 
         return {
             now,
@@ -336,6 +341,7 @@ export class ScheduleService {
             ...(inForce === undefined ? {} : { slotId: inForce.id }),
             ...(night?.personaId === undefined ? {} : { hostPersonaId: night.personaId }),
             ...(night?.regularPersonaId === undefined ? {} : { regularPersonaId: night.regularPersonaId }),
+            ...(tonight === undefined || tonight.coHosts.length === 0 ? {} : { coHostPersonaIds: tonight.coHosts }),
             ...(airing === undefined ? {} : { airingSlotId: airing }),
             upcoming,
         };
@@ -394,7 +400,7 @@ export class ScheduleService {
     async create(body: ScheduleSlotInput): Promise<ScheduleSlotList> {
         const draft = draftOf(body);
         await this.refuseOverlap(draft);
-        await this.refuseGuests(draft);
+        await this.refusePeople(draft);
 
         const created = await this.slots.create(draft);
         this.logger.info('schedule: an operator added a slot', { slot: created.id, label: created.label, startsAt: created.startsAtMinutes });
@@ -405,7 +411,7 @@ export class ScheduleService {
     async update(id: string, body: ScheduleSlotInput): Promise<ScheduleSlotList> {
         const draft = draftOf(body);
         await this.refuseOverlap(draft, id);
-        await this.refuseGuests(draft);
+        await this.refusePeople(draft);
 
         const updated = await this.slots.update(id, draft);
         if (updated === undefined) throw httpError(404).withDetails({ message: `schedule slot "${id}" does not exist` });
@@ -463,16 +469,25 @@ export class ScheduleService {
      * own host is refused too, since sitting in for yourself is not a night anybody can hear, and so
      * is the same person twice, whose second row could never be reached.
      */
-    private async refuseGuests(draft: ScheduleSlotDraft): Promise<void> {
-        const guests = draft.guestHosts ?? [];
+    private async refusePeople(draft: ScheduleSlotDraft): Promise<void> {
+        const people = [...(draft.guestHosts ?? []), ...(draft.coHosts ?? [])];
         const seen = new Set<string>();
 
-        for (const guest of guests) {
-            if (seen.has(guest.personaId)) throw httpError(400).withDetails({ message: 'the same guest host is listed twice' });
+        // Co-hosts on every night beyond the most a night can carry would leave a visitor nobody can
+        // ever reach and a permanent co-host who silently never airs. Refused rather than trimmed.
+        const always = (draft.coHosts ?? []).filter(person => person.everyN === undefined && (person.days?.length ?? 0) === 0);
+        if (always.length > MAX_CO_HOSTS) {
+            throw httpError(400).withDetails({ message: `a show can have at most ${MAX_CO_HOSTS} co-hosts on every night` });
+        }
+
+        for (const guest of people) {
+            if (seen.has(guest.personaId)) {
+                throw httpError(400).withDetails({ message: 'the same character is listed twice among the guest hosts and co-hosts' });
+            }
             seen.add(guest.personaId);
 
             if (guest.personaId === draft.personaId) {
-                throw httpError(400).withDetails({ message: "a slot's own host cannot also sit in as its guest" });
+                throw httpError(400).withDetails({ message: "a slot's own host cannot also be its guest host or its co-host" });
             }
 
             const persona = UUID.test(guest.personaId) ? await this.personas.find(guest.personaId) : undefined;
@@ -527,6 +542,7 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         ...(body.chartPositions === undefined ? {} : { chartPositions: body.chartPositions }),
         ...specialDatesOf(body),
         ...guestHostsOf(body),
+        ...coHostsOf(body),
         mode: body.mode,
         onEnd: body.onEnd,
     };
@@ -592,6 +608,33 @@ function guestHostsOf(body: ScheduleSlotInput): { guestHosts?: SlotPerson[] } {
     return guests.length === 0 ? {} : { guestHosts: guests };
 }
 
+/**
+ * A body's co-hosts: every night (neither days nor odds), on fixed nights, or as a visitor at random.
+ * Fixed nights and odds together are refused for {@link guestHostsOf}'s reason, and so is a gap
+ * between visits with no odds to space out.
+ */
+function coHostsOf(body: ScheduleSlotInput): { coHosts?: SlotPerson[] } {
+    const coHosts = (body.coHosts ?? []).map(person => {
+        const days = person.days === undefined || person.days.length === 0 ? undefined : [...new Set(person.days)].sort();
+
+        if (days !== undefined && person.everyN !== undefined) {
+            throw httpError(400).withDetails({ message: 'a co-host is on fixed nights or comes at random, not both' });
+        }
+        if (person.cooldownDays !== undefined && person.everyN === undefined) {
+            throw httpError(400).withDetails({ message: 'a gap between nights only applies to a co-host who comes at random' });
+        }
+
+        return {
+            personaId: person.personaId.trim(),
+            ...(days === undefined ? {} : { days }),
+            ...(person.everyN === undefined ? {} : { everyN: person.everyN }),
+            ...(person.cooldownDays === undefined ? {} : { cooldownDays: person.cooldownDays }),
+        };
+    });
+
+    return coHosts.length === 0 ? {} : { coHosts };
+}
+
 /** A persona id is a uuid, and anything else would reach Postgres as a type error rather than a 400. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -619,6 +662,16 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
         ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
         ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),
         ...(slot.dates === undefined ? {} : { startsOn: slot.dates.from, endsOn: slot.dates.to, yearly: slot.dates.yearly }),
+        ...(slot.coHosts === undefined || slot.coHosts.length === 0
+            ? {}
+            : {
+                  coHosts: slot.coHosts.map(person => ({
+                      personaId: person.personaId,
+                      ...(person.days === undefined ? {} : { days: [...person.days] }),
+                      ...(person.everyN === undefined ? {} : { everyN: person.everyN }),
+                      ...(person.cooldownDays === undefined ? {} : { cooldownDays: person.cooldownDays }),
+                  })),
+              }),
         ...(slot.guestHosts === undefined || slot.guestHosts.length === 0
             ? {}
             : {

@@ -73,7 +73,11 @@ export function OnNowStrip({ current, slots, personas, onEdit }: Props) {
                         // nights of its own choosing. Only for the block the clock says is on.
                         tonight={
                             live.slotId === current.slotId
-                                ? { hostPersonaId: current.hostPersonaId, regularPersonaId: current.regularPersonaId }
+                                ? {
+                                      hostPersonaId: current.hostPersonaId,
+                                      regularPersonaId: current.regularPersonaId,
+                                      coHostPersonaIds: current.coHostPersonaIds,
+                                  }
                                 : undefined
                         }
                     />
@@ -147,6 +151,7 @@ function Live({
 interface Tonight {
     hostPersonaId?: string;
     regularPersonaId?: string;
+    coHostPersonaIds?: readonly string[];
 }
 
 /** A block that has not started yet. */
@@ -222,7 +227,7 @@ function BlockName({
     const host = personas.find(persona => persona.id === hostId);
     const guest = tonight?.hostPersonaId !== undefined && tonight.hostPersonaId !== slot?.personaId;
     const regular = personas.find(persona => persona.id === tonight?.regularPersonaId);
-    const hostLine =
+    const lead =
         host === undefined
             ? undefined
             : !guest
@@ -230,6 +235,9 @@ function BlockName({
               : regular === undefined
                 ? t('onNow.sittingIn', { guest: host.label })
                 : t('onNow.sittingInFor', { guest: host.label, regular: regular.label });
+    // Tonight's co-hosts, named beside the lead: a visitor's night shows here once it is on.
+    const coHosts = (tonight?.coHostPersonaIds ?? []).flatMap(id => personas.find(persona => persona.id === id)?.label ?? []);
+    const hostLine = lead === undefined || coHosts.length === 0 ? lead : t('onNow.withCoHosts', { host: lead, coHosts: coHosts.join(', ') });
 
     return (
         <>

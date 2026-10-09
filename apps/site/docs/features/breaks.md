@@ -67,6 +67,8 @@ A listener who tunes in just before a jingle hears it as their welcome, and the 
 
 When the timetable moves from one block to the next, the station says so between the last record of the old show and the first of the new one. Whoever presents the new show says it, thanks the last host by name when that was somebody else, and names the show starting. When a block ends and nothing is scheduled after it, the station names the show that ended and carries on with its sustaining source. It is on by default under **"Say so when the show changes"** in Settings, Breaks, and it follows **"Let the station interrupt itself"**: a block opening a setlist or a feature marks no change, since those take no breaks.
 
+On a guest host's night the guest presents the new show and knows whose show it usually is, so they say they are sitting in, and every break they write that night knows it too. On a show with co-hosts, each talk break is said by whichever presenter was heard from least recently and names who else is on; the changeover and the welcome stay with the lead host.
+
 Only a change the timetable makes is marked. Putting something on air yourself stays silent. The lines come from **"What the station says when the show changes"** under Voice, Phrasings, where `{{show.name}}` is the show starting, `{{outgoing.show}}` the one ending and `{{outgoing.name}}` its host. The station picks a line thanking the last host if one fits, then one naming the new show, then one naming the old. If the change lands in the last seconds of a record there is not always time to speak one, and the new show simply starts.
 
 ## What a break looks like

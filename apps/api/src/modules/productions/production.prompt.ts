@@ -181,6 +181,11 @@ export interface BeatRequest {
      * says.
      */
     guest?: CastMember;
+    /**
+     * The presenters beside the lead on a banter, in cast order. Absent on every other programme,
+     * which keeps their prompts byte-identical to the ones built before co-hosts existed.
+     */
+    coHosts?: readonly CastMember[];
     station?: string;
     /** What was wrong with the previous attempt, for the one re-draft a beat gets. */
     correction?: string;
@@ -358,6 +363,9 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
     // is about that, and `inStudio` is the one thing that differs, which is where they are.
     const caller = isVisitor(request.speaker);
     const inStudio = request.speaker?.role === 'guest';
+    // A banter: the lead and the co-hosts trading lines, every one of them a presenter.
+    const coHosting = request.speaker?.role === 'cohost';
+    const banter = (request.coHosts?.length ?? 0) > 0;
     // A caller's FIRST turn is the one where they are put on air, which is not the same question as
     // the programme's first beat: they arrive in the middle of it and they do greet, because that is
     // what somebody who has just been put through actually says.
@@ -373,11 +381,13 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
     const closing = guest !== undefined && request.lastTurn === true;
 
     const system = [
-        inStudio
-            ? `You are a guest who has dropped by the studio of a radio station, sitting with the presenter, and you are on the air now. You write your next turn in the conversation, and it is read aloud exactly as you write it.`
-            : caller
-              ? `You are a listener who has phoned in to a ${request.kind} on a radio station, and you are on the air now. You write your next turn on the call, and it is read aloud exactly as you write it.`
-              : `You write one beat of a ${request.kind} for a radio station. It is read aloud exactly as you write it.`,
+        coHosting
+            ? `You co-present a ${request.kind} on a radio station, and you are on the air now. You write your next turn in the conversation, and it is read aloud exactly as you write it.`
+            : inStudio
+              ? `You are a guest who has dropped by the studio of a radio station, sitting with the presenter, and you are on the air now. You write your next turn in the conversation, and it is read aloud exactly as you write it.`
+              : caller
+                ? `You are a listener who has phoned in to a ${request.kind} on a radio station, and you are on the air now. You write your next turn on the call, and it is read aloud exactly as you write it.`
+                : `You write one beat of a ${request.kind} for a radio station. It is read aloud exactly as you write it.`,
         '',
         ...(request.persona === undefined
             ? []
@@ -407,7 +417,15 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
         '- Continuous spoken prose. No headings, no bullet points, no stage directions, no speaker labels, no markdown.',
         // The failure this catches is a production that sounds like several short programmes played
         // back to back, and it is the single most common thing a beat gets wrong.
-        ...openingRule({ opening, caller, inStudio, arriving, lastTurn: request.lastTurn === true, guest }),
+        ...(banter
+            ? banterRule({
+                  opening,
+                  coHosting,
+                  firstTurn: request.firstTurn === true && answering,
+                  lastTurn: request.lastTurn === true,
+                  coHosts: request.coHosts ?? [],
+              })
+            : openingRule({ opening, caller, inStudio, arriving, lastTurn: request.lastTurn === true, guest })),
         // The other half of the repetition problem. Spent catchphrases are handled per beat in the
         // user turn; this covers the BACKGROUND, which is not a phrase and so cannot be detected as
         // one — a presenter who has been fired from three stations mentioned it in six of
@@ -469,11 +487,13 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
     // whole programme.
     if (request.previousSpeaker !== undefined && answering) {
         parts.push(
-            caller
-                ? `You are talking to ${nameOf(request.previousSpeaker)}, who is presenting.`
-                : request.previousSpeaker.role === 'guest'
-                  ? `${nameOf(request.previousSpeaker)} is here in the studio with you. Use their name.`
-                  : `${nameOf(request.previousSpeaker)} is on the line. Use their name.`,
+            coHosting || request.previousSpeaker.role === 'cohost'
+                ? `${nameOf(request.previousSpeaker)} is presenting this with you, in the studio. Use their name.`
+                : caller
+                  ? `You are talking to ${nameOf(request.previousSpeaker)}, who is presenting.`
+                  : request.previousSpeaker.role === 'guest'
+                    ? `${nameOf(request.previousSpeaker)} is here in the studio with you. Use their name.`
+                    : `${nameOf(request.previousSpeaker)} is on the line. Use their name.`,
         );
     }
     if (request.brief !== undefined) parts.push(`What was asked for: ${request.brief}`);
@@ -659,11 +679,11 @@ function groundingRules(request: BeatRequest, caller: boolean, answering: boolea
     return [
         '- Where you are not certain of a detail, say the general thing instead of inventing a specific one. "A factory in Japan" is better than the wrong city; "not many" is better than a number you made up. A vague sentence that is true is worth more than a precise one that is not.',
         "- Never invent a place, a date, a price, a quantity, a chart position, a technical specification, or words in somebody's mouth. If a sentence only works with one of those in it, write a different sentence.",
-        ...(answering && !caller
+        ...(answering && !caller && (isVisitor(request.previousSpeaker) || request.guest !== undefined)
             ? // The host's half of the licence above. A claim nobody answers is a claim the station
               // made, and the presenter is the only person on the programme who can say so.
               [
-                  `- ${request.guest?.role === 'guest' ? 'Your guest' : 'Your caller'} may say things you cannot check. Do not confirm one, do not repeat it as fact, and do not argue it down either. Take it as theirs — "that's you, that is", "well, there you go" — and move the programme on.`,
+                  `- ${(request.guest ?? request.previousSpeaker)?.role === 'guest' ? 'Your guest' : 'Your caller'} may say things you cannot check. Do not confirm one, do not repeat it as fact, and do not argue it down either. Take it as theirs — "that's you, that is", "well, there you go" — and move the programme on.`,
               ]
             : []),
         '- This goes out on the radio as fact. Nobody listening can check it, and nothing later can take it back.',
@@ -688,6 +708,44 @@ function groundingRules(request: BeatRequest, caller: boolean, answering: boolea
  * fell through to "carry on from where the last beat left off", so the host closed the SHOW and
  * left the caller on the line. Both were true of every phone-in the station made.
  */
+/**
+ * Where a presenter is in a banter, which has no visitor to put on or see off: the lead opens by
+ * bringing the co-hosts in by name, a co-host's first turn answers being brought in without welcoming
+ * anybody to a show that has already been opened, and the lead closes it and hands back to the music.
+ */
+function banterRule(where: {
+    opening: boolean;
+    coHosting: boolean;
+    firstTurn: boolean;
+    lastTurn: boolean;
+    coHosts: readonly CastMember[];
+}): string[] {
+    const names = listOf(where.coHosts.map(nameOf));
+
+    if (where.opening) {
+        return [
+            `- This is the OPENING beat. You are presenting with ${names}. Say hello and bring them in by name, the way presenters on a shared show do.`,
+            '- Then hand over to them, and stop. Do not read out the date, the time or the name of the programme.',
+        ];
+    }
+
+    if (where.coHosting && where.firstTurn) {
+        return [
+            '- You have just been brought in by name. Answer in a few words and get into it. Do not welcome the listener: the show has already been opened.',
+        ];
+    }
+
+    if (where.lastTurn && !where.coHosting) {
+        return ['- This is the LAST beat. Wrap the chat up in a sentence or two and hand back to the music. Do not summarise what was said.'];
+    }
+
+    return ['- This is the MIDDLE of the programme. Do not greet anybody or introduce anything. Carry on from what was just said.'];
+}
+
+/** Names as a sentence lists them: "A", "A and B", "A, B and C". */
+const listOf = (names: readonly string[]): string =>
+    names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+
 function openingRule(where: {
     opening: boolean;
     caller: boolean;
@@ -772,6 +830,15 @@ function openingRule(where: {
 function dialogueRules(speakers: OutlineRequest['speakers']): string[] | undefined {
     if (speakers === undefined || speakers.length === 0) return undefined;
 
+    if (speakers.some(({ who }) => who.role === 'cohost')) {
+        return [
+            '- This is a conversation between presenters, not a talk. Each beat is one TURN by the person named against it below.',
+            '- They are peers trading lines on their own show: reacting, disagreeing, building on each other. Nobody interviews anybody.',
+            "- The lead's FIRST beat brings the others in by name and hands over. The lead's LAST beat wraps it up and hands back to the music. Plan nothing new for it.",
+            '- Plan the turns so each one has something to react to. A turn that could have been said first is a turn nobody is listening to.',
+        ];
+    }
+
     if (speakers.some(({ who }) => who.role === 'guest')) {
         return [
             '- This is a conversation, not a talk. Each beat is one TURN by the person named against it below.',
@@ -802,7 +869,14 @@ function speakerLines(speakers: OutlineRequest['speakers']): string[] {
 
 /** One cast member as the prompt names them: what they are, and what they are called. */
 function describe(who: CastMember): string {
-    const role = who.role === 'caller' ? 'a listener who has phoned in' : who.role === 'guest' ? 'a guest in the studio' : 'the presenter';
+    const role =
+        who.role === 'caller'
+            ? 'a listener who has phoned in'
+            : who.role === 'guest'
+              ? 'a guest in the studio'
+              : who.role === 'cohost'
+                ? 'co-presenting'
+                : 'the presenter';
     return who.name === undefined ? role : `${who.name}, ${role}`;
 }
 
@@ -852,7 +926,8 @@ function storyLines(story: PersonaStoryForPrompt): string {
 
 /** What to call somebody in a prompt: their on-air name, or what they are. */
 const nameOf = (who: CastMember | undefined): string =>
-    who?.name ?? (who?.role === 'caller' ? 'Your caller' : who?.role === 'guest' ? 'Your guest' : 'The presenter');
+    who?.name ??
+    (who?.role === 'caller' ? 'Your caller' : who?.role === 'guest' ? 'Your guest' : who?.role === 'cohost' ? 'Your co-host' : 'The presenter');
 
 /** One line of the beat map: what it is, and whether it is done, current, or still to come. */
 function mapLine(beat: OutlineBeat, index: number, current: number): string {

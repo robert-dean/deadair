@@ -332,6 +332,11 @@ export interface BreakWriteRequest {
      */
     sittingInFor?: SittingIn;
     /**
+     * Everybody else presenting this show tonight, by on-air name: the lead and the co-hosts, less
+     * whoever is writing this break. Absent on a show with one voice.
+     */
+    coPresenters?: readonly string[];
+    /**
      * What this character has accumulated beyond its sheet, already capped and rotated.
      *
      * Read by the caller and handed over whole for {@link BreakWriteRequest.persona}'s reason: a

@@ -78,6 +78,8 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     // For the persona's reason: it is a fact about the broadcast, and a break written on a guest's
     // night that is still unheard when the night ends is retracted or recast with the broadcast.
     sittingInFor: 'timeless',
+    // The same: who is presenting is a fact about the broadcast.
+    coPresenters: 'timeless',
     notebook: 'timeless',
     story: 'timeless',
     preoccupation: 'timeless',

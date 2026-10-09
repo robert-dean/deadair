@@ -303,7 +303,10 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // a station that has chosen no persona writes exactly what it wrote before personas existed.
         // Everything below reads this one persona (the sheet, the phrasing pool, the voice), which
         // is what keeps a declined bulletin from coming out in the host's words and the reader's voice.
-        const persona = await this.personas.presentingFor(segment.kind, lineup.personaId);
+        const presenting = await this.personas.presentingFor(segment.kind, lineup.personaId);
+        // Who on the show says THIS break: the presenter, or on a show with co-hosts, whichever of
+        // them has been heard least recently, so every voice comes round in turn.
+        const { persona, coPresenters } = await this.speakerFor(segment.kind, lineup, presenting);
 
         // After the claim, so a job that was merely early does no work at all, and for EVERY break
         // rather than only when a model might use them: what the station knows about a record is a
@@ -418,6 +421,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // Whose show it is, on a night a guest host sits in. Only for the presenter: a bulletin
             // is the newsreader's, who is not sitting in for anybody.
             ...(await this.sittingIn(lineup, persona)),
+            // Everybody else presenting tonight, by on-air name, so whoever speaks can say so.
+            ...(coPresenters.length === 0 ? {} : { coPresenters }),
             // What this character has accumulated, read here for the persona's own reason and rested
             // here for a sharper one: the rotation belongs to whatever is actually going on air, and
             // a writer that fetched its own would spend it again on every binding that was asked.
@@ -1031,6 +1036,45 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
     }
 
     /**
+     * Who says this break, and who else is presenting beside them.
+     *
+     * Only a talk break rotates. The changeover and the welcome are the lead's, since they are the
+     * show handing over and opening; a bulletin is the newsreader's; and every other kind of break is
+     * a job one presenter does, so it stays with the lead rather than passing the job round. Among
+     * the lead and tonight's co-hosts the least recently heard speaks, which is the caster's rule for
+     * callers and gives every voice its turn. A co-host the roster cannot read, or who is no longer a
+     * host, is passed over rather than failing the break.
+     */
+    private async speakerFor(
+        kind: string,
+        lineup: StationLineup,
+        presenting: Persona | undefined,
+    ): Promise<{ persona: Persona | undefined; coPresenters: string[] }> {
+        const ids = lineup.coHostPersonaIds;
+        if (ids.length === 0 || presenting === undefined || presenting.kind === 'newsreader') return { persona: presenting, coPresenters: [] };
+
+        const found = await Promise.all(ids.map(id => this.personas.find(id).catch(() => undefined)));
+        const coHosts = found.filter((persona): persona is Persona => persona?.kind === 'host' && persona.id !== presenting.id);
+        const everyone = [presenting, ...coHosts];
+
+        let speaker = presenting;
+        if (kind === TALK_BREAK_KIND && coHosts.length > 0) {
+            const heard = await this.segments.lastSpokenBy(everyone.map(persona => persona.id)).catch(() => new Map<string, number>());
+            // `reduce` keeps the first of equals, so a tie (everybody unheard) goes to the lead.
+            speaker = everyone.reduce((best, next) => ((heard.get(next.id) ?? 0) < (heard.get(best.id) ?? 0) ? next : best));
+        }
+
+        const names = everyone
+            .filter(persona => persona.id !== speaker.id)
+            .flatMap(persona => {
+                const name = (persona.djName ?? persona.label).trim();
+                return name ? [name] : [];
+            });
+
+        return { persona: speaker, coPresenters: names };
+    }
+
+    /**
      * The regular presenter a guest host is sitting in for, by on-air name, with the show's name.
      *
      * Read here for the persona's reason: who is presenting is a property of the moment, and every
@@ -1040,7 +1084,9 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
      */
     private async sittingIn(lineup: StationLineup, persona: Persona | undefined): Promise<{ sittingInFor?: SittingIn }> {
         const regularId = lineup.regularPersonaId;
-        if (regularId === undefined || persona === undefined || persona.id === regularId || persona.kind === 'newsreader') return {};
+        // The LEAD only: a guest host sits in for the regular one, and a co-host beside them is not
+        // sitting in for anybody.
+        if (regularId === undefined || persona === undefined || persona.id !== lineup.personaId || persona.id === regularId) return {};
 
         const regular = await this.personas.find(regularId).catch(() => undefined);
         const name = (regular?.djName ?? regular?.label)?.trim();

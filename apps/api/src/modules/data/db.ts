@@ -813,6 +813,14 @@ export interface DeadairProviderPlaylistListings {
   stationKey: Generated<string>;
 }
 
+export interface DeadairSchedulePreparedSets {
+  occurrence: DateTime;
+  preparedAt: Generated<DateTime>;
+  slotId: string;
+  stationKey: Generated<string>;
+  tracks: Json;
+}
+
 export interface DeadairScheduleSlotHosts {
   cooldownDays: number | null;
   createdAt: Generated<DateTime>;
@@ -1221,6 +1229,7 @@ export interface DB {
   "deadair.productions": DeadairProductions;
   "deadair.pronunciations": DeadairPronunciations;
   "deadair.providerPlaylistListings": DeadairProviderPlaylistListings;
+  "deadair.schedulePreparedSets": DeadairSchedulePreparedSets;
   "deadair.scheduleSlotHosts": DeadairScheduleSlotHosts;
   "deadair.scheduleSlots": DeadairScheduleSlots;
   "deadair.scriptHistory": DeadairScriptHistory;

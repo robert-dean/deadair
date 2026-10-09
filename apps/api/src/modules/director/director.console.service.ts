@@ -375,7 +375,7 @@ export class DirectorConsoleService {
      * @throws 422 when the playlist has nothing to play.
      */
     async putOnAir(input: PutOnAirInput, onSlot?: ScheduleSlot, bySchedule = false, night?: ScheduledNight): Promise<StationAir> {
-        const tracks = await this.sourceTracks(input);
+        const tracks = await this.openingTracks(input, night);
         const mode = input.mode ?? 'rotation';
 
         // Which slot of the day this lands in, stamped even though the operator chose the source
@@ -550,6 +550,22 @@ export class DirectorConsoleService {
      * generator this station never asked its rules about, and a dislike, a period, and the advisory
      * policy are instructions rather than preferences a source gets to route around.
      */
+    /**
+     * What a broadcast opens with: its source's records, or for a show that has none, the set the
+     * schedule prepared for tonight.
+     *
+     * A prepared set goes through the same veto as a playlist, because it was chosen minutes before
+     * the boundary and a dislike or a policy change since then still has to hold. One the veto
+     * empties is simply not used: the show opens empty and refills, which is what it did before
+     * anything was prepared, rather than a 422 that would leave the last show on air.
+     */
+    private async openingTracks(input: PutOnAirInput, night: ScheduledNight | undefined): Promise<RundownTrack[]> {
+        const tracks = await this.sourceTracks(input);
+        if (tracks.length > 0 || night?.prepared === undefined || night.prepared.length === 0) return tracks;
+
+        return await this.resolver.vet(night.prepared, { era: this.era(input), broadcast: broadcastOf(input) });
+    }
+
     private async sourceTracks(input: PutOnAirInput): Promise<RundownTrack[]> {
         if (input.chartId !== undefined) return await this.chartTracks(input.chartId, input.chartOrder, this.era(input), broadcastOf(input));
         if (input.stationPlaylistId !== undefined)
@@ -1734,6 +1750,11 @@ export interface ScheduledNight {
     regularPersonaId?: string;
     /** Who presents beside the host tonight, in order. Absent or empty is one voice. */
     coHostIds?: readonly string[];
+    /**
+     * The records prepared for tonight, for a slot with no source of its own. Ignored when the input
+     * names a source, which always wins. See `PreparedSetRepository`.
+     */
+    prepared?: readonly RundownTrack[];
 }
 
 /** A night's co-hosts as the binding holds them: never the lead, never empty. */

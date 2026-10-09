@@ -78,6 +78,9 @@ export class ScheduleRepository extends DataRepository {
         if (row === undefined) return undefined;
 
         await this.writePeople(row.id, draft);
+        // A set prepared for this slot was chosen against the brief this edit replaced. Deleting a
+        // slot needs no line of its own: the foreign key cascades. See migration 0080.
+        await this.db.deleteFrom('deadair.schedulePreparedSets').where('slotId', '=', row.id).execute();
         return { ...toSlot(row), ...peopleOf(draft) };
     }
 

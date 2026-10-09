@@ -13,6 +13,8 @@ import type { JobContext } from '@maroonedsoftware/jobbroker';
 import { ScheduleTickJob } from '../../../src/modules/schedule/schedule.tick.job.js';
 import type { ScheduleService, SustainingSource } from '../../../src/modules/schedule/schedule.service.js';
 import { ScheduleNotices } from '../../../src/modules/schedule/schedule.notices.js';
+import type { PreparedSetRepository } from '../../../src/modules/schedule/prepared.set.repository.js';
+import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { DirectorConsoleService } from '../../../src/modules/director/director.console.service.js';
 import type { DirectorService } from '../../../src/modules/director/director.service.js';
 import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
@@ -63,6 +65,8 @@ interface Options {
     placedOn?: string;
     /** Who presented the night the order was placed for. */
     hostThen?: NightHost & { coHosts?: string[] };
+    /** What `PreparedSetRepository.forNight` answers. Absent is nothing prepared. */
+    forNight?: () => Promise<RundownTrack[] | undefined>;
 }
 
 function build(options: Options = {}) {
@@ -104,6 +108,11 @@ function build(options: Options = {}) {
 
     const activity = { record: vi.fn(async (_event?: Record<string, unknown>) => undefined) };
 
+    const prepared = {
+        forNight: vi.fn(options.forNight ?? (async () => undefined)),
+        discard: vi.fn(async () => undefined),
+    };
+
     // `run` installs the job actor through the scope, which a unit test has none of, so the body is
     // driven directly. What `run` adds is attribution and never an authorization outcome.
     // The real one, not a double: it is fifteen lines of "have I said this already" and the whole
@@ -115,6 +124,7 @@ function build(options: Options = {}) {
         director,
         activity as unknown as ActivityRecorder,
         notices,
+        prepared as unknown as PreparedSetRepository,
         {} as JobContext,
         {} as Container,
         logger,
@@ -125,6 +135,7 @@ function build(options: Options = {}) {
         console,
         schedule,
         activity,
+        prepared,
     };
 }
 
@@ -796,6 +807,75 @@ describe('ScheduleTickJob', () => {
         expect(input).not.toHaveProperty('pluginId');
         expect(input).not.toHaveProperty('playlistId');
         expect(input).not.toHaveProperty('chartId');
+    });
+
+    describe('a show prepared before it starts', () => {
+        // A slot that is only a brief went on air with an empty order and was silent until a model
+        // refill and a download came back: two to three minutes a show on the live station.
+        const record: RundownTrack = {
+            pluginId: 'deadair.spotify',
+            externalId: 'sp_1',
+            title: 'Rebel Rebel',
+            artists: ['David Bowie'],
+            artist: 'David Bowie',
+        };
+        const briefOnly = slot('glam', { source: undefined, brief: 'glam rock' });
+
+        it('opens with the records prepared for tonight, and lets them go once it has', async () => {
+            const { tick, console, prepared } = build({ inForce: briefOnly, forNight: async () => [record] });
+
+            await tick();
+
+            expect(prepared.forNight).toHaveBeenCalledWith('glam', '2026-10-09');
+            expect(console.putOnAir).toHaveBeenCalledWith(expect.anything(), briefOnly, false, expect.objectContaining({ prepared: [record] }));
+            expect(prepared.discard).toHaveBeenCalledWith('glam');
+        });
+
+        it('opens as before when nothing was prepared', async () => {
+            const { tick, console, prepared } = build({ inForce: briefOnly });
+
+            await tick();
+
+            expect(vi.mocked(console.putOnAir).mock.calls[0]?.[3]).not.toHaveProperty('prepared');
+            expect(prepared.discard).not.toHaveBeenCalled();
+        });
+
+        it('does not look for one on a slot with a source of its own', async () => {
+            const { tick, prepared } = build({ inForce: slot('evening') });
+
+            await tick();
+
+            expect(prepared.forNight).not.toHaveBeenCalled();
+        });
+
+        it('keeps the set when the changeover is declined, for the next minute to try again', async () => {
+            const { tick, prepared } = build({
+                inForce: briefOnly,
+                forNight: async () => [record],
+                putOnAir: async () => {
+                    throw httpError(422);
+                },
+            });
+
+            await tick();
+
+            expect(prepared.discard).not.toHaveBeenCalled();
+        });
+
+        it('still changes over when the set cannot be read', async () => {
+            // Failing open: an unread set costs the head start, never the changeover.
+            const { tick, console } = build({
+                inForce: briefOnly,
+                forNight: async () => {
+                    throw new Error('connection reset');
+                },
+            });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledTimes(1);
+            expect(vi.mocked(console.putOnAir).mock.calls[0]?.[3]).not.toHaveProperty('prepared');
+        });
     });
 
     it('sustains a gap from a chart when the operator named one', async () => {

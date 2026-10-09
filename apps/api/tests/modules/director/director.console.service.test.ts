@@ -511,6 +511,48 @@ describe('DirectorConsoleService building a running order from a playlist', () =
             expect(posted()[0]).toMatchObject({ binding: { coHostPersonaIds: ['lemmy'] } });
         });
 
+        describe('with a set prepared for it', () => {
+            const tracksOf = (posted: DirectorCommand[]) => (posted[0]?.kind === 'putOnAir' ? posted[0].tracks : []);
+            const prepared: RundownTrack[] = [
+                { pluginId: 'deadair.spotify', externalId: 'sp_1', title: 'Rebel Rebel', artists: ['David Bowie'], artist: 'David Bowie' },
+                { pluginId: 'deadair.spotify', externalId: 'sp_2', title: '20th Century Boy', artists: ['T. Rex'], artist: 'T. Rex' },
+            ];
+            const tonight = { date: '2026-10-09', guest: false, prepared };
+
+            it('opens a show that is only a brief with the records prepared for it', async () => {
+                const { service, posted, resolver } = build();
+
+                await service.putOnAir({ brief: 'glam rock' }, slot, false, tonight);
+
+                expect(tracksOf(posted())).toEqual(prepared);
+                expect(resolver.vet).toHaveBeenCalledWith(prepared, expect.anything());
+            });
+
+            it('holds the veto against them, since a dislike may have landed since they were chosen', async () => {
+                const { service, posted } = build({ vet: tracks => tracks.filter(track => track.artist !== 'T. Rex') });
+
+                await service.putOnAir({ brief: 'glam rock' }, slot, false, tonight);
+
+                expect(tracksOf(posted()).map(track => track.title)).toEqual(['Rebel Rebel']);
+            });
+
+            it('opens empty, as before, when the veto takes every one of them', async () => {
+                const { service, posted } = build({ vet: () => [] });
+
+                await service.putOnAir({ brief: 'glam rock' }, slot, false, tonight);
+
+                expect(posted()[0]).toMatchObject({ kind: 'putOnAir', tracks: [] });
+            });
+
+            it('ignores them when the show names a source of its own', async () => {
+                const { service, posted } = build();
+
+                await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }, slot, false, tonight);
+
+                expect(tracksOf(posted()).map(track => track.title)).toEqual(['A Track']);
+            });
+        });
+
         it('names no regular host on an ordinary night', async () => {
             const { service, posted } = build();
 

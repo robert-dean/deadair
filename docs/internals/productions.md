@@ -62,6 +62,27 @@ them alone. **Tying a caller to a SHOW is not built**: a production records no s
 would need `productions.slot_id` taken from `lineup.slotId` where `DirectorService` commissions, and
 the desk's Take a call passing the slot it is airing.
 
+## A guest in the studio
+
+**A `visit` is a phone-in with the guest in the room, and almost every rule above is about that
+rather than about the telephone.** The cast role `guest` sits beside `caller`, and `isVisitor` is the
+question most code was really asking when it tested for a caller: who opens and closes (the host),
+who answers at more length (`GUEST_TURN_WEIGHT`, a little above a caller's, because a guest was invited
+in to talk), who has no soundboard, whose first turn may greet, whose story is offered on that first
+turn. What differs is WHERE they are. A guest is told they are in the studio, greets the host as a
+guest rather than as somebody who rang, and is welcomed on ("joining me in the studio is…") and
+thanked for dropping by. A guest uses the presenter's cues, not a caller's telephone throat-clears,
+and is held to the unoffered-weather check like the host, because a guest is under the station's sky.
+
+**A visit casts exactly one guest, and fails rather than air the host alone.** `ProductionCaster`
+reads `castable(host, 'guest')` (the same ties a caller has, least recently heard first). A phone-in
+with nobody to ring falls back to the presenter, which still sounds like the station; a visit with no
+guest would be the host talking for minutes under a guest's billing, so the caster throws and the
+production is failed with the reason. `visit` is a production kind by default and a dialogue kind
+whatever `render.dialogueKinds` says, so a station that wrote that setting before visits existed does
+not get monologues by having written it. Guests ship with no defaults: an operator writes them, and
+gives each a voice, on the Personas page.
+
 ## Commissioning one
 
 **All three commission through one path** and every one of them hands over the SHOW — a production airs as a

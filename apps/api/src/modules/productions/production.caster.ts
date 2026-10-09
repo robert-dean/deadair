@@ -9,8 +9,8 @@ import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { rotationOf } from '#modules/shared/rotation.js';
-import { callerCount, callerMember, hostMember, type CastMember, type ProductionCast, type ShowRecord } from './production.cast.js';
-import { dialogueKinds } from './production.settings.js';
+import { callerCount, callerMember, guestMember, hostMember, type CastMember, type ProductionCast, type ShowRecord } from './production.cast.js';
+import { dialogueKinds, VISIT_KIND } from './production.settings.js';
 import type { Production } from './production.js';
 
 /**
@@ -94,6 +94,7 @@ export class ProductionCaster {
         const presenting = await this.personas.presenting(production.personaId);
         const host = hostMember(presenting, production.id, this.config.get(TEMPLATE_KEYS.djName, ''));
         if (!this.wantsCallers(production.kind)) return [host];
+        if (production.kind.trim().toLowerCase() === VISIT_KIND) return [host, await this.guest(presenting?.id, production)];
 
         try {
             // Whoever may ring THIS host: the ones tied to them, and everybody tied to nobody.
@@ -123,6 +124,25 @@ export class ProductionCaster {
             });
             return [host];
         }
+    }
+
+    /**
+     * The one guest who drops by for a visit: tied to this host or to nobody, least recently heard.
+     *
+     * One, because a visit is somebody in the studio for a chat and two would be a panel. And it
+     * THROWS where a phone-in falls back to the presenter alone: a phone-in with nobody on the line
+     * is a monologue that still sounds like the station, but a visit with no guest would be the host
+     * talking for minutes under a guest's billing. The job records the throw as the production's
+     * failure, which is where an operator who scheduled a visit finds out the station has no guests.
+     */
+    private async guest(hostId: string | undefined, production: Production): Promise<CastMember> {
+        const roster = await this.personas.castable(hostId, 'guest');
+        const id = (await this.leastRecent(roster.map(persona => persona.id)))[0];
+        const persona = roster.find(candidate => candidate.id === id);
+        if (persona === undefined) throw new Error('nobody on the station is a guest who could drop by, so there is nobody to visit');
+
+        this.logger.info('productions: cast a guest to drop by', { production: production.id, guest: persona.key });
+        return guestMember(persona, production.id);
     }
 
     /** The host, carrying what their show has just played when their show is about the records. */

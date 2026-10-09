@@ -100,6 +100,12 @@ export const HOST_TURN_WEIGHT = 0.7;
 export const CALLER_TURN_WEIGHT = 1.35;
 
 /**
+ * A studio guest's share, a little more than a caller's. A guest was invited in to talk, so the host
+ * asks less and the guest answers at more length: an interview rather than a phone-in.
+ */
+export const GUEST_TURN_WEIGHT = 1.6;
+
+/**
  * A ceiling on beats, so a feature-length production cannot fan out into hundreds of model calls.
  *
  * It binds before the band does: past this, beats go over {@link MAX_WORDS} rather than multiplying,

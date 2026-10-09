@@ -102,7 +102,7 @@ export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?
     { name: 'conspiracy', engine: 'Jeremiah.wav' },
     { name: 'videoage', engine: 'Gianna.wav' },
     { name: 'slacker', engine: 'Connor.wav' },
-    { name: 'millennium', engine: 'Emily.wav' },
+    { name: 'millennium', engine: 'Julian.wav' },
     { name: 'newsreader', engine: 'Abigail.wav' },
     // The people who ring IN — `caller.defaults.ts`. Matched to the other map for
     // register rather than for filename, so switching engines does not change a

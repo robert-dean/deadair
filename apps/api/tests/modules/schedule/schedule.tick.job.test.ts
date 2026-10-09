@@ -58,11 +58,11 @@ interface Options {
     /** Whether the stream takes a cut. */
     cutTakes?: boolean;
     /** Which night the slot in force is on, and who presents it. Absent is today with the slot's own host. */
-    night?: { date: string; host: NightHost };
+    night?: { date: string; host: NightHost; coHosts?: string[] };
     /** The night the order on air was placed for. Absent is an order with no stamp. */
     placedOn?: string;
     /** Who presented the night the order was placed for. */
-    hostThen?: NightHost;
+    hostThen?: NightHost & { coHosts?: string[] };
 }
 
 function build(options: Options = {}) {
@@ -72,16 +72,17 @@ function build(options: Options = {}) {
         overrunCap: vi.fn(() => options.overrunCap),
         overrunFadeMs: vi.fn(() => options.overrunFadeMs ?? 0),
         minutesInto: vi.fn(() => options.minutesInto ?? 0),
-        nightOf: vi.fn(
-            (slot: ScheduleSlot) =>
-                options.night ?? {
-                    date: '2026-10-09',
-                    host: { ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }), guest: false },
-                },
-        ),
-        hostOn: vi.fn(
-            (slot: ScheduleSlot) => options.hostThen ?? { ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }), guest: false },
-        ),
+        nightOf: vi.fn((slot: ScheduleSlot) => ({
+            coHosts: [],
+            ...(options.night ?? {
+                date: '2026-10-09',
+                host: { ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }), guest: false },
+            }),
+        })),
+        hostOn: vi.fn((slot: ScheduleSlot) => ({
+            coHosts: [],
+            ...(options.hostThen ?? { ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }), guest: false }),
+        })),
     } as unknown as ScheduleService;
 
     const director = {
@@ -344,7 +345,12 @@ describe('ScheduleTickJob', () => {
     it('carries a slot keeping its chart positions quiet, and says nothing when it does not', async () => {
         const quiet = build({ inForce: slot('quiet', { chartPositions: false }) });
         await quiet.tick();
-        expect(quiet.console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ chartPositions: false }), expect.anything(), false, expect.anything());
+        expect(quiet.console.putOnAir).toHaveBeenCalledWith(
+            expect.objectContaining({ chartPositions: false }),
+            expect.anything(),
+            false,
+            expect.anything(),
+        );
 
         const { tick, console } = build({ inForce: slot('morning') });
         await tick();
@@ -603,6 +609,20 @@ describe('ScheduleTickJob', () => {
             await tick();
 
             expect(console.putOnAir).not.toHaveBeenCalled();
+        });
+
+        it('puts tonight’s co-hosts on, and changes over when a visiting co-host’s night begins', async () => {
+            const { tick, console } = build({
+                inForce: boneyard,
+                airing: 'boneyard',
+                placedOn: '2026-10-08',
+                night: { date: '2026-10-09', host: { personaId: 'ozzy', guest: false }, coHosts: ['lemmy'] },
+                hostThen: { personaId: 'ozzy', guest: false, coHosts: [] },
+            });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledWith(expect.anything(), boneyard, false, expect.objectContaining({ coHostIds: ['lemmy'] }));
         });
 
         it('keeps the same night going however often the tick asks', async () => {

@@ -84,6 +84,17 @@ renders one line under the role sentence: sitting in for them, their show, never
 presenter's alone, so a bulletin read by the newsreader is not given it, and a recast clears it with the
 host it described. The floor's phrasings say nothing of it: a phrasing has no placeholder for the regular
 host, and a guest whose model declined reads exactly as any host's floor does.
+## Co-hosts
+
+**On a show with co-hosts a talk break goes to whoever was heard least recently** (`WriteBreakJob.speakerFor`),
+the caster's rule for callers, so every voice comes round in turn and a tie goes to the lead. Only a
+talk break rotates: the changeover and the welcome are the show handing over and opening, which is the
+lead's job, a bulletin is the newsreader's, and every other kind is one presenter's job rather than a
+thing to pass round. Whoever speaks is told everybody else presenting tonight by on-air name
+(`coPresenters`, one line under the role sentence, through `stationPromptSettings` so every writer has
+it) and is the persona whose sheet, phrasings, notebook, story, pads and voice the break uses, as for
+any host. `speakerGuard` takes their names too. A guest host's "sitting in" line is the lead's alone.
+
 ## The guest
 
 **A fourth kind, `guest`, drops by the studio for a short back-and-forth with the host** (migration

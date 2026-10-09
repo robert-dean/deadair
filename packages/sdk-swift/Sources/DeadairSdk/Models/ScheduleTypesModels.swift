@@ -43,6 +43,48 @@ public struct SlotGuestHost: Codable, Equatable, Sendable {
     }
 }
 
+/// Somebody who presents beside a slot's host, every night or some of them
+public struct SlotCoHost: Codable, Equatable, Sendable {
+    /// Who co-presents. A host; a caller or a guest who drops by can never present a show
+    public var personaId: String
+    /// The nights they co-present, by the weekday the night begins on, Sunday 0. Absent with no `everyN` is every night. Send this or `everyN`, not both
+    public var days: [Int]?
+    /// Or as a visitor: about one of this slot's nights in this many, on nights nobody can predict
+    public var everyN: Int?
+    /// With `everyN`, the fewest days between two of their nights. Absent is half of `everyN`
+    public var cooldownDays: Int?
+
+    public init(personaId: String, days: [Int]? = nil, everyN: Int? = nil, cooldownDays: Int? = nil) {
+        self.personaId = personaId
+        self.days = days
+        self.everyN = everyN
+        self.cooldownDays = cooldownDays
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case personaId = "personaId"
+        case days = "days"
+        case everyN = "everyN"
+        case cooldownDays = "cooldownDays"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.personaId = try container.decode(String.self, forKey: .personaId)
+        self.days = try container.decodeIfPresent([Int].self, forKey: .days)
+        self.everyN = try container.decodeIfPresent(Int.self, forKey: .everyN)
+        self.cooldownDays = try container.decodeIfPresent(Int.self, forKey: .cooldownDays)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.personaId, forKey: .personaId)
+        try container.encodeIfPresent(self.days, forKey: .days)
+        try container.encodeIfPresent(self.everyN, forKey: .everyN)
+        try container.encodeIfPresent(self.cooldownDays, forKey: .cooldownDays)
+    }
+}
+
 /// A window of the station's day to draw
 public struct ScheduleTimetableQuery: Codable, Equatable, Sendable {
     /// The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor
@@ -155,6 +197,8 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var startsOn: String?
     /// The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask
     public var endsOn: String?
+    /// Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out
+    public var coHosts: [SlotCoHost]?
     /// Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time
     public var guestHosts: [SlotGuestHost]?
     /// Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year
@@ -162,7 +206,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: ScheduleSlotMood? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, startsOn: String? = nil, endsOn: String? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: ScheduleSlotMood? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.id = id
         self.label = label
         self.startsAtMinutes = startsAtMinutes
@@ -184,6 +228,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.chartPositions = chartPositions
         self.startsOn = startsOn
         self.endsOn = endsOn
+        self.coHosts = coHosts
         self.guestHosts = guestHosts
         self.yearly = yearly
         self.mode = mode
@@ -212,6 +257,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         case chartPositions = "chartPositions"
         case startsOn = "startsOn"
         case endsOn = "endsOn"
+        case coHosts = "coHosts"
         case guestHosts = "guestHosts"
         case yearly = "yearly"
         case mode = "mode"
@@ -241,6 +287,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.chartPositions = try container.decodeIfPresent(Bool.self, forKey: .chartPositions)
         self.startsOn = try container.decodeIfPresent(String.self, forKey: .startsOn)
         self.endsOn = try container.decodeIfPresent(String.self, forKey: .endsOn)
+        self.coHosts = try container.decodeIfPresent([SlotCoHost].self, forKey: .coHosts)
         self.guestHosts = try container.decodeIfPresent([SlotGuestHost].self, forKey: .guestHosts)
         self.yearly = try container.decodeIfPresent(Bool.self, forKey: .yearly)
         self.mode = try container.decode(ScheduleSlotMode.self, forKey: .mode)
@@ -270,6 +317,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.chartPositions, forKey: .chartPositions)
         try container.encodeIfPresent(self.startsOn, forKey: .startsOn)
         try container.encodeIfPresent(self.endsOn, forKey: .endsOn)
+        try container.encodeIfPresent(self.coHosts, forKey: .coHosts)
         try container.encodeIfPresent(self.guestHosts, forKey: .guestHosts)
         try container.encodeIfPresent(self.yearly, forKey: .yearly)
         try container.encode(self.mode, forKey: .mode)
@@ -318,6 +366,8 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var startsOn: String?
     /// The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask
     public var endsOn: String?
+    /// Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out
+    public var coHosts: [SlotCoHost]?
     /// Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time
     public var guestHosts: [SlotGuestHost]?
     /// Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year
@@ -325,7 +375,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: ScheduleSlotMood? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, startsOn: String? = nil, endsOn: String? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: ScheduleSlotMood? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.label = label
         self.startsAtMinutes = startsAtMinutes
         self.endsAtMinutes = endsAtMinutes
@@ -346,6 +396,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.chartPositions = chartPositions
         self.startsOn = startsOn
         self.endsOn = endsOn
+        self.coHosts = coHosts
         self.guestHosts = guestHosts
         self.yearly = yearly
         self.mode = mode
@@ -373,6 +424,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         case chartPositions = "chartPositions"
         case startsOn = "startsOn"
         case endsOn = "endsOn"
+        case coHosts = "coHosts"
         case guestHosts = "guestHosts"
         case yearly = "yearly"
         case mode = "mode"
@@ -401,6 +453,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.chartPositions = try container.decodeIfPresent(Bool.self, forKey: .chartPositions)
         self.startsOn = try container.decodeIfPresent(String.self, forKey: .startsOn)
         self.endsOn = try container.decodeIfPresent(String.self, forKey: .endsOn)
+        self.coHosts = try container.decodeIfPresent([SlotCoHost].self, forKey: .coHosts)
         self.guestHosts = try container.decodeIfPresent([SlotGuestHost].self, forKey: .guestHosts)
         self.yearly = try container.decodeIfPresent(Bool.self, forKey: .yearly)
         self.mode = try container.decode(ScheduleSlotMode.self, forKey: .mode)
@@ -429,6 +482,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.chartPositions, forKey: .chartPositions)
         try container.encodeIfPresent(self.startsOn, forKey: .startsOn)
         try container.encodeIfPresent(self.endsOn, forKey: .endsOn)
+        try container.encodeIfPresent(self.coHosts, forKey: .coHosts)
         try container.encodeIfPresent(self.guestHosts, forKey: .guestHosts)
         try container.encodeIfPresent(self.yearly, forKey: .yearly)
         try container.encode(self.mode, forKey: .mode)
@@ -480,6 +534,8 @@ public struct ScheduleNow: Codable, Equatable, Sendable {
     public var slotId: String?
     /// Who presents tonight's night of the slot in force: a guest sitting in, or the slot's own host. Absent when it names nobody, which is the station's own host. Only the night that is ON is answered, so a guest who comes at random stays a surprise until their night begins
     public var hostPersonaId: String?
+    /// Who presents beside tonight's host on the slot in force, in order. Only the night that is ON is answered, so a visitor stays a surprise until their night begins
+    public var coHostPersonaIds: [String]?
     /// Whose show it usually is, while a guest sits in on the slot in force. Absent on an ordinary night, and while the station's own host would be the regular one
     public var regularPersonaId: String?
     /// The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins
@@ -487,11 +543,12 @@ public struct ScheduleNow: Codable, Equatable, Sendable {
     /// The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block
     public var upcoming: [ScheduleOccurrence]
 
-    public init(now: String, timezone: String? = nil, slotId: String? = nil, hostPersonaId: String? = nil, regularPersonaId: String? = nil, airingSlotId: String? = nil, upcoming: [ScheduleOccurrence]) {
+    public init(now: String, timezone: String? = nil, slotId: String? = nil, hostPersonaId: String? = nil, coHostPersonaIds: [String]? = nil, regularPersonaId: String? = nil, airingSlotId: String? = nil, upcoming: [ScheduleOccurrence]) {
         self.now = now
         self.timezone = timezone
         self.slotId = slotId
         self.hostPersonaId = hostPersonaId
+        self.coHostPersonaIds = coHostPersonaIds
         self.regularPersonaId = regularPersonaId
         self.airingSlotId = airingSlotId
         self.upcoming = upcoming
@@ -502,6 +559,7 @@ public struct ScheduleNow: Codable, Equatable, Sendable {
         case timezone = "timezone"
         case slotId = "slotId"
         case hostPersonaId = "hostPersonaId"
+        case coHostPersonaIds = "coHostPersonaIds"
         case regularPersonaId = "regularPersonaId"
         case airingSlotId = "airingSlotId"
         case upcoming = "upcoming"
@@ -513,6 +571,7 @@ public struct ScheduleNow: Codable, Equatable, Sendable {
         self.timezone = try container.decodeIfPresent(String.self, forKey: .timezone)
         self.slotId = try container.decodeIfPresent(String.self, forKey: .slotId)
         self.hostPersonaId = try container.decodeIfPresent(String.self, forKey: .hostPersonaId)
+        self.coHostPersonaIds = try container.decodeIfPresent([String].self, forKey: .coHostPersonaIds)
         self.regularPersonaId = try container.decodeIfPresent(String.self, forKey: .regularPersonaId)
         self.airingSlotId = try container.decodeIfPresent(String.self, forKey: .airingSlotId)
         self.upcoming = try container.decode([ScheduleOccurrence].self, forKey: .upcoming)
@@ -524,6 +583,7 @@ public struct ScheduleNow: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.timezone, forKey: .timezone)
         try container.encodeIfPresent(self.slotId, forKey: .slotId)
         try container.encodeIfPresent(self.hostPersonaId, forKey: .hostPersonaId)
+        try container.encodeIfPresent(self.coHostPersonaIds, forKey: .coHostPersonaIds)
         try container.encodeIfPresent(self.regularPersonaId, forKey: .regularPersonaId)
         try container.encodeIfPresent(self.airingSlotId, forKey: .airingSlotId)
         try container.encode(self.upcoming, forKey: .upcoming)

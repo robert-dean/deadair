@@ -437,6 +437,11 @@ public sealed record StationOrder
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PersonaLabel { get; init; }
 
+    /// <summary>Who presents beside the host on this broadcast, in order: the co-hosts the schedule put on for tonight. Absent is one voice</summary>
+    [JsonPropertyName("coHostPersonaIds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? CoHostPersonaIds { get; init; }
+
     [JsonPropertyName("mode")]
     public required StationMode Mode { get; init; }
 

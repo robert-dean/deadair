@@ -13,8 +13,8 @@ _Fig. 1. What it has been doing._
 
 A rail down the left carries four destinations, each with its sections listed beneath it:
 
-- **Desk**: what is on air now, what needs you, and the running order, with Skip and Stop beside the thing they act on. See [the running order](./running-order.md).
-- **Programme**: Today, the Timetable across the week, and Sustaining, what plays when nothing is scheduled. See [the programme](./programme.md).
+- **Desk**: what is on air now, what needs you, and the running order, with Skip and Stop beside the thing they act on, and Take a call and Bring in a guest beside it. See [the running order](./running-order.md) and [phone-ins](./phone-ins.md).
+- **Programme**: Today, the Timetable across the week, Specials (shows on dates, like Halloween), Sustaining (what plays when nothing is scheduled), Requests, and Leans and rules. See [the programme](./programme.md).
 - **Library**: Tracks, Artists, Playlists, Charts, News, Podcasts and Readings. See [the library](./library.md), [podcasts](./podcasts.md) and [readings](./narrations.md).
 - **Voice**: Characters, Auditions, Voices, Segments, Pronunciations, Soundboard, Subjects, Productions, and What it said. See [characters](./characters.md).
 

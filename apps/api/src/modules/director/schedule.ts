@@ -97,6 +97,13 @@ export interface SlotPerson {
     cooldownDays?: number;
 }
 
+/**
+ * The most co-hosts on air beside the host on any one night: four people on a show, which is where a
+ * phone-in's `MAX_CALLERS` puts the same line for the same reason. Past it the listener is meeting
+ * somebody new every break and none of them is a character.
+ */
+export const MAX_CO_HOSTS = 3;
+
 /** One stretch of one day, in minutes. `to` is exclusive and never past midnight. */
 export interface DayPiece {
     from: number;
@@ -226,6 +233,12 @@ export interface ScheduleSlot {
      * or at random. Absent or empty is the ordinary slot, presented by its own host every time.
      */
     guestHosts?: readonly SlotPerson[];
+    /**
+     * Who presents BESIDE the host, in order: every night, on fixed nights, or as a visitor who turns
+     * up at random. At most {@link MAX_CO_HOSTS} are on any one night. Absent or empty is a slot
+     * presented by one voice.
+     */
+    coHosts?: readonly SlotPerson[];
     mode: StationLineupMode;
     onEnd: StationLineupOnEnd;
 }

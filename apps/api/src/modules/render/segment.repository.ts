@@ -1143,10 +1143,10 @@ export class SegmentRepository extends DataRepository {
      * @param personaId who is presenting NOW. Absent is a station that has chosen nobody, and every
      *   break with a host is then out of character.
      */
-    async recast(ids: readonly string[], personaId?: string): Promise<string[]> {
+    async recast(ids: readonly string[], personaId?: string, coHosts: readonly string[] = []): Promise<string[]> {
         if (ids.length === 0) return [];
 
-        return await this.reopen(['id'], ids, 'the station changed presenter', { personaId, recast: true });
+        return await this.reopen(['id'], ids, 'the station changed presenter', { personaId, coHosts, recast: true });
     }
 
     /**
@@ -1185,7 +1185,7 @@ export class SegmentRepository extends DataRepository {
         by: readonly ('id' | 'claimsItemId' | 'claimsPreviousItemId')[],
         values: readonly string[],
         reason: string,
-        host?: { personaId?: string; recast: true },
+        host?: { personaId?: string; coHosts?: readonly string[]; recast: true },
     ): Promise<string[]> {
         const guard = this.reopening(by, values, host);
 
@@ -1251,7 +1251,7 @@ export class SegmentRepository extends DataRepository {
      * rewriting it would throw away words nobody asked to replace.
      *
      * **A row already stamped with the incoming host is left alone**, which is what makes a recast
-     * safe to call when nothing actually changed.
+     * safe to call when nothing actually changed. So is one stamped with a co-host still on the show.
      *
      * **A production beat is never recast alone.** A recast re-offers whatever the outgoing host had
      * lined up, which is right for a break — another writer takes it and the station carries on. A
@@ -1270,7 +1270,7 @@ export class SegmentRepository extends DataRepository {
     private reopening(
         by: readonly ('id' | 'claimsItemId' | 'claimsPreviousItemId')[],
         values: readonly string[],
-        host?: { personaId?: string },
+        host?: { personaId?: string; coHosts?: readonly string[] },
     ): Expression<SqlBool> {
         const eb = expressionBuilder<DB, 'deadair.segments'>();
 
@@ -1285,6 +1285,11 @@ export class SegmentRepository extends DataRepository {
         if (host !== undefined) {
             clauses.push(eb('deadair.segments.personaId', 'is not', null));
             if (host.personaId !== undefined) clauses.push(eb('deadair.segments.personaId', '<>', host.personaId));
+            // A co-host's break is still in character after the LEAD changes: they are still on the
+            // show, and rewriting their words as the new lead's would take a voice off the air.
+            if (host.coHosts !== undefined && host.coHosts.length > 0) {
+                clauses.push(eb('deadair.segments.personaId', 'not in', [...host.coHosts]));
+            }
             // The newsreader's bulletins are not the outgoing host's to give back: whoever presents,
             // the news is still read by the newsreader, so rewriting them would only say them again.
             clauses.push(

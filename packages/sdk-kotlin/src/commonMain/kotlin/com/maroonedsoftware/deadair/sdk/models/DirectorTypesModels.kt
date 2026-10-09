@@ -246,6 +246,8 @@ data class StationOrder(
     val personaId: String? = null,
     /** What that host is called, resolved as the order is read so a console need not fetch the persona list to draw a name */
     val personaLabel: String? = null,
+    /** Who presents beside the host on this broadcast, in order: the co-hosts the schedule put on for tonight. Absent is one voice */
+    val coHostPersonaIds: List<String>? = null,
     val mode: StationMode,
     val onEnd: StationOnEnd,
     /** Who built it: `import`, `chart` or `director` */

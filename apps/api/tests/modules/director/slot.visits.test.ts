@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { addDays, type ScheduleSlot, type SlotPerson, type StationDate } from '../../../src/modules/director/schedule.js';
-import { appears, defaultCooldown, hostFor, roll } from '../../../src/modules/director/slot.visits.js';
+import { appears, coHostsFor, defaultCooldown, hostFor, roll } from '../../../src/modules/director/slot.visits.js';
 
 const boneyard = (guestHosts: SlotPerson[] = []): ScheduleSlot => ({
     id: 'fa835126-8b56-4a03-b811-916a97c8c54b',
@@ -124,5 +124,40 @@ describe('hostFor', () => {
         const { personaId: _host, ...hostless } = boneyard([fridays]);
 
         expect(hostFor(hostless, { year: 2026, month: 10, day: 9, weekday: 5 })).toEqual({ personaId: 'rockzo', guest: true });
+    });
+});
+
+describe('coHostsFor', () => {
+    const withCoHosts = (coHosts: SlotPerson[]): ScheduleSlot => ({ ...boneyard(), coHosts });
+    const FRIDAY: StationDate = { year: 2026, month: 10, day: 9, weekday: 5 };
+
+    it('puts every-night co-hosts on every night, in the order they were written', () => {
+        expect(coHostsFor(withCoHosts([{ personaId: 'b' }, { personaId: 'a' }]), START, 'ozzy')).toEqual(['b', 'a']);
+    });
+
+    it('puts a fixed co-host on their nights only', () => {
+        const slot = withCoHosts([{ personaId: 'friday', days: [5] }]);
+
+        expect(coHostsFor(slot, FRIDAY, 'ozzy')).toEqual(['friday']);
+        expect(coHostsFor(slot, START, 'ozzy')).toEqual([]);
+    });
+
+    it('brings a visitor on the nights their roll wins, about once in everyN over two years', () => {
+        const lemmy: SlotPerson = { personaId: 'lemmy', everyN: 25, cooldownDays: 14 };
+        const slot = withCoHosts([lemmy]);
+        const nights = days(730).filter(date => coHostsFor(slot, date, 'ozzy').includes('lemmy')).length;
+
+        expect(nights).toBeGreaterThan((730 / 25) * 0.7);
+        expect(nights).toBeLessThan((730 / 25) * 1.3);
+    });
+
+    it('never puts the night’s presenter beside themselves', () => {
+        expect(coHostsFor(withCoHosts([{ personaId: 'ozzy' }, { personaId: 'a' }]), START, 'ozzy')).toEqual(['a']);
+    });
+
+    it('stops at three, so a visitor who wins a full night sits it out', () => {
+        const slot = withCoHosts([{ personaId: 'a' }, { personaId: 'b' }, { personaId: 'c' }, { personaId: 'visitor', everyN: 2, cooldownDays: 0 }]);
+
+        for (const date of days(20)) expect(coHostsFor(slot, date, 'ozzy')).toEqual(['a', 'b', 'c']);
     });
 });

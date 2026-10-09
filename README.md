@@ -43,7 +43,9 @@ specific, checkable and untrue in exactly the voice it uses for things that are 
 rope it is given and how brief it is. It keeps a notebook of things it has said and traits it is
 growing into, and a set of anecdotes it can tell on air. It can take a phone-in: a produced block in
 the middle of a broadcast where a caller and the host trade turns, each one its own model call in its
-own voice, joined into one file before it airs.
+own voice, joined into one file before it airs. A guest can drop by the studio for the same kind of
+chat, a show can have co-hosts who take turns at the breaks and banter, and a host can sit in on
+somebody else's show on fixed nights or at random.
 
 **It knows what it is playing.** A measurement sidecar decodes each record and answers with its cue
 points and its loudness, so the silence at the head and tail of a record is trimmed before the player
@@ -128,7 +130,8 @@ what is on air, Skip and Stop on keys, with an API key from Settings, Sign-in an
 
 A rail down the left carries four destinations, with a key each: D, P, L and V. **Desk** is the
 running order, live, with the playhead, every item's state and whatever needs you. **Programme** is
-Today, the Timetable across the week, and Sustaining, which is what plays when nothing is scheduled.
+Today, the Timetable across the week, Specials (shows on dates, like Halloween, which take over from
+the week for their hours), and Sustaining, which is what plays when nothing is scheduled.
 **Library** is Tracks, Artists, Playlists, Charts and News. **Voice** is who the station is when it
 talks and how it says things: Characters, Auditions, Voices, Segments, Pronunciations, Soundboard,
 Subjects, Productions, and What it said, which is every break it has written and every one it

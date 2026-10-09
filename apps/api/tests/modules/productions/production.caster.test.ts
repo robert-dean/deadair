@@ -27,7 +27,7 @@ const production = (over: Partial<Production> = {}): Production =>
 
 function build(
     options: {
-        roster?: (Omit<ReturnType<typeof caller>, 'kind'> & { kind: 'caller' | 'guest' })[];
+        roster?: (Omit<ReturnType<typeof caller>, 'kind'> & { kind: 'caller' | 'guest' | 'host' })[];
         heard?: Map<string, number>;
         rosterThrows?: boolean;
         kinds?: string;
@@ -37,6 +37,8 @@ function build(
         played?: { trackId?: string; title: string; artist: string }[];
         playsThrow?: boolean;
         facts?: Map<string, string[]>;
+        /** The broadcast on air and who presents beside its host, for a banter. */
+        onAir?: { broadcastId: string; coHostPersonaIds: string[] };
     } = {},
 ) {
     const personas = {
@@ -53,6 +55,7 @@ function build(
                       ...(options.keen ? { trivia: 'keen' } : {}),
                   },
         ),
+        find: vi.fn(async (id: string) => (options.roster ?? []).find(persona => persona.id === id)),
         castable: vi.fn(async () => {
             if (options.rosterThrows) throw new Error('the roster could not be read');
             return options.roster ?? [];
@@ -77,7 +80,15 @@ function build(
         segments,
         plays,
         enrichment,
-        caster: new ProductionCaster(personas as never, segments as never, plays as never, enrichment as never, config as never, logger as never),
+        caster: new ProductionCaster(
+            personas as never,
+            segments as never,
+            { load: vi.fn(async () => options.onAir) } as never,
+            plays as never,
+            enrichment as never,
+            config as never,
+            logger as never,
+        ),
     };
 }
 
@@ -273,5 +284,32 @@ describe('casting a visit', () => {
         const { caster } = build({ roster: [] });
 
         await expect(caster.cast(production({ kind: 'visit' }), 9)).rejects.toThrow(/nobody to visit/);
+    });
+});
+
+describe('casting a banter', () => {
+    const host = (key: string) => ({ ...caller(key), kind: 'host' as const });
+
+    it('casts the co-hosts presenting beside the host tonight, in the order the broadcast holds them', async () => {
+        const { caster } = build({
+            roster: [host('lemmy'), host('rockzo')],
+            onAir: { broadcastId: 'b-1', coHostPersonaIds: ['id-rockzo', 'id-lemmy'] },
+        });
+
+        const cast = await caster.cast(production({ kind: 'banter', broadcastId: 'b-1' }), 9);
+
+        expect(cast.map(member => `${member.role}:${member.personaKey ?? ''}`)).toEqual(['host:classic', 'cohost:rockzo', 'cohost:lemmy']);
+    });
+
+    it('fails rather than airing the host alone when nobody presents beside them', async () => {
+        const { caster } = build({ onAir: { broadcastId: 'b-1', coHostPersonaIds: [] } });
+
+        await expect(caster.cast(production({ kind: 'banter', broadcastId: 'b-1' }), 9)).rejects.toThrow(/nobody to banter with/);
+    });
+
+    it('does not borrow the co-hosts of a different broadcast', async () => {
+        const { caster } = build({ roster: [host('lemmy')], onAir: { broadcastId: 'b-2', coHostPersonaIds: ['id-lemmy'] } });
+
+        await expect(caster.cast(production({ kind: 'banter', broadcastId: 'b-1' }), 9)).rejects.toThrow();
     });
 });

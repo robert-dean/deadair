@@ -658,6 +658,14 @@ describe('StationLineup editing', () => {
         expect(lineup.slotOccurrence).toBe('2026-10-09');
     });
 
+    it('keeps the co-hosts on a recast, less whoever has just been made the lead', () => {
+        const lineup = new StationLineup({ ...binding(), personaId: 'ozzy', coHostPersonaIds: ['lemmy', 'rockzo'] });
+
+        lineup.recast('lemmy');
+
+        expect(lineup.coHostPersonaIds).toEqual(['rockzo']);
+    });
+
     it('hands the show back to the station when it is recast to nobody', () => {
         // The same thing an empty brief does one field over, and the reason `presenting` has a
         // fallback at all: absent means "whoever the station has on air", not "no host".

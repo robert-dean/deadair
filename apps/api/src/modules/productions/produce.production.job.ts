@@ -422,6 +422,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // off the cast rather than off the run-in, because the opening beat has no run-in
                 // and is exactly the turn that needs to know somebody is holding.
                 ...(guestOf(casting) === undefined ? {} : { guest: guestOf(casting)! }),
+                ...(coHostsOf(casting).length === 0 ? {} : { coHosts: coHostsOf(casting) }),
                 ...(reactions.length === 0 ? {} : { reactions }),
                 ...(board.names.length === 0 ? {} : { pads: board.names }),
                 ...(board.use === undefined ? {} : { padUse: board.use }),
@@ -618,6 +619,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         // would answer the correction and lose the rule that shaped the turn.
                         ...(index === beats.length - 1 ? { lastTurn: true } : {}),
                         ...(guestOf(casting) === undefined ? {} : { guest: guestOf(casting)! }),
+                        ...(coHostsOf(casting).length === 0 ? {} : { coHosts: coHostsOf(casting) }),
                         ...(reactions.length === 0 ? {} : { reactions }),
                         // EXACTLY what this beat already hit, and never the whole board.
                         //
@@ -1112,6 +1114,9 @@ const onAir = (production: Production): { title?: string } => {
  * arrives the way any caller does — on their own first turn, which `firstTurn` already marks.
  */
 const guestOf = (cast: ProductionCast): CastMember | undefined => cast.find(member => isVisitor(member));
+
+/** The presenters beside the lead on a banter, for the turns that bring them in and answer them. */
+const coHostsOf = (cast: ProductionCast): CastMember[] => cast.filter(member => member.role === 'cohost');
 
 /**
  * A model's answer as JSON, or `undefined`.

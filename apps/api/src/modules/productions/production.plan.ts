@@ -106,6 +106,12 @@ export const CALLER_TURN_WEIGHT = 1.35;
 export const GUEST_TURN_WEIGHT = 1.6;
 
 /**
+ * A co-host's share on a banter: about the lead's. Two presenters bantering are peers trading lines,
+ * not somebody asking and somebody answering, so neither is funded to talk at the other.
+ */
+export const COHOST_TURN_WEIGHT = 0.9;
+
+/**
  * A ceiling on beats, so a feature-length production cannot fan out into hundreds of model calls.
  *
  * It binds before the band does: past this, beats go over {@link MAX_WORDS} rather than multiplying,

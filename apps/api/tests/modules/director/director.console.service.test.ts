@@ -503,6 +503,14 @@ describe('DirectorConsoleService building a running order from a playlist', () =
             expect(posted()[0]).toMatchObject({ binding: { regularPersonaId: 'station-host' } });
         });
 
+        it('is stamped with tonight’s co-hosts, never the lead among them', async () => {
+            const { service, posted } = build();
+
+            await service.putOnAir({ personaId: 'ozzy' }, slot, false, { date: '2026-10-09', guest: false, coHostIds: ['lemmy', 'ozzy'] });
+
+            expect(posted()[0]).toMatchObject({ binding: { coHostPersonaIds: ['lemmy'] } });
+        });
+
         it('names no regular host on an ordinary night', async () => {
             const { service, posted } = build();
 

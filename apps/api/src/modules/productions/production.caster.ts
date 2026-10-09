@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { StationLineupRepository } from '#modules/director/station.lineup.repository.js';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { TEMPLATE_KEYS } from '#modules/director/break.templates.js';
@@ -9,8 +10,17 @@ import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { rotationOf } from '#modules/shared/rotation.js';
-import { callerCount, callerMember, guestMember, hostMember, type CastMember, type ProductionCast, type ShowRecord } from './production.cast.js';
-import { dialogueKinds, VISIT_KIND } from './production.settings.js';
+import {
+    callerCount,
+    callerMember,
+    coHostMember,
+    guestMember,
+    hostMember,
+    type CastMember,
+    type ProductionCast,
+    type ShowRecord,
+} from './production.cast.js';
+import { BANTER_KIND, dialogueKinds, VISIT_KIND } from './production.settings.js';
 import type { Production } from './production.js';
 
 /**
@@ -74,6 +84,8 @@ export class ProductionCaster {
     constructor(
         private readonly personas: PersonaRepository,
         private readonly segments: SegmentRepository,
+        // For a banter's co-hosts, which the running order holds for the broadcast that is on.
+        private readonly lineups: StationLineupRepository,
         private readonly plays: PlayHistoryRepository,
         private readonly enrichment: EnrichmentReadService,
         private readonly config: AppConfig,
@@ -95,6 +107,7 @@ export class ProductionCaster {
         const host = hostMember(presenting, production.id, this.config.get(TEMPLATE_KEYS.djName, ''));
         if (!this.wantsCallers(production.kind)) return [host];
         if (production.kind.trim().toLowerCase() === VISIT_KIND) return [host, await this.guest(presenting?.id, production)];
+        if (production.kind.trim().toLowerCase() === BANTER_KIND) return [host, ...(await this.coHosts(presenting?.id, production))];
 
         try {
             // Whoever may ring THIS host: the ones tied to them, and everybody tied to nobody.
@@ -143,6 +156,31 @@ export class ProductionCaster {
 
         this.logger.info('productions: cast a guest to drop by', { production: production.id, guest: persona.key });
         return guestMember(persona, production.id);
+    }
+
+    /**
+     * The co-hosts on a banter: whoever presents beside the host on the broadcast it airs in, read off
+     * that broadcast's running order, in its order.
+     *
+     * Off the ORDER rather than the slot, because the order is what says who is on tonight: a visiting
+     * co-host is on one night in twenty-five, and the schedule's answer for tonight was stamped there
+     * at the changeover. A banter commissioned for another broadcast, or one with nobody beside the
+     * host, THROWS for a visit's reason: two presenters trading lines with only one of them there is
+     * a monologue under a banter's billing.
+     */
+    private async coHosts(hostId: string | undefined, production: Production): Promise<CastMember[]> {
+        const lineup = await this.lineups.load();
+        const ids = lineup !== undefined && lineup.broadcastId === production.broadcastId ? lineup.coHostPersonaIds : [];
+
+        const found = await Promise.all(ids.filter(id => id !== hostId).map(id => this.personas.find(id)));
+        const coHosts = found.flatMap(persona => (persona?.kind === 'host' ? [coHostMember(persona, production.id)] : []));
+        if (coHosts.length === 0) throw new Error('nobody presents beside the host on this show tonight, so there is nobody to banter with');
+
+        this.logger.info('productions: cast the co-hosts for a banter', {
+            production: production.id,
+            coHosts: coHosts.map(member => member.personaKey ?? '').join(', '),
+        });
+        return coHosts;
     }
 
     /** The host, carrying what their show has just played when their show is about the records. */

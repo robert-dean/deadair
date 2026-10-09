@@ -75,11 +75,15 @@ export function dialogueKinds(config: AppConfig): Set<string> {
         // as a monologue would be the host talking under a guest's billing. A station that wrote this
         // setting before visits existed must not get that by having written it.
         VISIT_KIND,
+        BANTER_KIND,
     ]);
 }
 
 /** The production kind a studio guest is cast for, where every other dialogue kind casts callers. */
 export const VISIT_KIND = 'visit';
+
+/** The production kind a show's co-hosts are cast for: the presenters trading lines with each other. */
+export const BANTER_KIND = 'banter';
 
 /**
  * How many passes a production gets when nobody said.

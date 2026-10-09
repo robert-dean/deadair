@@ -482,6 +482,7 @@ function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
         ...(slot.endsOn === undefined ? {} : { endsOn: slot.endsOn }),
         ...(slot.yearly === undefined ? {} : { yearly: slot.yearly }),
         ...(slot.guestHosts === undefined ? {} : { guestHosts: slot.guestHosts.map(guest => ({ ...guest })) }),
+        ...(slot.coHosts === undefined ? {} : { coHosts: slot.coHosts.map(coHost => ({ ...coHost })) }),
         mode: slot.mode,
         onEnd: slot.onEnd,
     };

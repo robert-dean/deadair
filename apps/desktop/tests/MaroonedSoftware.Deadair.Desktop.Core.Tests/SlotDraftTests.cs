@@ -156,6 +156,7 @@ public class SlotDraftTests
             Yearly = true,
             Mood = ScheduleSlotMood.Fear,
             GuestHosts = [new SlotGuestHost { PersonaId = "rockzo", EveryN = 7 }],
+            CoHosts = [new SlotCoHost { PersonaId = "lemmy", EveryN = 25, CooldownDays = 14 }],
         };
 
         var input = SlotDraft.From(special).ToInput()!;
@@ -165,6 +166,7 @@ public class SlotDraftTests
         Assert.True(input.Yearly);
         Assert.Equal(ScheduleSlotMood.Fear, input.Mood);
         Assert.Equal("rockzo", Assert.Single(input.GuestHosts!).PersonaId);
+        Assert.Equal("lemmy", Assert.Single(input.CoHosts!).PersonaId);
     }
 
     [Fact]

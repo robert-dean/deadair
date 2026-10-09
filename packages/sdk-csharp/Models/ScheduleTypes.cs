@@ -34,6 +34,29 @@ public sealed record SlotGuestHost
     public long? CooldownDays { get; init; }
 }
 
+/// <summary>Somebody who presents beside a slot's host, every night or some of them</summary>
+public sealed record SlotCoHost
+{
+    /// <summary>Who co-presents. A host; a caller or a guest who drops by can never present a show</summary>
+    [JsonPropertyName("personaId")]
+    public required string PersonaId { get; init; }
+
+    /// <summary>The nights they co-present, by the weekday the night begins on, Sunday 0. Absent with no `everyN` is every night. Send this or `everyN`, not both</summary>
+    [JsonPropertyName("days")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<long>? Days { get; init; }
+
+    /// <summary>Or as a visitor: about one of this slot's nights in this many, on nights nobody can predict</summary>
+    [JsonPropertyName("everyN")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? EveryN { get; init; }
+
+    /// <summary>With `everyN`, the fewest days between two of their nights. Absent is half of `everyN`</summary>
+    [JsonPropertyName("cooldownDays")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? CooldownDays { get; init; }
+}
+
 /// <summary>A window of the station's day to draw</summary>
 public sealed record ScheduleTimetableQuery
 {
@@ -168,6 +191,11 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? EndsOn { get; init; }
 
+    /// <summary>Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out</summary>
+    [JsonPropertyName("coHosts")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<SlotCoHost>? CoHosts { get; init; }
+
     /// <summary>Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time</summary>
     [JsonPropertyName("guestHosts")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -284,6 +312,11 @@ public sealed record ScheduleSlotInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? EndsOn { get; init; }
 
+    /// <summary>Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out</summary>
+    [JsonPropertyName("coHosts")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<SlotCoHost>? CoHosts { get; init; }
+
     /// <summary>Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time</summary>
     [JsonPropertyName("guestHosts")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -336,6 +369,11 @@ public sealed record ScheduleNow
     [JsonPropertyName("hostPersonaId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? HostPersonaId { get; init; }
+
+    /// <summary>Who presents beside tonight's host on the slot in force, in order. Only the night that is ON is answered, so a visitor stays a surprise until their night begins</summary>
+    [JsonPropertyName("coHostPersonaIds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? CoHostPersonaIds { get; init; }
 
     /// <summary>Whose show it usually is, while a guest sits in on the slot in force. Absent on an ordinary night, and while the station's own host would be the regular one</summary>
     [JsonPropertyName("regularPersonaId")]

@@ -22,11 +22,11 @@ export const PRODUCTION_KINDS_KEY = 'render.productionKinds';
  * The kinds a station makes as productions unless it says otherwise.
  *
  * `callin` joined `podcast` with the caller work, so a band naming one is commissioned rather than
- * filled with a break, and `visit` joined them with studio guests. Nothing happens until an operator writes that band — which is the same
+ * filled with a break, `visit` joined them with studio guests, and `banter` with co-hosts. Nothing happens until an operator writes that band — which is the same
  * posture `rotation.discover` takes, and the alternative is a feature that is inert until somebody
  * finds a setting.
  */
-export const DEFAULT_PRODUCTION_KINDS = 'podcast,callin,visit';
+export const DEFAULT_PRODUCTION_KINDS = 'podcast,callin,visit,banter';
 
 /**
  * How far ahead of its slot a production is commissioned.

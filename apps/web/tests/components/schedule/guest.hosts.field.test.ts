@@ -17,6 +17,10 @@ describe('guestHostsOf', () => {
         expect(guestHostsOf([row({ when: 'days', days: ['5', '3'], everyN: 9 })])).toEqual([{ personaId: 'rockzo', days: [5, 3] }]);
     });
 
+    it('sends an every-night co-host with neither nights nor odds', () => {
+        expect(guestHostsOf([row({ when: 'always', days: ['5'] })])).toEqual([{ personaId: 'rockzo' }]);
+    });
+
     it('drops a row with nobody chosen', () => {
         expect(guestHostsOf([row({ personaId: '' })])).toEqual([]);
     });
@@ -24,6 +28,7 @@ describe('guestHostsOf', () => {
     it('reads a stored guest back into a row', () => {
         expect(guestRowOf({ personaId: 'lemmy', everyN: 25, cooldownDays: 14 })).toEqual(row({ personaId: 'lemmy', everyN: 25, cooldownDays: 14 }));
         expect(guestRowOf({ personaId: 'rockzo', days: [5] }).when).toBe('days');
+        expect(guestRowOf({ personaId: 'lemmy' }).when).toBe('always');
     });
 });
 

@@ -523,6 +523,12 @@ export interface PromptSettings {
      */
     sittingInFor?: SittingIn;
     /**
+     * Everybody else presenting this show tonight, by on-air name. One line under the role sentence,
+     * so whoever speaks can hand to them or mention them; absent leaves an ordinary show's prompt
+     * byte-identical.
+     */
+    coPresenters?: readonly string[];
+    /**
      * What this character has accumulated, from `deadair.persona_notes`.
      *
      * Called a NOTEBOOK here and not "notes", which is not fussiness: in this file "the notes" has
@@ -851,6 +857,13 @@ export function breakPrompt(request: BreakWriteRequest, settings: PromptSettings
     return nudge === undefined ? asked : [...asked, { role: 'user', content: nudge }];
 }
 
+/** The one line a presenter is given about who else is on the show with them tonight. */
+function coPresentersLine(names: readonly string[]): string {
+    const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+
+    return `You co-host this show with ${list}, who ${names.length === 1 ? 'is' : 'are'} in the studio with you. You can mention them or hand to them, but this break is yours to say.`;
+}
+
 /** The one line a guest host is given about whose show they are on. */
 function sittingInLine(regular: SittingIn): string {
     const show = regular.show?.trim();
@@ -884,6 +897,7 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
         // something about the records: a guest who forgot whose show it is would welcome listeners
         // to "my show", and the regular host's listeners would notice.
         ...(settings.sittingInFor === undefined ? [] : [sittingInLine(settings.sittingInFor)]),
+        ...(settings.coPresenters === undefined || settings.coPresenters.length === 0 ? [] : [coPresentersLine(settings.coPresenters)]),
         // The station before the character, because it is what the character is on. Both are
         // background: the second especially is put as something to know rather than to say, or a
         // fundraiser the operator mentioned once would open every break of the day.

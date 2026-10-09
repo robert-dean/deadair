@@ -980,6 +980,7 @@ export interface DeadairStationEvents {
 export interface DeadairStationLineup {
   brief: Generated<string>;
   broadcastId: Generated<string>;
+  coHostPersonaIds: string[] | null;
   createdAt: Generated<DateTime>;
   eraFrom: number | null;
   eraTo: number | null;

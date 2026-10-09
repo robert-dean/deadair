@@ -1615,7 +1615,9 @@ export class DirectorService {
                         .flatMap(item => (item.kind === 'segment' ? [item.segmentId] : [])),
                 ),
             ];
-            const rewritten = await inScope(this.container, async scope => scope.get(SegmentRepository).recast(ids, incoming.persona?.id));
+            const rewritten = await inScope(this.container, async scope =>
+                scope.get(SegmentRepository).recast(ids, incoming.persona?.id, lineup.coHostPersonaIds),
+            );
             if (rewritten.length === 0) return;
 
             this.logger.info('director: the station changed presenter, so the breaks the last one wrote will be written again', {

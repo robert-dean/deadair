@@ -20,7 +20,7 @@ When the presenter mentions a fact about a record, that fact is a stored claim, 
 
 ## Who is presenting is a character, and it accumulates
 
-A presenter carries a voice, a way of speaking, how much rope it is given and how brief it is. It keeps a notebook of what it has said and the traits it is growing into, and a set of anecdotes it can tell on air. It can also take a phone-in: a produced block in which a caller and the host trade turns, each turn written separately and spoken in its own voice, joined into one file before it airs. See [characters](./characters.md) and [phone-ins](./phone-ins.md).
+A presenter carries a voice, a way of speaking, how much rope it is given and how brief it is. It keeps a notebook of what it has said and the traits it is growing into, and a set of anecdotes it can tell on air. It can also take a phone-in: a produced block in which a caller and the host trade turns, each turn written separately and spoken in its own voice, joined into one file before it airs. A guest can drop by the studio for the same kind of chat, a show can have co-hosts who take turns at the breaks and banter between records, and another host can sit in on somebody's show on fixed nights or at random. See [characters](./characters.md), [phone-ins](./phone-ins.md) and [the programme](./programme.md).
 
 ## It can give the hour to something that is not records
 

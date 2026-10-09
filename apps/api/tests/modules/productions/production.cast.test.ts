@@ -360,3 +360,25 @@ describe('a studio guest', () => {
         expect(callSubjectOf(undefined, [host, guest])).toMatchObject({ caller: 'Mira', about: guest.preoccupation, visit: true });
     });
 });
+
+describe('a banter', () => {
+    const host = { role: 'host' as const, name: 'Ozzy' };
+    const lemmy = { role: 'cohost' as const, name: 'Lemmy' };
+    const rockzo = { role: 'cohost' as const, name: 'Rockzo' };
+
+    it('is a conversation where the lead opens and closes and the co-hosts take the turns between', () => {
+        expect(isDialogue([host, lemmy])).toBe(true);
+        expect(speakerOrder([host, lemmy, rockzo], 7)).toEqual([0, 1, 0, 2, 0, 1, 0]);
+    });
+
+    it('funds a co-host about as a lead, since they are peers', () => {
+        const [lead, coHost] = turnWeights([host, lemmy], [0, 1]);
+
+        expect(coHost).toBeGreaterThan(lead!);
+        expect(coHost).toBeLessThan(turnWeights([host, { role: 'caller' }], [0, 1])[1]!);
+    });
+
+    it('survives being stored and read back', () => {
+        expect(coerceCast([host, lemmy])).toEqual([host, lemmy]);
+    });
+});

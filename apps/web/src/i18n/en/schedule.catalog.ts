@@ -95,6 +95,7 @@ export const schedule = {
         editHint: 'Edit this block',
         sittingIn: '{{guest}}, sitting in',
         sittingInFor: '{{guest}}, sitting in for {{regular}}',
+        withCoHosts: '{{host}} with {{coHosts}}',
     },
     slot: {
         editTitle: 'Edit slot',
@@ -117,6 +118,18 @@ export const schedule = {
             'Leave it empty for a slot the station fills itself. A playlist the station keeps starts on time however long it is, because it is not read from a provider when the block begins.',
         savingNote: 'Saving changes nothing that is on air now. The station moves when this slot next begins.',
         nameRequired: 'A slot needs a name',
+        coHosts: {
+            label: 'Co-hosts',
+            description:
+                'Hosts who present beside this slot’s own host, taking turns at the talk breaks and trading lines in a banter. Every night, on fixed nights, or as a visitor who turns up at random. Up to three are on any one night.',
+            add: 'Add co-host',
+            remove: 'Remove this co-host',
+            host: 'Co-host',
+            whenLabel: 'When they co-host',
+            always: 'Every night',
+            onNights: 'On these nights',
+            atRandom: 'Visiting',
+        },
         guests: {
             label: 'Guest hosts',
             description:

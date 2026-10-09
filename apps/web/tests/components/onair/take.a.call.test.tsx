@@ -4,7 +4,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { TakeACall } from '../../../src/components/onair/take.a.call';
+import { BringInAGuest, TakeACall } from '../../../src/components/onair/take.a.call';
 import { render, screen, setupUser } from '../../utils/render';
 
 const requested: unknown[] = [];
@@ -76,5 +76,18 @@ describe('TakeACall', () => {
 
         expect(requested[0]).not.toHaveProperty('title');
         expect(requested[0]).not.toHaveProperty('brief');
+    });
+});
+
+describe('BringInAGuest', () => {
+    it('asks for a visit, from the broadcast’s own host', async () => {
+        requested.length = 0;
+        render(<BringInAGuest personaId="persona-1" />);
+        const user = setupUser();
+        await user.click(screen.getByRole('button', { name: 'Bring in a guest' }));
+        const buttons = screen.getAllByRole('button', { name: 'Bring in a guest' });
+        await user.click(buttons[buttons.length - 1]!);
+
+        expect(requested[0]).toEqual({ kind: 'visit', personaId: 'persona-1' });
     });
 });

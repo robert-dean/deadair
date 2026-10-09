@@ -37,7 +37,7 @@ import type { Persona } from '#modules/personas/persona.js';
 import { latitudeOf, personaLines } from '#modules/personas/persona.sheet.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
-import type { CallSubject, CastMember, ShowRecord } from './production.cast.js';
+import { isVisitor, type CallSubject, type CastMember, type ShowRecord } from './production.cast.js';
 import type { OutlineBeat, ProductionOutline } from './production.js';
 import { languageName, languageRule } from '#modules/shared/language.name.js';
 
@@ -354,7 +354,10 @@ export function outlinePrompt(request: OutlineRequest): LlmMessage[] {
  */
 export function beatPrompt(request: BeatRequest): LlmMessage[] {
     const opening = request.ordinal === 0;
-    const caller = request.speaker?.role === 'caller';
+    // Anybody but the presenter: a caller on the line or a guest in the studio. Most of what follows
+    // is about that, and `inStudio` is the one thing that differs, which is where they are.
+    const caller = isVisitor(request.speaker);
+    const inStudio = request.speaker?.role === 'guest';
     // A caller's FIRST turn is the one where they are put on air, which is not the same question as
     // the programme's first beat: they arrive in the middle of it and they do greet, because that is
     // what somebody who has just been put through actually says.
@@ -370,9 +373,11 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
     const closing = guest !== undefined && request.lastTurn === true;
 
     const system = [
-        caller
-            ? `You are a listener who has phoned in to a ${request.kind} on a radio station, and you are on the air now. You write your next turn on the call, and it is read aloud exactly as you write it.`
-            : `You write one beat of a ${request.kind} for a radio station. It is read aloud exactly as you write it.`,
+        inStudio
+            ? `You are a guest who has dropped by the studio of a radio station, sitting with the presenter, and you are on the air now. You write your next turn in the conversation, and it is read aloud exactly as you write it.`
+            : caller
+              ? `You are a listener who has phoned in to a ${request.kind} on a radio station, and you are on the air now. You write your next turn on the call, and it is read aloud exactly as you write it.`
+              : `You write one beat of a ${request.kind} for a radio station. It is read aloud exactly as you write it.`,
         '',
         ...(request.persona === undefined
             ? []
@@ -402,7 +407,7 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
         '- Continuous spoken prose. No headings, no bullet points, no stage directions, no speaker labels, no markdown.',
         // The failure this catches is a production that sounds like several short programmes played
         // back to back, and it is the single most common thing a beat gets wrong.
-        ...openingRule({ opening, caller, arriving, lastTurn: request.lastTurn === true, guest }),
+        ...openingRule({ opening, caller, inStudio, arriving, lastTurn: request.lastTurn === true, guest }),
         // The other half of the repetition problem. Spent catchphrases are handled per beat in the
         // user turn; this covers the BACKGROUND, which is not a phrase and so cannot be detected as
         // one — a presenter who has been fired from three stations mentioned it in six of
@@ -433,7 +438,7 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
         // exist. A model reaches for a specific because a specific sounds like knowledge, so the
         // rule has to name the swap and give it somewhere to go instead.
         ...groundingRules(request, caller, answering),
-        ...reactionRules(request.reactions, caller),
+        ...reactionRules(request.reactions, request.speaker?.role ?? 'host'),
         // Beside the reactions, because they are the same KIND of instruction — the only two things
         // a beat may carry that are not words — and a model reading them together reads one idea.
         ...padRules(request.pads, request.padUse),
@@ -466,7 +471,9 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
         parts.push(
             caller
                 ? `You are talking to ${nameOf(request.previousSpeaker)}, who is presenting.`
-                : `${nameOf(request.previousSpeaker)} is on the line. Use their name.`,
+                : request.previousSpeaker.role === 'guest'
+                  ? `${nameOf(request.previousSpeaker)} is here in the studio with you. Use their name.`
+                  : `${nameOf(request.previousSpeaker)} is on the line. Use their name.`,
         );
     }
     if (request.brief !== undefined) parts.push(`What was asked for: ${request.brief}`);
@@ -574,15 +581,17 @@ export function runInFrom(script: string, words = TAIL_WORDS): string {
  * is only the invitation: a presenter's cue is a reaction and a caller's is what makes a phone call
  * sound like one, so the sentence asking for it says so.
  */
-function reactionRules(reactions: readonly SpeechCue[] | undefined, caller: boolean): string[] {
+function reactionRules(reactions: readonly SpeechCue[] | undefined, role: CastMember['role']): string[] {
     if (reactions === undefined || reactions.length === 0) return [];
 
     const written = reactions.map(cue => `[${cue}]`).join(', ');
     return [
         `- You can do one thing that is not words: ${written}. Write it in square brackets exactly like that, at the point it happens, and it is performed rather than read out. ` +
-            (caller
+            (role === 'caller'
                 ? 'At most one in a turn, and only where you would actually have done it. You are on a telephone, not in a studio.'
-                : 'At most one in a turn, and only where you would actually have done it. A presenter who laughs at everything is not funny.'),
+                : role === 'guest'
+                  ? 'At most one in a turn, and only where you would actually have done it. You are a guest, not the entertainment.'
+                  : 'At most one in a turn, and only where you would actually have done it. A presenter who laughs at everything is not funny.'),
     ];
 }
 
@@ -640,7 +649,7 @@ function groundingRules(request: BeatRequest, caller: boolean, answering: boolea
 
     if (licensed) {
         return [
-            '- You may say what you THINK. Your opinions, your theory, what you reckon: that is what you rang up with and the station is not claiming any of it is true.',
+            `- You may say what you THINK. Your opinions, your theory, what you reckon: that is what you ${request.speaker?.role === 'guest' ? 'came in to talk about' : 'rang up with'} and the station is not claiming any of it is true.`,
             '- It stays yours. Say "I reckon", "I read somewhere", "you ask me" — never state it as something everybody knows.',
             "- Never say a real, named person did something. Never describe a real event as though you were reporting it. Never put words in anybody's mouth.",
             '- Where a detail would make it sound like news rather than like you, leave the detail out.',
@@ -654,7 +663,7 @@ function groundingRules(request: BeatRequest, caller: boolean, answering: boolea
             ? // The host's half of the licence above. A claim nobody answers is a claim the station
               // made, and the presenter is the only person on the programme who can say so.
               [
-                  '- Your caller may say things you cannot check. Do not confirm one, do not repeat it as fact, and do not argue it down either. Take it as theirs — "that\'s you, that is", "well, there you go" — and move the programme on.',
+                  `- ${request.guest?.role === 'guest' ? 'Your guest' : 'Your caller'} may say things you cannot check. Do not confirm one, do not repeat it as fact, and do not argue it down either. Take it as theirs — "that's you, that is", "well, there you go" — and move the programme on.`,
               ]
             : []),
         '- This goes out on the radio as fact. Nobody listening can check it, and nothing later can take it back.',
@@ -679,7 +688,23 @@ function groundingRules(request: BeatRequest, caller: boolean, answering: boolea
  * fell through to "carry on from where the last beat left off", so the host closed the SHOW and
  * left the caller on the line. Both were true of every phone-in the station made.
  */
-function openingRule(where: { opening: boolean; caller: boolean; arriving: boolean; lastTurn: boolean; guest?: CastMember }): string[] {
+function openingRule(where: {
+    opening: boolean;
+    caller: boolean;
+    inStudio?: boolean;
+    arriving: boolean;
+    lastTurn: boolean;
+    guest?: CastMember;
+}): string[] {
+    if (where.arriving && where.inStudio === true) {
+        // The studio guest's version: brought on by the presenter in the room, so "thanks for having
+        // me" is theirs to say, and welcoming the listener to the show is not.
+        return [
+            '- The presenter has just welcomed you on air. You are in the studio with them, as their guest.',
+            '- Say hello in a few words, the way a guest does, then get to what you came in to talk about. Do not welcome the listener to the show: it is not yours.',
+        ];
+    }
+
     if (where.arriving) {
         return [
             // "Thanks for calling" is the PRESENTER's line and a model reaches for it anyway, because
@@ -698,6 +723,14 @@ function openingRule(where: { opening: boolean; caller: boolean; arriving: boole
         // Told to "set the programme up" first, the host spent its twenty-odd words on the title and
         // the time and put the caller on in three: "Dale, hit us up". A phone-in's set-up IS the
         // caller, so the turn is the introduction and nothing else.
+        if (where.guest?.role === 'guest') {
+            return [
+                `- This is the OPENING beat, and ${nameOf(where.guest)} has dropped by the studio and is sitting with you.`,
+                `- Introduce them: tell the listener who has come in and welcome them on the way a presenter does ("joining me in the studio is ${nameOf(where.guest)}").`,
+                '- Then invite them to say what brings them in, and stop. Do not answer it yourself, and do not read out the date, the time or the name of the programme.',
+            ];
+        }
+
         if (where.guest !== undefined) {
             return [
                 `- This is the OPENING beat, and ${nameOf(where.guest)} is holding on the line waiting to come on.`,
@@ -715,14 +748,16 @@ function openingRule(where: { opening: boolean; caller: boolean; arriving: boole
         return where.guest === undefined
             ? ['- This is the LAST beat. Bring the programme to an end and hand back to the music. Do not summarise what you covered.']
             : [
-                  `- This is the LAST beat, and it is where the call ENDS. Thank ${nameOf(where.guest)}, say goodbye to them so the listener hears them go, and hand back to the music.`,
+                  where.guest.role === 'guest'
+                      ? `- This is the LAST beat, and it is where the visit ENDS. Thank ${nameOf(where.guest)} for dropping by, say goodbye so the listener hears them go, and hand back to the music.`
+                      : `- This is the LAST beat, and it is where the call ENDS. Thank ${nameOf(where.guest)}, say goodbye to them so the listener hears them go, and hand back to the music.`,
                   '- Keep it short. A sign-off is a few sentences, not a summary of what was said.',
               ];
     }
 
     return [
         where.caller
-            ? '- You are already on the call. Do not say hello again and do not say who you are again. Carry on from what was just said to you.'
+            ? `- You are already ${where.inStudio === true ? 'in the conversation' : 'on the call'}. Do not say hello again and do not say who you are again. Carry on from what was just said to you.`
             : '- This beat is in the MIDDLE of the programme. Do not greet anybody, do not introduce the programme, and do not re-state what it is about. Carry on from where the last beat left off.',
     ];
 }
@@ -736,6 +771,16 @@ function openingRule(where: { opening: boolean; caller: boolean; arriving: boole
  */
 function dialogueRules(speakers: OutlineRequest['speakers']): string[] | undefined {
     if (speakers === undefined || speakers.length === 0) return undefined;
+
+    if (speakers.some(({ who }) => who.role === 'guest')) {
+        return [
+            '- This is a conversation, not a talk. Each beat is one TURN by the person named against it below.',
+            "- The guest has dropped by the studio. A guest's turn is what they came in to talk about: their own work, their own experience, their own opinion.",
+            "- The host's turns are the ones that welcome them, ask them something, and answer what they said.",
+            "- The host's FIRST beat welcomes the guest on air and nothing more. The host's LAST beat is where the visit ends: they thank the guest and say goodbye. Plan nothing new for it.",
+            '- Plan the turns so each one has something to react to. A turn that could have been said first is a turn nobody is listening to.',
+        ];
+    }
 
     return [
         '- This is a conversation, not a talk. Each beat is one TURN by the person named against it below.',
@@ -757,7 +802,7 @@ function speakerLines(speakers: OutlineRequest['speakers']): string[] {
 
 /** One cast member as the prompt names them: what they are, and what they are called. */
 function describe(who: CastMember): string {
-    const role = who.role === 'caller' ? 'a listener who has phoned in' : 'the presenter';
+    const role = who.role === 'caller' ? 'a listener who has phoned in' : who.role === 'guest' ? 'a guest in the studio' : 'the presenter';
     return who.name === undefined ? role : `${who.name}, ${role}`;
 }
 
@@ -806,7 +851,8 @@ function storyLines(story: PersonaStoryForPrompt): string {
 }
 
 /** What to call somebody in a prompt: their on-air name, or what they are. */
-const nameOf = (who: CastMember | undefined): string => who?.name ?? (who?.role === 'caller' ? 'Your caller' : 'The presenter');
+const nameOf = (who: CastMember | undefined): string =>
+    who?.name ?? (who?.role === 'caller' ? 'Your caller' : who?.role === 'guest' ? 'Your guest' : 'The presenter');
 
 /** One line of the beat map: what it is, and whether it is done, current, or still to come. */
 function mapLine(beat: OutlineBeat, index: number, current: number): string {
@@ -836,13 +882,18 @@ export function beatBrief(beat: OutlineBeat): string[] {
  */
 function subjectLine(subject: CallSubject): string {
     if (subject.records !== undefined && subject.records.length > 0) return recordsLine(subject, subject.records);
-    if (subject.show === undefined) return `The programme is about why ${subject.caller} rang: ${subject.about}.`;
+    // How the other person came to be on it, which is the only word that differs for a studio guest.
+    const came = subject.visit === true ? 'dropped by' : 'rang';
+    const what = subject.visit === true ? 'the visit' : 'the call';
+    if (subject.show === undefined) return `The programme is about why ${subject.caller} ${came}: ${subject.about}.`;
 
     const show = `This is ${subject.host}'s show, and the programme is about what ${subject.host} keeps coming back to: ${subject.show}.`;
-    if (subject.about === undefined) return `${show} That is why the caller rang, and it is what the call is about from start to finish.`;
+    if (subject.about === undefined) {
+        return `${show} That is why ${subject.visit === true ? 'the guest' : 'the caller'} ${came}, and it is what ${what} is about from start to finish.`;
+    }
 
     return (
-        `${show} That is why ${subject.caller} rang, and it is what the call is about from start to finish. ` +
+        `${show} That is why ${subject.caller} ${came}, and it is what ${what} is about from start to finish. ` +
         `${subject.caller} comes at it through their own thing, which is ${subject.about}. That is their angle on the subject, not a change of subject.`
     );
 }

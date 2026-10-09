@@ -15,7 +15,7 @@ const __dt = (v: unknown, path: string): DateTime => {
  * generated from [ProductionCastMember](../../../../../apps/api/data/contracts/productions/productions.types.ck#L10)
  */
 export interface ProductionCastMember {
-    role: 'host' | 'caller';
+    role: 'host' | 'caller' | 'guest';
     /** What they are called on air */
     name?: string;
     /** The persona key, for a link back to the character */

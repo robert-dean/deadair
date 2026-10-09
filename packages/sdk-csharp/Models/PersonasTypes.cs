@@ -21,7 +21,7 @@ public sealed record Persona
     [JsonPropertyName("key")]
     public required string Key { get; init; }
 
-    /// <summary>What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant</summary>
+    /// <summary>What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant</summary>
     [JsonPropertyName("kind")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PersonaKind? Kind { get; init; }
@@ -149,7 +149,7 @@ public sealed record PersonaInput
     [JsonPropertyName("key")]
     public required string Key { get; init; }
 
-    /// <summary>What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant</summary>
+    /// <summary>What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant</summary>
     [JsonPropertyName("kind")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PersonaKind? Kind { get; init; }
@@ -1468,7 +1468,7 @@ public sealed record PersonaImportResult
 /// </summary>
 public sealed record PersonaImportResultInput;
 
-/// <summary>What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant</summary>
+/// <summary>What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<PersonaKind>))]
 public enum PersonaKind
 {
@@ -1480,6 +1480,9 @@ public enum PersonaKind
 
     [JsonStringEnumMemberName("newsreader")]
     Newsreader,
+
+    [JsonStringEnumMemberName("guest")]
+    Guest,
 }
 
 /// <summary>How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one</summary>
@@ -1799,6 +1802,9 @@ public enum PersonaFilePersonaKind
 
     [JsonStringEnumMemberName("newsreader")]
     Newsreader,
+
+    [JsonStringEnumMemberName("guest")]
+    Guest,
 }
 
 /// <summary>Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it</summary>
@@ -1858,6 +1864,9 @@ public enum PersonaImportEntryKind
 
     [JsonStringEnumMemberName("newsreader")]
     Newsreader,
+
+    [JsonStringEnumMemberName("guest")]
+    Guest,
 }
 
 /// <summary>Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote</summary>

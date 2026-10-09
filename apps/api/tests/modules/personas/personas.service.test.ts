@@ -148,6 +148,16 @@ describe('PersonasService putting a persona on air', () => {
         expect(activity.record).not.toHaveBeenCalled();
     });
 
+    it('refuses to put a guest on air, in words about a guest', async () => {
+        const { service, personas } = build({ setDefaultHost: persona({ kind: 'guest', label: 'Touring guitarist', defaultHost: false }) });
+
+        await expect(service.setDefaultHost('p1')).rejects.toMatchObject({
+            statusCode: 400,
+            details: { message: expect.stringContaining('a guest cannot present the station') },
+        });
+        expect(personas.setDefaultHost).not.toHaveBeenCalled();
+    });
+
     it('keeps the write when the director will not take the command', async () => {
         // Best-effort by design: the row is already durable, and a director that would not take a
         // command must not turn an operator's change of character into a failed request.
@@ -239,6 +249,14 @@ describe('PersonasService tying a caller to the hosts it rings', () => {
         await service.update('c1', input());
 
         expect(personas.setHosts).toHaveBeenCalledWith('c1', []);
+    });
+
+    it('ties a guest to the hosts whose shows they drop by, as a caller is tied', async () => {
+        const { service, personas } = tying();
+
+        await service.create(input({ key: 'guitarist', kind: 'guest', label: 'Touring guitarist', hosts: ['h1'] }));
+
+        expect(personas.setHosts).toHaveBeenCalledWith('new-id', ['h1']);
     });
 
     it('refuses hosts on a host, and writes nothing', async () => {

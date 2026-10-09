@@ -65,14 +65,21 @@ export const DEFAULT_DIALOGUE_KINDS = 'callin';
  * strand with callers in it should not have to choose between them.
  */
 export function dialogueKinds(config: AppConfig): Set<string> {
-    return new Set(
-        config
+    return new Set([
+        ...config
             .get(PRODUCTION_KEYS.dialogueKinds, DEFAULT_DIALOGUE_KINDS)
             .split(',')
             .map(kind => kind.trim().toLowerCase())
             .filter(kind => kind.length > 0),
-    );
+        // Always, whatever the setting says: a visit IS somebody dropping by for a chat, so one made
+        // as a monologue would be the host talking under a guest's billing. A station that wrote this
+        // setting before visits existed must not get that by having written it.
+        VISIT_KIND,
+    ]);
 }
+
+/** The production kind a studio guest is cast for, where every other dialogue kind casts callers. */
+export const VISIT_KIND = 'visit';
 
 /**
  * How many passes a production gets when nobody said.

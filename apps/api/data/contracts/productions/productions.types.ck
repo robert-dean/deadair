@@ -8,7 +8,7 @@ options {
 # reference, because the persona it names may be edited or deleted while the programme is still being
 # made and what the turns were written as has to be what an operator reads back
 contract ProductionCastMember: {
-    role: enum(host, caller)
+    role: enum(host, caller, guest)
     name?: string(max=200) # What they are called on air
     persona?: string(max=100) # The persona key, for a link back to the character
 }

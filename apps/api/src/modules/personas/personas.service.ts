@@ -16,7 +16,7 @@ import type {
     PersonaList,
     PersonaRequest,
 } from './types/personas.types.js';
-import { DEFAULT_PERSONA_KIND, type Persona, type PersonaDraft } from './persona.js';
+import { cannotPresent, DEFAULT_PERSONA_KIND, type Persona, type PersonaDraft } from './persona.js';
 import { PersonaRepository } from './persona.repository.js';
 import { SEED_PERSONAS } from './persona.defaults.js';
 import { SEED_CALLERS } from './caller.defaults.js';
@@ -145,14 +145,8 @@ export class PersonasService {
         // operator gets a sentence instead of a constraint violation.
         const asked = await this.personas.find(id);
         if (asked === undefined) throw httpError(404).withDetails({ message: `persona "${id}" does not exist` });
-        if (asked.kind !== DEFAULT_PERSONA_KIND) {
-            throw httpError(400).withDetails({
-                message:
-                    asked.kind === 'newsreader'
-                        ? `"${asked.label}" reads the news, and the newsreader cannot present the station`
-                        : `"${asked.label}" is a caller, and a caller cannot present the station`,
-            });
-        }
+        const refusal = cannotPresent(asked);
+        if (refusal !== undefined) throw httpError(400).withDetails({ message: refusal });
 
         const host = await this.personas.setDefaultHost(id);
         if (host === undefined) throw httpError(404).withDetails({ message: `persona "${id}" does not exist` });
@@ -385,15 +379,18 @@ export class PersonasService {
         const hosts = [...new Set(body.hosts ?? [])];
         if (hosts.length === 0) return [];
 
-        if ((body.kind ?? DEFAULT_PERSONA_KIND) !== 'caller') {
-            throw httpError(400).withDetails({ message: `"${body.label}" presents, and only somebody who phones in rings in to a host` });
+        // A caller rings in to a host and a guest drops by one; the same tie narrows both, so a regular
+        // guest written for one show does not wander into another's studio.
+        const kind = body.kind ?? DEFAULT_PERSONA_KIND;
+        if (kind !== 'caller' && kind !== 'guest') {
+            throw httpError(400).withDetails({ message: `"${body.label}" presents, and only somebody who rings in or drops by is tied to a host` });
         }
 
         for (const id of hosts) {
             const host = await this.personas.find(id);
             if (host === undefined) throw httpError(400).withDetails({ message: `persona "${id}" does not exist, so nobody can ring in to it` });
             if (host.kind !== 'host') {
-                throw httpError(400).withDetails({ message: `"${host.label}" phones in too, so "${body.label}" cannot ring in to them` });
+                throw httpError(400).withDetails({ message: `"${host.label}" does not present a show, so "${body.label}" cannot be tied to them` });
             }
         }
 

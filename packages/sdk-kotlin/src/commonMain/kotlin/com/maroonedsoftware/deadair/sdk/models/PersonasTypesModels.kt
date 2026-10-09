@@ -14,7 +14,7 @@ data class Persona(
     val id: String,
     /** A stable slug, unique per station. What a log line names and what a seeded persona is recognised by */
     val key: String,
-    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant */
+    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
     val kind: PersonaKind? = null,
     val label: String,
     /** Completes "You are …". Who they ARE; the sheet below carries how they talk */
@@ -70,7 +70,7 @@ data class Persona(
 data class PersonaInput(
     /** A stable slug, unique per station. What a log line names and what a seeded persona is recognised by */
     val key: String,
-    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant */
+    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
     val kind: PersonaKind? = null,
     val label: String,
     /** Completes "You are …". Who they ARE; the sheet below carries how they talk */
@@ -815,7 +815,7 @@ data class PersonaImportResult(
 @Serializable
 class PersonaImportResultInput
 
-/** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one. Absent means `host`, so a form written before callers existed still means what it meant */
+/** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
 @Serializable
 enum class PersonaKind {
     @SerialName("host")
@@ -824,6 +824,8 @@ enum class PersonaKind {
     CALLER,
     @SerialName("newsreader")
     NEWSREADER,
+    @SerialName("guest")
+    GUEST,
 }
 
 /** How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one */
@@ -1076,6 +1078,8 @@ enum class PersonaFilePersonaKind {
     CALLER,
     @SerialName("newsreader")
     NEWSREADER,
+    @SerialName("guest")
+    GUEST,
 }
 
 /** Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it */
@@ -1123,6 +1127,8 @@ enum class PersonaImportEntryKind {
     CALLER,
     @SerialName("newsreader")
     NEWSREADER,
+    @SerialName("guest")
+    GUEST,
 }
 
 /** Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote */

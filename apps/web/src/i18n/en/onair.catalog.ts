@@ -18,6 +18,17 @@ export const onair = {
         unbriefed: 'Leave it empty and the call is about whatever your host’s show is about, with the caller coming at it their own way.',
         wait: 'Nothing airs while you wait. The turns are written and spoken one at a time, and the whole call goes in together — so it lands in a few minutes rather than at the next boundary. It shows up on Productions while it is being made.',
     },
+    visit: {
+        failed: 'Nobody could be brought in.',
+        hint: 'Brings a guest into the studio for a short chat with your host. It is written over a few minutes and drops into the running order when it is ready.',
+        take: 'Bring in a guest',
+        intro: 'A guest drops by the studio and your host talks with them: a few short turns, each in its own voice. Who comes in is whichever of your guests has been heard from least recently.',
+        aboutLabel: 'What they are in to talk about',
+        aboutPlaceholder: 'the record they made in a barn',
+        unbriefed:
+            'Leave it empty and the visit is about whatever your host’s show is about, with the guest coming at it their own way. A station with no guests cannot make one: write a guest on the Personas page first.',
+        wait: 'Nothing airs while you wait. The turns are written and spoken one at a time, and the whole visit goes in together, so it lands in a few minutes rather than at the next boundary. It shows up on Productions while it is being made.',
+    },
     host: {
         failed: 'The host could not be changed.',
         presentedBy: 'Presented by {{host}}',

@@ -39,6 +39,12 @@ A block can have **co-hosts** who present beside its host: every night, on fixed
 
 A special is a block on dates rather than every week: Halloween night, the week before Christmas, an evening somebody else presents. It has everything a block has, plus a first and a last date, and it can repeat every year on the same dates (a yearly range may run past New Year). Inside its dates it still runs only on the days you tick, so "the Fridays in December" is a range and a day. On its dates a special takes over from the weekly schedule for its hours, and whatever usually airs then resumes when it ends, part-way through if it was still on. Two specials may not overlap each other.
 
+![Programme, Specials: shows on dates rather than every week](/img/console/schedule.specials.webp)
+*Fig. 2. Specials.*
+
+![A new special: a block with a first and last date, and whether it repeats every year](/img/console/schedule.special.editor.webp)
+*Fig. 3. A new special.*
+
 ## Modes
 
 A **rotation** is the station programming for itself: by default a record does not repeat within three days, an artist rests for 40 minutes after airing, and a batch holds at most two records by one artist. A **setlist** (a sequence somebody made) and a **feature** (one artist, or an album in full) start with those rules off, since a Christmas setlist exists to repeat, and with no breaks, phone-ins or blending, since somebody chose those gaps. Only a rotation keeps going when it runs out; the others stop.

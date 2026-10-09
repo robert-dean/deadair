@@ -1235,6 +1235,8 @@ function neighboursOf(lineup: StationLineup, segmentId: string, programmes: Read
                     ...(item.track.year === undefined ? {} : { year: item.track.year }),
                     ...(item.track.album === undefined ? {} : { album: item.track.album }),
                     ...(item.track.durationMs === undefined ? {} : { durationMs: item.track.durationMs }),
+                    // Why it is here, when a chart is the reason. See `BreakTrack.chart`.
+                    ...(item.track.chart === undefined ? {} : { chart: item.track.chart }),
                 },
             };
         }

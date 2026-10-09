@@ -11,6 +11,7 @@ import type { SourceAudio, TrackAudioRepository } from '../../../../src/modules/
 import { CACHE_AHEAD, type TrackAudioService } from '../../../../src/modules/playout/audio/track.audio.service.js';
 import { TrackCachePlanner } from '../../../../src/modules/playout/audio/track.cache.planner.js';
 import type { StationLineup, StationLineupItem } from '../../../../src/modules/director/station.lineup.js';
+import type { RundownTrack } from '../../../../src/modules/playout/rundown.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -84,14 +85,16 @@ const build = (states: SourceAudio[], options: { fetching?: string[]; error?: Er
     // because a job reaching for the running order would be `playout` depending on `director`.
     const protect = vi.fn((sourceIds: readonly string[]) => sourceIds);
 
+    const markWanted = vi.fn(async (_sourceIds: readonly string[]) => undefined);
+
     const planner = new TrackCachePlanner(
-        { findForBindings } as unknown as TrackAudioRepository,
+        { findForBindings, markWanted } as unknown as TrackAudioRepository,
         { isFetching, protect } as unknown as TrackAudioService,
         { send } as unknown as PgBossJobBroker,
         logger,
     );
 
-    return { planner, findForBindings, send, protect };
+    return { planner, findForBindings, send, protect, markWanted };
 };
 
 describe('TrackCachePlanner.ripen', () => {
@@ -308,5 +311,64 @@ describe('TrackCachePlanner.ripen', () => {
         expect(await planner.ripen(lineupOf([trackItem(1)]))).toEqual({ asked: 0, unfetchable: [], warming: 0 });
         expect(send).not.toHaveBeenCalled();
         expect(logger.info).not.toHaveBeenCalled();
+    });
+});
+
+describe('TrackCachePlanner.warm', () => {
+    // The opening of a show that has not started yet: a prepared set, ten minutes early. The commit gate
+    // holds a record until its bytes are here, so a set chosen early still opens in silence if its first
+    // record downloads at the boundary.
+    const record = (n: number, catalogued = true): RundownTrack => ({
+        pluginId: 'deadair.spotify',
+        externalId: `spotify-${n}`,
+        ...(catalogued ? { trackId: `track-${n}` } : {}),
+        title: `Track ${n}`,
+        artists: ['An Artist'],
+        artist: 'An Artist',
+    });
+
+    it('asks for the first records of the set that are not here yet, nearest first, two at most', async () => {
+        // The query answers in its own order; the set's order is what decides what is nearest.
+        const { planner, send } = build([state(3), state(2), state(1)]);
+
+        expect(await planner.warm([record(1), record(2), record(3)])).toBe(2);
+        expect(send).toHaveBeenNthCalledWith(1, 'playout.cache_track', { sourceId: 'source-1' });
+        expect(send).toHaveBeenNthCalledWith(2, 'playout.cache_track', { sourceId: 'source-2' });
+        expect(send).toHaveBeenCalledTimes(2);
+    });
+
+    it('asks for nothing already here, on its way, or backing off', async () => {
+        const later = DateTime.now().plus({ hours: 1 });
+        const { planner, send } = build([state(1, { checksum: 'abc' }), state(2), state(3, { nextAttemptAt: later }), state(4)], {
+            fetching: ['source-2'],
+        });
+
+        expect(await planner.warm([record(1), record(2), record(3), record(4)])).toBe(1);
+        expect(send).toHaveBeenCalledWith('playout.cache_track', { sourceId: 'source-4' });
+    });
+
+    it('marks every record it found as wanted, so a sweep before the show does not take one', async () => {
+        const { planner, markWanted } = build([state(1, { checksum: 'abc' }), state(2)]);
+
+        await planner.warm([record(1), record(2)]);
+
+        expect(markWanted).toHaveBeenCalledWith(['source-1', 'source-2']);
+    });
+
+    it('looks no further than the window the boundary would fetch for', async () => {
+        const { planner, findForBindings } = build([]);
+
+        await planner.warm(Array.from({ length: CACHE_AHEAD + 4 }, (_, index) => record(index + 1)));
+
+        // The double takes no arguments, so its recorded call has to be read through a cast.
+        expect((findForBindings.mock.calls[0] as unknown as [unknown[]])[0]).toHaveLength(CACHE_AHEAD);
+    });
+
+    it('skips a record the catalog has never seen, and asks nothing when that is all there is', async () => {
+        const { planner, findForBindings, send } = build([]);
+
+        expect(await planner.warm([record(1, false)])).toBe(0);
+        expect(findForBindings).not.toHaveBeenCalled();
+        expect(send).not.toHaveBeenCalled();
     });
 });

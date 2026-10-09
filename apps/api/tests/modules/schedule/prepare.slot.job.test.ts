@@ -19,6 +19,7 @@ import type { StationLineupRepository } from '../../../src/modules/director/stat
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
 import type { StationEvent } from '../../../src/modules/activity/station.events.repository.js';
+import type { TrackCachePlanner } from '../../../src/modules/playout/audio/track.cache.planner.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
@@ -45,6 +46,8 @@ interface Options {
     existing?: RundownTrack[];
     /** The order on air now. Absent is a station holding none. */
     lineup?: StationLineup;
+    /** What fetching the opening's audio does. Defaults to asking for one record. */
+    warm?: (tracks: readonly RundownTrack[]) => Promise<number>;
     /** What the resolver keeps. Defaults to everything named. */
     resolvable?: (picks: readonly TrackPick[]) => RundownTrack[];
 }
@@ -65,6 +68,8 @@ function build(options: Options = {}) {
         ),
     } as unknown as PickResolver;
 
+    const cache = { warm: vi.fn(options.warm ?? (async () => 1)) };
+
     const recorded: StationEvent[] = [];
     const activity = { record: vi.fn(async (event: StationEvent) => void recorded.push(event)) } as unknown as ActivityRecorder;
 
@@ -74,6 +79,7 @@ function build(options: Options = {}) {
         order,
         { generate } as unknown as SetGenerator,
         resolver,
+        cache as unknown as TrackCachePlanner,
         activity,
         settingsConfig({}).config,
         {} as JobContext,
@@ -84,6 +90,7 @@ function build(options: Options = {}) {
     return {
         run: (payload: PrepareSlotPayload = tonight) => (job as unknown as { execute(payload: PrepareSlotPayload): Promise<void> }).execute(payload),
         prepared,
+        cache,
         generate,
         recorded: () => recorded,
     };
@@ -101,6 +108,26 @@ describe('PrepareSlotJob', () => {
         expect(prepared.save).toHaveBeenCalledWith('glam', '2026-10-09', expect.any(Array));
         expect(prepared.save.mock.calls[0]?.[2].length).toBeGreaterThan(0);
         expect(recorded()).toEqual([expect.objectContaining({ kind: 'schedule.prepared', data: expect.objectContaining({ slot: 'glam' }) })]);
+    });
+
+    it('fetches the audio of the records it chose, since the show cannot open on a record still downloading', async () => {
+        const { run, prepared, cache } = build();
+
+        await run();
+
+        expect(cache.warm).toHaveBeenCalledWith(prepared.save.mock.calls[0]?.[2]);
+    });
+
+    it('keeps the set when the audio cannot be asked for, which the boundary asks for as before', async () => {
+        const { run, prepared, recorded } = build({
+            warm: async () => {
+                throw new Error('queue down');
+            },
+        });
+
+        await expect(run()).resolves.toBeUndefined();
+        expect(prepared.save).toHaveBeenCalled();
+        expect(recorded()).toEqual([expect.objectContaining({ kind: 'schedule.prepared' })]);
     });
 
     it('keeps the next show from opening on a record the station is about to play', async () => {

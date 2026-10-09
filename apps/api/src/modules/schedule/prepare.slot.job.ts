@@ -9,6 +9,9 @@ import { resolveRules, stationRules } from '#modules/director/rotation.rules.js'
 import { SetGenerator } from '#modules/director/set.generator.js';
 import { StationLineupRepository } from '#modules/director/station.lineup.repository.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
+import { TrackCachePlanner } from '#modules/playout/audio/track.cache.planner.js';
+import type { RundownTrack } from '#modules/playout/rundown.js';
+import { errorText } from '#modules/shared/error.text.js';
 import { PreparedSetRepository } from './prepared.set.repository.js';
 import { ScheduleRepository } from './schedule.repository.js';
 
@@ -53,6 +56,8 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
         private readonly order: StationLineupRepository,
         private readonly generator: SetGenerator,
         private readonly resolver: PickResolver,
+        // For the opening records' audio, which the commit gate waits on: see {@link warm}.
+        private readonly cache: TrackCachePlanner,
         private readonly activity: ActivityRecorder,
         private readonly config: AppConfig,
         context: JobContext,
@@ -111,14 +116,31 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
         }
 
         await this.prepared.save(slotId, occurrence, planned.tracks);
+        // The audio as well as the choice: the commit gate holds a record until its bytes are here, so a
+        // set chosen early whose first record downloads at the boundary is still a silence.
+        const fetching = await this.warm(planned.tracks);
 
-        this.logger.info('schedule: prepared the next show', { slot: slotId, occurrence, records: planned.tracks.length });
+        this.logger.info('schedule: prepared the next show', { slot: slotId, occurrence, records: planned.tracks.length, fetching });
         void this.activity.record({
             module: 'director',
             kind: 'schedule.prepared',
             detail: `The station chose the first ${planned.tracks.length} ${planned.tracks.length === 1 ? 'record' : 'records'} of ${named(slot.label)} before it starts.`,
             data: { slot: slotId, occurrence, records: planned.tracks.length },
         });
+    }
+
+    /**
+     * Ask for the opening records' audio, and answer how many were asked for. Never throws: the set is
+     * already saved, and a fetch that could not be asked for now is asked for at the boundary as
+     * before.
+     */
+    private async warm(tracks: readonly RundownTrack[]): Promise<number> {
+        try {
+            return await this.cache.warm(tracks);
+        } catch (error) {
+            this.logger.warn(`schedule: could not fetch the opening of the next show ahead of time (${errorText(error)})`);
+            return 0;
+        }
     }
 }
 

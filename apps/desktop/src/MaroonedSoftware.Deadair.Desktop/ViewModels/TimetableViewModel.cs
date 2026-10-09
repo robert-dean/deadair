@@ -94,7 +94,7 @@ public sealed partial class TimetableViewModel : ObservableObject
         {
             Slots.Add(new SlotViewModel(
                 slot.Id,
-                SlotText.Days(slot.Days),
+                SlotText.When(slot),
                 SlotText.Window(slot.StartsAtMinutes, slot.EndsAtMinutes),
                 string.IsNullOrWhiteSpace(slot.Label) ? "Untitled" : slot.Label,
                 slot.Brief,

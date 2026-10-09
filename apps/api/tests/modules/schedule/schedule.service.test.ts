@@ -243,6 +243,65 @@ describe('ScheduleService.update', () => {
         expect(saved).not.toHaveProperty('sourcePlaylistId');
     });
 
+    describe('a special', () => {
+        const halloween = (over: Partial<ScheduleSlotInput> = {}) =>
+            body({
+                label: 'Halloween',
+                startsAtMinutes: 20 * 60,
+                endsAtMinutes: 23 * 60,
+                startsOn: '2026-10-31',
+                endsOn: '2026-10-31',
+                yearly: true,
+                ...over,
+            });
+
+        it('stores its dates and hands them back the same way', async () => {
+            const service = build({ slots: [slot('h', 20 * 60, 23 * 60)] });
+
+            const { slots } = await service.update('h', halloween());
+
+            expect(slots[0]).toMatchObject({ startsOn: '2026-10-31', endsOn: '2026-10-31', yearly: true });
+        });
+
+        it('may cut into a weekly block, which is what it is for', async () => {
+            const service = build({ slots: [slot('boneyard', 16 * 60 + 30, 0), slot('h', 1, 2)] });
+
+            await expect(service.update('h', halloween())).resolves.toBeDefined();
+        });
+
+        it('may not overlap another special', async () => {
+            const other: ScheduleSlot = { ...slot('party', 21 * 60, 22 * 60), dates: { from: '2026-10-25', to: '2026-11-01', yearly: false } };
+            const service = build({ slots: [other, slot('h', 1, 2)] });
+
+            await expect(service.update('h', halloween())).rejects.toMatchObject({ statusCode: 409 });
+        });
+
+        it('needs both ends of its range', async () => {
+            const service = build({ slots: [slot('h', 1, 2)] });
+
+            await expect(service.update('h', halloween({ endsOn: undefined }))).rejects.toMatchObject({ statusCode: 400 });
+        });
+
+        it('refuses a date that does not exist', async () => {
+            const service = build({ slots: [slot('h', 1, 2)] });
+
+            await expect(service.update('h', halloween({ startsOn: '2026-02-30', endsOn: '2026-03-01' }))).rejects.toMatchObject({ statusCode: 400 });
+        });
+
+        it('refuses a range that ends before it starts', async () => {
+            const service = build({ slots: [slot('h', 1, 2)] });
+
+            await expect(service.update('h', halloween({ startsOn: '2026-11-01', endsOn: '2026-10-31' }))).rejects.toMatchObject({ statusCode: 400 });
+        });
+
+        it('refuses a yearly range of a year or more, which would be every day', async () => {
+            const service = build({ slots: [slot('h', 1, 2)] });
+
+            await expect(service.update('h', halloween({ startsOn: '2026-10-31', endsOn: '2027-10-31' }))).rejects.toMatchObject({ statusCode: 400 });
+            await expect(service.update('h', halloween({ startsOn: '2026-12-30', endsOn: '2027-01-02' }))).resolves.toBeDefined();
+        });
+    });
+
     it('says nothing about being on air for a slot that is not the one airing', async () => {
         const service = build({ slots: [slot('evening', 18 * 60, 22 * 60)], airing: 'daytime' });
 

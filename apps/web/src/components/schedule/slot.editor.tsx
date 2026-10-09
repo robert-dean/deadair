@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
-import { Button, Chip, Divider, Group, Modal, Stack, Text, TextInput } from '@mantine/core';
+import { Button, Chip, Divider, Group, Modal, Stack, Switch, Text, TextInput } from '@mantine/core';
+import { DatePickerInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import type { ScheduleSlot, ScheduleSlotInput } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 import {
     BriefField,
@@ -62,6 +64,10 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
     const { t } = useTranslation(['schedule', 'common']);
     const opened = target !== undefined;
     const slot = target?.kind === 'edit' ? target.slot : undefined;
+    // Fixed for the life of the form: a weekly slot does not turn into a special by being edited, or
+    // the other way round. A special is started from the Specials tab, and the keyed mount means a
+    // different target is a different form.
+    const special = isSpecialTarget(target);
 
     const form = useForm<FormValues>({
         // Read ONCE per mount, which is why the page keys this component on what it is open on. A
@@ -77,6 +83,7 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             label: value => (value.trim().length === 0 ? t('slot.nameRequired') : undefined),
             startsAt: value => (clockToMinutes(value) === undefined ? t('validation.time') : undefined),
             endsAt: value => (clockToMinutes(value) === undefined ? t('validation.time') : undefined),
+            dates: value => (special && (!value[0] || !value[1]) ? t('slot.special.datesRequired') : undefined),
         },
     });
 
@@ -116,13 +123,18 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             // The same three-way, and only beside a playlist, the station's own or a provider's:
             // nothing else is ever mixed into.
             ...(values.mixInSimilar && mixesInto(source) ? { mixInSimilar: true } : {}),
+            // Both ends or neither; the validator above has already refused one without the other.
+            // `yearly` only when it is on, since absent is a one-off.
+            ...(special && values.dates[0] && values.dates[1]
+                ? { startsOn: values.dates[0], endsOn: values.dates[1], ...(values.yearly ? { yearly: true } : {}) }
+                : {}),
             mode: values.mode,
             onEnd: values.onEnd,
         });
     });
 
     return (
-        <Modal opened={opened} onClose={onClose} title={slot ? t('slot.editTitle') : t('slot.newTitle')} size="lg">
+        <Modal opened={opened} onClose={onClose} title={titleOf(t, slot !== undefined, special)} size="lg">
             <form onSubmit={submit}>
                 <Stack gap="md">
                     {error ? <ErrorAlert title={t('slot.saveFailedTitle')} error={error} fallback={t('nothingWritten')} /> : undefined}
@@ -184,11 +196,42 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                                 </Group>
                             </Chip.Group>
                         </Group>
+
+                        {/* A special's dates finish the same sentence: "put Halloween from eight
+                            until eleven, between the 31st of October and the 31st of October". */}
+                        {special ? (
+                            <Group gap="xs" align="flex-start" wrap="wrap">
+                                <Word>{t('slot.special.between')}</Word>
+                                <DatePickerInput
+                                    type="range"
+                                    allowSingleDateInRange
+                                    aria-label={t('slot.special.datesLabel')}
+                                    placeholder={t('slot.special.datesPlaceholder')}
+                                    valueFormat="D MMM YYYY"
+                                    // No weekend colouring, as on the timetable: red is the on-air
+                                    // tally in this console, and a station's Saturday is not a
+                                    // different kind of day from its Tuesday.
+                                    weekendDays={[]}
+                                    miw={240}
+                                    value={form.values.dates}
+                                    onChange={dates => form.setFieldValue('dates', [dates[0] ?? null, dates[1] ?? null])}
+                                    error={form.errors.dates}
+                                />
+                            </Group>
+                        ) : undefined}
                     </Stack>
 
+                    {special ? (
+                        <Switch
+                            label={t('slot.special.yearlyLabel')}
+                            description={t('slot.special.yearlyDescription')}
+                            {...form.getInputProps('yearly', { type: 'checkbox' })}
+                        />
+                    ) : undefined}
+
                     <Text size="xs" c="dimmed">
-                        {form.values.days.length === 0 ? `${t('slot.everyDay')} ` : ''}
-                        {t('slot.times')}
+                        {form.values.days.length === 0 ? `${special ? t('slot.special.everyDay') : t('slot.everyDay')} ` : ''}
+                        {special ? t('slot.special.note') : t('slot.times')}
                     </Text>
 
                     <SourceField description={t('slot.sourceDescription')} stationPlaylists {...form.getInputProps('source')} />
@@ -280,7 +323,18 @@ function Word({ children }: { children: ReactNode }) {
  * no longer nothing: clicking six on a Wednesday means six on a Wednesday, and that has to be
  * carried.
  */
-export type EditorTarget = { kind: 'edit'; slot: ScheduleSlot } | { kind: 'new'; startsAtMinutes?: number; days?: number[] };
+export type EditorTarget = { kind: 'edit'; slot: ScheduleSlot } | { kind: 'new'; startsAtMinutes?: number; days?: number[]; special?: boolean };
+
+/** Whether the editor is open on a special: an existing one, or a new one asked for from the Specials tab. */
+function isSpecialTarget(target: EditorTarget | undefined): boolean {
+    return target?.kind === 'edit' ? target.slot.startsOn !== undefined : target?.special === true;
+}
+
+function titleOf(t: TFunction<['schedule', 'common']>, editing: boolean, special: boolean): string {
+    if (special) return editing ? t('slot.special.editTitle') : t('slot.special.newTitle');
+
+    return editing ? t('slot.editTitle') : t('slot.newTitle');
+}
 
 interface Props {
     target?: EditorTarget;
@@ -316,6 +370,10 @@ interface FormValues {
     callins: boolean;
     /** Ticked sends `true`; unticked sends nothing, which leaves `rotation.mixInSimilar` standing. Drawn only for a playlist. */
     mixInSimilar: boolean;
+    /** A special's first and last date as `YYYY-MM-DD`, null until picked. Unused on a weekly slot. */
+    dates: [string | null, string | null];
+    /** Ticked sends `yearly: true`; unticked sends nothing, which is a one-off. */
+    yearly: boolean;
     mode: ScheduleSlot['mode'];
     onEnd: ScheduleSlot['onEnd'];
 }
@@ -350,6 +408,8 @@ function valuesOf(target?: EditorTarget): FormValues {
         mood: slot?.mood ?? '',
         callins: slot?.callins ?? false,
         mixInSimilar: slot?.mixInSimilar ?? false,
+        dates: [slot?.startsOn ?? null, slot?.endsOn ?? null],
+        yearly: slot?.yearly ?? false,
         mode: slot?.mode ?? 'rotation',
         onEnd: slot?.onEnd ?? 'extend',
     };

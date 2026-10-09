@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { project, type StationDate } from '../../../src/modules/schedule/schedule.occurrences.js';
-import { slotAt, type ScheduleSlot } from '../../../src/modules/director/schedule.js';
+import { addDays, slotAt, slotOn, type ScheduleSlot, type SpecialDates } from '../../../src/modules/director/schedule.js';
 
 const slot = (id: string, startsAtMinutes: number, endsAtMinutes: number, days: readonly number[] = []): ScheduleSlot => ({
     id,
@@ -21,6 +21,11 @@ const slot = (id: string, startsAtMinutes: number, endsAtMinutes: number, days: 
     days,
     mode: 'rotation',
     onEnd: 'extend',
+});
+
+const special = (id: string, startsAtMinutes: number, endsAtMinutes: number, dates: SpecialDates): ScheduleSlot => ({
+    ...slot(id, startsAtMinutes, endsAtMinutes),
+    dates,
 });
 
 /** Wednesday 19 August 2026, which is the anchor every case below counts forward from. */
@@ -120,5 +125,53 @@ describe('project', () => {
         const blocks = project({ year: 2026, month: 8, day: 31, weekday: 1 }, 2, [slot('breakfast', at(6), at(10))]);
 
         expect(blocks.map(block => block.start)).toEqual(['2026-08-31 06:00:00', '2026-09-01 06:00:00']);
+    });
+
+    describe('specials', () => {
+        const ONE_DAY: SpecialDates = { from: '2026-08-20', to: '2026-08-20', yearly: false };
+
+        it('draws a special on its date and cuts the weekly block around it', () => {
+            const blocks = project(WEDNESDAY, 2, [slot('drive', at(16), at(22)), special('gig', at(18), at(20), ONE_DAY)]);
+
+            // Wednesday as usual; Thursday's drive is split either side of the special.
+            expect(shapeOf(blocks)).toEqual(['drive 16:00-22:00', 'drive 16:00-18:00', 'gig 18:00-20:00', 'drive 20:00-22:00']);
+        });
+
+        it('swallows a weekly block it covers entirely', () => {
+            const blocks = project({ year: 2026, month: 8, day: 20, weekday: 4 }, 1, [
+                slot('drive', at(17), at(19)),
+                special('gig', at(16), at(21), ONE_DAY),
+            ]);
+
+            expect(shapeOf(blocks)).toEqual(['gig 16:00-21:00']);
+        });
+
+        it('cuts the tail of a late weekly block on the morning a special starts', () => {
+            const blocks = project({ year: 2026, month: 8, day: 20, weekday: 4 }, 1, [
+                slot('late', at(22), at(4)),
+                special('dawn', at(2), at(6), ONE_DAY),
+            ]);
+
+            expect(shapeOf(blocks)).toEqual(['late 00:00-02:00', 'dawn 02:00-06:00', 'late 22:00-00:00']);
+        });
+
+        it('agrees with the resolver at every minute, specials included', () => {
+            const slots = [
+                slot('breakfast', at(6), at(10)),
+                slot('drive', at(16, 30), at(0)),
+                slot('late', at(22, 30), at(2)),
+                special('gig', at(18), at(1), { from: '2026-08-21', to: '2026-08-22', yearly: false }),
+                special('anniversary', at(9), at(11), { from: '2020-08-25', to: '2020-08-25', yearly: true }),
+            ];
+            const days = 10;
+            const blocks = project(WEDNESDAY, days, slots);
+
+            for (let minute = 0; minute < days * 24 * 60; minute += 10) {
+                const covering = blocks.find(block => offsetOf(block.start, WEDNESDAY) <= minute && offsetOf(block.end, WEDNESDAY) > minute);
+                const date = addDays(WEDNESDAY, Math.floor(minute / (24 * 60)));
+
+                expect(covering?.slotId).toBe(slotOn(date, minute % (24 * 60), slots)?.id);
+            }
+        });
     });
 });

@@ -23,6 +23,7 @@ export const schedule = {
         tabs: {
             today: { label: 'Today', hint: 'What is on now, and what the hour is shaped like' },
             week: { label: 'Timetable', hint: 'The blocks across a week, and what changes them' },
+            specials: { label: 'Specials', hint: 'Shows on dates, like Halloween, that take over from the week' },
             sustaining: { label: 'Sustaining', hint: 'What it plays when nothing is scheduled' },
             requests: { label: 'Requests', hint: 'What listeners have asked for, and deciding on it' },
             rules: { label: 'Leans and rules', hint: 'Favour some genres for a while, or never play others' },
@@ -38,13 +39,31 @@ export const schedule = {
         empty: 'This station has no schedule, which is an ordinary state rather than a fault: it keeps playing whatever you put on until you put something else on. Click any hour below to add a block there. A bulletin or an ident inside the hour is the format clock under Today, not a block here.',
         caption: {
             none: 'Nothing is scheduled, so the station plays the sustaining source set below.',
-            week: 'A repeating week: every block runs on the days it is set to, so these dates show the pattern rather than one-off programming. The hours nothing covers play the sustaining source set below.',
+            week: 'A repeating week: every block runs on the days it is set to. A special runs on its own dates instead and cuts into whatever usually airs then; it is marked as one, and edited under Specials. The hours nothing covers play the sustaining source set below.',
             gestures: 'Drag a block to move it, drag an edge to change when it starts or ends, or click an empty hour to add one.',
             airing: 'The block the station is airing now is filled in.',
         },
     },
+    specials: {
+        title: 'Specials',
+        description:
+            'A show on dates rather than every week: Halloween night, the week before Christmas, an evening somebody else presents. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Two specials cannot be on at once.',
+        add: 'New special',
+        empty: 'No specials. The station plays its weekly schedule every day.',
+        state: {
+            now: 'On today',
+            upcoming: 'Coming up',
+            over: 'Over',
+        },
+        everyYear: 'Every year',
+        hours: '{{from}}–{{until}}',
+        edit: 'Edit {{name}}',
+        onTimetable: '{{name}} (special)',
+    },
     edits: {
         gone: 'That slot is no longer in the schedule.',
+        specialDates:
+            'A special runs on its dates, so it cannot be dragged to another day. Change its dates under Specials; its times drag as usual.',
         carriedOver:
             'That is the tail of a block that started the night before, so its top is the start of the day rather than the start of the block. Drag it on the day it begins.',
     },
@@ -96,6 +115,19 @@ export const schedule = {
             'Leave it empty for a slot the station fills itself. A playlist the station keeps starts on time however long it is, because it is not read from a provider when the block begins.',
         savingNote: 'Saving changes nothing that is on air now. The station moves when this slot next begins.',
         nameRequired: 'A slot needs a name',
+        special: {
+            newTitle: 'New special',
+            editTitle: 'Edit special',
+            between: 'between',
+            datesLabel: 'Dates',
+            datesPlaceholder: 'First and last date',
+            datesRequired: 'A special needs its first and last date',
+            yearlyLabel: 'Repeats every year',
+            yearlyDescription:
+                'On the same dates every year, like Halloween. The year you pick is ignored. A yearly range may run past New Year, and has to be shorter than a year.',
+            everyDay: 'No day chosen means every day of the range.',
+            note: 'On these dates this special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Times are 24-hour, on the station’s own clock; an end before the start runs past midnight.',
+        },
     },
     sustaining: {
         title: 'Sustaining',

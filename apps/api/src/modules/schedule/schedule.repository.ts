@@ -1,6 +1,7 @@
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import { Injectable } from 'injectkit';
 import { Kysely, sql } from 'kysely';
+import type { DateTime } from 'luxon';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { isChartSource, isStationPlaylistSource, type ScheduleSlot, type ScheduleSlotSource } from '#modules/director/schedule.js';
@@ -112,6 +113,12 @@ function columnsOf(draft: ScheduleSlotDraft) {
         callins: draft.callins ?? null,
         mixInSimilar: draft.mixInSimilar ?? null,
         chartPositions: draft.chartPositions ?? null,
+        // Cast in SQL rather than handed over as a `DateTime`, because a date is a reading of the
+        // station's calendar and not an instant: building one in JS would mean choosing a zone for a
+        // value that has none.
+        startsOn: draft.dates === undefined ? null : sql<DateTime>`${draft.dates.from}::date`,
+        endsOn: draft.dates === undefined ? null : sql<DateTime>`${draft.dates.to}::date`,
+        yearly: draft.dates?.yearly ?? false,
         mode: draft.mode,
         onEnd: draft.onEnd,
     };
@@ -149,6 +156,9 @@ function toSlot(row: {
     callins: boolean | null;
     mixInSimilar: boolean | null;
     chartPositions: boolean | null;
+    startsOn: DateTime | null;
+    endsOn: DateTime | null;
+    yearly: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
     onEnd: 'extend' | 'repeat' | 'stop';
 }): ScheduleSlot {
@@ -186,6 +196,12 @@ function toSlot(row: {
         // The same `== null`, for the same reason: `false` is a slot declining a station default.
         ...(row.mixInSimilar == null ? {} : { mixInSimilar: row.mixInSimilar }),
         ...(row.chartPositions == null ? {} : { chartPositions: row.chartPositions }),
+        // Both ends or neither, which the table already checks; reading one alone as no special keeps
+        // a half-written row an ordinary weekly slot rather than a special with an open end. The
+        // driver parses a `date` as midnight UTC, so `toISODate` is the calendar date that was stored.
+        ...(row.startsOn == null || row.endsOn == null
+            ? {}
+            : { dates: { from: row.startsOn.toISODate() ?? '', to: row.endsOn.toISODate() ?? '', yearly: row.yearly } }),
         mode: row.mode,
         onEnd: row.onEnd,
     };

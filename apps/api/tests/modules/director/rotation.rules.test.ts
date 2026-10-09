@@ -19,6 +19,7 @@ import {
     FRESH_FLOOR,
     holdArtistCooldown,
     MIX_IN_EVERY_RANGE,
+    NO_RULES,
     stationAutoExtends,
     rejectDisliked,
     resolveRules,
@@ -197,6 +198,52 @@ describe('resolveRules', () => {
 
         expect(resolveRules('setlist', undefined, station).artistCooldownMinutes).toBe(0);
         expect(resolveRules('feature', undefined, station).breaks).toBe(false);
+    });
+});
+
+describe('resolveRules, for a setlist told to talk', () => {
+    // A chart countdown is a setlist with a host. Before this, `breaks: true` on a setlist turned
+    // breaks on with a spacing of zero, which is breaks off, so a scheduled countdown on the live
+    // station played 31 records with nobody between them.
+    const station = { ...DEFAULT_RULES, breakEveryMinutes: 6, jingleEveryMinutes: 20, welcome: true, changeovers: true, artistCooldownMinutes: 40 };
+
+    it("takes the station's spacing for breaks and jingles", () => {
+        expect(resolveRules('setlist', { breaks: true }, station)).toMatchObject({ breaks: true, breakEveryMinutes: 6, jingleEveryMinutes: 20 });
+    });
+
+    it('greets a new listener and marks a change of programme, as the station does', () => {
+        expect(resolveRules('setlist', { breaks: true }, station)).toMatchObject({ welcome: true, changeovers: true });
+    });
+
+    it('still lets the broadcast set its own spacing and greeting', () => {
+        expect(resolveRules('setlist', { breaks: true, breakEveryMinutes: 10, welcome: false }, station)).toMatchObject({
+            breakEveryMinutes: 10,
+            welcome: false,
+        });
+    });
+
+    it('leaves everything about the records exactly as a setlist has it', () => {
+        // The order is somebody's, a chart's here: nothing cut from it by a cooldown or a cap, nothing
+        // generated or mixed into it, and nobody ringing in unless the broadcast asks for that too.
+        expect(resolveRules('setlist', { breaks: true }, { ...station, mixInSimilar: true, crossfade: true })).toMatchObject({
+            repeatWindowDays: 0,
+            artistCooldownMinutes: 0,
+            maxPerArtist: 0,
+            maxPerAlbum: 0,
+            mayGenerate: false,
+            mixInSimilar: false,
+            callins: false,
+            crossfade: false,
+        });
+    });
+
+    it('stays silent when the broadcast says nothing, so an existing setlist is unchanged', () => {
+        expect(resolveRules('setlist', undefined, station)).toEqual(NO_RULES);
+        expect(resolveRules('setlist', { breaks: false }, station)).toMatchObject({ breakEveryMinutes: 0, jingleEveryMinutes: 0, welcome: false });
+    });
+
+    it('leaves a feature cold whatever it asks, since nothing talks over an album played whole', () => {
+        expect(resolveRules('feature', { breaks: true }, station)).toMatchObject({ breakEveryMinutes: 0, jingleEveryMinutes: 0, changeovers: false });
     });
 });
 

@@ -57,7 +57,8 @@ export interface ResolvedRules {
      *
      * Under {@link breaks} for {@link welcome}'s reason, and read off the INCOMING broadcast's rules,
      * because the break airs in that broadcast: a block opening a setlist or a feature marks no
-     * change, since those modes take no breaks at all.
+     * change, since those modes take no breaks — unless it is a setlist told to talk, which takes
+     * the station's answer here as it does its spacing (see `resolveRules`).
      */
     changeovers: boolean;
     /**
@@ -372,10 +373,29 @@ export const NO_RULES: ResolvedRules = {
  * start from everything off by definition, and a station-wide cooldown leaking
  * into them would undo the very thing those modes exist for.
  *
+ * ## A setlist that is told to talk
+ *
+ * The one exception to "the station settings stay out", and it is about the TALK rather than the
+ * records. A setlist whose broadcast says `breaks: true` takes the station's own spacing for breaks
+ * and jingles, and its greeting and changeover switches, where it used to keep the zeros: a weekly
+ * chart countdown is a setlist (the order is the chart's, and nothing may be cut from it or added to
+ * it) with a host between the records. Turning `breaks` on alone could never have done that, because
+ * a `breakEveryMinutes` of `0` IS `breaks: false`, so the switch existed and switched nothing on.
+ * Measured on the live station on 2026-10-09, where a scheduled countdown played 31 records with
+ * its host silent.
+ *
+ * Only the talk fields follow, and only for a setlist. The repeat window, the cooldown, the caps,
+ * generation, mixing in and call-ins stay where the mode put them, since those are about what the
+ * order contains. A feature stays cold whatever it asks: an album played whole is the case 0007
+ * argues nothing talks over at all.
+ *
  * Precedence, tightest last: station defaults, then the lineup's own overrides.
  */
 export const resolveRules = (mode: StationLineupMode, overrides?: StationLineupRules, station: ResolvedRules = DEFAULT_RULES): ResolvedRules => {
     const base = mode === 'rotation' ? station : NO_RULES;
+    // Where the talk fields come from: the mode's baseline, or the station's own for a setlist told
+    // to talk. See "A setlist that is told to talk" above.
+    const talk = mode === 'setlist' && overrides?.breaks === true ? station : base;
     return {
         repeatWindowDays: overrides?.repeatWindowDays ?? base.repeatWindowDays,
         artistCooldownMinutes: overrides?.artistCooldownMinutes ?? base.artistCooldownMinutes,
@@ -389,15 +409,15 @@ export const resolveRules = (mode: StationLineupMode, overrides?: StationLineupR
         // that wants to stop rather than top itself up says so with `onEnd`.
         mayGenerate: base.mayGenerate,
         breaks: overrides?.breaks ?? base.breaks,
-        welcome: overrides?.welcome ?? base.welcome,
+        welcome: overrides?.welcome ?? talk.welcome,
         // No per-lineup override, `jingleEveryMinutes`'s call: `breaks` still gates it per broadcast.
-        changeovers: base.changeovers,
+        changeovers: talk.changeovers,
         callins: overrides?.callins ?? base.callins,
         callinEveryMinutes: overrides?.callinEveryMinutes ?? base.callinEveryMinutes,
-        breakEveryMinutes: overrides?.breakEveryMinutes ?? base.breakEveryMinutes,
+        breakEveryMinutes: overrides?.breakEveryMinutes ?? talk.breakEveryMinutes,
         // No per-lineup override, `maxPerAlbum`'s call: `StationLineupRules` carries none and adding
         // one would change a stored shape. `breaks` above still gates it per broadcast.
-        jingleEveryMinutes: base.jingleEveryMinutes,
+        jingleEveryMinutes: talk.jingleEveryMinutes,
         crossfade: overrides?.crossfade ?? base.crossfade,
         // Only a rotation may have anything mixed in, whatever the override says. `mayGenerate` is
         // the same fact about the mode, and asking the station to choose records for a setlist is

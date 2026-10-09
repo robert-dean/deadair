@@ -73,6 +73,7 @@ export const playout = {
         failedLabel: 'Failed',
         air: 'Air this chart',
         callins: 'Take calls',
+        positions: "Say each record's chart position",
         hint: 'Records the library has never held are fetched as they are needed, and air untrimmed until they have been measured. Looking a whole chart up takes a few minutes, so the station changes over once it has, and the feed says how it went.',
     },
 } as const;

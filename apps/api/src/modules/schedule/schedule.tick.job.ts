@@ -4,9 +4,10 @@ import { IsHttpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import type { ActivitySeverity } from '#modules/activity/station.events.repository.js';
-import { DirectorConsoleService } from '#modules/director/director.console.service.js';
+import { DirectorConsoleService, type ScheduledNight } from '#modules/director/director.console.service.js';
 import { DirectorService } from '#modules/director/director.service.js';
 import { isChartSource, isStationPlaylistSource, type ScheduleSlot, type ScheduleSlotSource } from '#modules/director/schedule.js';
+import type { NightHost } from '#modules/director/slot.visits.js';
 import type { PutOnAirInput } from '#modules/director/types/director.types.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -129,7 +130,7 @@ export class ScheduleTickJob extends PlainJob {
             return;
         }
 
-        if (airing === slot.id) {
+        if (airing === slot.id && !this.newNightNewHost(slot)) {
             // Nothing is on air to have overrun when the block has already run out.
             if (active) await this.boundOverrun(slot);
             return;
@@ -279,9 +280,18 @@ export class ScheduleTickJob extends PlainJob {
      * next one, and a retry would need state the tick deliberately does not hold.
      */
     private async changeOver(slot: ScheduleSlot, from: string | undefined): Promise<void> {
+        // Which night this is and who presents it, read once for both attempts below so the order
+        // cannot be built for one host and stamped for another.
+        const { date, host } = this.schedule.nightOf(slot);
+        const night: ScheduledNight = {
+            date,
+            guest: host.guest,
+            ...(host.regularPersonaId === undefined ? {} : { regularPersonaId: host.regularPersonaId }),
+        };
+
         let withoutSource: unknown;
         try {
-            await this.console.putOnAir(slotInput(slot), slot);
+            await this.console.putOnAir(slotInput(slot, { host }), slot, false, night);
         } catch (error) {
             if (slot.source === undefined || refusedItsSource(error)) {
                 this.decline(slot, error);
@@ -290,7 +300,7 @@ export class ScheduleTickJob extends PlainJob {
 
             withoutSource = error;
             try {
-                await this.console.putOnAir(slotInput(slot, { withoutSource: true }), slot);
+                await this.console.putOnAir(slotInput(slot, { withoutSource: true, host }), slot, false, night);
             } catch (fallbackError) {
                 this.decline(slot, fallbackError);
                 return;
@@ -323,6 +333,28 @@ export class ScheduleTickJob extends PlainJob {
             detail: `The station moved to ${named(slot)} on the schedule.`,
             data: { slot: slot.id, label: slot.label, ...(from === undefined ? {} : { from }) },
         });
+    }
+
+    /**
+     * Whether the slot on air has moved on to a NEW night with a different host, which the slot id
+     * alone cannot see.
+     *
+     * A block that runs straight through midnight into its next run is the same id on both nights, so
+     * a guest host on the second night would never take over. The order is stamped with the date its
+     * night began; when today's night is a different date AND its host differs from that night's, the
+     * station changes over as it would at any boundary. Both hosts are worked out from the schedule
+     * rather than read off the order, so an operator who recast the show by hand is not overruled
+     * mid-night: only the next night's start can change it. An order with no stamp was placed by a
+     * person, or before stamps existed, and is left alone.
+     */
+    private newNightNewHost(slot: ScheduleSlot): boolean {
+        const placed = this.director.order()?.slotOccurrence;
+        if (placed === undefined) return false;
+
+        const now = this.schedule.nightOf(slot);
+        if (now.date === placed) return false;
+
+        return this.schedule.hostOn(slot, placed)?.personaId !== now.host.personaId;
     }
 
     /** This slot cannot be aired at all, so the station keeps doing what it was doing. */
@@ -379,8 +411,10 @@ const refusedItsSource = (error: unknown): boolean => IsHttpError(error) && erro
  * schedule's to call rather than the order's. The mix-in goes with the playlist it would have
  * mixed into.
  */
-function slotInput(slot: ScheduleSlot, options: { withoutSource?: boolean } = {}): PutOnAirInput {
+function slotInput(slot: ScheduleSlot, options: { withoutSource?: boolean; host?: NightHost } = {}): PutOnAirInput {
     const withoutSource = options.withoutSource === true;
+    // Tonight's presenter: a guest sitting in, or the slot's own host. The slot's own when nobody said.
+    const personaId = options.host === undefined ? slot.personaId : options.host.personaId;
     return {
         name: slot.label,
         ...(withoutSource ? {} : sourceInput(slot.source)),
@@ -392,7 +426,7 @@ function slotInput(slot: ScheduleSlot, options: { withoutSource?: boolean } = {}
         ...(slot.era?.to === undefined ? {} : { eraTo: slot.era.to }),
         // Beside the period and for its reason: it has to steer every refill, not the first batch.
         ...(slot.mood === undefined ? {} : { mood: slot.mood }),
-        ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }),
+        ...(personaId === undefined ? {} : { personaId }),
         // Absent leaves the station's own setting standing, which is the same three-way
         // `putOnAir` gives an operator briefing by hand. Passing `false` for an unset
         // slot would have every scheduled show overrule a station that takes calls.

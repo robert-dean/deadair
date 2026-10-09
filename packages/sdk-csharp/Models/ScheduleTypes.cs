@@ -11,6 +11,61 @@ using MaroonedSoftware.Deadair.Sdk.Runtime;
 
 namespace MaroonedSoftware.Deadair.Sdk.Models;
 
+/// <summary>A host who sits in on a slot on some nights, saying whose show it usually is</summary>
+public sealed record SlotGuestHost
+{
+    /// <summary>Who sits in. A host; a caller or a guest who drops by can never present a show</summary>
+    [JsonPropertyName("personaId")]
+    public required string PersonaId { get; init; }
+
+    /// <summary>The nights they present, by the weekday the night begins on, Sunday 0. Send this or `everyN`, not both</summary>
+    [JsonPropertyName("days")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<long>? Days { get; init; }
+
+    /// <summary>Or at random: about one of this slot's nights in this many, on nights nobody can predict. 7 is about one in seven</summary>
+    [JsonPropertyName("everyN")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? EveryN { get; init; }
+
+    /// <summary>With `everyN`, the fewest days between two of their nights. Absent is half of `everyN`, so even one in seven never lands two nights running</summary>
+    [JsonPropertyName("cooldownDays")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? CooldownDays { get; init; }
+}
+
+/// <summary>A window of the station's day to draw</summary>
+public sealed record ScheduleTimetableQuery
+{
+    /// <summary>The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor</summary>
+    [JsonPropertyName("from")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? From { get; init; }
+
+    /// <summary>How many days from `from`. Defaults to a week</summary>
+    [JsonPropertyName("days")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Days { get; init; }
+}
+
+/// <summary>One block: this slot, on this day, between these two times</summary>
+public sealed record ScheduleOccurrence
+{
+    [JsonPropertyName("slotId")]
+    public required string SlotId { get; init; }
+
+    [JsonPropertyName("label")]
+    public required string Label { get; init; }
+
+    /// <summary>`YYYY-MM-DD HH:mm:ss` on the station's own clock, deliberately carrying no timezone offset: it is a reading rather than a moment, so it draws as written wherever the console is running</summary>
+    [JsonPropertyName("start")]
+    public required string Start { get; init; }
+
+    /// <summary>The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two</summary>
+    [JsonPropertyName("end")]
+    public required string End { get; init; }
+}
+
 /// <summary>One stretch of the station's day: from this time, on these days, the station plays this</summary>
 public sealed record ScheduleSlot
 {
@@ -107,6 +162,11 @@ public sealed record ScheduleSlot
     [JsonPropertyName("endsOn")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? EndsOn { get; init; }
+
+    /// <summary>Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time</summary>
+    [JsonPropertyName("guestHosts")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<SlotGuestHost>? GuestHosts { get; init; }
 
     /// <summary>Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year</summary>
     [JsonPropertyName("yearly")]
@@ -214,6 +274,11 @@ public sealed record ScheduleSlotInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? EndsOn { get; init; }
 
+    /// <summary>Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time</summary>
+    [JsonPropertyName("guestHosts")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<SlotGuestHost>? GuestHosts { get; init; }
+
     /// <summary>Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year</summary>
     [JsonPropertyName("yearly")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -224,50 +289,6 @@ public sealed record ScheduleSlotInput
 
     [JsonPropertyName("onEnd")]
     public required ScheduleSlotOnEnd OnEnd { get; init; }
-}
-
-/// <summary>A window of the station's day to draw</summary>
-public sealed record ScheduleTimetableQuery
-{
-    /// <summary>The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor</summary>
-    [JsonPropertyName("from")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? From { get; init; }
-
-    /// <summary>How many days from `from`. Defaults to a week</summary>
-    [JsonPropertyName("days")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public long? Days { get; init; }
-}
-
-/// <summary>One block: this slot, on this day, between these two times</summary>
-public sealed record ScheduleOccurrence
-{
-    [JsonPropertyName("slotId")]
-    public required string SlotId { get; init; }
-
-    [JsonPropertyName("label")]
-    public required string Label { get; init; }
-
-    /// <summary>`YYYY-MM-DD HH:mm:ss` on the station's own clock, deliberately carrying no timezone offset: it is a reading rather than a moment, so it draws as written wherever the console is running</summary>
-    [JsonPropertyName("start")]
-    public required string Start { get; init; }
-
-    /// <summary>The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two</summary>
-    [JsonPropertyName("end")]
-    public required string End { get; init; }
-}
-
-public sealed record ScheduleSlotList
-{
-    [JsonPropertyName("slots")]
-    public required List<ScheduleSlot> Slots { get; init; }
-}
-
-public sealed record ScheduleSlotListInput
-{
-    [JsonPropertyName("slots")]
-    public required List<ScheduleSlotInput> Slots { get; init; }
 }
 
 /// <summary>The station's day as blocks, ready to draw</summary>
@@ -301,6 +322,16 @@ public sealed record ScheduleNow
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SlotId { get; init; }
 
+    /// <summary>Who presents tonight's night of the slot in force: a guest sitting in, or the slot's own host. Absent when it names nobody, which is the station's own host. Only the night that is ON is answered, so a guest who comes at random stays a surprise until their night begins</summary>
+    [JsonPropertyName("hostPersonaId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? HostPersonaId { get; init; }
+
+    /// <summary>Whose show it usually is, while a guest sits in on the slot in force. Absent on an ordinary night, and while the station's own host would be the regular one</summary>
+    [JsonPropertyName("regularPersonaId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RegularPersonaId { get; init; }
+
     /// <summary>The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins</summary>
     [JsonPropertyName("airingSlotId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -309,6 +340,18 @@ public sealed record ScheduleNow
     /// <summary>The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block</summary>
     [JsonPropertyName("upcoming")]
     public required List<ScheduleOccurrence> Upcoming { get; init; }
+}
+
+public sealed record ScheduleSlotList
+{
+    [JsonPropertyName("slots")]
+    public required List<ScheduleSlot> Slots { get; init; }
+}
+
+public sealed record ScheduleSlotListInput
+{
+    [JsonPropertyName("slots")]
+    public required List<ScheduleSlotInput> Slots { get; init; }
 }
 
 /// <summary>Which way round that chart is played. Absent is `countdown`, which ends on number one. Ignored without `sourceChartId`</summary>

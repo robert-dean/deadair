@@ -8,6 +8,39 @@ import kotlin.uuid.Uuid
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/** A host who sits in on a slot on some nights, saying whose show it usually is */
+@Serializable
+data class SlotGuestHost(
+    /** Who sits in. A host; a caller or a guest who drops by can never present a show */
+    val personaId: String,
+    /** The nights they present, by the weekday the night begins on, Sunday 0. Send this or `everyN`, not both */
+    val days: List<Long>? = null,
+    /** Or at random: about one of this slot's nights in this many, on nights nobody can predict. 7 is about one in seven */
+    val everyN: Long? = null,
+    /** With `everyN`, the fewest days between two of their nights. Absent is half of `everyN`, so even one in seven never lands two nights running */
+    val cooldownDays: Long? = null,
+)
+
+/** A window of the station's day to draw */
+@Serializable
+data class ScheduleTimetableQuery(
+    /** The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor */
+    val from: String? = null,
+    /** How many days from `from`. Defaults to a week */
+    val days: Long? = null,
+)
+
+/** One block: this slot, on this day, between these two times */
+@Serializable
+data class ScheduleOccurrence(
+    val slotId: String,
+    val label: String,
+    /** `YYYY-MM-DD HH:mm:ss` on the station's own clock, deliberately carrying no timezone offset: it is a reading rather than a moment, so it draws as written wherever the console is running */
+    val start: String,
+    /** The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two */
+    val end: String,
+)
+
 /** One stretch of the station's day: from this time, on these days, the station plays this */
 @Serializable
 data class ScheduleSlot(
@@ -49,6 +82,8 @@ data class ScheduleSlot(
     val startsOn: String? = null,
     /** The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask */
     val endsOn: String? = null,
+    /** Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time */
+    val guestHosts: List<SlotGuestHost>? = null,
     /** Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year */
     val yearly: Boolean? = null,
     val mode: ScheduleSlotMode,
@@ -95,40 +130,12 @@ data class ScheduleSlotInput(
     val startsOn: String? = null,
     /** The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask */
     val endsOn: String? = null,
+    /** Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time */
+    val guestHosts: List<SlotGuestHost>? = null,
     /** Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year */
     val yearly: Boolean? = null,
     val mode: ScheduleSlotMode,
     val onEnd: ScheduleSlotOnEnd,
-)
-
-/** A window of the station's day to draw */
-@Serializable
-data class ScheduleTimetableQuery(
-    /** The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor */
-    val from: String? = null,
-    /** How many days from `from`. Defaults to a week */
-    val days: Long? = null,
-)
-
-/** One block: this slot, on this day, between these two times */
-@Serializable
-data class ScheduleOccurrence(
-    val slotId: String,
-    val label: String,
-    /** `YYYY-MM-DD HH:mm:ss` on the station's own clock, deliberately carrying no timezone offset: it is a reading rather than a moment, so it draws as written wherever the console is running */
-    val start: String,
-    /** The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two */
-    val end: String,
-)
-
-@Serializable
-data class ScheduleSlotList(
-    val slots: List<ScheduleSlot>,
-)
-
-@Serializable
-data class ScheduleSlotListInput(
-    val slots: List<ScheduleSlotInput>,
 )
 
 /** The station's day as blocks, ready to draw */
@@ -149,10 +156,24 @@ data class ScheduleNow(
     val timezone: String? = null,
     /** The slot in force at this instant. Absent means the station has no schedule */
     val slotId: String? = null,
+    /** Who presents tonight's night of the slot in force: a guest sitting in, or the slot's own host. Absent when it names nobody, which is the station's own host. Only the night that is ON is answered, so a guest who comes at random stays a surprise until their night begins */
+    val hostPersonaId: String? = null,
+    /** Whose show it usually is, while a guest sits in on the slot in force. Absent on an ordinary night, and while the station's own host would be the regular one */
+    val regularPersonaId: String? = null,
     /** The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins */
     val airingSlotId: String? = null,
     /** The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block */
     val upcoming: List<ScheduleOccurrence>,
+)
+
+@Serializable
+data class ScheduleSlotList(
+    val slots: List<ScheduleSlot>,
+)
+
+@Serializable
+data class ScheduleSlotListInput(
+    val slots: List<ScheduleSlotInput>,
 )
 
 /** Which way round that chart is played. Absent is `countdown`, which ends on number one. Ignored without `sourceChartId` */

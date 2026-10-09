@@ -480,6 +480,7 @@ function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
         ...(slot.startsOn === undefined ? {} : { startsOn: slot.startsOn }),
         ...(slot.endsOn === undefined ? {} : { endsOn: slot.endsOn }),
         ...(slot.yearly === undefined ? {} : { yearly: slot.yearly }),
+        ...(slot.guestHosts === undefined ? {} : { guestHosts: slot.guestHosts.map(guest => ({ ...guest })) }),
         mode: slot.mode,
         onEnd: slot.onEnd,
     };

@@ -75,6 +75,9 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     // about a character; none of it is a statement about the world that the world can falsify.
     // A recast mid-window is handled by `recast`, which un-writes the break outright.
     persona: 'timeless',
+    // For the persona's reason: it is a fact about the broadcast, and a break written on a guest's
+    // night that is still unheard when the night ends is retracted or recast with the broadcast.
+    sittingInFor: 'timeless',
     notebook: 'timeless',
     story: 'timeless',
     preoccupation: 'timeless',

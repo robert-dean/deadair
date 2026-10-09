@@ -4,7 +4,7 @@ import { Kysely, sql } from 'kysely';
 import type { DateTime } from 'luxon';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
-import { isChartSource, isStationPlaylistSource, type ScheduleSlot, type ScheduleSlotSource } from '#modules/director/schedule.js';
+import { isChartSource, isStationPlaylistSource, type ScheduleSlot, type ScheduleSlotSource, type SlotPerson } from '#modules/director/schedule.js';
 
 /**
  * The slots an operator has written.
@@ -51,7 +51,7 @@ export class ScheduleRepository extends DataRepository {
             .orderBy('id', 'asc')
             .execute();
 
-        return rows.map(toSlot);
+        return this.withPeople(rows.map(toSlot));
     }
 
     async create(draft: ScheduleSlotDraft): Promise<ScheduleSlot> {
@@ -61,7 +61,8 @@ export class ScheduleRepository extends DataRepository {
             .returningAll()
             .executeTakeFirstOrThrow();
 
-        return toSlot(row);
+        await this.writePeople(row.id, draft);
+        return { ...toSlot(row), ...peopleOf(draft) };
     }
 
     /** Answers `undefined` for a slot this station does not have, which is a 404 and not a throw. */
@@ -74,7 +75,59 @@ export class ScheduleRepository extends DataRepository {
             .returningAll()
             .executeTakeFirst();
 
-        return row === undefined ? undefined : toSlot(row);
+        if (row === undefined) return undefined;
+
+        await this.writePeople(row.id, draft);
+        return { ...toSlot(row), ...peopleOf(draft) };
+    }
+
+    /**
+     * The guest hosts on each slot, read in one query and put back on the slots they belong to.
+     *
+     * Ordered by position, which is precedence: the first guest whose night it is takes it.
+     */
+    private async withPeople(slots: ScheduleSlot[]): Promise<ScheduleSlot[]> {
+        if (slots.length === 0) return slots;
+
+        const rows = await this.db
+            .selectFrom('deadair.scheduleSlotHosts')
+            .select(['slotId', 'personaId', 'role', 'days', 'everyN', 'cooldownDays'])
+            .where(
+                'slotId',
+                'in',
+                slots.map(slot => slot.id),
+            )
+            .orderBy('position', 'asc')
+            .orderBy('id', 'asc')
+            .execute();
+
+        return slots.map(slot => {
+            const guests = rows.filter(row => row.slotId === slot.id && row.role === 'guest').map(toPerson);
+            return guests.length === 0 ? slot : { ...slot, guestHosts: guests };
+        });
+    }
+
+    /** A slot's guest hosts replaced by the draft's, which is what a `PUT` of the whole slot means. */
+    private async writePeople(slotId: string, draft: ScheduleSlotDraft): Promise<void> {
+        await this.db.deleteFrom('deadair.scheduleSlotHosts').where('slotId', '=', slotId).where('role', '=', 'guest').execute();
+
+        const guests = draft.guestHosts ?? [];
+        if (guests.length === 0) return;
+
+        await this.db
+            .insertInto('deadair.scheduleSlotHosts')
+            .values(
+                guests.map((person, position) => ({
+                    slotId,
+                    personaId: person.personaId,
+                    role: 'guest' as const,
+                    position,
+                    days: person.days === undefined ? null : sql<string>`${JSON.stringify([...person.days])}::jsonb`,
+                    everyN: person.everyN ?? null,
+                    cooldownDays: person.cooldownDays ?? null,
+                })),
+            )
+            .execute();
     }
 
     /** Whether there was one to delete. A slot going while its show is on air is legitimate: see the migration. */
@@ -121,6 +174,20 @@ function columnsOf(draft: ScheduleSlotDraft) {
         yearly: draft.dates?.yearly ?? false,
         mode: draft.mode,
         onEnd: draft.onEnd,
+    };
+}
+
+/** The people half of a draft, as the slot written back carries it. */
+const peopleOf = (draft: ScheduleSlotDraft): Pick<ScheduleSlot, 'guestHosts'> =>
+    draft.guestHosts === undefined || draft.guestHosts.length === 0 ? {} : { guestHosts: draft.guestHosts };
+
+/** A stored row as a slot person, dropping what is absent per the `== null` rule. */
+function toPerson(row: { personaId: string; days: unknown; everyN: number | null; cooldownDays: number | null }): SlotPerson {
+    return {
+        personaId: row.personaId,
+        ...(row.days == null ? {} : { days: weekdaysIn(row.days) }),
+        ...(row.everyN == null ? {} : { everyN: row.everyN }),
+        ...(row.cooldownDays == null ? {} : { cooldownDays: row.cooldownDays }),
     };
 }
 

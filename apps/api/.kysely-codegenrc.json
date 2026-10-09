@@ -72,7 +72,8 @@
             "deadair.console_languages.direction": "Generated<'ltr' | 'rtl'>",
             "deadair.schedule_slots.mood": "'love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear' | null",
             "deadair.station_lineup.mood": "'love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear' | null",
-            "deadair.block_rules.field": "'genre' | 'tag'"
+            "deadair.block_rules.field": "'genre' | 'tag'",
+            "deadair.schedule_slot_hosts.role": "'guest' | 'cohost'"
         }
     },
     "partitions": false,

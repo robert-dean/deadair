@@ -25,6 +25,10 @@ The running order makes each changeover at a record boundary, so by default the 
 
 A block can have **guest hosts** who sit in for its own host on some nights. A guest comes on fixed nights (Wednesdays, say), or at random: about one night in however many you choose, with a gap between visits (half of that by default, so an about-weekly guest never lands two nights running). Random nights are worked out from the date, so nobody can predict them, but the station and the console always agree on who is on tonight. On a guest's night the station puts them on, and they know whose show they are sitting in on, so they can say so. Only a host can sit in. **Today** shows "sitting in for" on the block that is on; nights still to come are not given away.
 
+## Co-hosts
+
+A block can have **co-hosts** who present beside its host: every night, on fixed nights, or as a **visitor** who turns up at random (about one night in however many you choose, with a gap between visits). Up to three are on any one night. On a show with co-hosts the talk breaks go round them, each said by whoever was heard from least recently, and every presenter knows who else is on. Put a `banter` band on the format clock for a few minutes of the presenters trading lines. **Today** names tonight's co-hosts beside the host once their night is on.
+
 ## Specials
 
 A special is a block on dates rather than every week: Halloween night, the week before Christmas, an evening somebody else presents. It has everything a block has, plus a first and a last date, and it can repeat every year on the same dates (a yearly range may run past New Year). Inside its dates it still runs only on the days you tick, so "the Fridays in December" is a range and a day. On its dates a special takes over from the weekly schedule for its hours, and whatever usually airs then resumes when it ends, part-way through if it was still on. Two specials may not overlap each other.

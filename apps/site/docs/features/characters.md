@@ -11,11 +11,13 @@ Who is presenting is a character: a sheet you write and switch between. The API 
 
 ## The sheet
 
-One host is on air at a time, and a block on the Programme timetable can name its own. Putting a different character on air rewrites the unplayed breaks the outgoing one had lined up.
+A block on the Programme timetable can name its own host, and can add more presenters around them: **guest hosts** who sit in on some nights (and say whose show it is), and **co-hosts** who present beside the host, every night or as a visitor now and then. On a show with co-hosts the talk breaks go round them. See [the programme](./programme.md#guest-hosts). Putting a different character on air rewrites the unplayed breaks the outgoing one had lined up, apart from those a co-host still on the show wrote.
 
 "Who they are" completes "You are…" and replaces the station's default role outright, because a model told both that it is a radio station and that it is a pirate captain hedges. "How they speak" is the dialect, applied to every sentence and repeated after the station's content rules, which on their own pull a model back to careful plain English. "Their own phrasings" are what the station says in this character when the model declines. A character with none falls back to the station's own five, plain English, never mixed with a character's. Then come signature phrases, sample lines, what they always and never do, and the subjects they keep coming back to, one per break.
 
 A station can also have one **newsreader** ("New newsreader" on the roster, offered while there is none). Every news bulletin is then written in the newsreader's character and read in its voice, whoever is hosting; without one, the host reads the news as before. The newsreader never presents a show.
+
+A **guest** is somebody who drops by the studio for a short chat with the host: a touring guitarist, a record-shop owner. Like a caller a guest never presents, has no phrasings, and can be tied to the hosts whose shows they visit. No guests ship; write your own. See [Phone-ins](./phone-ins.md#guests-in-the-studio).
 
 A new character can start from a description, which a model turns into a sheet you edit before saving. The roster exports to a file and imports from one. Nine hosts and five callers ship, each with its own voice, and "Restore built-ins" puts back any that are missing.
 
@@ -62,4 +64,4 @@ That is safe to try because it can be undone. Every time a character carries one
 
 ## In the console
 
-Voice, Characters is the roster, with "New host", "New caller" and, while there is none, "New newsreader"; each card's menu opens its Notebook, Stories and Memory; callers are covered in [Phone-ins](./phone-ins.md). Voice, Voices says which voice reads which character, and Voice, What it said can be narrowed to one character.
+Voice, Characters is the roster, grouped into hosts, the newsreader, callers and guests. "New host" adds a host; "New caller or guest…" holds New caller, New guest and, while there is none, New newsreader. Each card's menu opens its Notebook, Stories and Memory; callers and guests are covered in [Phone-ins](./phone-ins.md). Voice, Voices says which voice reads which character, and Voice, What it said can be narrowed to one character.

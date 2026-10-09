@@ -20,7 +20,7 @@ const tour: TourStop[] = [
     {
         shot: 'scheduleToday',
         title: 'The programme',
-        body: 'The format clock is what the station says inside an hour, whatever it is playing: the weather at five past, the news at half past. Above it, a weekly timetable of blocks, each with its own brief and its own presenter.',
+        body: 'The format clock is what the station says inside an hour, whatever it is playing: the weather at five past, the news at half past. Above it, a weekly timetable of blocks, each with its own brief and its own presenters, guest hosts who sit in now and then, and specials for the dates that matter.',
     },
     {
         shot: 'catalogTracks',
@@ -176,7 +176,8 @@ export default function Home() {
                         It can also give the hour to something that is not records: a <Link to="/docs/features/podcasts">podcast</Link> it carries, a{' '}
                         <Link to="/docs/features/narrations">book or column</Link> it reads out, or a{' '}
                         <Link to="/docs/features/phone-ins">phone-in</Link> it produces for itself, where a caller and the host trade turns and each
-                        turn is its own model call in its own voice.
+                        turn is its own model call in its own voice. A guest can drop by the studio the same way, and a show&apos;s co-hosts can
+                        banter.
                     </p>
                 </FeatureRow>
 

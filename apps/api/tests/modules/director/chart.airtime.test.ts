@@ -43,8 +43,8 @@ describe('fitAirtime', () => {
     it('fits more of the same chart into a longer slot', () => {
         const chart = Array.from({ length: 100 }, (_, index) => record(index + 1, 4));
 
-        expect(fitAirtime(chart, recordBudget(60 * MINUTE, true))).toHaveLength(13);
-        expect(fitAirtime(chart, recordBudget(300 * MINUTE, true))).toHaveLength(67);
+        expect(fitAirtime(chart, recordBudget(60 * MINUTE, true))).toHaveLength(14);
+        expect(fitAirtime(chart, recordBudget(300 * MINUTE, true))).toHaveLength(71);
     });
 });
 

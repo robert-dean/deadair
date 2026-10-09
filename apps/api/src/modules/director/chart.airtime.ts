@@ -27,11 +27,13 @@ import { NOMINAL_TRACK_MS, recordSpacingLength } from './air.estimate.js';
 /**
  * The share of a slot held back for talk when the broadcast takes breaks.
  *
- * A tenth. A talk break runs a median of 28 words, around twelve seconds, every quarter of an hour or
- * so, and a bulletin or a jingle adds to that; a tenth of an hour is six minutes, which covers all of
- * it with room to spare. Erring long on purpose: see the module note.
+ * Measured rather than guessed. Over the week to 2026-10-09 the live station rendered 88 minutes of
+ * talk (talk breaks, bulletins, welcomes, weather, jingles, changeovers) against 601 records aired,
+ * about 4% of its airtime, or nine seconds a record. A twentieth is that and a little room. It was a
+ * tenth first, which finished a four-hour countdown a quarter of an hour early, and a setlist cannot
+ * top itself up, so that quarter of an hour aired as silence.
  */
-export const CHART_TALK_SHARE = 0.1;
+export const CHART_TALK_SHARE = 0.05;
 
 /**
  * How many more lookups than would fit are asked for, because some names resolve to nothing.

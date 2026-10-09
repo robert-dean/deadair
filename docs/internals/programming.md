@@ -158,7 +158,7 @@ a countdown everybody waits for never aired. `putOnAir` reads the slot before th
 `chartTracks` resolves the chart in RANK order, keeps the longest run from number one whose lengths fit
 (`fitAirtime` in `chart.airtime.ts`, counting each record by `recordSpacingLength`), and only then turns it
 round for a countdown, for the same reason `chartPicks` caps before it reverses. The budget is
-`minutesLeftInSlot` less `CHART_TALK_SHARE` (a tenth) when the broadcast takes breaks, generous on purpose:
+`minutesLeftInSlot` less `CHART_TALK_SHARE` (a twentieth, measured from what the station says) when the broadcast takes breaks:
 a countdown that ends early is topped up by its `onEnd`, and one that runs long loses number one. Lookups
 are capped to about half again what fits (`lookupsFor`), so a one-hour slot does not search a hundred
 records. A station with no schedule airs the whole chart, and so does `ChartSetGenerator`'s share of a

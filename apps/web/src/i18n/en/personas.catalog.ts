@@ -52,6 +52,7 @@ export const personas = {
         exportAll: 'Export all',
         import: 'Import',
         restore: 'Restore built-ins',
+        newOther: 'New caller or guest…',
         newCaller: 'New caller',
         newGuest: 'New guest',
         newNewsreader: 'New newsreader',

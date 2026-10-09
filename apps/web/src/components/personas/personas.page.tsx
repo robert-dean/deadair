@@ -172,43 +172,46 @@ export function PersonasPage() {
                         <Button variant="default" loading={restore.isPending} onClick={() => restore.mutate(undefined)}>
                             {t('page.restore')}
                         </Button>
-                        {/* Two buttons rather than a field in the form, because what a character is
-                            FOR is not a property somebody edits afterwards: a host presents and a
-                            caller rings in, and the roster is drawn in those two halves. */}
-                        <Button
-                            variant="default"
-                            onClick={() => {
-                                setWriting('caller');
-                                setEditing(null);
-                            }}
-                        >
-                            {t('page.newCaller')}
-                        </Button>
-                        {/* A guest drops by somebody's show for a chat, and like a caller never
-                            presents, so the roster draws guests in a half of their own. */}
-                        <Button
-                            variant="default"
-                            onClick={() => {
-                                setWriting('guest');
-                                setEditing(null);
-                            }}
-                        >
-                            {t('page.newGuest')}
-                        </Button>
-                        {/* Only while the station has none: it reads the news in one voice, and the
-                            database refuses a second. A button that always failed would be a question
-                            the page should not ask. */}
-                        {all.some(persona => kindOf(persona) === 'newsreader') ? undefined : (
-                            <Button
-                                variant="default"
-                                onClick={() => {
-                                    setWriting('newsreader');
-                                    setEditing(null);
-                                }}
-                            >
-                                {t('page.newNewsreader')}
-                            </Button>
-                        )}
+                        {/* What a character is FOR is chosen before the form rather than in it,
+                            because it is not a property somebody edits afterwards: a host presents,
+                            a caller rings in, a guest drops by and a newsreader reads the news. The
+                            three that never present share one menu, so the row stays a row on a
+                            narrow desk; New host stays a button of its own, as the ordinary case. */}
+                        <Menu position="bottom-end" withinPortal>
+                            <Menu.Target>
+                                <Button variant="default">{t('page.newOther')}</Button>
+                            </Menu.Target>
+                            <Menu.Dropdown>
+                                <Menu.Item
+                                    onClick={() => {
+                                        setWriting('caller');
+                                        setEditing(null);
+                                    }}
+                                >
+                                    {t('page.newCaller')}
+                                </Menu.Item>
+                                <Menu.Item
+                                    onClick={() => {
+                                        setWriting('guest');
+                                        setEditing(null);
+                                    }}
+                                >
+                                    {t('page.newGuest')}
+                                </Menu.Item>
+                                {/* Only while the station has none: it reads the news in one voice,
+                                    and the database refuses a second. */}
+                                {all.some(persona => kindOf(persona) === 'newsreader') ? undefined : (
+                                    <Menu.Item
+                                        onClick={() => {
+                                            setWriting('newsreader');
+                                            setEditing(null);
+                                        }}
+                                    >
+                                        {t('page.newNewsreader')}
+                                    </Menu.Item>
+                                )}
+                            </Menu.Dropdown>
+                        </Menu>
                         <Button
                             onClick={() => {
                                 setWriting('host');

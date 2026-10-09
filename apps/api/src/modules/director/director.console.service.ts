@@ -722,13 +722,7 @@ export class DirectorConsoleService {
         if (input.chartId !== undefined) {
             // Never fatal: this is a label. A menu that could not be read is a broadcast named after
             // its plugin, which is what every imported one is already called.
-            const named = await this.charts
-                .listCharts()
-                .then(charts => charts.find(chart => chart.id === input.chartId)?.name)
-                .catch(error => {
-                    this.logger.warn(`director: could not read the chart menu while naming a broadcast (${errorText(error)})`);
-                    return undefined;
-                });
+            const named = await this.charts.nameOf(input.chartId);
             if (named !== undefined) return named;
         }
 
@@ -779,7 +773,12 @@ export class DirectorConsoleService {
     ): Promise<RundownTrack[]> {
         const { address, entries } = await this.readChart(chartId);
 
-        const picks = chartPicks(entries, { order: order ?? DEFAULT_CHART_ORDER, ...(bindsAnything(era) ? { era } : {}) });
+        const chartName = await this.charts.nameOf(chartId);
+        const picks = chartPicks(entries, {
+            order: order ?? DEFAULT_CHART_ORDER,
+            ...(bindsAnything(era) ? { era } : {}),
+            ...(chartName === undefined ? {} : { chartName }),
+        });
         // A lookup for every entry, rather than the refill's cap. That cap protects a provider's
         // rate budget from one background refill starving the next, and there is no next refill
         // here: this is an operator asking for one document, once, already bounded at

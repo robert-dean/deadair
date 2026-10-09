@@ -278,6 +278,7 @@ function build(options: Options = {}) {
     const charts = {
         fetchChart: vi.fn(async () => options.chart ?? []),
         listCharts: vi.fn(async () => options.chartMenu ?? []),
+        nameOf: vi.fn(async (id: string) => (options.chartMenu ?? []).find(chart => chart.id === id)?.name),
     } as unknown as ChartsService;
 
     // The two halves `addTrackToOrder` resolves before it will hand a record to the order: which
@@ -1798,9 +1799,9 @@ describe('DirectorConsoleService building a running order from a chart', () => {
 
         expect(resolver.resolve).toHaveBeenCalledWith(
             [
-                { title: 'Glory Box', artist: 'Portishead' },
-                { title: 'Windowlicker', artist: 'Aphex Twin' },
-                { title: 'Teardrop', artist: 'Massive Attack' },
+                { title: 'Glory Box', artist: 'Portishead', chart: { rank: 1 } },
+                { title: 'Windowlicker', artist: 'Aphex Twin', chart: { rank: 2 } },
+                { title: 'Teardrop', artist: 'Massive Attack', chart: { rank: 3 } },
             ],
             expect.anything(),
             expect.objectContaining({ preference: ['deadair.lastfm'] }),
@@ -1910,7 +1911,7 @@ describe('DirectorConsoleService building a running order from a chart', () => {
 
         await service.putOnAir({ chartId: 'deadair.lastfm:top-100', eraFrom: 1990, eraTo: 1999 });
 
-        expect(resolver.resolve).toHaveBeenCalledWith([{ title: 'Anthem', artist: 'B' }], expect.anything(), expect.anything());
+        expect(resolver.resolve).toHaveBeenCalledWith([{ title: 'Anthem', artist: 'B', chart: { rank: 2 } }], expect.anything(), expect.anything());
     });
 
     it('is an ordinary rotation afterwards, so the hour past the chart is programmed as any other', async () => {

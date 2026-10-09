@@ -91,6 +91,22 @@ export class ChartsService {
     }
 
     /**
+     * What a chart is called, for a presenter to say: "number seven on the Hot 100".
+     *
+     * Never throws and never refuses: this is a label, and a menu that could not be read leaves a
+     * record's placing without a name rather than leaving it off the air. One `listCharts`, which
+     * is one call per charts plugin.
+     */
+    async nameOf(qualifiedId: string): Promise<string | undefined> {
+        try {
+            return (await this.listCharts()).find(chart => chart.id === qualifiedId)?.name;
+        } catch (error) {
+            this.logger.info(`charts: could not read the chart menu to name a chart (${errorText(error)})`);
+            return undefined;
+        }
+    }
+
+    /**
      * Every chart on offer, with its id qualified by the plugin that named it.
      *
      * `StationChart` is the CONTRACT's type rather than one of this module's

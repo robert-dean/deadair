@@ -111,6 +111,7 @@ function columnsOf(draft: ScheduleSlotDraft) {
         mood: draft.mood ?? null,
         callins: draft.callins ?? null,
         mixInSimilar: draft.mixInSimilar ?? null,
+        chartPositions: draft.chartPositions ?? null,
         mode: draft.mode,
         onEnd: draft.onEnd,
     };
@@ -147,6 +148,7 @@ function toSlot(row: {
     mood: LyricMood | null;
     callins: boolean | null;
     mixInSimilar: boolean | null;
+    chartPositions: boolean | null;
     mode: 'rotation' | 'setlist' | 'feature';
     onEnd: 'extend' | 'repeat' | 'stop';
 }): ScheduleSlot {
@@ -183,6 +185,7 @@ function toSlot(row: {
         ...(row.callins == null ? {} : { callins: row.callins }),
         // The same `== null`, for the same reason: `false` is a slot declining a station default.
         ...(row.mixInSimilar == null ? {} : { mixInSimilar: row.mixInSimilar }),
+        ...(row.chartPositions == null ? {} : { chartPositions: row.chartPositions }),
         mode: row.mode,
         onEnd: row.onEnd,
     };

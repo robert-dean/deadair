@@ -35,10 +35,12 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var callins: Bool?
     /// Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says
     public var mixInSimilar: Bool?
+    /// Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot's chart without its positions read out
+    public var chartPositions: Bool?
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: ScheduleSlotMood? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: ScheduleSlotMood? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.id = id
         self.label = label
         self.startsAtMinutes = startsAtMinutes
@@ -56,6 +58,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.mood = mood
         self.callins = callins
         self.mixInSimilar = mixInSimilar
+        self.chartPositions = chartPositions
         self.mode = mode
         self.onEnd = onEnd
     }
@@ -78,6 +81,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         case mood = "mood"
         case callins = "callins"
         case mixInSimilar = "mixInSimilar"
+        case chartPositions = "chartPositions"
         case mode = "mode"
         case onEnd = "onEnd"
     }
@@ -101,6 +105,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.mood = try container.decodeIfPresent(ScheduleSlotMood.self, forKey: .mood)
         self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
         self.mixInSimilar = try container.decodeIfPresent(Bool.self, forKey: .mixInSimilar)
+        self.chartPositions = try container.decodeIfPresent(Bool.self, forKey: .chartPositions)
         self.mode = try container.decode(ScheduleSlotMode.self, forKey: .mode)
         self.onEnd = try container.decode(ScheduleSlotOnEnd.self, forKey: .onEnd)
     }
@@ -124,6 +129,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.mood, forKey: .mood)
         try container.encodeIfPresent(self.callins, forKey: .callins)
         try container.encodeIfPresent(self.mixInSimilar, forKey: .mixInSimilar)
+        try container.encodeIfPresent(self.chartPositions, forKey: .chartPositions)
         try container.encode(self.mode, forKey: .mode)
         try container.encode(self.onEnd, forKey: .onEnd)
     }
@@ -162,10 +168,12 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var callins: Bool?
     /// Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says
     public var mixInSimilar: Bool?
+    /// Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot's chart without its positions read out
+    public var chartPositions: Bool?
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: ScheduleSlotMood? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: ScheduleSlotMood? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.label = label
         self.startsAtMinutes = startsAtMinutes
         self.endsAtMinutes = endsAtMinutes
@@ -182,6 +190,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.mood = mood
         self.callins = callins
         self.mixInSimilar = mixInSimilar
+        self.chartPositions = chartPositions
         self.mode = mode
         self.onEnd = onEnd
     }
@@ -203,6 +212,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         case mood = "mood"
         case callins = "callins"
         case mixInSimilar = "mixInSimilar"
+        case chartPositions = "chartPositions"
         case mode = "mode"
         case onEnd = "onEnd"
     }
@@ -225,6 +235,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.mood = try container.decodeIfPresent(ScheduleSlotMood.self, forKey: .mood)
         self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
         self.mixInSimilar = try container.decodeIfPresent(Bool.self, forKey: .mixInSimilar)
+        self.chartPositions = try container.decodeIfPresent(Bool.self, forKey: .chartPositions)
         self.mode = try container.decode(ScheduleSlotMode.self, forKey: .mode)
         self.onEnd = try container.decode(ScheduleSlotOnEnd.self, forKey: .onEnd)
     }
@@ -247,6 +258,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.mood, forKey: .mood)
         try container.encodeIfPresent(self.callins, forKey: .callins)
         try container.encodeIfPresent(self.mixInSimilar, forKey: .mixInSimilar)
+        try container.encodeIfPresent(self.chartPositions, forKey: .chartPositions)
         try container.encode(self.mode, forKey: .mode)
         try container.encode(self.onEnd, forKey: .onEnd)
     }

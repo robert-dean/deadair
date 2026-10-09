@@ -23,6 +23,7 @@ contract ScheduleSlot: {
     mood?: enum(love, happiness, comfort, sadness, loneliness, anger, fear) # The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean
     callins?: boolean # Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says
     mixInSimilar?: boolean # Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says
+    chartPositions?: boolean # Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot's chart without its positions read out
     mode: enum(rotation, setlist, feature)
     onEnd: enum(extend, repeat, stop)
 }

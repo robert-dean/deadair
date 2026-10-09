@@ -93,6 +93,11 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? MixInSimilar { get; init; }
 
+    /// <summary>Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot's chart without its positions read out</summary>
+    [JsonPropertyName("chartPositions")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ChartPositions { get; init; }
+
     [JsonPropertyName("mode")]
     public required ScheduleSlotMode Mode { get; init; }
 
@@ -178,6 +183,11 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("mixInSimilar")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? MixInSimilar { get; init; }
+
+    /// <summary>Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot's chart without its positions read out</summary>
+    [JsonPropertyName("chartPositions")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ChartPositions { get; init; }
 
     [JsonPropertyName("mode")]
     public required ScheduleSlotMode Mode { get; init; }

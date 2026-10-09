@@ -141,6 +141,14 @@ export interface ScheduleSlot {
      * never mixes whatever this says.
      */
     mixInSimilar?: boolean;
+    /**
+     * Whether the host says where the chart placed each record it named.
+     *
+     * Absent is yes, as it is on `PutOnAirInput.chartPositions`; see
+     * `StationLineupRules.chartPositions` for why there is no station setting behind it. Only a
+     * slot whose source is a chart, or a rotation that takes a chart's share, has anything to say.
+     */
+    chartPositions?: boolean;
     mode: StationLineupMode;
     onEnd: StationLineupOnEnd;
 }

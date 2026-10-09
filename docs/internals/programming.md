@@ -152,6 +152,18 @@ is a fact about the edition the station read and is never updated; a chart that 
 move a record already in the order. It decides nothing about what airs. What reads it is the break writer
 (`breaks.md`), and whether a show says it is `StationLineupRules.chartPositions`, absent meaning yes.
 
+**A chart airing inside a slot is cut to the time the slot has left, from the top.** A hundred-record chart
+in a four-hour block played ranks 100 down to about 45 and was cut off by the next changeover, so the part of
+a countdown everybody waits for never aired. `putOnAir` reads the slot before the tracks now, and
+`chartTracks` resolves the chart in RANK order, keeps the longest run from number one whose lengths fit
+(`fitAirtime` in `chart.airtime.ts`, counting each record by `recordSpacingLength`), and only then turns it
+round for a countdown, for the same reason `chartPicks` caps before it reverses. The budget is
+`minutesLeftInSlot` less `CHART_TALK_SHARE` (a tenth) when the broadcast takes breaks, generous on purpose:
+a countdown that ends early is topped up by its `onEnd`, and one that runs long loses number one. Lookups
+are capped to about half again what fits (`lookupsFor`), so a one-hour slot does not search a hundred
+records. A station with no schedule airs the whole chart, and so does `ChartSetGenerator`'s share of a
+refill, which has no shape to end on.
+
 ## The station's opinion, and the policy over it
 
 **An opinion is held at three levels and inherits DOWNWARD in both directions.** `artists`, `albums` and `tracks` each carry a `rating` of `-1 / 0 / 1`, written from the console through `PUT /catalog/{artists,albums,tracks}/{id}/rating` (`platform.manage`; the wire spells it `liked / neutral / disliked` and `catalog/rating.ts` is the only place that meets the column, because the ORDERING is what the SQL below needs and nothing outside the database reads it as a number). `CandidatesRepository.effectiveRating` is the one expression that collapses the three into one, and it is **not** a `least()`: a dislike anywhere wins outright, because a dislike is an instruction no lineup may turn off, and otherwise the strongest LIKE carries, because liking an artist means play more of them and liking one song means play that song more. It was a plain `least()` for as long as it existed, which got the veto right and silently swallowed the other half — a liked song on an unrated record by an unrated artist came out `0`, so `weightOf` doubled nothing an operator could produce without rating all three levels identically, and liking a record did nothing whatsoever. Both `sample` and `ratingsFor` go through it so the draw and the resolver cannot disagree. Nothing unit-tests it, since it is SQL: `apps/api/scripts/rating.smoke.ts` is what covers it, against the real database.

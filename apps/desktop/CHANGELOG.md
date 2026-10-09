@@ -8,6 +8,13 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.7.2] — 2026-10-09
+
+- A schedule slot can have co-hosts who present beside its host (`coHosts`): every night, on fixed nights, or as a visitor who turns up at random (`everyN`, with `cooldownDays` between visits), like a guest host. Up to three are on air on any one night. The running order and `GET /schedule/current` say who is co-presenting tonight, and a visiting co-host's night begins at the top of the show. On a show with co-hosts, talk breaks go round them: each one is written and spoken by whichever presenter was heard least recently, and every break knows who else is presenting tonight. A **banter** is a new kind of production for a show with co-hosts: the presenters trade lines for a few minutes, the lead bringing the others in and handing back to the music at the end. Put a `banter` band on the format clock to have a few a show; one asked for on a show with nobody beside the host fails with a reason. In the console, the slot editor has Co-hosts under Guest hosts (every night, on these nights, or visiting), and Today names tonight's co-hosts beside the host. The desktop editor carries a slot's co-hosts through untouched.
+- A schedule slot can have guest hosts who sit in for its own host on some nights (`guestHosts`). A guest is on fixed nights (`days`), or at random: `everyN` is about one of the slot's nights in that many, and `cooldownDays` is the fewest days between two of their nights (half of `everyN` when unset, so an about-weekly guest never lands two nights running). The random nights are worked out from the date, so the console, the timetable and the station all agree on who is on a given night, and nothing re-rolls mid-show. A guest has to be a host. On a guest's night the station puts them on and remembers whose show it usually is. The guest's breaks know they are sitting in for the regular presenter, by name and on which show, so they can say so and never call the show theirs.
+
+  In the console, the slot editor has Guest hosts: who sits in, then either the nights they sit in or about how often at random, with the gap between visits. Today names tonight's guest as sitting in for the regular host. `GET /schedule/current` says who presents the block on now (`hostPersonaId`) and whose show it usually is (`regularPersonaId`). The desktop editor carries a slot's guest hosts through untouched.
+
 ## [0.7.1] — 2026-10-09
 
 - The schedule can hold special shows on dates: Halloween night, the week before Christmas, a one-off evening. A slot with a first and last date (`startsOn`, `endsOn`) is a special, and `yearly` repeats it on the same month and day every year, including a range that runs past New Year. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Two specials still may not overlap each other.
@@ -93,7 +100,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.2...HEAD
+[0.7.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.1...desktop-v0.7.2
 [0.7.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.0...desktop-v0.7.1
 [0.7.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.6.0...desktop-v0.7.0
 [0.6.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.5.0...desktop-v0.6.0

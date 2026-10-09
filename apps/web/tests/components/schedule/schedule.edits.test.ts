@@ -31,6 +31,22 @@ const at = (hour: number, minute = 0) => hour * 60 + minute;
 const SLOTS = [slot('breakfast', at(6), at(10)), slot('drive', at(16, 30), at(19)), slot('late', at(22), at(2))];
 
 describe('blockEdit', () => {
+    describe('a special', () => {
+        const halloween: ScheduleSlot = { ...slot('halloween', at(20), at(23)), startsOn: '2026-10-31', endsOn: '2026-10-31', yearly: true };
+
+        it('refuses a drag to another day, which would change its weekdays rather than its dates', () => {
+            const edit = blockEdit(block('halloween', '20:00', '23:00'), '2026-08-20 20:00:00', '2026-08-20 23:00:00', [halloween]);
+
+            expect(edit.kind).toBe('refused');
+        });
+
+        it('still lets its times be dragged on the day', () => {
+            const edit = blockEdit(block('halloween', '20:00', '23:00'), '2026-08-19 21:00:00', '2026-08-19 23:30:00', [halloween]);
+
+            expect(edit).toMatchObject({ kind: 'move', startsAtMinutes: at(21), endsAtMinutes: at(23, 30) });
+        });
+    });
+
     it('moves the block to where it was dropped', () => {
         const dragged = block('breakfast', '06:00', '10:00');
 

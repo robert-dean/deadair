@@ -155,6 +155,89 @@ describe('SlotEditor', () => {
         expect(draft.onEnd).toBe('repeat');
     });
 
+    describe('a special', () => {
+        const halloween = slot({
+            label: 'Halloween',
+            startsAtMinutes: 20 * 60,
+            endsAtMinutes: 23 * 60,
+            startsOn: '2026-10-31',
+            endsOn: '2026-10-31',
+            yearly: true,
+        });
+
+        it('is titled as one and offers the yearly switch, which a weekly slot does not', async () => {
+            listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+            listPersonas.mockResolvedValue(PERSONAS);
+
+            const { rerender } = render(
+                <SlotEditor
+                    target={{ kind: 'edit', slot: halloween }}
+                    onClose={noop}
+                    onSubmit={noop}
+                    onDelete={noop}
+                    saving={false}
+                    deleting={false}
+                />,
+            );
+
+            expect(await screen.findByText('Edit special')).toBeInTheDocument();
+            expect(screen.getByRole('switch', { name: /Repeats every year/ })).toBeChecked();
+
+            rerender(
+                <SlotEditor target={{ kind: 'edit', slot: slot() }} onClose={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} />,
+            );
+            expect(screen.queryByRole('switch', { name: /Repeats every year/ })).toBeNull();
+        });
+
+        it('sends its dates back with everything else, so a save keeps it a special', async () => {
+            listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+            listPersonas.mockResolvedValue(PERSONAS);
+            const onSubmit = vi.fn();
+            const user = setupUser();
+
+            render(
+                <SlotEditor
+                    target={{ kind: 'edit', slot: halloween }}
+                    onClose={noop}
+                    onSubmit={onSubmit}
+                    onDelete={noop}
+                    saving={false}
+                    deleting={false}
+                />,
+            );
+            await screen.findByRole('combobox', { name: 'Mode' });
+
+            await user.click(screen.getByRole('button', { name: 'Save' }));
+
+            expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ startsOn: '2026-10-31', endsOn: '2026-10-31', yearly: true });
+        });
+
+        it('refuses a new special with no dates rather than saving a weekly slot', async () => {
+            listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+            listPersonas.mockResolvedValue(PERSONAS);
+            const onSubmit = vi.fn();
+            const user = setupUser();
+
+            render(
+                <SlotEditor
+                    target={{ kind: 'new', special: true }}
+                    onClose={noop}
+                    onSubmit={onSubmit}
+                    onDelete={noop}
+                    saving={false}
+                    deleting={false}
+                />,
+            );
+            await screen.findByRole('combobox', { name: 'Mode' });
+
+            await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Halloween');
+            await user.click(screen.getByRole('button', { name: 'Save' }));
+
+            expect(onSubmit).not.toHaveBeenCalled();
+            expect(await screen.findByText('A special needs its first and last date')).toBeInTheDocument();
+        });
+    });
+
     it('sends call-ins only when they are asked for, so an untouched box changes nothing', async () => {
         // Absent is no calls, with nothing station-wide behind it, so an untouched box need say nothing.
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);

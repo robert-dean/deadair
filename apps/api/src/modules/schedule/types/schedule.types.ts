@@ -78,6 +78,24 @@ export const ScheduleSlot = z.strictObject({
         .describe(
             "Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says",
         ),
+    startsOn: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional()
+        .describe(
+            'The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all',
+        ),
+    endsOn: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional()
+        .describe('The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask'),
+    yearly: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year',
+        ),
     mode: z.enum(['rotation', 'setlist', 'feature']),
     onEnd: z.enum(['extend', 'repeat', 'stop']),
 });
@@ -156,6 +174,24 @@ export const ScheduleSlotInput = z.strictObject({
         .describe(
             "Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says",
         ),
+    startsOn: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional()
+        .describe(
+            'The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all',
+        ),
+    endsOn: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional()
+        .describe('The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask'),
+    yearly: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year',
+        ),
     mode: z.enum(['rotation', 'setlist', 'feature']),
     onEnd: z.enum(['extend', 'repeat', 'stop']),
 });
@@ -163,7 +199,7 @@ export type ScheduleSlotInput = z.infer<typeof ScheduleSlotInput>;
 
 /**
  * A window of the station's day to draw
- * generated from [ScheduleTimetableQuery](../../../../data/contracts/schedule/schedule.types.ck#L35)
+ * generated from [ScheduleTimetableQuery](../../../../data/contracts/schedule/schedule.types.ck#L38)
  */
 export const ScheduleTimetableQuery = z.strictObject({
     from: z
@@ -183,7 +219,7 @@ export type ScheduleTimetableQuery = z.infer<typeof ScheduleTimetableQuery>;
 
 /**
  * One block: this slot, on this day, between these two times
- * generated from [ScheduleOccurrence](../../../../data/contracts/schedule/schedule.types.ck#L48)
+ * generated from [ScheduleOccurrence](../../../../data/contracts/schedule/schedule.types.ck#L51)
  */
 export const ScheduleOccurrence = z.strictObject({
     slotId: z.string().min(1).max(100),
@@ -200,7 +236,7 @@ export const ScheduleOccurrence = z.strictObject({
 export type ScheduleOccurrence = z.infer<typeof ScheduleOccurrence>;
 
 /**
- * generated from [ScheduleSlotList](../../../../data/contracts/schedule/schedule.types.ck#L30)
+ * generated from [ScheduleSlotList](../../../../data/contracts/schedule/schedule.types.ck#L33)
  */
 export const ScheduleSlotList = z.strictObject({
     slots: z.array(ScheduleSlot),
@@ -214,7 +250,7 @@ export type ScheduleSlotListInput = z.infer<typeof ScheduleSlotListInput>;
 
 /**
  * The station's day as blocks, ready to draw
- * generated from [ScheduleTimetable](../../../../data/contracts/schedule/schedule.types.ck#L41)
+ * generated from [ScheduleTimetable](../../../../data/contracts/schedule/schedule.types.ck#L44)
  */
 export const ScheduleTimetable = z.strictObject({
     from: z
@@ -231,7 +267,7 @@ export type ScheduleTimetable = z.infer<typeof ScheduleTimetable>;
 
 /**
  * Which slot the clock says should be on right now, and what follows it
- * generated from [ScheduleNow](../../../../data/contracts/schedule/schedule.types.ck#L56)
+ * generated from [ScheduleNow](../../../../data/contracts/schedule/schedule.types.ck#L59)
  */
 export const ScheduleNow = z.strictObject({
     now: z

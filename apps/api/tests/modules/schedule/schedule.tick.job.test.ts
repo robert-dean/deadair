@@ -472,6 +472,30 @@ describe('ScheduleTickJob', () => {
         expect(vi.mocked(console.putOnAir).mock.calls[0]?.[1]).toBe(inForce);
     });
 
+    describe('a special', () => {
+        // No new state: a special is a slot with its own id, so the tick's one comparison (the slot
+        // in force against the slot the order is stamped with) changes over into it in the middle of
+        // the weekly show and back out of it when it ends.
+        const halloween = slot('halloween', { label: 'Halloween', dates: { from: '2026-10-31', to: '2026-10-31', yearly: true } });
+        const boneyard = slot('boneyard', { label: 'The Boneyard' });
+
+        it('takes over from the weekly show it interrupts', async () => {
+            const { tick, console } = build({ inForce: halloween, airing: 'boneyard' });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ name: 'Halloween' }), halloween);
+        });
+
+        it('hands back to the weekly show when it ends, part-way through that show', async () => {
+            const { tick, console } = build({ inForce: boneyard, airing: 'halloween' });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ name: 'The Boneyard' }), boneyard);
+        });
+    });
+
     it('changes over a station that has never been stamped with a slot', async () => {
         const { tick, console } = build({ inForce: slot('morning'), airing: undefined });
 

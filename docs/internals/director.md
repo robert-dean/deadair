@@ -59,6 +59,19 @@ a clock-fired changeover defers its spoken half to the next track boundary where
 takes effect at once. And a console state like "who is driving" is DERIVED from facts the director
 holds rather than stored beside them, because a second copy is a second writer wearing a third name.
 
+**A special is a slot on DATES, and it is the one precedence the schedule has** (migration 0074).
+`schedule_slots.starts_on`/`ends_on` make a row run on a date range rather than every week, `yearly`
+repeats it on the same month and day (a yearly range may run past New Year and is shorter than a year),
+and `days` still applies inside the range. Weekly blocks refuse to overlap rather than being resolved by
+precedence, on the argument that a precedence rule is a fact only the code knows; a special WINS over
+the weekly schedule for its hours anyway, and that argument does not forbid it because the timetable is
+projected per date and draws the special with the weekly blocks trimmed around it. Two specials still
+refuse to overlap. It needed no new state on the director's side: a special is a slot with its own id,
+so the tick's one comparison changes over into it part-way through the weekly show and back to that
+show when it ends. `slotOn` answers specials first and then the weekly clock, `piecesOn` is the one
+answer to "where is this block on this date" that the resolver, `project` and the overlap check all
+share, and `slotAt` is weekly-only, since a special on the weekly clock would air every week.
+
 **A broadcast has an IDENTITY, and everything written while it runs carries it.**
 `station_lineup.broadcast_id` is minted when a running order is built and kept for as long as it
 airs, so `play_history`, `segment_events`, `script_history` and `station_events` can all answer "what

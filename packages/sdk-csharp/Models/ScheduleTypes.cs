@@ -93,6 +93,21 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? MixInSimilar { get; init; }
 
+    /// <summary>The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all</summary>
+    [JsonPropertyName("startsOn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? StartsOn { get; init; }
+
+    /// <summary>The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask</summary>
+    [JsonPropertyName("endsOn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? EndsOn { get; init; }
+
+    /// <summary>Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year</summary>
+    [JsonPropertyName("yearly")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Yearly { get; init; }
+
     [JsonPropertyName("mode")]
     public required ScheduleSlotMode Mode { get; init; }
 
@@ -178,6 +193,21 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("mixInSimilar")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? MixInSimilar { get; init; }
+
+    /// <summary>The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all</summary>
+    [JsonPropertyName("startsOn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? StartsOn { get; init; }
+
+    /// <summary>The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask</summary>
+    [JsonPropertyName("endsOn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? EndsOn { get; init; }
+
+    /// <summary>Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year</summary>
+    [JsonPropertyName("yearly")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Yearly { get; init; }
 
     [JsonPropertyName("mode")]
     public required ScheduleSlotMode Mode { get; init; }

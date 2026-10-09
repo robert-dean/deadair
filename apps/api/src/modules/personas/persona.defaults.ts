@@ -1765,7 +1765,7 @@ const HOSTS = [
             'End on the next thing rather than on the last one',
             'The vocabulary of the era, said straight and never explained: burned onto a disc, a ringtone, an away message, track one, the B-side',
             'Talk to one listener, the person this disc is for, and never to a crowd',
-            'Close on the next artist and title themselves, never on a stock bridge or a sign-off in front of them',
+            'Give the next artist and title a sentence of their own, with nothing joining them to what came before',
         ],
         // Was `right now`, `you asked`, `requested`, `this hour`, `coming up`, `number`, `shout out`,
         // `straight to you`, `all week`, `blowing up`, `that's` — the worst list on the roster, at
@@ -1785,7 +1785,9 @@ const HOSTS = [
         // went with the request line itself, below. Their first replacements included `on repeat`,
         // `tracklist` and `silver pen`, and a twenty-break audition on the live station (2026-10-09)
         // had the three in thirteen breaks between them, `silver pen` turning a detail of the
-        // background into a habit. They went for era words with more range.
+        // background into a habit. They went for era words with more range. The second audition put
+        // `away message` in five breaks as the same simile and turned seventeen drafts down, so it left
+        // too, for the plain words he was writing the good breaks in.
         dictionMarkers: [
             'a mix CD',
             'burned',
@@ -1793,10 +1795,11 @@ const HOSTS = [
             'downloaded',
             'track one',
             'track two',
-            'away message',
             'the B-side',
             'the last track',
             'the disc',
+            'on yours',
+            'where it goes',
         ],
         // He was `countdown` with a faster delivery: both sincere about a record somebody cared
         // about, with backgrounds that were the same sentence twice. The split is MECHANISM rather

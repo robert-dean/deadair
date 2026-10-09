@@ -26,6 +26,7 @@ import {
     stationSourceValue,
 } from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
+import { GuestHostsField, guestHostsOf, guestRowOf, guestRowProblem, type GuestRow } from './guest.hosts.field';
 import { DAYS, minutesToClock, clockToMinutes } from './schedule.day';
 import { weekdayShort } from '../../i18n/format.locale';
 
@@ -84,6 +85,8 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             startsAt: value => (clockToMinutes(value) === undefined ? t('validation.time') : undefined),
             endsAt: value => (clockToMinutes(value) === undefined ? t('validation.time') : undefined),
             dates: value => (special && (!value[0] || !value[1]) ? t('slot.special.datesRequired') : undefined),
+            // The rows draw their own problems; this only stops the save and says one is there.
+            guestHosts: rows => (rows.some(row => guestRowProblem(row) !== undefined) ? t('slot.guests.unfinished') : undefined),
         },
     });
 
@@ -112,6 +115,7 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                     ? { sourceStationPlaylistId: source.stationPlaylistId }
                     : { sourcePluginId: source.pluginId, sourcePlaylistId: source.playlistId }),
             ...(values.personaId ? { personaId: values.personaId } : {}),
+            ...(guestHostsOf(values.guestHosts).length === 0 ? {} : { guestHosts: guestHostsOf(values.guestHosts) }),
             ...(values.brief.trim() ? { brief: values.brief.trim() } : {}),
             // An empty box is no bound rather than a zero, and the two ends are independent: a lower
             // bound on its own is "this year onwards".
@@ -248,6 +252,14 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
 
                     <HostField {...form.getInputProps('personaId')} />
 
+                    {/* Under the host it sits in for. */}
+                    <GuestHostsField
+                        rows={form.values.guestHosts}
+                        onChange={rows => form.setFieldValue('guestHosts', rows)}
+                        {...(form.values.personaId ? { ownHostId: form.values.personaId } : {})}
+                        {...(form.errors.guestHosts === undefined ? {} : { errors: form.values.guestHosts.map(guestRowProblem) })}
+                    />
+
                     <BriefField {...form.getInputProps('brief')} />
 
                     <EraFields from={form.getInputProps('eraFrom')} to={form.getInputProps('eraTo')} />
@@ -374,6 +386,8 @@ interface FormValues {
     dates: [string | null, string | null];
     /** Ticked sends `yearly: true`; unticked sends nothing, which is a one-off. */
     yearly: boolean;
+    /** Who sits in for the host, and when. See `GuestHostsField`. */
+    guestHosts: GuestRow[];
     mode: ScheduleSlot['mode'];
     onEnd: ScheduleSlot['onEnd'];
 }
@@ -410,6 +424,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         mixInSimilar: slot?.mixInSimilar ?? false,
         dates: [slot?.startsOn ?? null, slot?.endsOn ?? null],
         yearly: slot?.yearly ?? false,
+        guestHosts: (slot?.guestHosts ?? []).map(guestRowOf),
         mode: slot?.mode ?? 'rotation',
         onEnd: slot?.onEnd ?? 'extend',
     };

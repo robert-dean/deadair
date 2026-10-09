@@ -1,6 +1,67 @@
 import { z } from 'zod';
 
 /**
+ * A host who sits in on a slot on some nights, saying whose show it usually is
+ * generated from [SlotGuestHost](../../../../data/contracts/schedule/schedule.types.ck#L36)
+ */
+export const SlotGuestHost = z.strictObject({
+    personaId: z.string().min(1).max(100).describe('Who sits in. A host; a caller or a guest who drops by can never present a show'),
+    days: z
+        .array(z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(6)))
+        .optional()
+        .describe('The nights they present, by the weekday the night begins on, Sunday 0. Send this or `everyN`, not both'),
+    everyN: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(2).max(366))
+        .optional()
+        .describe("Or at random: about one of this slot's nights in this many, on nights nobody can predict. 7 is about one in seven"),
+    cooldownDays: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(366))
+        .optional()
+        .describe(
+            'With `everyN`, the fewest days between two of their nights. Absent is half of `everyN`, so even one in seven never lands two nights running',
+        ),
+});
+export type SlotGuestHost = z.infer<typeof SlotGuestHost>;
+
+/**
+ * A window of the station's day to draw
+ * generated from [ScheduleTimetableQuery](../../../../data/contracts/schedule/schedule.types.ck#L48)
+ */
+export const ScheduleTimetableQuery = z.strictObject({
+    from: z
+        .string()
+        .min(10)
+        .max(10)
+        .optional()
+        .describe(
+            "The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor",
+        ),
+    days: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(31))
+        .optional()
+        .describe('How many days from `from`. Defaults to a week'),
+});
+export type ScheduleTimetableQuery = z.infer<typeof ScheduleTimetableQuery>;
+
+/**
+ * One block: this slot, on this day, between these two times
+ * generated from [ScheduleOccurrence](../../../../data/contracts/schedule/schedule.types.ck#L61)
+ */
+export const ScheduleOccurrence = z.strictObject({
+    slotId: z.string().min(1).max(100),
+    label: z.string().max(200),
+    start: z
+        .string()
+        .min(19)
+        .max(19)
+        .describe(
+            "`YYYY-MM-DD HH:mm:ss` on the station's own clock, deliberately carrying no timezone offset: it is a reading rather than a moment, so it draws as written wherever the console is running",
+        ),
+    end: z.string().min(19).max(19).describe('The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two'),
+});
+export type ScheduleOccurrence = z.infer<typeof ScheduleOccurrence>;
+
+/**
  * One stretch of the station's day: from this time, on these days, the station plays this
  * generated from [ScheduleSlot](../../../../data/contracts/schedule/schedule.types.ck#L8)
  */
@@ -96,6 +157,13 @@ export const ScheduleSlot = z.strictObject({
         .regex(/^\d{4}-\d{2}-\d{2}$/)
         .optional()
         .describe('The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask'),
+    guestHosts: z
+        .array(SlotGuestHost)
+        .max(8)
+        .optional()
+        .describe(
+            "Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time",
+        ),
     yearly: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
@@ -198,6 +266,13 @@ export const ScheduleSlotInput = z.strictObject({
         .regex(/^\d{4}-\d{2}-\d{2}$/)
         .optional()
         .describe('The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask'),
+    guestHosts: z
+        .array(SlotGuestHost)
+        .max(8)
+        .optional()
+        .describe(
+            "Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time",
+        ),
     yearly: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
@@ -210,59 +285,8 @@ export const ScheduleSlotInput = z.strictObject({
 export type ScheduleSlotInput = z.infer<typeof ScheduleSlotInput>;
 
 /**
- * A window of the station's day to draw
- * generated from [ScheduleTimetableQuery](../../../../data/contracts/schedule/schedule.types.ck#L39)
- */
-export const ScheduleTimetableQuery = z.strictObject({
-    from: z
-        .string()
-        .min(10)
-        .max(10)
-        .optional()
-        .describe(
-            "The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor",
-        ),
-    days: z
-        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(31))
-        .optional()
-        .describe('How many days from `from`. Defaults to a week'),
-});
-export type ScheduleTimetableQuery = z.infer<typeof ScheduleTimetableQuery>;
-
-/**
- * One block: this slot, on this day, between these two times
- * generated from [ScheduleOccurrence](../../../../data/contracts/schedule/schedule.types.ck#L52)
- */
-export const ScheduleOccurrence = z.strictObject({
-    slotId: z.string().min(1).max(100),
-    label: z.string().max(200),
-    start: z
-        .string()
-        .min(19)
-        .max(19)
-        .describe(
-            "`YYYY-MM-DD HH:mm:ss` on the station's own clock, deliberately carrying no timezone offset: it is a reading rather than a moment, so it draws as written wherever the console is running",
-        ),
-    end: z.string().min(19).max(19).describe('The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two'),
-});
-export type ScheduleOccurrence = z.infer<typeof ScheduleOccurrence>;
-
-/**
- * generated from [ScheduleSlotList](../../../../data/contracts/schedule/schedule.types.ck#L34)
- */
-export const ScheduleSlotList = z.strictObject({
-    slots: z.array(ScheduleSlot),
-});
-export type ScheduleSlotList = z.infer<typeof ScheduleSlotList>;
-
-export const ScheduleSlotListInput = z.strictObject({
-    slots: z.array(ScheduleSlotInput),
-});
-export type ScheduleSlotListInput = z.infer<typeof ScheduleSlotListInput>;
-
-/**
  * The station's day as blocks, ready to draw
- * generated from [ScheduleTimetable](../../../../data/contracts/schedule/schedule.types.ck#L45)
+ * generated from [ScheduleTimetable](../../../../data/contracts/schedule/schedule.types.ck#L54)
  */
 export const ScheduleTimetable = z.strictObject({
     from: z
@@ -279,7 +303,7 @@ export type ScheduleTimetable = z.infer<typeof ScheduleTimetable>;
 
 /**
  * Which slot the clock says should be on right now, and what follows it
- * generated from [ScheduleNow](../../../../data/contracts/schedule/schedule.types.ck#L60)
+ * generated from [ScheduleNow](../../../../data/contracts/schedule/schedule.types.ck#L69)
  */
 export const ScheduleNow = z.strictObject({
     now: z
@@ -298,6 +322,20 @@ export const ScheduleNow = z.strictObject({
             "The IANA zone the station reads its clock in: `station.timezone`, or the machine's own when that is empty. Optional because a station from before it existed does not send it. For a console showing the station's time beside an operator's own when the two differ, which a zone-naive reading cannot tell it",
         ),
     slotId: z.string().max(100).optional().describe('The slot in force at this instant. Absent means the station has no schedule'),
+    hostPersonaId: z
+        .string()
+        .max(100)
+        .optional()
+        .describe(
+            "Who presents tonight's night of the slot in force: a guest sitting in, or the slot's own host. Absent when it names nobody, which is the station's own host. Only the night that is ON is answered, so a guest who comes at random stays a surprise until their night begins",
+        ),
+    regularPersonaId: z
+        .string()
+        .max(100)
+        .optional()
+        .describe(
+            "Whose show it usually is, while a guest sits in on the slot in force. Absent on an ordinary night, and while the station's own host would be the regular one",
+        ),
     airingSlotId: z
         .string()
         .max(100)
@@ -312,3 +350,16 @@ export const ScheduleNow = z.strictObject({
         ),
 });
 export type ScheduleNow = z.infer<typeof ScheduleNow>;
+
+/**
+ * generated from [ScheduleSlotList](../../../../data/contracts/schedule/schedule.types.ck#L43)
+ */
+export const ScheduleSlotList = z.strictObject({
+    slots: z.array(ScheduleSlot),
+});
+export type ScheduleSlotList = z.infer<typeof ScheduleSlotList>;
+
+export const ScheduleSlotListInput = z.strictObject({
+    slots: z.array(ScheduleSlotInput),
+});
+export type ScheduleSlotListInput = z.infer<typeof ScheduleSlotListInput>;

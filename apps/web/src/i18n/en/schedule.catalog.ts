@@ -93,6 +93,8 @@ export const schedule = {
         sustainingFor: 'The station is on its sustaining source for the next {{span}}.',
         edit: 'Edit {{name}}',
         editHint: 'Edit this block',
+        sittingIn: '{{guest}}, sitting in',
+        sittingInFor: '{{guest}}, sitting in for {{regular}}',
     },
     slot: {
         editTitle: 'Edit slot',
@@ -115,6 +117,24 @@ export const schedule = {
             'Leave it empty for a slot the station fills itself. A playlist the station keeps starts on time however long it is, because it is not read from a provider when the block begins.',
         savingNote: 'Saving changes nothing that is on air now. The station moves when this slot next begins.',
         nameRequired: 'A slot needs a name',
+        guests: {
+            label: 'Guest hosts',
+            description:
+                'Hosts who sit in for this slot’s own host on some nights and say so on air. On fixed nights, or at random: about one night in so many, never two close together, on nights nobody can predict.',
+            add: 'Add guest host',
+            remove: 'Remove this guest host',
+            host: 'Guest host',
+            whenLabel: 'When they sit in',
+            onNights: 'On these nights',
+            atRandom: 'At random',
+            everyN: 'About one night in',
+            cooldown: 'At least this many days apart',
+            cooldownPlaceholder_one: '{{count}} (half of that)',
+            cooldownPlaceholder_other: '{{count}} (half of that)',
+            pickHost: 'Choose who sits in',
+            pickNights: 'Choose the nights they sit in',
+            unfinished: 'A guest host is not finished',
+        },
         special: {
             newTitle: 'New special',
             editTitle: 'Edit special',

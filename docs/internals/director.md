@@ -72,6 +72,23 @@ show when it ends. `slotOn` answers specials first and then the weekly clock, `p
 answer to "where is this block on this date" that the resolver, `project` and the overlap check all
 share, and `slotAt` is weekly-only, since a special on the weekly clock would air every week.
 
+**A guest host sits in on some nights of a slot, and which nights is a pure function of the date**
+(migration 0077, `director/slot.visits.ts`). `schedule_slot_hosts` holds the people on a slot besides
+its host, as rows with foreign keys on `caller_hosts`' argument: a guest on fixed weekdays, or at
+random with `every_n` (about one night in that many) and `cooldown_days` (the fewest days between two).
+"Random" is a hash of the slot, the person and the date the night began, never a die rolled at the
+changeover and written down: that would be a second stored fact about what airs, and the console could
+not say who is on next Friday. The cooldown counts REAL appearances, walked forward from a fixed epoch,
+and the nightly chance is raised to `1/(every_n - cooldown)` so the average gap stays what the operator
+asked for. Checking the cooldown against raw rolls was tried first and starved the odds: at one in four
+with a fortnight's cooldown a visitor came twice in two years. The tick puts the night's host on and
+stamps the order with `slot_occurrence` (the date the night began) and, while a guest sits in,
+`regular_persona_id`; the slot id alone cannot tell one night from the next when a block runs straight
+through midnight into its next run, so the tick also changes over when the night moves on AND its host
+differs from the last night's. Both hosts are worked out from the schedule rather than read off the
+order, so an operator's own recast holds until the next night, and a recast clears the regular host,
+since a person choosing the presenter has replaced the schedule's "sitting in for".
+
 **A broadcast has an IDENTITY, and everything written while it runs carries it.**
 `station_lineup.broadcast_id` is minted when a running order is built and kept for as long as it
 airs, so `play_history`, `segment_events`, `script_history` and `station_events` can all answer "what

@@ -6,9 +6,12 @@ import { readClock } from '#modules/director/clock.bands.js';
 import { stationZone } from '#modules/director/clock.words.js';
 import { DirectorService } from '#modules/director/director.service.js';
 import type { ChartOrder } from '#modules/director/chart.picks.js';
+import { PersonaRepository } from '#modules/personas/persona.repository.js';
+import { hostFor, type NightHost } from '#modules/director/slot.visits.js';
 import {
     dateKey,
     isChartSource,
+    occurrenceOf,
     isSpecial,
     isStationPlaylistSource,
     minutesIntoSlot,
@@ -16,6 +19,7 @@ import {
     resolveSlot,
     stationDateOf,
     type ScheduleSlot,
+    type SlotPerson,
     type SpecialDates,
 } from '#modules/director/schedule.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
@@ -170,6 +174,8 @@ export class ScheduleService {
         // time, so this module sitting above DirectorModule in `modules.ts` is a lifecycle order
         // rather than a resolution one.
         private readonly director: DirectorService,
+        // For refusing a guest host who is not a host. Resolved per request like the director above.
+        private readonly personas: PersonaRepository,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -194,6 +200,25 @@ export class ScheduleService {
      */
     async inForce(at: Date = new Date()): Promise<ScheduleSlot | undefined> {
         return resolveSlot(at, stationZone(this.config), await this.slots.list());
+    }
+
+    /**
+     * Which night of `slot` is on at `at`, and who presents it. `slot` must be the one in force.
+     *
+     * The tick reads this to put the right host on and to tell one night of a slot from the next. It
+     * is a function of the slot and the clock alone, so it answers the same every minute of a night.
+     */
+    nightOf(slot: ScheduleSlot, at: number = Date.now()): { date: string; host: NightHost } {
+        const date = occurrenceOf(slot, at, stationZone(this.config));
+
+        return { date: dateKey(date), host: hostFor(slot, date) };
+    }
+
+    /** Who presents the night of `slot` that began on `date` (`YYYY-MM-DD`), or `undefined` for a date that is not one. */
+    hostOn(slot: ScheduleSlot, date: string): NightHost | undefined {
+        const day = stationDateOf(date);
+
+        return day === undefined ? undefined : hostFor(slot, day);
     }
 
     /**
@@ -301,10 +326,16 @@ export class ScheduleService {
             .filter(occurrence => occurrence.end > now)
             .slice(0, UPCOMING_BLOCKS);
 
+        // Tonight's presenter of the block on now, and only that block: the nights to come are not
+        // answered, so a guest who comes at random is a surprise in the console as well as on air.
+        const night = inForce === undefined ? undefined : this.nightOf(inForce).host;
+
         return {
             now,
             timezone: zone,
             ...(inForce === undefined ? {} : { slotId: inForce.id }),
+            ...(night?.personaId === undefined ? {} : { hostPersonaId: night.personaId }),
+            ...(night?.regularPersonaId === undefined ? {} : { regularPersonaId: night.regularPersonaId }),
             ...(airing === undefined ? {} : { airingSlotId: airing }),
             upcoming,
         };
@@ -363,6 +394,7 @@ export class ScheduleService {
     async create(body: ScheduleSlotInput): Promise<ScheduleSlotList> {
         const draft = draftOf(body);
         await this.refuseOverlap(draft);
+        await this.refuseGuests(draft);
 
         const created = await this.slots.create(draft);
         this.logger.info('schedule: an operator added a slot', { slot: created.id, label: created.label, startsAt: created.startsAtMinutes });
@@ -373,6 +405,7 @@ export class ScheduleService {
     async update(id: string, body: ScheduleSlotInput): Promise<ScheduleSlotList> {
         const draft = draftOf(body);
         await this.refuseOverlap(draft, id);
+        await this.refuseGuests(draft);
 
         const updated = await this.slots.update(id, draft);
         if (updated === undefined) throw httpError(404).withDetails({ message: `schedule slot "${id}" does not exist` });
@@ -422,6 +455,36 @@ export class ScheduleService {
         });
     }
 
+    /**
+     * Refuse a guest host who could not present the show.
+     *
+     * Only a HOST may sit in: a caller rings in to somebody else's show and a guest drops by one, and
+     * either presenting would put a character on air in a part it was never written for. The slot's
+     * own host is refused too, since sitting in for yourself is not a night anybody can hear, and so
+     * is the same person twice, whose second row could never be reached.
+     */
+    private async refuseGuests(draft: ScheduleSlotDraft): Promise<void> {
+        const guests = draft.guestHosts ?? [];
+        const seen = new Set<string>();
+
+        for (const guest of guests) {
+            if (seen.has(guest.personaId)) throw httpError(400).withDetails({ message: 'the same guest host is listed twice' });
+            seen.add(guest.personaId);
+
+            if (guest.personaId === draft.personaId) {
+                throw httpError(400).withDetails({ message: "a slot's own host cannot also sit in as its guest" });
+            }
+
+            const persona = UUID.test(guest.personaId) ? await this.personas.find(guest.personaId) : undefined;
+            if (persona === undefined) throw httpError(400).withDetails({ message: `there is no character "${guest.personaId}" to sit in` });
+            if (persona.kind !== 'host') {
+                throw httpError(400).withDetails({
+                    message: `${persona.label || 'that character'} is not a host, and only a host can present a show`,
+                });
+            }
+        }
+    }
+
     private async answer(): Promise<ScheduleSlotList> {
         return { slots: (await this.slots.list()).map(forTheWire) };
     }
@@ -463,6 +526,7 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         ...(body.mixInSimilar === undefined ? {} : { mixInSimilar: body.mixInSimilar }),
         ...(body.chartPositions === undefined ? {} : { chartPositions: body.chartPositions }),
         ...specialDatesOf(body),
+        ...guestHostsOf(body),
         mode: body.mode,
         onEnd: body.onEnd,
     };
@@ -495,6 +559,42 @@ function specialDatesOf(body: ScheduleSlotInput): { dates?: SpecialDates } {
     return { dates: { from: body.startsOn, to: body.endsOn, yearly } };
 }
 
+/**
+ * A body's guest hosts, each saying WHEN in exactly one way.
+ *
+ * Fixed nights or odds, never both and never neither: a guest host on every night is the slot's
+ * host, and one with both would have a rule nobody could predict from the form. A cooldown means
+ * nothing without odds. Refused here with a sentence rather than left to the table's checks, which
+ * reach the operator as a 500.
+ */
+function guestHostsOf(body: ScheduleSlotInput): { guestHosts?: SlotPerson[] } {
+    const guests = (body.guestHosts ?? []).map(guest => {
+        const days = guest.days === undefined || guest.days.length === 0 ? undefined : [...new Set(guest.days)].sort();
+
+        if (days !== undefined && guest.everyN !== undefined) {
+            throw httpError(400).withDetails({ message: 'a guest host sits in on fixed nights or at random, not both' });
+        }
+        if (days === undefined && guest.everyN === undefined) {
+            throw httpError(400).withDetails({ message: 'a guest host needs the nights they sit in, or how often at random' });
+        }
+        if (guest.cooldownDays !== undefined && guest.everyN === undefined) {
+            throw httpError(400).withDetails({ message: 'a gap between nights only applies to a guest host who comes at random' });
+        }
+
+        return {
+            personaId: guest.personaId.trim(),
+            ...(days === undefined ? {} : { days }),
+            ...(guest.everyN === undefined ? {} : { everyN: guest.everyN }),
+            ...(guest.cooldownDays === undefined ? {} : { cooldownDays: guest.cooldownDays }),
+        };
+    });
+
+    return guests.length === 0 ? {} : { guestHosts: guests };
+}
+
+/** A persona id is a uuid, and anything else would reach Postgres as a type error rather than a 400. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** The stored shape flattened back to the wire's, where a source is optional fields rather than one object. */
 function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
     return {
@@ -519,6 +619,16 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
         ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
         ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),
         ...(slot.dates === undefined ? {} : { startsOn: slot.dates.from, endsOn: slot.dates.to, yearly: slot.dates.yearly }),
+        ...(slot.guestHosts === undefined || slot.guestHosts.length === 0
+            ? {}
+            : {
+                  guestHosts: slot.guestHosts.map(guest => ({
+                      personaId: guest.personaId,
+                      ...(guest.days === undefined ? {} : { days: [...guest.days] }),
+                      ...(guest.everyN === undefined ? {} : { everyN: guest.everyN }),
+                      ...(guest.cooldownDays === undefined ? {} : { cooldownDays: guest.cooldownDays }),
+                  })),
+              }),
         mode: slot.mode,
         onEnd: slot.onEnd,
     };

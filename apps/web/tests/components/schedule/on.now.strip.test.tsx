@@ -61,4 +61,33 @@ describe('OnNowStrip', () => {
 
         expect(screen.queryByRole('button', { name: 'Edit Gone' })).not.toBeInTheDocument();
     });
+
+    it('names tonight’s guest host as sitting in, on the block that is on', () => {
+        const boneyard: ScheduleSlot = {
+            id: 'boneyard',
+            label: 'The Boneyard',
+            startsAtMinutes: 990,
+            endsAtMinutes: 0,
+            days: [],
+            personaId: 'ozzy',
+            mode: 'rotation',
+            onEnd: 'extend',
+        };
+        const personas = [
+            { id: 'ozzy', label: "Ozzy's Ghost" },
+            { id: 'rockzo', label: 'Dr. Rockzo' },
+        ] as unknown as Persona[];
+        const current: ScheduleNow = {
+            now: '2026-10-09 18:00:00',
+            slotId: 'boneyard',
+            airingSlotId: 'boneyard',
+            hostPersonaId: 'rockzo',
+            regularPersonaId: 'ozzy',
+            upcoming: [{ slotId: 'boneyard', label: 'The Boneyard', start: '2026-10-09 16:30:00', end: '2026-10-10 00:00:00' }],
+        };
+
+        render(<OnNowStrip current={current} slots={[boneyard]} personas={personas} />);
+
+        expect(screen.getByText(/Dr\. Rockzo, sitting in for Ozzy's Ghost/)).toBeInTheDocument();
+    });
 });

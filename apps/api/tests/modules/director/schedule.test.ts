@@ -8,7 +8,15 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { minutesIntoSlot, overlap, resolveSlot, slotOn, type ScheduleSlot, type SpecialDates } from '../../../src/modules/director/schedule.js';
+import {
+    minutesIntoSlot,
+    occurrenceOf,
+    overlap,
+    resolveSlot,
+    slotOn,
+    type ScheduleSlot,
+    type SpecialDates,
+} from '../../../src/modules/director/schedule.js';
 
 const LONDON = 'Europe/London';
 
@@ -319,5 +327,22 @@ describe('specials', () => {
             expect(overlap(turn, newYear)).toBe(true);
             expect(overlap(turn, july)).toBe(false);
         });
+    });
+});
+
+describe('occurrenceOf', () => {
+    it('is today for a block that started today, and yesterday for the tail of last night’s', () => {
+        const late = slot('late', at(22), at(2));
+
+        // 23:00 and 01:00 London on Wednesday 19 August 2026.
+        expect(occurrenceOf(late, new Date('2026-08-19T22:00:00Z'), LONDON)).toMatchObject({ year: 2026, month: 8, day: 19 });
+        expect(occurrenceOf(late, new Date('2026-08-19T00:00:00Z'), LONDON)).toMatchObject({ year: 2026, month: 8, day: 18 });
+    });
+
+    it('starts a new night at the start of a block that runs all day', () => {
+        const allDay = slot('all-day', at(6), at(6));
+
+        expect(occurrenceOf(allDay, new Date('2026-08-19T04:00:00Z'), LONDON)).toMatchObject({ day: 18 });
+        expect(occurrenceOf(allDay, new Date('2026-08-19T05:00:00Z'), LONDON)).toMatchObject({ day: 19 });
     });
 });

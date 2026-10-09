@@ -813,6 +813,19 @@ export interface DeadairProviderPlaylistListings {
   stationKey: Generated<string>;
 }
 
+export interface DeadairScheduleSlotHosts {
+  cooldownDays: number | null;
+  createdAt: Generated<DateTime>;
+  days: Json | null;
+  everyN: number | null;
+  id: Generated<string>;
+  personaId: string;
+  position: Generated<number>;
+  role: "guest" | "cohost";
+  slotId: string;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairScheduleSlots {
   brief: Generated<string>;
   callins: boolean | null;
@@ -977,8 +990,10 @@ export interface DeadairStationLineup {
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;
   placedBy: Generated<"operator" | "schedule">;
+  regularPersonaId: string | null;
   rules: Json | null;
   slotId: string | null;
+  slotOccurrence: DateTime | null;
   source: Generated<string>;
   sourceChartId: string | null;
   sourcePlaylistId: string | null;
@@ -1204,6 +1219,7 @@ export interface DB {
   "deadair.productions": DeadairProductions;
   "deadair.pronunciations": DeadairPronunciations;
   "deadair.providerPlaylistListings": DeadairProviderPlaylistListings;
+  "deadair.scheduleSlotHosts": DeadairScheduleSlotHosts;
   "deadair.scheduleSlots": DeadairScheduleSlots;
   "deadair.scriptHistory": DeadairScriptHistory;
   "deadair.scriptRatings": DeadairScriptRatings;

@@ -26,9 +26,18 @@ contract ScheduleSlot: {
     chartPositions?: boolean # Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot's chart without its positions read out
     startsOn?: string(regex=/^\d{4}-\d{2}-\d{2}$/) # The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all
     endsOn?: string(regex=/^\d{4}-\d{2}-\d{2}$/) # The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask
+    guestHosts?: array(SlotGuestHost, max=8) # Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time
     yearly?: boolean # Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year
     mode: enum(rotation, setlist, feature)
     onEnd: enum(extend, repeat, stop)
+}
+
+# A host who sits in on a slot on some nights, saying whose show it usually is
+contract SlotGuestHost: {
+    personaId: string(min=1, max=100) # Who sits in. A host; a caller or a guest who drops by can never present a show
+    days?: array(int(min=0, max=6)) # The nights they present, by the weekday the night begins on, Sunday 0. Send this or `everyN`, not both
+    everyN?: int(min=2, max=366) # Or at random: about one of this slot's nights in this many, on nights nobody can predict. 7 is about one in seven
+    cooldownDays?: int(min=0, max=366) # With `everyN`, the fewest days between two of their nights. Absent is half of `everyN`, so even one in seven never lands two nights running
 }
 
 contract ScheduleSlotList: {
@@ -61,6 +70,8 @@ contract ScheduleNow: {
     now: string(min=19, max=19) # What time it is on the station's own clock, in the same zone-naive `YYYY-MM-DD HH:mm:ss` shape as a block's ends. It is here so a caller can say how much of the block is left without knowing the station's timezone: subtracting two readings taken in one frame is arithmetic, deriving one is not
     timezone?: string(min=1, max=100) # The IANA zone the station reads its clock in: `station.timezone`, or the machine's own when that is empty. Optional because a station from before it existed does not send it. For a console showing the station's time beside an operator's own when the two differ, which a zone-naive reading cannot tell it
     slotId?: string(max=100) # The slot in force at this instant. Absent means the station has no schedule
+    hostPersonaId?: string(max=100) # Who presents tonight's night of the slot in force: a guest sitting in, or the slot's own host. Absent when it names nobody, which is the station's own host. Only the night that is ON is answered, so a guest who comes at random stays a surprise until their night begins
+    regularPersonaId?: string(max=100) # Whose show it usually is, while a guest sits in on the slot in force. Absent on an ordinary night, and while the station's own host would be the regular one
     airingSlotId?: string(max=100) # The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins
     upcoming: array(ScheduleOccurrence) # The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block
 }

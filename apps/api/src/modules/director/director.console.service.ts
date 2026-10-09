@@ -368,9 +368,13 @@ export class DirectorConsoleService {
      * passes neither, so a person reaching here is recorded as one even inside a scheduled block.
      * That is a third thing the slot stamp cannot say on its own — see `placedBy` on the binding.
      *
+     * `night` is the tick saying WHICH night of `onSlot` this is, and whether a guest host is sitting
+     * in on it. It is what lets the tick tell one night of a slot from the next, and what lets the
+     * guest say whose show it is.
+     *
      * @throws 422 when the playlist has nothing to play.
      */
-    async putOnAir(input: PutOnAirInput, onSlot?: ScheduleSlot, bySchedule = false): Promise<StationAir> {
+    async putOnAir(input: PutOnAirInput, onSlot?: ScheduleSlot, bySchedule = false, night?: ScheduledNight): Promise<StationAir> {
         const tracks = await this.sourceTracks(input);
         const mode = input.mode ?? 'rotation';
 
@@ -419,6 +423,8 @@ export class DirectorConsoleService {
             // whatever these say, because `NO_RULES` is what those modes resolve from.
             ...rulesAskedFor(input),
             ...(slot === undefined ? {} : { slotId: slot.id }),
+            ...(night === undefined ? {} : { slotOccurrence: night.date }),
+            ...(await this.regularHostFor(night, input.personaId)),
             // Who chose this, which the slot stamp above cannot answer. `onSlot` is the tick handing
             // back what it resolved, and `sustaining` is the tick filling a gap; everything else
             // reaching here is a person, including a person who happens to be inside a scheduled
@@ -456,6 +462,29 @@ export class DirectorConsoleService {
             tracks: tracks.length,
         });
         return await this.getAir();
+    }
+
+    /**
+     * Whose show it usually is, on a night a guest host sits in.
+     *
+     * The slot's own host when it names one, and otherwise the station's default host, since that is
+     * who presents a slot that names nobody. Nothing when the answer is the guest themselves, which
+     * would have somebody sitting in for themselves. Never fatal: a station whose roster cannot be
+     * read loses the line, not the broadcast.
+     */
+    private async regularHostFor(night: ScheduledNight | undefined, guestId: string | undefined): Promise<{ regularPersonaId?: string }> {
+        if (night?.guest !== true) return {};
+
+        const regular =
+            night.regularPersonaId ??
+            (
+                await this.personas.defaultHost().catch(error => {
+                    this.logger.warn(`director: could not read the station's host for a guest night (${errorText(error)})`);
+                    return undefined;
+                })
+            )?.id;
+
+        return regular === undefined || regular === guestId ? {} : { regularPersonaId: regular };
     }
 
     /**
@@ -1687,4 +1716,16 @@ function airSourceOf(status: { active: boolean; slotId?: string; placedBy?: 'ope
     if (status.placedBy !== 'schedule') return 'operator';
 
     return status.slotId === undefined ? 'sustaining' : 'schedule';
+}
+
+/**
+ * Which night of a slot the schedule is putting on, as `putOnAir` takes it from the tick.
+ *
+ * `date` is the date the night began on, `YYYY-MM-DD`. `guest` is whether a guest host is sitting
+ * in, and `regularPersonaId` the slot's own host when it names one.
+ */
+export interface ScheduledNight {
+    date: string;
+    guest: boolean;
+    regularPersonaId?: string;
 }

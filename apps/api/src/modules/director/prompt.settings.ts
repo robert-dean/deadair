@@ -7,7 +7,7 @@ import type { BreakWriteRequest } from './break.writer.js';
 
 /** The part of a break prompt's settings that is the station's rather than the break's. */
 export type StationPromptSettings = Required<Pick<PromptSettings, 'station' | 'dj' | 'cleanLanguage'>> &
-    Pick<PromptSettings, 'language' | 'stationIdentity' | 'stationContext'>;
+    Pick<PromptSettings, 'language' | 'stationIdentity' | 'stationContext' | 'sittingInFor'>;
 
 /**
  * Who the station is, in the operator's words: what it plays, who it is for, what it stands for.
@@ -45,7 +45,7 @@ const stationText = (config: AppConfig, key: string): string | undefined => {
  * Read per break, like every other setting a writer reads, so an operator's change lands on the
  * next break rather than after a restart.
  */
-export function stationPromptSettings(config: AppConfig, request: Pick<BreakWriteRequest, 'persona'>): StationPromptSettings {
+export function stationPromptSettings(config: AppConfig, request: Pick<BreakWriteRequest, 'persona' | 'sittingInFor'>): StationPromptSettings {
     const language = stationLanguage(config);
     return {
         station: config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
@@ -58,6 +58,9 @@ export function stationPromptSettings(config: AppConfig, request: Pick<BreakWrit
         // Absent for English rather than `'en'`, so an English station's prompt is byte for byte what
         // it was before a station could broadcast in anything else.
         ...(language === undefined ? {} : { language }),
+        // Whose show a guest host is sitting in on. Here rather than in each writer because it is
+        // part of who is presenting, which every kind of break the presenter writes has to know.
+        ...(request.sittingInFor === undefined ? {} : { sittingInFor: request.sittingInFor }),
     };
 }
 

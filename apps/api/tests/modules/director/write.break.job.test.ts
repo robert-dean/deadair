@@ -54,6 +54,8 @@ function harness(
         factsThrow?: boolean;
         /** The persona on air, for the one test about handing it to the writers. */
         persona?: Persona;
+        /** The regular host a guest sits in for, for the tests about saying whose show it is. */
+        regular?: Persona;
         /** What that character has accumulated, for the tests about carrying and resting it. */
         notebook?: { trait: readonly string[]; said: readonly string[] };
         /** One of that character's own stories, for the tests about the rung and the rest. */
@@ -140,7 +142,10 @@ function harness(
     };
     // Who the station is right now. `undefined` unless a test asks otherwise, because a station
     // that has chosen no persona is the state every assertion below was written against.
-    const personas = { presentingFor: vi.fn(async () => options.persona) };
+    const personas = {
+        presentingFor: vi.fn(async () => options.persona),
+        find: vi.fn(async (id: string) => (options.regular?.id === id ? options.regular : undefined)),
+    };
     // A rack with nothing on it, which is what every persona in these tests has: `pads` answers `{}`
     // for an empty set, so the request is byte-identical to one built before soundboards existed.
     const pads = {
@@ -606,6 +611,42 @@ describe('WriteBreakJob', () => {
         await job.run({ segmentId: 'seg-1' });
 
         expect(personas.presentingFor).toHaveBeenCalledWith('talkbreak', 'p-tonight');
+    });
+
+    describe('a guest host sitting in', () => {
+        const guestNight = (): StationLineup => {
+            const lineup = new StationLineup({
+                name: 'The Boneyard',
+                mode: 'rotation',
+                onEnd: 'extend',
+                source: 'import',
+                placedBy: 'schedule',
+                personaId: 'rockzo',
+                regularPersonaId: 'ozzy',
+            });
+            lineup.append([track('Iron Man', 'Black Sabbath'), track('Ace of Spades', 'Motörhead')]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+            return lineup;
+        };
+        const rockzo = { id: 'rockzo', key: 'rockzo', label: 'Dr. Rockzo', kind: 'host' } as Persona;
+        const ozzy = { id: 'ozzy', key: 'ozzysghost', label: "Ozzy's Ghost", djName: "Ozzy's Ghost", kind: 'host' } as Persona;
+
+        it('tells the writers whose show it is, by on-air name', async () => {
+            const { job, writers } = harness({ lineup: guestNight(), persona: rockzo, regular: ozzy });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ sittingInFor: { name: "Ozzy's Ghost", show: 'The Boneyard' } }));
+        });
+
+        it('says nothing of it for a bulletin the newsreader reads', async () => {
+            const reader = { id: 'reader', key: 'newsreader', label: 'Newsreader', kind: 'newsreader' } as Persona;
+            const { job, writers } = harness({ lineup: guestNight(), persona: reader, regular: ozzy });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ sittingInFor: expect.anything() }));
+        });
     });
 
     it("hands the writers this character's notebook, and rests what it took", async () => {

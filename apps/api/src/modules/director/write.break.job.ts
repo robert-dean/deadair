@@ -33,7 +33,7 @@ import { ChangeoverSource } from './changeover.source.js';
 import { WeatherSource } from './weather.source.js';
 import { AlmanacSource } from './almanac.source.js';
 import { advisoryPolicy, speaksClean } from './advisory.policy.js';
-import type { BreakTrack, BreakWriteRequest, PlayedRecord, WrittenBreak } from './break.writer.js';
+import type { BreakTrack, BreakWriteRequest, PlayedRecord, SittingIn, WrittenBreak } from './break.writer.js';
 import { CLOCK_KEYS, dayGreeting, dayPart, NAMES_THE_TIME_DEFAULT, roughTime, stationZone } from './clock.words.js';
 import { BreakWriterRegistry, declineText, isWritten, type BreakWriteResult } from './break.writer.registry.js';
 import { BreakFloorWatch } from './break.floor.watch.js';
@@ -415,6 +415,9 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // different half of it. Read per break, so an operator putting a different persona on
             // air hears it on the next one rather than after a restart.
             ...(persona === undefined ? {} : { persona }),
+            // Whose show it is, on a night a guest host sits in. Only for the presenter: a bulletin
+            // is the newsreader's, who is not sitting in for anybody.
+            ...(await this.sittingIn(lineup, persona)),
             // What this character has accumulated, read here for the persona's own reason and rested
             // here for a sharper one: the rotation belongs to whatever is actually going on air, and
             // a writer that fetched its own would spend it again on every binding that was asked.
@@ -1025,6 +1028,29 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             this.logger.warn(`director: could not read this character's own stories (${errorText(error)})`);
             return undefined;
         }
+    }
+
+    /**
+     * The regular presenter a guest host is sitting in for, by on-air name, with the show's name.
+     *
+     * Read here for the persona's reason: who is presenting is a property of the moment, and every
+     * binding asked for this break must agree. Nothing on an ordinary night, nothing for a break the
+     * guest is not presenting (a bulletin read by the newsreader), and nothing when the regular host
+     * cannot be read, which costs the line and never the break.
+     */
+    private async sittingIn(lineup: StationLineup, persona: Persona | undefined): Promise<{ sittingInFor?: SittingIn }> {
+        const regularId = lineup.regularPersonaId;
+        if (regularId === undefined || persona === undefined || persona.id === regularId || persona.kind === 'newsreader') return {};
+
+        const regular = await this.personas.find(regularId).catch(() => undefined);
+        const name = (regular?.djName ?? regular?.label)?.trim();
+        if (!name) return {};
+
+        // The show's own name only when the clock put it on: an operator's broadcast is named after
+        // its source, which is a label for the desk rather than a show to name on air.
+        const show = lineup.placedBy === 'schedule' && lineup.name.trim() ? lineup.name.trim() : undefined;
+
+        return { sittingInFor: { name, ...(show === undefined ? {} : { show }) } };
     }
 
     /**

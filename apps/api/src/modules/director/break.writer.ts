@@ -315,6 +315,12 @@ export interface BreakWriteRequest {
      */
     persona?: Persona;
     /**
+     * Whose show this is while {@link persona} is a guest host sitting in for them, and the show's
+     * name. Absent on every ordinary night, and for a bulletin, which is the newsreader's whoever
+     * presents the show around it.
+     */
+    sittingInFor?: SittingIn;
+    /**
      * What this character has accumulated beyond its sheet, already capped and rotated.
      *
      * Read by the caller and handed over whole for {@link BreakWriteRequest.persona}'s reason: a
@@ -827,4 +833,10 @@ export abstract class BreakWriter {
      * not interleave.
      */
     detailOfLastWrite?(): WriteDetail | undefined;
+}
+
+/** A guest host's regular presenter, by on-air name, and the show they usually present. JSON-safe. */
+export interface SittingIn {
+    name: string;
+    show?: string;
 }

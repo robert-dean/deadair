@@ -2799,6 +2799,17 @@ describe('the station in its own words', () => {
         expect(rules.indexOf('called Night Owl')).toBeLessThan(rules.indexOf('About the station'));
     });
 
+    it('tells a guest host whose show it is, under the role sentence', () => {
+        const rules = system(prompt(talk, { station: 'deadair', sittingInFor: { name: "Ozzy's Ghost", show: 'The Boneyard' } }));
+
+        expect(rules).toContain("Tonight you are sitting in for Ozzy's Ghost on The Boneyard");
+        expect(rules).toContain('never call the show yours');
+    });
+
+    it('says nothing about sitting in on an ordinary night', () => {
+        expect(system(prompt(talk, { station: 'deadair' }))).not.toContain('sitting in');
+    });
+
     it('offers what is going on as something to know, not something to say every break', () => {
         const rules = system(prompt(talk, { stationContext: 'It is our tenth birthday this week.' }));
 

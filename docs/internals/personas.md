@@ -74,6 +74,17 @@ newsreader's bulletins alone (`SegmentRepository.reopening`), since a change of 
 reads them. This is [personas](https://github.com/robert-dean/deadair/discussions/25) §1, with one change
 from its sketch: one newsreader per station rather than a default per kind.
 
+## A guest host
+
+**A host can sit in on somebody else's show, and says so.** When a schedule slot's guest host is on
+(`docs/internals/director.md` explains which nights), the running order carries `regular_persona_id`
+and `WriteBreakJob.sittingIn` hands every writer `sittingInFor`: the regular presenter's on-air name and
+the show's. `stationPromptSettings` carries it to all eight model writers at once, and `break.prompt.ts`
+renders one line under the role sentence: sitting in for them, their show, never call it yours. It is the
+presenter's alone, so a bulletin read by the newsreader is not given it, and a recast clears it with the
+host it described. The floor's phrasings say nothing of it: a phrasing has no placeholder for the regular
+host, and a guest whose model declined reads exactly as any host's floor does.
+
 ## A pasted character
 
 **A pasted character is not a character**, which is the newest half and the one measured on air: of seventeen

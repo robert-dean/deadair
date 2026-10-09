@@ -47,7 +47,9 @@ A special is a block on dates rather than every week: Halloween night, the week 
 
 ## Modes
 
-A **rotation** is the station programming for itself: by default a record does not repeat within three days, an artist rests for 40 minutes after airing, and a batch holds at most two records by one artist. A **setlist** (a sequence somebody made) and a **feature** (one artist, or an album in full) start with those rules off, since a Christmas setlist exists to repeat, and with no breaks, phone-ins or blending, since somebody chose those gaps. Only a rotation keeps going when it runs out; the others stop.
+A **rotation** is the station programming for itself: by default a record does not repeat within three days, an artist rests for 40 minutes after airing, and a batch holds at most two records by one artist. A **setlist** (a sequence somebody made) and a **feature** (one artist, or an album in full) start with those rules off, since a Christmas setlist exists to repeat, and with no breaks, phone-ins or blending, since somebody chose those gaps. A setlist can have a host anyway: tick **Host talks between records** and the host talks and the jingles play as often as the station's settings say, while the records still play exactly in order with nothing cut or added. That is what a chart countdown is. Only a rotation keeps going when it runs out; the others stop.
+
+A chart played inside a scheduled block is cut to fit the time the block has left, keeping the top of the chart, so a countdown ends on number one. Number one may start just before the block ends and finish a few minutes into the next show, up to **Let a record run into the next show for (minutes)**.
 
 ## How a pick is made
 

@@ -288,6 +288,11 @@ public sealed record PutOnAirInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PutOnAirInputMood? Mood { get; init; }
 
+    /// <summary>Whether the host talks between the records. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says</summary>
+    [JsonPropertyName("breaks")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Breaks { get; init; }
+
     /// <summary>Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent is no calls: there is no station-wide default behind it</summary>
     [JsonPropertyName("callins")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

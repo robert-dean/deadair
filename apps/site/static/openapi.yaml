@@ -7944,6 +7944,9 @@ components:
                     type: string
                     enum: [love, happiness, comfort, sadness, loneliness, anger, fear]
                     description: 'The mood this broadcast leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean'
+                breaks:
+                    type: boolean
+                    description: "Whether the host talks between the records. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says"
                 callins:
                     type: boolean
                     description: 'Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent is no calls: there is no station-wide default behind it'
@@ -12868,6 +12871,9 @@ components:
                     type: string
                     enum: [love, happiness, comfort, sadness, loneliness, anger, fear]
                     description: 'The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean'
+                breaks:
+                    type: boolean
+                    description: "Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says"
                 callins:
                     type: boolean
                     description: 'Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says'

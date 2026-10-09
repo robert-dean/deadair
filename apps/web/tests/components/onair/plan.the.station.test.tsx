@@ -111,6 +111,20 @@ describe('PlanTheStation', () => {
         expect(putTheStationOnAir).toHaveBeenCalledWith(expect.not.objectContaining({ callins: expect.anything() }));
     });
 
+    it('offers a host under a setlist, and asks for one when it is ticked', async () => {
+        const user = await open(running());
+
+        await user.click(await screen.findByRole('radio', { name: 'Start a new show' }));
+        expect(screen.queryByRole('checkbox', { name: /Host talks between records/ })).toBeNull();
+
+        await user.click(screen.getByRole('combobox', { name: 'Mode' }));
+        await user.click(await screen.findByRole('option', { name: 'Setlist' }));
+        await user.click(screen.getByRole('checkbox', { name: /Host talks between records/ }));
+        await user.click(screen.getByRole('button', { name: 'Go on air' }));
+
+        expect(putTheStationOnAir).toHaveBeenCalledWith(expect.objectContaining({ mode: 'setlist', breaks: true }));
+    });
+
     it('asks for calls when somebody did', async () => {
         const user = await open(running());
 

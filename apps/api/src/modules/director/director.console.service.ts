@@ -1663,6 +1663,7 @@ function sourceOf(input: PutOnAirInput): string {
  */
 function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRules } {
     const rules: StationLineupRules = {
+        ...(input.breaks === undefined ? {} : { breaks: input.breaks }),
         ...(input.callins === undefined ? {} : { callins: input.callins }),
         ...(input.mixInSimilar === undefined ? {} : { mixInSimilar: input.mixInSimilar }),
         ...(input.chartPositions === undefined ? {} : { chartPositions: input.chartPositions }),

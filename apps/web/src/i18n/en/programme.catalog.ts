@@ -79,6 +79,11 @@ export const programme = {
         description:
             'A phone-in is written and spoken a turn at a time, so it lands minutes after it is asked for. A setlist or a feature takes none whatever this says.',
     },
+    talk: {
+        label: 'Host talks between records',
+        description:
+            'For a countdown or any setlist with a presenter. The host talks and the station plays its jingles as often as it usually does, while the records play exactly in this order with nothing cut or added.',
+    },
     chartPositions: {
         label: "Say each record's chart position",
         description: 'The host says where the chart placed a record, and its highest position where the chart gives one, when talking about it.',

@@ -20,6 +20,7 @@ import {
     type Mood,
     ShapeFields,
     ShapeNote,
+    TalkField,
     SourceField,
     sourceValue,
     splitSource,
@@ -134,6 +135,10 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             ...(special && values.dates[0] && values.dates[1]
                 ? { startsOn: values.dates[0], endsOn: values.dates[1], ...(values.yearly ? { yearly: true } : {}) }
                 : {}),
+            // Sent as `true` only for a setlist, the one mode it changes. A rotation slot that was
+            // told to stay silent through the API keeps saying so, since no box here can say it.
+            ...(values.mode === 'setlist' && values.breaks ? { breaks: true } : {}),
+            ...(values.mode === 'rotation' && slot?.breaks === false ? { breaks: false } : {}),
             mode: values.mode,
             onEnd: values.onEnd,
         });
@@ -285,6 +290,8 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
 
                     <ShapeNote what="block" />
 
+                    {form.values.mode === 'setlist' ? <TalkField {...form.getInputProps('breaks', { type: 'checkbox' })} /> : undefined}
+
                     <CallinsField {...form.getInputProps('callins', { type: 'checkbox' })} />
 
                     {mixesInto(splitSource(form.values.source)) ? (
@@ -399,6 +406,8 @@ interface FormValues {
     dates: [string | null, string | null];
     /** Ticked sends `yearly: true`; unticked sends nothing, which is a one-off. */
     yearly: boolean;
+    /** Ticked sends `breaks: true`, a setlist with a host. Drawn only for a setlist. */
+    breaks: boolean;
     /** Who sits in for the host, and when. See `GuestHostsField`. */
     guestHosts: GuestRow[];
     /** Who presents beside the host, and when. The same rows, with "every night" offered too. */
@@ -439,6 +448,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         mixInSimilar: slot?.mixInSimilar ?? false,
         dates: [slot?.startsOn ?? null, slot?.endsOn ?? null],
         yearly: slot?.yearly ?? false,
+        breaks: slot?.breaks === true,
         guestHosts: (slot?.guestHosts ?? []).map(guestRowOf),
         coHosts: (slot?.coHosts ?? []).map(guestRowOf),
         mode: slot?.mode ?? 'rotation',

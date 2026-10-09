@@ -12869,6 +12869,12 @@ components:
                     type: string
                     pattern: '^\d{4}-\d{2}-\d{2}$'
                     description: 'The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask'
+                guestHosts:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/SlotGuestHost'
+                    maxItems: 8
+                    description: "Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time"
                 yearly:
                     type: boolean
                     description: 'Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year'
@@ -12880,6 +12886,33 @@ components:
                     enum: [extend, repeat, stop]
             required: [id, label, startsAtMinutes, endsAtMinutes, mode, onEnd]
             description: "One stretch of the station's day: from this time, on these days, the station plays this"
+        SlotGuestHost:
+            type: object
+            properties:
+                personaId:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: 'Who sits in. A host; a caller or a guest who drops by can never present a show'
+                days:
+                    type: array
+                    items:
+                        type: integer
+                        minimum: 0
+                        maximum: 6
+                    description: 'The nights they present, by the weekday the night begins on, Sunday 0. Send this or `everyN`, not both'
+                everyN:
+                    type: integer
+                    minimum: 2
+                    maximum: 366
+                    description: "Or at random: about one of this slot's nights in this many, on nights nobody can predict. 7 is about one in seven"
+                cooldownDays:
+                    type: integer
+                    minimum: 0
+                    maximum: 366
+                    description: 'With `everyN`, the fewest days between two of their nights. Absent is half of `everyN`, so even one in seven never lands two nights running'
+            required: [personaId]
+            description: 'A host who sits in on a slot on some nights, saying whose show it usually is'
         ScheduleSlotList:
             type: object
             properties:

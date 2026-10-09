@@ -83,6 +83,20 @@ export interface SpecialDates {
     yearly: boolean;
 }
 
+/**
+ * When somebody besides a slot's host is on it: on fixed weekdays, at random, or (for a co-host)
+ * always. See `0075_slot_hosts.sql` for the three shapes and `slot.visits.ts` for the random one.
+ */
+export interface SlotPerson {
+    personaId: string;
+    /** The weekdays it applies on, Sunday `0`. Absent with no {@link everyN} is every night. */
+    days?: readonly number[];
+    /** About one occurrence in this many, at random. Exclusive with {@link days}. */
+    everyN?: number;
+    /** The fewest calendar days between two random appearances. Absent is half of {@link everyN}. */
+    cooldownDays?: number;
+}
+
 /** One stretch of one day, in minutes. `to` is exclusive and never past midnight. */
 export interface DayPiece {
     from: number;
@@ -190,6 +204,11 @@ export interface ScheduleSlot {
      * On its dates a special wins over the weekly schedule for its hours; see the module note.
      */
     dates?: SpecialDates;
+    /**
+     * Hosts who sit in for {@link personaId} on some nights, in precedence order: on fixed weekdays,
+     * or at random. Absent or empty is the ordinary slot, presented by its own host every time.
+     */
+    guestHosts?: readonly SlotPerson[];
     mode: StationLineupMode;
     onEnd: StationLineupOnEnd;
 }
@@ -304,6 +323,24 @@ export function resolveSlot(at: Date | number, zone: string, slots: readonly Sch
     const clock = readClock(typeof at === 'number' ? at : at.getTime(), zone);
 
     return slotOn(clock, clock.hour * 60 + clock.minute, slots);
+}
+
+/**
+ * The date the occurrence of `slot` in force at `at` began on: today, or yesterday for the tail of
+ * a block that ran past midnight. `slot` must be the one in force, as for {@link minutesIntoSlot}.
+ *
+ * It is what tells one night of a slot from the next, which the slot id alone cannot: a block that
+ * runs straight through midnight into its next run is the same id on both nights, and a guest host
+ * on the second has to take over at its start.
+ */
+export function occurrenceOf(slot: ScheduleSlot, at: Date | number, zone: string): StationDate {
+    const clock = readClock(typeof at === 'number' ? at : at.getTime(), zone);
+    const today: StationDate = { year: clock.year, month: clock.month, day: clock.day, weekday: clock.weekday };
+    const minute = clock.hour * 60 + clock.minute;
+
+    const startedToday = startsOn(slot, today) && minute >= slot.startsAtMinutes && (wraps(slot) || minute < slot.endsAtMinutes);
+
+    return startedToday ? today : addDays(today, -1);
 }
 
 /**

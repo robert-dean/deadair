@@ -12,6 +12,7 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { ScheduleService } from '../../../src/modules/schedule/schedule.service.js';
 import type { ScheduleRepository } from '../../../src/modules/schedule/schedule.repository.js';
 import type { DirectorService } from '../../../src/modules/director/director.service.js';
+import type { PersonaRepository } from '../../../src/modules/personas/persona.repository.js';
 import type { ScheduleSlot } from '../../../src/modules/director/schedule.js';
 import type { ScheduleSlotInput } from '../../../src/modules/schedule/types/schedule.types.js';
 
@@ -27,7 +28,14 @@ const slot = (id: string, startsAtMinutes: number, endsAtMinutes: number, days: 
     onEnd: 'extend',
 });
 
-function build(options: { slots?: ScheduleSlot[]; airing?: string; settings?: Record<string, string> } = {}) {
+function build(
+    options: {
+        slots?: ScheduleSlot[];
+        airing?: string;
+        settings?: Record<string, string>;
+        personas?: Record<string, { kind: string; label: string }>;
+    } = {},
+) {
     const slots = {
         list: vi.fn(async () => options.slots ?? []),
         // Written back into the list, so what `update` answers is the saved slot read back.
@@ -57,7 +65,11 @@ function build(options: { slots?: ScheduleSlot[]; airing?: string; settings?: Re
         has: vi.fn(() => true),
     } as unknown as AppConfig;
 
-    return new ScheduleService(slots, director, config, logger);
+    const personas = {
+        find: vi.fn(async (id: string) => (options.personas?.[id] === undefined ? undefined : { id, ...options.personas[id] })),
+    } as unknown as PersonaRepository;
+
+    return new ScheduleService(slots, director, personas, config, logger);
 }
 
 describe('ScheduleService.current', () => {
@@ -241,6 +253,55 @@ describe('ScheduleService.update', () => {
         expect(saved).toMatchObject({ sourceStationPlaylistId: id });
         expect(saved).not.toHaveProperty('sourcePluginId');
         expect(saved).not.toHaveProperty('sourcePlaylistId');
+    });
+
+    describe('guest hosts', () => {
+        const ROCKZO = '0a0b0c0d-0000-4000-8000-0000000000aa';
+        const CALLER = '0a0b0c0d-0000-4000-8000-0000000000bb';
+        const personas = { [ROCKZO]: { kind: 'host', label: 'Dr. Rockzo' }, [CALLER]: { kind: 'caller', label: 'The Pedant' } };
+
+        it('stores a random guest and hands them back the same way', async () => {
+            const service = build({ slots: [slot('b', 990, 0)], personas });
+
+            const { slots } = await service.update('b', body({ guestHosts: [{ personaId: ROCKZO, everyN: 7 }] }));
+
+            expect(slots[0]?.guestHosts).toEqual([{ personaId: ROCKZO, everyN: 7 }]);
+        });
+
+        it('refuses a character who is not a host', async () => {
+            const service = build({ slots: [slot('b', 990, 0)], personas });
+
+            await expect(service.update('b', body({ guestHosts: [{ personaId: CALLER, days: [5] }] }))).rejects.toMatchObject({ statusCode: 400 });
+        });
+
+        it('refuses a guest with both fixed nights and odds, or with neither', async () => {
+            const service = build({ slots: [slot('b', 990, 0)], personas });
+
+            await expect(service.update('b', body({ guestHosts: [{ personaId: ROCKZO, days: [5], everyN: 7 }] }))).rejects.toMatchObject({
+                statusCode: 400,
+            });
+            await expect(service.update('b', body({ guestHosts: [{ personaId: ROCKZO }] }))).rejects.toMatchObject({ statusCode: 400 });
+        });
+
+        it("refuses the slot's own host as its guest", async () => {
+            const service = build({ slots: [slot('b', 990, 0)], personas });
+
+            await expect(service.update('b', body({ personaId: ROCKZO, guestHosts: [{ personaId: ROCKZO, days: [5] }] }))).rejects.toMatchObject({
+                statusCode: 400,
+            });
+        });
+
+        it('says which night is on and who presents it', () => {
+            const service = build();
+            const boneyard: ScheduleSlot = { ...slot('b', 990, 0), personaId: 'ozzy', guestHosts: [{ personaId: 'rockzo', days: [5] }] };
+
+            // 18:00 London on Friday 9 October 2026.
+            expect(service.nightOf(boneyard, Date.parse('2026-10-09T17:00:00Z'))).toEqual({
+                date: '2026-10-09',
+                host: { personaId: 'rockzo', regularPersonaId: 'ozzy', guest: true },
+            });
+            expect(service.hostOn(boneyard, '2026-10-10')).toEqual({ personaId: 'ozzy', guest: false });
+        });
     });
 
     describe('a special', () => {

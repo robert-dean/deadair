@@ -247,7 +247,11 @@ function build(options: Options = {}) {
     const activity = { record: vi.fn(async (_event: Record<string, unknown>) => undefined) };
     // Read-only here: the console names a host and the personas page owns it. `find` answers for
     // the one test that draws a host's name onto the running order.
-    const personas = { find: vi.fn(async (id: string) => options.persona?.(id)) };
+    const personas = {
+        find: vi.fn(async (id: string) => options.persona?.(id)),
+        // The station's own host, for a guest night on a slot that names nobody.
+        defaultHost: vi.fn(async () => ({ id: 'station-host' })),
+    };
     // Read-only here too, and the default is the ordinary state: a station with no schedule, so a
     // broadcast an operator starts by hand is stamped with no slot. The one test that cares hands
     // over its own.
@@ -477,6 +481,34 @@ describe('DirectorConsoleService building a running order from a playlist', () =
         await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1', personaId: ' p-1 ' });
 
         expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { personaId: 'p-1' } });
+    });
+
+    describe('a night the schedule put on', () => {
+        const slot = { id: 'boneyard', label: 'The Boneyard' } as never;
+
+        it('is stamped with the date it began on, and whose show it is while a guest sits in', async () => {
+            const { service, posted } = build();
+
+            await service.putOnAir({ personaId: 'rockzo' }, slot, false, { date: '2026-10-09', guest: true, regularPersonaId: 'ozzy' });
+
+            expect(posted()[0]).toMatchObject({ binding: { slotOccurrence: '2026-10-09', regularPersonaId: 'ozzy', personaId: 'rockzo' } });
+        });
+
+        it("names the station's own host as the regular one on a slot that names nobody", async () => {
+            const { service, posted } = build();
+
+            await service.putOnAir({ personaId: 'rockzo' }, slot, false, { date: '2026-10-09', guest: true });
+
+            expect(posted()[0]).toMatchObject({ binding: { regularPersonaId: 'station-host' } });
+        });
+
+        it('names no regular host on an ordinary night', async () => {
+            const { service, posted } = build();
+
+            await service.putOnAir({ personaId: 'ozzy' }, slot, false, { date: '2026-10-09', guest: false });
+
+            expect((posted()[0] as unknown as { binding: Record<string, unknown> }).binding).not.toHaveProperty('regularPersonaId');
+        });
     });
 
     it('goes on air with a host id that names nothing rather than refusing', async () => {

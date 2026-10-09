@@ -25,9 +25,18 @@ contract ScheduleSlot: {
     mixInSimilar?: boolean # Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says
     startsOn?: string(regex=/^\d{4}-\d{2}-\d{2}$/) # The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all
     endsOn?: string(regex=/^\d{4}-\d{2}-\d{2}$/) # The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask
+    guestHosts?: array(SlotGuestHost, max=8) # Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time
     yearly?: boolean # Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year
     mode: enum(rotation, setlist, feature)
     onEnd: enum(extend, repeat, stop)
+}
+
+# A host who sits in on a slot on some nights, saying whose show it usually is
+contract SlotGuestHost: {
+    personaId: string(min=1, max=100) # Who sits in. A host; a caller or a guest who drops by can never present a show
+    days?: array(int(min=0, max=6)) # The nights they present, by the weekday the night begins on, Sunday 0. Send this or `everyN`, not both
+    everyN?: int(min=2, max=366) # Or at random: about one of this slot's nights in this many, on nights nobody can predict. 7 is about one in seven
+    cooldownDays?: int(min=0, max=366) # With `everyN`, the fewest days between two of their nights. Absent is half of `everyN`, so even one in seven never lands two nights running
 }
 
 contract ScheduleSlotList: {

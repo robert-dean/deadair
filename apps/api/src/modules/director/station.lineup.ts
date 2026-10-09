@@ -382,6 +382,20 @@ export interface StationLineupBinding {
      */
     placedBy?: 'operator' | 'schedule';
     /**
+     * The date the slot's occurrence this was placed for BEGAN on, as `YYYY-MM-DD`.
+     *
+     * {@link slotId} cannot tell one night of a slot from the next when a block runs straight through
+     * midnight into its next run, and a guest host on the second night has to take over at its start.
+     * The tick compares this as well as the id. Absent on anything placed before it existed, and on a
+     * broadcast that belongs to no slot.
+     */
+    slotOccurrence?: string;
+    /**
+     * Who USUALLY presents this slot, set only while a guest host is sitting in for them, so the guest
+     * can say whose show it is. Absent is the ordinary state.
+     */
+    regularPersonaId?: string;
+    /**
      * Until when the schedule must leave this broadcast alone, as epoch milliseconds.
      *
      * `Infinity` is "until I release it". Absent is the ordinary state: no hold, and the next block
@@ -553,6 +567,16 @@ export class StationLineup implements LiveOrder {
     /** Whether the clock put this on or a person did. Absent reads as a person, per the binding. */
     get placedBy(): 'operator' | 'schedule' {
         return this.binding.placedBy ?? 'operator';
+    }
+
+    /** The date the slot's occurrence this belongs to began on, or `undefined`. See the binding. */
+    get slotOccurrence(): string | undefined {
+        return this.binding.slotOccurrence;
+    }
+
+    /** Whose show this usually is while a guest host sits in, or `undefined` on an ordinary night. */
+    get regularPersonaId(): string | undefined {
+        return this.binding.regularPersonaId;
     }
 
     /** Until when the schedule must leave this alone, or `undefined` for no hold. `Infinity` never expires. */
@@ -1041,7 +1065,9 @@ export class StationLineup implements LiveOrder {
      * half, because it is a question about the running order's cut and about rows in another table.
      */
     recast(personaId?: string): void {
-        const { personaId: _current, ...rest } = this.binding;
+        // The regular host goes with the old presenter: a guest's "sitting in for" is the schedule's
+        // statement about a night, and an operator choosing the host has replaced it.
+        const { personaId: _current, regularPersonaId: _regular, ...rest } = this.binding;
 
         this.binding = personaId ? { ...rest, personaId } : rest;
     }

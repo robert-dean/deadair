@@ -54,6 +54,8 @@ export class StationLineupRepository extends DataRepository {
                 'personaId',
                 'slotId',
                 'placedBy',
+                'slotOccurrence',
+                'regularPersonaId',
                 'holdUntil',
                 'mode',
                 'onEnd',
@@ -95,6 +97,9 @@ export class StationLineupRepository extends DataRepository {
                 // the safer of the two to be wrong about — it says a takeover is in force rather
                 // than telling somebody the clock is driving when it is not.
                 placedBy: row.placedBy === 'schedule' ? 'schedule' : 'operator',
+                // A `date` arrives as midnight UTC, so `toISODate` is the calendar date that was stored.
+                ...(row.slotOccurrence == null ? {} : { slotOccurrence: row.slotOccurrence.toISODate() ?? '' }),
+                ...(row.regularPersonaId == null ? {} : { regularPersonaId: row.regularPersonaId }),
                 // Epoch millis on the way out, because the binding is stored and sent and the
                 // JSON-safe rule allows no `Date` across either boundary.
                 ...(holdMillis(row.holdUntil) === undefined ? {} : { holdUntil: holdMillis(row.holdUntil)! }),
@@ -133,6 +138,9 @@ export class StationLineupRepository extends DataRepository {
             personaId: snapshot.personaId ?? null,
             slotId: snapshot.slotId ?? null,
             placedBy: snapshot.placedBy ?? 'operator',
+            // Cast in SQL, because a date is a reading of the station's calendar rather than an instant.
+            slotOccurrence: snapshot.slotOccurrence === undefined ? null : sql<never>`${snapshot.slotOccurrence}::date`,
+            regularPersonaId: snapshot.regularPersonaId ?? null,
             // Through SQL rather than as a value, exactly as `break.request.repository.ts` does it:
             // Postgres is handed a number and converts it itself, so the `DateTime`-versus-`Date`
             // mismatch in the generated types never has to be resolved here. `Infinity` is the one

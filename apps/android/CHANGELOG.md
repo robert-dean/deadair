@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.15.3] — 2026-10-09
+
+- The station picks up again much sooner when your phone moves between wifi and mobile data. On the Automatic format (HLS) the app used to carry on over the network it had just left, so walking out of the house meant around eighteen seconds of silence before it noticed, gave up and reconnected. It now reconnects over the new network as soon as the phone switches, with a second or two of buffering.
+
 ## [0.15.2] — 2026-10-09
 
 - A password manager that holds your account's authenticator secret (1Password, Bitwarden, Google Password Manager) can now fill the code when signing in as an operator. The code box used to ask only for a code from a text message, so a password manager had nothing to offer there and the code had to be typed or pasted by hand.
@@ -202,7 +206,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.15.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.15.3...HEAD
+[0.15.3]: https://github.com/robert-dean/deadair/compare/android-v0.15.2...android-v0.15.3
 [0.15.2]: https://github.com/robert-dean/deadair/compare/android-v0.15.1...android-v0.15.2
 [0.15.1]: https://github.com/robert-dean/deadair/compare/android-v0.15.0...android-v0.15.1
 [0.15.0]: https://github.com/robert-dean/deadair/compare/android-v0.14.0...android-v0.15.0

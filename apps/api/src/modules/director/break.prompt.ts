@@ -74,6 +74,7 @@ import type { AlmanacEntry } from '@deadair/plugin-sdk';
 import { languageName, languageRule } from '#modules/shared/language.name.js';
 import { inventedFigure, unofferedWeather } from './weather.figures.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest, SittingIn } from './break.writer.js';
+import type { ChartPlacing } from '#modules/playout/rundown.js';
 import { contradictsDayPart, namesWrongSky, namesWrongTimeOfDay, type RoughTime } from './clock.words.js';
 import { retryNudge } from './break.retry.js';
 import { spoken } from './talk.break.writer.js';
@@ -1171,7 +1172,7 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
             // rest of the sentence is about.
             `The station knows nothing about ${unknown.map(track => `"${spoken(track.title)}"`).join(' or ')} beyond what is listed above. ` +
                 'Say nothing else about it as fact — no dates beyond any year listed above, no labels, no pressings or catalogue numbers, ' +
-                'no studios, no sessions, no chart placings, no connection to any other record. What you think of it is yours to say. ' +
+                'no studios, no sessions, no chart placings beyond any listed above, no connection to any other record. What you think of it is yours to say. ' +
                 'What happened to it is not, unless you were told.',
         );
     }
@@ -1481,12 +1482,31 @@ function describe(track: BreakTrack, withFacts: boolean): string {
         if (track.year) lines.push(`- Year: ${track.year}`);
         if (track.album?.trim()) lines.push(`- Album: ${spoken(track.album.trim())}`);
         if (track.durationMs) lines.push(`- Length: ${spokenLength(track.durationMs)}`);
+        if (track.chart) lines.push(`- Chart: ${spokenPlacing(track.chart)}`);
     }
     // What it is about, in the station's own words rather than the record's: the writer is shown this
     // and never the lyric. Behind `withFacts` with the rest of the material, for the same reason.
     if (withFacts && track.about?.trim()) lines.push(`- What it is about: ${track.about.trim()}`);
     if (withFacts && track.facts && track.facts.length > 0) lines.push('- Notes:', ...track.facts.map(fact => `  - ${fact}`));
     return lines.join('\n');
+}
+
+/**
+ * Where a chart placed a record, as one line a presenter can say from.
+ *
+ * Said as the REASON the record is on, because it is: on a countdown the position is the content,
+ * and a model shown a bare "Rank: 7" files it with the year as trivia it may skip. The peak and the
+ * run are added only where the source gave them, on `describe`'s rule that a blank field is an
+ * invitation to fill it in. No "this week": the edition's date is not something the station holds.
+ */
+function spokenPlacing(chart: ChartPlacing): string {
+    const on = chart.name?.trim() ? `on ${chart.name.trim()}` : 'on the chart the station is playing from';
+    const parts = [`it is here because it is number ${chart.rank} ${on}`];
+    if (chart.peak !== undefined && chart.peak !== chart.rank) parts.push(`its highest position so far is number ${chart.peak}`);
+    if (chart.peak !== undefined && chart.peak === chart.rank) parts.push('that is the highest it has been');
+    if (chart.weeksOn !== undefined)
+        parts.push(chart.weeksOn === 1 ? 'it is new on the chart' : `it has been on the chart for ${chart.weeksOn} weeks`);
+    return `${parts.join('; ')}.`;
 }
 
 /**

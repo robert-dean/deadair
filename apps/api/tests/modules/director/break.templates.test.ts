@@ -302,3 +302,24 @@ describe('the floor on a station that does not broadcast in English', () => {
         expect(usable(templates, inputs, spoken)).toHaveLength(3);
     });
 });
+
+describe('a chart position', () => {
+    const charted = { ...next, chart: { rank: 7, name: 'Top 100' } };
+
+    it('counts down when the record coming up came off a chart', () => {
+        const rendered = render('[[At number {{next.chart.rank}} on {{next.chart.name}}, ]]{{next.title}} by {{next.artist}}.', {
+            previous,
+            next: charted,
+        });
+
+        expect(rendered.script).toBe('At number 7 on Top 100, Hangar 18 by Megadeth.');
+    });
+
+    it('drops the position for a record no chart named, rather than the phrasing', () => {
+        expect(render('[[At number {{next.chart.rank}}, ]]{{next.title}} by {{next.artist}}.').script).toBe('Hangar 18 by Megadeth.');
+    });
+
+    it('does not use a phrasing that cannot do without one', () => {
+        expect(renderTemplate('Number {{next.chart.rank}}: {{next.title}}.', { previous, next }, spoken)).toBeUndefined();
+    });
+});

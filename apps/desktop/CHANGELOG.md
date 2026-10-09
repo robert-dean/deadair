@@ -8,6 +8,14 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.7.1] — 2026-10-09
+
+- The schedule can hold special shows on dates: Halloween night, the week before Christmas, a one-off evening. A slot with a first and last date (`startsOn`, `endsOn`) is a special, and `yearly` repeats it on the same month and day every year, including a range that runs past New Year. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Two specials still may not overlap each other.
+
+  In the console, Programme has a Specials tab listing every special (on today first, then the soonest, then the ones that are over) with New special to add one; the slot editor takes a date range and a "Repeats every year" switch for a special. The timetable draws a special on its dates, named as one, with the weekly blocks trimmed around it, and refuses to drag one to another day. Dragging a block on the timetable no longer clears its mood, and paging the timetable to another week works again (it answered Bad Request).
+
+  The desktop app's timetable says a special's dates instead of its days, and editing any slot there no longer clears its mood or a special's dates.
+
 ## [0.7.0] — 2026-10-05
 
 - When the station has a picture of whoever is presenting, the app shows it beside their name on the desk, in the Now playing panel and in Studio. During a break, which has no cover of its own, the presenter's picture takes the cover's place, and the page's colours follow it. A presenter with no picture, or a station that does not send one, looks exactly as before.
@@ -85,7 +93,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.1...HEAD
+[0.7.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.0...desktop-v0.7.1
 [0.7.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.6.0...desktop-v0.7.0
 [0.6.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.5.0...desktop-v0.6.0
 [0.5.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.4.1...desktop-v0.5.0

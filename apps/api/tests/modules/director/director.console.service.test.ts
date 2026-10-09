@@ -282,6 +282,7 @@ function build(options: Options = {}) {
     const charts = {
         fetchChart: vi.fn(async () => options.chart ?? []),
         listCharts: vi.fn(async () => options.chartMenu ?? []),
+        nameOf: vi.fn(async (id: string) => (options.chartMenu ?? []).find(chart => chart.id === id)?.name),
     } as unknown as ChartsService;
 
     // The two halves `addTrackToOrder` resolves before it will hand a record to the order: which
@@ -560,6 +561,14 @@ describe('DirectorConsoleService building a running order from a playlist', () =
         await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1', mixInSimilar: true, callins: false });
 
         expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { rules: { mixInSimilar: true, callins: false } } });
+    });
+
+    it("binds keeping a chart's positions quiet as a rule of the broadcast", async () => {
+        const { service, posted } = build({ chart: [{ rank: 1, title: 'Glory Box', artist: 'Portishead' }] });
+
+        await service.putOnAir({ chartId: 'deadair.lastfm:top-100', chartPositions: false });
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { rules: { chartPositions: false } } });
     });
 
     it('leaves the rules off the binding when the operator asked for none, so the station settings stand', async () => {
@@ -1759,6 +1768,14 @@ describe('DirectorConsoleService building a running order from a chart', () => {
             expect(jobs.send).toHaveBeenCalledWith('director.air_chart', { chartId: 'deadair.lastfm:top-100', callins: false });
         });
 
+        it('queues whether the host says the positions with it', async () => {
+            const { service, jobs } = build({ chart: TOP_THREE });
+
+            await service.airChart({ chartId: 'deadair.lastfm:top-100', chartPositions: false });
+
+            expect(jobs.send).toHaveBeenCalledWith('director.air_chart', { chartId: 'deadair.lastfm:top-100', chartPositions: false });
+        });
+
         it('records the ask with the operator on it, since the outcome will carry nobody', async () => {
             const { service, activity } = build({ chart: TOP_THREE });
 
@@ -1830,9 +1847,9 @@ describe('DirectorConsoleService building a running order from a chart', () => {
 
         expect(resolver.resolve).toHaveBeenCalledWith(
             [
-                { title: 'Glory Box', artist: 'Portishead' },
-                { title: 'Windowlicker', artist: 'Aphex Twin' },
-                { title: 'Teardrop', artist: 'Massive Attack' },
+                { title: 'Glory Box', artist: 'Portishead', chart: { rank: 1 } },
+                { title: 'Windowlicker', artist: 'Aphex Twin', chart: { rank: 2 } },
+                { title: 'Teardrop', artist: 'Massive Attack', chart: { rank: 3 } },
             ],
             expect.anything(),
             expect.objectContaining({ preference: ['deadair.lastfm'] }),
@@ -1942,7 +1959,7 @@ describe('DirectorConsoleService building a running order from a chart', () => {
 
         await service.putOnAir({ chartId: 'deadair.lastfm:top-100', eraFrom: 1990, eraTo: 1999 });
 
-        expect(resolver.resolve).toHaveBeenCalledWith([{ title: 'Anthem', artist: 'B' }], expect.anything(), expect.anything());
+        expect(resolver.resolve).toHaveBeenCalledWith([{ title: 'Anthem', artist: 'B', chart: { rank: 2 } }], expect.anything(), expect.anything());
     });
 
     it('is an ordinary rotation afterwards, so the hour past the chart is programmed as any other', async () => {

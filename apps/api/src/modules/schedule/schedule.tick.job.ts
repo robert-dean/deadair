@@ -433,6 +433,8 @@ function slotInput(slot: ScheduleSlot, options: { withoutSource?: boolean; host?
         ...(slot.callins === undefined ? {} : { callins: slot.callins }),
         // The same three-way, for the same reason: absent is the station's setting.
         ...(slot.mixInSimilar === undefined || withoutSource ? {} : { mixInSimilar: slot.mixInSimilar }),
+        // The same three-way again, except that absent is yes: see `StationLineupRules.chartPositions`.
+        ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),
         mode: withoutSource ? 'rotation' : slot.mode,
         onEnd: withoutSource ? 'extend' : slot.onEnd,
     };

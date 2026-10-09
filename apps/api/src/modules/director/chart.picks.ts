@@ -12,8 +12,8 @@
  *
  * ## It names records and decides nothing
  *
- * A {@link TrackPick} is a title and an artist as strings, and nothing here sets a `trackId` even
- * where the library happens to hold the record. This step has not read the catalog and does not
+ * A {@link TrackPick} is a title and an artist as strings, plus where the chart placed it, and
+ * nothing here sets a `trackId` even where the library happens to hold the record. This step has not read the catalog and does not
  * know which row it would be; `PickResolver` matches by name and is the one place that decision
  * belongs. Everything that decides whether a named record may AIR — the dislike veto, the advisory
  * policy, the repeat window where one applies — is downstream of this file, so anything here that
@@ -23,6 +23,7 @@
 import { withinPeriod, type EraWindow } from './candidates.repository.js';
 import { songKey } from './rotation.keys.js';
 import type { TrackPick } from './set.generator.js';
+import type { ChartPlacing } from '#modules/playout/rundown.js';
 
 /** One entry of a chart as the host reads it. The plugin SDK's `ChartEntry`, narrowed to what is used here. */
 export interface ChartEntryLike {
@@ -30,6 +31,8 @@ export interface ChartEntryLike {
     title: string;
     artist: string;
     year?: number;
+    peak?: number;
+    weeksOn?: number;
 }
 
 /**
@@ -61,6 +64,8 @@ export interface ChartPickOptions {
      * default belongs to the operator's own path rather than to this function.
      */
     order?: ChartOrder;
+    /** What the chart is called, carried onto each pick's placing so a presenter can name it. */
+    chartName?: string;
 }
 
 /**
@@ -78,7 +83,7 @@ export interface ChartPickOptions {
  * filter over this one.
  */
 export const chartPicks = (entries: readonly ChartEntryLike[], options: ChartPickOptions = {}): TrackPick[] => {
-    const { want, era, avoidSongKeys, order = 'ranked' } = options;
+    const { want, era, avoidSongKeys, order = 'ranked', chartName } = options;
     if (want !== undefined && want <= 0) return [];
 
     const picks: TrackPick[] = [];
@@ -99,8 +104,24 @@ export const chartPicks = (entries: readonly ChartEntryLike[], options: ChartPic
         if (avoidSongKeys?.has(key) || taken.has(key)) continue;
 
         taken.add(key);
-        picks.push({ title: entry.title, artist: entry.artist });
+        picks.push({ title: entry.title, artist: entry.artist, chart: placingOf(entry, chartName) });
     }
 
     return order === 'countdown' ? picks.reverse() : picks;
 };
+
+/**
+ * Where an entry stands, as the pick carries it.
+ *
+ * Only a positive whole number is passed on for the two optional figures. They come from somebody
+ * else's service, and a presenter reading out "a peak of zero" is the one way this could be worse
+ * than saying nothing.
+ */
+const placingOf = (entry: ChartEntryLike, name: string | undefined): ChartPlacing => ({
+    rank: entry.rank,
+    ...(name === undefined ? {} : { name }),
+    ...(isPosition(entry.peak) ? { peak: entry.peak } : {}),
+    ...(isPosition(entry.weeksOn) ? { weeksOn: entry.weeksOn } : {}),
+});
+
+const isPosition = (value: number | undefined): value is number => value !== undefined && Number.isInteger(value) && value > 0;

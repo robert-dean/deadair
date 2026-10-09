@@ -164,6 +164,8 @@ data class PutOnAirInput(
     val chartId: String? = null,
     /** Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId` */
     val chartOrder: PutOnAirInputChartOrder? = null,
+    /** Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes. Set it false to air a chart without its positions read out. A record no chart named has no position to say whatever this says */
+    val chartPositions: Boolean? = null,
     /** An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends */
     val albumId: Uuid? = null,
     /** A playlist the station owns to build from instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`: its records are the library's own, so each airs from whichever provider serves a copy, and a row the library does not hold yet is left out */

@@ -204,6 +204,35 @@ export interface RundownItem {
     loudnessLufs?: number;
     truePeakDb?: number;
     samplePeakDb?: number;
+
+    /**
+     * Where a published chart placed this record, when a chart is why it is here.
+     *
+     * Set when the item is resolved from a chart pick and never updated, on `requestId`'s rule: it
+     * is a fact about the edition the station read, and a chart that moves on afterwards does not
+     * move a record already in the order. Absent on every record a chart did not name, which is
+     * every record there was before this existed. Opaque to the rundown, as `trackId` is: what
+     * reads it is the break writer, so a presenter can say where the record stands.
+     */
+    chart?: ChartPlacing;
+}
+
+/**
+ * A record's place on a published chart, as the edition the station read gave it.
+ *
+ * Integers and a string, so it rides `station_lineup.items` as jsonb with nothing to convert.
+ * `peak` and `weeksOn` are optional because the plugin SDK's `ChartEntry` makes them so: most
+ * sources publish a rank and nothing else.
+ */
+export interface ChartPlacing {
+    /** 1-based position in that edition. */
+    rank: number;
+    /** What the chart is called, "Billboard Hot 100". Absent when the menu could not be read. */
+    name?: string;
+    /** Best position the record has reached, where the source tracks it. */
+    peak?: number;
+    /** How many editions it has appeared in, where the source tracks it. */
+    weeksOn?: number;
 }
 
 /** An item handed over, with the URL the player was told to fetch. */

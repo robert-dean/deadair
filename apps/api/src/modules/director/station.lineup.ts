@@ -282,6 +282,17 @@ export interface StationLineupRules {
      */
     mixInSimilar?: boolean;
     /**
+     * Whether the host says where a chart placed each record it named.
+     *
+     * Absent is yes, and there is no station setting behind it: a position is only ever said about
+     * a record a chart named, so a station that never airs a chart never hears one either way, and
+     * a countdown that never says where a record placed is the odd case rather than the default.
+     * Read by `WriteBreakJob`, which leaves `BreakTrack.chart` off when this is `false`. A show
+     * rule rather than a persona's, because one host presents a countdown one night and an
+     * ordinary rotation the next.
+     */
+    chartPositions?: boolean;
+    /**
      * Whether one record may be blended into the next.
      *
      * Off for a `setlist` and a `feature` without anybody setting it, by the same

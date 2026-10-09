@@ -85,7 +85,7 @@ export interface SpecialDates {
 
 /**
  * When somebody besides a slot's host is on it: on fixed weekdays, at random, or (for a co-host)
- * always. See `0075_slot_hosts.sql` for the three shapes and `slot.visits.ts` for the random one.
+ * always. See `0077_slot_hosts.sql` for the three shapes and `slot.visits.ts` for the random one.
  */
 export interface SlotPerson {
     personaId: string;
@@ -197,6 +197,14 @@ export interface ScheduleSlot {
      * never mixes whatever this says.
      */
     mixInSimilar?: boolean;
+    /**
+     * Whether the host says where the chart placed each record it named.
+     *
+     * Absent is yes, as it is on `PutOnAirInput.chartPositions`; see
+     * `StationLineupRules.chartPositions` for why there is no station setting behind it. Only a
+     * slot whose source is a chart, or a rotation that takes a chart's share, has anything to say.
+     */
+    chartPositions?: boolean;
     /**
      * The dates this slot runs on, which makes it a SPECIAL. Absent is an ordinary weekly slot.
      *

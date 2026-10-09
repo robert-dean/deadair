@@ -9,6 +9,17 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.48.0] — 2026-10-09
+
+- The host can say where a chart placed a record: "number seven on the Hot 100", with its highest position and its weeks on the chart where the chart gives them. It covers a chart aired whole (the countdown) and the records a chart adds to an ordinary rotation. It is a setting on the show rather than the presenter: a schedule slot, the Air this chart button and `PutOnAirInput` each take `chartPositions`, and leaving it unset means the positions are said. Untick "Say each record's chart position" to air a chart without them. Phrasings can use `{{next.chart.rank}}` and `{{next.chart.name}}` (and the `previous.` pair) to count down without a model.
+- The schedule can hold special shows on dates: Halloween night, the week before Christmas, a one-off evening. A slot with a first and last date (`startsOn`, `endsOn`) is a special, and `yearly` repeats it on the same month and day every year, including a range that runs past New Year. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Two specials still may not overlap each other.
+
+  In the console, Programme has a Specials tab listing every special (on today first, then the soonest, then the ones that are over) with New special to add one; the slot editor takes a date range and a "Repeats every year" switch for a special. The timetable draws a special on its dates, named as one, with the weekly blocks trimmed around it, and refuses to drag one to another day. Dragging a block on the timetable no longer clears its mood, and paging the timetable to another week works again (it answered Bad Request).
+
+  The desktop app's timetable says a special's dates instead of its days, and editing any slot there no longer clears its mood or a special's dates.
+- The desk no longer shows an empty "Needs you" section. It appears only when something is waiting on you, and still shows while the list loads or if it cannot be read. Check-up keeps its all-clear.
+- The seeded millennium host (Ari) no longer says listeners requested, texted in or rang about a record. The station has no request line for him to read from, so every one of those breaks was invented. He is male now, to match the voice the station gives him, and both speech engines' default voice for him is a male one. He is built around the mix CD: he runs the show like a disc he is burning for whoever is listening, with new phrasings, samples, preoccupations and two new stories, and a quirk saying he picked every record himself. This changes the character a fresh station starts with. A station that already has him keeps its own sheet, which can be edited on the Personas page.
+
 ## [0.47.4] — 2026-10-08
 
 - The seeded shock jock (Chaz) is a crude hype man now, labelled "Hype man": he loves fast, loud, upbeat records and tells the listener the next one is gonna kick their ass, where he used to take every song title as a joke about his own life. His hype is rough fun aimed at what a record does (blowing your doors off, melting your face) and never an injury or an insult, and he says only what he was told about a record, never its lawsuits or its business. He swears casually unless the station is broadcast-clean, in which case the clean rule wins and he is loud without the language; his phrasings never swear, because they air without the model. "Crank it", "Let's go" and "gonna kick your ass" are rationed catchphrases rather than words every break must use, which four auditions on the live station showed was what turned them into the same sign-off on every break. His preoccupations are new too, and so are his three stories, one of them about the speaker wall at the start of Back to the Future that he is going to build one day. This changes the character a fresh station starts with. A station that already has him keeps its own sheet, which can be edited on the Personas page.
@@ -1155,7 +1166,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.47.4...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.48.0...HEAD
+[0.48.0]: https://github.com/robert-dean/deadair/compare/v0.47.4...v0.48.0
 [0.47.4]: https://github.com/robert-dean/deadair/compare/v0.47.3...v0.47.4
 [0.47.3]: https://github.com/robert-dean/deadair/compare/v0.47.2...v0.47.3
 [0.47.2]: https://github.com/robert-dean/deadair/compare/v0.47.1...v0.47.2

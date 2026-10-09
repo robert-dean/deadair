@@ -40,6 +40,7 @@ import type { BreakContext } from './break.request.js';
 import type { BreakRetry } from './break.retry.js';
 import type { WriteFault } from './break.prompt.js';
 import type { RoughTime } from './clock.words.js';
+import type { ChartPlacing } from '#modules/playout/rundown.js';
 
 /** A record, as a writer sees one. */
 export interface BreakTrack {
@@ -112,6 +113,16 @@ export interface BreakTrack {
      * thing a presenter reaches for when introducing a show they did not make.
      */
     programme?: { summary?: string };
+    /**
+     * Where a published chart placed this record, when a chart is why it is in the order.
+     *
+     * Copied off the running order's item, where `PickResolver` left it, and only when the show on
+     * air says its chart positions out loud: an operator who airs a chart and does not want a
+     * countdown read out turns it off on the show, and this is then absent exactly as it is for a
+     * record no chart named. A model is shown it as material, behind the same flag as the year;
+     * the floor can say it through `{{next.chart.rank}}`.
+     */
+    chart?: ChartPlacing;
 }
 
 /**

@@ -829,6 +829,7 @@ export interface DeadairScheduleSlotHosts {
 export interface DeadairScheduleSlots {
   brief: Generated<string>;
   callins: boolean | null;
+  chartPositions: boolean | null;
   createdAt: Generated<DateTime>;
   days: Generated<Json>;
   endsAtMinutes: number;

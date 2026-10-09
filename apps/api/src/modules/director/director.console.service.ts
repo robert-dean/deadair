@@ -751,13 +751,7 @@ export class DirectorConsoleService {
         if (input.chartId !== undefined) {
             // Never fatal: this is a label. A menu that could not be read is a broadcast named after
             // its plugin, which is what every imported one is already called.
-            const named = await this.charts
-                .listCharts()
-                .then(charts => charts.find(chart => chart.id === input.chartId)?.name)
-                .catch(error => {
-                    this.logger.warn(`director: could not read the chart menu while naming a broadcast (${errorText(error)})`);
-                    return undefined;
-                });
+            const named = await this.charts.nameOf(input.chartId);
             if (named !== undefined) return named;
         }
 
@@ -808,7 +802,12 @@ export class DirectorConsoleService {
     ): Promise<RundownTrack[]> {
         const { address, entries } = await this.readChart(chartId);
 
-        const picks = chartPicks(entries, { order: order ?? DEFAULT_CHART_ORDER, ...(bindsAnything(era) ? { era } : {}) });
+        const chartName = await this.charts.nameOf(chartId);
+        const picks = chartPicks(entries, {
+            order: order ?? DEFAULT_CHART_ORDER,
+            ...(bindsAnything(era) ? { era } : {}),
+            ...(chartName === undefined ? {} : { chartName }),
+        });
         // A lookup for every entry, rather than the refill's cap. That cap protects a provider's
         // rate budget from one background refill starving the next, and there is no next refill
         // here: this is an operator asking for one document, once, already bounded at
@@ -892,7 +891,7 @@ export class DirectorConsoleService {
      *
      * @throws 422 when the id names no chart, or when nothing could read one.
      */
-    async airChart(input: { chartId: string; chartOrder?: PutOnAirInput['chartOrder']; callins?: boolean }): Promise<void> {
+    async airChart(input: { chartId: string; chartOrder?: PutOnAirInput['chartOrder']; callins?: boolean; chartPositions?: boolean }): Promise<void> {
         // Read and discarded. The job reads it again for the reason `readChart` gives; what this
         // call is for is refusing at the door rather than accepting an ask that cannot land.
         await this.readChart(input.chartId);
@@ -905,6 +904,7 @@ export class DirectorConsoleService {
             chartId: input.chartId,
             ...(input.chartOrder === undefined ? {} : { chartOrder: input.chartOrder }),
             ...(input.callins === undefined ? {} : { callins: input.callins }),
+            ...(input.chartPositions === undefined ? {} : { chartPositions: input.chartPositions }),
             ...(broadcastId === undefined ? {} : { broadcastId }),
         });
 
@@ -1663,6 +1663,7 @@ function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRules } {
     const rules: StationLineupRules = {
         ...(input.callins === undefined ? {} : { callins: input.callins }),
         ...(input.mixInSimilar === undefined ? {} : { mixInSimilar: input.mixInSimilar }),
+        ...(input.chartPositions === undefined ? {} : { chartPositions: input.chartPositions }),
     };
     return Object.keys(rules).length === 0 ? {} : { rules };
 }

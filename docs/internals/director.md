@@ -73,7 +73,7 @@ answer to "where is this block on this date" that the resolver, `project` and th
 share, and `slotAt` is weekly-only, since a special on the weekly clock would air every week.
 
 **A guest host sits in on some nights of a slot, and which nights is a pure function of the date**
-(migration 0075, `director/slot.visits.ts`). `schedule_slot_hosts` holds the people on a slot besides
+(migration 0077, `director/slot.visits.ts`). `schedule_slot_hosts` holds the people on a slot besides
 its host, as rows with foreign keys on `caller_hosts`' argument: a guest on fixed weekdays, or at
 random with `every_n` (about one night in that many) and `cooldown_days` (the fewest days between two).
 "Random" is a hash of the slot, the person and the date the night began, never a die rolled at the

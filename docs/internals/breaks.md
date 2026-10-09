@@ -329,6 +329,21 @@ toward the nearest one that almost fits, which is how a table like that becomes 
 three `perishable` answers there (`get_weather`, `read_news`, `search_web`) are exposure DEFERRED
 rather than avoided: every break writer passes `tools: false` today, so no tool answer reaches air.
 
+**A chart position is shown as the reason a record is on, and it is the one chart claim a break may make.**
+A record a chart named carries a `ChartPlacing` from `chartPicks` through `PickResolver` and the running
+order to `BreakTrack.chart` (see `programming.md`), and `describe` shows it as `- Chart: it is here because
+it is number 7 on Top 100`, with the peak and the run only where the source gave them. Phrased as the reason
+rather than as a `Rank:` field because a model files a bare field with the year as trivia it may skip, and on
+a countdown the position is the content. The "knows nothing beyond what is listed" paragraph forbids "chart
+placings beyond any listed above" rather than chart placings outright, or the prompt argues with its own
+listing. No "this week": the edition's date is not something the station holds. There is no guard behind it
+yet: an invented position for a record that has none is refused by the prompt alone, as it was before this
+existed, and an `invented-chart` check wants measuring against `script_history` before it refuses anything,
+since "number one" is also something a presenter says about a fan. The floor reaches it through
+`{{next.chart.rank}}` and `{{next.chart.name}}` (and the `previous.` pair), outside `SPOKEN_VALUES`, so a
+countdown phrasing is `[[At number {{next.chart.rank}}, ]]{{next.title}}` and simply says less for a record no
+chart named. Whether a show says its positions at all is the show's `chartPositions`, not the persona's.
+
 ## What the prompt says, and what it left out
 
 **The station has two sentences of its own above every show and every persona.** `station.identity` (who

@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.15.2] — 2026-10-09
+
+- A password manager that holds your account's authenticator secret (1Password, Bitwarden, Google Password Manager) can now fill the code when signing in as an operator. The code box used to ask only for a code from a text message, so a password manager had nothing to offer there and the code had to be typed or pasted by hand.
+
 ## [0.15.1] — 2026-10-05
 
 - What's on and Up next now show the presenter's picture. Each block in What's on has its host's portrait beside the line that names them, for the shows coming up as well as the one on now, and the top of Up next has the portrait of whoever is presenting beside their name. A host with no picture is shown by name alone, as before.
@@ -198,7 +202,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.15.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.15.2...HEAD
+[0.15.2]: https://github.com/robert-dean/deadair/compare/android-v0.15.1...android-v0.15.2
 [0.15.1]: https://github.com/robert-dean/deadair/compare/android-v0.15.0...android-v0.15.1
 [0.15.0]: https://github.com/robert-dean/deadair/compare/android-v0.14.0...android-v0.15.0
 [0.14.0]: https://github.com/robert-dean/deadair/compare/android-v0.13.0...android-v0.14.0

@@ -321,6 +321,9 @@ export class PickResolver {
                 // written here: see `track.measurement.ts`.
                 ...measurementOf(measured.get(trackId)),
                 trackId,
+                // Where a chart placed it, when a chart named it: what the pick was asked FOR rather
+                // than anything about the row matched, so it is the one field taken from the pick.
+                ...(pick.chart === undefined ? {} : { chart: pick.chart }),
             });
         }
 

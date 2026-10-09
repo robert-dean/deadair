@@ -367,6 +367,30 @@ describe('SlotEditor', () => {
         expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ sourceChartId: 'deadair.lastfm:top-100', sourceChartOrder: 'countdown' }));
         expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('sourcePluginId');
         expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('sourcePlaylistId');
+        // Ticked, so nothing: absent is yes.
+        expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('chartPositions');
+    });
+
+    it('opens a chart slot that keeps its positions quiet unticked, and sends that back', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        listCharts.mockResolvedValue(CHARTS);
+        const onSubmit = vi.fn();
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({ sourceChartId: 'deadair.lastfm:top-100', chartPositions: false }) }}
+                onClose={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+
+        expect(await screen.findByRole('checkbox', { name: "Say each record's chart position" })).not.toBeChecked();
+        await setupUser().click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ chartPositions: false }));
     });
 
     it("opens a slot that plays one of the station's own playlists on it, and sends it back alone", async () => {

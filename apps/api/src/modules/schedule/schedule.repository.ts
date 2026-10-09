@@ -165,6 +165,7 @@ function columnsOf(draft: ScheduleSlotDraft) {
         mood: draft.mood ?? null,
         callins: draft.callins ?? null,
         mixInSimilar: draft.mixInSimilar ?? null,
+        chartPositions: draft.chartPositions ?? null,
         // Cast in SQL rather than handed over as a `DateTime`, because a date is a reading of the
         // station's calendar and not an instant: building one in JS would mean choosing a zone for a
         // value that has none.
@@ -221,6 +222,7 @@ function toSlot(row: {
     mood: LyricMood | null;
     callins: boolean | null;
     mixInSimilar: boolean | null;
+    chartPositions: boolean | null;
     startsOn: DateTime | null;
     endsOn: DateTime | null;
     yearly: boolean;
@@ -260,6 +262,7 @@ function toSlot(row: {
         ...(row.callins == null ? {} : { callins: row.callins }),
         // The same `== null`, for the same reason: `false` is a slot declining a station default.
         ...(row.mixInSimilar == null ? {} : { mixInSimilar: row.mixInSimilar }),
+        ...(row.chartPositions == null ? {} : { chartPositions: row.chartPositions }),
         // Both ends or neither, which the table already checks; reading one alone as no special keeps
         // a half-written row an ordinary weekly slot rather than a special with an open end. The
         // driver parses a `date` as midnight UTC, so `toISODate` is the calendar date that was stored.

@@ -385,6 +385,18 @@ export function CallinsField(input: GetInputPropsReturnType) {
 }
 
 /**
+ * Whether the host talks between the records of a setlist.
+ *
+ * Drawn only under a setlist, because it is the one mode where the answer is not already the mode's:
+ * a rotation talks and a feature never does. Ticked sends `breaks: true`, which is a chart countdown
+ * with a host; unticked sends nothing, which is the setlist's own silence.
+ */
+export function TalkField(input: GetInputPropsReturnType) {
+    const { t } = useTranslation('programme');
+    return <Checkbox label={t('talk.label')} description={t('talk.description')} {...input} />;
+}
+
+/**
  * Whether the host says where the chart placed each record: "number seven on the Hot 100".
  *
  * The other way round from {@link CallinsField}: absent is YES, because a countdown that never says

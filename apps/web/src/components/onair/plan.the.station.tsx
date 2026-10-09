@@ -6,7 +6,7 @@ import type { StationMode, StationOnEnd, StationOrder } from '@deadair/sdk';
 
 import { usePutStationOnAir, useReplanOrder } from '../../api/director.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
-import { BriefField, CallinsField, EraFields, EraNote, HostField, ShapeFields, ShapeNote } from '../programme/programme.fields';
+import { BriefField, CallinsField, EraFields, EraNote, HostField, ShapeFields, ShapeNote, TalkField } from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
 
 /**
@@ -118,6 +118,8 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
                 ...(typeof form.values.eraTo === 'number' ? { eraTo: form.values.eraTo } : {}),
                 // Sent only when it is ON. Absent is no calls: nothing station-wide stands behind it.
                 ...(form.values.callins ? { callins: true } : {}),
+                // Only a setlist is changed by it: a rotation already talks and a feature never does.
+                ...(form.values.mode === 'setlist' && form.values.breaks ? { breaks: true } : {}),
                 mode: form.values.mode,
                 onEnd: form.values.onEnd,
             },
@@ -180,6 +182,8 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
 
                             <ShapeNote what="broadcast" />
 
+                            {form.values.mode === 'setlist' ? <TalkField {...form.getInputProps('breaks', { type: 'checkbox' })} /> : undefined}
+
                             <CallinsField {...form.getInputProps('callins', { type: 'checkbox' })} />
                         </>
                     )}
@@ -211,6 +215,8 @@ interface FormValues {
     eraFrom: number | string;
     eraTo: number | string;
     callins: boolean;
+    /** Ticked sends `breaks: true`, a setlist with a host. Drawn only for a setlist. */
+    breaks: boolean;
     mode: StationMode;
     onEnd: StationOnEnd;
 }
@@ -230,6 +236,7 @@ function valuesOf(order?: StationOrder): FormValues {
         eraFrom: '',
         eraTo: '',
         callins: false,
+        breaks: false,
         mode: 'rotation',
         onEnd: 'extend',
     };

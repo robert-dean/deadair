@@ -153,6 +153,64 @@ describe('SlotEditor', () => {
         const draft = onSubmit.mock.calls[0]?.[0];
         expect(draft.mode).toBe('setlist');
         expect(draft.onEnd).toBe('repeat');
+        // Unticked, so nothing: a setlist's own answer is silence.
+        expect(draft).not.toHaveProperty('breaks');
+    });
+
+    it('offers a host only under a setlist, and asks for one when it is ticked', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        const user = setupUser();
+
+        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+        await screen.findByRole('combobox', { name: 'Mode' });
+
+        // A rotation already talks and a feature never does, so there is nothing to ask.
+        expect(screen.queryByRole('checkbox', { name: /Host talks between records/ })).toBeNull();
+
+        await user.type(screen.getByRole('textbox', { name: 'Name' }), 'US Countdown');
+        await user.click(screen.getByRole('combobox', { name: 'Mode' }));
+        await user.click(await screen.findByRole('option', { name: 'Setlist' }));
+        await user.click(screen.getByRole('checkbox', { name: /Host talks between records/ }));
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ mode: 'setlist', breaks: true }));
+    });
+
+    it('opens a setlist slot that talks ticked, and keeps a rotation told to stay silent silent', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+
+        const { unmount } = render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({ mode: 'setlist', breaks: true }) }}
+                onClose={noop}
+                onSubmit={noop}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+        expect(await screen.findByRole('checkbox', { name: /Host talks between records/ })).toBeChecked();
+        unmount();
+
+        // No box can say `false`, so a value set through the API has to survive a save untouched.
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({ mode: 'rotation', breaks: false }) }}
+                onClose={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+        await screen.findByRole('combobox', { name: 'Mode' });
+        await setupUser().click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ mode: 'rotation', breaks: false }));
     });
 
     describe('a special', () => {

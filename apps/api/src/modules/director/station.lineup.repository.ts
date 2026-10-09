@@ -56,6 +56,7 @@ export class StationLineupRepository extends DataRepository {
                 'placedBy',
                 'slotOccurrence',
                 'regularPersonaId',
+                'coHostPersonaIds',
                 'holdUntil',
                 'mode',
                 'onEnd',
@@ -100,6 +101,7 @@ export class StationLineupRepository extends DataRepository {
                 // A `date` arrives as midnight UTC, so `toISODate` is the calendar date that was stored.
                 ...(row.slotOccurrence == null ? {} : { slotOccurrence: row.slotOccurrence.toISODate() ?? '' }),
                 ...(row.regularPersonaId == null ? {} : { regularPersonaId: row.regularPersonaId }),
+                ...(row.coHostPersonaIds == null || row.coHostPersonaIds.length === 0 ? {} : { coHostPersonaIds: row.coHostPersonaIds }),
                 // Epoch millis on the way out, because the binding is stored and sent and the
                 // JSON-safe rule allows no `Date` across either boundary.
                 ...(holdMillis(row.holdUntil) === undefined ? {} : { holdUntil: holdMillis(row.holdUntil)! }),
@@ -141,6 +143,9 @@ export class StationLineupRepository extends DataRepository {
             // Cast in SQL, because a date is a reading of the station's calendar rather than an instant.
             slotOccurrence: snapshot.slotOccurrence === undefined ? null : sql<never>`${snapshot.slotOccurrence}::date`,
             regularPersonaId: snapshot.regularPersonaId ?? null,
+            // An empty list is stored as null, so "one voice" has one spelling in the table.
+            coHostPersonaIds:
+                snapshot.coHostPersonaIds === undefined || snapshot.coHostPersonaIds.length === 0 ? null : [...snapshot.coHostPersonaIds],
             // Through SQL rather than as a value, exactly as `break.request.repository.ts` does it:
             // Postgres is handed a number and converts it itself, so the `DateTime`-versus-`Date`
             // mismatch in the generated types never has to be resolved here. `Infinity` is the one

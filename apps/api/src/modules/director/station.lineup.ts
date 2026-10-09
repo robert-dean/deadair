@@ -407,6 +407,11 @@ export interface StationLineupBinding {
      */
     regularPersonaId?: string;
     /**
+     * Who presents BESIDE {@link personaId} on this broadcast, in order: the co-hosts the schedule put
+     * on for tonight. Rides the order for {@link personaId}'s reason. Absent or empty is one voice.
+     */
+    coHostPersonaIds?: readonly string[];
+    /**
      * Until when the schedule must leave this broadcast alone, as epoch milliseconds.
      *
      * `Infinity` is "until I release it". Absent is the ordinary state: no hold, and the next block
@@ -583,6 +588,11 @@ export class StationLineup implements LiveOrder {
     /** The date the slot's occurrence this belongs to began on, or `undefined`. See the binding. */
     get slotOccurrence(): string | undefined {
         return this.binding.slotOccurrence;
+    }
+
+    /** Who presents beside the host, in order. Empty for a broadcast with one voice. */
+    get coHostPersonaIds(): readonly string[] {
+        return this.binding.coHostPersonaIds ?? [];
     }
 
     /** Whose show this usually is while a guest host sits in, or `undefined` on an ordinary night. */
@@ -1078,9 +1088,13 @@ export class StationLineup implements LiveOrder {
     recast(personaId?: string): void {
         // The regular host goes with the old presenter: a guest's "sitting in for" is the schedule's
         // statement about a night, and an operator choosing the host has replaced it.
-        const { personaId: _current, regularPersonaId: _regular, ...rest } = this.binding;
+        const { personaId: _current, regularPersonaId: _regular, coHostPersonaIds, ...rest } = this.binding;
+        // The co-hosts stay on, less whoever has just been made the lead: nobody co-presents with
+        // themselves.
+        const coHosts = (coHostPersonaIds ?? []).filter(id => id !== personaId);
+        const kept = coHosts.length === 0 ? rest : { ...rest, coHostPersonaIds: coHosts };
 
-        this.binding = personaId ? { ...rest, personaId } : rest;
+        this.binding = personaId ? { ...kept, personaId } : kept;
     }
 
     /**

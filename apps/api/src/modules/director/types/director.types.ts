@@ -52,7 +52,7 @@ export type StationItemState = z.infer<typeof StationItemState>;
 
 /**
  * Change who is presenting the broadcast that is on air
- * generated from [SetStationHostInput](../../../../data/contracts/director/director.types.ck#L100)
+ * generated from [SetStationHostInput](../../../../data/contracts/director/director.types.ck#L101)
  */
 export const SetStationHostInput = z.strictObject({
     personaId: z
@@ -68,7 +68,7 @@ export type SetStationHostInput = z.infer<typeof SetStationHostInput>;
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](../../../../data/contracts/director/director.types.ck#L104)
+ * generated from [AddStationSegmentInput](../../../../data/contracts/director/director.types.ck#L105)
  */
 export const AddStationSegmentInput = z.strictObject({
     segmentId: z.string().min(1).max(100),
@@ -87,7 +87,7 @@ export type AddStationSegmentInput = z.infer<typeof AddStationSegmentInput>;
 
 /**
  * Put a catalog record into the running order. Refused at the door — 404 for a record the catalog does not hold, 422 for one whose audio is not local yet — rather than accepted and left to fail when it comes round
- * generated from [AddStationTrackInput](../../../../data/contracts/director/director.types.ck#L110)
+ * generated from [AddStationTrackInput](../../../../data/contracts/director/director.types.ck#L111)
  */
 export const AddStationTrackInput = z.strictObject({
     trackId: z.uuid(),
@@ -100,7 +100,7 @@ export type AddStationTrackInput = z.infer<typeof AddStationTrackInput>;
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](../../../../data/contracts/director/director.types.ck#L115)
+ * generated from [MoveStationItemInput](../../../../data/contracts/director/director.types.ck#L116)
  */
 export const MoveStationItemInput = z.strictObject({
     toIndex: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
@@ -109,7 +109,7 @@ export type MoveStationItemInput = z.infer<typeof MoveStationItemInput>;
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](../../../../data/contracts/director/director.types.ck#L119)
+ * generated from [ExtendStationInput](../../../../data/contracts/director/director.types.ck#L120)
  */
 export const ExtendStationInput = z.strictObject({
     count: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(100)).optional(),
@@ -118,7 +118,7 @@ export type ExtendStationInput = z.infer<typeof ExtendStationInput>;
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](../../../../data/contracts/director/director.types.ck#L123)
+ * generated from [ReplanStationInput](../../../../data/contracts/director/director.types.ck#L124)
  */
 export const ReplanStationInput = z.strictObject({
     count: z
@@ -184,7 +184,7 @@ export type StationAir = z.infer<typeof StationAir>;
 
 /**
  * Put the station on air, building its running order from the top
- * generated from [PutOnAirInput](../../../../data/contracts/director/director.types.ck#L80)
+ * generated from [PutOnAirInput](../../../../data/contracts/director/director.types.ck#L81)
  */
 export const PutOnAirInput = z.strictObject({
     pluginId: z
@@ -373,6 +373,11 @@ export const StationOrder = z.strictObject({
         .max(200)
         .optional()
         .describe('What that host is called, resolved as the order is read so a console need not fetch the persona list to draw a name'),
+    coHostPersonaIds: z
+        .array(z.string().max(100))
+        .max(3)
+        .optional()
+        .describe('Who presents beside the host on this broadcast, in order: the co-hosts the schedule put on for tonight. Absent is one voice'),
     mode: StationMode,
     onEnd: StationOnEnd,
     source: z.string().min(1).max(50).describe('Who built it: `import`, `chart` or `director`'),

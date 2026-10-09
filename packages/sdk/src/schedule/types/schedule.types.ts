@@ -1,6 +1,6 @@
 /**
  * A host who sits in on a slot on some nights, saying whose show it usually is
- * generated from [SlotGuestHost](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L36)
+ * generated from [SlotGuestHost](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L37)
  */
 export interface SlotGuestHost {
     /** Who sits in. A host; a caller or a guest who drops by can never present a show */
@@ -14,8 +14,23 @@ export interface SlotGuestHost {
 }
 
 /**
+ * Somebody who presents beside a slot's host, every night or some of them
+ * generated from [SlotCoHost](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L45)
+ */
+export interface SlotCoHost {
+    /** Who co-presents. A host; a caller or a guest who drops by can never present a show */
+    personaId: string;
+    /** The nights they co-present, by the weekday the night begins on, Sunday 0. Absent with no `everyN` is every night. Send this or `everyN`, not both */
+    days?: number[];
+    /** Or as a visitor: about one of this slot's nights in this many, on nights nobody can predict */
+    everyN?: number;
+    /** With `everyN`, the fewest days between two of their nights. Absent is half of `everyN` */
+    cooldownDays?: number;
+}
+
+/**
  * A window of the station's day to draw
- * generated from [ScheduleTimetableQuery](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L48)
+ * generated from [ScheduleTimetableQuery](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L57)
  */
 export interface ScheduleTimetableQuery {
     /** The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor */
@@ -26,7 +41,7 @@ export interface ScheduleTimetableQuery {
 
 /**
  * One block: this slot, on this day, between these two times
- * generated from [ScheduleOccurrence](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L61)
+ * generated from [ScheduleOccurrence](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L70)
  */
 export interface ScheduleOccurrence {
     slotId: string;
@@ -80,6 +95,8 @@ export interface ScheduleSlot {
     startsOn?: string;
     /** The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask */
     endsOn?: string;
+    /** Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out */
+    coHosts?: SlotCoHost[];
     /** Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time */
     guestHosts?: SlotGuestHost[];
     /** Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year */
@@ -126,6 +143,8 @@ export interface ScheduleSlotInput {
     startsOn?: string;
     /** The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask */
     endsOn?: string;
+    /** Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out */
+    coHosts?: SlotCoHost[];
     /** Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time */
     guestHosts?: SlotGuestHost[];
     /** Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year */
@@ -136,7 +155,7 @@ export interface ScheduleSlotInput {
 
 /**
  * The station's day as blocks, ready to draw
- * generated from [ScheduleTimetable](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L54)
+ * generated from [ScheduleTimetable](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L63)
  */
 export interface ScheduleTimetable {
     /** The range actually drawn, echoed so a caller steps forward and back by adding days to a string rather than by knowing the station's timezone */
@@ -147,7 +166,7 @@ export interface ScheduleTimetable {
 
 /**
  * Which slot the clock says should be on right now, and what follows it
- * generated from [ScheduleNow](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L69)
+ * generated from [ScheduleNow](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L78)
  */
 export interface ScheduleNow {
     /** What time it is on the station's own clock, in the same zone-naive `YYYY-MM-DD HH:mm:ss` shape as a block's ends. It is here so a caller can say how much of the block is left without knowing the station's timezone: subtracting two readings taken in one frame is arithmetic, deriving one is not */
@@ -158,6 +177,8 @@ export interface ScheduleNow {
     slotId?: string;
     /** Who presents tonight's night of the slot in force: a guest sitting in, or the slot's own host. Absent when it names nobody, which is the station's own host. Only the night that is ON is answered, so a guest who comes at random stays a surprise until their night begins */
     hostPersonaId?: string;
+    /** Who presents beside tonight's host on the slot in force, in order. Only the night that is ON is answered, so a visitor stays a surprise until their night begins */
+    coHostPersonaIds?: string[];
     /** Whose show it usually is, while a guest sits in on the slot in force. Absent on an ordinary night, and while the station's own host would be the regular one */
     regularPersonaId?: string;
     /** The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins */
@@ -167,7 +188,7 @@ export interface ScheduleNow {
 }
 
 /**
- * generated from [ScheduleSlotList](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L43)
+ * generated from [ScheduleSlotList](../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L52)
  */
 export interface ScheduleSlotList {
     slots: ScheduleSlot[];

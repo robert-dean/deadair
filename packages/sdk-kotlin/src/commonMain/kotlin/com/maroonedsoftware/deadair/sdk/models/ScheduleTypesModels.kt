@@ -21,6 +21,19 @@ data class SlotGuestHost(
     val cooldownDays: Long? = null,
 )
 
+/** Somebody who presents beside a slot's host, every night or some of them */
+@Serializable
+data class SlotCoHost(
+    /** Who co-presents. A host; a caller or a guest who drops by can never present a show */
+    val personaId: String,
+    /** The nights they co-present, by the weekday the night begins on, Sunday 0. Absent with no `everyN` is every night. Send this or `everyN`, not both */
+    val days: List<Long>? = null,
+    /** Or as a visitor: about one of this slot's nights in this many, on nights nobody can predict */
+    val everyN: Long? = null,
+    /** With `everyN`, the fewest days between two of their nights. Absent is half of `everyN` */
+    val cooldownDays: Long? = null,
+)
+
 /** A window of the station's day to draw */
 @Serializable
 data class ScheduleTimetableQuery(
@@ -82,6 +95,8 @@ data class ScheduleSlot(
     val startsOn: String? = null,
     /** The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask */
     val endsOn: String? = null,
+    /** Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out */
+    val coHosts: List<SlotCoHost>? = null,
     /** Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time */
     val guestHosts: List<SlotGuestHost>? = null,
     /** Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year */
@@ -130,6 +145,8 @@ data class ScheduleSlotInput(
     val startsOn: String? = null,
     /** The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask */
     val endsOn: String? = null,
+    /** Who presents beside the slot's host, in order: every night, on fixed nights, or as a visitor who turns up at random. At most three are on any one night; a visitor who wins a night that is already full sits it out */
+    val coHosts: List<SlotCoHost>? = null,
     /** Hosts who sit in for this slot's own host on some nights, in precedence order: the first whose night it is takes it. A guest on fixed nights wins over one at random. Absent or empty is a slot its own host presents every time */
     val guestHosts: List<SlotGuestHost>? = null,
     /** Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year */
@@ -158,6 +175,8 @@ data class ScheduleNow(
     val slotId: String? = null,
     /** Who presents tonight's night of the slot in force: a guest sitting in, or the slot's own host. Absent when it names nobody, which is the station's own host. Only the night that is ON is answered, so a guest who comes at random stays a surprise until their night begins */
     val hostPersonaId: String? = null,
+    /** Who presents beside tonight's host on the slot in force, in order. Only the night that is ON is answered, so a visitor stays a surprise until their night begins */
+    val coHostPersonaIds: List<String>? = null,
     /** Whose show it usually is, while a guest sits in on the slot in force. Absent on an ordinary night, and while the station's own host would be the regular one */
     val regularPersonaId: String? = null,
     /** The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins */

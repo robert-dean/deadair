@@ -305,6 +305,30 @@ describe('ScheduleService.update', () => {
             }
         });
 
+        it('stores co-hosts beside the guest hosts and hands both back', async () => {
+            const LEMMY = '0a0b0c0d-0000-4000-8000-0000000000cc';
+            const service = build({ slots: [slot('b', 990, 0)], personas: { ...personas, [LEMMY]: { kind: 'host', label: "Lemmy's Ghost" } } });
+
+            const { slots } = await service.update(
+                'b',
+                body({ guestHosts: [{ personaId: ROCKZO, everyN: 7 }], coHosts: [{ personaId: LEMMY, everyN: 25, cooldownDays: 14 }] }),
+            );
+
+            expect(slots[0]).toMatchObject({ coHosts: [{ personaId: LEMMY, everyN: 25, cooldownDays: 14 }] });
+        });
+
+        it('refuses a fourth co-host on every night, and the same character twice across the two lists', async () => {
+            const service = build({ slots: [slot('b', 990, 0)], personas });
+            const every = (id: string) => ({ personaId: id });
+
+            await expect(service.update('b', body({ coHosts: [every('a'), every('b'), every('c'), every('d')] }))).rejects.toMatchObject({
+                statusCode: 400,
+            });
+            await expect(
+                service.update('b', body({ guestHosts: [{ personaId: ROCKZO, days: [5] }], coHosts: [{ personaId: ROCKZO }] })),
+            ).rejects.toMatchObject({ statusCode: 400 });
+        });
+
         it('says which night is on and who presents it', () => {
             const service = build();
             const boneyard: ScheduleSlot = { ...slot('b', 990, 0), personaId: 'ozzy', guestHosts: [{ personaId: 'rockzo', days: [5] }] };
@@ -313,8 +337,9 @@ describe('ScheduleService.update', () => {
             expect(service.nightOf(boneyard, Date.parse('2026-10-09T17:00:00Z'))).toEqual({
                 date: '2026-10-09',
                 host: { personaId: 'rockzo', regularPersonaId: 'ozzy', guest: true },
+                coHosts: [],
             });
-            expect(service.hostOn(boneyard, '2026-10-10')).toEqual({ personaId: 'ozzy', guest: false });
+            expect(service.hostOn(boneyard, '2026-10-10')).toEqual({ personaId: 'ozzy', guest: false, coHosts: [] });
         });
     });
 

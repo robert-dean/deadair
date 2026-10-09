@@ -1,4 +1,4 @@
-import { addDays, dateKey, startsOn, type ScheduleSlot, type SlotPerson, type StationDate } from './schedule.js';
+import { addDays, dateKey, MAX_CO_HOSTS, startsOn, type ScheduleSlot, type SlotPerson, type StationDate } from './schedule.js';
 
 /**
  * Who is on a slot on a given night, besides its host: a guest host sitting in, and (later) the
@@ -111,6 +111,24 @@ export function hostFor(slot: ScheduleSlot, date: StationDate): NightHost {
     }
 
     return { personaId: guest.personaId, ...(slot.personaId === undefined ? {} : { regularPersonaId: slot.personaId }), guest: true };
+}
+
+/**
+ * Who presents beside the night's host, in the slot's own order: every co-host whose night it is
+ * (always, on their fixed nights, or a visitor whose roll wins), never the night's host themselves,
+ * and at most {@link MAX_CO_HOSTS}. A visitor who wins a night that is already full sits it out; the
+ * permanent co-hosts come first because they are listed first by the operator who wrote them down.
+ */
+export function coHostsFor(slot: ScheduleSlot, date: StationDate, presenter: string | undefined): string[] {
+    const on: string[] = [];
+
+    for (const person of slot.coHosts ?? []) {
+        if (on.length >= MAX_CO_HOSTS) break;
+        if (person.personaId === presenter || on.includes(person.personaId)) continue;
+        if (appears(person, slot, date)) on.push(person.personaId);
+    }
+
+    return on;
 }
 
 /** Whether a person's roll wins the night that began on `date` at this chance, ignoring the cooldown. */

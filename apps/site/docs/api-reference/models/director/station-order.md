@@ -8,7 +8,7 @@ mdx:
 > The station's live running order: what is airing, item by item
 
 <details>
-<summary>Attributes (11)</summary>
+<summary>Attributes (12)</summary>
 
 | Attribute          | Type                 | Required | Description                                                                                                                                                                                              |
 | ------------------ | -------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -16,6 +16,7 @@ mdx:
 | `brief`            | `string`             | No       | What the operator asked the station to play, in their own words. It keeps steering every refill until the station is put on air again, so a console should show it rather than only accept it            |
 | `personaId`        | `string`             | No       | Who is hosting this broadcast, when it named somebody. Absent means whichever persona the station has on air                                                                                             |
 | `personaLabel`     | `string`             | No       | What that host is called, resolved as the order is read so a console need not fetch the persona list to draw a name                                                                                      |
+| `coHostPersonaIds` | `string[]`           | No       | Who presents beside the host on this broadcast, in order: the co-hosts the schedule put on for tonight. Absent is one voice                                                                              |
 | `mode`             | `StationMode`        | Yes      |                                                                                                                                                                                                          |
 | `onEnd`            | `StationOnEnd`       | Yes      |                                                                                                                                                                                                          |
 | `source`           | `string`             | Yes      | Who built it: `import`, `chart` or `director`                                                                                                                                                            |

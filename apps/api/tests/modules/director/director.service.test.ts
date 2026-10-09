@@ -936,7 +936,7 @@ describe('DirectorService committing', () => {
             // the operator has just replaced.
             expect(snapshots.at(-1)?.personaId).toBe('pirate');
             // The incoming host, so the sweep can leave alone any break already in their character.
-            expect(segmentStub.recast).toHaveBeenCalledWith(['seg-1'], 'pirate');
+            expect(segmentStub.recast).toHaveBeenCalledWith(['seg-1'], 'pirate', []);
             expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'break.rewriting', data: { segmentIds: ['seg-1'] } }));
         });
 
@@ -958,7 +958,7 @@ describe('DirectorService committing', () => {
 
             await director.post({ kind: 'recast', bind: { personaId: 'classic' } });
 
-            expect(segmentStub.recast).toHaveBeenCalledWith(['planned'], 'classic');
+            expect(segmentStub.recast).toHaveBeenCalledWith(['planned'], 'classic', []);
         });
 
         it('hands the show back to the station when it is recast to nobody', async () => {
@@ -974,7 +974,7 @@ describe('DirectorService committing', () => {
             await director.post({ kind: 'recast', bind: {} });
 
             expect(lineup.personaId).toBeUndefined();
-            expect(segmentStub.recast).toHaveBeenCalledWith(['seg-1'], 'classic');
+            expect(segmentStub.recast).toHaveBeenCalledWith(['seg-1'], 'classic', []);
         });
 
         it('leaves a show that named its own host alone when only the station changed', async () => {
@@ -995,7 +995,7 @@ describe('DirectorService committing', () => {
 
             expect(lineup.personaId).toBe('classic');
             expect(snapshots).toHaveLength(written);
-            expect(segmentStub.recast).toHaveBeenCalledWith(['seg-1'], 'classic');
+            expect(segmentStub.recast).toHaveBeenCalledWith(['seg-1'], 'classic', []);
         });
 
         it('leaves every break alone when it cannot read who is presenting', async () => {

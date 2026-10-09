@@ -595,6 +595,8 @@ public struct StationOrder: Codable, Equatable, Sendable {
     public var personaId: String?
     /// What that host is called, resolved as the order is read so a console need not fetch the persona list to draw a name
     public var personaLabel: String?
+    /// Who presents beside the host on this broadcast, in order: the co-hosts the schedule put on for tonight. Absent is one voice
+    public var coHostPersonaIds: [String]?
     public var mode: StationMode
     public var onEnd: StationOnEnd
     /// Who built it: `import`, `chart` or `director`
@@ -607,11 +609,12 @@ public struct StationOrder: Codable, Equatable, Sendable {
     public var sourceChartId: String?
     public var items: [StationOrderItem]
 
-    public init(name: String, brief: String? = nil, personaId: String? = nil, personaLabel: String? = nil, mode: StationMode, onEnd: StationOnEnd, source: String, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, items: [StationOrderItem]) {
+    public init(name: String, brief: String? = nil, personaId: String? = nil, personaLabel: String? = nil, coHostPersonaIds: [String]? = nil, mode: StationMode, onEnd: StationOnEnd, source: String, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, items: [StationOrderItem]) {
         self.name = name
         self.brief = brief
         self.personaId = personaId
         self.personaLabel = personaLabel
+        self.coHostPersonaIds = coHostPersonaIds
         self.mode = mode
         self.onEnd = onEnd
         self.source = source
@@ -626,6 +629,7 @@ public struct StationOrder: Codable, Equatable, Sendable {
         case brief = "brief"
         case personaId = "personaId"
         case personaLabel = "personaLabel"
+        case coHostPersonaIds = "coHostPersonaIds"
         case mode = "mode"
         case onEnd = "onEnd"
         case source = "source"
@@ -641,6 +645,7 @@ public struct StationOrder: Codable, Equatable, Sendable {
         self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
         self.personaId = try container.decodeIfPresent(String.self, forKey: .personaId)
         self.personaLabel = try container.decodeIfPresent(String.self, forKey: .personaLabel)
+        self.coHostPersonaIds = try container.decodeIfPresent([String].self, forKey: .coHostPersonaIds)
         self.mode = try container.decode(StationMode.self, forKey: .mode)
         self.onEnd = try container.decode(StationOnEnd.self, forKey: .onEnd)
         self.source = try container.decode(String.self, forKey: .source)
@@ -656,6 +661,7 @@ public struct StationOrder: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.brief, forKey: .brief)
         try container.encodeIfPresent(self.personaId, forKey: .personaId)
         try container.encodeIfPresent(self.personaLabel, forKey: .personaLabel)
+        try container.encodeIfPresent(self.coHostPersonaIds, forKey: .coHostPersonaIds)
         try container.encode(self.mode, forKey: .mode)
         try container.encode(self.onEnd, forKey: .onEnd)
         try container.encode(self.source, forKey: .source)

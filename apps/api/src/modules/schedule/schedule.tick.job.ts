@@ -282,11 +282,12 @@ export class ScheduleTickJob extends PlainJob {
     private async changeOver(slot: ScheduleSlot, from: string | undefined): Promise<void> {
         // Which night this is and who presents it, read once for both attempts below so the order
         // cannot be built for one host and stamped for another.
-        const { date, host } = this.schedule.nightOf(slot);
+        const { date, host, coHosts } = this.schedule.nightOf(slot);
         const night: ScheduledNight = {
             date,
             guest: host.guest,
             ...(host.regularPersonaId === undefined ? {} : { regularPersonaId: host.regularPersonaId }),
+            ...(coHosts.length === 0 ? {} : { coHostIds: coHosts }),
         };
 
         let withoutSource: unknown;
@@ -354,7 +355,10 @@ export class ScheduleTickJob extends PlainJob {
         const now = this.schedule.nightOf(slot);
         if (now.date === placed) return false;
 
-        return this.schedule.hostOn(slot, placed)?.personaId !== now.host.personaId;
+        const then = this.schedule.hostOn(slot, placed);
+        // The host, or who is beside them: a visiting co-host's night starts at the top of the show
+        // like a guest host's does, and so does the night after it, when they have gone again.
+        return then?.personaId !== now.host.personaId || (then?.coHosts ?? []).join('|') !== now.coHosts.join('|');
     }
 
     /** This slot cannot be aired at all, so the station keeps doing what it was doing. */

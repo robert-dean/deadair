@@ -89,6 +89,17 @@ differs from the last night's. Both hosts are worked out from the schedule rathe
 order, so an operator's own recast holds until the next night, and a recast clears the regular host,
 since a person choosing the presenter has replaced the schedule's "sitting in for".
 
+**Co-hosts present beside the host, and a visiting one is a co-host who comes at random** (the
+`cohost` rows in `schedule_slot_hosts`, migration 0078). A co-host row runs every night (no days, no
+odds), on fixed nights, or as a visitor with `every_n` and `cooldown_days`, rolled by the same pure
+`appears` as a guest host. `coHostsFor` answers who is on a night in the slot's own order, never the
+night's presenter, and at most `MAX_CO_HOSTS` (three, `MAX_CALLERS`' line for the same reason), so a
+visitor who wins a full night sits it out; the service refuses a fourth every-night co-host rather than
+keep one who could never air. The order carries them as `co_host_persona_ids`, an id array without a
+foreign key on `putOnAir`'s rule for its host, and the tick changes over at the start of a night whose
+co-hosts differ from the last night's, so a visit begins at the top of the show and ends with it. A
+recast keeps the co-hosts (less whoever was made the lead) and leaves their breaks as written.
+
 **A broadcast has an IDENTITY, and everything written while it runs carries it.**
 `station_lineup.broadcast_id` is minted when a running order is built and kept for as long as it
 airs, so `play_history`, `segment_events`, `script_history` and `station_events` can all answer "what

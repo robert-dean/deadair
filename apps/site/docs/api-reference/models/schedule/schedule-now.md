@@ -1,6 +1,6 @@
 ---
 title: 'ScheduleNow'
-sidebar_position: 7
+sidebar_position: 8
 mdx:
     format: 'md'
 ---
@@ -8,7 +8,7 @@ mdx:
 > Which slot the clock says should be on right now, and what follows it
 
 <details>
-<summary>Attributes (7)</summary>
+<summary>Attributes (8)</summary>
 
 | Attribute          | Type                   | Required | Description                                                                                                                                                                                                                                                                                                     |
 | ------------------ | ---------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -16,6 +16,7 @@ mdx:
 | `timezone`         | `string`               | No       | The IANA zone the station reads its clock in: `station.timezone`, or the machine's own when that is empty. Optional because a station from before it existed does not send it. For a console showing the station's time beside an operator's own when the two differ, which a zone-naive reading cannot tell it |
 | `slotId`           | `string`               | No       | The slot in force at this instant. Absent means the station has no schedule                                                                                                                                                                                                                                     |
 | `hostPersonaId`    | `string`               | No       | Who presents tonight's night of the slot in force: a guest sitting in, or the slot's own host. Absent when it names nobody, which is the station's own host. Only the night that is ON is answered, so a guest who comes at random stays a surprise until their night begins                                    |
+| `coHostPersonaIds` | `string[]`             | No       | Who presents beside tonight's host on the slot in force, in order. Only the night that is ON is answered, so a visitor stays a surprise until their night begins                                                                                                                                                |
 | `regularPersonaId` | `string`               | No       | Whose show it usually is, while a guest sits in on the slot in force. Absent on an ordinary night, and while the station's own host would be the regular one                                                                                                                                                    |
 | `airingSlotId`     | `string`               | No       | The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins                                                                                                                                                     |
 | `upcoming`         | `ScheduleOccurrence[]` | Yes      | The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block                                                |

@@ -130,7 +130,7 @@ fun RequestScreen(
                                             }
                                         }
                                     },
-                                    trailingContent = { Icon(painterResource(R.drawable.ic_playlist_add), contentDescription = null) },
+                                    trailingContent = { Icon(painterResource(R.drawable.ic_request), contentDescription = null) },
                                     modifier =
                                         Modifier.clickable(onClickLabel = stringResource(R.string.request_this_record, row.title)) { onChoose(row) },
                                 )

@@ -176,7 +176,7 @@ fun HomeRoute(
     val upNextActions: @Composable RowScope.() -> Unit = {
         if (session is SessionState.SignedIn) {
             IconButton(onClick = onRequest) {
-                Icon(painterResource(R.drawable.ic_playlist_add), contentDescription = stringResource(R.string.request_a_record))
+                Icon(painterResource(R.drawable.ic_request), contentDescription = stringResource(R.string.request_a_record))
             }
         }
         when {

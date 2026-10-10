@@ -14,27 +14,9 @@ one skips.
 You need Docker, a machine to run it on, and either a Spotify account (Premium, because the station
 fetches audio) or a Subsonic server such as Navidrome.
 
-## 1. Generate the two secrets
+## 1. Start it
 
-Both are generated once and kept. Nothing else has to be decided before the first start.
-
-```bash
-openssl rand -hex 32
-```
-
-That one encrypts every credential the station stores, and it has to be hex.
-
-```bash
-openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | base64 -w0
-```
-
-That one signs sessions, and it has to be RSA. On macOS the last command is `base64` with no `-w0`.
-Losing the first means typing your provider's credentials in again; losing the second signs everybody
-out and costs nothing else.
-
-## 2. Start it
-
-Make a directory, put this in `docker-compose.yml`, and fill in the two keys and the address:
+Make a directory, put this in `docker-compose.yml`, and fill in the address:
 
 ```yaml
 services:
@@ -47,8 +29,6 @@ services:
         volumes:
             - ./data:/data
         environment:
-            KMS_LOCAL_ROOT_KEY: 'paste the hex key here'
-            AUTHENTICATION_SESSION_JWT_PRIVATE_KEY: 'paste the base64 key here'
             APP_BASE_URL: 'http://localhost:8080'
             SPA_BASE_URL: 'http://localhost:8080'
             TZ: 'America/New_York'
@@ -66,10 +46,12 @@ after it.
 docker compose up -d
 ```
 
-The schema is applied before the station starts, so there is no migration step. On a host whose
+The schema is applied before the station starts, so there is no migration step. The two keys the
+station encrypts and signs with are made on the first boot, in `./data/secrets`: back that up with the
+rest of `./data`, because losing the first one means typing your provider's credentials in again. On a host whose
 `./data` is not already owned by 99:100, hand it over once with `sudo chown -R 99:100 ./data`.
 
-## 3. Make yourself the operator
+## 2. Make yourself the operator
 
 Open `http://localhost:8080`. The first thing a station with no accounts asks for is an
 administrator: an email address and a password. That account is yours and there is no other way in,

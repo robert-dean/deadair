@@ -8,13 +8,20 @@ description: The station's own compose file and environment file, filled in and 
 By the end of this page the station is running under Docker Compose and you are signed in to its
 console as the administrator. It takes about ten minutes, most of it the first boot.
 
-This page uses the compose file and environment file the project ships in `deploy/`, with the `full`
-variant, which brings its own database and cache. [Install](../install.md) is the reference: the other
+**The short way** is one command. It asks four questions and does steps 1 to 4 below, then you
+create the administrator yourself:
+
+```bash
+curl -fsSL https://deadair.radio/install.sh | sh
+```
+
+This page does the same steps by hand. It uses the compose file and environment file the project
+ships in `deploy/`, with the `full` variant, which brings its own database and cache. [Install](../install.md) is the reference: the other
 variants, bringing your own PostgreSQL and Redis, a second disk for media, and putting the station on
 the internet.
 
 **You need:** a Linux machine on `amd64` with Docker and the Compose plugin (`docker compose version`
-answers), and `openssl`. Docker Desktop on a Mac or a PC works for trying it out.
+answers). Docker Desktop on a Mac or a PC works for trying it out.
 
 ## 1. Get the two files
 
@@ -35,27 +42,12 @@ curl -fsSL -o .env https://raw.githubusercontent.com/robert-dean/deadair/main/de
 
 The second download is saved straight to `.env`, which is the file the compose file reads.
 
-## 2. Generate the two keys
-
-```bash
-openssl rand -hex 32
-```
-
-```bash
-openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | base64 -w0
-```
-
-Keep both. The first encrypts every credential the station stores and has to be hex. The second signs
-sign-ins and has to be RSA. On macOS, drop the `-w0`.
-
-## 3. Fill in `.env`
+## 2. Fill in `.env`
 
 Open `.env` in an editor. It is commented throughout. Change these lines and leave the rest alone:
 
 ```bash
 VARIANT=full
-KMS_LOCAL_ROOT_KEY=the hex key from step 2
-AUTHENTICATION_SESSION_JWT_PRIVATE_KEY=the base64 key from step 2
 APP_BASE_URL=http://192.168.1.10:8080
 SPA_BASE_URL=http://192.168.1.10:8080
 TZ=America/New_York
@@ -69,8 +61,11 @@ TZ=America/New_York
   sign-in links and a Spotify authorization will send your browser nowhere.
   [Why](../install.md#the-stations-address).
 - **`TZ`** is where the station is. It can be changed later in the console.
+- **The two keys** stay empty. The station makes both on its first boot, in `data/secrets`. Back that
+  directory up with the rest of `data`: losing the first key means entering every credential the
+  station stored again.
 
-## 4. Give the data directory to the station
+## 3. Give the data directory to the station
 
 The container runs as user 99, group 100. On most Linux hosts the `./data` directory has to be handed
 over once:
@@ -81,7 +76,7 @@ mkdir -p data && sudo chown -R 99:100 ./data
 
 Docker Desktop on a Mac does not need this.
 
-## 5. Start it and watch the first boot
+## 4. Start it and watch the first boot
 
 ```bash
 docker compose up -d
@@ -95,7 +90,7 @@ Wait for the line `Boot complete`, then press Ctrl+C to stop following the log (
 running). The first boot applies the database schema and can take a few minutes. `docker compose ps`
 shows the container as `healthy` once it is answering.
 
-## 6. Create the administrator
+## 5. Create the administrator
 
 1. Open the address you put in `APP_BASE_URL`.
 2. The console opens on **Set up deadair**. Enter an email address and a password and choose
@@ -107,9 +102,11 @@ That account is the only way in, so keep the password somewhere safe.
 
 ## If it goes wrong
 
-- **The container exits and the log names a variable.** That line in `.env` is empty. It is usually
-  one of the two keys.
-- **The log says permission denied under `/data`.** Step 4 was skipped. Run the `chown` and
+**Ask the container first.** `docker exec deadair deadair-doctor` checks the data directory, the keys,
+the database, the cache and the two addresses, and says what to fix in one line each.
+
+- **The container exits and the log names a variable.** That line in `.env` is empty.
+- **The log says permission denied under `/data`.** Step 3 was skipped. Run the `chown` and
   `docker compose up -d` again.
 - **The log says it cannot reach the database.** `VARIANT` is not `full`. Set it, or see
   [Bringing your own database](../install.md#bringing-your-own-database).

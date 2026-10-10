@@ -80,8 +80,10 @@ captures/
 # The desktop app is the third non-Node thing in the tree, after the sidecar and the Android
 # listener, and these are MSBuild's droppings. `bin/` and `obj/` are bare rather than anchored
 # because nothing else in this repository uses either name, and a NuGet restore writes them beside
-# every project rather than in one place.
+# every project rather than in one place. The image's own `usr/local/bin` is the one exception: it
+# holds `deadair-doctor`, which an operator runs with `docker exec`.
 bin/
+!docker/rootfs/usr/local/bin/
 obj/
 .vs/
 *.user
@@ -131,13 +133,15 @@ CLAUDE.local.md
 
 # The website's build droppings: Docusaurus's generated modules, the four docs the build copies in
 # from `deploy/README.md`, `docs/licensing.md`, `CONTRIBUTING.md` and `packages/plugin-sdk/README.md`,
-# and the page it copies in from `apps/android/PRIVACY.md` (apps/site/scripts/docs.sync.mjs).
+# the page it copies in from `apps/android/PRIVACY.md`, and the installer it serves from
+# `deploy/install.sh` (apps/site/scripts/docs.sync.mjs).
 .docusaurus/
 apps/site/docs/install.md
 apps/site/docs/licensing.md
 apps/site/docs/develop/contributing.md
 apps/site/docs/plugin-development/contract.md
 apps/site/src/pages/privacy/android.md
+apps/site/static/install.sh
 
 # The console capture's working space: a signed-in browser state for one operator's station, and the
 # full-size PNGs before they are converted. The webp it writes to `static/img/console/` is committed;

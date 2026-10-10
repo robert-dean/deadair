@@ -1,4 +1,5 @@
 import Link from '@docusaurus/Link';
+import CodeBlock from '@theme/CodeBlock';
 import Layout from '@theme/Layout';
 
 import { ChipList } from '../components/chip.list';
@@ -240,6 +241,14 @@ export default function Home() {
                         One container holds the station, its console, the audio chain, the stream server and the measurement sidecar. One port carries
                         all of it, so whatever you already put in front of a port carries the station too.
                     </p>
+                    <div className={styles.install}>
+                        <CodeBlock language="bash">curl -fsSL https://deadair.radio/install.sh | sh</CodeBlock>
+                        <p className={styles.note}>
+                            On any machine with Docker and the Compose plugin, that asks where to put the station, which tag, which port and the
+                            address you will type to reach it, then starts it and checks it came up. On Unraid it is an app in Community Applications
+                            instead. <Link to="/docs/tutorials/prerequisites">Before you install</Link> says what to have ready.
+                        </p>
+                    </div>
                     <div className={styles.tags}>
                         {tags.map(image => (
                             <div key={image.tag} className={styles.tag}>
@@ -254,9 +263,9 @@ export default function Home() {
                         ))}
                     </div>
                     <p className={styles.note}>
-                        Images are <code>linux/amd64</code>. The tags above follow <code>main</code>; pin <code>deadair/deadair:0.1</code> to track
-                        releases only. <Link to="/docs/quick-start">The quick start</Link> takes the first one from nothing to on air, and{' '}
-                        <Link to="/docs/install">the install guide</Link> covers every choice it makes for you.
+                        Images are <code>linux/amd64</code>. The tags above follow <code>main</code>; pin a release such as{' '}
+                        <code>deadair/deadair:full-0.50</code> to track releases only. <Link to="/docs/quick-start">The quick start</Link> takes the
+                        first one from nothing to on air, and <Link to="/docs/install">the install guide</Link> covers every choice it makes for you.
                     </p>
                     <p className={styles.note}>
                         Listeners get <code>/live.mp3</code>, with Opus, AAC, FLAC and HLS when you turn them on, so anything that plays an internet

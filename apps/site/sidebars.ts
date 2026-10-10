@@ -55,7 +55,7 @@ const sidebars: SidebarsConfig = {
             type: 'category',
             label: 'Install it',
             collapsed: false,
-            items: ['tutorials/install-unraid', 'tutorials/install-compose', 'tutorials/first-hour'],
+            items: ['tutorials/prerequisites', 'tutorials/install-unraid', 'tutorials/install-compose', 'tutorials/first-hour'],
         },
         {
             type: 'category',

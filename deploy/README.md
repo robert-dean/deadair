@@ -13,8 +13,10 @@ in front of that port carries the station too.
 | `deadair/deadair:slim`   | —                          | PostgreSQL, Redis, a speech server |
 
 Those three follow `main` and move on every push that changes the station, not on one that only
-touches the docs, the website or a listener app. A release publishes `0.1.0` and `0.1` beside
-them, so **pin `deadair/deadair:0.1` if you want releases only**. Images are built for `linux/amd64`;
+touches the docs, the website or a listener app. A release publishes its version beside them, for
+each tag: `0.50.2` and `0.50` for `latest`, `full-0.50.2` and `full-0.50` for `full`, and the same
+with `slim-` for `slim`. **Pin one if you want releases only**: under Compose that is
+`VARIANT=full-0.50` in `.env`, because the compose file takes its tag from `VARIANT`. Images are built for `linux/amd64`;
 there is no arm64 build yet.
 
 `full` is the one to start with if the machine has nothing on it. `latest` is the one to run if
@@ -24,7 +26,14 @@ it; the voice is the one part of this that genuinely wants one.
 
 ## Before the first start
 
-Two secrets, generated once and kept:
+Two secrets, and **the station makes both itself** on its first boot when neither is set. It writes
+them to `secrets/` in the data directory and reads them back from there on every boot after, so
+that directory is as much the station as anything else in `/data`: back it up with the rest, because
+losing `KMS_LOCAL_ROOT_KEY` loses every credential it encrypted.
+
+Set them yourself only if you want the root key somewhere other than the volume it protects, such as
+a secrets manager that injects the environment. A variable always wins over the file, and the
+station says so at boot if the two disagree. To generate your own:
 
 ```bash
 openssl rand -hex 32
@@ -163,8 +172,20 @@ description there is the same text.
 
 ## Anywhere else
 
-`docker-compose.yml` here is the same container described for Compose. Copy `.env.example` to
-`.env`, fill it in, and:
+One command, on any machine with Docker and the Compose plugin:
+
+```bash
+curl -fsSL https://deadair.radio/install.sh | sh
+```
+
+It asks where to put the station, which tag, which port, and the address you will type to reach it.
+Then it writes `docker-compose.yml` and `.env` from this directory, hands the data directory to the
+station's user, starts the station, waits for the first boot, and runs `deadair-doctor` inside it.
+Running it again keeps the `.env` it finds. [`install.sh`](install.sh) is short enough to read
+before you pipe it into a shell.
+
+By hand instead: `docker-compose.yml` here is the same container described for Compose. Copy
+`.env.example` to `.env`, fill it in, and:
 
 ```bash
 docker compose up -d
@@ -180,10 +201,11 @@ sudo chown -R 99:100 ./data
 
 The schema is applied before the station starts, every time, so there is no migration step to run.
 
-Open the console on the port you published and sign in. Then, in order of what actually stops the
-station being a station:
+Open the console on the port you published. The first page is **Set up deadair**: create the
+administrator there with an email address and a password, which signs you in. Then, in order of what
+actually stops the station being a station:
 
-1. **A music provider.** Plugins page: enter the provider's credentials and let the library sync.
+1. **A music provider.** Settings → Plugins: enter the provider's credentials and let the library sync.
    Nothing can be programmed until there are records to program.
 2. **Playback authorization, if that provider is Spotify.** Same page, the card below the
    connection. This is a **second** credential and it is easy to think it is the same one: the
@@ -195,27 +217,48 @@ station being a station:
    step failing. It is an address on the station itself, which your browser cannot reach; copy it
    out of the address bar and paste it back into the console, which finishes the job. The card
    walks you through it.
-3. **The stream's own settings.** Stream page: a station name, and the public address listeners
+3. **The stream's own settings.** Settings → Stream: a station name, and the public address listeners
    reach it at. Saving these is what renders the stream server's configuration for the first time
    and takes the audio chain off its built-in defaults.
-4. **The presenter.** Personas page: pick who is on air. There are several to start from.
-5. **A model, if you want one.** Plugins page: the station writes what the presenter says with a
+4. **The presenter.** Voice → Characters: press **Make station host** on whoever should be on air.
+   There are several to start from.
+5. **A model, if you want one.** Settings → Plugins: the station writes what the presenter says with a
    local or hosted model when one is configured, and from its own phrasings when none is. It is
    not required, and a station with none still talks.
-6. **Where the station is.** Settings page: an IANA zone name. It is what the presenter reads the
+6. **Where the station is.** Settings → Station: its name, the town it is in (the weather comes
+   from there), and its timezone as an IANA zone name. It is what the presenter reads the
    clock in, and — less obviously — what decides whether it is morning or evening where a listener
    is. Left unanswered the station falls back to the container's `TZ`, which is UTC unless you set
    it, and a presenter four hours out says "tonight" through your afternoon. Set the setting rather
    than the variable where the two disagree: a station is a place and its listeners are in it,
    which is not necessarily where the server is.
 
-Two things need a browser visit rather than a setting, and both are on the plugins page: the music
+Two things need a browser visit rather than a setting, and both are in Settings → Plugins: the music
 provider's authorization, and — on Spotify — the station's own playback authorization above. Nothing
-else does.
+else does. Then, on the **Desk**, press **Plan**, start a show and press **Go on air**, and open `/live.mp3`.
 
 Nothing here needs a URL pointing at another container. The parts of the station address each
 other inside the container, and the speech and measurement plugins are already looking at the
 right place.
+
+## Checking the install
+
+```bash
+docker exec deadair deadair-doctor
+```
+
+One line per check, and a non-zero exit when one fails:
+
+- the data volume is mounted and the station can write to it;
+- both keys are there, and where each came from;
+- the database answers and its schema is current;
+- the cache answers;
+- the two addresses are set and agree;
+- the speech model's weights are downloaded;
+- the API is answering.
+
+It answers whether the container is set up right. Why a running station is quiet is a different
+question, and the console's **Check-up** page answers that one.
 
 ## Putting it on the internet
 
@@ -294,9 +337,33 @@ The schema looks after itself: migrations are applied before the station starts,
 picked up on the next boot and there is nothing to run by hand.
 
 **Which tag you are on decides what you get.** `latest`, `slim` and `full` follow `main`, so pulling
-one gets you whatever was last merged. Pinning `0.1` gets you releases on that line and nothing
+one gets you whatever was last merged. Pinning `full-0.50` gets you releases on that line and nothing
 else, and the release notes for each are in the repository's `CHANGELOG.md`. If you want a station
-that only changes when you decide it does, pin the exact version.
+that only changes when you decide it does, pin the exact version, `full-0.50.2`.
+
+After any upgrade, `docker exec deadair deadair-doctor` says whether the container came back as it
+should.
+
+### Rolling back
+
+Write down the version you are on before you upgrade. It is the newest release under **On this station** on
+the console's **What's new** page, and `docker exec deadair printenv BUILD_VERSION` prints it. Take the backup below as well.
+
+Going back is the version in the tag and a recreate. Under Compose, set `VARIANT` to the earlier
+release (`full-0.50.1`) and:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+On Unraid, edit **Repository** to the same tag and apply.
+
+**The schema does not go back with the image.** Migrations only ever move forward, and an older
+station started against a database a newer one migrated may meet columns and tables it does not
+know. Going back one release is usually fine. Going back across a release whose changelog mentions a
+migration means restoring the backup you took before upgrading: the data directory, and on `latest`
+or `slim` the database dump beside it.
 
 **From 0.1.0 onward a migration is added, never edited.** Before the first release this project
 edited them in place, which is right when the only database in the world is the author's and wrong

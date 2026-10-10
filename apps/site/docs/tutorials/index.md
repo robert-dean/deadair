@@ -14,8 +14,9 @@ makes every choice for you and is shorter than any of these.
 
 ## Install it
 
-1. Install the station, either [on Unraid](./install-unraid.md) or [with Docker Compose](./install-compose.md).
-2. [Your first hour on air](./first-hour.md): music, a name, a presenter, and something playing.
+1. [Before you install](./prerequisites.md): what to have ready, and how big a machine.
+2. Install the station, either [on Unraid](./install-unraid.md) or [with Docker Compose](./install-compose.md).
+3. [Your first hour on air](./first-hour.md): music, a name, a presenter, and something playing.
 
 ## Create with AI
 

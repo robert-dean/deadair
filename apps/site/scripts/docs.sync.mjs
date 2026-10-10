@@ -14,7 +14,7 @@
 // relative link outside a code fence is rewritten to that file on GitHub, resolved against the
 // source's own directory. A link to an anchor on the same page is left alone.
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, posix, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -81,4 +81,14 @@ for (const page of pages) {
     const target = page.page ? resolve(site, 'src/pages', page.page) : resolve(site, 'docs', page.doc);
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, frontMatter + heading + notice + body.slice(heading.length));
+}
+
+// Files served as they are, at the root of the site. The installer is the one: its address is
+// `deadair.radio/install.sh`, in every install page and in the comment at its own top, so it is a
+// promise the way `/privacy/android` is. It is copied byte for byte, because a comment added to a
+// script piped into `sh` is a change to what runs.
+const files = [{ source: 'deploy/install.sh', target: 'static/install.sh' }];
+
+for (const file of files) {
+    await copyFile(resolve(root, file.source), resolve(site, file.target));
 }

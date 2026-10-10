@@ -19,6 +19,13 @@ services:
         restart: unless-stopped
         env_file:
             - .env
+        environment:
+            # `.env` holds `DATA_DIR` too, as the HOST side of the volume below, and `env_file` hands
+            # every line of it to the container. Inside, the image reads `DATA_DIR` as where the
+            # volume is mounted, so `./data` sent the database, the cache, the voice and the logs to
+            # relative paths nowhere near it and the station never came up. This wins over
+            # `env_file`, so the container always sees the mount point whatever `.env` says.
+            DATA_DIR: /data
         ports:
             # The one way in. It serves the console, proxies the API under /api, and carries the
             # stream itself at /live.mp3, so a tunnel or reverse proxy in front needs this port

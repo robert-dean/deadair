@@ -86,12 +86,12 @@
         Type="Variable" Display="always" Required="false" Mask="false">Etc/UTC</Config>
 
     <Config Name="Secret key" Target="KMS_LOCAL_ROOT_KEY" Default="" Mode=""
-        Description="Encrypts every credential the station stores, including your music provider's. Generate once with: openssl rand -hex 32 (it must be hex), and keep it. Losing it means entering all of them again."
-        Type="Variable" Display="always" Required="true" Mask="true"></Config>
+        Description="Encrypts every credential the station stores, including your music provider's. Leave it empty and the station makes one on its first boot, in secrets/ under Data. Set it only to keep the key off that share: generate once with openssl rand -hex 32 (it must be hex), and keep it. Losing it means entering all of them again."
+        Type="Variable" Display="always" Required="false" Mask="true"></Config>
 
     <Config Name="Session key" Target="AUTHENTICATION_SESSION_JWT_PRIVATE_KEY" Default="" Mode=""
-        Description="Signs sessions, RS256, so it must be an RSA key. Generate one with: openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | base64 -w0. A key is several lines and this field is one, so base64 it and paste that. Losing it signs everybody out and nothing worse."
-        Type="Variable" Display="always" Required="true" Mask="true"></Config>
+        Description="Signs sessions. Leave it empty and the station makes one on its first boot, in secrets/ under Data. To set your own it must be RSA: openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | base64 -w0, since a key is several lines and this field is one. Losing it signs everybody out and nothing worse."
+        Type="Variable" Display="always" Required="false" Mask="true"></Config>
 
     <Config Name="Database host" Target="DATABASE_HOST" Default="" Mode=""
         Description="Your PostgreSQL server, version 13 or newer (17 is what the station is tested on). No extensions needed. Leave every database and cache field blank on the full tag, which runs its own."

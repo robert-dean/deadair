@@ -29,6 +29,7 @@ import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
 import { ROTATION_KEYS } from '../../../src/modules/director/rotation.rules.js';
 import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
+import type { RouteLink } from '../../../src/modules/director/route.planner.js';
 import { SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import type { PersonaKind } from '../../../src/modules/personas/persona.js';
@@ -38,7 +39,7 @@ const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } 
 
 interface Options {
     /** A route's stops, each with the record chosen for it, or absent for no route between the two. */
-    route?: { name: string; trackId: string; title: string }[];
+    route?: { name: string; trackId: string; title: string; link?: RouteLink }[];
     /** A playlist the station owns, by its rows, or absent for one it does not hold. */
     stationPlaylist?: { name: string; rows: StationPlaylistRowTrack[] };
     /** An album the library holds, as `TracksRepository.inAlbumOrder` answers it, or absent for one it does not. */
@@ -226,7 +227,13 @@ function build(options: Options = {}) {
     // pass against a service that spelled it differently.
     const routes = {
         plan: vi.fn(async () =>
-            options.route === undefined ? undefined : options.route.map(stop => ({ artistKey: stop.name.toLowerCase(), name: stop.name })),
+            options.route === undefined
+                ? undefined
+                : options.route.map(stop => ({
+                      artistKey: stop.name.toLowerCase(),
+                      name: stop.name,
+                      ...(stop.link === undefined ? {} : { link: stop.link }),
+                  })),
         ),
         records: vi.fn(async (stops: { artistKey: string; name: string }[]) =>
             stops.map((stop, index) => ({
@@ -935,8 +942,8 @@ describe('DirectorConsoleService.putOnAir', () => {
     describe('a route from one artist to another', () => {
         const route = [
             { name: 'Gorillaz', trackId: 'cat-1', title: 'Feel Good Inc' },
-            { name: 'Blur', trackId: 'cat-2', title: 'Tender' },
-            { name: 'Daft Punk', trackId: 'cat-3', title: 'Digital Love' },
+            { name: 'Blur', trackId: 'cat-2', title: 'Tender', link: { kind: 'credit' as const, title: 'Shared Song', lead: 'Gorillaz' } },
+            { name: 'Daft Punk', trackId: 'cat-3', title: 'Digital Love', link: { kind: 'similar' as const, source: 'deadair.lastfm' } },
         ];
         const bindings = {
             'cat-1': { pluginId: 'deadair.navidrome', externalId: 'nd-1' },
@@ -958,6 +965,26 @@ describe('DirectorConsoleService.putOnAir', () => {
             ]);
             expect(command.binding).toMatchObject({ name: 'Gorillaz to Daft Punk', source: 'route', mode: 'setlist' });
             expect(resolver.vet).toHaveBeenCalled();
+        });
+
+        it('tells each record how it connects to the one before, by name, and nothing across a stop that was closed up', async () => {
+            const { service, posted } = build({ route, stationBindings: bindings });
+            await service.putOnAir({ routeFrom: 'Gorillaz', routeTo: 'Daft Punk' });
+            const command = posted().at(-1);
+            if (command?.kind !== 'putOnAir') throw new Error('expected the station to be put on air');
+            expect(command.tracks[0]!.link).toBeUndefined();
+            expect(command.tracks[1]!.link).toEqual({
+                fromSongKey: songKey('Feel Good Inc', ['Gorillaz']),
+                reason: 'Gorillaz and Blur are both credited on "Shared Song" by Gorillaz',
+            });
+            expect(command.tracks[2]!.link?.reason).toBe('Last.fm lists Daft Punk among the artists most like Blur');
+
+            // Blur has no copy to air, so Gorillaz and Daft Punk end up side by side with no planned link.
+            const closed = build({ route, stationBindings: { 'cat-1': bindings['cat-1'], 'cat-3': bindings['cat-3'] } });
+            await closed.service.putOnAir({ routeFrom: 'Gorillaz', routeTo: 'Daft Punk' });
+            const after = closed.posted().at(-1);
+            if (after?.kind !== 'putOnAir') throw new Error('expected the station to be put on air');
+            expect(after.tracks.map(track => track.link)).toEqual([undefined, undefined]);
         });
 
         it('says there is no route rather than going on air with nothing', async () => {

@@ -40,7 +40,8 @@ import { BreakFloorWatch } from './break.floor.watch.js';
 import { TALK_BREAK_SHAPE } from './break.prompt.js';
 import { DETERMINISTIC_WRITER, TALK_BREAK_KIND } from './talk.break.writer.js';
 import { STORY_KIND, STORY_SHAPE } from './story.break.writer.js';
-import { isTrackItem, type StationLineup } from './station.lineup.js';
+import { isTrackItem, type StationLineup, type StationLineupItem } from './station.lineup.js';
+import { songKey } from './rotation.keys.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { VocalMarkersReader } from '#modules/lyrics/vocal.markers.reader.js';
@@ -1369,8 +1370,21 @@ function neighboursOf(lineup: StationLineup, segmentId: string, programmes: Read
     const next = nearest(at + 1, 1, true);
     return {
         ...(previous === undefined ? {} : { previous }),
-        ...(next === undefined ? {} : { next }),
+        ...(next === undefined ? {} : { next: withLink(next, previous, items) }),
     };
+}
+
+/**
+ * The record coming up, with how it connects to the one before when a route planned that connection
+ * and the record before really is the one it was planned after. An edit or a skip between the two
+ * makes the connection a claim about a pair that is not on air, so it is dropped rather than said.
+ */
+function withLink(next: Neighbour, previous: Neighbour | undefined, items: readonly StationLineupItem[]): Neighbour {
+    const item = items.find(line => line.id === next.itemId);
+    const link = item !== undefined && isTrackItem(item) ? item.track.link : undefined;
+    if (link === undefined || previous === undefined) return next;
+    if (songKey(previous.track.title, [previous.track.artist]) !== link.fromSongKey) return next;
+    return { ...next, track: { ...next.track, link: link.reason } };
 }
 
 /**

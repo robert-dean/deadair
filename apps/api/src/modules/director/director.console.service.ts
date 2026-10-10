@@ -30,6 +30,7 @@ import { DEFAULT_OVERRUN_MINUTES, OVERRUN_MINUTES_KEY, resolveOverrunMinutes } f
 import { stationZone } from './clock.words.js';
 import { ScheduleService } from '#modules/schedule/schedule.service.js';
 import { RouteService } from './route.service.js';
+import type { RouteLink } from './route.planner.js';
 import { SettingsService } from '#modules/settings/settings.service.js';
 import type { OrderEdit } from './director.mailbox.js';
 import { DirectorService } from './director.service.js';
@@ -724,7 +725,7 @@ export class DirectorConsoleService {
         }
 
         const chosen = await this.routes.records(stops);
-        return await this.libraryTracks(
+        const vetted = await this.libraryTracks(
             chosen.map(({ stop, record }) => ({
                 trackId: record.trackId,
                 title: record.title,
@@ -735,6 +736,38 @@ export class DirectorConsoleService {
             'that route',
             broadcast,
         );
+        return this.linkRoute(vetted, chosen);
+    }
+
+    /**
+     * Each record on a route, with how it connects to the record before it, for a break to say.
+     *
+     * Only between two records that are still neighbouring stops after the vetting: a stop it closed
+     * up around leaves the two either side of it with no planned link, and saying one would be the
+     * station inventing it. A similarity source is named by what it calls itself, as a broadcast is.
+     */
+    private linkRoute(
+        tracks: readonly RundownTrack[],
+        chosen: readonly { stop: { name: string; link?: RouteLink }; record: { trackId: string } }[],
+    ): RundownTrack[] {
+        const stopOf = new Map(chosen.map(({ record }, index) => [record.trackId, index]));
+
+        return tracks.map((track, index) => {
+            const before = tracks[index - 1];
+            const at = track.trackId === undefined ? undefined : stopOf.get(track.trackId);
+            const was = before?.trackId === undefined ? undefined : stopOf.get(before.trackId);
+            if (before === undefined || at === undefined || was === undefined || at !== was + 1) return track;
+
+            const from = chosen[was]!.stop.name;
+            const to = chosen[at]!.stop;
+            const link = to.link;
+            if (link === undefined) return track;
+            const reason =
+                link.kind === 'credit'
+                    ? `${from} and ${to.name} are both credited on "${link.title}" by ${link.lead}`
+                    : `${this.plugins.get(link.source)?.manifest?.name ?? 'a similarity source'} lists ${to.name} among the artists most like ${from}`;
+            return { ...track, link: { fromSongKey: songKey(before.title, [before.artist]), reason } };
+        });
     }
 
     private async albumTracks(albumId: string, era: EraWindow, broadcast: PickBroadcast): Promise<RundownTrack[]> {

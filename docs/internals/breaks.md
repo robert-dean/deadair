@@ -352,6 +352,20 @@ can actually back is "not inside the 120 days of history kept", and a number wou
 one. No switch of its own and no floor variable: it is material, and the floor says nothing it was not
 built to.
 
+**On a route, the record coming up can carry how it connects to the one before, and that is the one
+connection between records a break may state.** `DirectorConsoleService.linkRoute` words each hop when the
+route goes on air (`Gorillaz and Blur are both credited on "Shared Song" by Gorillaz`, or `Last.fm lists Daft
+Punk among the artists most like Blur`, the source named by what it calls itself) and stores it on the
+record as `RundownTrack.link` with the song key of the record it was planned after. `neighboursOf` hands it
+to the writer as `BreakTrack.link` on the NEXT record only, and only while the previous record really is
+that one (`withLink`), because an edit or a skip between them makes it a claim about a pair that is not on
+air. Two records a vetted-out stop left side by side get no link at all rather than one the station would
+be inventing. `describe` shows it as `- How it connects to the record before:`, the "knows nothing"
+paragraph's ban on connections is narrowed to "beyond any listed above" as chart placings were, and
+`permittedYears` reads the link so a shared record titled with a year is not refused as an invented date.
+A route airs with breaks at the show's ordinary spacing, so not every hop gets talked over; a break on every
+hop would need the planner to plant one per boundary, which is not built.
+
 ## What the prompt says, and what it left out
 
 **The station has two sentences of its own above every show and every persona.** `station.identity` (who

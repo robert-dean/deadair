@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.15.6] — 2026-10-10
+
+- Signed in, Now playing has a Lyrics button whenever the record you are hearing has words. It opens the lyrics with the line being sung lit and kept in view, timed to what you hear rather than to what the station has just sent, and shows the words as they came when the source has no timings. Signed out, or on an instrumental or a talk break, there is no button.
+
 ## [0.15.5] — 2026-10-10
 
 - What's on: a block whose name or brief is cut short can be tapped to show the whole of it, and tapped again to fold it back.
@@ -215,7 +219,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.15.5...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.15.6...HEAD
+[0.15.6]: https://github.com/robert-dean/deadair/compare/android-v0.15.5...android-v0.15.6
 [0.15.5]: https://github.com/robert-dean/deadair/compare/android-v0.15.4...android-v0.15.5
 [0.15.4]: https://github.com/robert-dean/deadair/compare/android-v0.15.3...android-v0.15.4
 [0.15.3]: https://github.com/robert-dean/deadair/compare/android-v0.15.2...android-v0.15.3

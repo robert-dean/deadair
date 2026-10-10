@@ -16,6 +16,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
@@ -39,6 +40,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -122,6 +124,8 @@ fun NowPlayingScreen(
     rest: RestState? = null,
     /** Room kept clear at the foot for something drawn over this screen, the tabs, whether or not it is showing. */
     bottomReserve: Dp = 0.dp,
+    /** Opens the words of the record being heard. `null` draws no button: signed out, or nothing to show. */
+    onLyrics: (() -> Unit)? = null,
 ) {
     val palette = rememberCoverPalette(artworkUrl, darkPage = MaterialTheme.colorScheme.background.luminance() < 0.5f)
     CoverColored(palette?.accent) {
@@ -151,11 +155,11 @@ fun NowPlayingScreen(
                         verticalArrangement = Arrangement.Center,
                     ) {
                         Words(state, centred = false, hostPortraitUrl = hostPortraitUrl)
-                        Controls(state, playhead, onPlay, onStop, operator, onRequest)
+                        Controls(state, playhead, onPlay, onStop, operator, onRequest, onLyrics)
                     }
                 }
             } else {
-                FullBleed(state, artworkUrl, hostPortraitUrl, palette?.mesh.orEmpty(), playhead, onPlay, onStop, operator, onArtwork, onRequest, rest, bottomReserve)
+                FullBleed(state, artworkUrl, hostPortraitUrl, palette?.mesh.orEmpty(), playhead, onPlay, onStop, operator, onArtwork, onRequest, rest, bottomReserve, onLyrics)
             }
         }
     }
@@ -184,6 +188,7 @@ private fun FullBleed(
     onRequest: (() -> Unit)?,
     rest: RestState?,
     bottomReserve: Dp,
+    onLyrics: (() -> Unit)?,
 ) {
     val background = MaterialTheme.colorScheme.background
 
@@ -210,7 +215,8 @@ private fun FullBleed(
         val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + bottomReserve
         // As wide as the screen allows, and no taller than leaves the words and the controls their
         // room: on a short phone the cover gives way, never the controls.
-        val side = minOf(maxWidth, ArtworkMaxWidth * 2, (maxHeight - top - bottom - BelowCover).coerceAtLeast(MinCover))
+        val below = BelowCover + if (onLyrics != null) LyricsRoom else 0.dp
+        val side = minOf(maxWidth, ArtworkMaxWidth * 2, (maxHeight - top - bottom - below).coerceAtLeast(MinCover))
 
         // The cover's colours as a slow mesh over the whole page, behind everything: into the status
         // bar, behind the words and the controls, and through the translucent tabs. Painted from its
@@ -268,7 +274,7 @@ private fun FullBleed(
             Column(modifier = Modifier.fillMaxWidth().alpha(shown).padding(horizontal = Gutter)) {
                 Spacer(Modifier.height(CoverGap))
                 Words(state, centred = true, hostPortraitUrl = hostPortraitUrl)
-                Controls(state, playhead, onPlay, onStop, operator, onRequest)
+                Controls(state, playhead, onPlay, onStop, operator, onRequest, onLyrics)
             }
         }
     }
@@ -364,7 +370,7 @@ data class OperatorControls(val skip: SkipControl?, val shuffle: ShuffleControl?
 }
 
 @Composable
-private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -> Unit, onStop: () -> Unit, operator: OperatorControls, onRequest: (() -> Unit)?) {
+private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -> Unit, onStop: () -> Unit, operator: OperatorControls, onRequest: (() -> Unit)?, onLyrics: (() -> Unit)?) {
     // Only when the decoder could say how long is left. A line that appeared with a guessed
     // position would be worse than no line.
     if (playhead != null) PlayheadLine(playhead, modifier = Modifier.padding(top = 20.dp))
@@ -396,7 +402,22 @@ private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -
             Slot { onRequest?.let { SmallControl(R.drawable.ic_request, stringResource(R.string.request_a_record), enabled = true, onClick = it) } }
         }
     }
+
+    // Under the row rather than in it: the row's five places are spoken for, each paired with one on
+    // the other side so the play button stays centred, and a sixth would crowd a narrow phone.
+    if (onLyrics != null) {
+        Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) {
+            TextButton(onClick = onLyrics) {
+                Icon(painterResource(R.drawable.ic_mic), contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.lyrics))
+            }
+        }
+    }
 }
+
+/** What the Lyrics button takes under the controls, given back by the cover when there is one. */
+private val LyricsRoom = 48.dp
 
 /** How far the controls either side of the play button stand from it. */
 private val PlayNeighbourGap = 48.dp

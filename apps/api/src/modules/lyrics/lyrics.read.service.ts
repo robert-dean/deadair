@@ -4,6 +4,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import type { TrackLyrics, TrackLyricsSource, TrackLyricsSources } from '#modules/catalog/types/catalog.types.js';
 import type { NowPlayingLyrics } from '#modules/nowplaying/types/nowplaying.types.js';
+import { playedCues } from '#modules/playout/annotate.js';
 import { Rundown } from '#modules/playout/rundown.js';
 import { isRenderItem } from '#modules/render/segment.source.js';
 import { lyricsProviderRank } from './lyrics.rank.js';
@@ -70,8 +71,10 @@ export class LyricsReadService {
      *
      * What is on air is what the PLAYER says, as `/nowplaying` reads it, not what was last handed
      * over. A spoken item carries no lyrics: a break has none, and a talk-over rides its record, which
-     * is what is reported. The cue-in travels separately rather than being folded into the line
-     * timings, so the timings stay on the one timeline every other lyrics answer uses.
+     * is what is reported. The cues travel separately rather than being folded into the line timings,
+     * so the timings stay on the one timeline every other lyrics answer uses. The cue-out is the one a
+     * player needs: the decoder's `remainingMs` counts down to it, so the position in the file is the
+     * cue-out (or the file's length) minus what remains, with no wall clock involved.
      */
     async getNowPlayingLyrics(): Promise<NowPlayingLyrics> {
         const nowPlaying = this.rundown.nowPlaying();
@@ -81,12 +84,16 @@ export class LyricsReadService {
         const trackId = isRenderItem(item) ? undefined : item.trackId;
         if (trackId === undefined) return { onAir: true, startedAt };
 
-        const cueInMs = item.cueInMs !== undefined && Number.isFinite(item.cueInMs) && item.cueInMs > 0 ? Math.round(item.cueInMs) : undefined;
+        // Only the cues the player was handed: a cue-out it never received would put every client's
+        // highlight ahead by however much tail the measurement trimmed.
+        const cues = playedCues(item);
+        const cueInMs = cues !== undefined && cues.cueInMs > 0 ? Math.round(cues.cueInMs) : undefined;
         return {
             onAir: true,
             trackId,
             startedAt,
             ...(cueInMs === undefined ? {} : { cueInMs }),
+            ...(cues === undefined ? {} : { cueOutMs: Math.round(cues.cueOutMs) }),
             lyrics: pickLyrics(trackId, await this.ranked(trackId)),
         };
     }

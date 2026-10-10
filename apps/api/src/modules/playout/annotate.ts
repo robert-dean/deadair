@@ -375,15 +375,27 @@ export function listenerCover(item: RundownItem, covers?: CoverLookup): string |
  * untrimmed record from looking like a measured one in a queue reading.
  */
 function cueAnnotations(item: RundownItem): Record<string, string> {
-    const { cueInMs, cueOutMs } = item;
-    if (cueInMs === undefined || cueOutMs === undefined) return {};
-    if (!Number.isFinite(cueInMs) || !Number.isFinite(cueOutMs)) return {};
-    if (cueInMs < 0 || cueOutMs <= cueInMs) return {};
+    const cues = playedCues(item);
+    if (cues === undefined) return {};
+    const { cueInMs, cueOutMs } = cues;
 
     return {
         ...(cueInMs > 0 ? { liq_cue_in: seconds(cueInMs) } : {}),
         liq_cue_out: seconds(cueOutMs),
     };
+}
+
+/**
+ * The cue points the player is actually given for an item, by the rule {@link cueAnnotations} stamps
+ * them: both present, finite, and a forward span. Anything that reports where the player is in the
+ * file reads them through here, so it can never assume a cue the player was not handed.
+ */
+export function playedCues(item: Pick<RundownItem, 'cueInMs' | 'cueOutMs'>): { cueInMs: number; cueOutMs: number } | undefined {
+    const { cueInMs, cueOutMs } = item;
+    if (cueInMs === undefined || cueOutMs === undefined) return undefined;
+    if (!Number.isFinite(cueInMs) || !Number.isFinite(cueOutMs)) return undefined;
+    if (cueInMs < 0 || cueOutMs <= cueInMs) return undefined;
+    return { cueInMs, cueOutMs };
 }
 
 /** Milliseconds as the seconds Liquidsoap expects, without a trailing `.000`. */

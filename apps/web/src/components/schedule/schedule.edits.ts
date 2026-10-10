@@ -2,7 +2,7 @@ import type { ScheduleSlot } from '@deadair/sdk';
 
 import { i18n } from '../../i18n/i18n.setup';
 
-import { weekdayOf } from './schedule.day';
+import { addDays, weekdayOf } from './schedule.day';
 
 /**
  * Turning a drag on the grid into a change to the schedule.
@@ -48,6 +48,20 @@ export function minutesOf(stamp: string): number {
 
 /** The date half of a stamp. */
 const dateOf = (stamp: string): string => stamp.slice(0, 10);
+
+/**
+ * A resized block's end, with the bottom of the column read as the midnight it stands for.
+ *
+ * `@mantine/schedule` ends its column at `23:59:59` and caps a resized edge at the column's last
+ * minute, so dragging a block's lower edge to the bottom hands back `23:59:00`, and nothing a resize
+ * can produce ever says midnight. A resized edge otherwise lands on a whole slot (15 minutes in the
+ * day view, an hour in the week), so a `:59` there can only be that cap. An end the gesture did not
+ * move is left alone, because a slot can genuinely end at 23:59 and resizing its top edge must not
+ * stretch it by a minute.
+ */
+export function resizedEnd(block: DraggedBlock, newEnd: string): string {
+    return newEnd !== block.end && newEnd.slice(11) === '23:59:00' ? `${addDays(dateOf(newEnd), 1)} 00:00:00` : newEnd;
+}
 
 /**
  * Whether this block begins where its slot begins, rather than being last night carrying over.

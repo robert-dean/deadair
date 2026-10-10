@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ScheduleSlot } from '@deadair/sdk';
 
-import { blockEdit, type DraggedBlock } from '../../../src/components/schedule/schedule.edits';
+import { blockEdit, resizedEnd, type DraggedBlock } from '../../../src/components/schedule/schedule.edits';
 
 const slot = (id: string, startsAtMinutes: number, endsAtMinutes: number, days: number[] = []): ScheduleSlot => ({
     id,
@@ -117,5 +117,32 @@ describe('blockEdit', () => {
         expect(blockEdit(block('deleted', '06:00', '10:00'), '2026-08-19 07:00:00', '2026-08-19 11:00:00', SLOTS)).toMatchObject({
             kind: 'refused',
         });
+    });
+});
+
+describe('resizedEnd', () => {
+    it('reads a lower edge dragged to the bottom of the column as the next midnight', () => {
+        // The grid caps a resized edge at 23:59, which is the only way it says "the bottom".
+        expect(resizedEnd(block('drive', '20:00', '22:00'), '2026-08-19 23:59:00')).toBe('2026-08-20 00:00:00');
+    });
+
+    it('saves that resize as a block ending at midnight', () => {
+        const dragged = block('late', '22:00', '23:00');
+
+        expect(blockEdit(dragged, dragged.start, resizedEnd(dragged, '2026-08-19 23:59:00'), SLOTS)).toMatchObject({ endsAtMinutes: 0 });
+    });
+
+    it('leaves an end the gesture did not move, even at 23:59', () => {
+        // A slot can genuinely end at 23:59, and dragging its top edge hands its end back untouched.
+        const dragged = block('drive', '20:00', '23:59');
+
+        expect(resizedEnd(dragged, dragged.end)).toBe('2026-08-19 23:59:00');
+    });
+
+    it('leaves every other end as the grid sent it', () => {
+        const dragged = block('drive', '20:00', '22:00');
+
+        expect(resizedEnd(dragged, '2026-08-19 23:45:00')).toBe('2026-08-19 23:45:00');
+        expect(resizedEnd(dragged, '2026-08-20 00:00:00')).toBe('2026-08-20 00:00:00');
     });
 });

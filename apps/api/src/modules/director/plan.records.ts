@@ -98,6 +98,21 @@ export interface PlannedRecords {
 export const MAX_PLANNING_ATTEMPTS = 2;
 
 /**
+ * How long a job that plans through {@link planRecords} may run before pg-boss stops it: the refill,
+ * the replan and the prepare-ahead.
+ *
+ * Twelve minutes, and it has to be above `MAX_PLANNING_ATTEMPTS` model conversations, each of them a
+ * `MAX_WAIT_MS` queue and a `BUDGET_MS` budget (eight minutes at today's numbers), plus the resolver's
+ * provider lookups after them. `job.mappings.test.ts` holds it there.
+ *
+ * Here rather than beside the queue policies because two things read it. The queues take it as their
+ * `expiresIn`, and the director's refill guard has to outlast it: a guard that runs out while the
+ * refill it was set for is still planning sends a second refill for the same shortfall, and the two
+ * plan the same hour. See `EXTEND_GUARD_MS`.
+ */
+export const PLANNING_TIME_LIMIT_MS = 12 * 60_000;
+
+/**
  * Name a batch of records and turn them into ones the station can actually play.
  *
  * The rules go WITH the picks. `PickResolver` judges every one of them against these, whatever

@@ -63,6 +63,7 @@ import {
     type StationLineupSnapshot,
 } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
+import { PLANNING_TIME_LIMIT_MS } from './plan.records.js';
 import { awaitsMeasurement, measurementOf } from './track.measurement.js';
 import { errorText } from '#modules/shared/error.text.js';
 
@@ -201,11 +202,32 @@ const EXTEND_BELOW = 8;
  * which is that the only evidence accepted for "the last one finished" was the
  * order growing. A refill can finish without growing it.
  *
- * Generous against how long a refill takes rather than tuned: the model half is
- * minutes on a slow host, and asking twice costs one wasted job where asking
- * never costs the station its running order.
+ * It has to OUTLAST the refill it was set for, which is why it is read off
+ * {@link PLANNING_TIME_LIMIT_MS} rather than chosen. The warm tick re-asks the
+ * moment it runs out (see `refillOverdue`), so a window shorter than the job's own
+ * time limit sends a second refill while the first is still planning: two jobs on
+ * the model for one shortfall, both avoiding only what the order held before
+ * either landed, both appending. At five minutes against a twelve-minute job that
+ * was every slow refill. A minute past the limit, because the job has no retry of
+ * its own and pg-boss has given up on it by then: whatever it was going to add has
+ * either arrived or never will.
+ *
+ * The long window costs nothing when a refill lands, because an order that grew
+ * clears it, and an honest "nothing" shortens it to {@link EMPTY_REFILL_RETRY_MS}.
+ * What waits it out is a refill that never answered at all.
  */
-export const EXTEND_GUARD_MS = 300_000;
+export const EXTEND_GUARD_MS = PLANNING_TIME_LIMIT_MS + 60_000;
+
+/**
+ * How long a refill that came back with nothing holds the next one off.
+ *
+ * The answer has arrived, so the reason for the long guard is gone, but asking
+ * again at once would put the same brief to the same model against the same
+ * library and get the same nothing, as fast as the model can say it. Five minutes
+ * is the window the guard used to have, which is how often a station with an
+ * unanswerable brief has been asking since the latch was replaced.
+ */
+export const EMPTY_REFILL_RETRY_MS = 300_000;
 
 /** How long a reading of `station_air` is trusted before it is re-read. */
 const AIR_TTL_MS = 5_000;
@@ -307,12 +329,15 @@ export class DirectorService {
         return parseAirMode(this.config.get(AIR_MODE_KEY, ''));
     }
     /**
-     * When a refill was last asked for, or `undefined` for not waiting on one.
+     * When the director may ask for a refill again, or `undefined` for not waiting on one.
      *
-     * A timestamp rather than a flag, because it has to expire: see {@link EXTEND_GUARD_MS}.
-     * Cleared early once the order has actually grown, which is the good outcome.
+     * A deadline rather than a flag, because it has to expire: see {@link EXTEND_GUARD_MS}. And a
+     * deadline rather than the time of the send, because how long to wait depends on what has
+     * happened since: a send waits out the job's time limit, an empty answer only
+     * {@link EMPTY_REFILL_RETRY_MS}. Cleared early once the order has actually grown, which is the
+     * good outcome.
      */
-    private extendSentAt?: number;
+    private extendDueAt?: number;
     /**
      * A stand-down whose write has not landed yet.
      *
@@ -759,11 +784,11 @@ export class DirectorService {
      * 11:48, and nothing asked again; the station reported `noProgramme` with a listener connected.
      *
      * Self-limiting the same way the audio wait is. The pass this wakes re-sends and re-stamps
-     * `extendSentAt`, so the next tick is inside the guard again, and an order that has grown clears
-     * it. On a healthy station `extendSentAt` is either unset or recent, and this posts nothing.
+     * `extendDueAt`, so the next tick is inside the guard again, and an order that has grown clears
+     * it. On a healthy station `extendDueAt` is either unset or ahead, and this posts nothing.
      */
     private refillOverdue(): boolean {
-        return this.extendSentAt !== undefined && Date.now() - this.extendSentAt >= EXTEND_GUARD_MS;
+        return this.extendDueAt !== undefined && Date.now() >= this.extendDueAt;
     }
 
     /**
@@ -1400,7 +1425,7 @@ export class DirectorService {
         // and a dropped refill is not evidence the new one has one coming: without this the new
         // broadcast's first shortfall would sit behind whatever window the old request happened to
         // still be holding.
-        this.extendSentAt = undefined;
+        this.extendDueAt = undefined;
         this.active = true;
         this.airRanOut = false;
 
@@ -1449,7 +1474,16 @@ export class DirectorService {
      * one instance and one writer, so there is nothing to lose a race to.
      */
     private async appendTracks(tracks: readonly RundownTrack[], broadcastId: string): Promise<void> {
-        if (tracks.length === 0) return;
+        if (tracks.length === 0) {
+            // The refill has answered, and the answer was nothing. The guard was holding the next ask
+            // off for as long as the job might still be planning, and it is not any more, so the wait
+            // comes down to the shorter one an empty answer earns. Only for the broadcast on air: an
+            // empty answer for one that has ended says nothing about the refill this one is owed.
+            if (this.extendDueAt !== undefined && this.lineup?.broadcastId === broadcastId) {
+                this.extendDueAt = Math.min(this.extendDueAt, Date.now() + EMPTY_REFILL_RETRY_MS);
+            }
+            return;
+        }
         // The generator ran for long enough that a changeover could have landed first. A refill
         // planned for a broadcast that has since ended (or for a station holding no order at all)
         // is describing material for a show nobody is airing any more, and grafting it onto whatever
@@ -1826,7 +1860,7 @@ export class DirectorService {
      * Its shape is {@link thin}'s, because the two are the same event seen from different sides: a
      * record leaving the order with time left to replace it. The three things that follow are the
      * same three, and each is a bug if it is left out. A refill decision made a moment ago is stale
-     * now that the order is shorter, so `extendSentAt` is cleared and the pass below sends for
+     * now that the order is shorter, so `extendDueAt` is cleared and the pass below sends for
      * more. A break may have promised one of these lines by name, so {@link reopenPromises} gets it
      * rewritten while there is still time — the alternative is `brokenClaim` dropping it at
      * hand-over, which is correct but costs the break. And the segment rows behind breaks that went
@@ -1852,7 +1886,7 @@ export class DirectorService {
 
         await this.persist();
         await this.retireSegments(lineup, dropped, 'the station was told not to play the record this break sat beside');
-        if (lineup.remaining() >= EXTEND_BELOW) this.extendSentAt = undefined;
+        if (lineup.remaining() >= EXTEND_BELOW) this.extendDueAt = undefined;
         void this.reopenPromises(dropped.map(item => item.id));
         await this.commit();
         return result;
@@ -2234,7 +2268,7 @@ export class DirectorService {
                 for (const itemId of prepared.unavailable) lineup.markUnavailable(itemId);
 
                 // The order moved, so a refill decision made a moment ago is stale.
-                if (lineup.remaining() >= EXTEND_BELOW) this.extendSentAt = undefined;
+                if (lineup.remaining() >= EXTEND_BELOW) this.extendDueAt = undefined;
                 // A break may have promised one of the records that just came out. Sent rather
                 // than awaited, and after the mutations, because the promise is already broken —
                 // the claim check would drop the break at hand-over either way — and this is only
@@ -2543,7 +2577,7 @@ export class DirectorService {
 
         // A refill decision made a moment ago is stale now that the order is shorter, and a break may
         // have promised one of these. Both are exactly what the commit block does for the same marks.
-        if (lineup.remaining() >= EXTEND_BELOW) this.extendSentAt = undefined;
+        if (lineup.remaining() >= EXTEND_BELOW) this.extendDueAt = undefined;
         void this.reopenPromises(dropped);
         this.persistSoon();
     }
@@ -3276,10 +3310,10 @@ export class DirectorService {
      */
     private async topUpIfShort(lineup: StationLineup, rules: ResolvedRules): Promise<void> {
         if (lineup.onEnd !== 'extend' || !rules.mayGenerate || lineup.remaining() >= EXTEND_BELOW) {
-            this.extendSentAt = undefined;
+            this.extendDueAt = undefined;
             return;
         }
-        if (this.extendSentAt !== undefined && Date.now() - this.extendSentAt < EXTEND_GUARD_MS) return;
+        if (this.extendDueAt !== undefined && Date.now() < this.extendDueAt) return;
 
         // The guard is set only once the send has actually landed, so a send that threw is asked
         // again on the very next boundary rather than waiting out the window. That is now belt and
@@ -3298,7 +3332,7 @@ export class DirectorService {
             this.logger.warn(`director: could not ask for a refill (${errorText(error)})`);
             return;
         }
-        this.extendSentAt = Date.now();
+        this.extendDueAt = Date.now() + EXTEND_GUARD_MS;
 
         this.logger.info('director: the running order is running short; a refill is on its way', { remaining: lineup.remaining() });
     }
@@ -3512,7 +3546,7 @@ export class DirectorService {
         this.pendingVoice = undefined;
         this.active = false;
         this.airRanOut = ranOut;
-        this.extendSentAt = undefined;
+        this.extendDueAt = undefined;
         this.airReadAt = 0;
         this.standingDown = true;
         // Nothing written from here on belongs to a broadcast, because there is not one on.

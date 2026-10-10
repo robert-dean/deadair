@@ -10,7 +10,15 @@ import type { Logger } from '@maroonedsoftware/logger';
 import type { Container } from 'injectkit';
 import type { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 
-import { COMMIT_LEAD, DirectorService, EXTEND_GUARD_MS, WAITING_ON_AUDIO_MS, WARM_TICK_MS } from '../../../src/modules/director/director.service.js';
+import {
+    COMMIT_LEAD,
+    DirectorService,
+    EMPTY_REFILL_RETRY_MS,
+    EXTEND_GUARD_MS,
+    WAITING_ON_AUDIO_MS,
+    WARM_TICK_MS,
+} from '../../../src/modules/director/director.service.js';
+import { PLANNING_TIME_LIMIT_MS } from '../../../src/modules/director/plan.records.js';
 import {
     StationLineup,
     isTrackItem,
@@ -3542,11 +3550,50 @@ describe('DirectorService asking for a refill', () => {
         await director.post({ kind: 'appendTracks', tracks: [], broadcastId: lineup.broadcastId });
         await settle();
 
-        // Past the window in which one send suppresses the next.
-        vi.setSystemTime(Date.now() + EXTEND_GUARD_MS + 1);
+        // Past the window an empty answer earns, which is far inside the one a send holds: the
+        // refill has answered, so there is nothing left to wait for but a sensible gap.
+        expect(EMPTY_REFILL_RETRY_MS).toBeLessThan(EXTEND_GUARD_MS);
+        vi.setSystemTime(Date.now() + EMPTY_REFILL_RETRY_MS + 1);
         await wake(rundown);
 
         expect(jobs.send.mock.calls.length).toBeGreaterThan(1);
+    });
+
+    // The guard used to run out at five minutes while a refill may plan for twelve, and since the
+    // warm tick re-asks the moment it runs out, every slow refill was joined by a second one for the
+    // same shortfall: two jobs on the model, both appending the same hour.
+    it('does not ask again while the refill it sent may still be planning', async () => {
+        vi.useFakeTimers();
+        try {
+            const { director, jobs, seed } = build({ items: ['a', 'b', 'c'] });
+            await seed();
+            await director.start();
+            await vi.advanceTimersByTimeAsync(0);
+            expect(jobs.send).toHaveBeenCalledTimes(1);
+
+            await vi.advanceTimersByTimeAsync(PLANNING_TIME_LIMIT_MS + WARM_TICK_MS * 2);
+            expect(jobs.send).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('does not shorten the wait for an empty answer meant for a broadcast that has ended', async () => {
+        vi.useFakeTimers();
+        try {
+            const { director, jobs, seed } = build({ items: ['a', 'b', 'c'] });
+            await seed();
+            await director.start();
+            await vi.advanceTimersByTimeAsync(0);
+            expect(jobs.send).toHaveBeenCalledTimes(1);
+
+            await director.post({ kind: 'appendTracks', tracks: [], broadcastId: 'a-broadcast-that-has-ended' });
+            await vi.advanceTimersByTimeAsync(EMPTY_REFILL_RETRY_MS + WARM_TICK_MS * 2);
+
+            expect(jobs.send).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     // The guard expiring only helps if a pass runs after it, and a pass runs when the order changes.
@@ -3586,7 +3633,7 @@ describe('DirectorService asking for a refill', () => {
         await director.post({ kind: 'appendTracks', tracks: [], broadcastId: lineup.broadcastId });
         await settle();
 
-        vi.setSystemTime(Date.now() + Math.floor(EXTEND_GUARD_MS / 2));
+        vi.setSystemTime(Date.now() + Math.floor(EMPTY_REFILL_RETRY_MS / 2));
         await wake(rundown);
         await wake(rundown);
 

@@ -183,7 +183,8 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
         if (signal?.aborted) {
             // Not posted, because an abort is either a shutdown or pg-boss reclaiming a run that
             // outlived its `expiresIn`, and in the second case the job has already been failed and
-            // may be running again: appending from both would queue the same hour twice. But said,
+            // the director's guard is about to run out and ask again: appending from both would queue
+            // the same hour twice. But said,
             // in the log and on the feed, because this return used to be silent. On 2026-10-10 it
             // dropped two finished plans in a row while the station sat with nothing to air, and
             // the only trace in the log was the records the resolver had taken into the catalog.

@@ -18,6 +18,7 @@ import { FETCH_PER_PASS } from '#modules/playout/audio/track.cache.planner.js';
 import { AirChartJob } from '#modules/director/air.chart.job.js';
 import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
 import { ReplanLineupJob } from '#modules/director/replan.lineup.job.js';
+import { PLANNING_TIME_LIMIT_MS } from '#modules/director/plan.records.js';
 import { MixInSimilarJob } from '#modules/director/mix.in.similar.job.js';
 import { ProduceProductionJob } from '#modules/productions/produce.production.job.js';
 import { StitchProductionJob } from '#modules/productions/stitch.production.job.js';
@@ -56,20 +57,19 @@ export const jobClassOf = (mapping: JobMapping): Constructor<Job> => (typeof map
 
 /**
  * How long a job that plans records through `planRecords` may run: the refill, the replan and the
- * prepare-ahead.
+ * prepare-ahead. The figure and why it is twelve minutes live on {@link PLANNING_TIME_LIMIT_MS}, which
+ * the director's refill guard reads too.
  *
- * Twelve minutes, and it has to be above `MAX_PLANNING_ATTEMPTS` model conversations, each of them a
- * `MAX_WAIT_MS` queue and a `BUDGET_MS` budget (eight minutes at today's numbers), plus the resolver's
- * provider lookups after them. The refill's was three minutes, chosen when a run was "a sample, two
- * history reads and one write" and never raised when the model became the generator. On 2026-10-10 a
- * brief-only show opened empty, its refill's first attempt finished planning 178 seconds in, pg-boss
- * aborted it at 180 while it was still resolving, and the retry spent its whole budget too: fifteen
- * records taken into the catalog and none put on air, with the station silent behind it.
+ * The refill's was three minutes, chosen when a run was "a sample, two history reads and one write"
+ * and never raised when the model became the generator. On 2026-10-10 a brief-only show opened empty,
+ * its refill's first attempt finished planning 178 seconds in, pg-boss aborted it at 180 while it was
+ * still resolving, and the retry spent its whole budget too: fifteen records taken into the catalog
+ * and none put on air, with the station silent behind it.
  *
  * pg-boss aborts the handler's signal at this point and fails the job, which every planning job
  * reads as "throw the plan away". So a ceiling below the work does not bound the work: it discards it.
  */
-const PLANNING_EXPIRES_IN = Duration.fromObject({ minutes: 12 });
+const PLANNING_EXPIRES_IN = Duration.fromMillis(PLANNING_TIME_LIMIT_MS);
 
 export const JobMappings: Record<JobNames, JobMapping> = {
     // Hourly. A provider's library changes on human timescales, and the walk
@@ -305,13 +305,15 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // is the only event that means anything here. A schedule would top up lineups
     // nobody is listening to and leave the one on air to the same trigger anyway.
     //
-    // One retry and no dead-letter queue, for the reason the enrichment pass gives:
-    // a lineup that failed to grow is still short, so the next boundary sends this
-    // again under the director's own guard. The work is its own record. `expiresIn`
-    // is {@link PLANNING_EXPIRES_IN}, which is where the reason it is not short lives.
+    // NO retry and no dead-letter queue. A lineup that failed to grow is still short, and the
+    // director asks again once its own guard runs out, ticking for it when the order is empty and
+    // nothing else would. That ask IS the retry, and a second one here would be two refills planning
+    // the same hour: pg-boss starts its retry the moment it gives up on a run, while the run it gave
+    // up on is still holding the model. `expiresIn` is {@link PLANNING_EXPIRES_IN}, which is where
+    // the reason it is not short lives, and `EXTEND_GUARD_MS` is held above it.
     'director.extend_lineup': {
         job: ExtendLineupJob,
-        policy: { retryLimit: 1, expiresIn: PLANNING_EXPIRES_IN },
+        policy: { retryLimit: 0, expiresIn: PLANNING_EXPIRES_IN },
     },
 
     // No cron, for the reason the replan gives: this is an operator choosing a document to air.

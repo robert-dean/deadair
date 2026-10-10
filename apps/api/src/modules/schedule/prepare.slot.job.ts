@@ -101,6 +101,8 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
             // Whatever the station is airing now, so the next show does not open on a record the last
             // one is about to play. What has already aired is the repeat window's business.
             avoidSongKeys: songKeysOf(lineup?.all() ?? []),
+            // So a run pg-boss has stopped lets go of the model and resolves nothing.
+            ...(signal === undefined ? {} : { signal }),
         });
         if (signal?.aborted) return;
 

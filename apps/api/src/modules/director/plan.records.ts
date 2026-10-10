@@ -68,6 +68,13 @@ export interface PlanRequest {
     seedArtistKey?: string;
     /** The broadcast this is for, so a mode- or slot-scoped never-play rule holds. See `PickBroadcast`. */
     broadcast?: PickBroadcast;
+    /**
+     * The calling job's signal. Handed to the generators, and read between the steps here: a run that
+     * has been stopped is given no second attempt and resolves nothing, because resolving takes
+     * records into the catalog from a provider and every one of them would be for a plan that is
+     * thrown away. See `SetInputs.signal`.
+     */
+    signal?: AbortSignal;
 }
 
 /** The records, and enough of the arithmetic for a caller's log line to be worth reading. */
@@ -162,15 +169,23 @@ export const planRecords = async (
             ...(request.avoidArtistKeys === undefined ? {} : { avoidArtistKeys: request.avoidArtistKeys }),
             ...(request.queuedArtistKeys === undefined ? {} : { queuedArtistKeys: request.queuedArtistKeys }),
             ...(request.broadcast === undefined ? {} : { broadcast: request.broadcast }),
+            ...(request.signal === undefined ? {} : { signal: request.signal }),
         });
 
         // Asked AFTER every attempt and not only the retried one, because it clears as it answers:
-        // leaving a mark standing would make the next refill in this scope read as preempted.
+        // leaving a mark standing would make the next refill in this scope read as preempted. And
+        // asked before the stop below for the same reason, so a stopped run leaves no mark behind.
         const wasPreempted = preemption?.took() ?? false;
+        // A run that has been stopped is not owed a second attempt whatever the generator said: its
+        // answer is going nowhere, and the model it would hold is wanted by whatever runs next.
+        if (request.signal?.aborted === true) break;
         if (!wasPreempted || attempt === MAX_PLANNING_ATTEMPTS) break;
 
         preemption?.onRetry?.(attempt);
     }
+
+    // Stopped: say what was named and resolve none of it. See `PlanRequest.signal`.
+    if (request.signal?.aborted === true) return { tracks: [], named: picks.length, resolved: 0 };
 
     const resolved = await resolver.resolve(picks, request.rules, {
         ...(request.era === undefined ? {} : { era: request.era }),

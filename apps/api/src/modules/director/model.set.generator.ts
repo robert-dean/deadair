@@ -344,6 +344,10 @@ export class ModelSetGenerator extends SetGenerator {
                     maxWaitMs: MAX_WAIT_MS,
                     maxToolSteps: MAX_TOOL_STEPS,
                     priority: 'background',
+                    // The job's own stop, beside the break that may preempt it: a refill pg-boss has
+                    // given up on otherwise kept the model for the rest of its budget while the next
+                    // one queued behind it. The gate withdraws a waiter and cuts a holder off for it.
+                    ...(inputs.signal === undefined ? {} : { signal: inputs.signal }),
                     // What an answer IS, here, which the loop cannot know: a JSON array of records. Two
                     // measured runs ended with several good searches and then a final message the loop
                     // read as an answer and this could not read at all — one empty, one a plan in prose

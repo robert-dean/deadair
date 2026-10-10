@@ -131,6 +131,9 @@ export class SetGeneratorChain extends SetGenerator {
         for (const generator of this.generators) {
             const missing = inputs.count - chosen.length;
             if (missing <= 0) break;
+            // The job asking has been stopped, so topping up from the next binding is work for an
+            // answer nobody will keep. See `SetInputs.signal`.
+            if (inputs.signal?.aborted === true) break;
 
             if (briefOnly && generator.ignoresBrief) {
                 declined.push(generator.name);

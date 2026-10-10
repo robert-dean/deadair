@@ -246,6 +246,18 @@ describe('ModelSetGenerator', () => {
         expect(await generator.generate(inputs(10))).toHaveLength(2);
     });
 
+    // A refill pg-boss has given up on used to keep the model for the rest of its budget, with the
+    // next refill queued behind it. The gate withdraws a waiter and cuts a holder off for the signal.
+    it("hands the job's stop to the model, so a stopped refill lets it go", async () => {
+        const { generator, converse } = build({ enabled: true });
+        const stop = new AbortController();
+
+        await generator.generate(inputs(5, { signal: stop.signal }));
+
+        const [, options] = converse.mock.calls[0] as unknown as [unknown, { signal?: AbortSignal }];
+        expect(options.signal).toBe(stop.signal);
+    });
+
     it('shows the model what the lineup already holds, as prose rather than as keys', async () => {
         const { generator, converse } = build({ enabled: true });
 

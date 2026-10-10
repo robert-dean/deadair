@@ -376,7 +376,9 @@ describe('ExtendLineupJob', () => {
         expect(lineup.isEmpty()).toBe(true);
         const event = recorded().find(entry => entry.kind === 'order.refillAbandoned');
         expect(event?.severity).toBe('warn');
-        expect(event?.data).toMatchObject({ asked: 1, named: 1, resolved: 1 });
+        // Named, and not resolved: resolving takes records into the catalog from a provider, and
+        // every one of them would be for a plan that is thrown away.
+        expect(event?.data).toMatchObject({ asked: 1, named: 1, resolved: 0 });
         expect(logger.warn).toHaveBeenCalledWith('director: the refill was stopped before it could add what it planned', expect.anything());
     });
 

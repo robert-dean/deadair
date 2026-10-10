@@ -169,6 +169,8 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
                 // Always, whatever the cap says: seeding is about adjacency, not about the per-artist
                 // limit, so it applies even when that limit is switched off.
                 ...(seed ? { seedArtistKey: artistKey([seed.track.artist]) } : {}),
+                // So a run pg-boss has stopped lets go of the model and resolves nothing.
+                ...(signal === undefined ? {} : { signal }),
             },
             {
                 took: () => this.preemption.took(),

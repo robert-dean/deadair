@@ -67,6 +67,22 @@ describe('SetGeneratorChain', () => {
         expect(floor.asked).toHaveLength(0);
     });
 
+    // The job asking was stopped while the first binding answered: topping up from the next one is
+    // work for an answer nobody will keep.
+    it('asks no further binding once the job asking has been stopped', async () => {
+        const stop = new AbortController();
+        const first = new Fake('model', picks('model', 2));
+        first.generate = async (asked: SetInputs) => {
+            stop.abort();
+            return await Fake.prototype.generate.call(first, asked);
+        };
+        const floor = new Fake('catalog', picks('catalog', 5));
+
+        await chain([first, floor]).generate(inputs(5, { signal: stop.signal }));
+
+        expect(floor.asked).toHaveLength(0);
+    });
+
     it('tops up a partial answer instead of discarding it', async () => {
         // The whole reason this is not the writer registry. Six good picks are six good picks.
         const first = new Fake('model', picks('model', 6));

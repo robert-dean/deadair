@@ -164,12 +164,11 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
                 // Always, whatever the cap says: seeding is about adjacency, not about the per-artist
                 // limit, so it applies even when that limit is switched off.
                 ...(seed ? { seedArtistKey: artistKey([seed.track.artist]) } : {}),
+                // So a run pg-boss has stopped lets go of the model and resolves nothing.
+                ...(signal === undefined ? {} : { signal }),
             },
             {
-                // Read first, because it clears as it answers. A run pg-boss has already given up on
-                // is not owed a second attempt whatever the generator said: its answer is going
-                // nowhere, and the model it would hold is wanted by whatever runs next.
-                took: () => this.preemption.took() && signal?.aborted !== true,
+                took: () => this.preemption.took(),
                 // Logged rather than silent, because from the outside a retried refill and an ordinary one
                 // look identical and the interesting question afterwards is always "why did this hour
                 // take two goes at the model".

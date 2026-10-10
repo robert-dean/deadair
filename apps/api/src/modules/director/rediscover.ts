@@ -17,6 +17,15 @@
  * stacks with the like it is built on: a liked artist's record is already drawn at twice the weight,
  * and coming back after weeks away makes it three times.
  *
+ * ## Deep cuts
+ *
+ * The second thing a long memory does is play the album track. A record on an album the operator
+ * liked (the album itself, or another record on it), that is not liked for itself, has a known place
+ * on that album, and has not aired in the whole of the history the station keeps, is a deep cut: the
+ * draw leans toward it, and it carries the fact to the break writer so the presenter can say so. A
+ * record with no track number is never called one, because without its place on the album there is
+ * nothing to say it is not the single.
+ *
  * ## Likes, never play counts
  *
  * "An artist the station favours" is read from the operator's rating of the ARTIST and from nothing
@@ -33,6 +42,7 @@ import { PLAY_HISTORY_RETENTION_DAYS } from './play.history.repository.js';
 export const REDISCOVER_KEYS = {
     artistReturn: 'rotation.artistReturn',
     artistReturnDays: 'rotation.artistReturnDays',
+    deepCuts: 'rotation.deepCuts',
 } as const;
 
 /** On by default, as smart shuffle is: off restores the draw exactly, so nobody loses anything by it. */
@@ -90,3 +100,43 @@ export function resolveArtistReturn(config: AppConfig): ArtistReturn {
  * an empty answer as "nobody aired": off, every liked artist would otherwise count as returning.
  */
 export const quietMinutesFor = (lean: ArtistReturn): number => (lean.enabled ? lean.days * 24 * 60 : 0);
+
+/** On by default, for the artist-return lean's reason. */
+export const DEFAULT_DEEP_CUTS = true;
+
+/** The multiplier a deep cut is drawn at. Unfitted, and the same half again {@link RETURN_LEAN} is. */
+export const DEEP_CUT_LEAN = 1.5;
+
+/** The deep-cut lean as the operator has it set. */
+export const resolveDeepCuts = (config: AppConfig): boolean => settingIsOn(config, REDISCOVER_KEYS.deepCuts, DEFAULT_DEEP_CUTS);
+
+/**
+ * How many days of history the draw has to read for both of the leans that read it.
+ *
+ * Smart shuffle needs its horizon; a deep cut needs the whole retention, since "never aired here" is
+ * a claim about all of it. One read serves both: an airing older than the horizon weighs exactly like
+ * one absent from the map (`freshnessOf` caps at `1`), so reading further back changes no freshness.
+ */
+export const historyDaysForLeans = (smartShuffleDays: number, deepCuts: boolean): number =>
+    Math.max(smartShuffleDays, deepCuts ? PLAY_HISTORY_RETENTION_DAYS : 0);
+
+/** What a sampled record has to carry to be judged a deep cut. */
+export interface DeepCutCandidate {
+    albumId?: string;
+    trackNumber?: number;
+    trackLiked?: true;
+}
+
+/** Whether the albums this record sits on are worth asking about at all: it could only be a deep cut if so. */
+export const mayBeDeepCut = (track: DeepCutCandidate): track is DeepCutCandidate & { albumId: string; trackNumber: number } =>
+    track.albumId !== undefined && track.trackNumber !== undefined && track.trackLiked !== true;
+
+/**
+ * A record on an album the operator likes, with a known place on it, not liked for itself, and never
+ * aired in the history the station keeps.
+ *
+ * @param likedAlbums - From `CandidatesRepository.albumsWithLikes`.
+ * @param aired - Whether its song key aired inside the retention.
+ */
+export const isDeepCut = (track: DeepCutCandidate, likedAlbums: ReadonlySet<string>, aired: boolean): boolean =>
+    mayBeDeepCut(track) && likedAlbums.has(track.albumId) && !aired;

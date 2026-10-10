@@ -52,6 +52,18 @@ because that read answers empty when asked for zero, the generator stamps nothin
 rather than reading the empty set as "nobody aired". Liked by the operator and never "aired a lot", for the
 reason #37 gives against ranking by play counts.
 
+**An album track nobody has heard here, off an album the operator likes, is a fourth lean: the deep cut.**
+`rotation.deepCuts` (on) stamps `deepCut` on a sampled record that has a `track_number`, is not liked for
+itself (a record liked for itself is a favourite, which the like already draws), sits on an album that
+`CandidatesRepository.albumsWithLikes` says the operator likes (the album rated, or any live record on it
+rated), and whose song key has not aired in the whole retention; `weightOf` multiplies it by `DEEP_CUT_LEAN`.
+Three decisions. **No track number, no deep cut**: without its place on the album nothing says it is not the
+single. **"Never aired" reads the retention**, which means the smart shuffle's `lastAiredSince` is asked for
+120 days whenever this is on, and that is free for the shuffle: an airing older than its horizon weighs
+exactly like an absent one, so one read serves both (`historyDaysForLeans`). **Likes again, never plays**,
+and the album lookup is asked only about records that could qualify, over an index added for it
+(`tracks_album_idx`, 0082), with a failed read costing the lean and never the batch.
+
 **A broadcast's mood is a second lean on the draw, never a filter, and it is the factor a like gets.**
 With a mood on the running order (`station_lineup.mood`, from a schedule slot or `PutOnAirInput.mood`),
 `CatalogSetGenerator` reads the judged distributions for what it sampled (`LyricLabelsRepository.moodsForTracks`,

@@ -39,6 +39,7 @@ import {
     clampArtistReturnDays,
     DEFAULT_ARTIST_RETURN,
     DEFAULT_ARTIST_RETURN_DAYS,
+    DEFAULT_DEEP_CUTS,
     REDISCOVER_KEYS,
 } from '../../../src/modules/director/rediscover.js';
 import { ConfigFieldOptionSource } from '../../../src/modules/plugins/types/plugins.types.js';
@@ -326,6 +327,7 @@ describe('the settings registry', () => {
         expect(clampArtistReturnDays(days.max! + 1)).toBe(days.max);
         expect(clampArtistReturnDays(days.min! - 1)).toBe(days.min);
         expect(days.dependsOn).toBe(REDISCOVER_KEYS.artistReturn);
+        expect(findDescriptor(REDISCOVER_KEYS.deepCuts)!.default).toBe(DEFAULT_DEEP_CUTS);
     });
 
     it('declares the smart shuffle over the same defaults and range its resolver uses', () => {

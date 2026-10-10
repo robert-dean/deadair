@@ -167,3 +167,25 @@ describe('CandidatesRepository.tagsFor', () => {
         expect(captured.statements).toHaveLength(0);
     });
 });
+
+describe('CandidatesRepository.albumsWithLikes', () => {
+    it('reads an album as liked by its own rating or by a live record on it, and never by what aired', async () => {
+        const captured: Captured = { statements: [] };
+        await new CandidatesRepository(fakeDb(captured)).albumsWithLikes(['album-1', 'album-1', 'album-2']);
+
+        const statement = captured.statements[0];
+        expect(statement?.sql).toContain('"deadair"."albums"."rating" = $');
+        expect(statement?.sql).toContain('exists');
+        expect(statement?.sql).toContain('"deadair"."tracks"."merged_into_id" is null');
+        expect(statement?.sql).not.toContain('play_history');
+        // Each album asked about once.
+        expect(statement?.parameters.filter(parameter => parameter === 'album-1')).toHaveLength(1);
+    });
+
+    it('asks nothing when there is nothing to ask about', async () => {
+        const captured: Captured = { statements: [] };
+
+        expect(await new CandidatesRepository(fakeDb(captured)).albumsWithLikes([])).toEqual(new Set());
+        expect(captured.statements).toHaveLength(0);
+    });
+});

@@ -36,6 +36,16 @@ export interface CandidateTrack {
      * because a like at any of the three levels carries it.
      */
     artistLiked?: true;
+    /** The album row this record sits on, when it has one. What the deep-cut lean groups by. */
+    albumId?: string;
+    /** Where it sits on that album, counted from 1. Absent when no tag said. */
+    trackNumber?: number;
+    /**
+     * The operator liked THIS record, as against its release or its artist. Only ever `true` or
+     * absent: {@link rating} carries a like from any level, and a record liked for itself is a
+     * favourite rather than a deep cut.
+     */
+    trackLiked?: true;
 }
 
 /**
@@ -247,6 +257,9 @@ export class CandidatesRepository extends DataRepository {
                 'deadair.tracks.artists as credit',
                 'deadair.albums.name as album',
                 'deadair.artists.rating as artistRating',
+                'deadair.tracks.rating as trackRating',
+                'deadair.tracks.albumId',
+                'deadair.tracks.trackNumber',
             ])
             // One number for "how does the station feel about this", across all three levels.
             .select(effectiveRating().as('rating'))
@@ -303,7 +316,45 @@ export class CandidatesRepository extends DataRepository {
             rating: Number(row.rating),
             ...(row.album == null ? {} : { album: row.album }),
             ...(Number(row.artistRating) === 1 ? { artistLiked: true as const } : {}),
+            ...(Number(row.trackRating) === 1 ? { trackLiked: true as const } : {}),
+            ...(row.albumId == null ? {} : { albumId: row.albumId }),
+            ...(row.trackNumber == null ? {} : { trackNumber: Number(row.trackNumber) }),
         }));
+    }
+
+    /**
+     * Which of these albums the operator has shown they like: the album itself liked, or any live
+     * record on it liked.
+     *
+     * Likes only, and never what aired, on #37's argument against ranking by play counts: an album
+     * the station has played a lot is not one the operator asked for more of. What the deep-cut lean
+     * reads (`rediscover.ts`), over the albums one refill sampled, so the `in` list is a few hundred
+     * ids at most and `tracks_album_idx` (0082) serves the `exists`.
+     */
+    async albumsWithLikes(albumIds: readonly string[]): Promise<Set<string>> {
+        const ids = [...new Set(albumIds)];
+        if (ids.length === 0) return new Set();
+
+        const rows = await this.db
+            .selectFrom('deadair.albums')
+            .select('deadair.albums.id')
+            .where('deadair.albums.id', 'in', ids)
+            .where(eb =>
+                eb.or([
+                    eb('deadair.albums.rating', '=', 1),
+                    eb.exists(
+                        eb
+                            .selectFrom('deadair.tracks')
+                            .select('deadair.tracks.id')
+                            .whereRef('deadair.tracks.albumId', '=', 'deadair.albums.id')
+                            .where('deadair.tracks.mergedIntoId', 'is', null)
+                            .where('deadair.tracks.rating', '=', 1),
+                    ),
+                ]),
+            )
+            .execute();
+
+        return new Set(rows.map(row => row.id));
     }
 
     /**

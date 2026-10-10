@@ -29,7 +29,7 @@ import {
     weightOf,
     type RotationCandidate,
 } from '../../../src/modules/director/rotation.rules.js';
-import { RETURN_LEAN } from '../../../src/modules/director/rediscover.js';
+import { DEEP_CUT_LEAN, RETURN_LEAN } from '../../../src/modules/director/rediscover.js';
 
 const candidate = (title: string, artists: string[], rating?: number, album?: string): RotationCandidate => ({
     songKey: songKey(title, artists),
@@ -449,6 +449,10 @@ describe('weightOf under smart shuffle', () => {
         const returning: RotationCandidate = { ...candidate('A', ['One'], 1), returning: true };
         expect(weightOf(returning)).toBe(2 * RETURN_LEAN);
         expect(weightOf({ ...returning, freshness: 0 })).toBe(2 * RETURN_LEAN * FRESH_FLOOR);
+    });
+
+    it('leans half again toward a deep cut', () => {
+        expect(weightOf({ ...candidate('A', ['One']), deepCut: true })).toBe(DEEP_CUT_LEAN);
     });
 });
 

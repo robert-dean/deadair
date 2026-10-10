@@ -25,7 +25,8 @@ public static class Playhead
     /// How far into the record the listener is, or null when it cannot be said.
     /// </summary>
     /// <param name="track">The track from the last reading.</param>
-    /// <param name="readAt">When that reading arrived.</param>
+    /// <param name="readAt">When the listener hears the moment that reading describes: when it arrived,
+    /// moved on by however far behind the station the audio is.</param>
     /// <param name="now">The current time.</param>
     public static TimeSpan? Position(NowPlayingTrack? track, DateTimeOffset? readAt, DateTimeOffset now)
     {
@@ -40,15 +41,19 @@ public static class Playhead
         }
 
         var elapsedAtRead = TimeSpan.FromMilliseconds(duration - remaining);
+        // Not clamped at zero, and it was. The listener's anchor is when they HEAR the moment the
+        // reading describes (`NowPlayingHold.Heard`), which is a lead later than the poll answered,
+        // so for that long `now` is before it and the listener is behind the station's figure.
+        // Clamping that gap to nothing held the bar still for the lead after every reading, which on
+        // a three-second poll and a five-second lead is a bar that never moves.
         var since = now - anchor;
-
-        if (since < TimeSpan.Zero)
-        {
-            since = TimeSpan.Zero;
-        }
-
         var position = elapsedAtRead + since;
         var length = TimeSpan.FromMilliseconds(duration);
+
+        if (position < TimeSpan.Zero)
+        {
+            return TimeSpan.Zero;
+        }
 
         // Clamped rather than allowed to run past the end: the next reading is at most a few seconds
         // away, and a bar that overshoots to 103% is a more obvious lie than one that sits at the end.

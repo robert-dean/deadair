@@ -19,6 +19,14 @@ namespace MaroonedSoftware.Deadair.Desktop.Core.Playback;
 /// this hold is ever offered: nothing has played yet either, and it deserves the same five seconds
 /// as any other new item rather than a special case that skips them.
 /// </para>
+/// <para>
+/// <b>What it releases comes with when the listener hears it.</b> <see cref="Heard"/> pairs the reading
+/// in effect with the instant its moment reaches the speakers: when it was read, plus the same
+/// <see cref="NowPlayingLead"/>. The playhead projects from that, not from when the poll answered,
+/// because the title waits for the audio and a bar projected from the poll's own stamp did not: it ran
+/// the lead ahead of the record it was drawn under, and while a new record was held it projected the
+/// NEXT record's countdown under the current one's title.
+/// </para>
 /// </remarks>
 public sealed class NowPlayingHold(TimeProvider? time = null) : IDisposable
 {
@@ -32,11 +40,18 @@ public sealed class NowPlayingHold(TimeProvider? time = null) : IDisposable
     private bool _hasCurrentKey;
     private string? _pendingKey;
     private NowPlayingReading? _pendingReading;
+    private DateTimeOffset? _pendingReadAt;
     private bool _hasPending;
     private ITimer? _timer;
 
     /// <summary>The reading currently in effect. Null until the first one has been released.</summary>
     public NowPlayingReading? Current { get; private set; }
+
+    /// <summary>
+    /// <see cref="Current"/> with the instant the listener hears the moment it describes, set in the
+    /// same step so the two can never be from different readings. Null until the first release.
+    /// </summary>
+    public HeardReading? Heard { get; private set; }
 
     /// <summary>
     /// Raised on the thread the underlying <see cref="TimeProvider"/> fires its timer on, once a held
@@ -53,7 +68,10 @@ public sealed class NowPlayingHold(TimeProvider? time = null) : IDisposable
     /// <see cref="NowPlayingLead"/> has elapsed, unless another new item arrives first, which
     /// replaces it before its own lead is ever spent.
     /// </summary>
-    public NowPlayingReading? Offer(string? itemKey, NowPlayingReading reading)
+    /// <param name="itemKey">The item's identity, or null off air.</param>
+    /// <param name="reading">The reading.</param>
+    /// <param name="readAt">When the reading was taken, which <see cref="Heard"/> moves on by the lead.</param>
+    public NowPlayingReading? Offer(string? itemKey, NowPlayingReading reading, DateTimeOffset? readAt = null)
     {
         ArgumentNullException.ThrowIfNull(reading);
 
@@ -64,6 +82,7 @@ public sealed class NowPlayingHold(TimeProvider? time = null) : IDisposable
             if (_hasCurrentKey && itemKey == _currentKey)
             {
                 Current = reading;
+                Heard = new HeardReading(reading, readAt + NowPlayingLead);
                 return reading;
             }
 
@@ -74,11 +93,13 @@ public sealed class NowPlayingHold(TimeProvider? time = null) : IDisposable
             if (_hasPending && itemKey == _pendingKey)
             {
                 _pendingReading = reading;
+                _pendingReadAt = readAt;
                 return null;
             }
 
             _pendingKey = itemKey;
             _pendingReading = reading;
+            _pendingReadAt = readAt;
             _hasPending = true;
 
             replaced = _timer;
@@ -109,7 +130,9 @@ public sealed class NowPlayingHold(TimeProvider? time = null) : IDisposable
             _currentKey = _pendingKey;
             _hasCurrentKey = true;
             _hasPending = false;
+            Heard = new HeardReading(reading, _pendingReadAt + NowPlayingLead);
             _pendingReading = null;
+            _pendingReadAt = null;
             _timer = null;
             Current = reading;
         }
@@ -133,10 +156,12 @@ public sealed class NowPlayingHold(TimeProvider? time = null) : IDisposable
             _timer = null;
             _hasPending = false;
             _pendingReading = null;
+            _pendingReadAt = null;
             _pendingKey = null;
             _hasCurrentKey = false;
             _currentKey = null;
             Current = null;
+            Heard = null;
         }
     }
 

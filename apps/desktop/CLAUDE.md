@@ -502,6 +502,16 @@ That leads what a listener is actually hearing by the encoder and client buffers
 the worse their connection is. So `Playhead.Position` answers null and the bar draws nothing, because
 a progress bar that is confidently wrong is worse than one that is absent.
 
+**The bar projects from the reading the title was drawn from, not from the latest poll.** The title
+waits out `NowPlayingHold.NowPlayingLead`; the bar used to read `_repository.Current`, so for those
+five seconds after every record change it counted down the NEXT record under the current one's
+title, and the rest of the time it ran the lead ahead of the audio. `NowPlayingHold.Heard` pairs the
+reading in effect with when the listener hears it (read at plus the lead), `ApplyTrack` keeps it as
+`_heldReading`, and `Tick` and the system widget project from that. `Playhead.Position` therefore lets
+`now` fall before its anchor: clamping that gap held the bar still for the lead after every reading,
+which on a three-second poll is a bar that never moves. The price is that a wall clock corrected
+backwards can step the bar back until the next reading re-anchors it, a few seconds at most.
+
 **A failed poll keeps the last good reading and marks it stale.** Blanking a screen because one
 request timed out throws away something true and still useful. It is the station's own rule read from
 the other side: a failed reading of the listener count is "could not say", never zero.

@@ -6,6 +6,7 @@ import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { PluginTrackResolver } from '../providers/plugin.resolver.js';
 import { causeText } from '#modules/shared/error.text.js';
 import { inScope } from '#modules/shared/scoped.work.js';
+import { privateAddressBehind, resolveAddresses as systemResolveAddresses, type AddressResolver } from '#modules/plugins/plugin.grants.js';
 import { TrackAudioRepository, type CachedFile, type SourceAudio } from './track.audio.repository.js';
 import { DEFAULT_TRACK_CACHE_MAX_BYTES, TRACK_CACHE_MAX_BYTES_KEY, resolveTrackCacheMaxBytes } from './track.cache.limit.js';
 import { TRACK_CONTENT_TYPES, TRACK_SOURCE_TYPES, TrackContentType, TrackExtension, TrackStore } from './track.store.js';
@@ -38,6 +39,17 @@ export const MAX_TRACK_BYTES = 64 * 1024 * 1024;
  * Anything this small is not four minutes of audio whatever it calls itself.
  */
 const MIN_TRACK_BYTES = 16 * 1024;
+
+/**
+ * How many redirects one fetch follows before giving up.
+ *
+ * A provider's audio URL is often one or two hops of signing and CDN indirection before the bytes;
+ * eight leaves room for a chain without letting a redirect loop run forever.
+ */
+const MAX_TRACK_REDIRECTS = 8;
+
+/** The statuses that carry a `location` to follow. */
+const TRACK_REDIRECTS = new Set([301, 302, 303, 307, 308]);
 
 /** First retry after five minutes, doubling per attempt up to a day. The art cache's ladder. */
 const BASE_RETRY_MS = 5 * 60 * 1000;
@@ -189,6 +201,25 @@ function extensionFor(contentType: string | null): TrackExtension | undefined {
 class UnplayableCopy extends Error {}
 
 /**
+ * A URL the station will fetch a record from, or an error it can report.
+ *
+ * `http(s)` only, checked on every hop rather than only the first, because a redirect `location` is
+ * an address chosen by the upstream and `file:` there would turn a bad answer into a local file
+ * read. A relative `location` resolves against the hop it came from, which is what `base` carries.
+ */
+function parseTrackAddress(raw: string, base?: URL): URL {
+    let address: URL;
+    try {
+        address = new URL(raw, base);
+    } catch {
+        throw new Error('the audio address is not one the station can read');
+    }
+
+    if (address.protocol !== 'http:' && address.protocol !== 'https:') throw new Error(`refusing to fetch ${address.protocol}`);
+    return address;
+}
+
+/**
  * The one place the station gets a record's audio from.
  *
  * ## Why this exists at all
@@ -243,6 +274,10 @@ export class TrackAudioService {
         // and no DI scope — `deadair.settings` is a layer of `AppConfig`.
         private readonly config: AppConfig,
         private readonly logger: Logger,
+        // Injected so the redirect guard can be tested against names that resolve wherever a test
+        // says they do, like `PodcastFetchService`. A literal address is judged without it, so the
+        // tests that redirect to one never reach the resolver; the module builds the real one.
+        private readonly resolveAddresses: AddressResolver = systemResolveAddresses,
     ) {}
 
     /**
@@ -705,6 +740,17 @@ export class TrackAudioService {
      *
      * `http(s)` only: these URLs come from plugins, which are trusted in-process code and also the
      * least reviewed code in the tree, and `file:` would turn a bad mapping into a local file read.
+     *
+     * Redirects are followed BY HAND, so a hop past the first can be refused before it is connected
+     * to — which a `redirect: 'follow'` fetch does not allow. The FIRST address is deliberately not
+     * checked: a provider resolves a record to the operator's own Navidrome or to a station-side
+     * helper, both of which are private addresses the station is meant to reach, and the resolver is
+     * the trusted thing that chose it. A REDIRECT is the other thing — a new address chosen by
+     * whatever just answered, not by the resolver — so every hop after the first is resolved and
+     * refused if any address it answers with reaches this machine or the network it is on. That is
+     * `privateAddressBehind`, the same guard `PodcastFetchService` and `ArtCacheService` already put
+     * on the data URLs they follow, and it shares that guard's one gap (a name that rebinds between
+     * the check and the connect).
      */
     private async download(source: SourceAudio, signal?: AbortSignal): Promise<FetchedAudio> {
         // Asked of the plugin rather than read off `track_sources.uri`, because the URL is usually
@@ -713,42 +759,64 @@ export class TrackAudioService {
         const url = await this.resolver.resolveBinding(source.pluginId, source.externalId);
         if (url === undefined) throw new Error('no provider would give a url for this binding');
 
-        const parsed = new URL(url);
-        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error(`refusing to fetch ${parsed.protocol}`);
-
         const timeout = AbortSignal.timeout(FETCH_TIMEOUT_MS);
-        const response = await fetch(parsed, {
-            redirect: 'follow',
-            signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
-        });
+        const aborted = signal ? AbortSignal.any([signal, timeout]) : timeout;
 
-        if (response.status === 410) throw new UnplayableCopy('the provider has no audio for this copy and no alternative');
-        if (!response.ok) throw new Error(`upstream answered ${response.status}`);
+        let address = parseTrackAddress(url);
+        for (let hop = 0; hop <= MAX_TRACK_REDIRECTS; hop += 1) {
+            if (hop > 0) await this.refusePrivateRedirect(address);
 
-        const contentType = response.headers.get('content-type');
-        const ext = extensionFor(contentType);
-        if (ext === undefined) {
-            await response.body?.cancel().catch(() => undefined);
-            throw new Error(`not audio this station can hold: ${contentType ?? 'no content type'}`);
-        }
+            const response = await fetch(address, { redirect: 'manual', signal: aborted });
 
-        if (response.body === null) throw new Error('upstream sent no body');
-
-        const chunks: Buffer[] = [];
-        let total = 0;
-        for await (const chunk of response.body) {
-            const buffer = Buffer.from(chunk as Uint8Array);
-            total += buffer.byteLength;
-            if (total > MAX_TRACK_BYTES) {
-                await response.body.cancel().catch(() => undefined);
-                throw new Error(`larger than ${MAX_TRACK_BYTES} bytes, so it was not kept`);
+            const location = response.headers.get('location');
+            if (TRACK_REDIRECTS.has(response.status) && location !== null) {
+                await response.body?.cancel().catch(() => undefined);
+                address = parseTrackAddress(location, address);
+                continue;
             }
-            chunks.push(buffer);
+
+            if (response.status === 410) throw new UnplayableCopy('the provider has no audio for this copy and no alternative');
+            if (!response.ok) throw new Error(`upstream answered ${response.status}`);
+
+            const contentType = response.headers.get('content-type');
+            const ext = extensionFor(contentType);
+            if (ext === undefined) {
+                await response.body?.cancel().catch(() => undefined);
+                throw new Error(`not audio this station can hold: ${contentType ?? 'no content type'}`);
+            }
+
+            if (response.body === null) throw new Error('upstream sent no body');
+
+            const chunks: Buffer[] = [];
+            let total = 0;
+            for await (const chunk of response.body) {
+                const buffer = Buffer.from(chunk as Uint8Array);
+                total += buffer.byteLength;
+                if (total > MAX_TRACK_BYTES) {
+                    await response.body.cancel().catch(() => undefined);
+                    throw new Error(`larger than ${MAX_TRACK_BYTES} bytes, so it was not kept`);
+                }
+                chunks.push(buffer);
+            }
+
+            if (total < MIN_TRACK_BYTES) throw new Error(`only ${total} bytes, which is not a record`);
+
+            return { body: Buffer.concat(chunks), ext, contentType: contentType!.split(';')[0]!.trim().toLowerCase() };
         }
 
-        if (total < MIN_TRACK_BYTES) throw new Error(`only ${total} bytes, which is not a record`);
+        throw new Error(`redirected more than ${MAX_TRACK_REDIRECTS} times`);
+    }
 
-        return { body: Buffer.concat(chunks), ext, contentType: contentType!.split(';')[0]!.trim().toLowerCase() };
+    /** Refuse a redirect target whose name reaches this machine or the network it is on. Fails closed on a name that will not resolve. */
+    private async refusePrivateRedirect(address: URL): Promise<void> {
+        let behind: string | undefined;
+        try {
+            behind = await privateAddressBehind(address.hostname, this.resolveAddresses);
+        } catch (error) {
+            throw new Error(`${address.hostname} could not be resolved (${causeText(error)})`, { cause: error });
+        }
+
+        if (behind !== undefined) throw new Error(`a copy of this record redirected to ${address.hostname}, a private address the station will not follow`);
     }
 
     /**

@@ -15,6 +15,7 @@ import { MAX_TRACK_BYTES, TrackAudioService } from '../../../../src/modules/play
 import { TrackAudioRepository, type CachedFile, type SourceAudio } from '../../../../src/modules/playout/audio/track.audio.repository.js';
 import { TrackStore } from '../../../../src/modules/playout/audio/track.store.js';
 import type { PluginTrackResolver } from '../../../../src/modules/playout/providers/plugin.resolver.js';
+import type { AddressResolver } from '../../../../src/modules/plugins/plugin.grants.js';
 import { TracksRepository } from '../../../../src/modules/catalog/tracks.repository.js';
 
 const SOURCE_ID = '11111111-2222-3333-4444-555555555555';
@@ -47,7 +48,7 @@ afterEach(async () => {
  * No default on `source`, because "the catalog does not know this binding" is one of the cases here
  * and a default would quietly turn it into the happy path.
  */
-const build = (options: { source: SourceAudio | undefined; url?: string; capBytes?: number; cached?: CachedFile[] }) => {
+const build = (options: { source: SourceAudio | undefined; url?: string; capBytes?: number; cached?: CachedFile[]; resolve?: AddressResolver }) => {
     const findForSource = vi.fn(async () => options.source);
     // The bulk read `readyFor` goes through. Defaults to answering with whatever `source` is, since
     // the window and the single binding are the same record in every test here that uses both.
@@ -109,7 +110,7 @@ const build = (options: { source: SourceAudio | undefined; url?: string; capByte
     const config = { get: vi.fn((_key: string, fallback: unknown) => options.capBytes ?? fallback) } as unknown as AppConfig;
 
     return {
-        service: new TrackAudioService(container, store, resolver, config, logger),
+        service: new TrackAudioService(container, store, resolver, config, logger, options.resolve),
         findForSource,
         findForBindings,
         recordSuccess,
@@ -128,6 +129,24 @@ const respondWith = (body: Buffer | undefined, init: { status?: number; contentT
     const stub = vi.fn(async () => {
         const headers = new Headers(init.contentType === undefined ? {} : { 'content-type': init.contentType });
         return new Response(body === undefined ? null : new Uint8Array(body), { status: init.status ?? 200, headers });
+    });
+    vi.stubGlobal('fetch', stub);
+
+    return stub;
+};
+
+/** A fetch stub that answers a scripted sequence, one response per call, for exercising the manual redirect loop. */
+const respondInSequence = (
+    ...responses: Array<{ status?: number; location?: string; contentType?: string; body?: Buffer }>
+): ReturnType<typeof vi.fn> => {
+    let call = 0;
+    const stub = vi.fn(async () => {
+        const next = responses[Math.min(call, responses.length - 1)]!;
+        call += 1;
+        const headers = new Headers();
+        if (next.location !== undefined) headers.set('location', next.location);
+        if (next.contentType !== undefined) headers.set('content-type', next.contentType);
+        return new Response(next.body === undefined ? null : new Uint8Array(next.body), { status: next.status ?? 200, headers });
     });
     vi.stubGlobal('fetch', stub);
 
@@ -612,5 +631,65 @@ describe('benching a binding that will not serve', () => {
         respondWith(RECORD, { status: 502, contentType: 'audio/ogg' });
 
         await expect(service.ensure(SOURCE_ID)).resolves.toBeUndefined();
+    });
+});
+
+// A provider's audio URL is followed by hand so a redirect — an address chosen by whatever answered,
+// not by the resolver — can be refused before the station connects to it. The FIRST address is left
+// alone on purpose: a provider resolves a record to the operator's own LAN Navidrome or to a
+// station-side helper, both private, both meant to be reached.
+describe('TrackAudioService.ensure redirect handling', () => {
+    it('fetches the first address even when it is private (a LAN Navidrome or a local helper)', async () => {
+        const { service } = build({ source: BINDING, url: 'http://192.168.1.10:4533/rest/stream?id=42' });
+        respondWith(RECORD, { contentType: 'audio/mpeg' });
+
+        expect((await service.ensure(SOURCE_ID))?.body).toEqual(RECORD);
+    });
+
+    it('follows a redirect to a public address and serves the record', async () => {
+        const { service } = build({ source: BINDING, url: 'https://provider.example/track-42' });
+        const stub = respondInSequence(
+            { status: 302, location: 'https://93.184.216.34/signed/track-42' },
+            { status: 200, contentType: 'audio/mpeg', body: RECORD },
+        );
+
+        expect((await service.ensure(SOURCE_ID))?.body).toEqual(RECORD);
+        expect(stub).toHaveBeenCalledTimes(2);
+    });
+
+    it('refuses a redirect to a private literal address and never fetches it', async () => {
+        const { service, recordFailure } = build({ source: BINDING, url: 'https://provider.example/track-42' });
+        const stub = respondInSequence(
+            { status: 302, location: 'http://169.254.169.254/latest/meta-data/' },
+            { status: 200, contentType: 'audio/mpeg', body: RECORD },
+        );
+
+        expect(await service.ensure(SOURCE_ID)).toBeUndefined();
+        // The redirect was refused at the guard, so the metadata address itself is never fetched.
+        expect(stub).toHaveBeenCalledTimes(1);
+        expect(recordFailure).toHaveBeenCalled();
+    });
+
+    it('refuses a redirect whose hostname resolves to a private address', async () => {
+        const { service } = build({
+            source: BINDING,
+            url: 'https://provider.example/track-42',
+            resolve: async () => ['10.0.0.5'],
+        });
+        const stub = respondInSequence(
+            { status: 302, location: 'https://internal.example/x' },
+            { status: 200, contentType: 'audio/mpeg', body: RECORD },
+        );
+
+        expect(await service.ensure(SOURCE_ID)).toBeUndefined();
+        expect(stub).toHaveBeenCalledTimes(1);
+    });
+
+    it('refuses a redirect to a non-http(s) scheme', async () => {
+        const { service } = build({ source: BINDING, url: 'https://provider.example/track-42' });
+        const stub = respondInSequence({ status: 302, location: 'file:///etc/passwd' });
+
+        expect(await service.ensure(SOURCE_ID)).toBeUndefined();
+        expect(stub).toHaveBeenCalledTimes(1);
     });
 });

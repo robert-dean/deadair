@@ -208,6 +208,7 @@ export class CatalogSetGenerator extends SetGenerator {
             title: candidate.track.title,
             artist: candidate.track.artist,
             trackId: candidate.track.trackId,
+            ...(candidate.deepCut === true ? { deepCut: true as const } : {}),
         }));
     }
 

@@ -497,6 +497,14 @@ describe('CatalogSetGenerator under smart shuffle', () => {
             random.mockRestore();
         });
 
+        it('names the pick as a deep cut, so the break writer can say so', async () => {
+            const { generator } = build({ sample: [albumTrack('Track Nine', 'Two', 'liked-album', 9)], likedAlbums: new Set(['liked-album']) });
+
+            expect(await generator.generate({ count: 1, rules: rotation })).toEqual([
+                { title: 'Track Nine', artist: 'Two', trackId: 'id-Two-Track Nine', deepCut: true },
+            ]);
+        });
+
         it('is not a deep cut once it has aired inside the history, however long ago', async () => {
             const random = pinTicket();
             const { generator } = build({

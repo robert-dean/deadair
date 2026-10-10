@@ -344,6 +344,14 @@ since "number one" is also something a presenter says about a fan. The floor rea
 countdown phrasing is `[[At number {{next.chart.rank}}, ]]{{next.title}}` and simply says less for a record no
 chart named. Whether a show says its positions at all is the show's `chartPositions`, not the persona's.
 
+**A deep cut rides the same path and is said the same way: as why the record is on.** `CatalogSetGenerator`
+names a pick `deepCut` when the deep-cut lean drew it (`programming.md`), `PickResolver` copies it beside
+`chart` as the other field taken from the pick, and `describe` shows `- Deep cut: an album track this station
+has not played in months` behind `withFacts`. "In months" rather than a figure, because the claim the lean
+can actually back is "not inside the 120 days of history kept", and a number would invite the model to state
+one. No switch of its own and no floor variable: it is material, and the floor says nothing it was not
+built to.
+
 ## What the prompt says, and what it left out
 
 **The station has two sentences of its own above every show and every persona.** `station.identity` (who

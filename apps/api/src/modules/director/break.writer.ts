@@ -123,6 +123,8 @@ export interface BreakTrack {
      * the floor can say it through `{{next.chart.rank}}`.
      */
     chart?: ChartPlacing;
+    /** An album track the station has not aired in months, drawn because of it. Shown as material like {@link chart}. */
+    deepCut?: true;
 }
 
 /**

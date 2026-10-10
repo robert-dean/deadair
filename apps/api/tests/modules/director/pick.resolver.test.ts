@@ -240,6 +240,21 @@ describe('PickResolver', () => {
         expect(resolved?.chart).toEqual({ rank: 7, name: 'Top 100', peak: 3 });
     });
 
+    it('carries a deep cut onto the record it resolves to, and nothing onto one that is not', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1'), 'track-2': binding('track-2') },
+            metadata: { 'track-1': { title: 'Windowlicker', credit: 'Aphex Twin' }, 'track-2': { title: 'Xtal', credit: 'Aphex Twin' } },
+        });
+
+        const resolved = await resolve(resolver, [
+            { title: 'Windowlicker', artist: 'Aphex Twin', trackId: 'track-1', deepCut: true },
+            { title: 'Xtal', artist: 'Aphex Twin', trackId: 'track-2' },
+        ]);
+
+        expect(resolved.find(track => track.trackId === 'track-1')?.deepCut).toBe(true);
+        expect(resolved.find(track => track.trackId === 'track-2')).not.toHaveProperty('deepCut');
+    });
+
     it('shows the credit as written on the release, not the identity it was chosen by', async () => {
         // The pick's artist is the lead, which is what a cooldown counts. A listener
         // should see what the record says.

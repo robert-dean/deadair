@@ -97,7 +97,7 @@ describe('RequestsService', () => {
         await expect(service.create({ trackId: 't-unknown' })).rejects.toMatchObject({ statusCode: 404 });
     });
 
-    it('answers with the library alone when it held enough, without asking the providers', async () => {
+    it('answers with the library alone when the providers may not be reached', async () => {
         const library = [{ trackId: 't-1', title: 'Teardrop', artist: 'Massive Attack' }];
         const { service, providers } = build(undefined, { library, reaches: false });
 
@@ -105,7 +105,7 @@ describe('RequestsService', () => {
         expect(providers.search).not.toHaveBeenCalled();
     });
 
-    it("adds records a provider carries after the library's own when the library held few", async () => {
+    it("adds records a provider carries after the library's own, in the room the library left", async () => {
         const library = [{ trackId: 't-1', title: 'Teardrop', artist: 'Massive Attack' }];
         const reached = [
             { source: { pluginId: 'deadair.spotify', externalId: 'sp-1' }, sourceName: 'Spotify', title: 'Teardrop', artist: 'Elizabeth Fraser' },
@@ -113,7 +113,18 @@ describe('RequestsService', () => {
         const { service, providers } = build(undefined, { library, reaches: true, reached });
 
         expect(await service.search({ q: 'teardrop', limit: 5 })).toEqual({ tracks: [...library, ...reached] });
-        expect(providers.search).toHaveBeenCalledWith('teardrop', library, 4);
+        expect(providers.search).toHaveBeenCalledWith('teardrop', library, 4, 'user:a-1');
+    });
+
+    it('asks the providers nothing when the library filled the page', async () => {
+        const library = [
+            { trackId: 't-1', title: 'Teardrop', artist: 'Massive Attack' },
+            { trackId: 't-2', title: 'Angel', artist: 'Massive Attack' },
+        ];
+        const { service, providers } = build(undefined, { library, reaches: true });
+
+        expect(await service.search({ q: 'massive attack', limit: 2 })).toEqual({ tracks: library });
+        expect(providers.search).not.toHaveBeenCalled();
     });
 
     it("takes a provider's record in and asks for it like any other", async () => {

@@ -360,13 +360,21 @@ drive tools still gets the steer.
 
 **A listener's request search reaches the providers on the same terms, through `RequestProviderSearch`
 rather than this tool.** It reuses `ProviderSearch` and the same two narrowing reads (`ownership` and
-`dislikedArtistKeys`, guests passed as well as the lead) and the same `THIN` of three, and differs in three
-ways that come from a person typing rather than a model asking. It is never reached while `rotation.discover`
+`dislikedArtistKeys`, guests passed as well as the lead), and differs in four ways that come from a person
+browsing rather than a model asking. It has no `THIN`: it is asked on every search and fills whatever room
+the library left on the page, because a listener searching an artist the library holds three records by
+wants the rest of them, where a model wants one record and has it. It is never reached while `rotation.discover`
 is off, because the row it offers becomes a library record the moment somebody asks for it. It leaves out
 anything the catalog holds rather than marking it owned, because a held record the library half did not
 return was kept out of it for a reason (a dislike, no playable copy) that holds here too. And each term's
-answer is cached for a minute in a static map, because the search runs as somebody types and every
-provider asked costs its rate limit, its timeout and a step toward the invoker's quarantine. The row carries
+answer is cached for a minute in a static map, because every provider asked costs its rate limit, its
+timeout and a step toward the invoker's quarantine; the apps' search boxes debounce for the same reason, so
+a term is sent once the typing settles rather than per letter. Neither binds a caller that is not one of the
+apps (a script, an MCP client), so the server debounces too: a term already being asked about is joined
+rather than asked twice, and a term reaching the providers fresh spends one of the account's twenty a minute
+and one of the station's hundred and twenty (`RequestSearchLimiter`, in Redis). Out of either, the search
+answers with the library alone and caches nothing, rather than a 429: a person typing too fast still gets
+an answer, and a script gets nothing out of the providers. The row carries
 the provider's own id (`FoundTrack.externalId`, which the model's tool never shows it), and asking for it
 goes through `ProviderCopyResolver`, the ladder the playlist fill uses.
 

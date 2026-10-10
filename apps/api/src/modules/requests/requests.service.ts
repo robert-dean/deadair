@@ -63,15 +63,17 @@ export class RequestsService {
     ) {}
 
     /**
-     * The station's own records first, then, when it holds few, records a music provider carries.
+     * The station's own records first, then records a music provider carries in whatever room is left.
+     * Whose search it is decides whose allowance a fresh provider search spends: see `RequestSearchLimiter`.
      * A provider that cannot be reached costs its rows and nothing else.
      */
     async search(query: { q: string; limit?: number }): Promise<RequestableTrackList> {
+        const { actorId } = this.authz.requireUser();
         const limit = query.limit ?? DEFAULT_SEARCH_LIMIT;
         const library: RequestableTrack[] = await this.repository.search(query.q, limit);
-        if (library.length >= limit || !this.providers.reaches(library.length)) return { tracks: library };
+        if (library.length >= limit || !this.providers.reaches()) return { tracks: library };
 
-        const reached = await this.providers.search(query.q, library, limit - library.length);
+        const reached = await this.providers.search(query.q, library, limit - library.length, `user:${actorId}`);
         return { tracks: [...library, ...reached] };
     }
 

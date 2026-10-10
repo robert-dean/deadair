@@ -29,6 +29,7 @@ import { TALK_BREAK_KIND } from './talk.break.writer.js';
 import { WELCOME_KIND } from './welcome.writer.js';
 import { CHANGEOVER_KIND } from './changeover.writer.js';
 import { JINGLE_KIND } from './jingle.writer.js';
+import { DEDICATION_KIND } from './dedication.writer.js';
 
 /**
  * The kind of break whose audio already exists, because somebody recorded it and
@@ -1127,6 +1128,11 @@ export class BreakPlanner {
                 continue;
 
             const fault = brokenClaim(segment, { previous: lineup.previousTrackBefore(item.id)?.id, next: lineup.nextTrackAfter(item.id)?.id }, now);
+            // A dedication whose record is no longer next is never written again: a rewrite names
+            // whatever follows now, and a listener's words for one record then air in front of
+            // another. The order drops it instead (`StationLineup.dropSeparatedDedications`), and the
+            // claim check at hand-over is the floor under that.
+            if (segment.kind === DEDICATION_KIND && fault?.kind === 'item') continue;
             const seen = verdicts.get(item.segmentId);
             // The first position's fault is the one kept, and a later position can only ever clear
             // the verdict rather than change what it is recorded as. A row that survives to be

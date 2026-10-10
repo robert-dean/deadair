@@ -1203,7 +1203,9 @@ export class Rundown {
     /** Forget the playable form of everything the station is done with. */
     private forgetSpentPrepared(): void {
         for (const item of this.order?.all() ?? []) {
-            if (item.state === 'played' || item.state === 'skipped' || item.state === 'unavailable') {
+            // `removed` too: a dedication the director drops after preparing it (its record turned out to
+            // have no audio) is never handed over, and its playable form would otherwise sit here.
+            if (item.state === 'played' || item.state === 'skipped' || item.state === 'unavailable' || item.state === 'removed') {
                 this.prepared.delete(item.id);
                 this.handOvers.delete(item.id);
             }

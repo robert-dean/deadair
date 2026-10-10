@@ -225,6 +225,11 @@
     <string name="silence_title_not_driving">The mount is not being held</string>
     <string name="silence_title_starved">The mount is airing the local bed</string>
 
+    <!-- Now playing's Lyrics button and the sheet it opens, for a signed-in listener. The words themselves are the station's -->
+    <string name="lyrics">Lyrics</string>
+    <!-- Under the words: which lyrics source they came from, by its plugin id -->
+    <string name="lyrics_from">From %1$s</string>
+
     <!-- The operator's transport. Drawn only for the account the station calls its operator -->
     <string name="skip">Skip</string>
     <!-- Now playing's operator controls, as spoken. Shuffle reorders what has not aired yet, as Up next's menu does. -->

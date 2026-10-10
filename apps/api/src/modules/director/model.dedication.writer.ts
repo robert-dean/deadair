@@ -40,8 +40,15 @@ import { settingIsOn } from '#modules/shared/setting.flags.js';
 /** How many of the message's words in a row, repeated in the answer, count as reading it out rather than passing it on. */
 export const QUOTE_RUN = 5;
 
+/**
+ * A text's words, for comparing two texts. NFKC, and the curly and modifier apostrophes folded to a
+ * straight one, so a script that writes "don’t" still matches a message that typed "don't": otherwise
+ * a single typographic difference would split a word and let a quoted run through.
+ */
 const wordsOf = (text: string): string[] =>
     text
+        .normalize('NFKC')
+        .replace(/[’ʼ‘]/gu, "'")
         .toLowerCase()
         .replace(/[^\p{L}\p{N}\s']/gu, ' ')
         .split(/\s+/)

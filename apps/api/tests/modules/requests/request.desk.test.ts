@@ -75,6 +75,8 @@ function memoryTable() {
 
 interface World {
     dedications?: string;
+    personas?: Array<{ label: string; djName?: string }>;
+    personasFail?: boolean;
     onAir?: boolean;
     approval?: string;
     lineup?: boolean;
@@ -88,6 +90,8 @@ function build(world: World = {}) {
     const table = memoryTable();
     const settings: Record<string, unknown> = {
         'requests.approval': world.approval ?? 'auto',
+        'stream.title': 'Deadair FM',
+        'station.djName': 'Max Riley',
         ...(world.dedications === undefined ? {} : { 'requests.dedications': world.dedications }),
     };
     const config = {
@@ -97,6 +101,12 @@ function build(world: World = {}) {
     const jobs = { send: vi.fn(async (_name: string, _payload: unknown) => 'job') };
     const director = { applyEdit: vi.fn(async (_edit: unknown) => world.edit ?? { ok: true }) };
     const segments = { plan: vi.fn(async () => ({ id: 'seg-1' })), markFailed: vi.fn(async () => undefined) };
+    const personas = {
+        list: vi.fn(async () => {
+            if (world.personasFail === true) throw new Error('database gone');
+            return world.personas ?? [{ label: 'Night Owl', djName: 'Vera Lane' }, { label: 'Newsreader' }];
+        }),
+    };
     const resolver = { resolve: vi.fn(async () => (world.resolves === false ? [] : [RESOLVED])) };
     const audio = {
         findForBindings: vi.fn(async () =>
@@ -125,6 +135,7 @@ function build(world: World = {}) {
         { isFetching: () => world.fetching ?? false } as never,
         director as never,
         segments as never,
+        personas as never,
         jobs as never,
         logger,
     );
@@ -345,5 +356,64 @@ describe('a dedication', () => {
         await desk.submit(app(), TEARDROP);
 
         expect(segments.plan).not.toHaveBeenCalled();
+    });
+
+    describe('the names said on air', () => {
+        const contextOf = (segments: ReturnType<typeof build>['segments']) =>
+            (segments.plan.mock.calls[0] as unknown as [{ context: Record<string, string> }])[0].context;
+        const named = (name: string): Requester => ({ ...chat(), name });
+
+        it('says a listener’s own name, and who it is for, as they gave them', async () => {
+            const { desk, segments } = build();
+
+            await desk.submit(named('Robin'), TEARDROP, { to: 'Danielle' });
+
+            expect(contextOf(segments)).toEqual({ dedicatedBy: 'Robin', dedicateTo: 'Danielle' });
+        });
+
+        it('calls somebody who gives a presenter’s name "a listener", and the request still goes in', async () => {
+            const { desk, segments, director } = build();
+
+            const row = await desk.submit(named('Vera Lane'), TEARDROP, { to: 'Danielle' });
+
+            expect(contextOf(segments)).toEqual({ dedicatedBy: 'a listener', dedicateTo: 'Danielle' });
+            expect(director.applyEdit).toHaveBeenCalled();
+            expect(row.status).toBe('queued');
+            // What was typed is still what the operator sees.
+            expect(row.requesterName).toBe('Vera Lane');
+        });
+
+        it('sees through a zero-width character or look-alike letters in a presenter’s name', async () => {
+            const zeroWidth = build();
+            await zeroWidth.desk.submit(named('Max\u200B Riley'), TEARDROP, { to: 'Danielle' });
+            expect(contextOf(zeroWidth.segments).dedicatedBy).toBe('a listener');
+
+            // Cyrillic е and а in a persona's on-air name.
+            const lookAlike = build();
+            await lookAlike.desk.submit(named('V\u0435r\u0430 Lane'), TEARDROP, { to: 'Danielle' });
+            expect(contextOf(lookAlike.segments).dedicatedBy).toBe('a listener');
+        });
+
+        it('will not dedicate a record to the station, a persona or an address, and leaves who it is for out', async () => {
+            for (const to of ['Deadair FM', 'the Night Owl', 'example.com/deal']) {
+                const { desk, segments, director } = build();
+
+                const row = await desk.submit(named('Robin'), TEARDROP, { to, message: 'happy birthday' });
+
+                expect(contextOf(segments)).toEqual({ dedicatedBy: 'Robin', message: 'happy birthday' });
+                expect(director.applyEdit).toHaveBeenCalled();
+                expect(row.dedication).toEqual({ to, message: 'happy birthday' });
+            }
+        });
+
+        it('says no typed name at all when the station’s own names cannot be read, and still places the request', async () => {
+            const { desk, segments, director } = build({ personasFail: true });
+
+            const row = await desk.submit(named('Robin'), TEARDROP, { to: 'Danielle' });
+
+            expect(contextOf(segments)).toEqual({ dedicatedBy: 'a listener' });
+            expect(director.applyEdit).toHaveBeenCalled();
+            expect(row.status).toBe('queued');
+        });
     });
 });

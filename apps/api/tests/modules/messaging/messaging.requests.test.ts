@@ -72,6 +72,19 @@ describe('/request', () => {
         );
     });
 
+    it('tidies the name the platform shows, and holds it to the length an app is held to', async () => {
+        const { requests, submit } = build();
+
+        await requests.request('p', { ...message, sender: { id: '7', displayName: 'S​a‮m\n' } }, 'teardrop');
+        expect(submit).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Sam' }), teardrop, undefined);
+
+        await requests.request('p', { ...message, sender: { id: '7', displayName: 'x'.repeat(500) } }, 'teardrop');
+        expect(submit).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'x'.repeat(60) }), teardrop, undefined);
+
+        await requests.request('p', { ...message, sender: { id: '7', displayName: '​' } }, 'teardrop');
+        expect(submit).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'a listener' }), teardrop, undefined);
+    });
+
     it('asks for an exact title at once even among several matches', async () => {
         const { requests, submit } = build({ matches: [teardrop, tearDown] });
 

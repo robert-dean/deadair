@@ -88,6 +88,15 @@ describe('quotesListener', () => {
     it('lets a paraphrase through', () => {
         expect(quotesListener('Marcus reckons Danielle still owes him money.', 'You still owe me twenty bucks')).toBe(false);
     });
+
+    it('is not fooled by a curly apostrophe on one side and a straight one on the other', () => {
+        expect(quotesListener('Marcus says don’t forget you owe me twenty, Danielle.', "don't forget you owe me twenty bucks")).toBe(true);
+        expect(quotesListener("Marcus says don't forget you owe me twenty, Danielle.", 'don’t forget you owe me twenty bucks')).toBe(true);
+    });
+
+    it('is not fooled by fullwidth letters in the message', () => {
+        expect(quotesListener('Marcus says you still owe me twenty bucks.', 'ｙｏｕ still owe me twenty bucks')).toBe(true);
+    });
 });
 
 describe('the model writer', () => {

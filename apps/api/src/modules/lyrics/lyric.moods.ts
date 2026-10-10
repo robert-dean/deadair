@@ -28,6 +28,26 @@ export const LYRIC_MOODS = ['love', 'happiness', 'comfort', 'sadness', 'loneline
 
 export type LyricMood = (typeof LYRIC_MOODS)[number];
 
+/** How many mood stages a slot or a broadcast may pass through. See `director/mood.lean.ts`. */
+export const MAX_MOOD_STAGES = 4;
+
+/**
+ * A stored or sent list of mood stages as the code reads it: the known moods only, in order, at most
+ * {@link MAX_MOOD_STAGES}, and `undefined` rather than an empty list, so "no lean" has one spelling.
+ */
+export function moodStages(values: readonly unknown[] | null | undefined): LyricMood[] | undefined {
+    const stages = (values ?? [])
+        .filter((value): value is LyricMood => (LYRIC_MOODS as readonly unknown[]).includes(value))
+        .slice(0, MAX_MOOD_STAGES);
+    return stages.length === 0 ? undefined : stages;
+}
+
+/** {@link moodStages} as a field to spread: `{ moods }`, or nothing at all for no lean. */
+export function moodsField(values: readonly unknown[] | null | undefined): { moods?: LyricMood[] } {
+    const moods = moodStages(values);
+    return moods === undefined ? {} : { moods };
+}
+
 /** What each mood means, as the model is told it. The wording is part of {@link MOODS_VERSION}. */
 const MOOD_MEANING: Record<LyricMood, string> = {
     love: 'affection, romance, desire, or loving memory',

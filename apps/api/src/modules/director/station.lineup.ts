@@ -383,11 +383,12 @@ export interface StationLineupBinding {
     eraFrom?: number;
     eraTo?: number;
     /**
-     * The mood this broadcast leans into: one the model has judged records by, or absent for no lean.
-     * Rides the running order beside the period for the period's reason, and like the period it is
-     * something the deterministic draw can honour on its own. See `director/mood.lean.ts`.
+     * The moods this broadcast leans into, as stages in order: ones the model has judged records by,
+     * or absent for no lean. Rides the running order beside the period for the period's reason, and
+     * like the period it is something the deterministic draw can honour on its own. See
+     * `director/mood.lean.ts`.
      */
-    mood?: LyricMood;
+    moods?: readonly LyricMood[];
     /**
      * Who is HOSTING this broadcast, as distinct from who the station is when nobody said.
      *
@@ -700,9 +701,9 @@ export class StationLineup implements LiveOrder {
         return { ...(eraFrom === undefined ? {} : { from: eraFrom }), ...(eraTo === undefined ? {} : { to: eraTo }) };
     }
 
-    /** The mood this broadcast leans into, or `undefined` for none. */
-    get mood(): LyricMood | undefined {
-        return this.binding.mood;
+    /** The moods this broadcast leans into, as stages in order, or `undefined` for none. */
+    get moods(): readonly LyricMood[] | undefined {
+        return this.binding.moods;
     }
 
     // ── reading ────────────────────────────────────────────────────────────────

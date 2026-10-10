@@ -183,10 +183,11 @@ export interface ScheduleSlot {
      */
     era?: { from?: number; to?: number };
     /**
-     * The mood this stretch of the day leans into, copied onto the running order at a changeover
-     * beside {@link era}. A lean and never a filter: see `director/mood.lean.ts`.
+     * The moods this stretch of the day leans into, as stages in order, copied onto the running order
+     * at a changeover beside {@link era}. A lean and never a filter: see `director/mood.lean.ts`.
+     * Absent rather than empty for no lean.
      */
-    mood?: LyricMood;
+    moods?: LyricMood[];
     /**
      * Whether the host talks between the records during this stretch of the day.
      *

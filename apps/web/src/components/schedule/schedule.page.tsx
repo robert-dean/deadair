@@ -476,7 +476,7 @@ function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
         ...(slot.eraFrom === undefined ? {} : { eraFrom: slot.eraFrom }),
         ...(slot.eraTo === undefined ? {} : { eraTo: slot.eraTo }),
         ...(slot.callins === undefined ? {} : { callins: slot.callins }),
-        ...(slot.mood === undefined ? {} : { mood: slot.mood }),
+        ...(slot.moods === undefined ? {} : { moods: slot.moods }),
         ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
         ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),
         ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),

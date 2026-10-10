@@ -849,7 +849,7 @@ export interface DeadairScheduleSlots {
   label: Generated<string>;
   mixInSimilar: boolean | null;
   mode: Generated<"rotation" | "setlist" | "feature">;
-  mood: "love" | "happiness" | "comfort" | "sadness" | "loneliness" | "anger" | "fear" | null;
+  moods: string[] | null;
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;
   requestFollowOn: number | null;
@@ -997,7 +997,7 @@ export interface DeadairStationLineup {
   holdUntil: DateTime | null;
   items: Generated<Json>;
   mode: Generated<"rotation" | "setlist" | "feature">;
-  mood: "love" | "happiness" | "comfort" | "sadness" | "loneliness" | "anger" | "fear" | null;
+  moods: string[] | null;
   name: Generated<string>;
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;

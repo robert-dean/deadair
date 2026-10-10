@@ -127,7 +127,7 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             // bound on its own is "this year onwards".
             ...(typeof values.eraFrom === 'number' ? { eraFrom: values.eraFrom } : {}),
             ...(typeof values.eraTo === 'number' ? { eraTo: values.eraTo } : {}),
-            ...(values.mood ? { mood: values.mood } : {}),
+            ...(values.mood ? { moods: [values.mood] } : {}),
             // Sent only when it is ON. Absent is no calls, as it is for `putOnAir`.
             ...(values.callins ? { callins: true } : {}),
             // The same three-way, and only beside a playlist, the station's own or a provider's:
@@ -459,7 +459,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         brief: slot?.brief ?? '',
         eraFrom: slot?.eraFrom ?? '',
         eraTo: slot?.eraTo ?? '',
-        mood: slot?.mood ?? '',
+        mood: slot?.moods?.[0] ?? '',
         callins: slot?.callins ?? false,
         mixInSimilar: slot?.mixInSimilar ?? false,
         dates: [slot?.startsOn ?? null, slot?.endsOn ?? null],

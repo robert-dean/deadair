@@ -13,7 +13,7 @@ data class NowPlayingTrack(
     /** Comma-joined, as a display line rather than a list: this is what a player or a device shows, not something to iterate. Empty for a `break` */
     val artist: String,
     val album: String? = null,
-    /** The station's own cached cover where there is one, the provider's URL otherwise. Relative values are paths under the API root */
+    /** The station's own cached cover, as a path under the API root (`art/...`). Absent while the station does not yet hold the cover, which a player answers with the station's logo; never a provider's URL */
     val artworkUrl: String? = null,
     val durationMs: Long? = null,
     /** Unix epoch millis, as observed when the player reported the track started */

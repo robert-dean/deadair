@@ -29,7 +29,7 @@ public sealed record NowPlayingTrack
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Album { get; init; }
 
-    /// <summary>The station's own cached cover where there is one, the provider's URL otherwise. Relative values are paths under the API root</summary>
+    /// <summary>The station's own cached cover, as a path under the API root (`art/...`). Absent while the station does not yet hold the cover, which a player answers with the station's logo; never a provider's URL</summary>
     [JsonPropertyName("artworkUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ArtworkUrl { get; init; }

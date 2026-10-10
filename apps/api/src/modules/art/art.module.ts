@@ -9,6 +9,7 @@ import { ArtRepository } from './art.repository.js';
 import { ArtService } from './art.service.js';
 import { ArtStore } from './art.store.js';
 import { BreakArtworkService } from './break.artwork.service.js';
+import { CoverResolver } from './cover.resolver.js';
 import { PersonaArtworkService } from './persona.artwork.service.js';
 
 /** Where cached art is written when `ART_DIR` is unset. Alongside `logs/`, and gitignored with it. */
@@ -90,6 +91,14 @@ export const ArtModule: ServerKitModule = {
 
         // Scoped for the same reason: it writes through `ArtRepository`. Nothing shipped, so no directory.
         registry.register(PersonaArtworkService).useClass(PersonaArtworkService).asScoped();
+
+        // Singleton, unlike the services above: it is a memory of which upstream covers the station
+        // already holds, read by `/nowplaying` and the pusher, both of which answer without a scope.
+        // A singleton factory is handed the ROOT container, which is what its own `inScope` needs.
+        registry
+            .register(CoverResolver)
+            .useFactory(container => new CoverResolver(container, container.get(Logger)))
+            .asSingleton();
     },
 
     /**

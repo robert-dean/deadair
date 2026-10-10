@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import { CoverResolver } from '#modules/art/cover.resolver.js';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
 import {
     annotateUri,
@@ -160,6 +161,10 @@ export class PlayoutPusher {
         private readonly config: AppConfig,
         private readonly heartbeat: Heartbeat,
         private readonly logger: Logger,
+        // Where a record committed before its cover was cached finds the station's copy. Optional
+        // only so a test that is not about artwork need not build one: absent leaves such a record
+        // under the logo, which is what it wore before this existed.
+        private readonly covers?: CoverResolver,
     ) {}
 
     /**
@@ -470,6 +475,7 @@ export class PlayoutPusher {
                     crossfade: this.rundown.crossfade(),
                     stationName: this.stationName(),
                     publicUrl: this.publicUrl(),
+                    ...(this.covers === undefined ? {} : { covers: this.covers }),
                     previousBlendMs: this.previousBlendMs,
                     ...(pulled.next === undefined ? {} : { next: pulled.next }),
                 };
@@ -580,10 +586,14 @@ export class PlayoutPusher {
         // producer's copy back on the mount at the first mid-track re-label. The
         // artwork rides along through `listenerArtwork` on the same argument, and
         // because Icecast keeps a tag a relabel does not mention: a caption sent
-        // without its cover would leave the previous record's up.
+        // without its cover would leave the previous record's up. It is also the second chance for a
+        // record whose cover was cached after it was pushed: the hand-over a few minutes ago asked
+        // the resolver and got nothing, and this asks again at air.
         const artist = listenerArtist(item, this.stationName());
         const title = listenerTitle(item, this.stationName());
-        void this.control.announce(artist ? `${artist} - ${title}` : title, listenerArtwork(item, this.publicUrl())).catch(() => undefined);
+        void this.control
+            .announce(artist ? `${artist} - ${title}` : title, listenerArtwork(item, this.publicUrl(), this.covers))
+            .catch(() => undefined);
     }
 
     /**

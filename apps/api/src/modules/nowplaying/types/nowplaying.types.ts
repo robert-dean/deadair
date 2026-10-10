@@ -23,7 +23,9 @@ export const NowPlayingTrack = z.strictObject({
         .string()
         .max(2000)
         .optional()
-        .describe("The station's own cached cover where there is one, the provider's URL otherwise. Relative values are paths under the API root"),
+        .describe(
+            "The station's own cached cover, as a path under the API root (`art/...`). Absent while the station does not yet hold the cover, which a player answers with the station's logo; never a provider's URL",
+        ),
     durationMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).optional(),
     startedAt: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))

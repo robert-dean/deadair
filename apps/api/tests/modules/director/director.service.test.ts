@@ -4467,7 +4467,10 @@ describe("DirectorService putting the station's own cover on a record", () => {
         await director.start();
 
         expect(idsOf(rundown.upcoming())).toEqual(['a']);
-        expect(coverOf(rundown.upcoming()[0]!)).toBe('https://cdn.example/a');
+        // And the provider's URL goes in the server-only field, never in the one a listener reads:
+        // `CoverResolver` turns it into the station's path once the bytes land.
+        expect(coverOf(rundown.upcoming()[0]!)).toBeUndefined();
+        expect(rundown.upcoming()[0]!.coverSourceUrl).toBe('https://cdn.example/a');
     });
 
     it('does not ask again for one that has been tried and has no bytes', async () => {
@@ -4569,7 +4572,37 @@ describe("DirectorService putting the station's own cover on a record", () => {
 
         await director.start();
 
-        expect(coverOf(rundown.upcoming().find(item => item.externalId === 'seg-1')!)).toBe('https://cdn.example/show.jpg');
+        // Through the station's cache like a record's, so it is the server-only field until the
+        // bytes land, and never the band's picture in the meantime.
+        const episode = rundown.upcoming().find(item => item.externalId === 'seg-1')!;
+        expect(coverOf(episode)).toBeUndefined();
+        expect(episode.coverSourceUrl).toBe('https://cdn.example/show.jpg');
+    });
+
+    it("hands over the station's own copy of a programme's cover once it holds one", async () => {
+        const { director, rundown, lineup, seed, jobs } = build({
+            items: ['a'],
+            heldArt: ['https://cdn.example/show.jpg'],
+            segments: [
+                {
+                    id: 'seg-1',
+                    kind: 'syndicated',
+                    state: 'ready',
+                    label: 'The Long Wave: Episode 12',
+                    source: 'syndicated',
+                    context: { showTitle: 'The Long Wave', episodeTitle: 'Episode 12', artworkUrl: 'https://cdn.example/show.jpg' },
+                    audioChecksum: 'x',
+                    audioExt: 'mp3',
+                },
+            ],
+        });
+        await seed();
+        lineup.insertSegment('seg-1', 0);
+
+        await director.start();
+
+        expect(coverOf(rundown.upcoming().find(item => item.externalId === 'seg-1')!)).toBe('art/asset-show.jpg/cover.jpg');
+        expect(jobs.send).not.toHaveBeenCalledWith('catalog.cache_art', { urls: expect.arrayContaining(['https://cdn.example/show.jpg']) });
     });
 
     it('asks once for a cover two records share', async () => {

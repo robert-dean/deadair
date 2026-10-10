@@ -282,6 +282,25 @@ describe('listenerArtwork, through itemAnnotations', () => {
         expect(itemAnnotations(item, reachable()).url).toBe(LOGO);
     });
 
+    it('sends the cached copy of a cover that landed after the record was committed', () => {
+        // The director keeps the provider's URL server-side in `coverSourceUrl`; the pusher asks
+        // the resolver at hand-over and again at air, and the cache usually lands in between.
+        const UPSTREAM = 'http://navidrome.lan/rest/getCoverArt.view?u=robert&t=abc123&s=salt&id=al-42';
+        const item: RundownItem = { ...record(-9), coverSourceUrl: UPSTREAM };
+        const covers = { resolve: (url: string) => (url === UPSTREAM ? CACHED : undefined) };
+
+        expect(itemAnnotations(item, { ...reachable(), covers }).url).toBe(`https://radio.test/api/${CACHED}`);
+        expect(itemAnnotations(item, reachable()).url).toBe(LOGO);
+    });
+
+    it('sends the logo, never the upstream URL, while that cover is still uncached', () => {
+        const item: RundownItem = { ...record(-9), coverSourceUrl: 'https://cdn.example/ab67616d0000b273' };
+        // Even a resolver that answered the upstream URL back cannot put it on the wire.
+        const covers = { resolve: (url: string) => url };
+
+        expect(itemAnnotations(item, { ...reachable(), covers }).url).toBe(LOGO);
+    });
+
     it("shows the station's logo for a break the station has no picture for", () => {
         expect(itemAnnotations(labelled('Talk break: A into B'), reachable()).url).toBe(LOGO);
     });

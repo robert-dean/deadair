@@ -1,6 +1,8 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { CoverResolver } from '#modules/art/cover.resolver.js';
 import { TEMPLATE_KEYS } from '#modules/director/break.templates.js';
+import { listenerCover } from '#modules/playout/annotate.js';
 import { AudienceWatch } from '#modules/playout/audience.watch.js';
 import { Rundown } from '#modules/playout/rundown.js';
 import { isRenderItem } from '#modules/render/segment.source.js';
@@ -30,7 +32,10 @@ import type { NowPlaying, NowPlayingMount, NowPlayingShow } from './types/nowpla
  * call rather than fetched through a repository. That is what lets this route
  * be transaction-exempt and lets a device poll it every few seconds without
  * spending a pooled connection on each ask, while a rename still reaches the
- * very next poll.
+ * very next poll. The one exception is a cover cached after its record was
+ * committed: `CoverResolver` answers from memory too, and on a miss it starts
+ * one read of the art store OFF the request, at most every few seconds per
+ * cover, so the poll itself still waits on nothing.
  */
 @Injectable()
 export class NowPlayingService {
@@ -38,6 +43,7 @@ export class NowPlayingService {
         private readonly rundown: Rundown,
         private readonly audience: AudienceWatch,
         private readonly config: AppConfig,
+        private readonly covers?: CoverResolver,
     ) {}
 
     /** What the station calls itself, as the setting currently stands. Read per call, like `getNowPlaying`'s other facts. */
@@ -120,6 +126,7 @@ export class NowPlayingService {
 
         const { item, startedAt, remainingMs } = nowPlaying;
         const show = this.show();
+        const artworkUrl = listenerCover(item, this.covers);
         return {
             station: this.stationName(),
             onAir: true,
@@ -145,7 +152,12 @@ export class NowPlayingService {
                 // and a device that wants one string should not have to join ours.
                 artist: item.artists.join(', '),
                 ...(item.album === undefined ? {} : { album: item.album }),
-                ...(item.artworkUrl === undefined ? {} : { artworkUrl: item.artworkUrl }),
+                // The station's own copy of the cover and nothing else, through the same test the mount
+                // applies (`listenerCover`): the item's `art/` path, or, for a record committed before
+                // its cover was cached, whatever the station holds for it now. Never the provider's
+                // URL, which may carry the operator's credentials, so an uncached cover is simply
+                // absent and a player shows the station's logo, as it does for a record with none.
+                ...(artworkUrl === undefined ? {} : { artworkUrl }),
                 ...(item.durationMs === undefined ? {} : { durationMs: item.durationMs }),
                 startedAt,
                 ...(remainingMs === undefined ? {} : { remainingMs }),

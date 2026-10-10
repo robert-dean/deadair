@@ -16,7 +16,7 @@ function build(tracks: ProviderTrack[]) {
     const instance = { listPlaylists: vi.fn(), getPlaylistTracks: vi.fn(), searchTracks: vi.fn(async () => tracks) };
     const record = { id: 'deadair.spotify', status: 'active', manifest: { capabilities: ['catalog'] }, instance };
     const registry = { list: vi.fn(() => [record]) } as unknown as PluginRegistry;
-    const invoke = vi.fn(async (_id: string, _op: string, call: () => Promise<unknown>) => call());
+    const invoke = vi.fn(async (_id: string, _op: string, call: () => Promise<unknown>, _options?: { signal?: AbortSignal }) => call());
     return { search: new ProviderSearch(registry, { invoke } as unknown as PluginInvoker, logger), invoke };
 }
 
@@ -71,7 +71,7 @@ describe('ProviderSearch', () => {
         const first = plugin('deadair.navidrome');
         const second = plugin('deadair.spotify');
         const registry = { list: vi.fn(() => [first, second]) } as unknown as PluginRegistry;
-        const invoke = vi.fn(async (_id: string, _op: string, call: () => Promise<unknown>) => {
+        const invoke = vi.fn(async (_id: string, _op: string, call: () => Promise<unknown>, _options?: { signal?: AbortSignal }) => {
             const answer = await call();
             controller.abort();
             return answer;

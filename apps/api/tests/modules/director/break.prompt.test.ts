@@ -750,6 +750,13 @@ describe('breakPrompt', () => {
             expect(said).not.toContain('no chart placings,');
         });
 
+        it('says a deep cut is one, as the reason it is on, and says nothing for a record that is not', () => {
+            expect(user(prompt({ kind: 'talkbreak', next: { ...previous, deepCut: true } }))).toContain(
+                '- Deep cut: an album track this station has not played in months',
+            );
+            expect(user(prompt({ kind: 'talkbreak', previous: known }))).not.toContain('- Deep cut:');
+        });
+
         it('says nothing about a chart for a record no chart named', () => {
             expect(user(prompt({ kind: 'talkbreak', previous: known }))).not.toContain('- Chart:');
         });

@@ -13,10 +13,11 @@ import type { EraWatch } from '../../../src/modules/director/era.watch.js';
 import { ADVISORY_KEY } from '../../../src/modules/director/advisory.policy.js';
 import { CatalogSetGenerator } from '../../../src/modules/director/catalog.set.generator.js';
 import type { CandidatesRepository, CandidateTrack } from '../../../src/modules/director/candidates.repository.js';
-import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
+import { PLAY_HISTORY_RETENTION_DAYS, type PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
 import { DEFAULT_RULES, resolveRules } from '../../../src/modules/director/rotation.rules.js';
 import { DEFAULT_SMART_SHUFFLE_DAYS, SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
+import { ARTIST_RETURN_DAYS_RANGE, DEFAULT_ARTIST_RETURN_DAYS, REDISCOVER_KEYS } from '../../../src/modules/director/rediscover.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import type { BlockRulesRepository } from '../../../src/modules/director/block.rules.repository.js';
 import type { LyricLabelsRepository } from '../../../src/modules/lyrics/lyric.labels.repository.js';
@@ -38,6 +39,11 @@ interface Options {
     sample?: CandidateTrack[];
     songKeys?: Set<string>;
     artistKeys?: Set<string>;
+    /** Albums the operator likes, as `albumsWithLikes` answers. */
+    likedAlbums?: Set<string>;
+    likedAlbumsFail?: boolean;
+    /** Artists aired inside the artist-return window, which is a week or more and so never the cooldown. */
+    airedArtists?: Set<string>;
     /** When each song last aired, as history answers it inside the smart shuffle's horizon. */
     lastAired?: Map<string, DateTime>;
     settings?: Record<string, unknown>;
@@ -78,6 +84,10 @@ function build(options: Options = {}) {
             if (options.library === undefined) return options.sample ?? [];
             return drawFrom(options.library, options.tags ?? {}, args[0] as number, args[5] as SampleExclusions | undefined);
         }),
+        albumsWithLikes: vi.fn(async (ids: readonly string[]) => {
+            if (options.likedAlbumsFail) throw new Error('the albums table is gone');
+            return new Set(ids.filter(id => options.likedAlbums?.has(id)));
+        }),
         tagsFor: vi.fn(async (ids: readonly string[]) => new Map(ids.flatMap(id => (options.tags?.[id] ? [[id, options.tags[id]!]] : [])))),
     } as unknown as CandidatesRepository;
     const rules = {
@@ -90,7 +100,10 @@ function build(options: Options = {}) {
 
     const history = {
         songKeysSince: vi.fn(async (days: number) => (days > 0 ? (options.songKeys ?? new Set()) : new Set())),
-        artistKeysSince: vi.fn(async (minutes: number) => (minutes > 0 ? (options.artistKeys ?? new Set()) : new Set())),
+        artistKeysSince: vi.fn(async (minutes: number) => {
+            if (minutes <= 0) return new Set();
+            return minutes >= ARTIST_RETURN_DAYS_RANGE.min * 24 * 60 ? (options.airedArtists ?? new Set()) : (options.artistKeys ?? new Set());
+        }),
         lastAiredSince: vi.fn(async (days: number) => (days > 0 ? (options.lastAired ?? new Map()) : new Map())),
     } as unknown as PlayHistoryRepository;
 
@@ -375,7 +388,8 @@ describe('CatalogSetGenerator under smart shuffle', () => {
         const { generator, history } = build({
             sample: [candidate('Stale', 'One'), candidate('Fresh', 'Two')],
             lastAired: new Map([[songKey('Stale', ['One']), yesterday()]]),
-            settings: { [SMART_SHUFFLE_KEYS.enabled]: 'false' },
+            // Deep cuts off as well: with them on, the history is read for its whole retention anyway.
+            settings: { [SMART_SHUFFLE_KEYS.enabled]: 'false', [REDISCOVER_KEYS.deepCuts]: 'false' },
         });
 
         const picks = await generator.generate({ count: 1, rules: rotation });
@@ -398,7 +412,10 @@ describe('CatalogSetGenerator under smart shuffle', () => {
     });
 
     it('asks the history for the horizon the operator set', async () => {
-        const { generator, history } = build({ sample: [candidate('A', 'One')], settings: { [SMART_SHUFFLE_KEYS.days]: '30' } });
+        const { generator, history } = build({
+            sample: [candidate('A', 'One')],
+            settings: { [SMART_SHUFFLE_KEYS.days]: '30', [REDISCOVER_KEYS.deepCuts]: 'false' },
+        });
 
         await generator.generate({ count: 1, rules: rotation });
 
@@ -410,6 +427,134 @@ describe('CatalogSetGenerator under smart shuffle', () => {
         const { generator } = build({ sample, lastAired: new Map(sample.map(track => [songKey(track.title, [track.artist]), yesterday()])) });
 
         expect(await generator.generate({ count: 3, rules: rotation })).toHaveLength(3);
+    });
+
+    describe('a liked artist coming back', () => {
+        const liked = (title: string, artist: string): CandidateTrack => ({ ...candidate(title, artist, 1), artistLiked: true });
+
+        it('draws a liked artist the station has not aired in weeks over one it aired lately', async () => {
+            const random = pinTicket();
+            const { generator } = build({
+                sample: [liked('Lately', 'Heard'), liked('Away', 'Quiet')],
+                airedArtists: new Set([artistKey(['Heard'])]),
+            });
+
+            expect((await generator.generate({ count: 1, rules: rotation })).map(pick => pick.title)).toEqual(['Away']);
+            random.mockRestore();
+        });
+
+        it('leans only on an artist the operator liked, never on a record liked by itself', async () => {
+            const random = pinTicket();
+            const { generator } = build({
+                sample: [candidate('Liked Record', 'Somebody', 1), { ...candidate('Other', 'Else', 1) }],
+                airedArtists: new Set([artistKey(['Else'])]),
+            });
+
+            // Neither artist is liked, so neither is coming back: equal weights, and the ticket takes the first.
+            expect((await generator.generate({ count: 1, rules: rotation })).map(pick => pick.title)).toEqual(['Liked Record']);
+            random.mockRestore();
+        });
+
+        it('draws as before, and reads nothing, when it is switched off with the string the row holds', async () => {
+            // Off must not read an empty answer as "nobody aired", which would lean on every liked artist.
+            const random = pinTicket();
+            const { generator, history } = build({
+                sample: [liked('Lately', 'Heard'), liked('Away', 'Quiet')],
+                airedArtists: new Set([artistKey(['Heard'])]),
+                settings: { [REDISCOVER_KEYS.artistReturn]: 'false' },
+            });
+
+            expect((await generator.generate({ count: 1, rules: rotation })).map(pick => pick.title)).toEqual(['Lately']);
+            expect(history.artistKeysSince).toHaveBeenCalledWith(0, 'main');
+            random.mockRestore();
+        });
+
+        it('asks the history for the window the operator set, in minutes', async () => {
+            const { generator, history } = build({ sample: [liked('A', 'One')], settings: { [REDISCOVER_KEYS.artistReturnDays]: '30' } });
+
+            await generator.generate({ count: 1, rules: rotation });
+
+            expect(history.artistKeysSince).toHaveBeenCalledWith(30 * 24 * 60, 'main');
+            expect(history.artistKeysSince).not.toHaveBeenCalledWith(DEFAULT_ARTIST_RETURN_DAYS * 24 * 60, 'main');
+        });
+    });
+
+    describe('a deep cut', () => {
+        const albumTrack = (title: string, artist: string, albumId: string, trackNumber?: number): CandidateTrack => ({
+            ...candidate(title, artist),
+            albumId,
+            ...(trackNumber === undefined ? {} : { trackNumber }),
+        });
+
+        it('draws an unaired album track from an album the operator likes over an ordinary record', async () => {
+            const random = pinTicket();
+            const { generator } = build({
+                sample: [candidate('Ordinary', 'One'), albumTrack('Track Nine', 'Two', 'liked-album', 9)],
+                likedAlbums: new Set(['liked-album']),
+            });
+
+            expect((await generator.generate({ count: 1, rules: rotation })).map(pick => pick.title)).toEqual(['Track Nine']);
+            random.mockRestore();
+        });
+
+        it('names the pick as a deep cut, so the break writer can say so', async () => {
+            const { generator } = build({ sample: [albumTrack('Track Nine', 'Two', 'liked-album', 9)], likedAlbums: new Set(['liked-album']) });
+
+            expect(await generator.generate({ count: 1, rules: rotation })).toEqual([
+                { title: 'Track Nine', artist: 'Two', trackId: 'id-Two-Track Nine', deepCut: true },
+            ]);
+        });
+
+        it('is not a deep cut once it has aired inside the history, however long ago', async () => {
+            const random = pinTicket();
+            const { generator } = build({
+                sample: [candidate('Ordinary', 'One'), albumTrack('Track Nine', 'Two', 'liked-album', 9)],
+                likedAlbums: new Set(['liked-album']),
+                lastAired: new Map([[songKey('Track Nine', ['Two']), DateTime.utc().minus({ days: 90 })]]),
+            });
+
+            expect((await generator.generate({ count: 1, rules: rotation })).map(pick => pick.title)).toEqual(['Ordinary']);
+            random.mockRestore();
+        });
+
+        it('never calls a record with no track number one, and never asks about it', async () => {
+            const random = pinTicket();
+            const { generator, candidates } = build({
+                sample: [candidate('Ordinary', 'One'), albumTrack('No Number', 'Two', 'liked-album')],
+                likedAlbums: new Set(['liked-album']),
+            });
+
+            expect((await generator.generate({ count: 1, rules: rotation })).map(pick => pick.title)).toEqual(['Ordinary']);
+            expect(candidates.albumsWithLikes).toHaveBeenCalledWith([]);
+            random.mockRestore();
+        });
+
+        it('reads the history for its whole retention, since "never aired here" is a claim about all of it', async () => {
+            const { generator, history } = build({ sample: [candidate('A', 'One')] });
+
+            await generator.generate({ count: 1, rules: rotation });
+
+            expect(history.lastAiredSince).toHaveBeenCalledWith(PLAY_HISTORY_RETENTION_DAYS, 'main');
+        });
+
+        it('draws as before and asks nothing when it is switched off', async () => {
+            const random = pinTicket();
+            const { generator, candidates } = build({
+                sample: [candidate('Ordinary', 'One'), albumTrack('Track Nine', 'Two', 'liked-album', 9)],
+                likedAlbums: new Set(['liked-album']),
+                settings: { [REDISCOVER_KEYS.deepCuts]: 'false' },
+            });
+
+            expect((await generator.generate({ count: 1, rules: rotation })).map(pick => pick.title)).toEqual(['Ordinary']);
+            expect(candidates.albumsWithLikes).not.toHaveBeenCalled();
+            random.mockRestore();
+        });
+
+        it('still draws when the albums cannot be read', async () => {
+            const { generator } = build({ sample: [albumTrack('Track Nine', 'Two', 'liked-album', 9)], likedAlbumsFail: true });
+
+            expect(await generator.generate({ count: 1, rules: rotation })).toHaveLength(1);
+        });
     });
 
     describe('a genre steer', () => {

@@ -1497,6 +1497,8 @@ function describe(track: BreakTrack, withFacts: boolean): string {
         if (track.album?.trim()) lines.push(`- Album: ${spoken(track.album.trim())}`);
         if (track.durationMs) lines.push(`- Length: ${spokenLength(track.durationMs)}`);
         if (track.chart) lines.push(`- Chart: ${spokenPlacing(track.chart)}`);
+        // Said as why it is on, as a chart position is: a deep cut is a choice the station made.
+        if (track.deepCut) lines.push('- Deep cut: an album track this station has not played in months');
     }
     // What it is about, in the station's own words rather than the record's: the writer is shown this
     // and never the lyric. Behind `withFacts` with the rest of the material, for the same reason.

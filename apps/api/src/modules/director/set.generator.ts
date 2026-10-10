@@ -35,6 +35,12 @@ export interface TrackPick {
      * record stands. Absent from every pick a chart did not make.
      */
     chart?: ChartPlacing;
+    /**
+     * An album track the station has not aired in its whole history, off an album the operator likes.
+     * Set by `CatalogSetGenerator` from the deep-cut lean (`rediscover.ts`) and carried onto the record
+     * on {@link chart}'s terms, so a break can say so. Only ever `true` or absent.
+     */
+    deepCut?: true;
 }
 
 /**

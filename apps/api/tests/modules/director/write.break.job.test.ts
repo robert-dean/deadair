@@ -1376,6 +1376,17 @@ describe('WriteBreakJob', () => {
         );
     });
 
+    it('tells the writer the record coming up is a deep cut', async () => {
+        const lineup = new StationLineup({ name: 'Rotation', mode: 'rotation', onEnd: 'extend', source: 'director' });
+        lineup.append([track('Solid Air', 'John Martyn'), { ...track('Pink Moon', 'Nick Drake'), deepCut: true }]);
+        lineup.insertSegment('seg-1', 1);
+        const { job, writers } = harness({ lineup });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake', deepCut: true } }));
+    });
+
     it('keeps the position from the writer on a show that does not say them', async () => {
         const lineup = new StationLineup({ name: 'Top 100', mode: 'rotation', onEnd: 'extend', source: 'chart', rules: { chartPositions: false } });
         lineup.append([track('Solid Air', 'John Martyn'), { ...track('Pink Moon', 'Nick Drake'), chart: { rank: 7, name: 'Top 100' } }]);

@@ -360,6 +360,39 @@ describe('ExtendLineupJob', () => {
         expect(lineup.isEmpty()).toBe(true);
     });
 
+    // pg-boss aborts a run at its `expiresIn` and fails the job, so what was planned cannot be
+    // posted: the retry may already be running. What it must not do is vanish, which is what this
+    // return did while the station sat silent behind two finished plans on 2026-10-10.
+    it('says so on the feed when the run is stopped after planning, rather than vanishing', async () => {
+        const stop = new AbortController();
+        const { job, lineup, recorded, generate } = build({ picks: [{ title: 'Planned', artist: 'One' }] });
+        generate.mockImplementationOnce(async () => {
+            stop.abort();
+            return [{ title: 'Planned', artist: 'One' }];
+        });
+
+        await job.run({ count: 1 }, stop.signal);
+
+        expect(lineup.isEmpty()).toBe(true);
+        const event = recorded().find(entry => entry.kind === 'order.refillAbandoned');
+        expect(event?.severity).toBe('warn');
+        expect(event?.data).toMatchObject({ asked: 1, named: 1, resolved: 1 });
+        expect(logger.warn).toHaveBeenCalledWith('director: the refill was stopped before it could add what it planned', expect.anything());
+    });
+
+    it('does not plan again once the run has been stopped, whatever interrupted the model', async () => {
+        const stop = new AbortController();
+        const { job, generate } = build({ preemptedTimes: 1 });
+        generate.mockImplementationOnce(async () => {
+            stop.abort();
+            return [];
+        });
+
+        await job.run({ count: 5 }, stop.signal);
+
+        expect(generate).toHaveBeenCalledTimes(1);
+    });
+
     it('appends rather than replacing, so a retry cannot lose what it added', async () => {
         const { job, seed, lineup } = build({ existing: [track('Kept')] });
         await seed();

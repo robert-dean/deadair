@@ -3549,6 +3549,31 @@ describe('DirectorService asking for a refill', () => {
         expect(jobs.send.mock.calls.length).toBeGreaterThan(1);
     });
 
+    // The guard expiring only helps if a pass runs after it, and a pass runs when the order changes.
+    // An order that has run empty never changes: nothing airs, nothing is pulled, no boundary comes.
+    // On 2026-10-10 a refill was lost, the guard ran out, and the station sat on `noProgramme` with a
+    // listener connected and nothing asking again. The warm tick is the clock that does not need a
+    // boundary.
+    it('asks again once the guard runs out, with no boundary to prompt it', async () => {
+        vi.useFakeTimers();
+        try {
+            const { director, jobs, seed } = build({ items: ['a', 'b', 'c'] });
+            await seed();
+            await director.start();
+            await vi.advanceTimersByTimeAsync(0);
+            expect(jobs.send).toHaveBeenCalledTimes(1);
+
+            // Inside the window the tick leaves it alone: one shortfall, one job.
+            await vi.advanceTimersByTimeAsync(Math.floor(EXTEND_GUARD_MS / 2));
+            expect(jobs.send).toHaveBeenCalledTimes(1);
+
+            await vi.advanceTimersByTimeAsync(Math.ceil(EXTEND_GUARD_MS / 2) + WARM_TICK_MS * 2);
+            expect(jobs.send).toHaveBeenCalledTimes(2);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     // The other half of the same rule: expiring must not turn the guard off. A burst of boundaries
     // inside the window is still one shortfall and still deserves one job.
     it('still asks only once for a burst inside the guard window', async () => {

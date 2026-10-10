@@ -7,6 +7,8 @@ import { describe, expect, it } from 'vitest';
 
 import { JobMappings } from '../../../src/modules/jobs/job.mappings.js';
 import { FETCH_PER_PASS } from '../../../src/modules/playout/audio/track.cache.planner.js';
+import { MAX_PLANNING_ATTEMPTS } from '../../../src/modules/director/plan.records.js';
+import { BUDGET_MS, MAX_WAIT_MS } from '../../../src/modules/director/model.set.generator.js';
 
 /** The worker policy on a mapping, in either mapping form. */
 const workerOf = (name: keyof typeof JobMappings) => {
@@ -35,4 +37,26 @@ describe('JobMappings worker policies', () => {
         const declared = Object.keys(JobMappings).filter(name => workerOf(name as keyof typeof JobMappings) !== undefined);
         expect(declared).toEqual(['playout.cache_track']);
     });
+});
+
+describe('JobMappings for the queues that plan records', () => {
+    /** How long a mapping lets one run take before pg-boss aborts it, in milliseconds. */
+    const expiresInMs = (name: keyof typeof JobMappings) => {
+        const mapping = JobMappings[name];
+        if (typeof mapping === 'function') throw new Error(`${name} declares no policy`);
+        return mapping.policy?.expiresIn?.as('milliseconds') ?? 0;
+    };
+
+    // pg-boss aborts a run at `expiresIn` and every planning job reads the abort as "throw the plan
+    // away", so a ceiling under the model's own worst case discards the work rather than bounding it.
+    // That is what silenced the station on 2026-10-10 at three minutes. Read off the generator's own
+    // constants, so raising the model's budget without raising this fails here rather than on air.
+    const worstModelMs = MAX_PLANNING_ATTEMPTS * (MAX_WAIT_MS + BUDGET_MS);
+
+    it.each(['director.extend_lineup', 'director.replan_lineup', 'schedule.prepare_slot'] as const)(
+        '%s outlasts every planning attempt the model may take, with room to resolve after',
+        name => {
+            expect(expiresInMs(name)).toBeGreaterThanOrEqual(worstModelMs + 2 * 60_000);
+        },
+    );
 });

@@ -49,7 +49,17 @@ def playout_transition(a, b) =
   rem_b = source.remaining(b.source)
   print("XF-TRANSITION out=#{out_id} in=#{in_id} raw=[#{raw}] blend=#{blend} rem_a=#{rem_a} rem_b=#{rem_b}")
   # ── end instrumentation ──
+  # Never fade a record into speech, whatever blend the OUTGOING item was stamped with. That
+  # stamp is decided before a break can be injected behind it: the app stamps `a`'s blend at
+  # commit time, off what was next at that moment, and a break landed later at `committedThrough`
+  # takes that slot without the stamp ever being revisited. Measured on 2026-09-10: 65% of
+  # adjacent record-then-speech pairs would blend under the old rule, median 2.8 s of a record
+  # fading under a voice that was never in the mix when the blend was decided.
   if
+    b.metadata["deadair_speech"] == "1"
+  then
+    sequence([a.source, b.source])
+  elsif
     blend <= playout_cross_hard_join
   then
     sequence([a.source, b.source])
@@ -87,6 +97,12 @@ end
 #   a -> b   stamped 4.0   expect a 4 second overlap
 #   b -> c   stamped 0.1   expect a hard join, no overlap at all
 #   c -> d   stamped 8.0   expect an 8 second overlap
+#   d -> e   stamped 8.0 out of d and 0.1 into e. The two sides DISAGREE, which is what a reset
+#            between the two pushes leaves behind, and the transition above sizes its fades off
+#            `a` alone. Expect a hard join anyway: `cross` buffers a tenth of a second on BOTH
+#            sides of this boundary (rem_a and rem_b both read 0.1), and `fade.in` and `fade.out`
+#            clamp their duration to what their source has left, so the eight second fade is a
+#            tenth of a second long. Measured on 2026-10-10 against v2.4.5.
 tracks =
   sequence(
     [
@@ -94,7 +110,8 @@ tracks =
       tone_track("a", 400., 12., "4.0", "0.1"),
       tone_track("b", 1300., 12., "0.1", "4.0"),
       tone_track("c", 2700., 12., "8.0", "0.1"),
-      tone_track("d", 5300., 12., "0.1", "8.0")
+      tone_track("d", 5300., 12., "8.0", "8.0"),
+      tone_track("e", 3700., 12., "0.1", "0.1")
     ]
   )
 
@@ -124,6 +141,6 @@ crossed.on_metadata(synchronous=true, report_durations)
 output.file(%wav, fallible=true, "/tmp/crossfade.check.wav", crossed)
 
 # Deterministic stop. The is_ready() watchdog did not fire and the last render ran to
-# the timeout writing two minutes of tail. 48s of material, so 55s covers it whether or
+# the timeout writing two minutes of tail. 60s of material, so 67s covers it whether or
 # not the blends land.
-thread.run(delay=55., fun () -> shutdown())
+thread.run(delay=67., fun () -> shutdown())

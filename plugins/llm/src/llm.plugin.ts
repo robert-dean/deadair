@@ -14,6 +14,7 @@ import {
     type LlmResult,
     type LlmToolCall,
     type ConfigFieldOption,
+    type PluginHost,
 } from '@deadair/plugin-sdk';
 import { streamText } from 'ai';
 import { abortWith, withCancel } from './llm.abort.js';
@@ -106,7 +107,10 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
     private readonly discovered = new Map<string, { at: number; ok: boolean; ids: string[]; errorMessage?: string }>();
 
     protected async onLoad(): Promise<void> {
-        const config = await this.host.config.get();
+        // Captured before the first await, because a dispose() landing mid-load releases `this.host`
+        // and the getter then throws. See packages/plugin-sdk/CLAUDE.md § "Writing one".
+        const host = this.host;
+        const config = await host.config.get();
         this.model = configString(config.model) ?? '';
         this.temperature = typeof config.temperature === 'number' ? config.temperature : undefined;
         this.models = typeof config.models === 'string' ? config.models : '';
@@ -123,8 +127,8 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         // with a password in it. See `readRowSecret`.
         const rows: ProviderRow[] = [];
         for (const row of parseRows(config.providers)) {
-            const apiKey = await readRowSecret(this.host, 'providers', row, 'apiKey');
-            const headerLines = await readRowSecret(this.host, 'providers', row, 'headers');
+            const apiKey = await readRowSecret(host, 'providers', row, 'apiKey');
+            const headerLines = await readRowSecret(host, 'providers', row, 'headers');
             const headers = parseHeaderLines(headerLines);
             rows.push({
                 name: row.name ?? '',
@@ -135,14 +139,14 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
             });
         }
 
-        this.arms = buildArms(this.host, rows);
+        this.arms = buildArms(host, rows);
         this.kinds = new Map(rows.map(row => [row.name.trim(), row.kind]));
 
         // Dropped rather than kept: the operator may have just pointed an arm
         // somewhere else, and a list from the old service is worse than no list.
         this.discovered.clear();
 
-        this.host.logger.info('llm ready', { providers: [...this.arms.keys()].join(',') || 'none', model: this.model });
+        host.logger.info('llm ready', { providers: [...this.arms.keys()].join(',') || 'none', model: this.model });
     }
 
     /**
@@ -280,12 +284,13 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
      * answered first, which is what keeps the output deterministic.
      */
     private async describeEveryArm(): Promise<LlmModelInfo[]> {
+        const { logger } = this.host;
         const answers = await Promise.all(
             [...this.arms].map(async ([provider, arm]) => {
                 try {
                     return { provider, arm, ids: await this.fetchModels(provider) };
                 } catch (error) {
-                    this.host.logger.debug("llm could not list a provider's models", { provider, error: errorText(error) });
+                    logger.debug("llm could not list a provider's models", { provider, error: errorText(error) });
                     return { provider, arm, ids: [] as string[] };
                 }
             }),
@@ -344,6 +349,11 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
     }
 
     async generate(request: LlmRequest): Promise<LlmHandle> {
+        // Captured here and handed down, never read again: the generation outlives this call, and a
+        // config save in the meantime disposes the plugin, after which `this.host` throws. That
+        // turned a generation that had merely failed into an invoker failure. See
+        // packages/plugin-sdk/CLAUDE.md § "Writing one".
+        const host = this.host;
         const asked = configString(request.model) ?? this.model;
         if (asked.length === 0) throw new PluginError('the model plugin has no model configured and none was asked for').withCode('config');
 
@@ -386,7 +396,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
             // Aborted when the host cancels the text stream, and linked to the invocation signal so
             // that being abandoned before the first chunk still stops the request.
             const controller = new AbortController();
-            abortWith(this.host.signal, controller);
+            abortWith(host.signal, controller);
 
             const attempt: Partial<Attempt> = { controller };
             const stream = streamText({
@@ -444,14 +454,14 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
             resolveResult = resolve;
         });
 
-        this.host.logger.debug('llm generating', { model, messages: request.messages.length, tools: request.tools?.length ?? 0 });
+        host.logger.debug('llm generating', { model, messages: request.messages.length, tools: request.tools?.length ?? 0 });
 
         return {
             // Cancelling this is what stops the generation, per `LlmHandle.text`. Forwarding a
             // `textStream` alone would not: it is one branch of a tee, so closing it leaves the
             // other branch — which `resultOf` reads — pulling the provider regardless. `driveText`
             // reads through this same reader, so cancelling it here reaches the real one too.
-            text: withCancel(streamFromGenerator(this.driveText(provider, first, firstEffort, buildAttempt, active, resolveResult)), () =>
+            text: withCancel(streamFromGenerator(this.driveText(host, provider, first, firstEffort, buildAttempt, active, resolveResult)), () =>
                 active.controller.abort(),
             ),
             // Built here rather than awaited, so `generate` returns as soon as the request is away.
@@ -481,6 +491,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
      * any other fault arrived — and runs at most once.
      */
     private async *driveText(
+        host: PluginHost,
         provider: string,
         first: Attempt,
         firstEffortSent: string | undefined,
@@ -496,7 +507,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         const commit = (): void => {
             if (committed) return;
             committed = true;
-            resolveResult(this.resultOf(provider, current));
+            resolveResult(this.resultOf(host, provider, current));
         };
 
         try {
@@ -521,7 +532,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
                 if (part.type === 'error' && retriable && this.arms.get(provider)?.isReasoningRefusal(part.error) === true) {
                     retriable = false;
                     this.reasoningRefused.add(provider);
-                    this.host.logger.warn('llm: the provider refused the thinking field; retrying once without it', {
+                    host.logger.warn('llm: the provider refused the thinking field; retrying once without it', {
                         provider,
                         error: errorText(part.error),
                     });
@@ -599,7 +610,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
     }
 
     /** The SDK's several settled promises, as the one result the station's boundary describes. */
-    private async resultOf(provider: string, attempt: Attempt): Promise<LlmResult> {
+    private async resultOf(host: PluginHost, provider: string, attempt: Attempt): Promise<LlmResult> {
         const { stream, controller } = attempt;
         let settled;
         try {
@@ -622,7 +633,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         // say, one that spent its allowance thinking, and one that put its answer somewhere this
         // does not read. The part types are what tell them apart, and they are only visible here.
         if (text.trim().length === 0 && toolCalls.length === 0) {
-            this.host.logger.debug('llm: the model answered with no text', {
+            host.logger.debug('llm: the model answered with no text', {
                 finishReason,
                 parts: content.map(part => part.type).join(','),
                 reasoningChars: reasoningText?.length ?? 0,
@@ -636,7 +647,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
 
         const spoken = spokenAnswer({ text, reasoningText, toolCalls: toolCalls.length, finishReason });
         if (spoken !== text) {
-            this.host.logger.debug('llm: the answer arrived as reasoning rather than text; using it', {
+            host.logger.debug('llm: the answer arrived as reasoning rather than text; using it', {
                 reasoningChars: spoken.length,
                 finishReason,
             });

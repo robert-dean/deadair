@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.52.1] — 2026-10-10
+
+- Each record's page has a Lyrics card: the words the station found, with the time of each line when the source has timings, which source they came from and in what language. It says when nobody sings on a record, or when nothing has been found yet and where lyrics are switched on. "Every source" lists what each lyrics source answered and when.
+- `GET /nowplaying/lyrics` now carries `cueOutMs`, where in the file the record stops playing, and sends both cues only when the player was actually given them. The decoder counts its remaining time down to that point, so an app finds the line being sung as the cue-out (or the record's length) minus the time remaining.
+
 ## [0.52.0] — 2026-10-10
 
 - A new show can travel from one artist to another. In Plan the station, a new show takes a From and a To artist; the station finds a way between them through artists your library holds, one record each, where every step is either a record the two artists are credited on together or a similarity source naming them alike, and Preview the route shows each stop and how it connects before anything airs. On air, the presenter can say how a record connects to the one before it. Over the API this is `routeFrom` and `routeTo` on `PutOnAirInput`, and `POST /director/route/preview`.
@@ -1228,7 +1233,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.52.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.52.1...HEAD
+[0.52.1]: https://github.com/robert-dean/deadair/compare/v0.52.0...v0.52.1
 [0.52.0]: https://github.com/robert-dean/deadair/compare/v0.51.0...v0.52.0
 [0.51.0]: https://github.com/robert-dean/deadair/compare/v0.50.2...v0.51.0
 [0.50.2]: https://github.com/robert-dean/deadair/compare/v0.50.1...v0.50.2

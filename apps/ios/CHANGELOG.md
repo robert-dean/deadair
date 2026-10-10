@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.8.3] — 2026-10-10
+
+- Signed in, Now playing has a Lyrics button whenever the record you are hearing has words. It opens the lyrics with the line being sung lit and kept in view, timed to what you hear rather than to what the station has just sent, and shows the words as they came when the source has no timings. Signed out, or on an instrumental or a talk break, there is no button.
+
 ## [0.8.2] — 2026-10-10
 
 - Now playing has a Request button for anybody signed in, so asking the station for a record no longer means going to Up next first. It sits at the end of the play controls, with the operator's heart moved from beside the title to the other end, and Request has a new icon everywhere it appears: a speech bubble with a note in it.

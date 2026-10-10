@@ -17,13 +17,20 @@ settings.log.level := 3
 settings.frame.audio.samplerate := 44100
 
 playout_queue = request.queue(id="playout")
-playout_queue.push(request.create("/w/first.wav"))
-playout_queue.push(request.create("/w/second.wav"))
+playout_queue.push(request.create('annotate:deadair_item="first":/w/first.wav'))
+playout_queue.push(request.create('annotate:deadair_item="second":/w/second.wav'))
+
+# ── HARNESS, not in radio.liq ──
+# What `playout_note_on_air` keeps for the step check, and only that half of it.
+on_air_item = ref("")
+playout_queue.on_track(synchronous=true, fun (m) -> on_air_item := m["deadair_item"])
+playout_bed = playout_queue
+# ── end harness ──
 
 # ── BEGIN copied from radio.liq ──────────────────────────────────────────────────
 playout_fade_gain = ref(1.)
 playout_queue.on_track(synchronous=true, fun (_) -> playout_fade_gain := 1.)
-playout_bed = amplify(override=null, {playout_fade_gain()}, playout_queue)
+playout_bed = amplify(override=null, {playout_fade_gain()}, playout_bed)
 
 playout_fade_step = 0.05
 
@@ -32,14 +39,18 @@ def playout_fade_skip(item, ms) =
   done = ref(0)
   def step() =
     done := done() + 1
-    if not playout_queue.is_ready() or item != "first" then
+    if not playout_queue.is_ready() or on_air_item() != item then
       playout_fade_gain := 1.
       (-1.)
     elsif done() >= steps then
+      # Left at the bottom rather than put back here: the skip lands a frame or more later, and
+      # restoring the level first played a fifth of a second of the cut record at full volume. The
+      # next track puts it back as it starts. See the `on_track` below.
       playout_fade_gain := 0.
       playout_queue.skip()
       (-1.)
     else
+      # Linear in amplitude, which is a log curve to the ear: most of the fall is heard at the end.
       playout_fade_gain := 1. - float_of_int(done()) / float_of_int(steps)
       playout_fade_step
     end

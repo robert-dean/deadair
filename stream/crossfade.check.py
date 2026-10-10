@@ -1,8 +1,11 @@
 """Measures what `crossfade.check.liq` rendered. See stream/README.md for how to run it.
 
+With no argument it renders the harness itself in the pinned Liquidsoap image (Docker, no dev stack
+needed) and measures that. Given a path, it measures a render made some other way.
+
 Each synthetic record is a pure tone at a frequency no other one is a harmonic of,
 so its amplitude at any instant can be read straight off its own DFT bin without
-the others leaking into it. Four envelopes, one per record, and every claim about a
+the others leaking into it. One envelope per record, and every claim about a
 boundary becomes arithmetic on two of them:
 
   overlap      how long both were audible, against what the stamp asked for
@@ -11,14 +14,21 @@ boundary becomes arithmetic on two of them:
   hard join    whether a boundary the station does not blend produced no overlap
 """
 
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
 
 import numpy as np
 
 RATE = 44_100
-TONES = {"a": 400.0, "b": 1300.0, "c": 2700.0, "d": 5300.0}
-BOUNDARIES = [("a", "b", 4.0), ("b", "c", 0.0), ("c", "d", 8.0)]
+IMAGE = "savonet/liquidsoap:v2.4.5"
+HERE = os.path.dirname(os.path.abspath(__file__))
+TONES = {"a": 400.0, "b": 1300.0, "c": 2700.0, "d": 5300.0, "e": 3700.0}
+# The last one is stamped 8.0 out of d and 0.1 into e, the two sides disagreeing. The right answer
+# is a hard join, and what makes it one is `cross` and `fade.*`, not the transition: see the harness.
+BOUNDARIES = [("a", "b", 4.0), ("b", "c", 0.0), ("c", "d", 8.0), ("d", "e", 0.0)]
 
 HOP = 256
 WIN = 2048
@@ -31,6 +41,11 @@ PRESENT = 0.01
 # Below this an "overlap" is two frames of analysis window straddling a hard cut
 # rather than a blend, and the power check on it means nothing.
 NO_OVERLAP_S = 0.15
+
+# Either side of a hard join, this far out, both records must be at this fraction of their own
+# level. Far enough for a 2048-sample window (46 ms) to have cleared the join.
+JOIN_SETTLE_S = 0.15
+FULL_LEVEL = 0.9
 
 # How far the combined power may stray before the pair is not equal-power. A linear
 # crossfade dips exactly 3.01 dB at its midpoint and a fade shorter than the buffer
@@ -110,7 +125,19 @@ def main(path: str) -> int:
         print(f"{label}: overlap {overlap:5.2f}s, expected {expected:4.1f}s  [{verdict}]")
 
         if overlap < NO_OVERLAP_S:
-            print("    no overlap, which is what a hard join should look like\n")
+            print("    no overlap, which is what a hard join should look like")
+            # A short overlap is not enough on its own. An incoming record still ramping up under a
+            # fade sized off the OTHER side's stamp, or an outgoing one already faded down before
+            # the join, also reads as almost no overlap. So both are read either side of the join,
+            # far enough out that the analysis window has cleared it, and must be at full level.
+            out_last = span(out_env, levels[out_name] * PRESENT)[1]
+            in_first = span(in_env, levels[in_name] * PRESENT)[0]
+            settle = int(JOIN_SETTLE_S / per_frame)
+            out_before = out_env[max(out_last - settle, 0)] / levels[out_name]
+            in_after = in_env[min(in_first + settle, len(in_env) - 1)] / levels[in_name]
+            full = out_before >= FULL_LEVEL and in_after >= FULL_LEVEL
+            failures += not full
+            print(f"    out at {out_before:.2f} of full just before, in at {in_after:.2f} just after  [{'ok' if full else 'NOT A CLEAN JOIN'}]\n")
             continue
 
         # The +6 dB question. Two equal-power fades hold sum-of-squares constant; a
@@ -148,5 +175,21 @@ def main(path: str) -> int:
     return 1 if failures else 0
 
 
+def render(into: str) -> str:
+    """Runs the harness in the pinned image and copies its render out to `into`."""
+    with tempfile.TemporaryDirectory() as work:
+        shutil.copy(os.path.join(HERE, "crossfade.check.liq"), os.path.join(work, "check.liq"))
+        # The harness writes to /tmp inside the container, which is where the compose command in the README reads it.
+        script = "timeout 90 liquidsoap /w/check.liq >/w/check.log 2>&1; cp /tmp/crossfade.check.wav /w/"
+        subprocess.run(["docker", "run", "--rm", "--entrypoint", "sh", "-v", f"{work}:/w", IMAGE, "-c", script], check=False)
+        with open(os.path.join(work, "check.log")) as log:
+            print("".join(line for line in log if "XF-" in line))
+        shutil.copy(os.path.join(work, "crossfade.check.wav"), into)
+    return into
+
+
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1] if len(sys.argv) > 1 else "stream/crossfade.check.wav"))
+    if len(sys.argv) > 1:
+        sys.exit(main(sys.argv[1]))
+    with tempfile.TemporaryDirectory() as out:
+        sys.exit(main(render(os.path.join(out, "crossfade.check.wav"))))

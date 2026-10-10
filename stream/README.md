@@ -250,12 +250,23 @@ built.
 `crossfade.check.liq` renders the transition over synthetic tracks whose frequencies are not
 harmonics of one another, so each record's amplitude envelope can be recovered independently and the
 overlap length, the combined power and the hard join become numbers. `crossfade.check.py` reads the
-result and says which checks passed.
+result and says which checks passed. With no argument it renders the harness in the pinned image
+itself, like the fadeskip check, and needs no dev stack (it does need `numpy` and `ffmpeg` on the
+host); given a path it measures a render made in the running stack instead:
 
 ```
-docker compose exec -T liquidsoap sh -c 'cat > /tmp/x.liq; timeout 90 liquidsoap /tmp/x.liq >/dev/null 2>&1; cat /tmp/crossfade.check.wav' < stream/crossfade.check.liq > stream/crossfade.check.wav
 python3 stream/crossfade.check.py
+docker compose exec -T liquidsoap sh -c 'cat > /tmp/x.liq; timeout 90 liquidsoap /tmp/x.liq >/dev/null 2>&1; cat /tmp/crossfade.check.wav' < stream/crossfade.check.liq > stream/crossfade.check.wav
+python3 stream/crossfade.check.py stream/crossfade.check.wav
 ```
+
+**A boundary whose two stamps disagree is a hard join, and the transition is not what makes it
+one.** The outgoing record can say 8 seconds and the incoming one 0.1 when something resets between
+the two pushes, and `playout_transition` sizes its fades off the outgoing stamp alone. It was
+measured rather than fixed: on that boundary `cross` buffers a tenth of a second on both sides, and
+`fade.in` and `fade.out` clamp their duration to what their source has left, so the eight second
+fade lasts a tenth of a second and the incoming record is at full level from there. The harness
+keeps the case (`d -> e`) so a Liquidsoap bump that changes either half shows up as a failure.
 
 `voicecue.check.liq` answers the other half: where a DJ break lands once a crossfade is in the graph.
 It arms a cue six seconds into a record with a four second blend in and an eight second blend out, so

@@ -465,7 +465,14 @@ export class BreakPlanner {
             // going to be spoken.
             ...(slot.airsAt === undefined ? {} : { airsAt: slot.airsAt }),
         });
-        const placement: Placement = { segmentId: segment.id, atIndex: slot.atIndex, kind: request.kind, written: true, ...(over ? { over } : {}) };
+        const placement: Placement = {
+            segmentId: segment.id,
+            atIndex: slot.atIndex,
+            kind: request.kind,
+            written: true,
+            pinned: true,
+            ...(over ? { over } : {}),
+        };
 
         if (!(await this.insert(lineup, [placement]))) {
             return { accepted: false, reason: 'the running order moved while this break was being placed' };
@@ -649,12 +656,13 @@ export class BreakPlanner {
      */
     private async insert(lineup: StationLineup, placements: readonly Placement[]): Promise<boolean> {
         const result = lineup.insertSegments(
-            placements.map(({ segmentId, atIndex, kind, over, durationMs }) => ({
+            placements.map(({ segmentId, atIndex, kind, over, durationMs, pinned }) => ({
                 segmentId,
                 atIndex,
                 segmentKind: kind,
                 ...(over === undefined ? {} : { over }),
                 ...(durationMs === undefined ? {} : { durationMs }),
+                ...(pinned ? { pinned } : {}),
             })),
         );
         if (result.ok) return true;
@@ -1544,6 +1552,8 @@ interface Placement {
     over?: { atMs: number };
     /** How long it runs, when that is known now: an episode of somebody else's programme. */
     durationMs?: number;
+    /** Somebody asked for this break, so a replan keeps it. See `StationLineupLine.pinned`. */
+    pinned?: true;
 }
 
 /**

@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { stationCover } from '#modules/art/art.source.token.js';
 import { DateTime } from 'luxon';
 import { httpError } from '@maroonedsoftware/errors';
 import { parseAndValidate } from '@maroonedsoftware/zod';
@@ -223,7 +224,15 @@ export class EnrichmentReadService {
         const sources = this.read(stored, this.enrichmentService.providerIds(), sanitizeEnrichment);
         const merged = mergeEnrichment(sources.filter(source => source.found).map(source => source.data));
 
-        return parseAndValidate({ trackId: id, merged, sources, claims: await this.claimsFor('track', id) }, TrackEnrichmentDetail);
+        return parseAndValidate(
+            {
+                trackId: id,
+                merged: imageThroughStation(merged, 'artworkUrl'),
+                sources: sourcesThroughStation(sources, 'artworkUrl'),
+                claims: await this.claimsFor('track', id),
+            },
+            TrackEnrichmentDetail,
+        );
     }
 
     /** @throws 404 when no such artist exists, and equally when they were merged into another. */
@@ -234,7 +243,15 @@ export class EnrichmentReadService {
         const sources = this.read(stored, this.enrichmentService.artistProviderIds(), sanitizeArtistEnrichment);
         const merged = mergeArtistEnrichment(sources.filter(source => source.found).map(source => source.data));
 
-        return parseAndValidate({ artistId: id, merged, sources, claims: await this.claimsFor('artist', id) }, ArtistEnrichmentDetail);
+        return parseAndValidate(
+            {
+                artistId: id,
+                merged: imageThroughStation(merged, 'imageUrl'),
+                sources: sourcesThroughStation(sources, 'imageUrl'),
+                claims: await this.claimsFor('artist', id),
+            },
+            ArtistEnrichmentDetail,
+        );
     }
 
     /** @throws 404 when no such album exists, and equally when it was merged into another. */
@@ -245,7 +262,15 @@ export class EnrichmentReadService {
         const sources = this.read(stored, this.enrichmentService.albumProviderIds(), sanitizeAlbumEnrichment);
         const merged = mergeAlbumEnrichment(sources.filter(source => source.found).map(source => source.data));
 
-        return parseAndValidate({ albumId: id, merged, sources, claims: await this.claimsFor('album', id) }, AlbumEnrichmentDetail);
+        return parseAndValidate(
+            {
+                albumId: id,
+                merged: imageThroughStation(merged, 'artworkUrl'),
+                sources: sourcesThroughStation(sources, 'artworkUrl'),
+                claims: await this.claimsFor('album', id),
+            },
+            AlbumEnrichmentDetail,
+        );
     }
 
     /**
@@ -465,4 +490,27 @@ export class EnrichmentReadService {
             })
             .sort(byProviderRank(order));
     }
+}
+
+/**
+ * One provider's picture, as a response may carry it: the station's own `art/` path, or its proxy for
+ * a picture it has not cached (`stationCover`), and never the URL the plugin supplied. Read-time only:
+ * the stored payload keeps the plugin's URL, because promotion and the art cache key on it.
+ *
+ * The same rule every catalog read follows, for the same reason: a provider's image URL can carry a
+ * credential (a Navidrome `getArtistInfo` or cover link holds the operator's user and token), and
+ * these views are what the console and the MCP tools draw from. A picture that maps to nothing is
+ * left out rather than sent empty.
+ */
+function imageThroughStation<T extends object>(data: T, field: string): T {
+    const value = (data as Record<string, unknown>)[field];
+    if (value === undefined) return data;
+    const { [field]: _supplied, ...rest } = data as Record<string, unknown>;
+    const cover = typeof value === 'string' ? stationCover(value) : undefined;
+    return (cover === undefined ? rest : { ...rest, [field]: cover }) as T;
+}
+
+/** {@link imageThroughStation} over every provider's stored answer, leaving the rest of each untouched. */
+function sourcesThroughStation<S extends { data: object }>(sources: readonly S[], field: string): S[] {
+    return sources.map(source => ({ ...source, data: imageThroughStation(source.data, field) }));
 }

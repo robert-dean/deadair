@@ -1224,6 +1224,7 @@ public struct TrackEnrichmentData: Codable, Equatable, Sendable {
     public var musicalKey: String?
     public var label: String?
     public var isrc: String?
+    /// The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied
     public var artworkUrl: String?
     public var externalIds: [EnrichmentExternalId]?
     public var links: [EnrichmentLink]?
@@ -1316,6 +1317,7 @@ public struct TrackEnrichmentData: Codable, Equatable, Sendable {
 public struct ArtistEnrichmentData: Codable, Equatable, Sendable {
     public var name: String?
     public var biography: String?
+    /// The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied
     public var imageUrl: String?
     public var genres: [String]?
     public var facts: [String]?
@@ -1380,6 +1382,7 @@ public struct AlbumEnrichmentData: Codable, Equatable, Sendable {
     public var label: String?
     public var genres: [String]?
     public var facts: [String]?
+    /// The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied
     public var artworkUrl: String?
     public var externalIds: [EnrichmentExternalId]?
     public var links: [EnrichmentLink]?

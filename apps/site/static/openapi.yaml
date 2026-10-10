@@ -7762,6 +7762,7 @@ components:
                 artworkUrl:
                     type: string
                     maxLength: 2000
+                    description: "The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied"
                 externalIds:
                     type: array
                     items:
@@ -7787,6 +7788,7 @@ components:
                 imageUrl:
                     type: string
                     maxLength: 2000
+                    description: "The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied"
                 genres:
                     type: array
                     items:
@@ -7840,6 +7842,7 @@ components:
                 artworkUrl:
                     type: string
                     maxLength: 2000
+                    description: "The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied"
                 externalIds:
                     type: array
                     items:

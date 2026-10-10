@@ -427,7 +427,13 @@ export const TrackEnrichmentData = z.strictObject({
     musicalKey: z.string().max(2000).optional(),
     label: z.string().max(2000).optional(),
     isrc: z.string().max(2000).optional(),
-    artworkUrl: z.string().max(2000).optional(),
+    artworkUrl: z
+        .string()
+        .max(2000)
+        .optional()
+        .describe(
+            "The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied",
+        ),
     externalIds: z.array(EnrichmentExternalId).optional(),
     links: z.array(EnrichmentLink).optional(),
     extra: z
@@ -443,7 +449,13 @@ export type TrackEnrichmentData = z.infer<typeof TrackEnrichmentData>;
 export const ArtistEnrichmentData = z.strictObject({
     name: z.string().max(2000).optional(),
     biography: z.string().max(20000).optional(),
-    imageUrl: z.string().max(2000).optional(),
+    imageUrl: z
+        .string()
+        .max(2000)
+        .optional()
+        .describe(
+            "The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied",
+        ),
     genres: z.array(z.string().max(2000)).optional(),
     facts: z.array(z.string().max(2000)).optional(),
     externalIds: z.array(EnrichmentExternalId).optional(),
@@ -463,7 +475,13 @@ export const AlbumEnrichmentData = z.strictObject({
     label: z.string().max(2000).optional(),
     genres: z.array(z.string().max(2000)).optional(),
     facts: z.array(z.string().max(2000)).optional(),
-    artworkUrl: z.string().max(2000).optional(),
+    artworkUrl: z
+        .string()
+        .max(2000)
+        .optional()
+        .describe(
+            "The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied",
+        ),
     externalIds: z.array(EnrichmentExternalId).optional(),
     links: z.array(EnrichmentLink).optional(),
     extra: z.record(z.string(), z.unknown()).optional(),

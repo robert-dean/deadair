@@ -829,6 +829,7 @@ public sealed record TrackEnrichmentData
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Isrc { get; init; }
 
+    /// <summary>The provider's picture as the station serves it: `art/&lt;id&gt;` once cached, else the station's proxy `art/source/&lt;token&gt;`. Never the URL the plugin supplied</summary>
     [JsonPropertyName("artworkUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ArtworkUrl { get; init; }
@@ -857,6 +858,7 @@ public sealed record ArtistEnrichmentData
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Biography { get; init; }
 
+    /// <summary>The provider's picture as the station serves it: `art/&lt;id&gt;` once cached, else the station's proxy `art/source/&lt;token&gt;`. Never the URL the plugin supplied</summary>
     [JsonPropertyName("imageUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ImageUrl { get; init; }
@@ -914,6 +916,7 @@ public sealed record AlbumEnrichmentData
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Facts { get; init; }
 
+    /// <summary>The provider's picture as the station serves it: `art/&lt;id&gt;` once cached, else the station's proxy `art/source/&lt;token&gt;`. Never the URL the plugin supplied</summary>
     [JsonPropertyName("artworkUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ArtworkUrl { get; init; }

@@ -451,6 +451,7 @@ export interface TrackEnrichmentData {
     musicalKey?: string;
     label?: string;
     isrc?: string;
+    /** The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied */
     artworkUrl?: string;
     externalIds?: EnrichmentExternalId[];
     links?: EnrichmentLink[];
@@ -464,6 +465,7 @@ export interface TrackEnrichmentData {
 export interface ArtistEnrichmentData {
     name?: string;
     biography?: string;
+    /** The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied */
     imageUrl?: string;
     genres?: string[];
     facts?: string[];
@@ -485,6 +487,7 @@ export interface AlbumEnrichmentData {
     label?: string;
     genres?: string[];
     facts?: string[];
+    /** The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied */
     artworkUrl?: string;
     externalIds?: EnrichmentExternalId[];
     links?: EnrichmentLink[];

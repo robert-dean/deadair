@@ -3,10 +3,11 @@
 // so the only thing the plugin registry contributes is the order the stored
 // payloads are merged in.
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
 
 import { EnrichmentReadService, MAX_FACT_CHARS } from '../../../src/modules/enrichment/enrichment.read.service.js';
+import { clearArtSourceKey, configureArtSourceKey, openSourceToken } from '../../../src/modules/art/art.source.token.js';
 import type { EnrichmentRepository, StoredProviderPayload, TrackFactPayloads } from '../../../src/modules/enrichment/enrichment.repository.js';
 import type { EnrichmentService } from '../../../src/modules/enrichment/enrichment.service.js';
 import type { ClaimForTrack, FactRepository, StoredFact } from '../../../src/modules/enrichment/fact.repository.js';
@@ -236,7 +237,9 @@ describe('EnrichmentReadService', () => {
 
         expect(detail.artistId).toBe(ARTIST_ID);
         expect(detail.merged.facts).toEqual(['Portishead formed in Bristol in 1991.']);
-        expect(detail.merged.imageUrl).toBe('https://example.test/p.jpg');
+        // The provider's picture goes out as the station's proxy for it, never as the URL; with no
+        // sealing key configured, as here, that is no picture at all. See the describe below.
+        expect(detail.merged.imageUrl).toBeUndefined();
     });
 
     it('reads an album, keeping the partial release date the source actually claimed', async () => {
@@ -574,5 +577,54 @@ describe('EnrichmentReadService', () => {
                 expect(facts.markUsed).toHaveBeenCalledWith(['fact-0']);
             });
         });
+    });
+});
+
+// A provider's picture in an enrichment view is the plugin's URL, and a Navidrome one carries the
+// operator's user and token. These views back the console's enrichment panels and the MCP tools, so
+// the picture goes out as the station's proxy path, in the merged view and in every provider's
+// stored answer alike. The links a provider gave are pages a person clicks, not pictures, and stay.
+describe('EnrichmentReadService pictures go through the station', () => {
+    const UPSTREAM = 'https://music.example/rest/getCoverArt.view?id=ar-1&u=operator&t=secret&s=salt';
+
+    beforeEach(() => configureArtSourceKey('ab'.repeat(32)));
+    afterEach(() => clearArtSourceKey());
+
+    const expectProxy = (value: string | undefined): void => {
+        expect(value).toMatch(/^art\/source\//);
+        expect(openSourceToken(value!.slice('art/source/'.length))).toBe(UPSTREAM);
+    };
+
+    it('an artist image, merged and per provider', async () => {
+        const read = service({
+            artist: [payload(MUSICBRAINZ, { imageUrl: UPSTREAM, links: [{ label: 'Page', url: 'https://example.test/artist' }] })],
+        });
+
+        const detail = await read.getArtistEnrichment(ARTIST_ID);
+
+        expectProxy(detail.merged.imageUrl);
+        expectProxy(detail.sources[0]!.data.imageUrl);
+        expect(JSON.stringify(detail)).not.toContain('music.example');
+        // A link is a page, not a picture: left as the provider gave it.
+        expect(detail.merged.links).toEqual([{ label: 'Page', url: 'https://example.test/artist' }]);
+    });
+
+    it("an album's and a track's artwork, merged and per provider", async () => {
+        const read = service({
+            album: [payload(MUSICBRAINZ, { artworkUrl: UPSTREAM })],
+            track: [payload(MUSICBRAINZ, { artworkUrl: UPSTREAM })],
+        });
+
+        for (const detail of [await read.getAlbumEnrichment(ALBUM_ID), await read.getTrackEnrichment(TRACK_ID)]) {
+            expectProxy(detail.merged.artworkUrl);
+            expectProxy(detail.sources[0]!.data.artworkUrl);
+            expect(JSON.stringify(detail)).not.toMatch(/"(imageUrl|artworkUrl)":"https?:/);
+        }
+    });
+
+    it("leaves a picture the station already holds as the station's own path", async () => {
+        const read = service({ artist: [payload(MUSICBRAINZ, { imageUrl: 'art/asset-1/cover.jpg' })] });
+
+        expect((await read.getArtistEnrichment(ARTIST_ID)).merged.imageUrl).toBe('art/asset-1/cover.jpg');
     });
 });

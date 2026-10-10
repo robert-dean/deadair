@@ -292,7 +292,7 @@ contract TrackEnrichmentData: {
     musicalKey?: string(max=2000)
     label?: string(max=2000)
     isrc?: string(max=2000)
-    artworkUrl?: string(max=2000)
+    artworkUrl?: string(max=2000) # The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied
     externalIds?: array(EnrichmentExternalId)
     links?: array(EnrichmentLink)
     extra?: record(string, unknown) # What the plugin said that the SDK has no field for. Per provider only: the merged view drops it
@@ -301,7 +301,7 @@ contract TrackEnrichmentData: {
 contract ArtistEnrichmentData: {
     name?: string(max=2000)
     biography?: string(max=20000)
-    imageUrl?: string(max=2000)
+    imageUrl?: string(max=2000) # The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied
     genres?: array(string(max=2000))
     facts?: array(string(max=2000))
     externalIds?: array(EnrichmentExternalId)
@@ -317,7 +317,7 @@ contract AlbumEnrichmentData: {
     label?: string(max=2000)
     genres?: array(string(max=2000))
     facts?: array(string(max=2000))
-    artworkUrl?: string(max=2000)
+    artworkUrl?: string(max=2000) # The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied
     externalIds?: array(EnrichmentExternalId)
     links?: array(EnrichmentLink)
     extra?: record(string, unknown)

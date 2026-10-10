@@ -518,6 +518,7 @@ data class TrackEnrichmentData(
     val musicalKey: String? = null,
     val label: String? = null,
     val isrc: String? = null,
+    /** The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied */
     val artworkUrl: String? = null,
     val externalIds: List<EnrichmentExternalId>? = null,
     val links: List<EnrichmentLink>? = null,
@@ -529,6 +530,7 @@ data class TrackEnrichmentData(
 data class ArtistEnrichmentData(
     val name: String? = null,
     val biography: String? = null,
+    /** The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied */
     val imageUrl: String? = null,
     val genres: List<String>? = null,
     val facts: List<String>? = null,
@@ -548,6 +550,7 @@ data class AlbumEnrichmentData(
     val label: String? = null,
     val genres: List<String>? = null,
     val facts: List<String>? = null,
+    /** The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied */
     val artworkUrl: String? = null,
     val externalIds: List<EnrichmentExternalId>? = null,
     val links: List<EnrichmentLink>? = null,

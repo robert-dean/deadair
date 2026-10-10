@@ -15,6 +15,13 @@
  * allowance, and is asked again — the next ask waits on the gate, which is what the wait was for.
  * It is still bounded, because a station that is never quiet would otherwise hold the job forever,
  * and the reason it stops for is named so nobody goes looking for a model fault that is not there.
+ *
+ * An answer that ran out of its own budget (`finishReason: 'budget'`) is NOT a preemption, though the
+ * gate stops it the same way. Nothing took the model: it had the whole of `BEAT_BUDGET_MS` and did
+ * not finish, which is an attempt that came back with nothing, and is counted as one. Read as a
+ * preemption it would earn three more asks of two minutes each for the same result. It is named in
+ * the reason too, because "came back empty" sends whoever reads it looking at the model's words when
+ * the thing to look at is its speed.
  */
 
 /** How many times an EMPTY beat is asked again before the production is written off. */
@@ -42,13 +49,16 @@ export interface BeatOutcome<A extends BeatAnswer> {
     asked: BeatAttempt<A>[];
     /** How many asks a break took the model back from. */
     preempted: number;
-    /** Why there is no script, when there is none. */
-    reason?: 'empty' | 'preempted';
+    /** Why there is no script, when there is none. `budget` is an empty count whose last ask ran out of time. */
+    reason?: 'empty' | 'budget' | 'preempted';
 }
 
 export interface BeatAskHooks {
-    /** Called before each re-ask that follows an empty answer, with how many have been empty so far. */
-    onEmpty?: (empties: number) => void;
+    /**
+     * Called before each re-ask that follows an empty answer, with how many have been empty so far
+     * and whether this one was empty because it ran out of time.
+     */
+    onEmpty?: (empties: number, outOfTime: boolean) => void;
     /** Called before each re-ask that follows a preemption, with how many there have been so far. */
     onPreempted?: (preemptions: number) => void;
 }
@@ -80,7 +90,8 @@ export async function askForBeat<A extends BeatAnswer>(
         if (script.length > 0) return { script, asked, preempted };
 
         empties += 1;
-        if (empties > emptyRetries) return { script: '', asked, preempted, reason: 'empty' };
-        hooks.onEmpty?.(empties);
+        const outOfTime = answer.finishReason === 'budget';
+        if (empties > emptyRetries) return { script: '', asked, preempted, reason: outOfTime ? 'budget' : 'empty' };
+        hooks.onEmpty?.(empties, outOfTime);
     }
 }

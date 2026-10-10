@@ -35,6 +35,9 @@ struct NowPlayingScreen: View {
     @State private var laidOutHeight: CGFloat = 0
     /// Where the cover's middle sits in the stack, measured before the resting move is applied.
     @State private var coverMiddle: CGFloat = 0
+    /// The lyrics of the record this listener is hearing, read once per airing. See `readLyrics`.
+    @State private var lyrics: NowPlayingLyrics?
+    @State private var lyricsOpen = false
 
     var body: some View {
         let ui = model.nowPlayingUi
@@ -136,6 +139,31 @@ struct NowPlayingScreen: View {
         .onChange(of: reading?.value.station) { _, name in
             if let name { model.settings.rename(name) }
         }
+        .task(id: LyricsKey(signedIn: model.signedIn, startedAt: reading?.value.track?.startedAt)) {
+            await readLyrics(startedAt: reading?.value.track?.startedAt)
+        }
+        .sheet(isPresented: $lyricsOpen) {
+            LyricsSheet(answer: lyrics)
+        }
+    }
+
+    /// Whether there are words to offer for what this listener is hearing. The sheet works out which
+    /// line is lit; the button needs only to know there is something to open.
+    private var hasLyrics: Bool {
+        LyricsUiState(answer: lyrics, heardStartedAt: model.heardState.latest?.value.track?.startedAt, playhead: nil) != .hidden
+    }
+
+    /// Read once per airing, keyed on the heard reading's `startedAt`, rather than polled: a record's
+    /// words do not change while it airs. Signed out it asks nothing, because the route is a
+    /// `platform.view` read; a read that fails leaves no button rather than an error over the cover.
+    /// The old answer is kept while the new one is read, since `LyricsUiState` already refuses lyrics
+    /// for another airing. `apps/android`'s `rememberLyrics`.
+    private func readLyrics(startedAt: Int?) async {
+        guard model.signedIn, startedAt != nil else {
+            lyrics = nil
+            return
+        }
+        lyrics = await model.read { try await $0.nowplaying.getNowPlayingLyrics() }?.value
     }
 
     /// What restarts the timers: a touch, or a change in whether they may run at all.
@@ -143,6 +171,12 @@ struct NowPlayingScreen: View {
         let touches: Int
         let tabs: Bool
         let rest: Bool
+    }
+
+    /// What a lyrics read depends on: whether the account may read them, and which airing is heard.
+    private struct LyricsKey: Equatable {
+        let signedIn: Bool
+        let startedAt: Int?
     }
 
     /// The tabs away after three seconds untouched and, while a record is coming out of the phone and
@@ -173,7 +207,7 @@ struct NowPlayingScreen: View {
     private func fullBleed(ui: NowPlayingUiState, reading: Reading<NowPlaying>?, artwork: URL?, transport: TransportUiState?, size: CGSize) -> some View {
         // As wide as the screen allows, and no taller than leaves the words and the controls their
         // room: on a short phone the cover gives way, never the controls.
-        let side = max(min(size.width, Self.artworkMaxWidth * 2, size.height - Self.belowCover), Self.minCover)
+        let side = max(min(size.width, Self.artworkMaxWidth * 2, size.height - Self.belowCover - (hasLyrics ? Self.lyricsRoom : 0)), Self.minCover)
 
         return VStack(spacing: 0) {
             cover(ui: ui, artwork: artwork, transport: transport)
@@ -328,6 +362,19 @@ struct NowPlayingScreen: View {
             }
             .padding(.top, 28)
 
+            // Under the row rather than in it: the places either side of play are the operator's, and
+            // a listener's button there would move the play button off centre for everyone else.
+            if hasLyrics {
+                Button {
+                    lyricsOpen = true
+                } label: {
+                    Label("Lyrics", systemImage: "quote.bubble")
+                        .font(.subheadline.weight(.medium))
+                }
+                .buttonStyle(.borderless)
+                .padding(.top, 12)
+            }
+
             // Only when the player has something to say that the spinner does not: it is reconnecting,
             // or it has given up.
             if let words = model.listening.conductor.state.words, model.listening.conductor.state != .warmingUp {
@@ -342,6 +389,8 @@ struct NowPlayingScreen: View {
     private static let coverGap: CGFloat = 16
     /// What the words, the line and the controls take under the cover, at most.
     private static let belowCover: CGFloat = 300
+    /// What the Lyrics button takes under the controls, given back by the cover when there is one.
+    private static let lyricsRoom: CGFloat = 44
     /// The smallest the cover gets on a short phone before the stack is allowed to crowd.
     private static let minCover: CGFloat = 180
     private static let artworkMaxWidth: CGFloat = 360

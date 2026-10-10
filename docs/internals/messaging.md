@@ -187,6 +187,14 @@ is fetched (`playout.cache_track`) and the request waits `pending`; so does one 
 hour, or placed and not heard within three. The aired edge (`RequestAiredWatch`, on `Rundown.onAired`)
 marks a request heard by its RECORD, since the rundown's items do not carry the request id.
 
+**On a request show, a placed request changes what follows it.** The desk sends `director.follow_request`
+once the request is `queued`, and what was planned behind it is replaced by records like it; a second
+request waits for that run to play out. See `director.md` § "What the order is asked for".
+A broadcast may also carry its own cooldown and line length (`rules.requestCooldownMinutes`,
+`rules.requestMaxOpen`), which `requestSettingsFor` puts in place of the station's for as long as it
+runs: the console's Party night fills both in. They end with the broadcast, which a changed setting
+would not.
+
 **An operator may approve every request** (`requests.approval`), in which case each waits as `waiting`
 until granted or declined through the routes. A declined request's `reason` is the station's words or the
 operator's, never the listener's.

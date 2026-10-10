@@ -854,6 +854,15 @@ const OrderRow = memo(function OrderRow({
                             </Badge>
                         </Tooltip>
                     ) : undefined}
+                    {/* A record the station chose to follow a listener's request, on a request
+                                            show. Grape for the same reason as a mixed-in record. */}
+                    {item.followsRequest ? (
+                        <Tooltip label={t('order.followsRequestHint')} multiline maw={320}>
+                            <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
+                                {t('order.followsRequest')}
+                            </Badge>
+                        </Tooltip>
+                    ) : undefined}
                     {/* Which writer produced the words. Without it a model that
                                             degrades to the station's own phrasings on every single
                                             break looks exactly like a model that is working, and the

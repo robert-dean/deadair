@@ -6,7 +6,21 @@ import type { StationMode, StationOnEnd, StationOrder } from '@deadair/sdk';
 
 import { usePutStationOnAir, useReplanOrder } from '../../api/director.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
-import { BriefField, CallinsField, EraFields, EraNote, HostField, ShapeFields, ShapeNote, TalkField } from '../programme/programme.fields';
+import {
+    BriefField,
+    CallinsField,
+    EraFields,
+    EraNote,
+    HostField,
+    REQUEST_FOLLOW_ON_DEFAULT,
+    RequestRulesFields,
+    requestRulesInput,
+    RequestShowFields,
+    requestShowInput,
+    ShapeFields,
+    ShapeNote,
+    TalkField,
+} from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
 
 /**
@@ -120,6 +134,12 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
                 ...(form.values.callins ? { callins: true } : {}),
                 // Only a setlist is changed by it: a rotation already talks and a feature never does.
                 ...(form.values.mode === 'setlist' && form.values.breaks ? { breaks: true } : {}),
+                // Only a rotation follows a request: a setlist's sequence is somebody's own.
+                ...(form.values.mode === 'rotation' ? requestShowInput(form.values.requestShow, form.values.requestFollowOn) : {}),
+                // A request show's own request rules, and only on one: see `RequestRulesFields`.
+                ...(form.values.mode === 'rotation' && form.values.requestShow
+                    ? requestRulesInput(form.values.requestCooldownMinutes, form.values.requestMaxOpen)
+                    : {}),
                 mode: form.values.mode,
                 onEnd: form.values.onEnd,
             },
@@ -172,6 +192,14 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
                         </Text>
                     ) : (
                         <>
+                            <Group justify="flex-end">
+                                <Tooltip label={t('plan.partyHint')} multiline maw={320}>
+                                    <Button variant="subtle" size="compact-sm" onClick={() => form.setValues(PARTY_NIGHT)}>
+                                        {t('plan.party')}
+                                    </Button>
+                                </Tooltip>
+                            </Group>
+
                             <HostField markOnAir {...form.getInputProps('personaId')} />
 
                             <EraFields from={form.getInputProps('eraFrom')} to={form.getInputProps('eraTo')} />
@@ -185,6 +213,20 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
                             {form.values.mode === 'setlist' ? <TalkField {...form.getInputProps('breaks', { type: 'checkbox' })} /> : undefined}
 
                             <CallinsField {...form.getInputProps('callins', { type: 'checkbox' })} />
+
+                            {form.values.mode === 'rotation' ? (
+                                <RequestShowFields
+                                    on={form.getInputProps('requestShow', { type: 'checkbox' })}
+                                    count={form.getInputProps('requestFollowOn')}
+                                />
+                            ) : undefined}
+
+                            {form.values.mode === 'rotation' && form.values.requestShow ? (
+                                <RequestRulesFields
+                                    cooldown={form.getInputProps('requestCooldownMinutes')}
+                                    maxOpen={form.getInputProps('requestMaxOpen')}
+                                />
+                            ) : undefined}
                         </>
                     )}
 
@@ -208,6 +250,21 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
     );
 }
 
+/**
+ * What Party night fills in: a request show for a crowd. Three records after each request so the line
+ * keeps moving, ten minutes between one guest's requests rather than the station's half hour, and room
+ * for ten waiting at once. A rotation that goes on until somebody stops it, since a party has no
+ * scheduled end. Only these fields: the brief, the host and the period stay what the operator set.
+ */
+const PARTY_NIGHT: Partial<FormValues> = {
+    mode: 'rotation',
+    onEnd: 'extend',
+    requestShow: true,
+    requestFollowOn: 3,
+    requestCooldownMinutes: 10,
+    requestMaxOpen: 10,
+};
+
 interface FormValues {
     brief: string;
     personaId: string;
@@ -217,6 +274,14 @@ interface FormValues {
     callins: boolean;
     /** Ticked sends `breaks: true`, a setlist with a host. Drawn only for a setlist. */
     breaks: boolean;
+    /** Ticked sends `requestShow: true`; unticked sends nothing. Drawn only for a rotation. See `RequestShowFields`. */
+    requestShow: boolean;
+    /** Empty string is Mantine's "nothing typed", which sends no count and takes the API's default. */
+    requestFollowOn: number | string;
+    /** Empty string keeps the station's `requests.cooldownMinutes`. Sent only on a request show. */
+    requestCooldownMinutes: number | string;
+    /** Empty string keeps the station's `requests.maxOpen`. Sent only on a request show. */
+    requestMaxOpen: number | string;
     mode: StationMode;
     onEnd: StationOnEnd;
 }
@@ -237,6 +302,10 @@ function valuesOf(order?: StationOrder): FormValues {
         eraTo: '',
         callins: false,
         breaks: false,
+        requestShow: false,
+        requestFollowOn: REQUEST_FOLLOW_ON_DEFAULT,
+        requestCooldownMinutes: '',
+        requestMaxOpen: '',
         mode: 'rotation',
         onEnd: 'extend',
     };

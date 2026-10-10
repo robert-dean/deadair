@@ -40,6 +40,7 @@ import { advisoryPolicy } from './advisory.policy.js';
 import { CHANGEOVER_KIND } from './changeover.writer.js';
 import { changeoverContext } from './changeover.source.js';
 import { NO_RULES, resolveRules, stationAutoExtends, stationRules } from './rotation.rules.js';
+import { followOnFor } from './request.show.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { resolveSmartShuffle } from './smart.shuffle.js';
 import { StationAirRepository } from './station.air.repository.js';
@@ -1556,6 +1557,7 @@ export class DirectorConsoleService {
         // And the presenter's portrait for a break whose kind has none, read from the broadcast the
         // transport holds exactly as the commit pass reads it, so the desk and the mount agree.
         const hostArtwork = this.rundown.broadcast()?.hostArtUrl;
+        const followOn = followOnFor(order.rules);
 
         return {
             name: order.name,
@@ -1573,6 +1575,7 @@ export class DirectorConsoleService {
             ...(order.sourcePluginId === undefined ? {} : { sourcePluginId: order.sourcePluginId }),
             ...(order.sourcePlaylistId === undefined ? {} : { sourcePlaylistId: order.sourcePlaylistId }),
             ...(order.sourceChartId === undefined ? {} : { sourceChartId: order.sourceChartId }),
+            ...(followOn === 0 ? {} : { requestShow: true, requestFollowOn: followOn }),
             items: order.items.map(item => {
                 if (item.kind === 'segment') {
                     const segment = segments.get(item.segmentId);
@@ -1604,6 +1607,7 @@ export class DirectorConsoleService {
                     // release has no album to reach.
                     ...(row?.albumId === undefined ? {} : { albumId: row.albumId }),
                     ...(item.mixedIn === true ? { mixedIn: true } : {}),
+                    ...(item.followsRequestId === undefined ? {} : { followsRequest: true }),
                 };
             }),
         };
@@ -1735,6 +1739,10 @@ function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRules } {
         ...(input.callins === undefined ? {} : { callins: input.callins }),
         ...(input.mixInSimilar === undefined ? {} : { mixInSimilar: input.mixInSimilar }),
         ...(input.chartPositions === undefined ? {} : { chartPositions: input.chartPositions }),
+        ...(input.requestShow === undefined ? {} : { requestShow: input.requestShow }),
+        ...(input.requestFollowOn === undefined ? {} : { requestFollowOn: input.requestFollowOn }),
+        ...(input.requestCooldownMinutes === undefined ? {} : { requestCooldownMinutes: input.requestCooldownMinutes }),
+        ...(input.requestMaxOpen === undefined ? {} : { requestMaxOpen: input.requestMaxOpen }),
     };
     return Object.keys(rules).length === 0 ? {} : { rules };
 }

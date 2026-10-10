@@ -82,6 +82,13 @@ const items = (): StationLineupItem[] => [
         requestId: 'request-1',
     },
     {
+        id: 'item-following',
+        kind: 'track',
+        state: 'planned',
+        track: { pluginId: 'spotify', externalId: 'ext-5', title: 'Sounds Like It', artist: 'Somebody Close', artists: ['Somebody Close'] },
+        followsRequestId: 'request-1',
+    },
+    {
         id: 'item-charted',
         kind: 'track',
         state: 'planned',
@@ -179,6 +186,9 @@ describe('StationLineupRepository round trip', () => {
         // And a record a listener asked for still says whose request it is, so it is recognised when it airs.
         expect(byId.get('item-requested')).toMatchObject({ requestId: 'request-1' });
         expect(byId.get('item-track')).not.toHaveProperty('requestId');
+        // And a record chosen to follow a request still says which, so the next request waits for the run.
+        expect(byId.get('item-following')).toMatchObject({ followsRequestId: 'request-1' });
+        expect(byId.get('item-track')).not.toHaveProperty('followsRequestId');
     });
 
     it('reads a mixed-in flag that is not literally true as absent', async () => {

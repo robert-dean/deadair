@@ -303,6 +303,26 @@ public sealed record PutOnAirInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? MixInSimilar { get; init; }
 
+    /// <summary>Whether this is a request show: the station plays as it otherwise would until a listener's request is placed, then replaces what was planned behind the request with records that sound like it, found through the similarity plugin. A second request waits for the first one's records to play out. Absent is no: there is no station-wide default behind it. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away</summary>
+    [JsonPropertyName("requestShow")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? RequestShow { get; init; }
+
+    /// <summary>How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true</summary>
+    [JsonPropertyName("requestFollowOn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? RequestFollowOn { get; init; }
+
+    /// <summary>Minutes one listener waits between requests during this broadcast, in place of the station's `requests.cooldownMinutes`. Absent keeps the station's. A party night wants it short</summary>
+    [JsonPropertyName("requestCooldownMinutes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? RequestCooldownMinutes { get; init; }
+
+    /// <summary>How many requests may be waiting at once during this broadcast, in place of the station's `requests.maxOpen`. Absent keeps the station's</summary>
+    [JsonPropertyName("requestMaxOpen")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? RequestMaxOpen { get; init; }
+
     [JsonPropertyName("mode")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public StationMode? Mode { get; init; }
@@ -385,6 +405,11 @@ public sealed record StationOrderItem
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? MixedIn { get; init; }
 
+    /// <summary>The station chose this record to follow a listener's request, on a request show. Absent on everything else, and on a segment</summary>
+    [JsonPropertyName("followsRequest")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? FollowsRequest { get; init; }
+
     /// <summary>Which segment this plays. Present only on a segment</summary>
     [JsonPropertyName("segmentId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -466,6 +491,16 @@ public sealed record StationOrder
     [JsonPropertyName("sourceChartId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SourceChartId { get; init; }
+
+    /// <summary>Whether this is a request show, on which each listener request is followed by records like it. Absent is an ordinary show</summary>
+    [JsonPropertyName("requestShow")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? RequestShow { get; init; }
+
+    /// <summary>How many records follow each request on a request show. Present only on one</summary>
+    [JsonPropertyName("requestFollowOn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? RequestFollowOn { get; init; }
 
     [JsonPropertyName("items")]
     public required List<StationOrderItem> Items { get; init; }

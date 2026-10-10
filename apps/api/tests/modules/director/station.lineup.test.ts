@@ -1448,6 +1448,84 @@ describe('StationLineup requests', () => {
     });
 });
 
+// A request show follows each request with records like it, in place of what was planned behind
+// it. The swap is anchored on the request, so everything up to it, and anything after it the
+// player already holds, is left exactly where it was.
+describe('StationLineup following a request', () => {
+    const requestIdOf = (lineup: StationLineup, externalId: string) =>
+        lineup.all().find(item => item.kind === 'track' && item.track.externalId === externalId)!.id;
+
+    it('replaces what was planned behind the request, and stamps the run with it', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertRequested(track('r'), 'req-1');
+        lineup.insertSegment('talk', lineup.size());
+
+        const dropped = lineup.followRequest('req-1', [track('x'), track('y')]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'r', 'x', 'y']);
+        expect(idsOf(dropped!)).toEqual(['b', 'c', 'segment:talk']);
+        expect(lineup.all().slice(2)).toEqual([
+            expect.objectContaining({ state: 'planned', followsRequestId: 'req-1' }),
+            expect.objectContaining({ state: 'planned', followsRequestId: 'req-1' }),
+        ]);
+    });
+
+    it('keeps whatever behind the request the player already holds', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertRequested(track('r'), 'req-1');
+        hand(lineup, 3);
+
+        lineup.followRequest('req-1', [track('x')]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'r', 'b', 'x']);
+        expect(lineup.all()[2]?.state).toBe('handed');
+    });
+
+    it('leaves the order alone for a request that is not in it, or will not be heard', () => {
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertRequested(track('r'), 'req-1');
+        lineup.remove(requestIdOf(lineup, 'r'));
+        const before = idsOf(lineup.all());
+
+        expect(lineup.followRequest('req-1', [track('x')])).toBeUndefined();
+        expect(lineup.followRequest('req-unknown', [track('x')])).toBeUndefined();
+        expect(idsOf(lineup.all())).toEqual(before);
+    });
+
+    it('leaves the order alone once a newer request sits behind it', () => {
+        const lineup = lineupWith(['a', 'b', 'c', 'd']);
+        lineup.insertRequested(track('r1'), 'req-1');
+        lineup.insertRequested(track('r2'), 'req-2');
+        const before = idsOf(lineup.all());
+
+        expect(lineup.followRequest('req-1', [track('x')])).toBeUndefined();
+        expect(idsOf(lineup.all())).toEqual(before);
+    });
+
+    it('makes a second request wait for the run to finish rather than splitting it', () => {
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertRequested(track('r1'), 'req-1');
+        lineup.followRequest('req-1', [track('w'), track('x'), track('y'), track('z')]);
+
+        expect(lineup.insertRequested(track('r2'), 'req-2')).toMatchObject({ ok: false, reason: 'no-gap' });
+
+        hand(lineup, 4);
+        expect(lineup.insertRequested(track('r2'), 'req-2')).toEqual({ ok: true });
+        expect(idsOf(lineup.all())).toEqual(['a', 'r1', 'w', 'x', 'y', 'z', 'r2']);
+    });
+
+    it('keeps a mixed-in record out of the middle of a run', () => {
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertRequested(track('r'), 'req-1');
+        lineup.followRequest('req-1', [track('x'), track('y'), track('z')]);
+
+        lineup.interleave([{ afterItemId: requestIdOf(lineup, 'x'), track: track('m') }]);
+
+        const ids = idsOf(lineup.all());
+        expect(ids.slice(ids.indexOf('x'), ids.indexOf('z') + 1)).toEqual(['x', 'y', 'z']);
+    });
+});
+
 describe('StationLineup dedications', () => {
     it('puts a dedication directly in front of the record it goes with', () => {
         const lineup = lineupWith(['a', 'b', 'c']);

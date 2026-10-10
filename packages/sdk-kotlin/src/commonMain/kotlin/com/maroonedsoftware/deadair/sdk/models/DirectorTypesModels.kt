@@ -188,6 +188,14 @@ data class PutOnAirInput(
     val callins: Boolean? = null,
     /** Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records, found through the similarity plugin. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off. A setlist and a feature never have anything mixed in */
     val mixInSimilar: Boolean? = null,
+    /** Whether this is a request show: the station plays as it otherwise would until a listener's request is placed, then replaces what was planned behind the request with records that sound like it, found through the similarity plugin. A second request waits for the first one's records to play out. Absent is no: there is no station-wide default behind it. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away */
+    val requestShow: Boolean? = null,
+    /** How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true */
+    val requestFollowOn: Long? = null,
+    /** Minutes one listener waits between requests during this broadcast, in place of the station's `requests.cooldownMinutes`. Absent keeps the station's. A party night wants it short */
+    val requestCooldownMinutes: Long? = null,
+    /** How many requests may be waiting at once during this broadcast, in place of the station's `requests.maxOpen`. Absent keeps the station's */
+    val requestMaxOpen: Long? = null,
     val mode: StationMode? = null,
     val onEnd: StationOnEnd? = null,
 )
@@ -222,6 +230,8 @@ data class StationOrderItem(
     val rating: Rating? = null,
     /** The station chose this record to sound like the playlist around it, rather than the playlist naming it. Absent on everything the playlist named, and on a segment */
     val mixedIn: Boolean? = null,
+    /** The station chose this record to follow a listener's request, on a request show. Absent on everything else, and on a segment */
+    val followsRequest: Boolean? = null,
     /** Which segment this plays. Present only on a segment */
     val segmentId: String? = null,
     val segmentState: StationOrderItemSegmentState? = null,
@@ -258,6 +268,10 @@ data class StationOrder(
     val sourcePlaylistId: String? = null,
     /** The published chart this broadcast was built from, qualified with the plugin that offered it. Provenance rather than a binding: a chart is a fixed document, so it is read once and never topped up from */
     val sourceChartId: String? = null,
+    /** Whether this is a request show, on which each listener request is followed by records like it. Absent is an ordinary show */
+    val requestShow: Boolean? = null,
+    /** How many records follow each request on a request show. Present only on one */
+    val requestFollowOn: Long? = null,
     val items: List<StationOrderItem>,
 )
 

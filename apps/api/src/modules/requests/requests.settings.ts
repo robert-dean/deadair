@@ -1,4 +1,5 @@
 import type { AppConfig } from '@maroonedsoftware/appconfig';
+import type { StationLineupRules } from '#modules/director/station.lineup.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { numberOr } from '#modules/shared/setting.numbers.js';
 
@@ -36,6 +37,23 @@ export interface RequestSettings {
 }
 
 const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(Math.trunc(value), min), max);
+
+/**
+ * The request settings for the broadcast on air: the station's, with whatever this broadcast asked
+ * for in their place. A party night asks for a shorter cooldown and a longer line than the station
+ * keeps on an ordinary evening, and those end with the broadcast rather than outliving it as a
+ * changed setting would. Held to the same bounds as the settings, clamped, for the resolver's reason.
+ */
+export function requestSettingsFor(config: AppConfig, rules: StationLineupRules | undefined): RequestSettings {
+    const settings = requestSettings(config);
+    const cooldown = rules?.requestCooldownMinutes;
+    const maxOpen = rules?.requestMaxOpen;
+    return {
+        ...settings,
+        ...(cooldown === undefined || !Number.isFinite(cooldown) ? {} : { cooldownMs: clamp(cooldown, 0, MAX_REQUEST_COOLDOWN_MINUTES) * 60_000 }),
+        ...(maxOpen === undefined || !Number.isFinite(maxOpen) ? {} : { maxOpen: clamp(maxOpen, 1, MAX_OPEN_REQUESTS) }),
+    };
+}
 
 /** The request settings as they stand, read per call so a change applies to the next request. */
 export function requestSettings(config: AppConfig): RequestSettings {

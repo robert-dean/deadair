@@ -94,19 +94,42 @@ export class SimilarPicker {
      * usable, it walks the anchor's artist instead, which is every station before this existed.
      */
     async pickLike(anchor: { title: string; artist: string }, walk: NeighbourWalk, into: TrackPick[] = []): Promise<TrackPick[]> {
-        if (this.similarity.canNameSimilarTracks()) {
-            const tracks = await this.similarity.similarTracks({ artist: anchor.artist, title: anchor.title }, SIMILAR_TRACKS_PER_RECORD);
-            const eligible = eligibleOf(tracks, walk).filter(entry => !walk.takenArtists.has(artistKey([entry.track.artist])));
-            const chosen = freshestFirst(eligible, entry => walk.freshness(entry.song));
+        return await this.pickSeveralLike(anchor, 1, walk, into);
+    }
 
-            if (chosen !== undefined) {
+    /**
+     * Up to `want` records that sound like this RECORD, one per artist, appended to `into`.
+     *
+     * {@link pickLike} for a caller that wants a run rather than one record: a request show follows
+     * a listener's request with several. The record-level question is asked ONCE and the answer
+     * drawn from freshest first, since asking it again per record would cost the same upstream call
+     * for the same list. Whatever it cannot fill is walked from the anchor's artist.
+     */
+    async pickSeveralLike(
+        anchor: { title: string; artist: string },
+        want: number,
+        walk: NeighbourWalk,
+        into: TrackPick[] = [],
+    ): Promise<TrackPick[]> {
+        const target = into.length + want;
+        if (want <= 0) return into;
+
+        if (this.similarity.canNameSimilarTracks()) {
+            const tracks = await this.similarity.similarTracks(
+                { artist: anchor.artist, title: anchor.title },
+                Math.max(SIMILAR_TRACKS_PER_RECORD, want * TRACKS_PER_ARTIST),
+            );
+            while (into.length < target) {
+                const eligible = eligibleOf(tracks, walk).filter(entry => !walk.takenArtists.has(artistKey([entry.track.artist])));
+                const chosen = freshestFirst(eligible, entry => walk.freshness(entry.song));
+                if (chosen === undefined) break;
+
                 walk.takenSongs.add(chosen.song);
                 walk.takenArtists.add(artistKey([chosen.track.artist]));
                 into.push({ title: chosen.track.title, artist: chosen.track.artist });
-                return into;
             }
         }
-        return await this.pickFromNeighbours(anchor.artist, 1, walk, into);
+        return await this.pickFromNeighbours(anchor.artist, target - into.length, walk, into);
     }
 }
 

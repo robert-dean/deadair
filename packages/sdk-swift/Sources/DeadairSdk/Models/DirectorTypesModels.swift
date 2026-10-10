@@ -357,10 +357,18 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var callins: Bool?
     /// Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records, found through the similarity plugin. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off. A setlist and a feature never have anything mixed in
     public var mixInSimilar: Bool?
+    /// Whether this is a request show: the station plays as it otherwise would until a listener's request is placed, then replaces what was planned behind the request with records that sound like it, found through the similarity plugin. A second request waits for the first one's records to play out. Absent is no: there is no station-wide default behind it. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away
+    public var requestShow: Bool?
+    /// How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true
+    public var requestFollowOn: Int?
+    /// Minutes one listener waits between requests during this broadcast, in place of the station's `requests.cooldownMinutes`. Absent keeps the station's. A party night wants it short
+    public var requestCooldownMinutes: Int?
+    /// How many requests may be waiting at once during this broadcast, in place of the station's `requests.maxOpen`. Absent keeps the station's
+    public var requestMaxOpen: Int?
     public var mode: StationMode?
     public var onEnd: StationOnEnd?
 
-    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, albumId: UUID? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: PutOnAirInputMood? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
+    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, albumId: UUID? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: PutOnAirInputMood? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, requestCooldownMinutes: Int? = nil, requestMaxOpen: Int? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
         self.pluginId = pluginId
         self.playlistId = playlistId
         self.chartId = chartId
@@ -377,6 +385,10 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.breaks = breaks
         self.callins = callins
         self.mixInSimilar = mixInSimilar
+        self.requestShow = requestShow
+        self.requestFollowOn = requestFollowOn
+        self.requestCooldownMinutes = requestCooldownMinutes
+        self.requestMaxOpen = requestMaxOpen
         self.mode = mode
         self.onEnd = onEnd
     }
@@ -398,6 +410,10 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         case breaks = "breaks"
         case callins = "callins"
         case mixInSimilar = "mixInSimilar"
+        case requestShow = "requestShow"
+        case requestFollowOn = "requestFollowOn"
+        case requestCooldownMinutes = "requestCooldownMinutes"
+        case requestMaxOpen = "requestMaxOpen"
         case mode = "mode"
         case onEnd = "onEnd"
     }
@@ -420,6 +436,10 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.breaks = try container.decodeIfPresent(Bool.self, forKey: .breaks)
         self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
         self.mixInSimilar = try container.decodeIfPresent(Bool.self, forKey: .mixInSimilar)
+        self.requestShow = try container.decodeIfPresent(Bool.self, forKey: .requestShow)
+        self.requestFollowOn = try container.decodeIfPresent(Int.self, forKey: .requestFollowOn)
+        self.requestCooldownMinutes = try container.decodeIfPresent(Int.self, forKey: .requestCooldownMinutes)
+        self.requestMaxOpen = try container.decodeIfPresent(Int.self, forKey: .requestMaxOpen)
         self.mode = try container.decodeIfPresent(StationMode.self, forKey: .mode)
         self.onEnd = try container.decodeIfPresent(StationOnEnd.self, forKey: .onEnd)
     }
@@ -442,6 +462,10 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.breaks, forKey: .breaks)
         try container.encodeIfPresent(self.callins, forKey: .callins)
         try container.encodeIfPresent(self.mixInSimilar, forKey: .mixInSimilar)
+        try container.encodeIfPresent(self.requestShow, forKey: .requestShow)
+        try container.encodeIfPresent(self.requestFollowOn, forKey: .requestFollowOn)
+        try container.encodeIfPresent(self.requestCooldownMinutes, forKey: .requestCooldownMinutes)
+        try container.encodeIfPresent(self.requestMaxOpen, forKey: .requestMaxOpen)
         try container.encodeIfPresent(self.mode, forKey: .mode)
         try container.encodeIfPresent(self.onEnd, forKey: .onEnd)
     }
@@ -476,6 +500,8 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
     public var rating: Rating?
     /// The station chose this record to sound like the playlist around it, rather than the playlist naming it. Absent on everything the playlist named, and on a segment
     public var mixedIn: Bool?
+    /// The station chose this record to follow a listener's request, on a request show. Absent on everything else, and on a segment
+    public var followsRequest: Bool?
     /// Which segment this plays. Present only on a segment
     public var segmentId: String?
     public var segmentState: StationOrderItemSegmentState?
@@ -488,7 +514,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
     /// Heard OVER the record that follows, this far into it, with the music ducked under it. Such an item is never handed to the player in its own right
     public var overAtMs: Int?
 
-    public init(id: String, kind: StationOrderItemKind, state: StationItemState, title: String, artists: [String], durationMs: Int? = nil, pluginId: String? = nil, externalId: String? = nil, album: String? = nil, artworkUrl: String? = nil, year: Int? = nil, trackId: String? = nil, artistId: String? = nil, albumId: String? = nil, rating: Rating? = nil, mixedIn: Bool? = nil, segmentId: String? = nil, segmentState: StationOrderItemSegmentState? = nil, playable: Bool? = nil, segmentError: String? = nil, segmentWriter: String? = nil, overAtMs: Int? = nil) {
+    public init(id: String, kind: StationOrderItemKind, state: StationItemState, title: String, artists: [String], durationMs: Int? = nil, pluginId: String? = nil, externalId: String? = nil, album: String? = nil, artworkUrl: String? = nil, year: Int? = nil, trackId: String? = nil, artistId: String? = nil, albumId: String? = nil, rating: Rating? = nil, mixedIn: Bool? = nil, followsRequest: Bool? = nil, segmentId: String? = nil, segmentState: StationOrderItemSegmentState? = nil, playable: Bool? = nil, segmentError: String? = nil, segmentWriter: String? = nil, overAtMs: Int? = nil) {
         self.id = id
         self.kind = kind
         self.state = state
@@ -505,6 +531,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         self.albumId = albumId
         self.rating = rating
         self.mixedIn = mixedIn
+        self.followsRequest = followsRequest
         self.segmentId = segmentId
         self.segmentState = segmentState
         self.playable = playable
@@ -530,6 +557,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         case albumId = "albumId"
         case rating = "rating"
         case mixedIn = "mixedIn"
+        case followsRequest = "followsRequest"
         case segmentId = "segmentId"
         case segmentState = "segmentState"
         case playable = "playable"
@@ -556,6 +584,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         self.albumId = try container.decodeIfPresent(String.self, forKey: .albumId)
         self.rating = try container.decodeIfPresent(Rating.self, forKey: .rating)
         self.mixedIn = try container.decodeIfPresent(Bool.self, forKey: .mixedIn)
+        self.followsRequest = try container.decodeIfPresent(Bool.self, forKey: .followsRequest)
         self.segmentId = try container.decodeIfPresent(String.self, forKey: .segmentId)
         self.segmentState = try container.decodeIfPresent(StationOrderItemSegmentState.self, forKey: .segmentState)
         self.playable = try container.decodeIfPresent(Bool.self, forKey: .playable)
@@ -582,6 +611,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.albumId, forKey: .albumId)
         try container.encodeIfPresent(self.rating, forKey: .rating)
         try container.encodeIfPresent(self.mixedIn, forKey: .mixedIn)
+        try container.encodeIfPresent(self.followsRequest, forKey: .followsRequest)
         try container.encodeIfPresent(self.segmentId, forKey: .segmentId)
         try container.encodeIfPresent(self.segmentState, forKey: .segmentState)
         try container.encodeIfPresent(self.playable, forKey: .playable)
@@ -613,9 +643,13 @@ public struct StationOrder: Codable, Equatable, Sendable {
     public var sourcePlaylistId: String?
     /// The published chart this broadcast was built from, qualified with the plugin that offered it. Provenance rather than a binding: a chart is a fixed document, so it is read once and never topped up from
     public var sourceChartId: String?
+    /// Whether this is a request show, on which each listener request is followed by records like it. Absent is an ordinary show
+    public var requestShow: Bool?
+    /// How many records follow each request on a request show. Present only on one
+    public var requestFollowOn: Int?
     public var items: [StationOrderItem]
 
-    public init(name: String, brief: String? = nil, personaId: String? = nil, personaLabel: String? = nil, coHostPersonaIds: [String]? = nil, mode: StationMode, onEnd: StationOnEnd, source: String, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, items: [StationOrderItem]) {
+    public init(name: String, brief: String? = nil, personaId: String? = nil, personaLabel: String? = nil, coHostPersonaIds: [String]? = nil, mode: StationMode, onEnd: StationOnEnd, source: String, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, items: [StationOrderItem]) {
         self.name = name
         self.brief = brief
         self.personaId = personaId
@@ -627,6 +661,8 @@ public struct StationOrder: Codable, Equatable, Sendable {
         self.sourcePluginId = sourcePluginId
         self.sourcePlaylistId = sourcePlaylistId
         self.sourceChartId = sourceChartId
+        self.requestShow = requestShow
+        self.requestFollowOn = requestFollowOn
         self.items = items
     }
 
@@ -642,6 +678,8 @@ public struct StationOrder: Codable, Equatable, Sendable {
         case sourcePluginId = "sourcePluginId"
         case sourcePlaylistId = "sourcePlaylistId"
         case sourceChartId = "sourceChartId"
+        case requestShow = "requestShow"
+        case requestFollowOn = "requestFollowOn"
         case items = "items"
     }
 
@@ -658,6 +696,8 @@ public struct StationOrder: Codable, Equatable, Sendable {
         self.sourcePluginId = try container.decodeIfPresent(String.self, forKey: .sourcePluginId)
         self.sourcePlaylistId = try container.decodeIfPresent(String.self, forKey: .sourcePlaylistId)
         self.sourceChartId = try container.decodeIfPresent(String.self, forKey: .sourceChartId)
+        self.requestShow = try container.decodeIfPresent(Bool.self, forKey: .requestShow)
+        self.requestFollowOn = try container.decodeIfPresent(Int.self, forKey: .requestFollowOn)
         self.items = try container.decode([StationOrderItem].self, forKey: .items)
     }
 
@@ -674,6 +714,8 @@ public struct StationOrder: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.sourcePluginId, forKey: .sourcePluginId)
         try container.encodeIfPresent(self.sourcePlaylistId, forKey: .sourcePlaylistId)
         try container.encodeIfPresent(self.sourceChartId, forKey: .sourceChartId)
+        try container.encodeIfPresent(self.requestShow, forKey: .requestShow)
+        try container.encodeIfPresent(self.requestFollowOn, forKey: .requestFollowOn)
         try container.encode(self.items, forKey: .items)
     }
 }

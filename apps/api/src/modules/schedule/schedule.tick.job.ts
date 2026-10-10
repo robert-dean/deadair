@@ -524,6 +524,9 @@ function slotInput(slot: ScheduleSlot, options: { withoutSource?: boolean; host?
         ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),
         // The same three-way, and absent is the mode's answer: a countdown slot is a setlist that says yes.
         ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),
+        // A kind of show rather than a station setting, so absent is simply no.
+        ...(slot.requestShow === undefined ? {} : { requestShow: slot.requestShow }),
+        ...(slot.requestFollowOn === undefined ? {} : { requestFollowOn: slot.requestFollowOn }),
         mode: withoutSource ? 'rotation' : slot.mode,
         onEnd: withoutSource ? 'extend' : slot.onEnd,
     };

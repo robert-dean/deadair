@@ -263,6 +263,14 @@ describe('ScheduleService.update', () => {
         expect(slots[0]).toMatchObject({ mode: 'setlist', breaks: true });
     });
 
+    it('stores a request show and hands it back the same way', async () => {
+        const service = build({ slots: [slot('requests', 20 * 60, 23 * 60)] });
+
+        const { slots } = await service.update('requests', body({ requestShow: true, requestFollowOn: 2 }));
+
+        expect(slots[0]).toMatchObject({ requestShow: true, requestFollowOn: 2 });
+    });
+
     describe('guest hosts', () => {
         const ROCKZO = '0a0b0c0d-0000-4000-8000-0000000000aa';
         const CALLER = '0a0b0c0d-0000-4000-8000-0000000000bb';

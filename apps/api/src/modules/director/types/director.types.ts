@@ -290,6 +290,28 @@ export const PutOnAirInput = z.strictObject({
         .describe(
             "Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records, found through the similarity plugin. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off. A setlist and a feature never have anything mixed in",
         ),
+    requestShow: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether this is a request show: the station plays as it otherwise would until a listener's request is placed, then replaces what was planned behind the request with records that sound like it, found through the similarity plugin. A second request waits for the first one's records to play out. Absent is no: there is no station-wide default behind it. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away",
+        ),
+    requestFollowOn: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(10))
+        .optional()
+        .describe('How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true'),
+    requestCooldownMinutes: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(1440))
+        .optional()
+        .describe(
+            "Minutes one listener waits between requests during this broadcast, in place of the station's `requests.cooldownMinutes`. Absent keeps the station's. A party night wants it short",
+        ),
+    requestMaxOpen: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(20))
+        .optional()
+        .describe(
+            "How many requests may be waiting at once during this broadcast, in place of the station's `requests.maxOpen`. Absent keeps the station's",
+        ),
     mode: StationMode.optional(),
     onEnd: StationOnEnd.optional(),
 });
@@ -335,6 +357,10 @@ export const StationOrderItem = z.strictObject({
         .describe(
             'The station chose this record to sound like the playlist around it, rather than the playlist naming it. Absent on everything the playlist named, and on a segment',
         ),
+    followsRequest: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe("The station chose this record to follow a listener's request, on a request show. Absent on everything else, and on a segment"),
     segmentId: z.string().min(1).max(100).optional().describe('Which segment this plays. Present only on a segment'),
     segmentState: z.enum(['planned', 'writing', 'written', 'rendering', 'ready', 'failed', 'gone']).optional(),
     playable: z
@@ -400,6 +426,14 @@ export const StationOrder = z.strictObject({
         .describe(
             'The published chart this broadcast was built from, qualified with the plugin that offered it. Provenance rather than a binding: a chart is a fixed document, so it is read once and never topped up from',
         ),
+    requestShow: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe('Whether this is a request show, on which each listener request is followed by records like it. Absent is an ordinary show'),
+    requestFollowOn: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(10))
+        .optional()
+        .describe('How many records follow each request on a request show. Present only on one'),
     items: z.array(StationOrderItem),
 });
 export type StationOrder = z.infer<typeof StationOrder>;

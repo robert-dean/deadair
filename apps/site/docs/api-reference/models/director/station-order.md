@@ -8,7 +8,7 @@ mdx:
 > The station's live running order: what is airing, item by item
 
 <details>
-<summary>Attributes (12)</summary>
+<summary>Attributes (14)</summary>
 
 | Attribute          | Type                 | Required | Description                                                                                                                                                                                              |
 | ------------------ | -------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -23,6 +23,8 @@ mdx:
 | `sourcePluginId`   | `string`             | No       | Where more material is pulled from, when it came from a playlist                                                                                                                                         |
 | `sourcePlaylistId` | `string`             | No       | The playlist it was built from. With no `sourcePluginId`, a playlist the station owns                                                                                                                    |
 | `sourceChartId`    | `string`             | No       | The published chart this broadcast was built from, qualified with the plugin that offered it. Provenance rather than a binding: a chart is a fixed document, so it is read once and never topped up from |
+| `requestShow`      | `boolean`            | No       | Whether this is a request show, on which each listener request is followed by records like it. Absent is an ordinary show                                                                                |
+| `requestFollowOn`  | `number`             | No       | How many records follow each request on a request show. Present only on one                                                                                                                              |
 | `items`            | `StationOrderItem[]` | Yes      |                                                                                                                                                                                                          |
 
 </details>

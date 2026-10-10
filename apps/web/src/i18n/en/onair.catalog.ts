@@ -60,6 +60,9 @@ export const onair = {
             'Choosing records against your words needs a model configured to programme with. Without one the station plays its own rotation, which is the designed answer rather than a failure.',
         replan: 'Replan',
         goOnAir: 'Go on air',
+        party: 'Party night',
+        partyHint:
+            'Fill in a request show for a crowd: three records after each request, a short wait between one guest’s requests, and room for more of them at once. Every field stays yours to change.',
     },
     order: {
         writer: {
@@ -119,6 +122,8 @@ export const onair = {
         over: 'over the next record',
         mixedInHint: 'The station mixed this in because it sounds like the record before it. The playlist did not name it.',
         mixedIn: 'mixed in',
+        followsRequestHint: 'The station chose this because it sounds like the listener request before it, on a request show.',
+        followsRequest: 'after a request',
         skipToHint: 'Skips straight to this record: everything in front of it is passed over and what is on air is cut.',
         skipTo: 'Skip to {{title}}',
         playNextHint:

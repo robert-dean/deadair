@@ -3494,6 +3494,70 @@ describe('DirectorService replacing the rest of the running order', () => {
     });
 });
 
+// A request show's run arrives here already found and resolved, as a replan does, and is swapped
+// in behind the request on the same terms: the broadcast is checked, nothing empty lands, and the
+// breaks it displaces are written off.
+describe('DirectorService following a request', () => {
+    const trackIds = (lineup: StationLineup) =>
+        lineup
+            .all()
+            .filter(isTrackItem)
+            .map(item => item.track.externalId);
+
+    it('puts the run straight after the request, in place of what was planned behind it', async () => {
+        const { director, lineup, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+        await director.start();
+        lineup.insertRequested(track('r'), 'req-1');
+        const before = trackIds(lineup);
+
+        await director.post({ kind: 'followRequest', requestId: 'req-1', tracks: [track('x'), track('y')], broadcastId: lineup.broadcastId });
+
+        const after = trackIds(lineup);
+        expect(after.slice(0, after.indexOf('r') + 1)).toEqual(before.slice(0, before.indexOf('r') + 1));
+        expect(after.slice(after.indexOf('r') + 1)).toEqual(['x', 'y']);
+    });
+
+    it('drops a run found for a broadcast that has ended', async () => {
+        const { director, lineup, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+        await director.start();
+        lineup.insertRequested(track('r'), 'req-1');
+        const before = trackIds(lineup);
+
+        await director.post({ kind: 'followRequest', requestId: 'req-1', tracks: [track('x')], broadcastId: 'another-broadcast' });
+
+        expect(trackIds(lineup)).toEqual(before);
+    });
+
+    it('leaves the order alone for a request it does not hold', async () => {
+        const { director, lineup, lineups, seed } = build({ items: ['a', 'b'] });
+        await seed();
+        await director.start();
+        vi.mocked(lineups.save).mockClear();
+
+        await director.post({ kind: 'followRequest', requestId: 'req-unknown', tracks: [track('x')], broadcastId: lineup.broadcastId });
+
+        expect(trackIds(lineup)).toEqual(['a', 'b']);
+        expect(lineups.save).not.toHaveBeenCalled();
+    });
+
+    it('retires a break that was planned behind the request', async () => {
+        const { director, lineup, segmentStub, seed } = build({
+            items: ['a', 'b'],
+            segments: [{ id: 'talk-1', kind: 'talk', state: 'planned', label: 'Talk break', source: 'render' }],
+        });
+        await seed();
+        await director.start();
+        lineup.insertRequested(track('r'), 'req-1');
+        lineup.insertSegment('talk-1', lineup.size());
+
+        await director.post({ kind: 'followRequest', requestId: 'req-1', tracks: [track('x')], broadcastId: lineup.broadcastId });
+
+        expect(segmentStub.markFailed).toHaveBeenCalledWith('talk-1', expect.stringContaining('request'), 'planned');
+    });
+});
+
 describe('DirectorService asking for a refill', () => {
     it('sends the refill from a scope of its own', async () => {
         const { director, jobs, lineup, seed } = build({ items: ['a', 'b', 'c'] });

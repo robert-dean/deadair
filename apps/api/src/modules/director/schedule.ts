@@ -197,6 +197,13 @@ export interface ScheduleSlot {
      */
     breaks?: boolean;
     /**
+     * Whether this stretch of the day is a request show, copied onto the running order's rules at a
+     * changeover. Absent is no: see `StationLineupRules.requestShow`.
+     */
+    requestShow?: boolean;
+    /** How many records follow each request on a request show. Absent is the default in `request.show.ts`. */
+    requestFollowOn?: number;
+    /**
      * Whether somebody phones in during this stretch of the day.
      *
      * Absent is no calls, exactly as it is on `PutOnAirInput.callins`: there is no station-wide

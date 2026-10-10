@@ -193,6 +193,10 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var mixInSimilar: Bool?
     /// Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot's chart without its positions read out
     public var chartPositions: Bool?
+    /// Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away
+    public var requestShow: Bool?
+    /// How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true
+    public var requestFollowOn: Int?
     /// The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all
     public var startsOn: String?
     /// The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask
@@ -206,7 +210,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: ScheduleSlotMood? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: ScheduleSlotMood? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.id = id
         self.label = label
         self.startsAtMinutes = startsAtMinutes
@@ -226,6 +230,8 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.callins = callins
         self.mixInSimilar = mixInSimilar
         self.chartPositions = chartPositions
+        self.requestShow = requestShow
+        self.requestFollowOn = requestFollowOn
         self.startsOn = startsOn
         self.endsOn = endsOn
         self.coHosts = coHosts
@@ -255,6 +261,8 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         case callins = "callins"
         case mixInSimilar = "mixInSimilar"
         case chartPositions = "chartPositions"
+        case requestShow = "requestShow"
+        case requestFollowOn = "requestFollowOn"
         case startsOn = "startsOn"
         case endsOn = "endsOn"
         case coHosts = "coHosts"
@@ -285,6 +293,8 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
         self.mixInSimilar = try container.decodeIfPresent(Bool.self, forKey: .mixInSimilar)
         self.chartPositions = try container.decodeIfPresent(Bool.self, forKey: .chartPositions)
+        self.requestShow = try container.decodeIfPresent(Bool.self, forKey: .requestShow)
+        self.requestFollowOn = try container.decodeIfPresent(Int.self, forKey: .requestFollowOn)
         self.startsOn = try container.decodeIfPresent(String.self, forKey: .startsOn)
         self.endsOn = try container.decodeIfPresent(String.self, forKey: .endsOn)
         self.coHosts = try container.decodeIfPresent([SlotCoHost].self, forKey: .coHosts)
@@ -315,6 +325,8 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.callins, forKey: .callins)
         try container.encodeIfPresent(self.mixInSimilar, forKey: .mixInSimilar)
         try container.encodeIfPresent(self.chartPositions, forKey: .chartPositions)
+        try container.encodeIfPresent(self.requestShow, forKey: .requestShow)
+        try container.encodeIfPresent(self.requestFollowOn, forKey: .requestFollowOn)
         try container.encodeIfPresent(self.startsOn, forKey: .startsOn)
         try container.encodeIfPresent(self.endsOn, forKey: .endsOn)
         try container.encodeIfPresent(self.coHosts, forKey: .coHosts)
@@ -362,6 +374,10 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var mixInSimilar: Bool?
     /// Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot's chart without its positions read out
     public var chartPositions: Bool?
+    /// Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away
+    public var requestShow: Bool?
+    /// How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true
+    public var requestFollowOn: Int?
     /// The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all
     public var startsOn: String?
     /// The last date it runs on, inclusive. `days` still applies in between, so the Fridays in December are a range and a mask
@@ -375,7 +391,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: ScheduleSlotMood? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: ScheduleSlotMood? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.label = label
         self.startsAtMinutes = startsAtMinutes
         self.endsAtMinutes = endsAtMinutes
@@ -394,6 +410,8 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.callins = callins
         self.mixInSimilar = mixInSimilar
         self.chartPositions = chartPositions
+        self.requestShow = requestShow
+        self.requestFollowOn = requestFollowOn
         self.startsOn = startsOn
         self.endsOn = endsOn
         self.coHosts = coHosts
@@ -422,6 +440,8 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         case callins = "callins"
         case mixInSimilar = "mixInSimilar"
         case chartPositions = "chartPositions"
+        case requestShow = "requestShow"
+        case requestFollowOn = "requestFollowOn"
         case startsOn = "startsOn"
         case endsOn = "endsOn"
         case coHosts = "coHosts"
@@ -451,6 +471,8 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
         self.mixInSimilar = try container.decodeIfPresent(Bool.self, forKey: .mixInSimilar)
         self.chartPositions = try container.decodeIfPresent(Bool.self, forKey: .chartPositions)
+        self.requestShow = try container.decodeIfPresent(Bool.self, forKey: .requestShow)
+        self.requestFollowOn = try container.decodeIfPresent(Int.self, forKey: .requestFollowOn)
         self.startsOn = try container.decodeIfPresent(String.self, forKey: .startsOn)
         self.endsOn = try container.decodeIfPresent(String.self, forKey: .endsOn)
         self.coHosts = try container.decodeIfPresent([SlotCoHost].self, forKey: .coHosts)
@@ -480,6 +502,8 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.callins, forKey: .callins)
         try container.encodeIfPresent(self.mixInSimilar, forKey: .mixInSimilar)
         try container.encodeIfPresent(self.chartPositions, forKey: .chartPositions)
+        try container.encodeIfPresent(self.requestShow, forKey: .requestShow)
+        try container.encodeIfPresent(self.requestFollowOn, forKey: .requestFollowOn)
         try container.encodeIfPresent(self.startsOn, forKey: .startsOn)
         try container.encodeIfPresent(self.endsOn, forKey: .endsOn)
         try container.encodeIfPresent(self.coHosts, forKey: .coHosts)

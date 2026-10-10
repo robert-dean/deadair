@@ -125,6 +125,37 @@ describe('PlanTheStation', () => {
         expect(putTheStationOnAir).toHaveBeenCalledWith(expect.objectContaining({ mode: 'setlist', breaks: true }));
     });
 
+    it('puts a request show on air when somebody asked for one, and says nothing when nobody did', async () => {
+        const user = await open(running());
+
+        await user.click(await screen.findByRole('radio', { name: 'Start a new show' }));
+        await user.click(screen.getByRole('button', { name: 'Go on air' }));
+        expect(putTheStationOnAir).toHaveBeenLastCalledWith(expect.not.objectContaining({ requestShow: expect.anything() }));
+
+        await user.click(screen.getByRole('button', { name: /Plan/ }));
+        await user.click(await screen.findByRole('radio', { name: 'Start a new show' }));
+        await user.click(screen.getByLabelText(/Request show/));
+        await user.click(screen.getByRole('button', { name: 'Go on air' }));
+        expect(putTheStationOnAir).toHaveBeenLastCalledWith(expect.objectContaining({ requestShow: true, requestFollowOn: 4 }));
+    });
+
+    it('fills in a party night as a request show with its own request rules, which stay editable', async () => {
+        const user = await open(running());
+
+        await user.click(await screen.findByRole('radio', { name: 'Start a new show' }));
+        await user.click(screen.getByRole('button', { name: 'Party night' }));
+
+        expect(screen.getByLabelText(/Request show/)).toBeChecked();
+        const line = screen.getByRole('textbox', { name: /Requests waiting at once/ });
+        await user.clear(line);
+        await user.type(line, '6');
+        await user.click(screen.getByRole('button', { name: 'Go on air' }));
+
+        expect(putTheStationOnAir).toHaveBeenCalledWith(
+            expect.objectContaining({ mode: 'rotation', requestShow: true, requestFollowOn: 3, requestCooldownMinutes: 10, requestMaxOpen: 6 }),
+        );
+    });
+
     it('asks for calls when somebody did', async () => {
         const user = await open(running());
 

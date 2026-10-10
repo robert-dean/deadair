@@ -188,3 +188,51 @@ describe('SimilarPicker.pickLike', () => {
         expect(similarTracks).not.toHaveBeenCalled();
     });
 });
+
+describe('SimilarPicker.pickSeveralLike', () => {
+    const teardrop = { title: 'Teardrop', artist: 'Massive Attack' };
+
+    it('draws a run from one answer about the record, freshest first and one per artist', async () => {
+        const stale = new Set([songKey('Overcome', ['Tricky'])]);
+        const { picker, similarTracks } = build({
+            like: [
+                { title: 'Overcome', artist: 'Tricky' },
+                { title: 'Glory Box', artist: 'Portishead' },
+                { title: 'Sour Times', artist: 'Portishead' },
+                { title: 'Roads', artist: 'Portishead' },
+            ],
+        });
+
+        const picks = await picker.pickSeveralLike(teardrop, 2, walk({ freshness: song => (stale.has(song) ? 0.1 : 1) }));
+
+        expect(similarTracks).toHaveBeenCalledTimes(1);
+        expect(picks).toEqual([
+            { title: 'Glory Box', artist: 'Portishead' },
+            { title: 'Overcome', artist: 'Tricky' },
+        ]);
+    });
+
+    it("walks the artist's neighbours for whatever the record-level answer could not fill", async () => {
+        const { picker, similarTo } = build({
+            like: [{ title: 'Glory Box', artist: 'Portishead' }],
+            similar: [{ name: 'Tricky' }, { name: 'Morcheeba' }],
+        });
+
+        const picks = await picker.pickSeveralLike(teardrop, 3, walk());
+
+        expect(similarTo).toHaveBeenCalledWith({ name: 'Massive Attack' }, expect.any(Number));
+        expect(picks).toEqual([
+            { title: 'Glory Box', artist: 'Portishead' },
+            { title: 'Tricky Song', artist: 'Tricky' },
+            { title: 'Morcheeba Song', artist: 'Morcheeba' },
+        ]);
+    });
+
+    it('asks nothing for a run of none', async () => {
+        const { picker, similarTracks, similarTo } = build({ like: [] });
+
+        expect(await picker.pickSeveralLike(teardrop, 0, walk())).toEqual([]);
+        expect(similarTracks).not.toHaveBeenCalled();
+        expect(similarTo).not.toHaveBeenCalled();
+    });
+});

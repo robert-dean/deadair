@@ -366,6 +366,17 @@ describe('ScheduleTickJob', () => {
         expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('breaks');
     });
 
+    it('carries a request show onto the running order, and says nothing for a slot that is not one', async () => {
+        const requests = build({ inForce: slot('requests', { requestShow: true, requestFollowOn: 3 }) });
+        await requests.tick();
+        expect(vi.mocked(requests.console.putOnAir).mock.calls[0]?.[0]).toMatchObject({ requestShow: true, requestFollowOn: 3 });
+
+        const { tick, console } = build({ inForce: slot('morning') });
+        await tick();
+        expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('requestShow');
+        expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('requestFollowOn');
+    });
+
     it('carries a slot keeping its chart positions quiet, and says nothing when it does not', async () => {
         const quiet = build({ inForce: slot('quiet', { chartPositions: false }) });
         await quiet.tick();

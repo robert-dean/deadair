@@ -420,3 +420,80 @@ export function MixInSimilarField(input: GetInputPropsReturnType) {
     const { t } = useTranslation('programme');
     return <Checkbox label={t('mixInSimilar.label')} description={t('mixInSimilar.description')} {...input} />;
 }
+
+/** How many records follow a request on a request show when nobody changed it: the API's own default. */
+export const REQUEST_FOLLOW_ON_DEFAULT = 4;
+
+/**
+ * Whether this is a request show, and how many records follow each request on it.
+ *
+ * {@link CallinsField}'s three-way for the switch: ticked sends `requestShow: true` and unticked sends
+ * nothing, which is an ordinary show, since no station setting stands behind it. The count is drawn
+ * only once it is ticked. Only worth drawing for a rotation: the API leaves a setlist's or a
+ * feature's own sequence alone whatever this says.
+ */
+export function RequestShowFields({ on, count }: { on: GetInputPropsReturnType; count: GetInputPropsReturnType }) {
+    const { t } = useTranslation('programme');
+    return (
+        <>
+            <Checkbox label={t('requestShow.label')} description={t('requestShow.description')} {...on} />
+            {on.checked ? (
+                <NumberInput
+                    label={t('requestShow.followOnLabel')}
+                    description={t('requestShow.followOnDescription')}
+                    min={1}
+                    max={10}
+                    allowDecimal={false}
+                    className="da-num"
+                    maw={240}
+                    {...count}
+                />
+            ) : undefined}
+        </>
+    );
+}
+
+/**
+ * This broadcast's own request rules, in place of the station's `requests.cooldownMinutes` and
+ * `requests.maxOpen`. Empty sends nothing and keeps the station's. Drawn only on a request show,
+ * where a party night is the case that wants them, and only where a broadcast is put on, since a
+ * slot does not carry them.
+ */
+export function RequestRulesFields({ cooldown, maxOpen }: { cooldown: GetInputPropsReturnType; maxOpen: GetInputPropsReturnType }) {
+    const { t } = useTranslation('programme');
+    return (
+        <Group grow align="flex-start">
+            <NumberInput
+                label={t('requestShow.cooldownLabel')}
+                description={t('requestShow.cooldownDescription')}
+                min={0}
+                max={1440}
+                allowDecimal={false}
+                className="da-num"
+                {...cooldown}
+            />
+            <NumberInput
+                label={t('requestShow.maxOpenLabel')}
+                description={t('requestShow.maxOpenDescription')}
+                min={1}
+                max={20}
+                allowDecimal={false}
+                className="da-num"
+                {...maxOpen}
+            />
+        </Group>
+    );
+}
+
+/** The request rules as the API takes them: only the ones somebody typed. */
+export const requestRulesInput = (
+    cooldown: number | string,
+    maxOpen: number | string,
+): { requestCooldownMinutes?: number; requestMaxOpen?: number } => ({
+    ...(typeof cooldown === 'number' ? { requestCooldownMinutes: cooldown } : {}),
+    ...(typeof maxOpen === 'number' ? { requestMaxOpen: maxOpen } : {}),
+});
+
+/** The request show's two fields as the API takes them: nothing at all when it is off. */
+export const requestShowInput = (on: boolean, count: number | string): { requestShow?: true; requestFollowOn?: number } =>
+    on ? { requestShow: true, ...(typeof count === 'number' ? { requestFollowOn: count } : {}) } : {};

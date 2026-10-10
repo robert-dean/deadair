@@ -181,6 +181,16 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ChartPositions { get; init; }
 
+    /// <summary>Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no</summary>
+    [JsonPropertyName("requestShow")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? RequestShow { get; init; }
+
+    /// <summary>How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true</summary>
+    [JsonPropertyName("requestFollowOn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? RequestFollowOn { get; init; }
+
     /// <summary>The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all</summary>
     [JsonPropertyName("startsOn")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -301,6 +311,16 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("chartPositions")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ChartPositions { get; init; }
+
+    /// <summary>Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no</summary>
+    [JsonPropertyName("requestShow")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? RequestShow { get; init; }
+
+    /// <summary>How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true</summary>
+    [JsonPropertyName("requestFollowOn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? RequestFollowOn { get; init; }
 
     /// <summary>The first date this slot runs on, as `YYYY-MM-DD`, which makes it a SPECIAL rather than a weekly slot. On its dates a special takes over from the weekly schedule for its hours, and the weekly show resumes when it ends. Sent with `endsOn` or not at all</summary>
     [JsonPropertyName("startsOn")]

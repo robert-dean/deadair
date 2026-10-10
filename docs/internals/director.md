@@ -310,7 +310,8 @@ the ordinary unmarked shape of every remaster a provider sells.
 
 **A REQUEST SHOW is asked for on the row too, and it is the one thing a listener can change about what
 follows.** `rules.requestShow` (with `rules.requestFollowOn`, default 4, at most 10; see `request.show.ts`)
-rides the `rules` jsonb beside `mixInSimilar`, so it needs no column of its own. Off it, a request goes into
+rides the `rules` jsonb beside `mixInSimilar`, so the running order needs no column of its own; a slot carries
+it as `schedule_slots.request_show`/`request_follow_on` (0081), copied at a changeover like `breaks`. Off it, a request goes into
 the first quiet gap and the catalog the station had planned plays on behind it. On it, once
 `RequestDesk.place` has the request in the order it sends `director.follow_request`, and `FollowRequestJob`
 finds that many records like the REQUEST (one `similarTracks` question, then the artist's neighbours for

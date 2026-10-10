@@ -852,6 +852,8 @@ export interface DeadairScheduleSlots {
   mood: "love" | "happiness" | "comfort" | "sadness" | "loneliness" | "anger" | "fear" | null;
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;
+  requestFollowOn: number | null;
+  requestShow: boolean | null;
   sourceChartId: string | null;
   sourceChartOrder: "countdown" | "ranked" | "unordered" | null;
   sourcePlaylistId: string | null;

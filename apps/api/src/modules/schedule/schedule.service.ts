@@ -543,6 +543,8 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         ...(body.mixInSimilar === undefined ? {} : { mixInSimilar: body.mixInSimilar }),
         ...(body.chartPositions === undefined ? {} : { chartPositions: body.chartPositions }),
         ...(body.breaks === undefined ? {} : { breaks: body.breaks }),
+        ...(body.requestShow === undefined ? {} : { requestShow: body.requestShow }),
+        ...(body.requestFollowOn === undefined ? {} : { requestFollowOn: body.requestFollowOn }),
         ...specialDatesOf(body),
         ...guestHostsOf(body),
         ...coHostsOf(body),
@@ -665,6 +667,8 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
         ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
         ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),
         ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),
+        ...(slot.requestShow === undefined ? {} : { requestShow: slot.requestShow }),
+        ...(slot.requestFollowOn === undefined ? {} : { requestFollowOn: slot.requestFollowOn }),
         ...(slot.dates === undefined ? {} : { startsOn: slot.dates.from, endsOn: slot.dates.to, yearly: slot.dates.yearly }),
         ...(slot.coHosts === undefined || slot.coHosts.length === 0
             ? {}

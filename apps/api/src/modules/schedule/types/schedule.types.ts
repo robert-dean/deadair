@@ -174,6 +174,16 @@ export const ScheduleSlot = z.strictObject({
         .describe(
             'Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot\'s chart without its positions read out',
         ),
+    requestShow: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no',
+        ),
+    requestFollowOn: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(10))
+        .optional()
+        .describe('How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true'),
     startsOn: z
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -296,6 +306,16 @@ export const ScheduleSlotInput = z.strictObject({
         .describe(
             'Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot\'s chart without its positions read out',
         ),
+    requestShow: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no',
+        ),
+    requestFollowOn: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(10))
+        .optional()
+        .describe('How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true'),
     startsOn: z
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/)

@@ -13368,6 +13368,14 @@ components:
                 chartPositions:
                     type: boolean
                     description: 'Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot''s chart without its positions read out'
+                requestShow:
+                    type: boolean
+                    description: 'Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no'
+                requestFollowOn:
+                    type: integer
+                    minimum: 0
+                    maximum: 10
+                    description: 'How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true'
                 startsOn:
                     type: string
                     pattern: '^\d{4}-\d{2}-\d{2}$'

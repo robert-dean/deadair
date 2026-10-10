@@ -6,6 +6,7 @@ import { TEMPLATE_KEYS } from '#modules/director/break.templates.js';
 import { DEDICATION_CONTEXT, DEDICATION_KIND, DEDICATION_LABEL } from '#modules/director/dedication.writer.js';
 import { DirectorService } from '#modules/director/director.service.js';
 import { PickResolver } from '#modules/director/pick.resolver.js';
+import { followOnFor } from '#modules/director/request.show.js';
 import { resolveRules, stationRules } from '#modules/director/rotation.rules.js';
 import { StationLineupRepository } from '#modules/director/station.lineup.repository.js';
 import { NowPlayingService } from '#modules/nowplaying/nowplaying.service.js';
@@ -266,12 +267,28 @@ export class RequestDesk {
 
             const queued = await this.repository.moveTo(stationKey, request.id, ['pending'], 'queued');
             if (queued !== undefined) say(queued, `Your request is in: ${queued.title} by ${queued.artist}, a few records from now.`);
+            if (followOnFor(lineup.rules) > 0) await this.followOnRequestShow(lineup.broadcastId, request.id);
             return 'queued';
         } catch (error) {
             // A fault here leaves the request pending for the tick to offer again, rather than
             // telling somebody no for a reason that had nothing to do with their record.
             this.logger.warn(`requests: could not place a request, and will try again (${errorText(error)})`);
             return 'waiting';
+        }
+    }
+
+    /**
+     * On a request show, ask for records like this request to follow it.
+     *
+     * A failed send is swallowed: the request is in the order and will air, which is what the
+     * listener asked for. What follows it is the station's catalog, as it would have been on any
+     * other show.
+     */
+    private async followOnRequestShow(broadcastId: string, requestId: string): Promise<void> {
+        try {
+            await this.jobs.send('director.follow_request', { broadcastId, requestId });
+        } catch (error) {
+            this.logger.warn(`requests: could not ask for records to follow a request (${errorText(error)})`);
         }
     }
 

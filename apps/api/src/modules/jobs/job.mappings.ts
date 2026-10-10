@@ -20,6 +20,7 @@ import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
 import { ReplanLineupJob } from '#modules/director/replan.lineup.job.js';
 import { PLANNING_TIME_LIMIT_MS } from '#modules/director/plan.records.js';
 import { MixInSimilarJob } from '#modules/director/mix.in.similar.job.js';
+import { FollowRequestJob } from '#modules/director/follow.request.job.js';
 import { ProduceProductionJob } from '#modules/productions/produce.production.job.js';
 import { StitchProductionJob } from '#modules/productions/stitch.production.job.js';
 import { ScheduleTickJob } from '#modules/schedule/schedule.tick.job.js';
@@ -352,6 +353,15 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // `expiresIn` is the replan's, because a run is one similarity walk and one lookup per anchor.
     'director.mix_in_similar': {
         job: MixInSimilarJob,
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
+    },
+
+    // No cron: the request desk sends this once, when a request on a request show is placed in the
+    // order. NO retry, for the mix's reason: the swap is not idempotent once posted, and a request
+    // that nothing followed is still a request that aired, in front of the catalog the station had
+    // planned anyway. One walk and one resolve, so the mix's `expiresIn`.
+    'director.follow_request': {
+        job: FollowRequestJob,
         policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
     },
 

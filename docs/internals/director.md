@@ -308,6 +308,23 @@ carries the 1900 floor `usableYear` accepts, so its two tracks now read as 1900 
 honest trade: a too-early year is a data error with a validated floor under it, and a too-late one is
 the ordinary unmarked shape of every remaster a provider sells.
 
+**A REQUEST SHOW is asked for on the row too, and it is the one thing a listener can change about what
+follows.** `rules.requestShow` (with `rules.requestFollowOn`, default 4, at most 10; see `request.show.ts`)
+rides the `rules` jsonb beside `mixInSimilar`, so it needs no column of its own. Off it, a request goes into
+the first quiet gap and the catalog the station had planned plays on behind it. On it, once
+`RequestDesk.place` has the request in the order it sends `director.follow_request`, and `FollowRequestJob`
+finds that many records like the REQUEST (one `similarTracks` question, then the artist's neighbours for
+whatever that could not fill), resolves them with the broadcast's rules and posts one `followRequest`
+command. The director replaces everything still planned behind the request with them, which is
+`replaceTail`'s swap with the request as its floor, retired breaks and all. Three things hold it together.
+It is found before anything is dropped, on `ReplanLineupJob`'s rule, so an empty answer leaves the catalog
+playing. It is seeded from the request and never from play history, on `MixInSimilarJob`'s argument. And
+**a run is never split**: each record carries `followsRequestId`, and `quietGapFrom` will not land anything
+in front of one, so a second request comes back `no-gap`, waits `pending`, and the `requests.tick` cron
+places it straight after the run, where it gets a run of its own. That alternation is what stops a busy
+night turning into a jukebox, and it is why `insertRequested`'s "after the last request" floor makes the
+newest request the only one a run can follow. After the run the ordinary refill takes over again.
+
 ## Nothing airs until its bytes are here
 
 **A record is COMMITTED only once its audio is on this machine.** `DirectorService.withLocalAudio` cuts the

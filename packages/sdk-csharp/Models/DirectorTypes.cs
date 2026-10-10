@@ -303,6 +303,16 @@ public sealed record PutOnAirInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? MixInSimilar { get; init; }
 
+    /// <summary>Whether this is a request show: the station plays as it otherwise would until a listener's request is placed, then replaces what was planned behind the request with records that sound like it, found through the similarity plugin. A second request waits for the first one's records to play out. Absent is no: there is no station-wide default behind it</summary>
+    [JsonPropertyName("requestShow")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? RequestShow { get; init; }
+
+    /// <summary>How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true</summary>
+    [JsonPropertyName("requestFollowOn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? RequestFollowOn { get; init; }
+
     [JsonPropertyName("mode")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public StationMode? Mode { get; init; }
@@ -385,6 +395,11 @@ public sealed record StationOrderItem
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? MixedIn { get; init; }
 
+    /// <summary>The station chose this record to follow a listener's request, on a request show. Absent on everything else, and on a segment</summary>
+    [JsonPropertyName("followsRequest")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? FollowsRequest { get; init; }
+
     /// <summary>Which segment this plays. Present only on a segment</summary>
     [JsonPropertyName("segmentId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -466,6 +481,16 @@ public sealed record StationOrder
     [JsonPropertyName("sourceChartId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SourceChartId { get; init; }
+
+    /// <summary>Whether this is a request show, on which each listener request is followed by records like it. Absent is an ordinary show</summary>
+    [JsonPropertyName("requestShow")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? RequestShow { get; init; }
+
+    /// <summary>How many records follow each request on a request show. Present only on one</summary>
+    [JsonPropertyName("requestFollowOn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? RequestFollowOn { get; init; }
 
     [JsonPropertyName("items")]
     public required List<StationOrderItem> Items { get; init; }

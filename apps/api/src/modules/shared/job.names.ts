@@ -15,6 +15,7 @@ export type JobNames =
     | 'director.extend_lineup'
     | 'director.replan_lineup'
     | 'director.mix_in_similar'
+    | 'director.follow_request'
     | 'director.write_break'
     | 'director.produce'
     | 'schedule.tick'

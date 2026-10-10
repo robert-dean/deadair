@@ -167,6 +167,10 @@ export interface PutOnAirInput {
     callins?: boolean;
     /** Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records, found through the similarity plugin. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off. A setlist and a feature never have anything mixed in */
     mixInSimilar?: boolean;
+    /** Whether this is a request show: the station plays as it otherwise would until a listener's request is placed, then replaces what was planned behind the request with records that sound like it, found through the similarity plugin. A second request waits for the first one's records to play out. Absent is no: there is no station-wide default behind it */
+    requestShow?: boolean;
+    /** How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true */
+    requestFollowOn?: number;
     mode?: StationMode;
     onEnd?: StationOnEnd;
 }
@@ -203,6 +207,8 @@ export interface StationOrderItem {
     rating?: Rating;
     /** The station chose this record to sound like the playlist around it, rather than the playlist naming it. Absent on everything the playlist named, and on a segment */
     mixedIn?: boolean;
+    /** The station chose this record to follow a listener's request, on a request show. Absent on everything else, and on a segment */
+    followsRequest?: boolean;
     /** Which segment this plays. Present only on a segment */
     segmentId?: string;
     segmentState?: 'planned' | 'writing' | 'written' | 'rendering' | 'ready' | 'failed' | 'gone';
@@ -241,5 +247,9 @@ export interface StationOrder {
     sourcePlaylistId?: string;
     /** The published chart this broadcast was built from, qualified with the plugin that offered it. Provenance rather than a binding: a chart is a fixed document, so it is read once and never topped up from */
     sourceChartId?: string;
+    /** Whether this is a request show, on which each listener request is followed by records like it. Absent is an ordinary show */
+    requestShow?: boolean;
+    /** How many records follow each request on a request show. Present only on one */
+    requestFollowOn?: number;
     items: StationOrderItem[];
 }

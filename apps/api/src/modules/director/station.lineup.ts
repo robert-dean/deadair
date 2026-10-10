@@ -310,6 +310,16 @@ export interface StationLineupRules {
      * sequenced order blended anyway, or to keep a rotation's boundaries cold.
      */
     crossfade?: boolean;
+    /**
+     * Whether this is a REQUEST SHOW: each listener request placed in the order has what was planned
+     * behind it replaced by records that sound like it. See `FollowRequestJob`.
+     *
+     * Off unless somebody asked, and there is no station setting behind it: it is a kind of show,
+     * not a way the station always behaves.
+     */
+    requestShow?: boolean;
+    /** How many records follow each request on a request show. See `followOnFor` for the default and the bounds. */
+    requestFollowOn?: number;
 }
 
 /** Everything about the running order except the items: what the row says it is. */

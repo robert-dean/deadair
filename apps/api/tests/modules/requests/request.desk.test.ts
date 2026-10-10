@@ -84,6 +84,7 @@ interface World {
     audio?: 'local' | 'remote' | 'none';
     fetching?: boolean;
     edit?: { ok: true } | { ok: false; reason: string; message: string };
+    rules?: Record<string, unknown>;
 }
 
 function build(world: World = {}) {
@@ -129,7 +130,11 @@ function build(world: World = {}) {
         { stationKey: 'main' } as never,
         config,
         { getNowPlaying: () => ({ onAir: world.onAir ?? true }) } as never,
-        { load: vi.fn(async () => (world.lineup === false ? undefined : { mode: 'rotation', rules: undefined, era: undefined })) } as never,
+        {
+            load: vi.fn(async () =>
+                world.lineup === false ? undefined : { mode: 'rotation', rules: world.rules, era: undefined, broadcastId: 'broadcast-1' },
+            ),
+        } as never,
         resolver as never,
         audio as never,
         { isFetching: () => world.fetching ?? false } as never,
@@ -223,6 +228,44 @@ describe('submitting', () => {
         await desk.submit(chat(), TEARDROP);
 
         expect(told()).toEqual([]);
+    });
+});
+
+describe('a request show', () => {
+    it('asks for records like the request to follow it, once it is in the order', async () => {
+        const { desk, jobs } = build({ rules: { requestShow: true } });
+
+        const row = await desk.submit(app(), TEARDROP);
+
+        expect(jobs.send).toHaveBeenCalledWith('director.follow_request', { broadcastId: 'broadcast-1', requestId: row.id });
+    });
+
+    it('asks for nothing on an ordinary show', async () => {
+        const { desk, jobs } = build();
+
+        await desk.submit(app(), TEARDROP);
+
+        expect(jobs.send).not.toHaveBeenCalledWith('director.follow_request', expect.anything());
+    });
+
+    it('asks for nothing while the request is still waiting for a place', async () => {
+        const { desk, jobs } = build({ rules: { requestShow: true }, edit: { ok: false, reason: 'no-gap', message: 'no gap' } });
+
+        await desk.submit(app(), TEARDROP);
+
+        expect(jobs.send).not.toHaveBeenCalledWith('director.follow_request', expect.anything());
+    });
+
+    it('still places the request when the ask cannot be sent', async () => {
+        const { desk, jobs } = build({ rules: { requestShow: true } });
+        jobs.send.mockImplementation(async (name: string) => {
+            if (name === 'director.follow_request') throw new Error('queue gone');
+            return 'job';
+        });
+
+        const row = await desk.submit(app(), TEARDROP);
+
+        expect(row.status).toBe('queued');
     });
 });
 

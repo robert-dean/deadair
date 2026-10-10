@@ -55,6 +55,7 @@ contract StationOrderItem: { # One item of the live running order, and where it 
     albumId?: string(max=100) # The release that track was ingested inside. Absent for the two reasons above and for a third: a single ingested outside any release has none
     rating?: Rating # What the station thinks of this record, read as the order is drawn rather than stored on it. Absent on a segment, and on a record the catalog has never seen
     mixedIn?: boolean # The station chose this record to sound like the playlist around it, rather than the playlist naming it. Absent on everything the playlist named, and on a segment
+    followsRequest?: boolean # The station chose this record to follow a listener's request, on a request show. Absent on everything else, and on a segment
     segmentId?: string(min=1, max=100) # Which segment this plays. Present only on a segment
     segmentState?: enum(planned, writing, written, rendering, ready, failed, gone)
     playable?: boolean # Whether the station can actually air this segment. One that cannot is SKIPPED when it comes round, rather than held open
@@ -75,6 +76,8 @@ contract StationOrder: { # The station's live running order: what is airing, ite
     sourcePluginId?: string(max=200) # Where more material is pulled from, when it came from a playlist
     sourcePlaylistId?: string(max=400) # The playlist it was built from. With no `sourcePluginId`, a playlist the station owns
     sourceChartId?: string(max=400) # The published chart this broadcast was built from, qualified with the plugin that offered it. Provenance rather than a binding: a chart is a fixed document, so it is read once and never topped up from
+    requestShow?: boolean # Whether this is a request show, on which each listener request is followed by records like it. Absent is an ordinary show
+    requestFollowOn?: int(min=0, max=10) # How many records follow each request on a request show. Present only on one
     items: array(StationOrderItem)
 }
 
@@ -95,6 +98,8 @@ contract PutOnAirInput: { # Put the station on air, building its running order f
     breaks?: boolean # Whether the host talks between the records. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says
     callins?: boolean # Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent is no calls: there is no station-wide default behind it
     mixInSimilar?: boolean # Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records, found through the similarity plugin. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off. A setlist and a feature never have anything mixed in
+    requestShow?: boolean # Whether this is a request show: the station plays as it otherwise would until a listener's request is placed, then replaces what was planned behind the request with records that sound like it, found through the similarity plugin. A second request waits for the first one's records to play out. Absent is no: there is no station-wide default behind it
+    requestFollowOn?: int(min=0, max=10) # How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true
     mode?: StationMode
     onEnd?: StationOnEnd
 }

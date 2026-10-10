@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.51.0] — 2026-10-10
+
+- A broadcast can be a request show. Put the station on air with `requestShow` and it plays as it otherwise would until a listener's request goes in, then replaces what it had planned after the request with records that sound like it, four by default or as many as `requestFollowOn` asks for, up to ten. A second request waits for the first one's records to play out, then gets its own. It needs a similarity plugin that can name records, and the activity feed says so when there is none. The running order now says when it is a request show and which records followed a request.
+- A broadcast can carry its own request rules: `requestCooldownMinutes` and `requestMaxOpen` take the place of the station's request settings for as long as it runs. Plan the station has a Party night button that fills in a request show for a crowd (three records after each request, ten minutes between one guest's requests, ten waiting at once), and every field stays yours to change.
+- The console can put on a request show. Starting a new show from Plan the station, and editing a rotation block on the schedule, both offer a Request show switch and how many records follow each request. In the running order, a record the station chose to follow a request is marked "after a request".
+- A schedule slot can be a request show too, with `requestShow` and `requestFollowOn` on the slot, so a regular request hour goes on air as one at its changeover without anybody putting it on by hand.
+
 ## [0.50.2] — 2026-10-10
 
 - No page, list or player is handed a music provider's cover address any more, cached or not. Albums, artists, tracks, the play history, the running order, provider playlists and `/nowplaying` all name a cover the station has not cached yet by a station address that fetches it on first view and serves it as the station's own, so covers show straight away while the provider's address, and any username or token in it, never leaves the station. The per-provider enrichment panels (an artist's picture, a record's or a track's artwork) follow the same rule. Anything a provider adds outside the fields the station knows is shown without any web address in it.
@@ -1205,7 +1212,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.50.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.51.0...HEAD
+[0.51.0]: https://github.com/robert-dean/deadair/compare/v0.50.2...v0.51.0
 [0.50.2]: https://github.com/robert-dean/deadair/compare/v0.50.1...v0.50.2
 [0.50.1]: https://github.com/robert-dean/deadair/compare/v0.50.0...v0.50.1
 [0.50.0]: https://github.com/robert-dean/deadair/compare/v0.49.0...v0.50.0

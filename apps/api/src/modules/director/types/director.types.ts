@@ -136,6 +136,34 @@ export const ReplanStationInput = z.strictObject({
 export type ReplanStationInput = z.infer<typeof ReplanStationInput>;
 
 /**
+ * Where a route starts and where it ends, as artist names
+ * generated from [RoutePreviewInput](../../../../data/contracts/director/director.types.ck)
+ */
+export const RoutePreviewInput = z.strictObject({
+    from: z.string().min(1).max(200).describe('The artist to start at. The library has to hold a record by them'),
+    to: z.string().min(1).max(200).describe('The artist to end at. The library has to hold a record by them'),
+});
+export type RoutePreviewInput = z.infer<typeof RoutePreviewInput>;
+
+/**
+ * One artist on a route, and how it connects to the one before
+ * generated from [RouteStop](../../../../data/contracts/director/director.types.ck)
+ */
+export const RouteStop = z.strictObject({
+    artist: z.string().max(200),
+    link: z
+        .enum(['credit', 'similar'])
+        .optional()
+        .describe(
+            'How this stop connects to the one before: a record the two are credited on together, or a similarity source naming them alike. Absent on the first stop',
+        ),
+    sharedTitle: z.string().max(500).optional().describe('For a shared credit, the record they share'),
+    sharedLead: z.string().max(200).optional().describe("For a shared credit, that record's lead artist"),
+    source: z.string().max(200).optional().describe('For a similarity link, the plugin whose answer it was'),
+});
+export type RouteStop = z.infer<typeof RouteStop>;
+
+/**
  * Change how the station decides to be on air
  * generated from [SetStationAirInput](../../../../data/contracts/director/director.types.ck)
  */
@@ -381,6 +409,24 @@ export const StationOrderItem = z.strictObject({
         ),
 });
 export type StationOrderItem = z.infer<typeof StationOrderItem>;
+
+/**
+ * A route between two artists, or the news that there is none
+ * generated from [ArtistRoute](../../../../data/contracts/director/director.types.ck)
+ */
+export const ArtistRoute = z.strictObject({
+    found: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe("False when either end is not an artist the library holds a record by, or no route turned up within the search's bounds"),
+    stops: z.array(RouteStop).describe('In order, the first artist first. Empty when nothing was found'),
+    factual: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('How many hops rest on a record the two artists share'),
+    similar: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe("How many hops rest on a similarity source's opinion"),
+});
+export type ArtistRoute = z.infer<typeof ArtistRoute>;
 
 /**
  * The station's live running order: what is airing, item by item

@@ -124,6 +124,29 @@ data class ReplanStationInput(
     val brief: String? = null,
 )
 
+/** Where a route starts and where it ends, as artist names */
+@Serializable
+data class RoutePreviewInput(
+    /** The artist to start at. The library has to hold a record by them */
+    val from: String,
+    /** The artist to end at. The library has to hold a record by them */
+    val to: String,
+)
+
+/** One artist on a route, and how it connects to the one before */
+@Serializable
+data class RouteStop(
+    val artist: String,
+    /** How this stop connects to the one before: a record the two are credited on together, or a similarity source naming them alike. Absent on the first stop */
+    val link: RouteStopLink? = null,
+    /** For a shared credit, the record they share */
+    val sharedTitle: String? = null,
+    /** For a shared credit, that record's lead artist */
+    val sharedLead: String? = null,
+    /** For a similarity link, the plugin whose answer it was */
+    val source: String? = null,
+)
+
 /** Change how the station decides to be on air */
 @Serializable
 data class SetStationAirInput(
@@ -245,6 +268,19 @@ data class StationOrderItem(
     val overAtMs: Long? = null,
 )
 
+/** A route between two artists, or the news that there is none */
+@Serializable
+data class ArtistRoute(
+    /** False when either end is not an artist the library holds a record by, or no route turned up within the search's bounds */
+    val found: Boolean,
+    /** In order, the first artist first. Empty when nothing was found */
+    val stops: List<RouteStop>,
+    /** How many hops rest on a record the two artists share */
+    val factual: Long,
+    /** How many hops rest on a similarity source's opinion */
+    val similar: Long,
+)
+
 /** The station's live running order: what is airing, item by item */
 @Serializable
 data class StationOrder(
@@ -330,4 +366,13 @@ enum class PutOnAirInputMood {
     ANGER,
     @SerialName("fear")
     FEAR,
+}
+
+/** How this stop connects to the one before: a record the two are credited on together, or a similarity source naming them alike. Absent on the first stop */
+@Serializable
+enum class RouteStopLink {
+    @SerialName("credit")
+    CREDIT,
+    @SerialName("similar")
+    SIMILAR,
 }

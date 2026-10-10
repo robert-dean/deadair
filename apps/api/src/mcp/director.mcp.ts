@@ -7,14 +7,17 @@ import { requireMcpPolicy, type McpToolHandler, type McpToolHandlerMap, type Mcp
 import { PolicyService } from '@maroonedsoftware/policies';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 import { DirectorConsoleService } from '#src/modules/director/director.console.service.js';
+import { RouteService } from '#src/modules/director/route.service.js';
 import {
     AddStationSegmentInput,
     AddStationTrackInput,
+    ArtistRoute,
     ExtendStationInput,
     HoldStationInput,
     MoveStationItemInput,
     PutOnAirInput,
     ReplanStationInput,
+    RoutePreviewInput,
     SetStationAirInput,
     SetStationHostInput,
     StationAir,
@@ -36,6 +39,7 @@ const GetTheRunningOrderArgs = z.object({});
 const RecastTheBroadcastArgs = z.object({ body: SetStationHostInput });
 const ExtendTheRunningOrderArgs = z.object({ body: ExtendStationInput });
 const ReplanTheRunningOrderArgs = z.object({ body: ReplanStationInput });
+const PreviewAnArtistRouteArgs = z.object({ body: RoutePreviewInput });
 const HoldTheStationAgainstTheScheduleArgs = z.object({ body: HoldStationInput });
 const ReleaseTheStationToTheScheduleArgs = z.object({});
 const ShuffleTheRunningOrderArgs = z.object({});
@@ -204,6 +208,30 @@ export class ReplanTheRunningOrderMcpTool implements McpToolHandler {
         const { body } = await parseAndValidate(args, ReplanTheRunningOrderArgs);
         await container.get(DirectorConsoleService).replanOrder(body);
         return { content: [{ type: 'text', text: 'OK' }] };
+    }
+}
+
+/**
+ * from [director.ck](../../data/contracts/director/director.ck) `POST /director/route/preview`
+ */
+@Injectable()
+export class PreviewAnArtistRouteMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'preview_an_artist_route',
+        description:
+            'Finds a route from one artist to another through artists the library holds, and says how each stop connects to the one before. Nothing goes on air: this is what a route would be',
+        inputSchema: z.toJSONSchema(PreviewAnArtistRouteArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(ArtistRoute, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { body } = await parseAndValidate(args, PreviewAnArtistRouteArgs);
+        const result = await container.get(RouteService).preview(body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     }
 }
 
@@ -404,6 +432,7 @@ export function registerDirectorMcpCatalog(map: McpToolHandlerMap, container: Co
     map.set('recast_the_broadcast', container.get(RecastTheBroadcastMcpTool));
     map.set('extend_the_running_order', container.get(ExtendTheRunningOrderMcpTool));
     map.set('replan_the_running_order', container.get(ReplanTheRunningOrderMcpTool));
+    map.set('preview_an_artist_route', container.get(PreviewAnArtistRouteMcpTool));
     map.set('hold_the_station_against_the_schedule', container.get(HoldTheStationAgainstTheScheduleMcpTool));
     map.set('release_the_station_to_the_schedule', container.get(ReleaseTheStationToTheScheduleMcpTool));
     map.set('shuffle_the_running_order', container.get(ShuffleTheRunningOrderMcpTool));
@@ -423,6 +452,7 @@ export function registerDirectorMcpToolClasses(registry: Registry): void {
     registry.register(RecastTheBroadcastMcpTool).useClass(RecastTheBroadcastMcpTool).asSingleton();
     registry.register(ExtendTheRunningOrderMcpTool).useClass(ExtendTheRunningOrderMcpTool).asSingleton();
     registry.register(ReplanTheRunningOrderMcpTool).useClass(ReplanTheRunningOrderMcpTool).asSingleton();
+    registry.register(PreviewAnArtistRouteMcpTool).useClass(PreviewAnArtistRouteMcpTool).asSingleton();
     registry.register(HoldTheStationAgainstTheScheduleMcpTool).useClass(HoldTheStationAgainstTheScheduleMcpTool).asSingleton();
     registry.register(ReleaseTheStationToTheScheduleMcpTool).useClass(ReleaseTheStationToTheScheduleMcpTool).asSingleton();
     registry.register(ShuffleTheRunningOrderMcpTool).useClass(ShuffleTheRunningOrderMcpTool).asSingleton();

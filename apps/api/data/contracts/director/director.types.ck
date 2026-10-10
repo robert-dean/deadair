@@ -133,3 +133,23 @@ contract ReplanStationInput: { # Throw away everything the player is not already
     count?: int(min=1, max=100) # How many records to programme. Absent is roughly an hour
     brief?: string(max=500) # What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the station's ordinary rotation. It steers every later refill too, not just this one batch
 }
+
+contract RoutePreviewInput: { # Where a route starts and where it ends, as artist names
+    from: string(min=1, max=200) # The artist to start at. The library has to hold a record by them
+    to: string(min=1, max=200) # The artist to end at. The library has to hold a record by them
+}
+
+contract RouteStop: { # One artist on a route, and how it connects to the one before
+    artist: string(max=200)
+    link?: enum(credit, similar) # How this stop connects to the one before: a record the two are credited on together, or a similarity source naming them alike. Absent on the first stop
+    sharedTitle?: string(max=500) # For a shared credit, the record they share
+    sharedLead?: string(max=200) # For a shared credit, that record's lead artist
+    source?: string(max=200) # For a similarity link, the plugin whose answer it was
+}
+
+contract ArtistRoute: { # A route between two artists, or the news that there is none
+    found: boolean # False when either end is not an artist the library holds a record by, or no route turned up within the search's bounds
+    stops: array(RouteStop) # In order, the first artist first. Empty when nothing was found
+    factual: int(min=0) # How many hops rest on a record the two artists share
+    similar: int(min=0) # How many hops rest on a similarity source's opinion
+}

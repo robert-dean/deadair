@@ -68,6 +68,15 @@ public final class DirectorClient: Sendable {
         _ = try await http.execute(request)
     }
 
+    /// Preview an artist route
+    /// Finds a route from one artist to another through artists the library holds, and says how each stop connects to the one before. Nothing goes on air: this is what a route would be
+    public func previewAnArtistRoute(body: RoutePreviewInput) async throws -> ArtistRoute {
+        var request = SdkRequest(method: "POST", path: ["director", "route", "preview"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(ArtistRoute.self, from: response)
+    }
+
     /// Hold the station against the schedule
     /// Holds the running order against the schedule, so a block boundary does not take back what an operator put on. A takeover is otherwise stamped with whichever slot was in force and is replaced when that block ends, which is correct and gives nobody any warning
     public func holdTheStationAgainstTheSchedule(body: HoldStationInput) async throws -> StationAir {

@@ -50,6 +50,7 @@ import { PickResolver } from './pick.resolver.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { RouteRepository } from './route.repository.js';
+import { RouteService } from './route.service.js';
 import { ProviderTrackLookup } from './provider.track.lookup.js';
 import { SetGenerator } from './set.generator.js';
 import { SetGeneratorChain } from './set.generator.chain.js';
@@ -74,6 +75,7 @@ export const DirectorModule: ServerKitModule = {
         registry.register(StationAirRepository).useClass(StationAirRepository).asScoped();
         registry.register(PlayHistoryRepository).useClass(PlayHistoryRepository).asScoped();
         registry.register(RouteRepository).useClass(RouteRepository).asScoped();
+        registry.register(RouteService).useClass(RouteService).asScoped();
         registry.register(CandidatesRepository).useClass(CandidatesRepository).asScoped();
         // What the station has been asked to say, as opposed to what its own rules decided. Scoped
         // like the rest: the director opens a scope per unit of work and the render job gets one per

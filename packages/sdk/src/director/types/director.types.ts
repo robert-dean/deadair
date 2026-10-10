@@ -98,6 +98,33 @@ export interface ReplanStationInput {
 }
 
 /**
+ * Where a route starts and where it ends, as artist names
+ * generated from [RoutePreviewInput](../../../../../apps/api/data/contracts/director/director.types.ck)
+ */
+export interface RoutePreviewInput {
+    /** The artist to start at. The library has to hold a record by them */
+    from: string;
+    /** The artist to end at. The library has to hold a record by them */
+    to: string;
+}
+
+/**
+ * One artist on a route, and how it connects to the one before
+ * generated from [RouteStop](../../../../../apps/api/data/contracts/director/director.types.ck)
+ */
+export interface RouteStop {
+    artist: string;
+    /** How this stop connects to the one before: a record the two are credited on together, or a similarity source naming them alike. Absent on the first stop */
+    link?: 'credit' | 'similar';
+    /** For a shared credit, the record they share */
+    sharedTitle?: string;
+    /** For a shared credit, that record's lead artist */
+    sharedLead?: string;
+    /** For a similarity link, the plugin whose answer it was */
+    source?: string;
+}
+
+/**
  * Change how the station decides to be on air
  * generated from [SetStationAirInput](../../../../../apps/api/data/contracts/director/director.types.ck)
  */
@@ -224,6 +251,21 @@ export interface StationOrderItem {
     segmentWriter?: string;
     /** Heard OVER the record that follows, this far into it, with the music ducked under it. Such an item is never handed to the player in its own right */
     overAtMs?: number;
+}
+
+/**
+ * A route between two artists, or the news that there is none
+ * generated from [ArtistRoute](../../../../../apps/api/data/contracts/director/director.types.ck)
+ */
+export interface ArtistRoute {
+    /** False when either end is not an artist the library holds a record by, or no route turned up within the search's bounds */
+    found: boolean;
+    /** In order, the first artist first. Empty when nothing was found */
+    stops: RouteStop[];
+    /** How many hops rest on a record the two artists share */
+    factual: number;
+    /** How many hops rest on a similarity source's opinion */
+    similar: number;
 }
 
 /**

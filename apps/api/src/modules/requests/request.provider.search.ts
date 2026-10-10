@@ -6,14 +6,8 @@ import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.
 import { ProviderSearch, type FoundTrack } from '#modules/llm/provider.search.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { RequestSearchLimiter } from './request.search.limiter.js';
 import type { RequestableTrack } from './types/requests.types.js';
-
-/**
- * Fewer library matches than this and the providers are asked too. The presenter's search tool's
- * number, for the same reason: a library that answered with a handful of rows has answered, and a
- * provider asked anyway costs its rate limit and up to its timeout for rows nobody needed.
- */
-export const REQUEST_THIN = 3;
 
 /** How long one term's provider answer is reused, and how many terms are kept. */
 export const REQUEST_PROVIDER_TTL_MS = 60_000;
@@ -31,14 +25,24 @@ interface CacheEntry {
  * The provider half of the request search: records a music provider carries that the station does
  * not hold yet, so a listener can ask for one.
  *
- * ## Only when the library is thin, and only when the station may take records in
+ * ## On every search, but only when the station may take records in
  *
- * A request search runs as somebody types, and every provider is asked in turn with its own timeout,
- * three failures in a row of which quarantine it. So the providers are reached only when the
- * library's answer is thin, never when `rotation.discover` is off (a record from a provider becomes a
- * library record the moment it is asked for, which is exactly what that switch governs), and each
- * term's answer is kept for a minute. The cache is static because this class is scoped: an instance
- * cache would be new, and empty, on every request.
+ * A listener searching an artist the library holds three records by wants the rest of them, so the
+ * providers are asked whatever the library answered, and fill whatever room the library left on the
+ * page. The model's search tool stops at a thin library because a model asking for a record wants one;
+ * a person browsing wants the catalogue. What keeps that affordable is on both sides: the apps
+ * debounce the search box, so a term is sent once the typing settles rather than per letter, and each
+ * term's answer is kept here for a minute, since every provider is asked in turn with its own timeout
+ * and three failures in a row quarantine it. The cache is static because this class is scoped: an
+ * instance cache would be new, and empty, on every request.
+ *
+ * Neither of those binds a caller who is not one of the apps, so the server does its own debouncing.
+ * A term already being asked about joins that search rather than starting a second, and a term that
+ * would reach the providers fresh spends one of the caller's allowance and one of the station's
+ * (`RequestSearchLimiter`). Out of either, the search answers with the library alone, uncached, so the
+ * same term asked again once the budget refills is asked properly. Never when `rotation.discover` is off: a
+ * record from a provider becomes a library record the moment it is asked for, which is exactly what
+ * that switch governs.
  *
  * ## What is left out
  *
@@ -51,22 +55,27 @@ interface CacheEntry {
 @Injectable()
 export class RequestProviderSearch {
     private static readonly cache = new Map<string, CacheEntry>();
+    private static readonly inFlight = new Map<string, Promise<FoundTrack[]>>();
 
     constructor(
         private readonly providers: ProviderSearch,
         private readonly tracks: TracksRepository,
         private readonly registry: PluginRegistry,
         private readonly config: AppConfig,
+        private readonly limiter: RequestSearchLimiter,
     ) {}
 
-    /** Whether a search with this many library matches should reach the providers at all. */
-    reaches(libraryMatches: number): boolean {
-        return libraryMatches < REQUEST_THIN && settingIsOn(this.config, DISCOVER_KEY, DISCOVER_DEFAULT) && this.providers.canSearch();
+    /** Whether a search should reach the providers at all. */
+    reaches(): boolean {
+        return settingIsOn(this.config, DISCOVER_KEY, DISCOVER_DEFAULT) && this.providers.canSearch();
     }
 
-    /** Provider records for `query`, minus everything above, at most `limit` of them. */
-    async search(query: string, library: readonly { title: string; artist: string }[], limit: number): Promise<RequestableTrack[]> {
-        const reached = await this.reach(query);
+    /**
+     * Provider records for `query`, minus everything above, at most `limit` of them. `callerKey` is
+     * whose allowance a fresh provider search is spent from.
+     */
+    async search(query: string, library: readonly { title: string; artist: string }[], limit: number, callerKey: string): Promise<RequestableTrack[]> {
+        const reached = await this.reach(query, callerKey);
         if (reached.length === 0) return [];
 
         const [ownership, bannedArtists] = await Promise.all([
@@ -95,13 +104,35 @@ export class RequestProviderSearch {
         return rows;
     }
 
-    /** One term's provider answer, from the cache while it is fresh. */
-    private async reach(query: string): Promise<FoundTrack[]> {
+    /**
+     * One term's provider answer: from the cache while it is fresh, from the search already asking
+     * about it if there is one, and otherwise from the providers if the caller and the station both
+     * have the allowance. Nothing, and nothing cached, when they do not.
+     */
+    private async reach(query: string, callerKey: string): Promise<FoundTrack[]> {
         const key = query.trim().toLowerCase();
         const cached = RequestProviderSearch.cache.get(key);
         if (cached !== undefined && Date.now() - cached.at < REQUEST_PROVIDER_TTL_MS) return cached.tracks;
 
-        const { tracks } = await this.providers.search(query.trim(), {}, REQUEST_PROVIDER_LIMIT, { operation: 'requests.search.searchTracks' });
+        const pending = RequestProviderSearch.inFlight.get(key);
+        if (pending !== undefined) return pending;
+
+        // Registered before the wait on the limiter, so a second caller arriving during it joins
+        // rather than spending an allowance of its own on the same term.
+        const asking = this.ask(query.trim(), key, callerKey);
+        RequestProviderSearch.inFlight.set(key, asking);
+        try {
+            return await asking;
+        } finally {
+            RequestProviderSearch.inFlight.delete(key);
+        }
+    }
+
+    /** Ask the providers about one term if the allowance is there, and keep the answer for a minute. */
+    private async ask(query: string, key: string, callerKey: string): Promise<FoundTrack[]> {
+        if (!(await this.limiter.allows(callerKey))) return [];
+
+        const { tracks } = await this.providers.search(query, {}, REQUEST_PROVIDER_LIMIT, { operation: 'requests.search.searchTracks' });
 
         // Oldest out first: a Map iterates in insertion order, and a re-asked term is re-inserted.
         RequestProviderSearch.cache.delete(key);
@@ -113,9 +144,10 @@ export class RequestProviderSearch {
         return tracks;
     }
 
-    /** For tests: forget every cached answer. */
+    /** For tests: forget every cached answer and every search in flight. */
     static forget(): void {
         RequestProviderSearch.cache.clear();
+        RequestProviderSearch.inFlight.clear();
     }
 }
 

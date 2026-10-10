@@ -19,7 +19,7 @@ import kotlinx.serialization.Serializable
 class RequestsClient(private val http: SdkHttp) {
     /**
      * Search requestable records
-     * Records the station could be asked to play, matching a title or an artist. When the station holds few, the music providers are asked too
+     * Records the station could be asked to play, matching a title or an artist, then what the music providers carry in the room left
      */
     suspend fun searchRequestableRecords(query: SearchRequestableRecordsQuery): RequestableTrackList {
         val response = http.execute(HttpMethod.Get) {

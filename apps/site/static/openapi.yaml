@@ -5110,7 +5110,7 @@ paths:
         get:
             operationId: search
             summary: 'Search requestable records'
-            description: 'Records the station could be asked to play, matching a title or an artist. When the station holds few, the music providers are asked too'
+            description: 'Records the station could be asked to play, matching a title or an artist, then what the music providers carry in the room left'
             parameters:
                 - name: q
                   in: query

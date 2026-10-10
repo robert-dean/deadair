@@ -1,10 +1,12 @@
 import { Container, Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { Redis } from 'ioredis';
 import { RequestAiredWatch } from './request.aired.watch.js';
 import { RequestDesk } from './request.desk.js';
 import { RequestsRepository } from './requests.repository.js';
 import { RequestProviderSearch } from './request.provider.search.js';
+import { RequestSearchLimiter } from './request.search.limiter.js';
 import { RequestsService } from './requests.service.js';
 
 /**
@@ -22,6 +24,12 @@ export const RequestsModule: ServerKitModule = {
     setup: async (registry: Registry, _: AppConfig) => {
         registry.register(RequestsRepository).useClass(RequestsRepository).asScoped();
         registry.register(RequestDesk).useClass(RequestDesk).asScoped();
+        // A singleton over the one Redis client, as `SignInMailLimiter` is: the budget is shared by every
+        // request, and a scoped limiter would build two Redis-backed limiters per search to say so.
+        registry
+            .register(RequestSearchLimiter)
+            .useFactory(container => new RequestSearchLimiter(container.get(Redis)))
+            .asSingleton();
         registry.register(RequestProviderSearch).useClass(RequestProviderSearch).asScoped();
         registry.register(RequestsService).useClass(RequestsService).asScoped();
         registry.register(RequestAiredWatch).useClass(RequestAiredWatch).asSingleton();

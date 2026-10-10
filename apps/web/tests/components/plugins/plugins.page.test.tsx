@@ -57,12 +57,13 @@ function PluginsPage({ initial = PLUGINS_PAGE_DEFAULTS }: { initial?: PluginsPag
 /** A tarball as the browser hands one over. Its bytes are the server's business. */
 const tarball = () => new File([new Uint8Array([0x1f, 0x8b, 0x08])], 'apple-music-charts-0.1.0.tgz', { type: 'application/gzip' });
 
-/** Opens the import dialog, chooses a tarball, and presses Import. */
+/** Opens the import dialog, chooses a tarball, says the code is trusted, and presses Import. */
 async function importTarball(): Promise<void> {
     const user = setupUser();
     await user.click(await screen.findByRole('button', { name: 'Import' }));
     await user.upload(await screen.findByLabelText('Plugin tarball'), tarball());
     const dialog = await screen.findByRole('dialog', { name: 'Import a plugin' });
+    await user.click(within(dialog).getByRole('checkbox', { name: 'I trust this code and whoever wrote it' }));
     await user.click(within(dialog).getByRole('button', { name: 'Import' }));
 }
 
@@ -318,6 +319,25 @@ describe('PluginsPage', () => {
         await waitFor(() => {
             expect(screen.queryByRole('dialog', { name: 'Import a plugin' })).not.toBeInTheDocument();
         });
+    });
+
+    it('sends nothing until the operator says they trust the code, because importing runs it', async () => {
+        listPlugins.mockResolvedValue([pluginSummary()]);
+        const user = setupUser();
+
+        render(<PluginsPage />);
+        await user.click(await screen.findByRole('button', { name: 'Import' }));
+        await user.upload(await screen.findByLabelText('Plugin tarball'), tarball());
+        const dialog = await screen.findByRole('dialog', { name: 'Import a plugin' });
+
+        expect(within(dialog).getByText(/Importing a plugin runs its code/)).toBeInTheDocument();
+        const submit = within(dialog).getByRole('button', { name: 'Import' });
+        expect(submit).toBeDisabled();
+        await user.click(submit);
+        expect(importPlugin).not.toHaveBeenCalled();
+
+        await user.click(within(dialog).getByRole('checkbox', { name: 'I trust this code and whoever wrote it' }));
+        expect(submit).toBeEnabled();
     });
 
     it('stays open to say a restart is needed when the same version was already loaded', async () => {

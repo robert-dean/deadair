@@ -251,8 +251,9 @@ export const plugins = {
     import: {
         title: 'Import a plugin',
         warning:
-            'Only import a plugin from somebody you trust: the station reads what it is by loading its code, as a rescan does. It arrives switched off, and nothing about the station changes until you enable it.',
-        done: '{{name}} imported. It stays off until you enable it.',
+            'Importing a plugin runs its code. The station reads what a plugin is by loading it, as a rescan does, so its code runs inside the server, with the server’s own privileges, the moment it is imported. It arrives switched off, which only means the station does not use it for anything until you enable it.',
+        confirm: 'I trust this code and whoever wrote it',
+        done: '{{name}} imported. Its code has run; the station does not use it until you enable it.',
         error: {
             title: 'That plugin was not imported',
             forbidden: 'Importing a plugin is an administrator action.',
@@ -291,7 +292,7 @@ export const plugins = {
         loadFailedFallback: 'The plugin catalogue is unavailable.',
         empty: {
             title: 'No plugins are mounted',
-            body: "Import a plugin, or drop one into the host's plugin directory and rescan. Nothing about the station changes until one is enabled.",
+            body: "Import a plugin, or drop one into the host's plugin directory and rescan. Either way its code runs as it is loaded; the station uses it only once it is enabled.",
         },
         search: 'Search plugins',
         show: {

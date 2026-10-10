@@ -44,8 +44,12 @@ export class PluginInstallService {
      * live instance, which then has nothing left that can close it. And the rescan comes after the new
      * folder is in place, so the registry is rebuilt from what is on disk rather than patched.
      *
-     * An enabled plugin comes back up on the new code with its settings, as it would after a restart;
-     * one the station has never seen lands `discovered`, which is disabled until somebody acts.
+     * **Importing RUNS the plugin.** Staging and the rescan both load its entry to read the manifest,
+     * so its code has run in this process, with this process's privileges, before this returns. An
+     * enabled plugin comes back up on the new code with its settings, as it would after a restart;
+     * one the station has never seen lands `discovered`, which means only that the station does not
+     * USE it until somebody enables it, never that it has not run. The console asks the operator to
+     * say they trust the code before it sends the tarball, for that reason.
      *
      * @throws 409 the id belongs to a plugin bundled with the station. Everything `stage` throws.
      */

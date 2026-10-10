@@ -62,7 +62,7 @@ The station unpacks it into a folder of its own, `<name>-<version>` inside the p
 - more than 64 MB as uploaded, or more than 256 MB unpacked
 - an `id` that belongs to a plugin bundled with the station
 
-An imported plugin arrives switched off. A plugin whose `id` is already installed is replaced, whatever its package is called, and keeps its settings.
+An imported plugin arrives switched off, but its code has already run: the station loads the entry to read the manifest. Switched off means only that the station does not use it until it is enabled. A plugin whose `id` is already installed is replaced, whatever its package is called, and keeps its settings.
 
 ## Where the plugins directory is
 

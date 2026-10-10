@@ -170,6 +170,21 @@ export interface VocalMarkersDetail {
 export interface VocalMarkersDetailInput {}
 
 /**
+ * One timed line of a record's lyrics. Times are milliseconds from the start of the file.
+ * generated from [LyricLineDetail](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
+ */
+export interface LyricLineDetail {
+    /** Where the line starts */
+    atMs: number;
+    /** Where the line ends, when the source published one. Absent rather than guessed */
+    endMs?: number;
+    /** The words of the line. Empty for a gap the source marked between lines */
+    text: string;
+}
+
+export interface LyricLineDetailInput {}
+
+/**
  * An operator's correction: either the record is instrumental, or the singing starts at `onsetMs`.
  * generated from [VocalMarkersInput](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
  */
@@ -414,6 +429,54 @@ export interface TrackInput {
 }
 
 /**
+ * The station's answer for one record's lyrics: the words from the source it believes, or that nobody
+ * sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
+ * player following along adds the record's cue-in to how long it has been on air.
+ * generated from [TrackLyrics](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
+ */
+export interface TrackLyrics {
+    trackId: string;
+    /** The words are here; a source says nobody sings on it; or no source has an answer yet */
+    kind: 'words' | 'instrumental' | 'none';
+    /** The plugin whose answer this is, when kind is words or instrumental */
+    provider?: string;
+    /** The words without timings, when that source has them */
+    plain?: string;
+    /** The timed lines, when that source has them. Preferred over plain when choosing a source */
+    synced?: LyricLineDetail[];
+    /** A BCP 47 tag, when the source stated one */
+    language?: string;
+}
+
+export interface TrackLyricsInput {}
+
+/**
+ * One lyrics source's answer for one record. A source that was asked and had nothing is not listed.
+ * generated from [TrackLyricsSource](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
+ */
+export interface TrackLyricsSource {
+    /** The plugin that answered */
+    provider: string;
+    /** The source's own id for what it matched */
+    providerRef?: string;
+    plain?: string;
+    synced?: LyricLineDetail[];
+    language?: string;
+    /** The source says nobody sings on this record, so it holds no words */
+    instrumental: boolean;
+    fetchedAt: DateTime;
+}
+
+export interface TrackLyricsSourceInput {}
+
+/** Rehydrates every wire-encoded scalar in a TrackLyricsSource into its runtime type. Mutates and returns `raw`. */
+export function reviveTrackLyricsSource(raw: TrackLyricsSource): TrackLyricsSource {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['fetchedAt'] = __dt(__o0['fetchedAt'], 'TrackLyricsSource.fetchedAt');
+    return raw;
+}
+
+/**
  * Pagination plus a name filter. Every list operation here takes it, so the console's search box
  * narrows server-side rather than filtering one page client-side and lying about the total.
  * generated from [CatalogQuery](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
@@ -588,6 +651,29 @@ export interface TrackRow extends Track {
 }
 
 export interface TrackRowInput extends TrackInput {}
+
+/**
+ * Every lyrics source's answer for one record, in the order the station believes them.
+ * generated from [TrackLyricsSources](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
+ */
+export interface TrackLyricsSources {
+    trackId: string;
+    sources: TrackLyricsSource[];
+}
+
+export interface TrackLyricsSourcesInput {}
+
+/** Rehydrates every wire-encoded scalar in a TrackLyricsSources into its runtime type. Mutates and returns `raw`. */
+export function reviveTrackLyricsSources(raw: TrackLyricsSources): TrackLyricsSources {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    {
+        const __a1 = __o0['sources'] as unknown[];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            reviveTrackLyricsSource(__a1[__i2] as never);
+        }
+    }
+    return raw;
+}
 
 /**
  * A track list, narrowed by what the station has of each record as well as by name.

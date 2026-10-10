@@ -1,6 +1,6 @@
 ---
 title: 'TrackQuery'
-sidebar_position: 18
+sidebar_position: 22
 mdx:
     format: 'md'
 ---

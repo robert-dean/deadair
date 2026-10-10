@@ -381,6 +381,55 @@ public struct VocalMarkersDetailInput: Codable, Equatable, Sendable {
     }
 }
 
+/// One timed line of a record's lyrics. Times are milliseconds from the start of the file.
+public struct LyricLineDetail: Codable, Equatable, Sendable {
+    /// Where the line starts
+    public var atMs: Int
+    /// Where the line ends, when the source published one. Absent rather than guessed
+    public var endMs: Int?
+    /// The words of the line. Empty for a gap the source marked between lines
+    public var text: String
+
+    public init(atMs: Int, endMs: Int? = nil, text: String) {
+        self.atMs = atMs
+        self.endMs = endMs
+        self.text = text
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case atMs = "atMs"
+        case endMs = "endMs"
+        case text = "text"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.atMs = try container.decode(Int.self, forKey: .atMs)
+        self.endMs = try container.decodeIfPresent(Int.self, forKey: .endMs)
+        self.text = try container.decode(String.self, forKey: .text)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.atMs, forKey: .atMs)
+        try container.encodeIfPresent(self.endMs, forKey: .endMs)
+        try container.encode(self.text, forKey: .text)
+    }
+}
+
+/// One timed line of a record's lyrics. Times are milliseconds from the start of the file.
+public struct LyricLineDetailInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
 /// An operator's correction: either the record is instrumental, or the singing starts at `onsetMs`.
 public struct VocalMarkersInput: Codable, Equatable, Sendable {
     /// Nobody sings on this record, whatever its lyrics say
@@ -1101,6 +1150,145 @@ public struct TrackInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.year, forKey: .year)
         try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
         try container.encode(self.rating, forKey: .rating)
+    }
+}
+
+/// The station's answer for one record's lyrics: the words from the source it believes, or that nobody
+/// sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
+/// player following along adds the record's cue-in to how long it has been on air.
+public struct TrackLyrics: Codable, Equatable, Sendable {
+    public var trackId: UUID
+    /// The words are here; a source says nobody sings on it; or no source has an answer yet
+    public var kind: TrackLyricsKind
+    /// The plugin whose answer this is, when kind is words or instrumental
+    public var provider: String?
+    /// The words without timings, when that source has them
+    public var plain: String?
+    /// The timed lines, when that source has them. Preferred over plain when choosing a source
+    public var synced: [LyricLineDetail]?
+    /// A BCP 47 tag, when the source stated one
+    public var language: String?
+
+    public init(trackId: UUID, kind: TrackLyricsKind, provider: String? = nil, plain: String? = nil, synced: [LyricLineDetail]? = nil, language: String? = nil) {
+        self.trackId = trackId
+        self.kind = kind
+        self.provider = provider
+        self.plain = plain
+        self.synced = synced
+        self.language = language
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case trackId = "trackId"
+        case kind = "kind"
+        case provider = "provider"
+        case plain = "plain"
+        case synced = "synced"
+        case language = "language"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.trackId = try container.decode(UUID.self, forKey: .trackId)
+        self.kind = try container.decode(TrackLyricsKind.self, forKey: .kind)
+        self.provider = try container.decodeIfPresent(String.self, forKey: .provider)
+        self.plain = try container.decodeIfPresent(String.self, forKey: .plain)
+        self.synced = try container.decodeIfPresent([LyricLineDetail].self, forKey: .synced)
+        self.language = try container.decodeIfPresent(String.self, forKey: .language)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.trackId, forKey: .trackId)
+        try container.encode(self.kind, forKey: .kind)
+        try container.encodeIfPresent(self.provider, forKey: .provider)
+        try container.encodeIfPresent(self.plain, forKey: .plain)
+        try container.encodeIfPresent(self.synced, forKey: .synced)
+        try container.encodeIfPresent(self.language, forKey: .language)
+    }
+}
+
+/// The station's answer for one record's lyrics: the words from the source it believes, or that nobody
+/// sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
+/// player following along adds the record's cue-in to how long it has been on air.
+public struct TrackLyricsInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
+/// One lyrics source's answer for one record. A source that was asked and had nothing is not listed.
+public struct TrackLyricsSource: Codable, Equatable, Sendable {
+    /// The plugin that answered
+    public var provider: String
+    /// The source's own id for what it matched
+    public var providerRef: String?
+    public var plain: String?
+    public var synced: [LyricLineDetail]?
+    public var language: String?
+    /// The source says nobody sings on this record, so it holds no words
+    public var instrumental: Bool
+    public var fetchedAt: Date
+
+    public init(provider: String, providerRef: String? = nil, plain: String? = nil, synced: [LyricLineDetail]? = nil, language: String? = nil, instrumental: Bool, fetchedAt: Date) {
+        self.provider = provider
+        self.providerRef = providerRef
+        self.plain = plain
+        self.synced = synced
+        self.language = language
+        self.instrumental = instrumental
+        self.fetchedAt = fetchedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case provider = "provider"
+        case providerRef = "providerRef"
+        case plain = "plain"
+        case synced = "synced"
+        case language = "language"
+        case instrumental = "instrumental"
+        case fetchedAt = "fetchedAt"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.provider = try container.decode(String.self, forKey: .provider)
+        self.providerRef = try container.decodeIfPresent(String.self, forKey: .providerRef)
+        self.plain = try container.decodeIfPresent(String.self, forKey: .plain)
+        self.synced = try container.decodeIfPresent([LyricLineDetail].self, forKey: .synced)
+        self.language = try container.decodeIfPresent(String.self, forKey: .language)
+        self.instrumental = try container.decode(Bool.self, forKey: .instrumental)
+        self.fetchedAt = try container.decode(Date.self, forKey: .fetchedAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.provider, forKey: .provider)
+        try container.encodeIfPresent(self.providerRef, forKey: .providerRef)
+        try container.encodeIfPresent(self.plain, forKey: .plain)
+        try container.encodeIfPresent(self.synced, forKey: .synced)
+        try container.encodeIfPresent(self.language, forKey: .language)
+        try container.encode(self.instrumental, forKey: .instrumental)
+        try container.encode(self.fetchedAt, forKey: .fetchedAt)
+    }
+}
+
+/// One lyrics source's answer for one record. A source that was asked and had nothing is not listed.
+public struct TrackLyricsSourceInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
     }
 }
 
@@ -1895,6 +2083,47 @@ public struct TrackRowInput: Codable, Equatable, Sendable {
     }
 }
 
+/// Every lyrics source's answer for one record, in the order the station believes them.
+public struct TrackLyricsSources: Codable, Equatable, Sendable {
+    public var trackId: UUID
+    public var sources: [TrackLyricsSource]
+
+    public init(trackId: UUID, sources: [TrackLyricsSource]) {
+        self.trackId = trackId
+        self.sources = sources
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case trackId = "trackId"
+        case sources = "sources"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.trackId = try container.decode(UUID.self, forKey: .trackId)
+        self.sources = try container.decode([TrackLyricsSource].self, forKey: .sources)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.trackId, forKey: .trackId)
+        try container.encode(self.sources, forKey: .sources)
+    }
+}
+
+/// Every lyrics source's answer for one record, in the order the station believes them.
+public struct TrackLyricsSourcesInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
 /// A track list, narrowed by what the station has of each record as well as by name.
 ///
 /// Its own contract rather than a field on `CatalogQuery`, because that one is shared with the artist
@@ -2555,5 +2784,12 @@ public enum VocalMarkersDetailKind: String, Codable, CaseIterable, Sendable {
 public enum VocalMarkersDetailSource: String, Codable, CaseIterable, Sendable {
     case override = "override"
     case lyrics = "lyrics"
+    case none = "none"
+}
+
+/// The words are here; a source says nobody sings on it; or no source has an answer yet
+public enum TrackLyricsKind: String, Codable, CaseIterable, Sendable {
+    case words = "words"
+    case instrumental = "instrumental"
     case none = "none"
 }

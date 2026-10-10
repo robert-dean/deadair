@@ -1,6 +1,6 @@
 ---
 title: 'ArtistEnrichmentSource'
-sidebar_position: 30
+sidebar_position: 34
 mdx:
     format: 'md'
 ---

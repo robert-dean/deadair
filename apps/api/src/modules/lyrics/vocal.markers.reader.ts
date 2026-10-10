@@ -1,7 +1,6 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
-import { pluginOrder } from '#modules/plugins/plugin.order.js';
-import { LYRICS_KEYS } from './lyrics.keys.js';
+import { lyricsProviderRank } from './lyrics.rank.js';
 import { LyricsRepository, type StoredTiming, type VocalOverride } from './lyrics.repository.js';
 import { UNKNOWN_MARKERS, vocalMarkers, type VocalMarkers } from './vocal.ranges.js';
 
@@ -60,19 +59,13 @@ export class VocalMarkersReader {
         if (unique.length === 0) return answers;
 
         const [rows, overrides] = await Promise.all([this.repository.timingsForTracks(unique), this.repository.overridesForTracks(unique)]);
-        const order = pluginOrder(this.config, LYRICS_KEYS.providerOrder);
-        const rank = (provider: string) => {
-            const listed = order.indexOf(provider);
-            return listed === -1 ? order.length : listed;
-        };
+        const rank = lyricsProviderRank(this.config);
 
         const byTrack = new Map<string, StoredTiming[]>();
         for (const row of rows) byTrack.set(row.trackId, [...(byTrack.get(row.trackId) ?? []), row]);
 
         for (const trackId of unique) {
-            const own = (byTrack.get(trackId) ?? []).sort(
-                (left, right) => rank(left.provider) - rank(right.provider) || left.provider.localeCompare(right.provider),
-            );
+            const own = (byTrack.get(trackId) ?? []).sort(rank);
             const derived = own.length === 0 ? UNKNOWN_MARKERS : vocalMarkers(own);
             const override = overrides.get(trackId);
 

@@ -1,6 +1,6 @@
 ---
 title: 'AlbumEnrichmentSource'
-sidebar_position: 31
+sidebar_position: 35
 mdx:
     format: 'md'
 ---

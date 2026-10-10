@@ -3,6 +3,7 @@ import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@marooneds
 import { AlbumsService } from '#src/modules/catalog/albums.service.js';
 import { ArtistsService } from '#src/modules/catalog/artists.service.js';
 import { EnrichmentReadService } from '#src/modules/enrichment/enrichment.read.service.js';
+import { LyricsReadService } from '#src/modules/lyrics/lyrics.read.service.js';
 import { TracksService } from '#src/modules/catalog/tracks.service.js';
 import { VocalMarkersService } from '#src/modules/lyrics/vocal.markers.service.js';
 import {
@@ -19,6 +20,8 @@ import {
     TrackClearResult,
     TrackDetail,
     TrackEnrichmentDetail,
+    TrackLyrics,
+    TrackLyricsSources,
     TrackPage,
     TrackQueryInput,
     VocalMarkersDetail,
@@ -343,6 +346,46 @@ CatalogRouter.delete('/catalog/tracks/:id/vocal-markers', requirePolicy({ policy
 
     const service = ctx.container.get(VocalMarkersService);
     const result: VocalMarkersDetail = await service.clearVocalMarkers(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * The words of one record, from the lyrics source the station believes, with the timing of each line when that source has it
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/tracks/{id}/lyrics`
+ */
+CatalogRouter.get('/catalog/tracks/:id/lyrics', requirePolicy({ policy: 'platform.view' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const service = ctx.container.get(LyricsReadService);
+    const result: TrackLyrics = await service.getTrackLyrics(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * What every lyrics source answered for one record, in the order the station believes them
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/tracks/{id}/lyrics/sources`
+ */
+CatalogRouter.get('/catalog/tracks/:id/lyrics/sources', requirePolicy({ policy: 'platform.view' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const service = ctx.container.get(LyricsReadService);
+    const result: TrackLyricsSources = await service.listTrackLyricsSources(id);
 
     ctx.status = 200;
     ctx.type = 'application/json';

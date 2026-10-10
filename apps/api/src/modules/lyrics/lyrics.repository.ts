@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
+import type { DateTime } from 'luxon';
 import type { LyricLine } from '@deadair/plugin-sdk';
 import { DataRepository } from '#modules/data/data.repository.js';
 import { failureBackoff } from '#modules/data/failure.backoff.js';
@@ -30,6 +31,17 @@ export interface StoredTiming {
     synced?: LyricLine[];
 }
 
+/** One source's answer for one record, as a signed-in client is shown it. Never a miss or a failure. */
+export interface ServedLyrics {
+    provider: string;
+    providerRef?: string;
+    plain?: string;
+    synced?: LyricLine[];
+    language?: string;
+    instrumental: boolean;
+    fetchedAt: DateTime;
+}
+
 /** An operator's correction: the record is instrumental, or its singing starts at `onsetMs` (and stops at `endMs`). */
 export type VocalOverride = { instrumental: true } | { instrumental: false; onsetMs: number; endMs?: number };
 
@@ -38,9 +50,10 @@ const nullable = <T>(value: T | null | undefined): T | undefined => (value == nu
 /**
  * `deadair.track_lyrics`: the words of a record, which the station reads and never says.
  *
- * **Nothing here returns lyric text to a caller that could put it on the wire.** The walk writes it,
- * and the only reads of the text itself are the derivations, which reach it through methods named
- * for that so every caller is greppable. A count, a flag and a timing are what everything else gets.
+ * **The text has two kinds of reader, each through a method named for it so every caller is
+ * greppable.** The derivations (`textForDerivation`, `timingsForTracks`) turn it into markers, moods
+ * and subjects. `wordsForServing` hands it to the read-only lyrics routes, for a signed-in client to
+ * show. Nothing reads it to put in a prompt or to say on air.
  */
 @Injectable()
 export class LyricsRepository extends DataRepository {
@@ -187,6 +200,32 @@ export class LyricsRepository extends DataRepository {
             provider: row.provider,
             instrumental: row.instrumental,
             ...(row.synced == null ? {} : { synced: row.synced as unknown as LyricLine[] }),
+        }));
+    }
+
+    /**
+     * Every source's answer for one record: each row that holds words or says instrumental. Misses
+     * and failures are bookkeeping and are left out.
+     *
+     * For the read-only lyrics routes and nothing else. What this returns goes to a signed-in client
+     * to show, and never into a prompt.
+     */
+    async wordsForServing(trackId: string): Promise<ServedLyrics[]> {
+        const rows = await this.db
+            .selectFrom('deadair.trackLyrics')
+            .select(['provider', 'providerRef', 'plain', 'synced', 'language', 'instrumental', 'fetchedAt'])
+            .where('trackId', '=', trackId)
+            .where(eb => eb.or([eb('plain', 'is not', null), eb('synced', 'is not', null), eb('instrumental', '=', true)]))
+            .execute();
+
+        return rows.map(row => ({
+            provider: row.provider,
+            ...(row.providerRef == null ? {} : { providerRef: row.providerRef }),
+            ...(row.plain == null ? {} : { plain: row.plain }),
+            ...(row.synced == null ? {} : { synced: row.synced as unknown as LyricLine[] }),
+            ...(row.language == null ? {} : { language: row.language }),
+            instrumental: row.instrumental,
+            fetchedAt: row.fetchedAt,
         }));
     }
 

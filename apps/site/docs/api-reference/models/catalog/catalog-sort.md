@@ -1,6 +1,6 @@
 ---
 title: 'CatalogSort'
-sidebar_position: 14
+sidebar_position: 18
 mdx:
     format: 'md'
 ---

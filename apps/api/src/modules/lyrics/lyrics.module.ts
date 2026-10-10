@@ -4,6 +4,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { LyricLabelsRepository } from './lyric.labels.repository.js';
 import { LyricMoodsService } from './lyric.moods.service.js';
 import { LyricSubjectsService } from './lyric.subjects.service.js';
+import { LyricsReadService } from './lyrics.read.service.js';
 import { LyricsRepository } from './lyrics.repository.js';
 import { LyricsService } from './lyrics.service.js';
 import { VocalMarkersReader } from './vocal.markers.reader.js';
@@ -29,5 +30,7 @@ export const LyricsModule: ServerKitModule = {
         registry.register(VocalMarkersReader).useClass(VocalMarkersReader).asScoped();
         // The operator's side of the same markers, behind `/catalog/tracks/{id}/vocal-markers`.
         registry.register(VocalMarkersService).useClass(VocalMarkersService).asScoped();
+        // The words themselves, read-only, behind `/catalog/tracks/{id}/lyrics`.
+        registry.register(LyricsReadService).useClass(LyricsReadService).asScoped();
     },
 };

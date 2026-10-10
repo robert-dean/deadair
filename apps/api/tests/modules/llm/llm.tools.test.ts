@@ -2,6 +2,7 @@
 // question and "that did not work" is a true reply to it, which it can act on. Throwing instead
 // would lose a whole generation over a search that timed out.
 
+import { getEventListeners } from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import type { LlmToolCall } from '@deadair/plugin-sdk';
 
@@ -123,5 +124,74 @@ describe('running a call', () => {
 
         expect(answer.length).toBeLessThan(10_000);
         expect(answer).toContain('truncated');
+    });
+});
+
+// The gate takes the slot back by aborting the holder's signal. A conversation waiting on a tool that
+// never looks at that signal used to keep waiting anyway, holding the one model slot for as long as
+// the upstream took, while the break that asked for it gave up and went to the floor.
+describe('a call the conversation stopped', () => {
+    const registryWith = (tools: StationTool[]) => new ToolRegistry([source(tools)], logger());
+
+    /** A tool that never answers and never looks at its signal, which is what a hung upstream is. */
+    const hung = () => tool('hung', () => new Promise<unknown>(() => undefined));
+
+    it('answers promptly when the signal aborts mid-call, whatever the tool is doing', async () => {
+        const registry = registryWith([hung()]);
+        const controller = new AbortController();
+
+        const answering = registry.run(call('hung'), await registry.tools(), controller.signal);
+        controller.abort();
+
+        await expect(answering).resolves.toBe('The tool "hung" was stopped.');
+    });
+
+    it('does not start a tool at all once the signal has already aborted', async () => {
+        const run = vi.fn(async () => 'ok');
+        const registry = registryWith([tool('search', run)]);
+        const controller = new AbortController();
+        controller.abort();
+
+        await expect(registry.run(call('search'), await registry.tools(), controller.signal)).resolves.toBe('The tool "search" was stopped.');
+        expect(run).not.toHaveBeenCalled();
+    });
+
+    it('leaves no listener on the signal once the call has settled', async () => {
+        // One signal spans a whole conversation and every call in it. A listener per call left
+        // behind is a leak that grows with every search a refill makes.
+        const registry = registryWith([
+            tool('works', async () => 1),
+            tool('fails', async () => {
+                throw new Error('down');
+            }),
+        ]);
+        const tools = await registry.tools();
+        const controller = new AbortController();
+
+        await registry.run(call('works'), tools, controller.signal);
+        await registry.run(call('fails'), tools, controller.signal);
+
+        expect(getEventListeners(controller.signal, 'abort')).toHaveLength(0);
+    });
+
+    it('swallows a rejection that arrives after it has already answered', async () => {
+        let fail: (error: Error) => void = () => undefined;
+        const registry = registryWith([tool('late', () => new Promise<unknown>((_resolve, reject) => (fail = reject)))]);
+        const controller = new AbortController();
+        const unhandled = vi.fn();
+        process.on('unhandledRejection', unhandled);
+
+        try {
+            const answering = registry.run(call('late'), await registry.tools(), controller.signal);
+            controller.abort();
+            await expect(answering).resolves.toContain('was stopped');
+
+            fail(new Error('the upstream finally gave up'));
+            await new Promise(resolve => setImmediate(resolve));
+
+            expect(unhandled).not.toHaveBeenCalled();
+        } finally {
+            process.off('unhandledRejection', unhandled);
+        }
     });
 });

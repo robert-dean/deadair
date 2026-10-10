@@ -608,6 +608,50 @@ describe('preemption', () => {
         expect(gate.generating()).toBe(false);
     });
 
+    it('comes back promptly when the model is taken away while a tool hangs', async () => {
+        // The other place a conversation waits. A search whose upstream never answers, and which
+        // never looks at the signal, used to hold the slot until the upstream gave up.
+        const calls: LlmToolCall[] = [
+            { id: 'a', name: 'hung', arguments: {} },
+            { id: 'b', name: 'search', arguments: {} },
+        ];
+        const { record, asked } = scriptedPlugin([{ text: 'let me check', toolCalls: calls }, { text: 'never asked for' }]);
+        let started!: () => void;
+        const running = new Promise<void>(resolve => (started = resolve));
+        const search = vi.fn(async () => 'found');
+        const { service, gate } = serviceFor(record, [
+            tool('hung', () => {
+                started();
+                return new Promise<unknown>(() => undefined);
+            }),
+            tool('search', search),
+        ]);
+
+        const conversing = service.converse(ask(), { priority: 'background' });
+        await running;
+
+        const broke = gate.hold(async () => 'the break got in', { priority: 'air' });
+        const result = await conversing;
+
+        expect(result.finishReason).toBe('preempted');
+        // The second call was never started, and no generation was begun on a slot already taken.
+        expect(search).not.toHaveBeenCalled();
+        expect(asked).toHaveLength(1);
+        expect(result.toolCallsMade).toBe(0);
+        expect(result.transcript.at(-1)).toEqual({ role: 'tool', toolCallId: 'a', content: 'The tool "hung" was stopped.' });
+        await expect(broke).resolves.toBe('the break got in');
+        expect(gate.generating()).toBe(false);
+    });
+
+    it('says the budget ran out when a tool outlasts it', async () => {
+        const { record } = scriptedPlugin([{ toolCalls: [{ id: 'a', name: 'hung', arguments: {} }] }, { text: 'never asked for' }]);
+        const { service } = serviceFor(record, [tool('hung', () => new Promise<unknown>(() => undefined))]);
+
+        const result = await service.converse(ask(), { priority: 'background', budgetMs: 30 });
+
+        expect(result.finishReason).toBe('budget');
+    });
+
     it("passes the provider's own reason through when nothing took the model away", async () => {
         // The other half: `'preempted'` is the host's word and must never displace what the model
         // actually said about its own stopping, or a real ceiling hit becomes unreadable instead.

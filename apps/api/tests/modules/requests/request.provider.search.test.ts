@@ -74,7 +74,7 @@ describe('RequestProviderSearch', () => {
                 year: 1959,
             },
         ]);
-        expect(search).toHaveBeenCalledWith('blueberry', {}, 25, 'requests.search.searchTracks');
+        expect(search).toHaveBeenCalledWith('blueberry', {}, 25, { operation: 'requests.search.searchTracks' });
     });
 
     it('leaves out what the library showed, what the catalog holds, and what was disliked', async () => {

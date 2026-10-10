@@ -403,7 +403,16 @@ describe('MusicSearchTool', () => {
         await run(tool, { query: 'synth', yearFrom: 1980, yearTo: 1989 });
 
         expect(searchPlayable).toHaveBeenCalledWith('synth', 25, false, { yearFrom: 1980, yearTo: 1989 });
-        expect(search).toHaveBeenCalledWith('synth', { yearFrom: 1980, yearTo: 1989 }, 25);
+        expect(search).toHaveBeenCalledWith('synth', { yearFrom: 1980, yearTo: 1989 }, 25, {});
+    });
+
+    it("hands the conversation's signal on to the providers, so taking the model back stops their searches too", async () => {
+        const { tool, search } = build();
+        const controller = new AbortController();
+
+        await (await only(tool)).run({ query: 'synth' }, controller.signal);
+
+        expect(search).toHaveBeenCalledWith('synth', {}, 25, { signal: controller.signal });
     });
 
     it('searches the library for a period alone, which is a complete search', async () => {

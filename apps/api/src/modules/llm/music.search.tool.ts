@@ -246,7 +246,7 @@ export class MusicSearchTool implements ToolSource {
                         additionalProperties: false,
                     },
                 },
-                run: async args => await this.search(args),
+                run: async (args, signal) => await this.search(args, signal),
             },
         ];
     }
@@ -258,7 +258,7 @@ export class MusicSearchTool implements ToolSource {
      * nothing to search on is the model's mistake and is reported as one, because that is something
      * it can correct and an exception is not.
      */
-    private async search(args: Record<string, unknown>): Promise<{ tracks: MusicTrack[] }> {
+    private async search(args: Record<string, unknown>, signal?: AbortSignal): Promise<{ tracks: MusicTrack[] }> {
         const query = readText(args.query) ?? '';
         const about = readText(args.about);
         const filters = {
@@ -293,7 +293,9 @@ export class MusicSearchTool implements ToolSource {
         // alone and hand back records nobody judged to be about anything.
         const reaching =
             about === undefined && (owned.length < THIN || settingIsOn(this.config, MUSIC_SEARCH_KEYS.alwaysReach, ALWAYS_REACH_DEFAULT));
-        const reached = reaching ? (await this.providers.search(query, filters, MAX_RESULTS)).tracks : [];
+        // The conversation's signal goes with it, so a model the gate takes back mid-search stops the
+        // provider calls too rather than only the registry's wait on them. See `ProviderSearch.search`.
+        const reached = reaching ? (await this.providers.search(query, filters, MAX_RESULTS, signal === undefined ? {} : { signal })).tracks : [];
 
         const fromProviders = await this.fromProviders(reached, owned);
         const fromLibrary = owned.map(row => this.mark(toOwnedRow(row))).slice(0, ownedAllowance(limit, fromProviders.length));

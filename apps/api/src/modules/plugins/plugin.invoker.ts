@@ -57,6 +57,18 @@ export const DISPOSE_OP = 'dispose';
 export interface PluginInvokeOptions {
     /** Overrides {@link PLUGIN_INVOKE_TIMEOUT_MS} for one call. */
     timeoutMs?: number;
+
+    /**
+     * The caller's own reason to stop waiting, on top of the timeout.
+     *
+     * When it aborts, the plugin's signal (the one `fn` receives and `host.signal` reads) aborts with
+     * it and the call is abandoned at once with a `PluginError`, exactly as a timeout abandons it. The
+     * difference is the accounting: a call the CALLER gave up on says nothing about the plugin, so it
+     * moves neither the failure count nor the breaker. A conversation the model gate takes back
+     * mid-search is the case it exists for, and counting those would quarantine a healthy provider
+     * after three breaks.
+     */
+    signal?: AbortSignal;
 }
 
 interface InvokeDeadline {
@@ -64,6 +76,8 @@ interface InvokeDeadline {
     signal: AbortSignal;
     /** Rejects when the deadline passes, so code that ignores the signal is abandoned anyway. */
     expiry: Promise<never>;
+    /** Whether it was the caller's signal, rather than the clock, that ended the call. */
+    stoppedByCaller: () => boolean;
     dispose: () => void;
 }
 
@@ -72,24 +86,45 @@ interface InvokeDeadline {
  * `AbortSignal.timeout`: that one's internal timer is unref'd (so a process
  * with nothing else pending exits before it fires) and is invisible to fake
  * timers, which would make the deadline untestable.
+ *
+ * `caller` is linked INTO the controller rather than raced beside it, so a plugin watching its
+ * signal sees one abort whichever side ended the call. Its listener is removed on dispose, because
+ * one caller signal can span many invocations (a conversation's every search) and must not collect
+ * a listener per call.
  */
-const deadline = (timeoutMs: number, message: string): InvokeDeadline => {
+const deadline = (timeoutMs: number, message: string, stoppedMessage: string, caller?: AbortSignal): InvokeDeadline => {
     const controller = new AbortController();
     let onAbort: () => void = () => {};
+    let stoppedByCaller = false;
 
     const expiry = new Promise<never>((_resolve, reject) => {
-        onAbort = () => reject(new PluginError(message).withCode('timeout'));
+        onAbort = () =>
+            reject(
+                stoppedByCaller
+                    ? new PluginError(stoppedMessage, { cause: caller?.reason }).withCode('unavailable')
+                    : new PluginError(message).withCode('timeout'),
+            );
         controller.signal.addEventListener('abort', onAbort, { once: true });
     });
 
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+    const onCallerAbort = () => {
+        // The clock got there first: that is the reason, whatever the caller does afterwards.
+        if (controller.signal.aborted) return;
+        stoppedByCaller = true;
+        controller.abort(caller?.reason);
+    };
+    caller?.addEventListener('abort', onCallerAbort, { once: true });
+
     return {
         signal: controller.signal,
         expiry,
+        stoppedByCaller: () => stoppedByCaller,
         dispose: () => {
             clearTimeout(timer);
             controller.signal.removeEventListener('abort', onAbort);
+            caller?.removeEventListener('abort', onCallerAbort);
         },
     };
 };
@@ -182,12 +217,13 @@ export class PluginInvoker {
      * `op` (e.g. `init`, `catalog.search`).
      *
      * `fn` receives the abort signal so well-behaved plugin code can bail early;
-     * the call is abandoned at the timeout either way.
+     * the call is abandoned at the timeout, or when `opts.signal` aborts, either way.
      *
      * @throws {PluginError} when the plugin's breaker is open (`unavailable`),
-     *   when the call times out (`timeout`), or when `fn` rejects (the code the
-     *   plugin gave, or `internal`). Never throws for any other reason: a
-     *   plugin failure is data, not a crash.
+     *   when the call times out (`timeout`), when the caller's signal aborts
+     *   (`unavailable`, and not counted against the plugin), or when `fn`
+     *   rejects (the code the plugin gave, or `internal`). Never throws for any
+     *   other reason: a plugin failure is data, not a crash.
      */
     async invoke<T>(pluginId: string, op: string, fn: (signal: AbortSignal) => Promise<T>, opts?: PluginInvokeOptions): Promise<T> {
         const openReason = this.openBreakers.get(pluginId);
@@ -260,7 +296,12 @@ export class PluginInvoker {
      */
     private async run<T>(pluginId: string, op: string, fn: (signal: AbortSignal) => Promise<T>, opts?: PluginInvokeOptions): Promise<T> {
         const timeoutMs = opts?.timeoutMs ?? PLUGIN_INVOKE_TIMEOUT_MS;
-        const timeout = deadline(timeoutMs, `plugin ${pluginId} timed out after ${timeoutMs}ms during ${op}`);
+        const stoppedMessage = `plugin ${pluginId} was stopped by its caller during ${op}`;
+        // A caller that has already given up gets its answer without the plugin being started: there
+        // is nobody to hand the result to. Unrecorded, like every call a caller stops (see
+        // `PluginInvokeOptions.signal`).
+        if (opts?.signal?.aborted === true) throw new PluginError(stoppedMessage, { cause: opts.signal.reason }).withCode('unavailable');
+        const timeout = deadline(timeoutMs, `plugin ${pluginId} timed out after ${timeoutMs}ms during ${op}`, stoppedMessage, opts?.signal);
         // Started here rather than inside the `try`, so a synchronous throw out of `deadline` would
         // still be measured from the same point everything else is.
         const startedAt = Date.now();
@@ -280,6 +321,13 @@ export class PluginInvoker {
             return await Promise.race([call, timeout.expiry]);
         } catch (error) {
             failure = error;
+            // The caller stopped waiting, so whatever the plugin did or did not do in the meantime is
+            // not evidence about its health: a plugin that rejected because its signal aborted was
+            // doing as it was told. Thrown on without touching the count or the breaker.
+            if (timeout.stoppedByCaller()) {
+                this.pluginLog.for(pluginId).debug('plugin call stopped by its caller', { op });
+                throw new PluginError(stoppedMessage, { cause: opts?.signal?.reason }).withCode('unavailable');
+            }
             throw this.recordFailure(pluginId, op, error);
         } finally {
             timeout.dispose();

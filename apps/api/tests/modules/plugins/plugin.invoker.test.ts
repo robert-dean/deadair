@@ -1,3 +1,4 @@
+import { getEventListeners } from 'node:events';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PluginError, isPluginError } from '@deadair/plugin-sdk';
 
@@ -248,6 +249,96 @@ describe('PluginInvoker.invoke', () => {
 
         expect(invoker.isBreakerOpen('p')).toBe(false);
         await expect(invoker.invoke('p', 'op', async () => 'ok')).resolves.toBe('ok');
+    });
+});
+
+// A caller with its own reason to stop (a conversation the model gate took back) used to have no way
+// to say so: the call ran to its own timeout and the caller waited for it. And it must not count:
+// a call the caller abandoned says nothing about the plugin, and three of them would quarantine a
+// healthy provider.
+describe("PluginInvoker.invoke with the caller's signal", () => {
+    /** A plugin call that never answers and never looks at its signal. */
+    const ignoresSignal = () => new Promise<string>(() => undefined);
+
+    it("abandons the call the moment the caller's signal aborts, and aborts the plugin's signal with it", async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+        const controller = new AbortController();
+
+        let pluginSignal: AbortSignal | undefined;
+        const calling = invoker.invoke(
+            'p',
+            'op',
+            signal => {
+                pluginSignal = signal;
+                return ignoresSignal();
+            },
+            { timeoutMs: 60_000, signal: controller.signal },
+        );
+        controller.abort();
+
+        const error = await calling.catch((caught: unknown) => caught);
+        expect(isPluginError(error)).toBe(true);
+        expect((error as PluginError).message).toContain('stopped by its caller');
+        expect(pluginSignal?.aborted).toBe(true);
+    });
+
+    it('does not count a stopped call against the plugin, however many there are', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+
+        for (let i = 0; i < PLUGIN_FAILURE_THRESHOLD + 1; i++) {
+            const controller = new AbortController();
+            const calling = invoker.invoke('p', 'op', ignoresSignal, { signal: controller.signal });
+            controller.abort();
+            await expect(calling).rejects.toThrow('stopped by its caller');
+        }
+
+        expect(invoker.isBreakerOpen('p')).toBe(false);
+        expect(registry.get('p')?.status).toBe('active');
+        expect(registry.get('p')?.error).toBeUndefined();
+    });
+
+    it('does not start the plugin at all for a caller that has already given up', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+        const controller = new AbortController();
+        controller.abort();
+        const fn = vi.fn(async () => 'ok');
+
+        await expect(invoker.invoke('p', 'op', fn, { signal: controller.signal })).rejects.toThrow('stopped by its caller');
+        expect(fn).not.toHaveBeenCalled();
+    });
+
+    it("still calls a timeout a timeout when the caller's signal never fired", async () => {
+        vi.useFakeTimers();
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+        const controller = new AbortController();
+
+        const calling = invoker.invoke('p', 'op', ignoresSignal, { timeoutMs: 1_000, signal: controller.signal });
+        const assertion = expect(calling).rejects.toMatchObject({ code: 'timeout' });
+        await vi.advanceTimersByTimeAsync(1_000);
+        await assertion;
+
+        expect(registry.get('p')?.error).toBeDefined();
+    });
+
+    it("leaves no listener on the caller's signal once the call has settled", async () => {
+        // One signal spans a whole conversation, and every search in it is an invocation.
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+        const controller = new AbortController();
+
+        await invoker.invoke('p', 'op', async () => 'ok', { signal: controller.signal });
+        await invoker.invoke('p', 'op', async () => Promise.reject(new Error('down')), { signal: controller.signal }).catch(() => undefined);
+
+        expect(getEventListeners(controller.signal, 'abort')).toHaveLength(0);
     });
 });
 

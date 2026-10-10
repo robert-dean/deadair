@@ -24,6 +24,9 @@ import { PermissionsService } from '#modules/permissions/permissions.service.js'
 import { PLATFORM_NAMESPACE, PLATFORM_OBJECT_ID, isPlatformRoleName, type PlatformRoleName } from '#modules/permissions/platform.roles.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { runInTrace } from '#modules/shared/trace.context.js';
+import { trustsProxy } from '#modules/shared/request.trust.js';
+import { AppConfig } from '@maroonedsoftware/appconfig';
+import { clientAddress } from './rate.limit.middleware.js';
 import type { ServerKitContext } from '@maroonedsoftware/koa';
 
 // `@maroonedsoftware/authentication` exposes a flat `AuthenticationContext`:
@@ -223,6 +226,10 @@ export const authorizationContextMiddleware: () => ServerKitMiddleware = () => {
             new AuthorizationContext(actor, {
                 requestId: ctx.requestId,
                 ipAddress: ctx.ipAddress ?? undefined,
+                // Resolved here, once, for anything that limits per caller: the password limiter
+                // reads it at call time (`PasswordRateLimiter`). The same rule the rate limiter
+                // middleware applies, so the two can never key one caller differently.
+                clientAddress: clientAddress(ctx, trustsProxy(container.get(AppConfig))),
                 userAgent: ctx.request.headers['user-agent'] as string | undefined,
             }),
         );

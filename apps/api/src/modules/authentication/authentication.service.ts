@@ -40,6 +40,7 @@ import {
 } from '#modules/authentication/types/authentication.types.js';
 import { Injectable } from 'injectkit';
 import { parseAndValidate, parseAndValidateArray } from '@maroonedsoftware/zod';
+import { PasswordRateLimiter } from './password.rate.limiter.js';
 import { AuthenticationServiceOptions } from './authentication.options.js';
 import { ActorsRepository } from '#modules/authentication/repositories/actors.repository.js';
 import { PermissionsService } from '#modules/permissions/permissions.service.js';
@@ -151,6 +152,7 @@ export class AuthenticationService {
         private readonly responseCookieJar: ResponseCookieJar,
         private readonly permissionsService: PermissionsService,
         private readonly config: AppConfig,
+        private readonly passwordLimiter: PasswordRateLimiter,
     ) {
         this.authenticateHandlerMap = new Map<AuthenticationGrantType, AuthenticationHandlers>();
         this.authenticateHandlerMap.set('client_credentials', {
@@ -344,6 +346,11 @@ export class AuthenticationService {
     ): Promise<{ actor: TargetActor<ActorType>; primaryFactor: AuthenticationSessionFactor }> {
         const factor = await this.emailFactorRepository.findFactor(username);
         if (!factor || !factor.active) {
+            // Spend a point from the SAME limiter a real account's password check spends from, under
+            // the address that was typed. Without it an unknown address answered 401 forever while a
+            // known one answered 429 on the sixth wrong guess, so a sixth try told anybody whether an
+            // account existed. Now both reach 429 on the sixth, from this caller, for five minutes.
+            await this.consumeUnknownAccountAttempt(username);
             // Burn an equivalent Argon2 verify so an unknown/inactive email takes the same wall
             // time as a real password check — otherwise the early return leaks account existence
             // through response timing.
@@ -945,6 +952,25 @@ export class AuthenticationService {
     // Runs a real Argon2 verify against a fixed dummy hash so an unknown-email password login
     // takes the same time as a genuine one. The hash is computed once per process (see the
     // module-level memo) and reused, matching the single-verify cost of the real path.
+    /**
+     * The rate-limit half of a password attempt against an address with no usable account, shaped
+     * exactly like `PasswordFactorService.verifyPassword`'s: one point under a key of its own (the
+     * normalised address, so it can never collide with an actor id), and a 429 once that key is
+     * spent. The limiter prefixes the caller's address itself, so this locks out the caller and
+     * nobody else.
+     */
+    private async consumeUnknownAccountAttempt(username: string): Promise<void> {
+        try {
+            await this.passwordLimiter.consume(`email:${username.trim().toLowerCase()}`);
+        } catch (error) {
+            // A rejection is the limiter's `RateLimiterRes` when the key is spent and an `Error` when
+            // Redis failed; the library answers both with a 429, and so does this, so the two
+            // branches cannot be told apart by how they fail either.
+            const refusal = httpError(429).withInternalDetails({ message: 'password authentication has been rate limited for an unknown address' });
+            throw error instanceof Error ? refusal.withCause(error) : refusal;
+        }
+    }
+
     private async burnPasswordVerify(password: string): Promise<void> {
         dummyPasswordHashPromise ??= this.passwordHashProvider.hash(DUMMY_VERIFY_PASSWORD);
         const { hash, salt } = await dummyPasswordHashPromise;

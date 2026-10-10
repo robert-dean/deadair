@@ -83,6 +83,8 @@ import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { readSessionKey } from './session.key.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { SignInMailLimiter } from './sign.in.mail.limiter.js';
+import { PasswordRateLimiter } from './password.rate.limiter.js';
+import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { DeadairApiKeyRepository } from './repositories/apikey.factor.repository.js';
 import { API_KEY_PREFIX, API_KEY_USE_WINDOW } from './api.key.options.js';
 import { ApiKeysService } from './api.keys.service.js';
@@ -211,18 +213,31 @@ export const AuthenticationModule: ServerKitModule = {
         registry.register(PasswordHashProvider).useClass(Argon2idPasswordHashProvider).asSingleton();
 
         registry.register(PasswordFactorRepository).useClass(DeadairPasswordFactorRepository).asScoped();
+        // Five wrong passwords in thirty seconds block for five minutes, per account AND per caller:
+        // see `PasswordRateLimiter` for why the caller is in the key. Scoped, so the password factor
+        // service and the unknown-address branch of sign-in spend from one instance per request, and
+        // the address is read off this request's `AuthorizationContext` when the limiter is called.
+        registry
+            .register(PasswordRateLimiter)
+            .useFactory(
+                container =>
+                    new PasswordRateLimiter(
+                        new RateLimiterRedis({
+                            storeClient: container.get(Redis),
+                            points: 5,
+                            duration: 30,
+                            blockDuration: 300,
+                        }),
+                        () => container.get(AuthorizationContext).request.clientAddress,
+                    ),
+            )
+            .asScoped();
         registry
             .register(PasswordFactorService)
             .useFactory(container => {
-                const rateLimiter = new RateLimiterRedis({
-                    storeClient: container.get(Redis),
-                    points: 5,
-                    duration: 30,
-                    blockDuration: 300,
-                });
                 return new PasswordFactorService(
                     container.get(PasswordFactorRepository),
-                    rateLimiter,
+                    container.get(PasswordRateLimiter),
                     container.get(PasswordStrengthProvider),
                     container.get(PasswordHashProvider),
                     container.get(PolicyService),

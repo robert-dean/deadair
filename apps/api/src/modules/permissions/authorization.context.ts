@@ -71,7 +71,14 @@ export interface VendorActor {
 
 export interface RequestEnvelope {
     requestId?: string;
+    /** The raw socket peer (`ctx.ip`), which is what the audit trail records. Behind the edge it is nginx. */
     ipAddress?: string;
+    /**
+     * Who called, as far as the edge is trusted: `clientAddress` under `TRUST_PROXY`, the address the
+     * rate limiter keys on. What a per-caller limit keys on, where {@link ipAddress} would put every
+     * caller behind the edge in one bucket.
+     */
+    clientAddress?: string;
     userAgent?: string;
 }
 

@@ -104,6 +104,23 @@ while mail is configured). An account created through a provider starts out exac
 **An account with no password cannot use the listener apps**, which sign in with a password and an
 authenticator code. Password sign-in stays.
 
+## Password lockout
+
+**Five wrong passwords lock out the CALLER for five minutes, not the account.** The library's
+`PasswordFactorService` spends one point per attempt under the actor's id, and keyed by that alone
+anybody on the internet could keep the operator out of their own station with five guesses every
+five minutes. `PasswordRateLimiter` (`password.rate.limiter.ts`) wraps the Redis limiter and
+prefixes every key with the request's `clientAddress`, which the authorization context middleware
+puts on the `AuthorizationContext` envelope beside `ipAddress`: the same `clientAddress` under
+`TRUST_PROXY` the rate limiter keys on, never the raw peer, which behind the edge is nginx and would
+put everybody back in one bucket. It is read when the limiter is called, not when it is built.
+
+**An address with no account spends from the same limiter**, under `email:<address>` lowercased, so
+it answers 401 five times and then 429 exactly as a real one does. Before, it answered 401 forever,
+and the sixth try said whether the account existed. The cost of the per-caller key is the usual one:
+a guesser spread over many addresses gets five tries from each, which is what the Argon2 cost and
+the rate limiter in front are for.
+
 ## The Google variables
 
 `GOOGLE_OIDC_CLIENT_ID`, `GOOGLE_OIDC_CLIENT_SECRET` and `GOOGLE_OIDC_ISSUER` used to build the only

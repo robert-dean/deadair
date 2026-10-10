@@ -64,6 +64,20 @@ exactly like an absent one, so one read serves both (`historyDaysForLeans`). **L
 and the album lookup is asked only about records that could qualify, over an index added for it
 (`tracks_album_idx`, 0082), with a failed read costing the lean and never the batch.
 
+**An operator's Skip is a lean against the record for a fortnight, which is the space between a like and a
+dislike that nothing filled.** `play_history` is written when a record starts and never updated, so a record cut
+after ten seconds read exactly like one heard to the end, and the clearest opinion the station gets short of a
+rating was thrown away. `deadair.track_skips` (0083) keeps it: `PlayoutService.skip`, which the console, the MCP
+tool and the chat command all reach, writes the record's song and artist keys (off the lead, as the history is),
+how far in the cut came and who pressed it. **Only that method writes**, because the other cuts are not verdicts:
+a dislike's (`vetoDisliked`), a changeover's overrun and a skip-to all go to `PlayoutPusher.skipCurrent`
+directly, and a break or a programme is never recorded. `rotation.skipLean` (on, `skip.lean.ts`) reads
+`lastSkippedSince(rotation.skipLeanDays)` per refill and stamps `skippedFor`, how far the record has recovered
+on the smart shuffle's own ramp (`freshnessOf`), and `weightOf` multiplies `SKIP_FLOOR` (a quarter) rising to
+`1`. **Never zero**, for smart shuffle's reason: a refusal is a dislike's job, and an operator who skipped a
+record in a bad mood has not banned it. Catalog draw only, and a failed read costs the lean and never the
+batch.
+
 **A broadcast's mood is a second lean on the draw, never a filter, and it is the factor a like gets.**
 With a mood on the running order (`station_lineup.mood`, from a schedule slot or `PutOnAirInput.mood`),
 `CatalogSetGenerator` reads the judged distributions for what it sampled (`LyricLabelsRepository.moodsForTracks`,

@@ -82,6 +82,7 @@ import { SIMILARITY_ORDER_KEY } from '#modules/similarity/similarity.settings.js
 import { BRIEF_ONLY_DEFAULT, BRIEF_ONLY_KEY } from '#modules/director/set.generator.chain.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
 import { DEFAULT_SMART_SHUFFLE, DEFAULT_SMART_SHUFFLE_DAYS, SMART_SHUFFLE_DAYS_RANGE, SMART_SHUFFLE_KEYS } from '#modules/director/smart.shuffle.js';
+import { DEFAULT_SKIP_LEAN, DEFAULT_SKIP_LEAN_DAYS, SKIP_LEAN_DAYS_RANGE, SKIP_LEAN_KEYS } from '#modules/director/skip.lean.js';
 import {
     ARTIST_RETURN_DAYS_RANGE,
     DEFAULT_ARTIST_RETURN,
@@ -707,6 +708,29 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'history the station keeps is drawn half again as often, and the presenter can mention that it is an album track. A record ' +
             'you liked for itself is a favourite rather than a deep cut, and one with no track number is never called one. It shapes the ' +
             'draw from your own library only, and it is a lean and never a refusal.',
+    },
+    {
+        group: 'rotation',
+        key: SKIP_LEAN_KEYS.enabled,
+        label: 'Play what you skip less often',
+        type: 'boolean',
+        default: DEFAULT_SKIP_LEAN,
+        help:
+            'A record you cut short with Skip is drawn less often for a while: a quarter of its usual chance at first, recovering evenly ' +
+            'over the days below. Only your own Skip counts, from the console, an assistant or a chat command; a record cut because you ' +
+            'disliked it, or at a change of programme, does not. It is a lean and never a refusal (a dislike is how to stop a record ' +
+            'airing), and it shapes the draw from your own library only.',
+    },
+    {
+        group: 'rotation',
+        key: SKIP_LEAN_KEYS.days,
+        label: 'Days a skipped record takes to recover',
+        type: 'number',
+        default: DEFAULT_SKIP_LEAN_DAYS,
+        min: SKIP_LEAN_DAYS_RANGE.min,
+        max: SKIP_LEAN_DAYS_RANGE.max,
+        dependsOn: SKIP_LEAN_KEYS.enabled,
+        help: 'A fortnight suits most stations. Sixty at the most: longer than that is what a dislike is for.',
     },
     {
         group: 'rotation',

@@ -17,6 +17,8 @@ import { PLAY_HISTORY_RETENTION_DAYS, type PlayHistoryRepository } from '../../.
 import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
 import { DEFAULT_RULES, resolveRules } from '../../../src/modules/director/rotation.rules.js';
 import { DEFAULT_SMART_SHUFFLE_DAYS, SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
+import { SKIP_LEAN_KEYS } from '../../../src/modules/director/skip.lean.js';
+import type { TrackSkipsRepository } from '../../../src/modules/director/track.skips.repository.js';
 import { ARTIST_RETURN_DAYS_RANGE, DEFAULT_ARTIST_RETURN_DAYS, REDISCOVER_KEYS } from '../../../src/modules/director/rediscover.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import type { BlockRulesRepository } from '../../../src/modules/director/block.rules.repository.js';
@@ -46,6 +48,8 @@ interface Options {
     airedArtists?: Set<string>;
     /** When each song last aired, as history answers it inside the smart shuffle's horizon. */
     lastAired?: Map<string, DateTime>;
+    /** When each song was last skipped, as the skips answer inside the skip lean's window. */
+    lastSkipped?: Map<string, DateTime>;
     settings?: Record<string, unknown>;
     /** A genre steer in force, and the extra sample its loose draw finds. */
     steer?: { genres: string[]; leaning: CandidateTrack[] };
@@ -112,6 +116,10 @@ function build(options: Options = {}) {
         get: vi.fn((key: string, fallback?: unknown) => (key in settings ? settings[key] : fallback)),
     } as unknown as AppConfig;
 
+    const skips = {
+        lastSkippedSince: vi.fn(async (days: number) => (days > 0 ? (options.lastSkipped ?? new Map()) : new Map())),
+    } as unknown as TrackSkipsRepository;
+
     const watch = { starved: vi.fn(), clear: vi.fn() } as unknown as AdvisoryWatch;
     const eraWatch = { starved: vi.fn(), clear: vi.fn() } as unknown as EraWatch;
     const labels = {
@@ -132,7 +140,9 @@ function build(options: Options = {}) {
             eraWatch,
             labels,
             new NeverPlay(rules, candidates, config),
+            skips,
         ),
+        skips,
         labels,
         candidates,
         history,
@@ -552,6 +562,45 @@ describe('CatalogSetGenerator under smart shuffle', () => {
 
         it('still draws when the albums cannot be read', async () => {
             const { generator } = build({ sample: [albumTrack('Track Nine', 'Two', 'liked-album', 9)], likedAlbumsFail: true });
+            expect(await generator.generate({ count: 1, rules: rotation })).toHaveLength(1);
+        });
+    });
+
+    describe('a record the operator skipped', () => {
+        it('draws the record nobody skipped over the one skipped yesterday', async () => {
+            const random = pinTicket();
+            const { generator } = build({
+                sample: [candidate('Skipped', 'One'), candidate('Kept', 'Two')],
+                lastSkipped: new Map([[songKey('Skipped', ['One']), yesterday()]]),
+            });
+
+            expect((await generator.generate({ count: 1, rules: rotation })).map(pick => pick.title)).toEqual(['Kept']);
+            random.mockRestore();
+        });
+
+        it('leans and never refuses, so a library of skipped records still fills the ask', async () => {
+            const sample = [candidate('A', 'One'), candidate('B', 'Two')];
+            const { generator } = build({ sample, lastSkipped: new Map(sample.map(track => [songKey(track.title, [track.artist]), yesterday()])) });
+
+            expect(await generator.generate({ count: 2, rules: rotation })).toHaveLength(2);
+        });
+
+        it('draws as before, and reads nothing, when switched off with the string the row holds', async () => {
+            const random = pinTicket();
+            const { generator, skips } = build({
+                sample: [candidate('Skipped', 'One'), candidate('Kept', 'Two')],
+                lastSkipped: new Map([[songKey('Skipped', ['One']), yesterday()]]),
+                settings: { [SKIP_LEAN_KEYS.enabled]: 'false' },
+            });
+
+            expect((await generator.generate({ count: 1, rules: rotation })).map(pick => pick.title)).toEqual(['Skipped']);
+            expect(skips.lastSkippedSince).toHaveBeenCalledWith(0, 'main');
+            random.mockRestore();
+        });
+
+        it('still draws when the skips cannot be read', async () => {
+            const { generator, skips } = build({ sample: [candidate('A', 'One')] });
+            vi.mocked(skips.lastSkippedSince).mockRejectedValue(new Error('the table is gone'));
 
             expect(await generator.generate({ count: 1, rules: rotation })).toHaveLength(1);
         });

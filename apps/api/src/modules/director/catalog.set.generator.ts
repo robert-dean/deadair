@@ -14,6 +14,8 @@ import { albumKey, artistKey, songKey } from './rotation.keys.js';
 import { applyRulesHoldingQueue, spaceArtists, weightOf, type RotationCandidate } from './rotation.rules.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { freshnessOf, historyDaysFor, resolveSmartShuffle } from './smart.shuffle.js';
+import { resolveSkipLean, skipDaysFor } from './skip.lean.js';
+import { TrackSkipsRepository } from './track.skips.repository.js';
 import { historyDaysForLeans, isDeepCut, mayBeDeepCut, quietMinutesFor, resolveArtistReturn, resolveDeepCuts } from './rediscover.js';
 import { trackLengthBounds } from './track.length.js';
 import { BlockRulesRepository } from './block.rules.repository.js';
@@ -86,6 +88,8 @@ export class CatalogSetGenerator extends SetGenerator {
         private readonly labels: LyricLabelsRepository,
         /** The never-play rules, applied to the draw itself so a refused record never takes a place in it. */
         private readonly neverPlay: NeverPlay,
+        /** What the operator cut short with Skip, for the skip lean. */
+        private readonly skips: TrackSkipsRepository,
     ) {
         super();
     }
@@ -117,6 +121,7 @@ export class CatalogSetGenerator extends SetGenerator {
         // batch. Deliberately not a field of `rules`: a setlist zeroes every rule, and a setlist is
         // never drawn from here anyway, so there is nothing for a per-lineup override to decide.
         const smartShuffle = resolveSmartShuffle(this.config);
+        const skipLean = resolveSkipLean(this.config);
         const artistReturn = resolveArtistReturn(this.config);
         const deepCuts = resolveDeepCuts(this.config);
 
@@ -124,7 +129,7 @@ export class CatalogSetGenerator extends SetGenerator {
         // they move: a refill that ran a minute ago has itself changed the answer.
         // A disabled rule costs no query at all — see the repository. The smart shuffle's horizon
         // rides the same trip and the same rule: off, it asks for zero days and pays nothing.
-        const [songKeys, artistKeys, lastAired, airedArtists] = await Promise.all([
+        const [songKeys, artistKeys, lastAired, airedArtists, lastSkipped] = await Promise.all([
             this.history.songKeysSince(rules.repeatWindowDays, this.identity.stationKey),
             this.history.artistKeysSince(rules.artistCooldownMinutes, this.identity.stationKey),
             // Far enough back for both leans that read it: see `historyDaysForLeans`.
@@ -132,6 +137,8 @@ export class CatalogSetGenerator extends SetGenerator {
             // Every artist aired inside the return window. Off, it asks for zero minutes and pays
             // nothing, and `returning` below is not stamped at all.
             this.history.artistKeysSince(quietMinutesFor(artistReturn), this.identity.stationKey),
+            // Off, zero days and no query. A failed read costs the lean and never the batch.
+            this.skips.lastSkippedSince(skipDaysFor(skipLean), this.identity.stationKey).catch(() => new Map<string, DateTime>()),
         ]);
 
         const recent = {
@@ -181,13 +188,16 @@ export class CatalogSetGenerator extends SetGenerator {
                 track,
                 smartShuffle.enabled ? { lastAired, now, horizonDays: smartShuffle.horizonDays } : undefined,
             );
-            // The mood, the genre steer and an artist coming back are leans and all can hold: each
-            // multiplies in.
+            // The mood, the genre steer, an artist coming back and a skip are leans and all can hold:
+            // each multiplies in.
             const returning = artistReturn.enabled && track.artistLiked === true && !airedArtists.has(candidate.artistKey);
             const deepCut = deepCuts && isDeepCut(track, likedAlbums, lastAired.has(candidate.songKey));
+            // How far a skipped record has come back, on the smart shuffle's own ramp.
+            const skipped = lastSkipped.get(candidate.songKey);
             return {
                 ...candidate,
                 ...(deepCut ? { deepCut: true as const } : {}),
+                ...(skipped === undefined ? {} : { skippedFor: freshnessOf(skipped, now, skipLean.days) }),
                 ...(fitting.has(track.trackId) ? { moodFit: true as const } : {}),
                 ...(leans?.has(track.trackId) ? { lean: STEER_LEAN } : {}),
                 ...(returning ? { returning: true as const } : {}),

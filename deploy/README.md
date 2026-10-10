@@ -13,8 +13,10 @@ in front of that port carries the station too.
 | `deadair/deadair:slim`   | —                          | PostgreSQL, Redis, a speech server |
 
 Those three follow `main` and move on every push that changes the station, not on one that only
-touches the docs, the website or a listener app. A release publishes `0.1.0` and `0.1` beside
-them, so **pin `deadair/deadair:0.1` if you want releases only**. Images are built for `linux/amd64`;
+touches the docs, the website or a listener app. A release publishes its version beside them, for
+each tag: `0.50.2` and `0.50` for `latest`, `full-0.50.2` and `full-0.50` for `full`, and the same
+with `slim-` for `slim`. **Pin one if you want releases only**: under Compose that is
+`VARIANT=full-0.50` in `.env`, because the compose file takes its tag from `VARIANT`. Images are built for `linux/amd64`;
 there is no arm64 build yet.
 
 `full` is the one to start with if the machine has nothing on it. `latest` is the one to run if
@@ -335,9 +337,33 @@ The schema looks after itself: migrations are applied before the station starts,
 picked up on the next boot and there is nothing to run by hand.
 
 **Which tag you are on decides what you get.** `latest`, `slim` and `full` follow `main`, so pulling
-one gets you whatever was last merged. Pinning `0.1` gets you releases on that line and nothing
+one gets you whatever was last merged. Pinning `full-0.50` gets you releases on that line and nothing
 else, and the release notes for each are in the repository's `CHANGELOG.md`. If you want a station
-that only changes when you decide it does, pin the exact version.
+that only changes when you decide it does, pin the exact version, `full-0.50.2`.
+
+After any upgrade, `docker exec deadair deadair-doctor` says whether the container came back as it
+should.
+
+### Rolling back
+
+Write down the version you are on before you upgrade. It is the newest release under **On this station** on
+the console's **What's new** page, and `docker exec deadair printenv BUILD_VERSION` prints it. Take the backup below as well.
+
+Going back is the version in the tag and a recreate. Under Compose, set `VARIANT` to the earlier
+release (`full-0.50.1`) and:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+On Unraid, edit **Repository** to the same tag and apply.
+
+**The schema does not go back with the image.** Migrations only ever move forward, and an older
+station started against a database a newer one migrated may meet columns and tables it does not
+know. Going back one release is usually fine. Going back across a release whose changelog mentions a
+migration means restoring the backup you took before upgrading: the data directory, and on `latest`
+or `slim` the database dump beside it.
 
 **From 0.1.0 onward a migration is added, never edited.** Before the first release this project
 edited them in place, which is right when the only database in the world is the author's and wrong

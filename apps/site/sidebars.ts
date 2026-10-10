@@ -50,7 +50,15 @@ const sidebars: SidebarsConfig = {
         'help',
     ],
 
-    tutorials: ['tutorials/index'],
+    tutorials: [
+        'tutorials/index',
+        {
+            type: 'category',
+            label: 'Install it',
+            collapsed: false,
+            items: ['tutorials/install-unraid', 'tutorials/install-compose', 'tutorials/first-hour'],
+        },
+    ],
 
     build: [
         {

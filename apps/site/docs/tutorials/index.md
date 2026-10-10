@@ -11,3 +11,8 @@ links to the page that gives the reason, so read on from there when a step surpr
 
 If you only want a station talking between records as fast as possible, [Quick start](../quick-start.md)
 makes every choice for you and is shorter than any of these.
+
+## Install it
+
+1. Install the station, either [on Unraid](./install-unraid.md) or [with Docker Compose](./install-compose.md).
+2. [Your first hour on air](./first-hour.md): music, a name, a presenter, and something playing.

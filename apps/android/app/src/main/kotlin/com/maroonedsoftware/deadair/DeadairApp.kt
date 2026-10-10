@@ -15,6 +15,7 @@ import com.maroonedsoftware.deadair.net.HttpClients
 import com.maroonedsoftware.deadair.net.imageLoaderFactory
 import com.maroonedsoftware.deadair.history.HistoryRepository
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingRepository
+import com.maroonedsoftware.deadair.nowplaying.Reading
 import com.maroonedsoftware.deadair.playout.AirActions
 import com.maroonedsoftware.deadair.playout.PlayoutRepository
 import com.maroonedsoftware.deadair.playout.Transport
@@ -30,6 +31,9 @@ import com.maroonedsoftware.deadair.widget.WidgetSnapshotStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 
 /**
@@ -147,6 +151,27 @@ class AppGraph(private val application: Application) {
             elapsedMs = SystemClock::elapsedRealtime,
             scope = scope,
         )
+
+    private val _aired = MutableStateFlow<Reading?>(null)
+
+    /**
+     * The reading this phone's listener is actually hearing, while the station is playing here.
+     *
+     * The poll learns that a record changed the moment the station commits it, and the audio
+     * carrying the change is still a buffer away. `NowPlayingGate` is what holds the difference,
+     * and this is what it releases, published app-wide so the screens draw the same record the lock
+     * screen and the widget do instead of running ahead of both. Its `readAtMs` is already moved by
+     * that buffer, so a playhead projected from it follows the audio.
+     *
+     * `null` while nothing is playing here, and before the first reading of a session; a screen then
+     * draws the poll's own reading, which is the station's word for what is on.
+     */
+    val aired: StateFlow<Reading?> = _aired.asStateFlow()
+
+    /** Set by `PlaybackConductor`, the one place that knows what reached the listener. */
+    fun onAired(reading: Reading?) {
+        _aired.value = reading
+    }
 
     /**
      * What keeps the home-screen widget's snapshot current.

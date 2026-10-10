@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.playback
 
+import com.maroonedsoftware.deadair.nowplaying.Reading
 import com.maroonedsoftware.deadair.nowplaying.coverPath
 import com.maroonedsoftware.deadair.sdk.models.NowPlaying
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingTrackKind
@@ -32,11 +33,27 @@ class NowPlayingGate(
      * record's own schedule, instead of twenty a minute in the hope of catching the change.
      */
     private val refresh: () -> Unit = {},
+    /**
+     * The reading the listener is hearing, for the app's own screens.
+     *
+     * Every reading that is not being held goes through here, not only the ones that change what
+     * the lock screen shows, because the screens draw a playhead from it and a playhead re-anchors
+     * on every reading. Its `readAtMs` is moved later by the buffer that stood between the poll
+     * and the listener's ears, so `project` counts down from what is audible rather than from what
+     * the station's decoder was doing: projected from the poll's own stamp, the bar ran a whole
+     * buffer ahead of the audio and reached the end of a record while it was still playing.
+     *
+     * `null` is no reading at all, never "off air": an off-air answer is a reading like any other.
+     */
+    private val aired: (Reading?) -> Unit = {},
 ) {
     private var pending: Cancel? = null
 
     /** The reading held back because its track moved and the audio has not caught up yet. */
     private var held: NowPlaying? = null
+
+    /** [held], stamped for the listener's ears: what [aired] is told when it is released. */
+    private var heldAired: Reading? = null
 
     private var seenFirst = false
     private var lastIcyTitle: String? = null
@@ -68,8 +85,14 @@ class NowPlayingGate(
      * that has not played yet, so the arithmetic is the buffer MINUS that age; holding the whole
      * of it again would publish the record about as long after the listener heard it start as the
      * poll is slow.
+     *
+     * `readAtMs` is the reading's own stamp, on the clock the playhead projects against. Unlike the
+     * hold it is shifted by the WHOLE buffer, however old the reading is: the listener is
+     * `bufferedMs` behind the station at every moment, so the moment the reading describes reaches
+     * them `bufferedMs` after it was read. The age only decides how much of that is still to come.
      */
-    fun onPoll(reading: NowPlaying?, bufferedMs: Long, ageMs: Long = 0) {
+    fun onPoll(reading: NowPlaying?, bufferedMs: Long, ageMs: Long = 0, readAtMs: Long = 0) {
+        val heard = reading?.let { Reading(it, readAtMs + bufferedMs.coerceAtLeast(0)) }
         val startedAt = reading?.track?.startedAt
         val trackMoved = seenFirst && startedAt != pushedFor
         // This is the answer an ICY change asked for, so the audio is already known to have
@@ -81,6 +104,8 @@ class NowPlayingGate(
         if (!trackMoved || confirming) {
             cancelPending()
             held = null
+            heldAired = null
+            aired(heard)
             // `pushedFor` moves even when nothing is pushed, so a record whose fields happen to
             // match the one before it (the same track aired twice) is not read as a fresh change
             // by every poll after this one. Unchanged in the ordinary `!trackMoved` case, where it
@@ -99,10 +124,12 @@ class NowPlayingGate(
         // pushed, without touching the timer already counting down to that release.
         if (pending != null && startedAt == held?.track?.startedAt) {
             held = reading
+            heldAired = heard
             return
         }
 
         held = reading
+        heldAired = heard
         cancelPending()
         pending = schedule((bufferedMs - ageMs).coerceAtLeast(0)) { releaseHeld() }
     }
@@ -125,8 +152,11 @@ class NowPlayingGate(
 
         cancelPending()
         val toRelease = held
+        val toAir = heldAired
         held = null
+        heldAired = null
         if (toRelease != null) {
+            aired(toAir)
             pushNow(toRelease)
             return
         }
@@ -145,6 +175,7 @@ class NowPlayingGate(
     fun cancel() {
         cancelPending()
         held = null
+        heldAired = null
         lastPushedShown = null
         awaitingRefresh = false
     }
@@ -152,7 +183,10 @@ class NowPlayingGate(
     private fun releaseHeld() {
         pending = null
         val reading = held ?: return
+        val toAir = heldAired
         held = null
+        heldAired = null
+        aired(toAir)
         pushNow(reading)
     }
 

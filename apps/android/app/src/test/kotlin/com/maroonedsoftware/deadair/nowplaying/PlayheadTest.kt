@@ -75,6 +75,27 @@ class PlayheadTest {
     }
 
     @Test
+    fun `counts down from what is audible when the reading is stamped for the ears`() {
+        // Read at 0 with 120s left, released stamped ten seconds later because ten seconds of
+        // audio stood between the station and the listener. Three seconds after the poll, the
+        // listener is still hearing what the station played seven seconds BEFORE it was read.
+        val head = project(track(remainingMs = 120_000), readAtMs = 10_000, nowMs = 3_000)!!
+
+        assertEquals(127_000, head.remainingMs)
+        assertEquals(173_000, head.elapsedMs)
+    }
+
+    @Test
+    fun `a stamp for the ears moves between readings rather than standing still`() {
+        // Clamping the gap before the stamp to nothing held the bar at the station's figure for a
+        // whole buffer, and a poll faster than the buffer re-anchored it there before it moved.
+        val early = project(track(remainingMs = 120_000), readAtMs = 10_000, nowMs = 1_000)!!
+        val later = project(track(remainingMs = 120_000), readAtMs = 10_000, nowMs = 2_500)!!
+
+        assertEquals(1_500, early.remainingMs - later.remainingMs)
+    }
+
+    @Test
     fun `writes a length the way a clock reads it`() {
         assertEquals("0:00", clockOf(0))
         assertEquals("0:07", clockOf(7_400))

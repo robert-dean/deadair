@@ -21,3 +21,28 @@ sealed interface NowPlayingState {
      */
     data class Unreachable(val lastGood: Reading?) : NowPlayingState
 }
+
+/**
+ * The state a screen draws: the poll's, with the record swapped for the one this listener is hearing.
+ *
+ * While this phone is playing, the poll runs a buffer ahead of the audio: it names the next record
+ * the moment the station commits it, and its playhead counts down the station's decoder rather than
+ * the listener's ears. Drawn raw, Now playing changed title seconds before the music did, and before
+ * the lock screen beside it, and its bar reached the end of a record that was still playing.
+ * [aired] is `NowPlayingGate`'s released reading, already stamped for the ears, so it is what the
+ * screen shows while [playing].
+ *
+ * Whether the station is ANSWERING stays the poll's to say, for the widget's reason: one failed
+ * request is still shown as one, over the record that is still playing. Stopped, or before the
+ * gate has released anything this session, the poll's reading is all there is and is drawn as is.
+ */
+fun NowPlayingState.heard(aired: Reading?, playing: Boolean): NowPlayingState {
+    if (!playing || aired == null) return this
+    return when (this) {
+        is NowPlayingState.Answered -> NowPlayingState.Answered(aired)
+        is NowPlayingState.Unreachable -> NowPlayingState.Unreachable(aired)
+        // The poll restarted (a station change) and has not answered yet: whatever was released
+        // belongs to the session before it.
+        NowPlayingState.Loading -> this
+    }
+}

@@ -119,7 +119,12 @@ class PlaybackConductor(
                 this@PlaybackConductor.playWhenReady.value = playWhenReady
                 // Whatever stopped it (a hand on Stop, a headset unplugged, the timer itself), the
                 // timer was for that session and must not fire into the next one.
-                if (!playWhenReady) sleep.onStopped()
+                if (!playWhenReady) {
+                    sleep.onStopped()
+                    // Nothing is reaching anybody's ears here any more, so the screens go back to
+                    // the poll; a record released a session ago must not greet the next one.
+                    graph.onAired(null)
+                }
                 reportPlayback()
             }
 
@@ -147,7 +152,7 @@ class PlaybackConductor(
      * from `onMetadata`, kept separate from `policy` because the two listeners answer unrelated
      * questions.
      */
-    private val gate = NowPlayingGate(schedule = ::schedule, push = ::pushMetadata, refresh = graph.nowPlaying::retry)
+    private val gate = NowPlayingGate(schedule = ::schedule, push = ::pushMetadata, refresh = graph.nowPlaying::retry, aired = graph::onAired)
     private val metadataListener =
         object : Player.Listener {
             override fun onMetadata(metadata: Metadata) {
@@ -201,7 +206,7 @@ class PlaybackConductor(
                 // nobody can see it, so what arrives here can describe a moment already gone, and
                 // the gate's hold is the part of the buffer that is left rather than all of it.
                 val age = reading?.let { SystemClock.elapsedRealtime() - it.readAtMs } ?: 0
-                gate.onPoll(now, player.totalBufferedDuration, ageMs = age)
+                gate.onPoll(now, player.totalBufferedDuration, ageMs = age, readAtMs = reading?.readAtMs ?: 0)
                 sleep.onPoll(reading, player.totalBufferedDuration)
             }
             .launchIn(scope)
@@ -221,6 +226,7 @@ class PlaybackConductor(
 
     fun stop() {
         graph.widget.onPlayback(WidgetPlayback.STOPPED)
+        graph.onAired(null)
         player.removeListener(policy)
         player.removeListener(playWhenReadyListener)
         player.removeListener(metadataListener)

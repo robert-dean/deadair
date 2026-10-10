@@ -44,7 +44,13 @@ fun project(track: NowPlayingTrack?, readAtMs: Long, nowMs: Long): Playhead? {
 
     // Clamped at both ends. A reading that arrives late leaves `nowMs - readAtMs` larger than
     // what was left, and a clock that ran past the end of the record would read as a fault.
-    val carried = (nowMs - readAtMs).coerceAtLeast(0)
+    //
+    // `carried` itself is NOT clamped, and it was. A reading released by `NowPlayingGate` is
+    // stamped for the listener's ears, a buffer later than the poll took it, so until the ears get
+    // there `nowMs` is before `readAtMs` and more of the record is left than the station reported.
+    // Clamping that gap to nothing froze the bar for a whole buffer after every reading, which on a
+    // three-second poll and a ten-second buffer is a bar that never moves at all.
+    val carried = nowMs - readAtMs
     val remaining = (reported - carried).coerceIn(0, duration)
     return Playhead(elapsedMs = duration - remaining, remainingMs = remaining, durationMs = duration)
 }

@@ -15,6 +15,7 @@ import {
     DirectorService,
     EMPTY_REFILL_RETRY_MS,
     EXTEND_GUARD_MS,
+    REFILL_SEND_RETRY_MS,
     WAITING_ON_AUDIO_MS,
     WARM_TICK_MS,
 } from '../../../src/modules/director/director.service.js';
@@ -3512,12 +3513,40 @@ describe('DirectorService asking for a refill', () => {
 
         await director.start();
         await settle();
+        // Past the short wait a failed send earns, which keeps a broker that is down from being asked
+        // on every pass.
+        vi.setSystemTime(Date.now() + REFILL_SEND_RETRY_MS + 1);
         await wake(rundown);
 
         // Before the fix the guard was set before the send, so the one that threw latched it and
-        // the station never asked again. Now the guard is only set once a send has landed, so a
-        // failure is retried on the next pass.
+        // the station never asked again. Now the long guard is only set once a send has landed, so a
+        // failure is retried on the next pass after a short wait.
         expect(jobs.send.mock.calls.length).toBeGreaterThan(1);
+    });
+
+    // The same failure on an order that has run EMPTY, where there is no next pass to ask again.
+    // The guard used to be left clear after a failed send, and the warm tick only wakes for a refill
+    // that is overdue, which an unset guard never is: the station sat silent for good.
+    it('asks again after a failed send with no boundary to prompt it', async () => {
+        vi.useFakeTimers();
+        try {
+            const { director, jobs, seed } = build({ items: [] });
+            await seed();
+            jobs.send.mockRejectedValueOnce(new Error('the broker is not available here'));
+            await director.start();
+            await vi.advanceTimersByTimeAsync(0);
+            expect(jobs.send).toHaveBeenCalledTimes(1);
+
+            // Inside the short wait the tick leaves it alone, so a broker that is down is not asked on
+            // every tick.
+            await vi.advanceTimersByTimeAsync(Math.floor(REFILL_SEND_RETRY_MS / 2));
+            expect(jobs.send).toHaveBeenCalledTimes(1);
+
+            await vi.advanceTimersByTimeAsync(Math.ceil(REFILL_SEND_RETRY_MS / 2) + WARM_TICK_MS * 2);
+            expect(jobs.send).toHaveBeenCalledTimes(2);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('does not ask twice for the same shortfall once a send has landed', async () => {

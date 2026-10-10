@@ -229,6 +229,15 @@ export const EXTEND_GUARD_MS = PLANNING_TIME_LIMIT_MS + 60_000;
  */
 export const EMPTY_REFILL_RETRY_MS = 300_000;
 
+/**
+ * How long a refill that could not be SENT holds the next attempt off.
+ *
+ * Short, because nothing is planning and the order is still running down. Not zero, because the
+ * warm tick runs every few seconds and a broker that is down would otherwise be asked, and logged
+ * about, on every one of them.
+ */
+export const REFILL_SEND_RETRY_MS = 30_000;
+
 /** How long a reading of `station_air` is trusted before it is re-read. */
 const AIR_TTL_MS = 5_000;
 
@@ -3315,21 +3324,25 @@ export class DirectorService {
         }
         if (this.extendDueAt !== undefined && Date.now() < this.extendDueAt) return;
 
-        // The guard is set only once the send has actually landed, so a send that threw is asked
-        // again on the very next boundary rather than waiting out the window. That is now belt and
-        // braces — the window expires either way — but it is the difference between the next
-        // boundary and five minutes of a shortening order, and it costs one line.
+        // The long guard is set only once the send has actually landed, so a send that threw is
+        // asked again soon rather than after the job's whole time limit.
         try {
             // Stamped with the broadcast this pass is actually looking at, so the job can tell a
             // changeover apart from a genuine ask before it pays for the model: see
             // `ExtendLineupJob.execute` and `appendTracks`.
             await this.jobs.send('director.extend_lineup', { broadcastId: lineup.broadcastId });
         } catch (error) {
-            // Swallowed on purpose, and the guard is left clear so the next boundary asks again.
-            // A refill that could not be sent must not take the commit pass down with it: the
-            // order still has items, the station is still playing them, and the pass this is the
-            // tail of is what keeps the running order full.
+            // Swallowed on purpose. A refill that could not be sent must not take the commit pass
+            // down with it: the order may still have items, the station is still playing them, and
+            // the pass this is the tail of is what keeps the running order full.
+            //
+            // But not left CLEAR, which is what this used to do on the reasoning that the next
+            // boundary would ask again. An order that has run empty has no next boundary, and the
+            // warm tick only wakes for a refill that is overdue, which a guard nobody set never is:
+            // one failed send on an empty order was a station that never asked again. A short
+            // deadline is overdue soon, so the tick asks again whether or not anything airs.
             this.logger.warn(`director: could not ask for a refill (${errorText(error)})`);
+            this.extendDueAt = Date.now() + REFILL_SEND_RETRY_MS;
             return;
         }
         this.extendDueAt = Date.now() + EXTEND_GUARD_MS;

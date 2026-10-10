@@ -1412,6 +1412,24 @@ describe('BreakPlanner.ripen', () => {
             expect(built.reopenSegments).toHaveBeenCalledTimes(2);
         });
 
+        it('leaves alone a row the player already holds, however stale its words have become', async () => {
+            // The same row at two positions, which idents from the shared library legitimately are.
+            // The copy in front is handed, so its audio is in Liquidsoap: rewriting the row would
+            // change nothing anybody hears and spend a model call doing it. On 2026-10-10 a break was
+            // rewritten while it aired and the old words went out anyway.
+            const { built, lineup, segmentId } = await written();
+            const { claimsItemId, ...rest } = built.known.get(segmentId)!;
+            built.known.set(segmentId, { ...rest, claimsReadingUntil: Date.now() - 60_000 });
+            lineup.insertSegment(segmentId, 0);
+            for (const item of lineup.nextPlanned(1)) lineup.markHanded(item.id);
+
+            const result = await built.planner.ripen(lineup, clock());
+
+            expect(result.rewritten).toEqual([]);
+            expect(built.reopenSegments).not.toHaveBeenCalled();
+            expect(built.known.get(segmentId)).toMatchObject({ state: 'written' });
+        });
+
         it('leaves alone a break whose reading is still current', async () => {
             const { built, lineup, segmentId } = await written();
             const segment = built.known.get(segmentId)!;

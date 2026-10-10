@@ -541,4 +541,33 @@ describe('SlotEditor', () => {
         await setupUser().click(screen.getAllByRole('button', { name: 'Save' }).at(-1)!);
         expect(untouched.mock.calls[0]?.[0]).not.toHaveProperty('moods');
     });
+
+    it('sends a second mood stage after the first, and closes the gap when one is cleared', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({ moods: ['comfort', 'loneliness', 'sadness'] }) }}
+                onClose={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+        // The input, not the listbox Mantine labels the same way.
+        const stage = async (number: number) =>
+            (await screen.findAllByLabelText(`Mood stage ${number}`)).find(element => element.tagName === 'INPUT');
+        // Three stages and a blank one for a fourth.
+        expect(await stage(4)).toHaveValue('');
+        expect(await stage(2)).toHaveValue('Loneliness');
+
+        // Clearing the middle stage moves the last one up rather than leaving a hole.
+        // Mantine's clear control is a button kept out of the accessibility tree, so it is found by its label.
+        await setupUser().click(screen.getByLabelText('Remove mood stage 2'));
+        await setupUser().click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit.mock.calls[0]![0].moods).toEqual(['comfort', 'sadness']);
+    });
 });

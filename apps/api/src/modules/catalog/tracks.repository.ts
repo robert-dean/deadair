@@ -5,6 +5,7 @@ import type { DB } from '../data/db.js';
 import { CatalogListQuery, columnFor, directionFor, likeContains, likeExactly } from './catalog.query.js';
 import { catalogKey, normalizeKey } from './catalog.keys.js';
 import { artUrl } from './catalog.art.js';
+import { stationCover, withStationCover } from '#modules/art/art.source.token.js';
 import { creditedDislikeExists, noCreditedDislike } from './credited.dislike.js';
 import { ratingFromColumn } from './rating.js';
 import { releasedYear } from '../shared/release.year.js';
@@ -409,7 +410,7 @@ export class TracksRepository extends DataRepository {
             .offset(offset)
             .execute();
 
-        return { total: Number(total), data };
+        return { total: Number(total), data: data.map(row => withStationCover(row, 'albumImageUrl')) };
     }
 
     /**
@@ -1018,7 +1019,7 @@ export class TracksRepository extends DataRepository {
                     credit: row.artists,
                     ...(row.albumName == null ? {} : { album: row.albumName }),
                     ...(row.year == null ? {} : { year: row.year }),
-                    ...(row.albumImageUrl == null ? {} : { artworkUrl: row.albumImageUrl }),
+                    ...(stationCover(row.albumImageUrl) === undefined ? {} : { artworkUrl: stationCover(row.albumImageUrl)! }),
                 },
             ]),
         );
@@ -1070,6 +1071,7 @@ export class TracksRepository extends DataRepository {
                 // is the same work described twice, and reading it would report the loser.
                 .where('deadair.tracks.mergedIntoId', 'is', null)
                 .execute()
+                .then(rows => rows.map(row => withStationCover(row, 'albumImageUrl')))
         );
     }
 
@@ -1207,11 +1209,12 @@ export class TracksRepository extends DataRepository {
 
     /** One track, in the shape a list row has. Undefined when there is no such track, and equally when it was merged away. */
     async findTrack(id: string) {
-        return await this.readable()
+        const row = await this.readable()
             .where('deadair.tracks.id', '=', id)
             .select(TRACK_COLUMNS)
             .select(artUrl(ALBUM_IMAGE_COLUMN, 'albumImageUrl'))
             .executeTakeFirst();
+        return row === undefined ? undefined : withStationCover(row, 'albumImageUrl');
     }
 
     /** What the station thinks of this song, as the column spells it. Merged rows are not rated; see `ArtistsRepository.setRating`. */

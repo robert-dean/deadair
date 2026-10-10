@@ -92,7 +92,7 @@ export const PlayoutItem = z.strictObject({
         .optional()
         .describe('Integer milliseconds. Deliberately not the `duration` scalar, which is a Luxon `Duration` over an ISO-8601 string'),
     album: z.string().max(400).optional(),
-    artworkUrl: z.string().max(2000).optional().describe("The locally cached cover where there is one, the provider's URL otherwise"),
+    artworkUrl: z.string().max(2000).optional().describe("The station's own cover, as a path under the API root. Never a provider's URL"),
     year: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .optional()

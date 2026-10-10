@@ -36,6 +36,69 @@ export class ArtClient {
     }
 
     /**
+     * @name Get source art
+     * @description The bytes of a cover the station fetches on first ask, addressed by its sealed source
+     */
+    async getSourceArt(token: string): Promise<
+        | {
+              status: 200;
+              contentType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
+              data: Blob;
+              headers: { cacheControl?: string; etag?: string };
+          }
+        | { status: 304 }
+    > {
+        const result = await this.fetch(`/art/source/${encodeURIComponent(token)}`, {
+            method: 'GET',
+            expectStatuses: [304],
+        });
+        switch (result.status) {
+            case 304:
+                return { status: 304 };
+            default:
+                return {
+                    status: 200,
+                    contentType: readContentType(result) as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif',
+                    data: await result.blob(),
+                    headers: { cacheControl: result.headers.get('cache-control') ?? undefined, etag: result.headers.get('etag') ?? undefined },
+                };
+        }
+    }
+
+    /**
+     * @name Get source art file
+     * @description The bytes of a cover the station fetches on first ask, under any filename
+     */
+    async getSourceArtFile(
+        token: string,
+        filename: string,
+    ): Promise<
+        | {
+              status: 200;
+              contentType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
+              data: Blob;
+              headers: { cacheControl?: string; etag?: string };
+          }
+        | { status: 304 }
+    > {
+        const result = await this.fetch(`/art/source/${encodeURIComponent(token)}/${encodeURIComponent(filename)}`, {
+            method: 'GET',
+            expectStatuses: [304],
+        });
+        switch (result.status) {
+            case 304:
+                return { status: 304 };
+            default:
+                return {
+                    status: 200,
+                    contentType: readContentType(result) as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif',
+                    data: await result.blob(),
+                    headers: { cacheControl: result.headers.get('cache-control') ?? undefined, etag: result.headers.get('etag') ?? undefined },
+                };
+        }
+    }
+
+    /**
      * @name Get art
      * @description The bytes of one cached image, addressed by its id alone
      */

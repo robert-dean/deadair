@@ -107,7 +107,7 @@ public sealed record PlayoutItem
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Album { get; init; }
 
-    /// <summary>The locally cached cover where there is one, the provider's URL otherwise</summary>
+    /// <summary>The station's own cover, as a path under the API root. Never a provider's URL</summary>
     [JsonPropertyName("artworkUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ArtworkUrl { get; init; }

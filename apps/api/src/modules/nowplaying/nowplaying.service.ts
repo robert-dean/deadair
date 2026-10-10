@@ -154,9 +154,9 @@ export class NowPlayingService {
                 ...(item.album === undefined ? {} : { album: item.album }),
                 // The station's own copy of the cover and nothing else, through the same test the mount
                 // applies (`listenerCover`): the item's `art/` path, or, for a record committed before
-                // its cover was cached, whatever the station holds for it now. Never the provider's
-                // URL, which may carry the operator's credentials, so an uncached cover is simply
-                // absent and a player shows the station's logo, as it does for a record with none.
+                // its cover was cached, the cached path once it lands and the station's proxy path
+                // for it until then. Never the provider's URL, which may carry the operator's
+                // credentials.
                 ...(artworkUrl === undefined ? {} : { artworkUrl }),
                 ...(item.durationMs === undefined ? {} : { durationMs: item.durationMs }),
                 startedAt,

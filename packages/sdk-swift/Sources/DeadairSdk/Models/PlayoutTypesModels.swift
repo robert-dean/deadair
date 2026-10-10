@@ -153,7 +153,7 @@ public struct PlayoutItem: Codable, Equatable, Sendable {
     /// Integer milliseconds. Deliberately not the `duration` scalar, which is a Luxon `Duration` over an ISO-8601 string
     public var durationMs: Int?
     public var album: String?
-    /// The locally cached cover where there is one, the provider's URL otherwise
+    /// The station's own cover, as a path under the API root. Never a provider's URL
     public var artworkUrl: String?
     /// First release year, when the catalog knows one
     public var year: Int?

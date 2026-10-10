@@ -10,6 +10,8 @@ import { ArtService } from './art.service.js';
 import { ArtStore } from './art.store.js';
 import { BreakArtworkService } from './break.artwork.service.js';
 import { CoverResolver } from './cover.resolver.js';
+import { ArtSourceService } from './art.source.service.js';
+import { configureArtSourceKey } from './art.source.token.js';
 import { PersonaArtworkService } from './persona.artwork.service.js';
 
 /** Where cached art is written when `ART_DIR` is unset. Alongside `logs/`, and gitignored with it. */
@@ -46,16 +48,22 @@ const DEFAULT_BREAK_ART_ASSETS_DIR = '../../assets/art/breaks';
  *
  * ## What caching art does and does not do for a credential
  *
- * Once bytes are cached, `catalog.art.ts` reports `art/<id>` and whatever the upstream URL carried
- * in its query string stops at the API rather than reaching the browser. That is a real benefit and
- * it is the reason a credentialed provider is servable at all, but it is not a credential firewall:
- * until a fetch succeeds, catalog reads hand out the upstream URL verbatim, secrets and all, and a
- * URL whose fetches permanently fail is handed out verbatim forever. The window is as long as it
- * takes the sweep to get the bytes, not zero. Do not write docs or UI copy claiming otherwise.
+ * Once bytes are cached, `catalog.art.ts` reports `art/<id>`. Before they are, every read reports
+ * `art/source/<token>` instead, the upstream URL sealed with a key derived from the station's root
+ * key (`art.source.token.ts`), and `GET /art/source/{token}` fetches it into the store on first ask
+ * (`ArtSourceService`). So whatever the upstream URL carried in its query string stops at the API
+ * whether or not the cover is cached yet. Until that existed, catalog reads handed out the upstream
+ * URL verbatim, secrets and all, for as long as the sweep took; a new read must go through
+ * `stationCover` to keep it that way.
  */
 export const ArtModule: ServerKitModule = {
     name: 'Art',
     setup: async (registry: Registry, config: AppConfig) => {
+        // The key every read seals an uncached cover's URL with (`art.source.token.ts`). Derived from
+        // the root key `CryptoModule` has already insisted on, read off `config` because the root key
+        // is scrubbed from the environment.
+        configureArtSourceKey(String(config.get('KMS_LOCAL_ROOT_KEY', '')));
+
         // Singleton: it is a directory root and nothing else, so a per-request copy would be a
         // per-request re-read of the same string.
         registry
@@ -69,6 +77,8 @@ export const ArtModule: ServerKitModule = {
         registry.register(ArtRepository).useClass(ArtRepository).asScoped();
         registry.register(ArtService).useClass(ArtService).asScoped();
         registry.register(ArtCacheService).useClass(ArtCacheService).asScoped();
+        // Scoped for the same reason: `GET /art/source/{token}`, which fetches through the cache service.
+        registry.register(ArtSourceService).useClass(ArtSourceService).asScoped();
         // The real network: the platform's fetch and the system resolver, on `PodcastFetchOptions`'s
         // pattern. The fetch also reads `PluginOperatorHosts`, which `PluginsModule` registers further
         // down the list; nothing asks for it before the first sweep.

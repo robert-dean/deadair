@@ -302,18 +302,18 @@ export type RateInput = z.infer<typeof RateInput>;
  * only ingest cares about: `artist_key` is a match key, and a row with `merged_into_id` set is
  * never read out at all.
  *
- * `imageUrl` on both contracts below is one field with two spellings. An absolute URL is the
- * provider's own, still hotlinked because nothing has cached it yet; a relative `art/<uuid>` is
- * the station's copy, to be resolved against the API base the client already configures (the API
- * mounts at the root and does not know the `/api` prefix the edge adds). Prefer the local one by
- * doing nothing: the switch happens server-side as soon as the art cache pass has the bytes.
+ * `imageUrl` on both contracts below is always a path under the API root, never a provider's URL:
+ * `art/<uuid>` for the station's cached copy, or `art/source/<token>` for one it has not cached
+ * yet, which the station fetches on first ask and serves as its own. Resolve either against the
+ * API base the client already configures (the API mounts at the root and does not know the `/api`
+ * prefix the edge adds). The switch from the second to the first happens server-side.
  * generated from [Artist](../../../../data/contracts/catalog/catalog.types.ck)
  */
 export const Artist = z.strictObject({
     id: z.uuid(),
     name: z.string(),
     mbid: z.uuid().optional().describe('MusicBrainz artist id, absent until enrichment resolves one'),
-    imageUrl: z.string().optional().describe('Absolute upstream URL, or an API-relative path to the local copy'),
+    imageUrl: z.string().optional().describe("An API-relative path: the cached copy, or the station's proxy for an uncached one"),
     rating: Rating.default('neutral'),
     albumCount: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
@@ -327,7 +327,7 @@ export type Artist = z.infer<typeof Artist>;
 export const ArtistInput = z.strictObject({
     name: z.string(),
     mbid: z.uuid().optional().describe('MusicBrainz artist id, absent until enrichment resolves one'),
-    imageUrl: z.string().optional().describe('Absolute upstream URL, or an API-relative path to the local copy'),
+    imageUrl: z.string().optional().describe("An API-relative path: the cached copy, or the station's proxy for an uncached one"),
     rating: Rating.default('neutral'),
 });
 export type ArtistInput = z.infer<typeof ArtistInput>;
@@ -342,7 +342,7 @@ export const Album = z.strictObject({
     artistName: z.string().describe('Joined, so a list renders without a second request per row'),
     mbid: z.uuid().optional().describe('MusicBrainz release-group id, absent until enrichment resolves one'),
     year: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int()).optional(),
-    imageUrl: z.string().optional().describe('Absolute upstream URL, or an API-relative path to the local copy'),
+    imageUrl: z.string().optional().describe("An API-relative path: the cached copy, or the station's proxy for an uncached one"),
     rating: Rating.default('neutral'),
     trackCount: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
 });
@@ -352,7 +352,7 @@ export const AlbumInput = z.strictObject({
     name: z.string(),
     mbid: z.uuid().optional().describe('MusicBrainz release-group id, absent until enrichment resolves one'),
     year: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int()).optional(),
-    imageUrl: z.string().optional().describe('Absolute upstream URL, or an API-relative path to the local copy'),
+    imageUrl: z.string().optional().describe("An API-relative path: the cached copy, or the station's proxy for an uncached one"),
     rating: Rating.default('neutral'),
 });
 export type AlbumInput = z.infer<typeof AlbumInput>;
@@ -367,7 +367,7 @@ export const Track = z.strictObject({
     artistName: z.string(),
     albumId: z.uuid().optional().describe('Absent on a single ingested outside any release: `tracks.album_id` is nullable'),
     albumName: z.string().optional(),
-    albumImageUrl: z.string().optional().describe("The record's cover, in the two spellings `Album.imageUrl` has. Nothing hangs art off a recording"),
+    albumImageUrl: z.string().optional().describe("The record's cover, as `Album.imageUrl` spells it. Nothing hangs art off a recording"),
     artists: z.string().describe('Display credit as written on the release ("X feat. Y"), not a join key'),
     genre: z.string().optional(),
     year: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int()).optional(),

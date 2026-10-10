@@ -4,6 +4,7 @@ options {
     }
     services: {
         ArtService: "#src/modules/art/art.service.js"
+        ArtSourceService: "#src/modules/art/art.source.service.js"
     }
 }
 
@@ -17,6 +18,65 @@ options {
 # That note lives up HERE for historical reasons: the formatter used to delete a comment written
 # inside or immediately above a `security` block, and had already done so once. Fixed in core 0.26 —
 # a note above `security: none` round-trips now and would be the better home for it.
+
+# A cover the station has not cached yet, served as its own. Every read reports such a cover as
+# `art/source/<token>` rather than as the provider's URL, which can carry a credential (a Subsonic
+# cover link holds the operator's user and token). The token is that URL sealed with a key only the
+# station holds, so it cannot be read back out of the path, and one the station did not mint answers
+# 404. The first request fetches the cover into the store; later reads report the plain `art/{id}`.
+#
+# Declared before /art/{id} so the literal `source` segment is matched first: `/art/source/<token>`
+# also has the shape of `/art/{id}/{filename}`, whose uuid check would answer 400.
+operation /art/source/{token}: {
+    params: {
+        token: string(min=24, max=4096)
+    }
+    get: { # The bytes of a cover the station fetches on first ask, addressed by its sealed source
+        name: Get source art
+        service: ArtSourceService.getSourceArt
+        security: none
+        response: {
+            200: {
+                image/jpeg: binary
+                image/png: binary
+                image/webp: binary
+                image/gif: binary
+                headers: {
+                    cache-control?: string
+                    etag?: string
+                }
+            }
+            304:
+        }
+    }
+}
+
+# The same under a filename, for the player that decides by the URL (see /art/{id}/{filename}). The
+# mount's cover for a record whose art is still upstream is this shape.
+operation /art/source/{token}/{filename}: {
+    params: {
+        token: string(min=24, max=4096)
+        filename: string(min=3, max=64)
+    }
+    get: { # The bytes of a cover the station fetches on first ask, under any filename
+        name: Get source art file
+        service: ArtSourceService.getSourceArtFile
+        security: none
+        response: {
+            200: {
+                image/jpeg: binary
+                image/png: binary
+                image/webp: binary
+                image/gif: binary
+                headers: {
+                    cache-control?: string
+                    etag?: string
+                }
+            }
+            304:
+        }
+    }
+}
 
 operation /art/{id}: {
     params: {

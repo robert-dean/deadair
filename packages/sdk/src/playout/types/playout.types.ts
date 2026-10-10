@@ -61,7 +61,7 @@ export interface PlayoutItem {
     /** Integer milliseconds. Deliberately not the `duration` scalar, which is a Luxon `Duration` over an ISO-8601 string */
     durationMs?: number;
     album?: string;
-    /** The locally cached cover where there is one, the provider's URL otherwise */
+    /** The station's own cover, as a path under the API root. Never a provider's URL */
     artworkUrl?: string;
     /** First release year, when the catalog knows one */
     year?: number;

@@ -4,6 +4,7 @@ import { DataRepository } from '../data/data.repository.js';
 import { DB } from '../data/db.js';
 import { CatalogListQuery, columnFor, directionFor, likeContains } from './catalog.query.js';
 import { artistArtUrl } from './catalog.art.js';
+import { withStationCover } from '#modules/art/art.source.token.js';
 
 /**
  * The columns the `Artist` contract carries. `artistKey` is a match key for ingest, never read out.
@@ -78,7 +79,7 @@ export class ArtistsRepository extends DataRepository {
             .offset(offset)
             .execute();
 
-        return { total: Number(total), data: data.map(countsAsNumbers) };
+        return { total: Number(total), data: data.map(row => withStationCover(countsAsNumbers(row), 'imageUrl')) };
     }
 
     /** Undefined when no such artist exists, and equally when it was merged away: reads never return a merged row. */
@@ -92,7 +93,7 @@ export class ArtistsRepository extends DataRepository {
             .select(eb => [albumCount(eb), trackCount(eb)])
             .executeTakeFirst();
 
-        return row === undefined ? undefined : countsAsNumbers(row);
+        return row === undefined ? undefined : withStationCover(countsAsNumbers(row), 'imageUrl');
     }
 
     /**

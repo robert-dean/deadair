@@ -1,7 +1,7 @@
 ---
 title: 'Get art'
 sidebar_label: 'Get art'
-sidebar_position: 4
+sidebar_position: 6
 mdx:
     format: 'md'
 ---

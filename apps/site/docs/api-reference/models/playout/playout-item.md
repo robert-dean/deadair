@@ -19,7 +19,7 @@ mdx:
 | `artists`    | `string[]` | Yes      |                                                                                                                                |
 | `durationMs` | `number`   | No       | Integer milliseconds. Deliberately not the `duration` scalar, which is a Luxon `Duration` over an ISO-8601 string              |
 | `album`      | `string`   | No       |                                                                                                                                |
-| `artworkUrl` | `string`   | No       | The locally cached cover where there is one, the provider's URL otherwise                                                      |
+| `artworkUrl` | `string`   | No       | The station's own cover, as a path under the API root. Never a provider's URL                                                  |
 | `year`       | `number`   | No       | First release year, when the catalog knows one                                                                                 |
 | `trackId`    | `string`   | No       | The canonical `deadair.tracks` id, when this item is a track the catalog holds. Absent for anything the catalog has never seen |
 

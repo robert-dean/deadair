@@ -113,6 +113,99 @@ paths:
                                 '$ref': '#/components/schemas/BreakArtworkList'
                 '404':
                     description: 'Not found'
+    '/art/source/{token}':
+        get:
+            operationId: getSourceArt
+            summary: 'Get source art'
+            description: 'The bytes of a cover the station fetches on first ask, addressed by its sealed source'
+            parameters:
+                - name: token
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 24
+                      maxLength: 4096
+            security: []
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'image/jpeg':
+                            schema:
+                                type: string
+                                format: binary
+                        'image/png':
+                            schema:
+                                type: string
+                                format: binary
+                        'image/webp':
+                            schema:
+                                type: string
+                                format: binary
+                        'image/gif':
+                            schema:
+                                type: string
+                                format: binary
+                    headers:
+                        cache-control:
+                            schema:
+                                type: string
+                        etag:
+                            schema:
+                                type: string
+                '304':
+                    description: 'Response 304'
+    '/art/source/{token}/{filename}':
+        get:
+            operationId: getSourceArtFile
+            summary: 'Get source art file'
+            description: 'The bytes of a cover the station fetches on first ask, under any filename'
+            parameters:
+                - name: token
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 24
+                      maxLength: 4096
+                - name: filename
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 3
+                      maxLength: 64
+            security: []
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'image/jpeg':
+                            schema:
+                                type: string
+                                format: binary
+                        'image/png':
+                            schema:
+                                type: string
+                                format: binary
+                        'image/webp':
+                            schema:
+                                type: string
+                                format: binary
+                        'image/gif':
+                            schema:
+                                type: string
+                                format: binary
+                    headers:
+                        cache-control:
+                            schema:
+                                type: string
+                        etag:
+                            schema:
+                                type: string
+                '304':
+                    description: 'Response 304'
     '/art/{id}':
         get:
             operationId: getArt
@@ -7135,7 +7228,7 @@ components:
                     description: 'MusicBrainz artist id, absent until enrichment resolves one'
                 imageUrl:
                     type: string
-                    description: 'Absolute upstream URL, or an API-relative path to the local copy'
+                    description: "An API-relative path: the cached copy, or the station's proxy for an uncached one"
                 rating:
                     '$ref': '#/components/schemas/Rating'
                     default: neutral
@@ -7150,7 +7243,7 @@ components:
                     readOnly: true
                     description: 'Unmerged tracks credited to this artist'
             required: [id, name, rating, albumCount, trackCount]
-            description: "The canonical work, not a binding to a provider. `deadair.artists` minus the columns that\nonly ingest cares about: `artist_key` is a match key, and a row with `merged_into_id` set is\nnever read out at all.\n\n`imageUrl` on both contracts below is one field with two spellings. An absolute URL is the\nprovider's own, still hotlinked because nothing has cached it yet; a relative `art/<uuid>` is\nthe station's copy, to be resolved against the API base the client already configures (the API\nmounts at the root and does not know the `/api` prefix the edge adds). Prefer the local one by\ndoing nothing: the switch happens server-side as soon as the art cache pass has the bytes."
+            description: "The canonical work, not a binding to a provider. `deadair.artists` minus the columns that\nonly ingest cares about: `artist_key` is a match key, and a row with `merged_into_id` set is\nnever read out at all.\n\n`imageUrl` on both contracts below is always a path under the API root, never a provider's URL:\n`art/<uuid>` for the station's cached copy, or `art/source/<token>` for one it has not cached\nyet, which the station fetches on first ask and serves as its own. Resolve either against the\nAPI base the client already configures (the API mounts at the root and does not know the `/api`\nprefix the edge adds). The switch from the second to the first happens server-side."
         Album:
             type: object
             properties:
@@ -7176,7 +7269,7 @@ components:
                     type: integer
                 imageUrl:
                     type: string
-                    description: 'Absolute upstream URL, or an API-relative path to the local copy'
+                    description: "An API-relative path: the cached copy, or the station's proxy for an uncached one"
                 rating:
                     '$ref': '#/components/schemas/Rating'
                     default: neutral
@@ -7212,7 +7305,7 @@ components:
                 albumImageUrl:
                     type: string
                     readOnly: true
-                    description: "The record's cover, in the two spellings `Album.imageUrl` has. Nothing hangs art off a recording"
+                    description: "The record's cover, as `Album.imageUrl` spells it. Nothing hangs art off a recording"
                 artists:
                     type: string
                     description: 'Display credit as written on the release ("X feat. Y"), not a join key'
@@ -11300,7 +11393,7 @@ components:
                 artworkUrl:
                     type: string
                     maxLength: 2000
-                    description: "The locally cached cover where there is one, the provider's URL otherwise"
+                    description: "The station's own cover, as a path under the API root. Never a provider's URL"
                 year:
                     type: integer
                     minimum: 0

@@ -259,7 +259,7 @@ describe('listenerArtwork, through itemAnnotations', () => {
     });
 
     it('still sends an asset the store recorded no extension for, under its bare id', () => {
-        // `cachedOrUpstream` leaves the filename off when it has nothing true to call the file.
+        // `cachedOrSource` leaves the filename off when it has nothing true to call the file.
         // A player that wants an extension ignores it, which is the same as today; a browser and
         // the console do not care.
         const item: RundownItem = { ...record(-9), artworkUrl: 'art/0b1e4a52-1111-4222-8333-444455556666' };

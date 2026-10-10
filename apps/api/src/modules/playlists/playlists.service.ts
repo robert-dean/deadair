@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { stationCover } from '#modules/art/art.source.token.js';
 import { httpError } from '@maroonedsoftware/errors';
 import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
@@ -66,7 +67,9 @@ function toCatalogPlaylist(record: PluginRecord, manifest: PluginManifest, playl
         name: playlist.name,
         description: playlist.description,
         trackCount: playlist.trackCount,
-        artworkUrl: playlist.artworkUrl,
+        // A provider's playlist cover can carry a credential (a Navidrome one does), so it is reported
+        // through the station's proxy, as every catalog read's is.
+        artworkUrl: stationCover(playlist.artworkUrl),
         permissions: playlist.permissions,
         madeByProvider: playlist.madeByProvider,
         // Marked rather than removed: the console folds these away and offers them back, which it
@@ -289,7 +292,7 @@ export class PlaylistsService {
                     album: track.album,
                     durationMs: track.durationMs,
                     isrc: track.isrc,
-                    artworkUrl: track.artworkUrl,
+                    artworkUrl: stationCover(track.artworkUrl),
                     // Absent for a copy no sync has walked, which on most playlists is plenty of
                     // rows: this endpoint lists what a PROVIDER holds, not what the station has.
                     ...(row === undefined ? {} : { trackId: row.trackId, artistId: row.artistId }),

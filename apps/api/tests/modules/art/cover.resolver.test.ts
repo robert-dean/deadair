@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ArtRepository, type ArtAsset } from '../../../src/modules/art/art.repository.js';
 import { COVER_RETRY_MS, CoverResolver } from '../../../src/modules/art/cover.resolver.js';
+import { clearArtSourceKey, configureArtSourceKey, openSourceToken } from '../../../src/modules/art/art.source.token.js';
 import { stubContainer } from '../../utils/stub.container.js';
 
 const UPSTREAM = 'https://music.example/rest/getCoverArt?id=al-1&u=operator&t=secret&s=salt';
@@ -35,6 +36,22 @@ describe('CoverResolver', () => {
 
         expect(findBySourceUrls).toHaveBeenCalledWith([UPSTREAM]);
         expect(resolver.resolve(UPSTREAM)).toBe('art/asset-1/cover.jpg');
+    });
+
+    it("answers the station's proxy path for an uncached cover, so a player shows it straight away", async () => {
+        configureArtSourceKey('ef'.repeat(32));
+        try {
+            const { resolver } = build();
+
+            const proxy = resolver.resolve(UPSTREAM)!;
+
+            // A filename, for the player that decides by the URL; never the upstream URL itself.
+            expect(proxy).toMatch(/^art\/source\/[A-Za-z0-9_-]+\/cover\.jpg$/);
+            expect(openSourceToken(proxy.split('/')[2]!)).toBe(UPSTREAM);
+            expect(proxy).not.toContain('music.example');
+        } finally {
+            clearArtSourceKey();
+        }
     });
 
     it('remembers a hit, so a cover the station holds costs no further query', async () => {

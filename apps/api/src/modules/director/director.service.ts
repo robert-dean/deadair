@@ -3778,10 +3778,11 @@ function segmentRundownTrackCover(segment: Segment | undefined): string | undefi
  * The cover fields of a player item, from the cover its line was picked with.
  *
  * `artworkUrl` is only ever the station's own `art/` path: the one {@link DirectorService.stationArtwork}
- * resolved on this pass, or the one the line already held. A provider's URL the station does not hold
- * yet goes in `coverSourceUrl`, which is server-only, so `/nowplaying` and the mount can ask
- * `CoverResolver` for the cached copy once it lands and never hand the provider's URL (and whatever
- * credential its query string carries) to a listener. Anything else is dropped.
+ * resolved on this pass, or the one the line already held (which includes a catalog read's proxy
+ * path, `art/source/<token>`). A provider's URL the station does not hold yet goes in
+ * `coverSourceUrl`, which is server-only, so `/nowplaying` and the mount can ask `CoverResolver`,
+ * which answers the proxy path until the cached copy lands, and never hand the provider's URL (and
+ * whatever credential its query string carries) to a listener. Anything else is dropped.
  */
 function coverFields(picked: string | undefined, resolved: ReadonlyMap<string, string>): { artworkUrl?: string; coverSourceUrl?: string } {
     if (picked === undefined) return {};

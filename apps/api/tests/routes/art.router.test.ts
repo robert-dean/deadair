@@ -15,6 +15,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ArtRepository } from '../../src/modules/art/art.repository.js';
 import { ArtRouter } from '../../src/routes/art.router.js';
 import { ArtService } from '../../src/modules/art/art.service.js';
+import { ArtSourceService } from '../../src/modules/art/art.source.service.js';
+import { clearArtSourceKey, configureArtSourceKey, sealSourceUrl } from '../../src/modules/art/art.source.token.js';
 import { ArtStore } from '../../src/modules/art/art.store.js';
 import { conditionalGetMiddleware } from '../../src/server/middleware/conditional.get.middleware.js';
 
@@ -139,5 +141,56 @@ describe('GET /art/:id', () => {
         const base = await serve({ findById: async () => undefined });
 
         expect((await send(`${base}/art/not-a-uuid`)).status).toBe(400);
+    });
+});
+
+// The proxy for an uncached cover, through the real router. The case a unit test cannot see is the
+// ORDER: `/art/source/<token>` also has the shape of `/art/{id}/{filename}`, whose uuid check would
+// answer 400 if it were matched first.
+describe('GET /art/source/:token', () => {
+    const UPSTREAM = 'https://music.example/rest/getCoverArt.view?id=al-42&u=operator&t=secret&s=salt';
+
+    beforeEach(() => configureArtSourceKey('ab'.repeat(32)));
+    afterEach(() => clearArtSourceKey());
+
+    const serveSource = async (): Promise<string> => {
+        const checksum = await store.write(BYTES, 'jpg');
+        const repository = {
+            findSourceState: async (url: string) =>
+                url === UPSTREAM ? { asset: { id: ID, sourceUrl: UPSTREAM, checksum, ext: 'jpg' as const }, backingOff: false } : undefined,
+        };
+        const sources = new ArtSourceService(repository as never, { cache: async () => ({ cached: false, reason: 'no' }) } as never, store);
+        const app = new Koa();
+        app.use(errorMiddleware() as unknown as Koa.Middleware);
+        app.use(async (ctx, next) => {
+            (ctx as unknown as { container: { get: (token: unknown) => unknown } }).container = {
+                get: (token: unknown) => (token === ArtSourceService ? sources : undefined),
+            };
+            await next();
+        });
+        app.use(conditionalGetMiddleware() as unknown as Koa.Middleware);
+        app.use(ArtRouter.routes() as unknown as Koa.Middleware);
+
+        server = app.listen(0, LOOPBACK);
+        await new Promise<void>(resolve => server!.once('listening', () => resolve()));
+        return `http://${LOOPBACK}:${(server!.address() as AddressInfo).port}`;
+    };
+
+    it('reaches the proxy rather than the art route it shares a shape with, bare and under a filename', async () => {
+        const base = await serveSource();
+        const token = sealSourceUrl(UPSTREAM)!;
+
+        for (const path of [`/art/source/${token}`, `/art/source/${token}/cover.jpg`]) {
+            const response = await send(`${base}${path}`);
+            expect(response.status, path).toBe(200);
+            expect(response.body.equals(BYTES)).toBe(true);
+            expect(response.headers['content-type']).toBe('image/jpeg');
+        }
+    });
+
+    it('answers 404 for a token the station did not mint', async () => {
+        const base = await serveSource();
+
+        expect((await send(`${base}/art/source/${'A'.repeat(64)}`)).status).toBe(404);
     });
 });

@@ -340,9 +340,10 @@ export function isStationArt(url: string | undefined): url is string {
  * The cover a LISTENER may be shown for this item, as the station's own `art/` path, or nothing.
  *
  * The item's own `artworkUrl` where it is the station's art. Otherwise, for a record whose cover was
- * still upstream when it was committed, whatever `covers` now says the station holds for that
- * upstream URL, so a cover cached after the commit reaches the very record it belongs to. Never the
- * upstream URL itself, whatever happens: see {@link listenerArtwork} for why both reasons are absolute.
+ * still upstream when it was committed, whatever `covers` answers for that upstream URL: the cached
+ * path once the cache job lands, the station's proxy path (`art/source/<token>/cover.jpg`) until then.
+ * Never the upstream URL itself, whatever happens: see {@link listenerArtwork} for why both reasons
+ * are absolute.
  */
 export function listenerCover(item: RundownItem, covers?: CoverLookup): string | undefined {
     if (isStationArt(item.artworkUrl)) return item.artworkUrl.trim();

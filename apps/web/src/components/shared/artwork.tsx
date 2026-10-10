@@ -25,9 +25,9 @@ const initial = (alt: string): string => [...alt.trim()][0]?.toUpperCase() ?? ''
  * state would make a half-filled library look broken rather than unfinished. The placeholder is deliberately quiet — an initial, not an icon
  * and not a "no image" label, which would draw the eye to every gap in a list of fifty rows.
  *
- * A URL that fails to load falls back to the same placeholder. Art is hotlinked from the provider
- * until the cache pass has the bytes, so a dead upstream is an ordinary outcome and not worth a
- * broken-image glyph.
+ * A URL that fails to load falls back to the same placeholder. A cover the station has not cached
+ * is served through its proxy (`art/source/<token>`), which answers 404 for a dead upstream, so that
+ * is an ordinary outcome and not worth a broken-image glyph.
  *
  * `artSrc` resolves the station's own copy against the API base; see its own note on why the API
  * cannot mint that URL itself.

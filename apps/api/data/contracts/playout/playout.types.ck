@@ -36,7 +36,7 @@ contract PlayoutItem: { # One item in the running order, as the console sees it
     artists: array(string(min=1, max=200))
     durationMs?: int(min=0) # Integer milliseconds. Deliberately not the `duration` scalar, which is a Luxon `Duration` over an ISO-8601 string
     album?: string(max=400)
-    artworkUrl?: string(max=2000) # The locally cached cover where there is one, the provider's URL otherwise
+    artworkUrl?: string(max=2000) # The station's own cover, as a path under the API root. Never a provider's URL
     year?: int(min=0) # First release year, when the catalog knows one
     trackId?: string(max=100) # The canonical `deadair.tracks` id, when this item is a track the catalog holds. Absent for anything the catalog has never seen
 }

@@ -21,6 +21,82 @@ namespace MaroonedSoftware.Deadair.Sdk.Clients;
 public sealed class ArtClient(SdkHttp http)
 {
     /// <summary>
+    /// Get source art
+    /// The bytes of a cover the station fetches on first ask, addressed by its sealed source
+    /// </summary>
+    public async Task<GetSourceArtResponse> GetSourceArtAsync(string token, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("art", "source", http.Segment(token)),
+            expectStatuses: new[] { 304 },
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        switch (response.Status)
+        {
+            case 304:
+            {
+                return new GetSourceArtResponse.Status304();
+            }
+
+            default:
+            {
+                var headers = new GetSourceArt200Headers(
+                    response.Header("cache-control") is { } cacheControl ? cacheControl : null,
+                    response.Header("etag") is { } etag ? etag : null);
+                switch (response.ContentType)
+                {
+                    case "image/png":
+                        return new GetSourceArtResponse.Status200ImagePng(response.Bytes, headers);
+                    case "image/webp":
+                        return new GetSourceArtResponse.Status200ImageWebp(response.Bytes, headers);
+                    case "image/gif":
+                        return new GetSourceArtResponse.Status200ImageGif(response.Bytes, headers);
+                    default:
+                        return new GetSourceArtResponse.Status200ImageJpeg(response.Bytes, headers);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Get source art file
+    /// The bytes of a cover the station fetches on first ask, under any filename
+    /// </summary>
+    public async Task<GetSourceArtFileResponse> GetSourceArtFileAsync(string token, string filename, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("art", "source", http.Segment(token), http.Segment(filename)),
+            expectStatuses: new[] { 304 },
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        switch (response.Status)
+        {
+            case 304:
+            {
+                return new GetSourceArtFileResponse.Status304();
+            }
+
+            default:
+            {
+                var headers = new GetSourceArtFile200Headers(
+                    response.Header("cache-control") is { } cacheControl ? cacheControl : null,
+                    response.Header("etag") is { } etag ? etag : null);
+                switch (response.ContentType)
+                {
+                    case "image/png":
+                        return new GetSourceArtFileResponse.Status200ImagePng(response.Bytes, headers);
+                    case "image/webp":
+                        return new GetSourceArtFileResponse.Status200ImageWebp(response.Bytes, headers);
+                    case "image/gif":
+                        return new GetSourceArtFileResponse.Status200ImageGif(response.Bytes, headers);
+                    default:
+                        return new GetSourceArtFileResponse.Status200ImageJpeg(response.Bytes, headers);
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Get art
     /// The bytes of one cached image, addressed by its id alone
     /// </summary>
@@ -95,6 +171,52 @@ public sealed class ArtClient(SdkHttp http)
             }
         }
     }
+}
+
+/// <summary>Response headers declared on GET /art/source/{token}.</summary>
+public sealed record GetSourceArt200Headers(string? CacheControl, string? Etag);
+
+/// <summary>
+/// What GET /art/source/{token} returned.
+///
+/// The operation declares several statuses the service produces, so the status is part of the value.
+/// </summary>
+public abstract record GetSourceArtResponse
+{
+    private GetSourceArtResponse() { }
+
+    public sealed record Status200ImageJpeg(byte[] Data, GetSourceArt200Headers Headers) : GetSourceArtResponse;
+
+    public sealed record Status200ImagePng(byte[] Data, GetSourceArt200Headers Headers) : GetSourceArtResponse;
+
+    public sealed record Status200ImageWebp(byte[] Data, GetSourceArt200Headers Headers) : GetSourceArtResponse;
+
+    public sealed record Status200ImageGif(byte[] Data, GetSourceArt200Headers Headers) : GetSourceArtResponse;
+
+    public sealed record Status304() : GetSourceArtResponse;
+}
+
+/// <summary>Response headers declared on GET /art/source/{token}/{filename}.</summary>
+public sealed record GetSourceArtFile200Headers(string? CacheControl, string? Etag);
+
+/// <summary>
+/// What GET /art/source/{token}/{filename} returned.
+///
+/// The operation declares several statuses the service produces, so the status is part of the value.
+/// </summary>
+public abstract record GetSourceArtFileResponse
+{
+    private GetSourceArtFileResponse() { }
+
+    public sealed record Status200ImageJpeg(byte[] Data, GetSourceArtFile200Headers Headers) : GetSourceArtFileResponse;
+
+    public sealed record Status200ImagePng(byte[] Data, GetSourceArtFile200Headers Headers) : GetSourceArtFileResponse;
+
+    public sealed record Status200ImageWebp(byte[] Data, GetSourceArtFile200Headers Headers) : GetSourceArtFileResponse;
+
+    public sealed record Status200ImageGif(byte[] Data, GetSourceArtFile200Headers Headers) : GetSourceArtFileResponse;
+
+    public sealed record Status304() : GetSourceArtFileResponse;
 }
 
 /// <summary>Response headers declared on GET /art/{id}.</summary>

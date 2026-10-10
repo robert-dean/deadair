@@ -261,6 +261,21 @@ describe('when the station wants its model back', () => {
         expect(converse).toHaveBeenCalledTimes(2);
     });
 
+    it('carries on after a document that ran out of budget, keeping what it found first', async () => {
+        // The gate stops a conversation the same way when its own budget runs out, and that is a
+        // fact about one long article rather than a station that wants the model back.
+        const { service, converse, written } = build({
+            documents: three,
+            answers: [{ text: FOUND, finishReason: 'budget' }, 'yes', FOUND, 'yes', FOUND, 'yes'],
+        });
+
+        const summary = await service.extractModel(10);
+
+        expect(written[0]).toHaveLength(1);
+        expect(summary).toMatchObject({ read: 3, yielded: false });
+        expect(converse).toHaveBeenCalledTimes(6);
+    });
+
     it('treats a verifier it could not reach as unreached, never as a refutation', async () => {
         // `supported` answers `false` for every other failure, on the argument that a broken
         // verifier must not pass unverified claims. A caller that never got into the queue has not

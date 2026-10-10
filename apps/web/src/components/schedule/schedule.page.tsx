@@ -15,7 +15,7 @@ import { ClockPanel } from './clock.panel';
 import { OnNowStrip } from './on.now.strip';
 import { OverrunPanel } from './overrun.panel';
 import { colorOf, weekdayOf } from './schedule.day';
-import { blockEdit, drawnEnd, minutesOf, type DraggedBlock, type SlotEdit } from './schedule.edits';
+import { blockEdit, minutesOf, resizedEnd, type DraggedBlock, type SlotEdit } from './schedule.edits';
 import { SlotEditor, type EditorTarget } from './slot.editor';
 import { RulesPanel } from './rules.panel';
 import { RequestsPanel } from '../requests/requests.panel';
@@ -232,9 +232,11 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
             const block = blockOf(event);
             if (block) apply(blockEdit(block, newStart, newEnd, slots));
         },
+        // A lower edge dragged to the bottom of the column comes back as 23:59; `resizedEnd` reads it
+        // as the midnight it is.
         onEventResize: ({ event, newStart, newEnd }: { event: ScheduleEventData; newStart: string; newEnd: string }) => {
             const block = blockOf(event);
-            if (block) apply(blockEdit(block, newStart, newEnd, slots));
+            if (block) apply(blockEdit(block, newStart, resizedEnd(block, newEnd), slots));
         },
     };
 
@@ -386,7 +388,7 @@ function toEvents(
         id: `${block.slotId}@${block.start}`,
         title: specials.has(block.slotId) ? t('specials.onTimetable', { name: block.label || t('untitled') }) : block.label || t('untitled'),
         start: block.start,
-        end: drawnEnd(block.start, block.end),
+        end: block.end,
         color: colorOf(block.slotId),
         variant: block.slotId === airingSlotId ? ('filled' as const) : ('light' as const),
         payload: { slotId: block.slotId },

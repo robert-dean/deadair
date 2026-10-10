@@ -54,6 +54,23 @@ export type JobMapping = Constructor<Job> | PgBossJobRegistration;
 /** The job class behind a mapping, in either form. */
 export const jobClassOf = (mapping: JobMapping): Constructor<Job> => (typeof mapping === 'function' ? mapping : mapping.job) as Constructor<Job>;
 
+/**
+ * How long a job that plans records through `planRecords` may run: the refill, the replan and the
+ * prepare-ahead.
+ *
+ * Twelve minutes, and it has to be above `MAX_PLANNING_ATTEMPTS` model conversations, each of them a
+ * `MAX_WAIT_MS` queue and a `BUDGET_MS` budget (eight minutes at today's numbers), plus the resolver's
+ * provider lookups after them. The refill's was three minutes, chosen when a run was "a sample, two
+ * history reads and one write" and never raised when the model became the generator. On 2026-10-10 a
+ * brief-only show opened empty, its refill's first attempt finished planning 178 seconds in, pg-boss
+ * aborted it at 180 while it was still resolving, and the retry spent its whole budget too: fifteen
+ * records taken into the catalog and none put on air, with the station silent behind it.
+ *
+ * pg-boss aborts the handler's signal at this point and fails the job, which every planning job
+ * reads as "throw the plan away". So a ceiling below the work does not bound the work: it discards it.
+ */
+const PLANNING_EXPIRES_IN = Duration.fromObject({ minutes: 12 });
+
 export const JobMappings: Record<JobNames, JobMapping> = {
     // Hourly. A provider's library changes on human timescales, and the walk
     // costs one rate-limited request per 50 items, so there is nothing to gain
@@ -291,12 +308,10 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // One retry and no dead-letter queue, for the reason the enrichment pass gives:
     // a lineup that failed to grow is still short, so the next boundary sends this
     // again under the director's own guard. The work is its own record. `expiresIn`
-    // is short because there is nothing slow in a run today — a sample, two history
-    // reads and one write — and a wedged run must be reclaimed well before the
-    // lineup it was meant to refill actually drains.
+    // is {@link PLANNING_EXPIRES_IN}, which is where the reason it is not short lives.
     'director.extend_lineup': {
         job: ExtendLineupJob,
-        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 3 }) },
+        policy: { retryLimit: 1, expiresIn: PLANNING_EXPIRES_IN },
     },
 
     // No cron, for the reason the replan gives: this is an operator choosing a document to air.
@@ -319,11 +334,11 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     //
     // One retry, like the refill, and it is genuinely safe to take: the job changes nothing until
     // it posts, so an attempt that failed left the old tail exactly where it was. `expiresIn` is
-    // longer than the refill's because a replan is the one that waits on a model before it does
-    // anything, and a run reclaimed halfway is a run whose generation is thrown away.
+    // the refill's, because both wait on a model before they do anything, and a run reclaimed
+    // halfway is a run whose generation is thrown away.
     'director.replan_lineup': {
         job: ReplanLineupJob,
-        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 10 }) },
+        policy: { retryLimit: 1, expiresIn: PLANNING_EXPIRES_IN },
     },
 
     // No cron: the director sends this once, when a playlist goes on air asking for its neighbours
@@ -407,10 +422,10 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // NO retry, for the tick's own reason: the tick sends it again every minute until a set is
     // there, so the cron behind the tick IS the retry. One worker, the default, and that is what
     // makes those repeat sends cheap: a run queued behind the one that prepared the set finds it and
-    // returns. `expiresIn` sits above a model refill, which takes a minute or two.
+    // returns. `expiresIn` is the refill's, since this is the refill's own `planRecords` call.
     'schedule.prepare_slot': {
         job: PrepareSlotJob,
-        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 5 }) },
+        policy: { retryLimit: 0, expiresIn: PLANNING_EXPIRES_IN },
     },
 
     // No cron: a segment is rendered because something planned one, and walking

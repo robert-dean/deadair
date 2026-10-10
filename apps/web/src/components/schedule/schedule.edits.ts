@@ -2,7 +2,7 @@ import type { ScheduleSlot } from '@deadair/sdk';
 
 import { i18n } from '../../i18n/i18n.setup';
 
-import { weekdayOf } from './schedule.day';
+import { addDays, weekdayOf } from './schedule.day';
 
 /**
  * Turning a drag on the grid into a change to the schedule.
@@ -50,29 +50,17 @@ export function minutesOf(stamp: string): number {
 const dateOf = (stamp: string): string => stamp.slice(0, 10);
 
 /**
- * A block's end as the grid can draw it.
+ * A resized block's end, with the bottom of the column read as the midnight it stands for.
  *
- * The API ends a block that runs to midnight at the NEXT day's `00:00:00`, which is right and which
- * `@mantine/schedule` cannot draw: its time-window filter reads the end's hour and minute without the
- * date, sees `00:00`, decides the block finishes before the column begins and drops it from both
- * views. A late show ending at midnight was on the On now strip and nowhere on the timetable. The
- * last second of the block's own day is what the package itself treats as the end of a day, so a
- * block ending there is drawn to the bottom of its column.
+ * `@mantine/schedule` ends its column at `23:59:59` and caps a resized edge at the column's last
+ * minute, so dragging a block's lower edge to the bottom hands back `23:59:00`, and nothing a resize
+ * can produce ever says midnight. A resized edge otherwise lands on a whole slot (15 minutes in the
+ * day view, an hour in the week), so a `:59` there can only be that cap. An end the gesture did not
+ * move is left alone, because a slot can genuinely end at 23:59 and resizing its top edge must not
+ * stretch it by a minute.
  */
-export function drawnEnd(start: string, end: string): string {
-    return end.slice(11) === '00:00:00' && dateOf(end) !== dateOf(start) ? `${dateOf(start)} 23:59:59` : end;
-}
-
-/**
- * Minutes past midnight in a dropped block's END.
- *
- * A block drawn to `23:59:59` keeps its one-second shortfall when it is dragged, so it lands on
- * `hh:mm:59`, and reading that as a minute would save it a minute early. The last second of a minute
- * is the start of the next, and the last of the day wraps to `0`, which is a block ending at midnight.
- */
-function endMinutesOf(stamp: string): number {
-    const minutes = minutesOf(stamp);
-    return stamp.slice(17) === '59' ? (minutes + 1) % (24 * 60) : minutes;
+export function resizedEnd(block: DraggedBlock, newEnd: string): string {
+    return newEnd !== block.end && newEnd.slice(11) === '23:59:00' ? `${addDays(dateOf(newEnd), 1)} 00:00:00` : newEnd;
 }
 
 /**
@@ -112,9 +100,8 @@ export function blockEdit(block: DraggedBlock, newStart: string, newEnd: string,
         startsAtMinutes: minutesOf(newStart),
         // A drop landing on the next midnight reads as 0, which is exactly what a block ending at
         // midnight should say — and equal ends mean a full day, which is only reachable by asking
-        // for it rather than by dragging. So does a drop on `23:59:59`, which is how `drawnEnd` draws
-        // that midnight.
-        endsAtMinutes: endMinutesOf(newEnd),
+        // for it rather than by dragging.
+        endsAtMinutes: minutesOf(newEnd),
         ...(movedDay ? { days: [nowOn] } : {}),
     };
 }

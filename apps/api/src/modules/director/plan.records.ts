@@ -91,8 +91,11 @@ export interface PlannedRecords {
  * more attempts. What the last attempt answers with then is what both attempts' searches found,
  * spread across the artists they were for, and the floor only where those came up short: see
  * `ModelSetGenerator.rescue`.
+ *
+ * Exported because it is half of how long a planning job may run: every queue that plans holds an
+ * `expiresIn` above this many model conversations, and `job.mappings.test.ts` reads it to say so.
  */
-const MAX_PLANNING_ATTEMPTS = 2;
+export const MAX_PLANNING_ATTEMPTS = 2;
 
 /**
  * Name a batch of records and turn them into ones the station can actually play.
@@ -111,6 +114,11 @@ const MAX_PLANNING_ATTEMPTS = 2;
  * Nobody is waiting on this, so the answer is simply to ask again. The retry needs no delay and no
  * second job: `LlmGate` queues it, the break ahead of it finishes in seconds, and if the gate times
  * out the chain absorbs it exactly as it absorbs every other way a generator can fail.
+ *
+ * **A refill that ran out of its own budget is NOT planned again.** The gate stops a conversation
+ * the same way for both, and until the loop told them apart (`'budget'` beside `'preempted'`) a
+ * refill that had used all three minutes was retried for three more with no break waiting, on
+ * 2026-10-10. Too slow once is too slow twice; the chain fills that batch.
  *
  * **Planned again from scratch rather than topped up**, because the floor's picks were chosen to
  * fill a hole the model was going to fill properly, and keeping them would leave the batch shaped by

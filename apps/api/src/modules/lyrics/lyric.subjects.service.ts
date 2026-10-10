@@ -19,7 +19,7 @@ import { readSubject, subjectPrompt, SUBJECT_VERSION } from './lyric.subject.js'
 export interface SubjectsPassSummary {
     written: number;
     unplaced: number;
-    /** Refused for quoting the lyric, running long, or answering nothing readable. Retried later. */
+    /** Refused for quoting the lyric, running long, answering nothing readable or running out of time. Retried later. */
     refused: number;
     yielded: boolean;
 }
@@ -70,6 +70,26 @@ export class LyricSubjectsService {
             if (answer.finishReason === 'preempted') {
                 summary.yielded = true;
                 break;
+            }
+
+            // Too slow for this record, on the mood walk's reasoning: retried later, and the pass
+            // carries on rather than stopping as it does for a preemption.
+            if (answer.finishReason === 'budget') {
+                summary.refused++;
+                try {
+                    await this.labels.recordSubjectFailure(
+                        candidate.trackId,
+                        'the model ran out of time',
+                        MOODS_FAILURE_RETRY_MS,
+                        MOODS_FAILURE_MAX_RETRY_MS,
+                    );
+                } catch (error) {
+                    this.logger.warn('lyric subjects: could not record an answer that ran out of time', {
+                        trackId: candidate.trackId,
+                        error: errorText(error),
+                    });
+                }
+                continue;
             }
 
             const read = readSubject(answer.text, candidate.lyric);

@@ -9,7 +9,7 @@ import { settingsConfig } from '../../utils/settings.config.js';
 
 const logger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) as unknown as Logger;
 
-const build = (text: string, withLyric = true) => {
+const build = (text: string, withLyric = true, finishReason = 'stop') => {
     const labels = {
         listTracksNeedingSubjects: vi.fn(async () => [
             {
@@ -23,7 +23,7 @@ const build = (text: string, withLyric = true) => {
         saveSubject: vi.fn(async () => {}),
         recordSubjectFailure: vi.fn(async () => {}),
     };
-    const llm = { converse: vi.fn(async () => ({ text, finishReason: 'stop' })) };
+    const llm = { converse: vi.fn(async () => ({ text, finishReason })) };
     const service = new LyricSubjectsService(labels as never, llm as never, { hasSearch: () => true } as never, settingsConfig().config, logger());
     return { service, labels, llm };
 };
@@ -50,5 +50,24 @@ describe('LyricSubjectsService', () => {
         expect((await service.writePending(5)).refused).toBe(1);
         expect(labels.saveSubject).not.toHaveBeenCalled();
         expect(labels.recordSubjectFailure).toHaveBeenCalledWith('t1', 'quoted-lyric', expect.any(Number), expect.any(Number));
+    });
+
+    it('retries one that ran out of time later rather than stopping the pass', async () => {
+        // A spent budget is a fact about this record, where a preemption is a fact about the
+        // station's schedule; only the second is a reason to stop.
+        const { service, labels } = build('', true, 'budget');
+
+        const summary = await service.writePending(5);
+
+        expect(summary).toEqual(expect.objectContaining({ refused: 1, yielded: false }));
+        expect(labels.saveSubject).not.toHaveBeenCalled();
+        expect(labels.recordSubjectFailure).toHaveBeenCalledWith('t1', 'the model ran out of time', expect.any(Number), expect.any(Number));
+    });
+
+    it('stops the pass when a break takes the model, marking nothing', async () => {
+        const { service, labels } = build('', true, 'preempted');
+
+        expect((await service.writePending(5)).yielded).toBe(true);
+        expect(labels.recordSubjectFailure).not.toHaveBeenCalled();
     });
 });

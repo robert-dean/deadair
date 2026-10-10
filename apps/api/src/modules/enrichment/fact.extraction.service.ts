@@ -284,6 +284,11 @@ export class FactExtractionService {
         // deadline wanted the model. It is reported rather than thrown because the claims found
         // BEFORE the cut are still good, and throwing would discard them for a fact about the
         // station's schedule.
+        //
+        // A spent budget (`'budget'`) is deliberately NOT a yield, though the gate stops the
+        // conversation the same way. It says this document was too long to read in
+        // {@link MODEL_BUDGET_MS}, not that the model is wanted elsewhere, so the claims found
+        // before it are kept, the document is recorded like any other, and the pass moves on.
         let yielded = answer.finishReason === 'preempted';
 
         for (const claim of found) {

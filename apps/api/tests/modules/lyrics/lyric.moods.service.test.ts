@@ -110,6 +110,22 @@ describe('LyricMoodsService', () => {
         expect(labels.saveMoods).not.toHaveBeenCalled();
     });
 
+    it('retries a record that ran out of time later, and carries on with the next', async () => {
+        // The gate stops a conversation the same way for a preemption and a spent budget, and only
+        // the first says the station wants the model. A slow record must not hold back the rest.
+        const { service, labels } = build({
+            answers: [
+                { text: '', finishReason: 'budget' },
+                { text: '{"moods":{"sadness":3,"love":1}}', finishReason: 'stop' },
+            ],
+            candidates: [candidate('t1'), candidate('t2')],
+        });
+
+        expect(await service.labelPending(10)).toEqual({ judged: 1, unplaced: 0, failed: 1, yielded: false });
+        expect(labels.recordMoodFailure).toHaveBeenCalledWith('t1', 'the model ran out of time', MOODS_FAILURE_RETRY_MS, MOODS_FAILURE_MAX_RETRY_MS);
+        expect(labels.saveMoods).toHaveBeenCalledWith('t2', expect.anything(), MOODS_VERSION, true);
+    });
+
     it('asks the model the operator chose', async () => {
         const { service, llm } = build({ settings: { [LYRIC_MOODS_KEYS.model]: 'local:big-model' } });
         await service.labelPending(10);

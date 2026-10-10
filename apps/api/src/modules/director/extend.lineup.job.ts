@@ -166,7 +166,10 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
                 ...(seed ? { seedArtistKey: artistKey([seed.track.artist]) } : {}),
             },
             {
-                took: () => this.preemption.took(),
+                // Read first, because it clears as it answers. A run pg-boss has already given up on
+                // is not owed a second attempt whatever the generator said: its answer is going
+                // nowhere, and the model it would hold is wanted by whatever runs next.
+                took: () => this.preemption.took() && signal?.aborted !== true,
                 // Logged rather than silent, because from the outside a retried refill and an ordinary one
                 // look identical and the interesting question afterwards is always "why did this hour
                 // take two goes at the model".
@@ -177,7 +180,30 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
                     }),
             },
         );
-        if (signal?.aborted) return;
+        if (signal?.aborted) {
+            // Not posted, because an abort is either a shutdown or pg-boss reclaiming a run that
+            // outlived its `expiresIn`, and in the second case the job has already been failed and
+            // may be running again: appending from both would queue the same hour twice. But said,
+            // in the log and on the feed, because this return used to be silent. On 2026-10-10 it
+            // dropped two finished plans in a row while the station sat with nothing to air, and
+            // the only trace in the log was the records the resolver had taken into the catalog.
+            this.logger.warn('director: the refill was stopped before it could add what it planned', {
+                job: this.context.id,
+                asked: count,
+                named: planned.named,
+                resolved: planned.resolved,
+            });
+            void this.activity.record({
+                module: 'director',
+                kind: 'order.refillAbandoned',
+                severity: 'warn',
+                detail:
+                    `The station planned ${planned.resolved} records for the running order and was stopped before it could add them, ` +
+                    'usually because the refill ran past its time limit. The running order is still running down.',
+                data: { asked: count, named: planned.named, resolved: planned.resolved },
+            });
+            return;
+        }
 
         const added = planned.tracks;
 

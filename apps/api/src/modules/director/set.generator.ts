@@ -99,6 +99,16 @@ export interface SetInputs {
      * unjudged, exactly as it does there. See `PickBroadcast`.
      */
     broadcast?: PickBroadcast;
+    /**
+     * Aborted when the job asking has been stopped: pg-boss reclaiming a run past its time limit, or
+     * the runner shutting down. Whatever a generator would name after that is going nowhere, so one
+     * that holds something expensive (the model, above all) hands this on and lets go. One that does
+     * not may ignore it; the caller checks it again before anything is kept.
+     *
+     * Not stored or sent anywhere, so the JSON-safe rule does not reach it, any more than it reaches
+     * the `Set`s beside it.
+     */
+    signal?: AbortSignal;
 }
 
 export abstract class SetGenerator {

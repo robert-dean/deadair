@@ -4,6 +4,7 @@
 // before the job existed.
 
 import { describe, expect, it, vi } from 'vitest';
+import { Duration } from 'luxon';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { Container } from 'injectkit';
 import type { JobContext } from '@maroonedsoftware/jobbroker';
@@ -50,6 +51,8 @@ interface Options {
     warm?: (tracks: readonly RundownTrack[]) => Promise<number>;
     /** What the resolver keeps. Defaults to everything named. */
     resolvable?: (picks: readonly TrackPick[]) => RundownTrack[];
+    /** The limit pg-boss reports for the run. Absent is a backend that reports none. */
+    expiresIn?: Duration;
 }
 
 function build(options: Options = {}) {
@@ -82,13 +85,14 @@ function build(options: Options = {}) {
         cache as unknown as TrackCachePlanner,
         activity,
         settingsConfig({}).config,
-        {} as JobContext,
+        (options.expiresIn === undefined ? {} : { expiresIn: options.expiresIn }) as JobContext,
         {} as Container,
         logger,
     );
 
     return {
-        run: (payload: PrepareSlotPayload = tonight) => (job as unknown as { execute(payload: PrepareSlotPayload): Promise<void> }).execute(payload),
+        run: (payload: PrepareSlotPayload = tonight, signal?: AbortSignal) =>
+            (job as unknown as { execute(payload: PrepareSlotPayload, signal?: AbortSignal): Promise<void> }).execute(payload, signal),
         prepared,
         cache,
         generate,
@@ -180,6 +184,71 @@ describe('PrepareSlotJob', () => {
         await run();
 
         expect(generate).not.toHaveBeenCalled();
+    });
+
+    // A person put the show on air by hand inside its own block: the order carries the slot and no
+    // night, and the tick never changes an order like that over at a night boundary, so a set saved
+    // now would never be read whichever night it was for.
+    it('does nothing while the show is on air by hand', async () => {
+        const lineup = new StationLineup({
+            name: 'Glam Slam',
+            mode: 'rotation',
+            onEnd: 'extend',
+            source: 'director',
+            slotId: 'glam',
+        });
+        const { run, generate } = build({ lineup });
+
+        await run();
+
+        expect(generate).not.toHaveBeenCalled();
+    });
+
+    it('still prepares the next show while a different one is on air by hand', async () => {
+        const lineup = new StationLineup({
+            name: 'Something else',
+            mode: 'rotation',
+            onEnd: 'extend',
+            source: 'director',
+            slotId: 'not-glam',
+        });
+        const { run, generate } = build({ lineup });
+
+        await run();
+
+        expect(generate).toHaveBeenCalled();
+    });
+
+    // This return used to be silent, so a show that opened empty gave no hint its opening had been
+    // chosen and thrown away. Logged rather than put on the feed, as an empty answer is.
+    it('says so in the log when it runs past its time limit, and saves nothing', async () => {
+        const stop = new AbortController();
+        const { run, generate, prepared } = build({ expiresIn: Duration.fromMillis(0) });
+        generate.mockImplementationOnce(async () => {
+            stop.abort();
+            return [{ title: 'Rebel Rebel', artist: 'David Bowie' }];
+        });
+
+        await run(tonight, stop.signal);
+
+        expect(prepared.save).not.toHaveBeenCalled();
+        expect(logger.warn).toHaveBeenCalledWith(
+            'schedule: preparing the next show ran past its time limit, so it opens without a prepared set',
+            expect.objectContaining({ slot: 'glam', named: 1 }),
+        );
+    });
+
+    it('logs a shutdown as no fault', async () => {
+        const stop = new AbortController();
+        const { run, generate } = build({ expiresIn: Duration.fromObject({ minutes: 12 }) });
+        generate.mockImplementationOnce(async () => {
+            stop.abort();
+            return [];
+        });
+
+        await run(tonight, stop.signal);
+
+        expect(logger.info).toHaveBeenCalledWith('schedule: preparing the next show was stopped by a shutdown', expect.anything());
     });
 
     it('does nothing for a mode that generates nothing', async () => {

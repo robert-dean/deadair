@@ -14,7 +14,7 @@ import type { RundownTrack } from '#modules/playout/rundown.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { hasOverrun } from './changeover.overrun.js';
-import { PREPARE_AHEAD_MS, type PrepareSlotPayload } from './prepare.slot.job.js';
+import { PREPARE_AHEAD_MS, airsNight, type PrepareSlotPayload } from './prepare.slot.job.js';
 import { PreparedSetRepository } from './prepared.set.repository.js';
 import { ScheduleNotices } from './schedule.notices.js';
 import { ScheduleService } from './schedule.service.js';
@@ -180,7 +180,7 @@ export class ScheduleTickJob extends PlainJob {
             const { date } = this.schedule.nightOf(next, ahead);
             const order = this.director.order();
             // Already on air for that night, so its moment has passed.
-            if (order?.slotId === next.id && order.slotOccurrence === date) return;
+            if (airsNight(order, next.id, date)) return;
             if ((await this.prepared.forNight(next.id, date)) !== undefined) return;
 
             await this.jobs.send('schedule.prepare_slot', { slotId: next.id, occurrence: date } satisfies PrepareSlotPayload);

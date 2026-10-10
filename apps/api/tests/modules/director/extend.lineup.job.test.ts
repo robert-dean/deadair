@@ -5,6 +5,7 @@
 // rather than generating into a Christmas setlist.
 
 import { describe, expect, it, vi } from 'vitest';
+import { Duration } from 'luxon';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { Container } from 'injectkit';
 import type { JobContext } from '@maroonedsoftware/jobbroker';
@@ -29,6 +30,8 @@ vi.mock('../../../src/modules/jobs/job.authorization.js', () => ({ overrideJobAc
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 const context = { id: 'job-1' } as unknown as JobContext;
+/** The job's context, carrying the limit pg-boss reports when a case sets one. */
+const contextFor = (expiresIn?: Duration): JobContext => ({ ...context, ...(expiresIn === undefined ? {} : { expiresIn }) });
 const container = {} as unknown as Container;
 
 const track = (title: string, artist = 'One'): RundownTrack => ({
@@ -64,6 +67,8 @@ interface Options {
     /** What the resolver can actually play, by title. Defaults to everything named. */
     resolvable?: (picks: readonly TrackPick[]) => RundownTrack[];
     missing?: boolean;
+    /** The limit pg-boss reports for the run. Absent is a backend that reports none. */
+    expiresIn?: Duration;
 }
 
 function build(options: Options & { stationRules?: Record<string, string> } = {}) {
@@ -114,7 +119,18 @@ function build(options: Options & { stationRules?: Record<string, string> } = {}
     const activity = { record: vi.fn(async (event: StationEvent) => void recorded.push(event)) } as unknown as ActivityRecorder;
 
     return {
-        job: new ExtendLineupJob(lineups, generator, resolver, preemption, director, activity, station.config, context, container, logger),
+        job: new ExtendLineupJob(
+            lineups,
+            generator,
+            resolver,
+            preemption,
+            director,
+            activity,
+            station.config,
+            contextFor(options.expiresIn),
+            container,
+            logger,
+        ),
         director,
         recorded: () => recorded,
         posted: () => posted,
@@ -361,11 +377,12 @@ describe('ExtendLineupJob', () => {
     });
 
     // pg-boss aborts a run at its `expiresIn` and fails the job, so what was planned cannot be
-    // posted: the retry may already be running. What it must not do is vanish, which is what this
+    // posted: the director is about to ask again. What it must not do is vanish, which is what this
     // return did while the station sat silent behind two finished plans on 2026-10-10.
-    it('says so on the feed when the run is stopped after planning, rather than vanishing', async () => {
+    it('says so on the feed when the run is stopped past its time limit, rather than vanishing', async () => {
         const stop = new AbortController();
-        const { job, lineup, recorded, generate } = build({ picks: [{ title: 'Planned', artist: 'One' }] });
+        // A limit already spent, which is what pg-boss reclaiming the run looks like from inside it.
+        const { job, lineup, recorded, generate } = build({ picks: [{ title: 'Planned', artist: 'One' }], expiresIn: Duration.fromMillis(0) });
         generate.mockImplementationOnce(async () => {
             stop.abort();
             return [{ title: 'Planned', artist: 'One' }];
@@ -376,8 +393,31 @@ describe('ExtendLineupJob', () => {
         expect(lineup.isEmpty()).toBe(true);
         const event = recorded().find(entry => entry.kind === 'order.refillAbandoned');
         expect(event?.severity).toBe('warn');
-        expect(event?.data).toMatchObject({ asked: 1, named: 1, resolved: 1 });
-        expect(logger.warn).toHaveBeenCalledWith('director: the refill was stopped before it could add what it planned', expect.anything());
+        expect(event?.data).toEqual({ asked: 1, named: 1 });
+        // What it chose, and never "planned 0": a stopped run resolves nothing, so that count is
+        // always zero and says nothing about what was lost.
+        expect(event?.detail).toMatch(/chose 1 records/);
+        expect(logger.warn).toHaveBeenCalledWith('director: the refill ran past its time limit before it could add what it chose', expect.anything());
+    });
+
+    // Every deploy stops whatever refill is running, the order is put back at boot, and the refill is
+    // asked for again. A warning on the feed each time would teach the operator to skip the one row
+    // that matters.
+    it('keeps a shutdown off the feed', async () => {
+        const stop = new AbortController();
+        const { job, recorded, generate } = build({ expiresIn: Duration.fromObject({ minutes: 12 }) });
+        generate.mockImplementationOnce(async () => {
+            stop.abort();
+            return [{ title: 'Planned', artist: 'One' }];
+        });
+
+        await job.run({ count: 1 }, stop.signal);
+
+        expect(recorded().some(entry => entry.kind === 'order.refillAbandoned')).toBe(false);
+        expect(logger.info).toHaveBeenCalledWith(
+            'director: the refill was stopped by a shutdown before it could add what it chose',
+            expect.anything(),
+        );
     });
 
     it('does not plan again once the run has been stopped, whatever interrupted the model', async () => {

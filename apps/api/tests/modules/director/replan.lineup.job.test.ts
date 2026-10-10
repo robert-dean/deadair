@@ -4,6 +4,7 @@
 // the station loses its mount lease and goes quiet.
 
 import { describe, expect, it, vi } from 'vitest';
+import { Duration } from 'luxon';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { Container } from 'injectkit';
 import type { JobContext } from '@maroonedsoftware/jobbroker';
@@ -19,6 +20,8 @@ import type { PickResolver } from '../../../src/modules/director/pick.resolver.j
 import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
 import type { SetGenerator, SetInputs, TrackPick } from '../../../src/modules/director/set.generator.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
+import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
+import type { StationEvent } from '../../../src/modules/activity/station.events.repository.js';
 
 vi.mock('../../../src/modules/jobs/job.authorization.js', () => ({ overrideJobActor: vi.fn() }));
 
@@ -38,6 +41,8 @@ const titlesOf = (lineup: StationLineup) =>
     lineup.all().flatMap(item => (item.kind === 'track' ? [item.track.title] : [`segment:${item.segmentId}`]));
 
 interface Options {
+    /** The limit pg-boss reports for the run. Absent is a backend that reports none. */
+    expiresIn?: Duration;
     /**
      * How many of the planning attempts a break interrupts, marked up front.
      *
@@ -95,11 +100,26 @@ function build(options: Options = {}) {
 
     // A refill nothing interrupted, which is every case here but the one that says otherwise:
     // `took` answers false and the plan runs exactly once.
+    const recorded: StationEvent[] = [];
+    const activity = { record: vi.fn(async (event: StationEvent) => void recorded.push(event)) } as unknown as ActivityRecorder;
+
     const preemption = new RefillPreemption();
     if (options.preemptedTimes) for (let i = 0; i < options.preemptedTimes; i++) preemption.mark();
 
     return {
-        job: new ReplanLineupJob(lineups, generator, resolver, preemption, director, station.config, context, container, logger),
+        job: new ReplanLineupJob(
+            lineups,
+            generator,
+            resolver,
+            preemption,
+            director,
+            activity,
+            station.config,
+            { ...context, ...(options.expiresIn === undefined ? {} : { expiresIn: options.expiresIn }) },
+            container,
+            logger,
+        ),
+        recorded: () => recorded,
         director,
         posted: () => posted,
         preemption,
@@ -272,6 +292,43 @@ describe('ReplanLineupJob', () => {
 
         expect(director.post).not.toHaveBeenCalled();
         expect(titlesOf(lineup)).toEqual(['Old A']);
+    });
+
+    // An operator pressed Replan and the model took longer than the job may run. The old hour stays,
+    // which is right, but this return used to be silent and left them with no word why.
+    it('says so on the feed when the run is stopped past its time limit, and leaves the order alone', async () => {
+        const stop = new AbortController();
+        const { job, lineup, posted, recorded, generate, seed } = build({ existing: [track('Old')], expiresIn: Duration.fromMillis(0) });
+        await seed();
+        generate.mockImplementationOnce(async () => {
+            stop.abort();
+            return [{ title: 'Fresh', artist: 'One' }];
+        });
+
+        await job.run({}, stop.signal);
+
+        expect(posted()).toEqual([]);
+        expect(lineup.size()).toBe(1);
+        const event = recorded().find(entry => entry.kind === 'order.replanAbandoned');
+        expect(event?.severity).toBe('warn');
+        expect(event?.data).toMatchObject({ named: 1 });
+    });
+
+    it('keeps a shutdown off the feed', async () => {
+        const stop = new AbortController();
+        const { job, recorded, generate } = build({ expiresIn: Duration.fromObject({ minutes: 12 }) });
+        generate.mockImplementationOnce(async () => {
+            stop.abort();
+            return [{ title: 'Fresh', artist: 'One' }];
+        });
+
+        await job.run({}, stop.signal);
+
+        expect(recorded()).toEqual([]);
+        expect(logger.info).toHaveBeenCalledWith(
+            'director: the replan was stopped by a shutdown before it could swap in what it chose',
+            expect.anything(),
+        );
     });
 
     it('fails the job when the swap fails, so its retry is a real one', async () => {

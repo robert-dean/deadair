@@ -4,7 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { PickResolver } from '#modules/director/pick.resolver.js';
-import { DEFAULT_COUNT, planRecords, songKeysOf } from '#modules/director/plan.records.js';
+import { DEFAULT_COUNT, planRecords, ranOutOfTime, songKeysOf } from '#modules/director/plan.records.js';
 import { resolveRules, stationRules } from '#modules/director/rotation.rules.js';
 import { SetGenerator } from '#modules/director/set.generator.js';
 import { StationLineupRepository } from '#modules/director/station.lineup.repository.js';
@@ -69,6 +69,8 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
     }
 
     protected async execute(payload?: PrepareSlotPayload, signal?: AbortSignal): Promise<void> {
+        // Read against the context's `expiresIn` if the run is stopped: see `ranOutOfTime`.
+        const startedAt = Date.now();
         const slotId = payload?.slotId;
         const occurrence = payload?.occurrence;
         if (slotId === undefined || occurrence === undefined) return;
@@ -85,7 +87,7 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
         const lineup = await this.order.load();
         // Too late: the night has started and opened without one. A set saved now would be for a night
         // that is already on air, and nothing would ever read it.
-        if (lineup?.slotId === slotId && lineup.slotOccurrence === occurrence) return;
+        if (airsNight(lineup, slotId, occurrence)) return;
 
         const rules = resolveRules(slot.mode, undefined, stationRules(this.config));
         // A setlist or a feature: nothing generates into those, so there is nothing to prepare.
@@ -101,8 +103,22 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
             // Whatever the station is airing now, so the next show does not open on a record the last
             // one is about to play. What has already aired is the repeat window's business.
             avoidSongKeys: songKeysOf(lineup?.all() ?? []),
+            // So a run pg-boss has stopped lets go of the model and resolves nothing.
+            ...(signal === undefined ? {} : { signal }),
         });
-        if (signal?.aborted) return;
+        if (signal?.aborted) {
+            // Logged rather than put on the feed, for the reason an empty answer below is: the refill
+            // at the boundary says so if the show opens short. But logged, because this return used
+            // to be silent, and a show that opened empty gave no hint its opening had been chosen and
+            // thrown away. As a fault only when it was one: see `ranOutOfTime`.
+            const fields = { slot: slotId, occurrence, named: planned.named };
+            if (ranOutOfTime(this.context.expiresIn?.as('milliseconds'), startedAt)) {
+                this.logger.warn('schedule: preparing the next show ran past its time limit, so it opens without a prepared set', fields);
+            } else {
+                this.logger.info('schedule: preparing the next show was stopped by a shutdown', fields);
+            }
+            return;
+        }
 
         if (planned.tracks.length === 0) {
             // Nothing written, so the show opens and refills as it always did. Logged rather than put on
@@ -153,5 +169,22 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
  * songs to keep out of the opening.
  */
 export const PREPARE_AHEAD_MS = 10 * 60_000;
+
+/**
+ * Whether the order on air is already this night of this slot, so there is nothing left to prepare.
+ *
+ * Read by the tick before it asks and by the job before it plans, which is why it is one function:
+ * the two disagreeing is a run planned for a night that has started.
+ *
+ * An order stamped with the slot and NO night counts too. That is a person putting the show on air
+ * by hand inside its own block, which stamps the slot so the takeover holds to the next boundary
+ * but stamps no night, on purpose: the tick reads a missing night as "placed by a person, leave it
+ * alone" and never changes it over at the start of the slot's next night. So for as long as that
+ * order is on, no night of this slot opens on a prepared set, and preparing one plans an hour
+ * nothing will read. On 2026-10-10 a show put back on air by hand was prepared again every minute,
+ * each run queueing behind the show's own refill for the model and giving up after a minute.
+ */
+export const airsNight = (order: { slotId?: string; slotOccurrence?: string } | undefined, slotId: string, occurrence: string): boolean =>
+    order?.slotId === slotId && (order.slotOccurrence === undefined || order.slotOccurrence === occurrence);
 
 const named = (label: string): string => (label.trim().length > 0 ? `"${label.trim()}"` : 'the next show');

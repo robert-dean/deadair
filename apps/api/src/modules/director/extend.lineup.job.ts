@@ -8,7 +8,7 @@ import { DirectorService } from './director.service.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { PickResolver } from './pick.resolver.js';
-import { DEFAULT_COUNT, artistKeysOf, artistsQueuedWithin, planRecords, songKeysOf } from './plan.records.js';
+import { DEFAULT_COUNT, artistKeysOf, artistsQueuedWithin, planRecords, ranOutOfTime, songKeysOf } from './plan.records.js';
 import { artistKey } from './rotation.keys.js';
 import { resolveRules, stationRules } from './rotation.rules.js';
 import { SetGenerator } from './set.generator.js';
@@ -74,6 +74,8 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
     }
 
     protected async execute(payload?: ExtendLineupPayload, signal?: AbortSignal): Promise<void> {
+        // Read against the context's `expiresIn` if the run is stopped: see `ranOutOfTime`.
+        const startedAt = Date.now();
         // Read for its RULES and for what it already holds, never to write it: the append at the
         // end goes through the director, which is the one thing that may. A copy read here going
         // stale while the generator runs is exactly why this cannot be the writer.
@@ -164,12 +166,11 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
                 // Always, whatever the cap says: seeding is about adjacency, not about the per-artist
                 // limit, so it applies even when that limit is switched off.
                 ...(seed ? { seedArtistKey: artistKey([seed.track.artist]) } : {}),
+                // So a run pg-boss has stopped lets go of the model and resolves nothing.
+                ...(signal === undefined ? {} : { signal }),
             },
             {
-                // Read first, because it clears as it answers. A run pg-boss has already given up on
-                // is not owed a second attempt whatever the generator said: its answer is going
-                // nowhere, and the model it would hold is wanted by whatever runs next.
-                took: () => this.preemption.took() && signal?.aborted !== true,
+                took: () => this.preemption.took(),
                 // Logged rather than silent, because from the outside a retried refill and an ordinary one
                 // look identical and the interesting question afterwards is always "why did this hour
                 // take two goes at the model".
@@ -183,24 +184,32 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
         if (signal?.aborted) {
             // Not posted, because an abort is either a shutdown or pg-boss reclaiming a run that
             // outlived its `expiresIn`, and in the second case the job has already been failed and
-            // may be running again: appending from both would queue the same hour twice. But said,
-            // in the log and on the feed, because this return used to be silent. On 2026-10-10 it
-            // dropped two finished plans in a row while the station sat with nothing to air, and
-            // the only trace in the log was the records the resolver had taken into the catalog.
-            this.logger.warn('director: the refill was stopped before it could add what it planned', {
+            // the director's guard is about to run out and ask again: appending from both would queue
+            // the same hour twice. Said rather than silent, because this return used to be: on
+            // 2026-10-10 it dropped two finished plans in a row while the station sat with nothing to
+            // air. Said as a fault only when it WAS one: see `ranOutOfTime`.
+            if (!ranOutOfTime(this.context.expiresIn?.as('milliseconds'), startedAt)) {
+                this.logger.info('director: the refill was stopped by a shutdown before it could add what it chose', {
+                    job: this.context.id,
+                    named: planned.named,
+                });
+                return;
+            }
+            this.logger.warn('director: the refill ran past its time limit before it could add what it chose', {
                 job: this.context.id,
                 asked: count,
                 named: planned.named,
-                resolved: planned.resolved,
             });
             void this.activity.record({
                 module: 'director',
                 kind: 'order.refillAbandoned',
                 severity: 'warn',
+                // What was CHOSEN, which a stopped run has, and not what was resolved, which it never
+                // reaches: resolving is skipped once a run is stopped. See `PlanRequest.signal`.
                 detail:
-                    `The station planned ${planned.resolved} records for the running order and was stopped before it could add them, ` +
-                    'usually because the refill ran past its time limit. The running order is still running down.',
-                data: { asked: count, named: planned.named, resolved: planned.resolved },
+                    `The station chose ${planned.named} records for the running order and ran past its time limit before it could add them. ` +
+                    'The running order is still running down, and the station will ask again shortly.',
+                data: { asked: count, named: planned.named },
             });
             return;
         }

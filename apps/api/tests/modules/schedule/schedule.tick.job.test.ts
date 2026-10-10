@@ -938,6 +938,17 @@ describe('ScheduleTickJob', () => {
             expect(jobs.send).not.toHaveBeenCalled();
         });
 
+        // Put on air by hand inside its own block: stamped with the slot and no night. On 2026-10-10
+        // that was asked for every minute for the whole show, each run queueing on the model behind
+        // the show's own refill.
+        it('asks nothing for a show that is on air by hand', async () => {
+            const { tick, jobs } = build({ inForce: glam, airing: 'glam', ahead: glam, aheadDate: '2026-10-09' });
+
+            await tick();
+
+            expect(jobs.send).not.toHaveBeenCalled();
+        });
+
         it('asks nothing of a stood-down station', async () => {
             const { tick, jobs } = build({ ...onNow, active: false });
 

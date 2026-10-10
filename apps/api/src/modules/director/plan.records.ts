@@ -68,6 +68,13 @@ export interface PlanRequest {
     seedArtistKey?: string;
     /** The broadcast this is for, so a mode- or slot-scoped never-play rule holds. See `PickBroadcast`. */
     broadcast?: PickBroadcast;
+    /**
+     * The calling job's signal. Handed to the generators, and read between the steps here: a run that
+     * has been stopped is given no second attempt and resolves nothing, because resolving takes
+     * records into the catalog from a provider and every one of them would be for a plan that is
+     * thrown away. See `SetInputs.signal`.
+     */
+    signal?: AbortSignal;
 }
 
 /** The records, and enough of the arithmetic for a caller's log line to be worth reading. */
@@ -96,6 +103,42 @@ export interface PlannedRecords {
  * `expiresIn` above this many model conversations, and `job.mappings.test.ts` reads it to say so.
  */
 export const MAX_PLANNING_ATTEMPTS = 2;
+
+/**
+ * How long a job that plans through {@link planRecords} may run before pg-boss stops it: the refill,
+ * the replan and the prepare-ahead.
+ *
+ * Twelve minutes, and it has to be above `MAX_PLANNING_ATTEMPTS` model conversations, each of them a
+ * `MAX_WAIT_MS` queue and a `BUDGET_MS` budget (eight minutes at today's numbers), plus the resolver's
+ * provider lookups after them. `job.mappings.test.ts` holds it there.
+ *
+ * Here rather than beside the queue policies because two things read it. The queues take it as their
+ * `expiresIn`, and the director's refill guard has to outlast it: a guard that runs out while the
+ * refill it was set for is still planning sends a second refill for the same shortfall, and the two
+ * plan the same hour. See `EXTEND_GUARD_MS`.
+ */
+export const PLANNING_TIME_LIMIT_MS = 12 * 60_000;
+
+/**
+ * How close to its limit a stopped job has to be for the stop to read as the limit. pg-boss starts
+ * its clock when it hands the job over, a moment before the job's own `execute` starts, so a run
+ * stopped for time always reads as a little under it.
+ */
+const TIME_LIMIT_SLACK_MS = 5_000;
+
+/**
+ * Whether a planning job that was stopped ran out of TIME, as against being stopped by a shutdown or
+ * a cancel.
+ *
+ * pg-boss aborts the same signal for both and gives no reason, and the two want different words. A
+ * run past its limit is a fault: the work was done and thrown away, and the operator should hear so.
+ * A shutdown is every deploy: the order is put back at boot and the refill asked for again, and a
+ * warning on the feed each time teaches whoever reads it to skip the one that matters. So it is told
+ * apart by the clock. `limitMs` is the job context's `expiresIn`; a backend that reports none set no
+ * limit to run out of.
+ */
+export const ranOutOfTime = (limitMs: number | undefined, startedAt: number, now: number = Date.now()): boolean =>
+    limitMs !== undefined && now - startedAt >= limitMs - TIME_LIMIT_SLACK_MS;
 
 /**
  * Name a batch of records and turn them into ones the station can actually play.
@@ -147,15 +190,23 @@ export const planRecords = async (
             ...(request.avoidArtistKeys === undefined ? {} : { avoidArtistKeys: request.avoidArtistKeys }),
             ...(request.queuedArtistKeys === undefined ? {} : { queuedArtistKeys: request.queuedArtistKeys }),
             ...(request.broadcast === undefined ? {} : { broadcast: request.broadcast }),
+            ...(request.signal === undefined ? {} : { signal: request.signal }),
         });
 
         // Asked AFTER every attempt and not only the retried one, because it clears as it answers:
-        // leaving a mark standing would make the next refill in this scope read as preempted.
+        // leaving a mark standing would make the next refill in this scope read as preempted. And
+        // asked before the stop below for the same reason, so a stopped run leaves no mark behind.
         const wasPreempted = preemption?.took() ?? false;
+        // A run that has been stopped is not owed a second attempt whatever the generator said: its
+        // answer is going nowhere, and the model it would hold is wanted by whatever runs next.
+        if (request.signal?.aborted === true) break;
         if (!wasPreempted || attempt === MAX_PLANNING_ATTEMPTS) break;
 
         preemption?.onRetry?.(attempt);
     }
+
+    // Stopped: say what was named and resolve none of it. See `PlanRequest.signal`.
+    if (request.signal?.aborted === true) return { tracks: [], named: picks.length, resolved: 0 };
 
     const resolved = await resolver.resolve(picks, request.rules, {
         ...(request.era === undefined ? {} : { era: request.era }),

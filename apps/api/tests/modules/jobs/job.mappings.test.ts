@@ -9,6 +9,7 @@ import { JobMappings } from '../../../src/modules/jobs/job.mappings.js';
 import { FETCH_PER_PASS } from '../../../src/modules/playout/audio/track.cache.planner.js';
 import { MAX_PLANNING_ATTEMPTS } from '../../../src/modules/director/plan.records.js';
 import { BUDGET_MS, MAX_WAIT_MS } from '../../../src/modules/director/model.set.generator.js';
+import { EXTEND_GUARD_MS } from '../../../src/modules/director/director.service.js';
 
 /** The worker policy on a mapping, in either mapping form. */
 const workerOf = (name: keyof typeof JobMappings) => {
@@ -59,4 +60,18 @@ describe('JobMappings for the queues that plan records', () => {
             expect(expiresInMs(name)).toBeGreaterThanOrEqual(worstModelMs + 2 * 60_000);
         },
     );
+
+    // The director re-asks the moment its refill guard runs out, so a guard shorter than the job's own
+    // limit sends a second refill while the first is still planning. It was five minutes against
+    // twelve when the limit was raised and nothing tied the two together.
+    it("holds the refill guard past the refill job's own limit", () => {
+        expect(EXTEND_GUARD_MS).toBeGreaterThan(expiresInMs('director.extend_lineup'));
+    });
+
+    // With no retry of its own, the director's re-ask is the only one, and two would plan the same
+    // hour: pg-boss starts a retry the moment it gives up on a run that is still holding the model.
+    it('leaves retrying a refill to the director', () => {
+        const mapping = JobMappings['director.extend_lineup'];
+        expect(typeof mapping === 'function' ? undefined : mapping.policy?.retryLimit).toBe(0);
+    });
 });

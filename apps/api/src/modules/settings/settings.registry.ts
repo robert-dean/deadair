@@ -82,7 +82,13 @@ import { SIMILARITY_ORDER_KEY } from '#modules/similarity/similarity.settings.js
 import { BRIEF_ONLY_DEFAULT, BRIEF_ONLY_KEY } from '#modules/director/set.generator.chain.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
 import { DEFAULT_SMART_SHUFFLE, DEFAULT_SMART_SHUFFLE_DAYS, SMART_SHUFFLE_DAYS_RANGE, SMART_SHUFFLE_KEYS } from '#modules/director/smart.shuffle.js';
-import { ARTIST_RETURN_DAYS_RANGE, DEFAULT_ARTIST_RETURN, DEFAULT_ARTIST_RETURN_DAYS, DEFAULT_DEEP_CUTS, REDISCOVER_KEYS } from '#modules/director/rediscover.js';
+import {
+    ARTIST_RETURN_DAYS_RANGE,
+    DEFAULT_ARTIST_RETURN,
+    DEFAULT_ARTIST_RETURN_DAYS,
+    DEFAULT_DEEP_CUTS,
+    REDISCOVER_KEYS,
+} from '#modules/director/rediscover.js';
 import { ADVISORY_DEFAULT, ADVISORY_KEY } from '#modules/director/advisory.policy.js';
 import { DEFAULT_BREAK_REASONING, MAX_OUTPUT_TOKENS, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';

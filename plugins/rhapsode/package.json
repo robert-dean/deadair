@@ -29,7 +29,7 @@
         "@maroonedsoftware/rhapsode-sdk": "^0.1.23",
         "@repo/config-eslint": "workspace:*",
         "@repo/config-typescript": "workspace:*",
-        "vitest": "^4.1.11",
+        "vitest": "^5.0.3",
         "zod": "^4.6.5"
     }
 }

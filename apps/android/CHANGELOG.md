@@ -8,6 +8,11 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.15.5] — 2026-10-10
+
+- What's on: a block whose name or brief is cut short can be tapped to show the whole of it, and tapped again to fold it back.
+- Now playing has a Request button for anybody signed in, so asking the station for a record no longer means going to Up next first. It sits at the end of the play controls, with the operator's heart moved from beside the title to the other end, and Request has a new icon everywhere it appears: a speech bubble with a note in it.
+
 ## [0.15.4] — 2026-10-10
 
 - Now playing changes record when you hear it change. While the station was playing on your phone, the screen moved to the next record as soon as the station picked it, which could be several seconds before the music did and before the lock screen did, and its progress bar ran the same few seconds ahead and reached the end of a record that was still playing. The screen, the bar under it and the player bar on What's on now follow the audio you are hearing, as the lock screen and the widget already did. With the station stopped they show what the station is playing, as before.
@@ -210,7 +215,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.15.4...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.15.5...HEAD
+[0.15.5]: https://github.com/robert-dean/deadair/compare/android-v0.15.4...android-v0.15.5
 [0.15.4]: https://github.com/robert-dean/deadair/compare/android-v0.15.3...android-v0.15.4
 [0.15.3]: https://github.com/robert-dean/deadair/compare/android-v0.15.2...android-v0.15.3
 [0.15.2]: https://github.com/robert-dean/deadair/compare/android-v0.15.1...android-v0.15.2

@@ -264,6 +264,7 @@ const toItems = (value: unknown): StationLineupItem[] => {
                   over?: { atMs?: unknown };
                   mixedIn?: unknown;
                   requestId?: unknown;
+                  followsRequestId?: unknown;
                   track?: Partial<RundownTrack>;
               }
             | null
@@ -322,6 +323,7 @@ const toItems = (value: unknown): StationLineupItem[] => {
                 track,
                 ...(line.mixedIn === true ? { mixedIn: true } : {}),
                 ...(typeof line.requestId === 'string' ? { requestId: line.requestId } : {}),
+                ...(typeof line.followsRequestId === 'string' ? { followsRequestId: line.followsRequestId } : {}),
             });
         }
         return items;

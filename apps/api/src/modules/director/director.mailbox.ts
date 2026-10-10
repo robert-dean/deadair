@@ -172,6 +172,18 @@ export type DirectorCommand =
      */
     | { kind: 'interleaveTracks'; inserts: readonly Interleaved[]; broadcastId: string }
     /**
+     * Records that sound like a listener's request have been found: put them straight after it, in
+     * place of whatever was still planned behind it.
+     *
+     * {@link replaceTail}'s swap, anchored. The request is named by its id rather than by a line,
+     * because that is what the job that found the records knows, and every request is on exactly one
+     * line. See `StationLineup.followRequest`, which refuses once the request will not be heard or a
+     * newer one sits behind it.
+     *
+     * `broadcastId` is {@link appendTracks}'s guard.
+     */
+    | { kind: 'followRequest'; requestId: string; tracks: readonly RundownTrack[]; broadcastId: string }
+    /**
      * Change what the operator has asked this broadcast for. Absent or empty clears it.
      *
      * A command of its own rather than a field on {@link replaceTail}, because the two happen

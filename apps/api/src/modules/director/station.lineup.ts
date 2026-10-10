@@ -131,6 +131,15 @@ export interface StationLineupTrackItem extends StationLineupLine {
      * decides anything by it except where the next request may go.
      */
     requestId?: string;
+    /**
+     * The station chose this record to follow a listener's request, and this is that request's id.
+     * See {@link StationLineup.followRequest}.
+     *
+     * On the item by {@link mixedIn}'s rule. A run of these is never split: no request and no
+     * mixed-in record goes in between two of them, which is what makes a second request wait for the
+     * first one's run to play out rather than cutting it short.
+     */
+    followsRequestId?: string;
 }
 
 /**
@@ -1244,9 +1253,18 @@ export class StationLineup implements LiveOrder {
             if (item.mixedIn || item.requestId !== undefined || index + 1 < committed) continue;
 
             // The next line that will actually be heard. A segment already cut from the order says
-            // nothing and claims nothing, so it does not make a gap noisy.
+            // nothing and claims nothing, so it does not make a gap noisy. A record following a
+            // request is a fine place to start from but never to land in front of, so a run is only
+            // ever joined at its end.
             const next = this.itemList.slice(index + 1).find(line => line.state !== 'removed');
-            if (next === undefined || (next.kind === 'track' && next.state === 'planned' && !next.mixedIn && next.requestId === undefined))
+            if (
+                next === undefined ||
+                (next.kind === 'track' &&
+                    next.state === 'planned' &&
+                    !next.mixedIn &&
+                    next.requestId === undefined &&
+                    next.followsRequestId === undefined)
+            )
                 return index + 1;
         }
         return undefined;
@@ -1622,6 +1640,42 @@ export class StationLineup implements LiveOrder {
         const dropped = this.itemList.filter(item => item.state === 'planned');
 
         this.itemList = [...this.itemList.filter(item => item.state !== 'planned'), ...tracks.map(toItem)];
+        return dropped;
+    }
+
+    /**
+     * Replace everything still planned after a listener's request with records chosen to follow it.
+     *
+     * {@link replacePlanned}'s swap with a floor under it: lines up to and including the request
+     * keep their places, as does anything after it the player already holds, and the planned lines
+     * behind it go, segments included, for that method's reason. The new records go in at the end,
+     * stamped {@link StationLineupTrackItem.followsRequestId}, so the gap rule keeps the next request
+     * from splitting the run.
+     *
+     * Refused (`undefined`) when the request is no longer going to be heard, and when a later
+     * request already sits behind it. The second cannot happen through {@link insertRequested},
+     * which always places a request after the last one, so the run that would follow it now
+     * belongs to the newer request and its own job.
+     *
+     * @returns the items it dropped, for {@link replacePlanned}'s reason.
+     */
+    followRequest(requestId: string, tracks: readonly RundownTrack[]): StationLineupItem[] | undefined {
+        const at = this.itemList.findIndex(item => item.kind === 'track' && item.requestId === requestId);
+        const anchor = this.itemList[at];
+        if (anchor === undefined || anchor.state === 'removed' || anchor.state === 'skipped' || anchor.state === 'unavailable') return undefined;
+
+        const behind = this.itemList.slice(at + 1);
+        if (behind.some(item => item.kind === 'track' && item.requestId !== undefined)) return undefined;
+
+        const dropped = behind.filter(item => item.state === 'planned');
+        const following = tracks.map((track): StationLineupTrackItem => ({
+            id: randomUUID(),
+            kind: 'track',
+            state: 'planned',
+            track,
+            followsRequestId: requestId,
+        }));
+        this.itemList = [...this.itemList.slice(0, at + 1), ...behind.filter(item => item.state !== 'planned'), ...following];
         return dropped;
     }
 

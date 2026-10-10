@@ -862,6 +862,10 @@ export class DirectorService {
                 await this.replaceTail(command.tracks, command.broadcastId);
                 return undefined;
 
+            case 'followRequest':
+                await this.followRequest(command.requestId, command.tracks, command.broadcastId);
+                return undefined;
+
             case 'rebrief':
                 await this.rebrief(command.brief);
                 return undefined;
@@ -1592,6 +1596,40 @@ export class DirectorService {
         await this.commit();
 
         this.logger.info('director: replaced the rest of the running order', { added: tracks.length, dropped: dropped.length });
+    }
+
+    /**
+     * Put the records found to follow a listener's request straight after it.
+     *
+     * {@link replaceTail} with the request as its floor, on the same terms: the broadcast is checked,
+     * an empty answer changes nothing, and the dropped breaks are retired. A request that has been
+     * cut, or that a newer one now sits behind, is left alone, since the run would follow the wrong
+     * record. See `StationLineup.followRequest`.
+     */
+    private async followRequest(requestId: string, tracks: readonly RundownTrack[], broadcastId: string): Promise<void> {
+        if (!this.lineup || broadcastId !== this.lineup.broadcastId) {
+            this.logger.warn('director: records to follow a request arrived for a broadcast that has ended; dropped', {
+                expected: broadcastId,
+                current: this.lineup?.broadcastId,
+                tracks: tracks.length,
+            });
+            return;
+        }
+        if (tracks.length === 0) return;
+
+        const dropped = this.lineup.followRequest(requestId, tracks);
+        if (dropped === undefined) {
+            this.logger.info('director: a request is no longer the last one coming, so nothing was put after it', { requestId });
+            return;
+        }
+
+        // In `replaceTail`'s order and for its reasons.
+        await this.persist();
+        this.askForEnrichment('records following a request');
+        await this.retireSegments(this.lineup, dropped, 'a listener request replaced what was planned after it');
+        await this.commit();
+
+        this.logger.info('director: followed a request with records like it', { requestId, added: tracks.length, dropped: dropped.length });
     }
 
     /**

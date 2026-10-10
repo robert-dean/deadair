@@ -22,6 +22,8 @@ import {
     ApiKeySessionPolicy,
     ApiKeySessionPolicyContext,
     MfaSatisfiedOrApiKeyPolicy,
+    SessionScopePolicy,
+    SessionScopePolicyContext,
     DefaultAssuranceLevelPolicy,
     AuthAssuranceLevelPolicyContext,
     SupportVerificationAllowedPolicy,
@@ -159,6 +161,10 @@ export const ServerPolicyMappings: Record<AuthenticationPolicyNames | DeadairPol
     'auth.api.key.allowed': ApiKeyAllowedPolicy,
     'auth.session.api.key': ApiKeySessionPolicy,
     'auth.session.mfa.satisfied.or.api.key': MfaSatisfiedOrApiKeyPolicy,
+    // Added by @maroonedsoftware/authentication 6.3. No contract names it: scopes are checked by
+    // `keyLacks` in the platform gates above and by `oauth.grant` for the MCP endpoint, so it is
+    // mapped to the package default for the same reason as the three above.
+    'auth.session.scope': SessionScopePolicy,
 };
 
 export type ServerPolicyContexts = {
@@ -179,4 +185,5 @@ export type ServerPolicyContexts = {
     'auth.api.key.allowed': ApiKeyAllowedPolicyContext;
     'auth.session.api.key': ApiKeySessionPolicyContext;
     'auth.session.mfa.satisfied.or.api.key': AuthMfaSatisfiedPolicyContext;
+    'auth.session.scope': SessionScopePolicyContext;
 };

@@ -82,7 +82,7 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
                     </Anchor>
                     {showDetail ? (
                         <Code id={detailPanelId} block style={{ whiteSpace: 'pre-wrap' }}>
-                            {error.stack ?? error.message}
+                            {error instanceof Error ? (error.stack ?? error.message) : String(error)}
                         </Code>
                     ) : undefined}
                 </Stack>

@@ -72,7 +72,9 @@ describe('StoryWaitPanel', () => {
         await screen.findByText(/leaves 40 minutes/);
 
         await user.click(screen.getByRole('button', { name: 'Change' }));
-        const box = screen.getByLabelText(/Wait before returning to a story/);
+        // By role, which waits for the `Collapse` to show the box: found by label while still hidden,
+        // jsdom will not focus it.
+        const box = await screen.findByRole('textbox', { name: /Wait before returning to a story/ });
         await user.clear(box);
         await user.type(box, '60');
         await user.click(await screen.findByRole('button', { name: 'Save' }));
@@ -92,7 +94,7 @@ describe('StoryWaitPanel', () => {
         await screen.findByText(/leaves 90 minutes/);
 
         await user.click(screen.getByRole('button', { name: 'Change' }));
-        await user.clear(screen.getByLabelText(/Wait before returning to a story/));
+        await user.clear(await screen.findByRole('textbox', { name: /Wait before returning to a story/ }));
         await user.click(await screen.findByRole('button', { name: 'Save' }));
 
         await waitFor(() => {

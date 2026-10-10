@@ -316,6 +316,10 @@ export interface PulledItem {
  * {@link heldBy} adds them to `queued`, so an item mid-download is counted rather than waited for.
  * The grace only does real work against an older script that does not report it, and against a
  * genuinely lost push, where five seconds is still the right time to give up.
+ *
+ * It is counted from the first reading that missed the item (`Rundown.missingSince`), not from
+ * the hand-over: a reading on a track boundary misses the item the player is starting, and an
+ * item handed a whole record earlier had always outlasted a grace counted from the hand-over.
  */
 const RESOLVE_GRACE_MS = 5_000;
 
@@ -422,6 +426,21 @@ export class Rundown {
      */
     private servedAt = new Map<string, number>();
     /**
+     * When a reading first found each handed-over item unaccounted for, for as long as every
+     * reading since has.
+     *
+     * {@link servedAt} alone says how long ago the player was GIVEN the item, which is the
+     * wrong clock for the moment the player starts it. Liquidsoap pops the next request off its
+     * queue before its `on_track` hook names it on air, and the reading is served from another
+     * thread, so a reading taken on that boundary holds nothing and still names the record that
+     * just ended. The item was handed a whole record ago, so its `servedAt` was long settled and
+     * it was called lost on that one reading. Measured on 2026-10-10: a talk break handed at
+     * 17:39:09 started at 17:42:00, the reading that same second took it back to `planned`, and
+     * the break planner rewrote a break that was already airing. One more reading names it on
+     * air; a push that was really lost is still missing from every reading after.
+     */
+    private missingSince = new Map<string, number>();
+    /**
      * How many times each item has been handed over and come back unheard.
      *
      * The counter {@link MAX_HAND_OVERS} is spent against. Keyed by the order's own
@@ -496,6 +515,7 @@ export class Rundown {
         this.order = undefined;
         this.prepared.clear();
         this.servedAt.clear();
+        this.missingSince.clear();
         this.handOvers.clear();
         this.airing = undefined;
         this.armedVoice = undefined;
@@ -632,6 +652,7 @@ export class Rundown {
         this.epoch.bump();
         this.order?.reclaimAll();
         this.servedAt.clear();
+        this.missingSince.clear();
         this.forgetPreparedExcept(this.airing?.id);
         // Not a stand-down: the station is still on air, playing the item it was
         // already playing, and only what comes after it has changed.
@@ -657,6 +678,7 @@ export class Rundown {
         if (this.airing) this.order?.markPlayed(this.airing.id);
         this.order?.reclaimAll();
         this.servedAt.clear();
+        this.missingSince.clear();
         this.prepared.clear();
         // Cleared here and NOT in retract: a stand-down is an operator intervening,
         // and fixing whatever was refusing is the usual thing they intervene by
@@ -855,6 +877,7 @@ export class Rundown {
 
         this.order?.reclaim([id]);
         this.servedAt.delete(id);
+        this.missingSince.delete(id);
         this.emit();
         return true;
     }
@@ -989,13 +1012,25 @@ export class Rundown {
      * NORMAL state for the length of a download. Acting on that hands the same item
      * over a second time, so only an item that has been unaccounted for longer than
      * {@link RESOLVE_GRACE_MS} is treated as lost.
+     *
+     * Longer than that by EVERY reading since the first that missed it ({@link missingSince}), and
+     * not merely handed longer ago than that: a reading taken on a track boundary misses the item
+     * the player is starting, and one reading is not enough to call that lost.
      */
     private reconcileServed(held: number): void {
         const handed = this.handedIds();
-        if (held >= handed.length) return;
+        if (held >= handed.length) {
+            this.missingSince.clear();
+            return;
+        }
 
-        const settledBy = Date.now() - RESOLVE_GRACE_MS;
-        const lost = handed.filter((id, index) => index >= held && (this.servedAt.get(id) ?? 0) <= settledBy);
+        const now = Date.now();
+        const settledBy = now - RESOLVE_GRACE_MS;
+        const unaccounted = handed.slice(held);
+        for (const id of this.missingSince.keys()) if (!unaccounted.includes(id)) this.missingSince.delete(id);
+        for (const id of unaccounted) if (!this.missingSince.has(id)) this.missingSince.set(id, now);
+
+        const lost = unaccounted.filter(id => (this.servedAt.get(id) ?? 0) <= settledBy && (this.missingSince.get(id) ?? now) <= settledBy);
 
         // Everything short is still within its grace: the player is fetching, which
         // is the overwhelmingly common reason for a reading to be short at all.
@@ -1012,6 +1047,7 @@ export class Rundown {
             this.handOvers.set(id, attempts);
             (attempts >= MAX_HAND_OVERS ? exhausted : retry).push(id);
             this.servedAt.delete(id);
+            this.missingSince.delete(id);
         }
 
         if (retry.length > 0) {
@@ -1068,6 +1104,7 @@ export class Rundown {
         this.airing = { id, startedAt: Date.now(), observedAt: Date.now() };
         this.unknownOnAir = undefined;
         this.servedAt.delete(id);
+        this.missingSince.delete(id);
 
         const item = this.prepared.get(id);
         if (item) {

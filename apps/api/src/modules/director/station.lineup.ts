@@ -1648,7 +1648,8 @@ export class StationLineup implements LiveOrder {
      */
     shuffleRemaining(smart?: SmartShuffleOrder): ShuffleResult {
         const head = this.itemList.filter(item => item.state !== 'planned');
-        const tail = this.itemList.filter((item): item is StationLineupTrackItem => item.state === 'planned' && isTrackItem(item) && !isPinned(item));
+        const staysPut = this.staysPut();
+        const tail = this.itemList.filter((item): item is StationLineupTrackItem => item.state === 'planned' && isTrackItem(item) && !staysPut(item));
         if (tail.length < 2) return { result: refuse('empty', 'there is nothing left to shuffle'), dropped: [] };
 
         for (let index = tail.length - 1; index > 0; index--) {
@@ -1657,7 +1658,11 @@ export class StationLineup implements LiveOrder {
         }
         // The committed head keeps its own order and its place, which is the one thing a shuffle
         // must not touch: those items are already with the player.
-        const { lines, dropped } = fillAround(this.itemList, smart === undefined ? tail : programmeShuffled(tail, smart, lastAiredArtistOf(head)));
+        const { lines, dropped } = fillAround(
+            this.itemList,
+            smart === undefined ? tail : programmeShuffled(tail, smart, lastAiredArtistOf(head)),
+            staysPut,
+        );
         this.itemList = lines;
         return { result: OK, dropped: dropped.filter(item => !isTrackItem(item)) };
     }
@@ -1690,11 +1695,13 @@ export class StationLineup implements LiveOrder {
      * rather than gathering the pinned items at the front, because a request was placed in a quiet
      * gap and a production at its hour, and both of those positions mean something.
      *
+     * **So does the record a break in the player's hands has announced** ({@link staysPut}).
+     *
      * @returns the items it dropped, because the caller has work to do on them: the segments among
      *   them own `deadair.segments` rows that are now describing a break that will never air.
      */
     replacePlanned(tracks: readonly RundownTrack[]): StationLineupItem[] {
-        const { lines, dropped } = fillAround(this.itemList, tracks.map(toItem));
+        const { lines, dropped } = fillAround(this.itemList, tracks.map(toItem), this.staysPut());
 
         this.itemList = lines;
         return dropped;
@@ -1733,9 +1740,46 @@ export class StationLineup implements LiveOrder {
             followsRequestId: requestId,
             pinned: true,
         }));
-        const { lines, dropped } = fillAround(behind, following);
+        // Asked of the WHOLE order, not of `behind`: the break that made the promise sits in front of
+        // the request, and only the order can see both of them.
+        const { lines, dropped } = fillAround(behind, following, this.staysPut());
         this.itemList = [...this.itemList.slice(0, at + 1), ...lines];
         return dropped;
+    }
+
+    /**
+     * What a replan, a shuffle or a request's follow-on has to leave where it is, as a predicate
+     * over this order as it stands now.
+     *
+     * Everything {@link isPinned}, and the first record after any break the player already holds
+     * ({@link nextTrackAfter}, so it is the record a "coming up" names). That record is `planned`,
+     * so it used to go with the rest of the tail while the break in front of it kept its place, and
+     * the station then said "coming up, X" and played something else. The claim check cannot catch
+     * it: it runs at hand-over, and the break was handed with a claim that was true at the time.
+     * Measured on 2026-10-10: a break naming "No One Knows" was handed when the record before it
+     * started, a shuffle and a request's follow-on dropped "No One Knows" while that record played,
+     * and the break aired its promise in front of a different record.
+     *
+     * Keeping the record rather than retracting the break, because a handed break may be seconds
+     * from air or already airing, a retraction throws away what the player has fetched, and the
+     * promise is cheap to keep: one record holds its slot, and everything behind it is still the
+     * operator's to change. The order cannot see a break's words, so it keeps the record after
+     * every held break rather than only after one that named it; for a break that claimed nothing
+     * that costs one record its turn in a shuffle, and nothing else. A talk-over cue is not such a
+     * break: it reaches the player with its record, never ahead of it.
+     */
+    staysPut(): (item: StationLineupItem) => boolean {
+        const promised = new Set<string>();
+        for (const item of this.itemList) {
+            if (item.kind !== 'segment' || (item.state !== 'handed' && item.state !== 'airing')) continue;
+            // A talk-over cue is marked handed when the director attaches it to the record's prepared
+            // form, and its audio reaches the player only WITH that record. While the record is
+            // `planned` nothing has been promised to anybody, and moving it is `forgetStranded`'s case.
+            if (item.over !== undefined) continue;
+            const next = this.nextTrackAfter(item.id);
+            if (next?.state === 'planned') promised.add(next.id);
+        }
+        return item => isPinned(item) || promised.has(item.id);
     }
 
     /** Empty it. What is on air is the transport's business, not this one's. */
@@ -1800,20 +1844,22 @@ const toItem = (track: RundownTrack): StationLineupItem => ({ id: randomUUID(), 
  * Lay new records into an order, around everything a replan has to leave alone.
  *
  * Anything not `planned` keeps its place, because the player holds it or it is the record of what
- * happened, and so does anything {@link isPinned}. Every other planned line goes; a record's slot is
- * taken by the next new record, a segment's is not (the planner plants into the result afresh), and
- * whatever new records are left over go on the end.
+ * happened, and so does anything `staysPut` names: what {@link isPinned} names, and the record a held
+ * break has announced. Every other planned line goes; a record's slot is taken by the next new record,
+ * a segment's is not (the planner plants into the result afresh), and whatever new records are left
+ * over go on the end.
  */
 const fillAround = (
     lines: readonly StationLineupItem[],
     fresh: readonly StationLineupItem[],
+    staysPut: (item: StationLineupItem) => boolean,
 ): { lines: StationLineupItem[]; dropped: StationLineupItem[] } => {
     const kept: StationLineupItem[] = [];
     const dropped: StationLineupItem[] = [];
     let next = 0;
 
     for (const line of lines) {
-        if (line.state !== 'planned' || isPinned(line)) {
+        if (line.state !== 'planned' || staysPut(line)) {
             kept.push(line);
             continue;
         }

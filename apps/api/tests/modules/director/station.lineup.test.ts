@@ -4,7 +4,7 @@
 // already aired, or losing one that was handed over and taken back before anybody
 // heard it.
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
     MAX_PLAYED_KEPT,
@@ -486,7 +486,13 @@ describe('StationLineup editing', () => {
 
         const after = idsOf(lineup.all());
         expect(after).toHaveLength(9);
-        for (const [at, id] of [[1, 'segment:ded'], [2, 'r'], [5, 'segment:beat'], [7, 'o']] as const) expect(after[at]).toBe(id);
+        for (const [at, id] of [
+            [1, 'segment:ded'],
+            [2, 'r'],
+            [5, 'segment:beat'],
+            [7, 'o'],
+        ] as const)
+            expect(after[at]).toBe(id);
         expect([after[0], after[3], after[4], after[6], after[8]].sort()).toEqual(['a', 'b', 'c', 'd', 'e']);
         expect(idsOf(dropped)).toEqual(['segment:talk']);
     });
@@ -666,8 +672,8 @@ describe('StationLineup editing', () => {
 
     it('keeps an order saved before pinning existed: a request and a production still read as pinned', () => {
         const lineup = new StationLineup(binding('rotation'), [
-                { id: '1', kind: 'track', state: 'planned', track: track('a') },
-                { id: '2', kind: 'track', state: 'planned', track: track('r'), requestId: 'req-1' },
+            { id: '1', kind: 'track', state: 'planned', track: track('a') },
+            { id: '2', kind: 'track', state: 'planned', track: track('r'), requestId: 'req-1' },
             { id: '3', kind: 'segment', state: 'planned', segmentId: 'beat', groupId: 'episode-1' },
         ]);
 
@@ -1612,6 +1618,89 @@ describe('StationLineup following a request', () => {
 
         const ids = idsOf(lineup.all());
         expect(ids.slice(ids.indexOf('x'), ids.indexOf('z') + 1)).toEqual(['x', 'y', 'z']);
+    });
+});
+
+// Measured on 2026-10-10: a break saying "coming up, No One Knows" was handed to the player when the
+// record before it started, and while that record played a shuffle and a request's follow-on both
+// dropped "No One Knows" from the planned tail. The break kept its place, as everything handed does,
+// and aired its promise in front of a different record. The hand-over claim check had already passed.
+describe('StationLineup and the record a held break announced', () => {
+    /** a airing, the break after it handed, and the record it names still planned. */
+    const announced = (): StationLineup => {
+        const lineup = lineupWith(['a', 'b', 'c', 'd', 'e']);
+        lineup.insertSegment('talk', 1);
+        const [first] = hand(lineup, 2);
+        lineup.markAiring(first!.id);
+        return lineup;
+    };
+
+    it('keeps it in place through a shuffle, and shuffles everything behind it', () => {
+        const lineup = announced();
+
+        // Always swapping with the front: without the rule the tail b, c, d, e comes out c, d, e, b.
+        const random = vi.spyOn(Math, 'random').mockReturnValue(0);
+        try {
+            expect(lineup.shuffleRemaining().result).toEqual({ ok: true });
+        } finally {
+            random.mockRestore();
+        }
+
+        const ids = idsOf(lineup.all());
+        expect(ids.slice(0, 3)).toEqual(['a', 'segment:talk', 'b']);
+        expect(ids.slice(3).sort()).toEqual(['c', 'd', 'e']);
+    });
+
+    it('keeps it in place through a replan, and replaces everything behind it', () => {
+        const lineup = announced();
+
+        const dropped = lineup.replacePlanned([track('x'), track('y')]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:talk', 'b', 'x', 'y']);
+        expect(idsOf(dropped)).toEqual(['c', 'd', 'e']);
+    });
+
+    it('keeps it while the break is airing, too', () => {
+        const lineup = announced();
+        lineup.markPlayed(lineup.all()[0]!.id);
+        lineup.markAiring(lineup.all()[1]!.id);
+
+        lineup.replacePlanned([track('x')]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:talk', 'b', 'x']);
+    });
+
+    it("stays in front of a request placed behind it, and of that request's follow-on", () => {
+        const lineup = announced();
+        lineup.insertRequested(track('r'), 'req-1');
+        expect(idsOf(lineup.all()).slice(0, 4)).toEqual(['a', 'segment:talk', 'b', 'r']);
+
+        lineup.followRequest('req-1', [track('x')]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:talk', 'b', 'r', 'x']);
+    });
+
+    it('promises nothing for a break that is only planned, which the hand-over check still answers for', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('talk', 1);
+        const [first] = hand(lineup, 1);
+        lineup.markAiring(first!.id);
+
+        lineup.replacePlanned([track('x'), track('y')]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'x', 'y']);
+    });
+
+    it('promises nothing for a talk-over cue, which reaches the player with its record and not before it', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('link', 1, { atMs: 5_000 });
+        const [first, cue] = hand(lineup, 2);
+        lineup.markAiring(first!.id);
+        expect(cue?.kind).toBe('segment');
+
+        lineup.replacePlanned([track('x'), track('y')]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:link', 'x', 'y']);
     });
 });
 

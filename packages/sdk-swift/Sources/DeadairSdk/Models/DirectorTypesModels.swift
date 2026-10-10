@@ -267,15 +267,18 @@ public struct RouteStop: Codable, Equatable, Sendable {
     public var sharedTitle: String?
     /// For a shared credit, that record's lead artist
     public var sharedLead: String?
-    /// For a similarity link, the plugin whose answer it was
+    /// For a similarity link, the plugin whose answer it was, by id
     public var source: String?
+    /// The same plugin by the name it gives itself, when the station still has it
+    public var sourceName: String?
 
-    public init(artist: String, link: RouteStopLink? = nil, sharedTitle: String? = nil, sharedLead: String? = nil, source: String? = nil) {
+    public init(artist: String, link: RouteStopLink? = nil, sharedTitle: String? = nil, sharedLead: String? = nil, source: String? = nil, sourceName: String? = nil) {
         self.artist = artist
         self.link = link
         self.sharedTitle = sharedTitle
         self.sharedLead = sharedLead
         self.source = source
+        self.sourceName = sourceName
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -284,6 +287,7 @@ public struct RouteStop: Codable, Equatable, Sendable {
         case sharedTitle = "sharedTitle"
         case sharedLead = "sharedLead"
         case source = "source"
+        case sourceName = "sourceName"
     }
 
     public init(from decoder: Decoder) throws {
@@ -293,6 +297,7 @@ public struct RouteStop: Codable, Equatable, Sendable {
         self.sharedTitle = try container.decodeIfPresent(String.self, forKey: .sharedTitle)
         self.sharedLead = try container.decodeIfPresent(String.self, forKey: .sharedLead)
         self.source = try container.decodeIfPresent(String.self, forKey: .source)
+        self.sourceName = try container.decodeIfPresent(String.self, forKey: .sourceName)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -302,6 +307,7 @@ public struct RouteStop: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.sharedTitle, forKey: .sharedTitle)
         try container.encodeIfPresent(self.sharedLead, forKey: .sharedLead)
         try container.encodeIfPresent(self.source, forKey: .source)
+        try container.encodeIfPresent(self.sourceName, forKey: .sourceName)
     }
 }
 
@@ -414,6 +420,10 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var chartPositions: Bool?
     /// An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends
     public var albumId: UUID?
+    /// Start a route at this artist and travel to `routeTo` through artists the library holds, one record each, every step a record two of them share or a similarity source naming them alike. Send both or neither, and nothing else that names a source. Preview it first with `/director/route/preview`, which also makes this quicker
+    public var routeFrom: String?
+    /// Where a route ends. See `routeFrom`
+    public var routeTo: String?
     /// A playlist the station owns to build from instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`: its records are the library's own, so each airs from whichever provider serves a copy, and a row the library does not hold yet is left out
     public var stationPlaylistId: UUID?
     /// What to call this broadcast. Absent names it after the chart, or after the plugin, since only the surface that listed the source knows its own name for it
@@ -445,13 +455,15 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var mode: StationMode?
     public var onEnd: StationOnEnd?
 
-    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, albumId: UUID? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: PutOnAirInputMood? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, requestCooldownMinutes: Int? = nil, requestMaxOpen: Int? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
+    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, albumId: UUID? = nil, routeFrom: String? = nil, routeTo: String? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: PutOnAirInputMood? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, requestCooldownMinutes: Int? = nil, requestMaxOpen: Int? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
         self.pluginId = pluginId
         self.playlistId = playlistId
         self.chartId = chartId
         self.chartOrder = chartOrder
         self.chartPositions = chartPositions
         self.albumId = albumId
+        self.routeFrom = routeFrom
+        self.routeTo = routeTo
         self.stationPlaylistId = stationPlaylistId
         self.name = name
         self.brief = brief
@@ -477,6 +489,8 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         case chartOrder = "chartOrder"
         case chartPositions = "chartPositions"
         case albumId = "albumId"
+        case routeFrom = "routeFrom"
+        case routeTo = "routeTo"
         case stationPlaylistId = "stationPlaylistId"
         case name = "name"
         case brief = "brief"
@@ -503,6 +517,8 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.chartOrder = try container.decodeIfPresent(PutOnAirInputChartOrder.self, forKey: .chartOrder)
         self.chartPositions = try container.decodeIfPresent(Bool.self, forKey: .chartPositions)
         self.albumId = try container.decodeIfPresent(UUID.self, forKey: .albumId)
+        self.routeFrom = try container.decodeIfPresent(String.self, forKey: .routeFrom)
+        self.routeTo = try container.decodeIfPresent(String.self, forKey: .routeTo)
         self.stationPlaylistId = try container.decodeIfPresent(UUID.self, forKey: .stationPlaylistId)
         self.name = try container.decodeIfPresent(String.self, forKey: .name)
         self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
@@ -529,6 +545,8 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.chartOrder, forKey: .chartOrder)
         try container.encodeIfPresent(self.chartPositions, forKey: .chartPositions)
         try container.encodeIfPresent(self.albumId, forKey: .albumId)
+        try container.encodeIfPresent(self.routeFrom, forKey: .routeFrom)
+        try container.encodeIfPresent(self.routeTo, forKey: .routeTo)
         try container.encodeIfPresent(self.stationPlaylistId, forKey: .stationPlaylistId)
         try container.encodeIfPresent(self.name, forKey: .name)
         try container.encodeIfPresent(self.brief, forKey: .brief)

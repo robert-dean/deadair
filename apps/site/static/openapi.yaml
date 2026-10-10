@@ -8503,6 +8503,16 @@ components:
                     type: string
                     format: uuid
                     description: 'An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends'
+                routeFrom:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'Start a route at this artist and travel to `routeTo` through artists the library holds, one record each, every step a record two of them share or a similarity source naming them alike. Send both or neither, and nothing else that names a source. Preview it first with `/director/route/preview`, which also makes this quicker'
+                routeTo:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'Where a route ends. See `routeFrom`'
                 stationPlaylistId:
                     type: string
                     format: uuid
@@ -8671,7 +8681,11 @@ components:
                 source:
                     type: string
                     maxLength: 200
-                    description: 'For a similarity link, the plugin whose answer it was'
+                    description: 'For a similarity link, the plugin whose answer it was, by id'
+                sourceName:
+                    type: string
+                    maxLength: 200
+                    description: 'The same plugin by the name it gives itself, when the station still has it'
             required: [artist]
             description: 'One artist on a route, and how it connects to the one before'
         ArtistRoute:

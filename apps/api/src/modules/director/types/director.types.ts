@@ -159,7 +159,8 @@ export const RouteStop = z.strictObject({
         ),
     sharedTitle: z.string().max(500).optional().describe('For a shared credit, the record they share'),
     sharedLead: z.string().max(200).optional().describe("For a shared credit, that record's lead artist"),
-    source: z.string().max(200).optional().describe('For a similarity link, the plugin whose answer it was'),
+    source: z.string().max(200).optional().describe('For a similarity link, the plugin whose answer it was, by id'),
+    sourceName: z.string().max(200).optional().describe('The same plugin by the name it gives itself, when the station still has it'),
 });
 export type RouteStop = z.infer<typeof RouteStop>;
 
@@ -255,6 +256,15 @@ export const PutOnAirInput = z.strictObject({
         .describe(
             'An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends',
         ),
+    routeFrom: z
+        .string()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe(
+            'Start a route at this artist and travel to `routeTo` through artists the library holds, one record each, every step a record two of them share or a similarity source naming them alike. Send both or neither, and nothing else that names a source. Preview it first with `/director/route/preview`, which also makes this quicker',
+        ),
+    routeTo: z.string().min(1).max(200).optional().describe('Where a route ends. See `routeFrom`'),
     stationPlaylistId: z
         .uuid()
         .optional()

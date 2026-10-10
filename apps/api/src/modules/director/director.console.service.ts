@@ -29,6 +29,7 @@ import { fitAirtime, lookupsFor, recordBudget } from './chart.airtime.js';
 import { DEFAULT_OVERRUN_MINUTES, OVERRUN_MINUTES_KEY, resolveOverrunMinutes } from '#modules/schedule/changeover.overrun.js';
 import { stationZone } from './clock.words.js';
 import { ScheduleService } from '#modules/schedule/schedule.service.js';
+import { RouteService } from './route.service.js';
 import { SettingsService } from '#modules/settings/settings.service.js';
 import type { OrderEdit } from './director.mailbox.js';
 import { DirectorService } from './director.service.js';
@@ -157,6 +158,8 @@ export class DirectorConsoleService {
         // Read-only, and for one label: what a plugin calls itself when a broadcast is named after
         // it. See {@link nameFor}.
         private readonly plugins: PluginRegistry,
+        // A route from one artist to another as a source. See {@link routeTracks}.
+        private readonly routes: RouteService,
     ) {}
 
     /**
@@ -583,6 +586,7 @@ export class DirectorConsoleService {
      * policy are instructions rather than preferences a source gets to route around.
      */
     private async sourceTracks(input: PutOnAirInput, airtimeMs?: number): Promise<RundownTrack[]> {
+        if (input.routeFrom !== undefined || input.routeTo !== undefined) return await this.routeTracks(input, this.era(input), broadcastOf(input));
         if (input.chartId !== undefined)
             return await this.chartTracks(input.chartId, input.chartOrder, this.era(input), broadcastOf(input), airtimeMs);
         if (input.stationPlaylistId !== undefined)
@@ -696,6 +700,43 @@ export class DirectorConsoleService {
      * a playlist. A record the station will not play is left out of the album rather than refusing
      * all of it, exactly as a playlist's would be.
      */
+    /**
+     * A route from one artist to another as a running order: one record per stop, in order.
+     *
+     * Planned here rather than in a job, unlike a chart: the console previews a route before it airs,
+     * and that preview fills the day-long similarity cache the plan reads, so this is a walk over
+     * answers already held. Vetted like an album, so a dislike, the period and the advisory policy
+     * still hold for every stop; a stop that fails them closes the route up around it.
+     */
+    private async routeTracks(input: PutOnAirInput, era: EraWindow, broadcast: PickBroadcast): Promise<RundownTrack[]> {
+        if (input.routeFrom === undefined || input.routeTo === undefined) {
+            throw httpError(400).withDetails({ message: 'a route needs both routeFrom and routeTo' });
+        }
+        if (input.chartId !== undefined || input.albumId !== undefined || input.stationPlaylistId !== undefined || input.pluginId !== undefined) {
+            throw httpError(400).withDetails({ message: 'a route is a source of its own: send it without a playlist, a chart or an album' });
+        }
+
+        const stops = await this.routes.plan(input.routeFrom, input.routeTo);
+        if (stops === undefined) {
+            throw httpError(422).withDetails({
+                message: `there is no route from ${input.routeFrom} to ${input.routeTo} through artists the library holds a record by`,
+            });
+        }
+
+        const chosen = await this.routes.records(stops);
+        return await this.libraryTracks(
+            chosen.map(({ stop, record }) => ({
+                trackId: record.trackId,
+                title: record.title,
+                artists: [stop.name],
+                ...(record.album === undefined ? {} : { album: record.album }),
+            })),
+            era,
+            'that route',
+            broadcast,
+        );
+    }
+
     private async albumTracks(albumId: string, era: EraWindow, broadcast: PickBroadcast): Promise<RundownTrack[]> {
         const { name, tracks } = await this.tracks.inAlbumOrder(albumId);
         if (name === undefined) throw httpError(404).withDetails({ message: `album "${albumId}" does not exist` });
@@ -770,6 +811,8 @@ export class DirectorConsoleService {
      * no longer has, which has no other name to give.
      */
     private async nameFor(input: PutOnAirInput): Promise<string> {
+        // "Portishead to Daft Punk": the two ends are what the operator chose and what a listener's app shows.
+        if (input.routeFrom !== undefined && input.routeTo !== undefined) return `${input.routeFrom} to ${input.routeTo}`;
         // The station's own playlist has a name it chose, read again here rather than carried out of
         // `sourceTracks` because it is one row by primary key and a label rather than a decision.
         if (input.stationPlaylistId !== undefined && input.chartId === undefined) {
@@ -1720,6 +1763,8 @@ function describeEdit(edit: OrderEdit): string {
  * the station was told.
  */
 function sourceOf(input: PutOnAirInput): string {
+    // Somebody's journey rather than somebody's list: never mixed into, as a chart is not.
+    if (input.routeFrom !== undefined) return 'route';
     if (input.chartId !== undefined) return 'chart';
     // A playlist the station owns is an import too: a list somebody made and the station cloned,
     // which is what the mix-in keys on (`DirectorService.mixInIfAsked`).

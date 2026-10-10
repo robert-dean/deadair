@@ -8,7 +8,7 @@ mdx:
 > One artist on a route, and how it connects to the one before
 
 <details>
-<summary>Attributes (5)</summary>
+<summary>Attributes (6)</summary>
 
 | Attribute     | Type                    | Required | Description                                                                                                                                             |
 | ------------- | ----------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -16,6 +16,7 @@ mdx:
 | `link`        | `'credit' \| 'similar'` | No       | How this stop connects to the one before: a record the two are credited on together, or a similarity source naming them alike. Absent on the first stop |
 | `sharedTitle` | `string`                | No       | For a shared credit, the record they share                                                                                                              |
 | `sharedLead`  | `string`                | No       | For a shared credit, that record's lead artist                                                                                                          |
-| `source`      | `string`                | No       | For a similarity link, the plugin whose answer it was                                                                                                   |
+| `source`      | `string`                | No       | For a similarity link, the plugin whose answer it was, by id                                                                                            |
+| `sourceName`  | `string`                | No       | The same plugin by the name it gives itself, when the station still has it                                                                              |
 
 </details>

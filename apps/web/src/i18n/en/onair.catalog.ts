@@ -36,6 +36,23 @@ export const onair = {
         hint: 'Who presents this show. Changing it re-writes the breaks already written for it, and one that is not ready when its slot comes round is skipped.',
         stationsHost: 'The station’s host',
     },
+    route: {
+        label: 'Or travel from one artist to another',
+        description:
+            'The station finds a way between two artists your library holds, one record each, every step a record two of them share or a similarity source calling them alike. Leave both empty for an ordinary show.',
+        from: 'From',
+        to: 'To',
+        fromPlaceholder: 'Portishead',
+        toPlaceholder: 'Daft Punk',
+        preview: 'Preview the route',
+        previewFailed: 'The route could not be worked out.',
+        none: 'There is no way between those two through artists your library holds a record by.',
+        summary_one: '{{count}} stop: {{factual}} on a shared record, {{similar}} on a similarity source.',
+        summary_other: '{{count}} stops: {{factual}} on a shared record, {{similar}} on a similarity source.',
+        start: 'to start',
+        viaCredit: 'together on "{{title}}" by {{lead}}',
+        viaSimilar: 'named alike by {{source}}',
+    },
     plan: {
         replanFailed: 'The running order could not be replanned.',
         onAirFailed: 'The station could not be put on air.',

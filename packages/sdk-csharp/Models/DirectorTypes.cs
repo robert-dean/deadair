@@ -202,10 +202,15 @@ public sealed record RouteStop
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SharedLead { get; init; }
 
-    /// <summary>For a similarity link, the plugin whose answer it was</summary>
+    /// <summary>For a similarity link, the plugin whose answer it was, by id</summary>
     [JsonPropertyName("source")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Source { get; init; }
+
+    /// <summary>The same plugin by the name it gives itself, when the station still has it</summary>
+    [JsonPropertyName("sourceName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourceName { get; init; }
 }
 
 /// <summary>Change how the station decides to be on air</summary>
@@ -291,6 +296,16 @@ public sealed record PutOnAirInput
     [JsonPropertyName("albumId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Guid? AlbumId { get; init; }
+
+    /// <summary>Start a route at this artist and travel to `routeTo` through artists the library holds, one record each, every step a record two of them share or a similarity source naming them alike. Send both or neither, and nothing else that names a source. Preview it first with `/director/route/preview`, which also makes this quicker</summary>
+    [JsonPropertyName("routeFrom")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RouteFrom { get; init; }
+
+    /// <summary>Where a route ends. See `routeFrom`</summary>
+    [JsonPropertyName("routeTo")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RouteTo { get; init; }
 
     /// <summary>A playlist the station owns to build from instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`: its records are the library's own, so each airs from whichever provider serves a copy, and a row the library does not hold yet is left out</summary>
     [JsonPropertyName("stationPlaylistId")]

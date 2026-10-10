@@ -120,8 +120,10 @@ export interface RouteStop {
     sharedTitle?: string;
     /** For a shared credit, that record's lead artist */
     sharedLead?: string;
-    /** For a similarity link, the plugin whose answer it was */
+    /** For a similarity link, the plugin whose answer it was, by id */
     source?: string;
+    /** The same plugin by the name it gives itself, when the station still has it */
+    sourceName?: string;
 }
 
 /**
@@ -174,6 +176,10 @@ export interface PutOnAirInput {
     chartPositions?: boolean;
     /** An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends */
     albumId?: string;
+    /** Start a route at this artist and travel to `routeTo` through artists the library holds, one record each, every step a record two of them share or a similarity source naming them alike. Send both or neither, and nothing else that names a source. Preview it first with `/director/route/preview`, which also makes this quicker */
+    routeFrom?: string;
+    /** Where a route ends. See `routeFrom` */
+    routeTo?: string;
     /** A playlist the station owns to build from instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`: its records are the library's own, so each airs from whichever provider serves a copy, and a row the library does not hold yet is left out */
     stationPlaylistId?: string;
     /** What to call this broadcast. Absent names it after the chart, or after the plugin, since only the surface that listed the source knows its own name for it */

@@ -8,6 +8,15 @@ export interface OwnedArtist {
     name: string;
 }
 
+/** A record by one artist on a route, as a stop could air it. */
+export interface StopRecord {
+    trackId: string;
+    title: string;
+    album?: string;
+    /** The operator liked this record for itself. */
+    liked: boolean;
+}
+
 /** Two artists credited together on a record the library holds: the one factual link the catalog keeps. */
 export interface CoCredit extends OwnedArtist {
     /** The record they share, as it is titled, and its lead artist, for a presenter to name. */
@@ -86,5 +95,50 @@ export class RouteRepository extends DataRepository {
             .execute();
 
         return rows.map(row => ({ artistKey: row.artistKey, name: row.name, title: row.title, lead: row.lead }));
+    }
+
+    /**
+     * Records this artist leads that the station could air: live, unmerged, not disliked at the track,
+     * its release or the artist, with a copy that is not missing. At most `limit`, liked records first.
+     *
+     * A short list rather than the whole discography, because the caller chooses one per stop and
+     * the rest of the vetting (a credited dislike, the period, the advisory policy, the length bounds)
+     * happens where every other broadcast's records are vetted.
+     */
+    async recordsBy(artistKey: string, limit = 25): Promise<StopRecord[]> {
+        if (artistKey.length === 0) return [];
+
+        const rows = await this.db
+            .selectFrom('deadair.tracks')
+            .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
+            .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
+            .select(['deadair.tracks.id as trackId', 'deadair.tracks.title', 'deadair.albums.name as album', 'deadair.tracks.rating'])
+            .where('deadair.artists.artistKey', '=', artistKey)
+            .where('deadair.artists.mergedIntoId', 'is', null)
+            .where('deadair.artists.rating', '<>', -1)
+            .where('deadair.tracks.mergedIntoId', 'is', null)
+            .where('deadair.tracks.rating', '<>', -1)
+            .where(eb => eb.or([eb('deadair.albums.rating', 'is', null), eb('deadair.albums.rating', '<>', -1)]))
+            .where(eb =>
+                eb.exists(
+                    eb
+                        .selectFrom('deadair.trackSources')
+                        .select('deadair.trackSources.id')
+                        .whereRef('deadair.trackSources.trackId', '=', 'deadair.tracks.id')
+                        .where('deadair.trackSources.missingAt', 'is', null),
+                ),
+            )
+            .orderBy('deadair.tracks.rating', 'desc')
+            .orderBy('deadair.tracks.title')
+            .limit(limit)
+            .execute();
+
+        // `== null` deliberately: the driver hands back `undefined` for SQL NULL. See CLAUDE.md.
+        return rows.map(row => ({
+            trackId: row.trackId,
+            title: row.title,
+            ...(row.album == null ? {} : { album: row.album }),
+            liked: Number(row.rating) === 1,
+        }));
     }
 }

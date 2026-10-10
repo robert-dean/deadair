@@ -98,8 +98,8 @@ importers:
         specifier: ^1.1.9
         version: 1.1.9
       '@maroonedsoftware/mcp':
-        specifier: ^0.5.1
-        version: 0.5.1(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(ioredis@6.0.0)(zod@4.6.5)
+        specifier: ^0.7.1
+        version: 0.7.1(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(ioredis@6.0.0)(zod@4.6.5)
       '@maroonedsoftware/multipart':
         specifier: ^1.3.8
         version: 1.3.8
@@ -3208,10 +3208,6 @@ packages:
       yaml:
         optional: true
 
-  '@maroonedsoftware/authentication@6.2.0':
-    resolution: {integrity: sha512-f/s+ub17VfhrQNkeYOOT80IEJ0S/gewD0N6rpgtOZMKMgzpjNlttV+qw3ecjGgKJRSvthwuSNfwNpwPrIPwUEg==}
-    engines: {node: '>=22'}
-
   '@maroonedsoftware/authentication@6.3.0':
     resolution: {integrity: sha512-+cNH3FiKT01VgsqYm5hHUsXSsH4zBMuiqUsZsTT0H8tZQxIIenksLz27BWupgpLnmEXBdqXg02QLk6pzyHL24A==}
     engines: {node: '>=22'}
@@ -3283,8 +3279,8 @@ packages:
     resolution: {integrity: sha512-eEksDYu/PAWC/mIwLzxFqcF9tOnYURqyP9BDUlSgconUZ/I6MJrXvZ/cYOjCtQ6YEr/8k4GRMvwxIaOwSVaQ4w==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/mcp@0.5.1':
-    resolution: {integrity: sha512-Ial3qbgXkLNbujvR1O2mTIlhon67qR2RTv8Og8V+KYDCNS43njd5B4MOPVT03oImJxgG6PSewR3O0GGIu9+hoA==}
+  '@maroonedsoftware/mcp@0.7.1':
+    resolution: {integrity: sha512-NEESj8pAkokKt9lIpgRTZha/BzVUdnJOSe0Z2i8GlSqSYskYaQWdtNT2+bv9iLx9mgxOUoTkqaVSG/3TdrwuGw==}
     engines: {node: '>=22'}
     peerDependencies:
       '@maroonedsoftware/cache': 0.5.0
@@ -7447,9 +7443,6 @@ packages:
   jose@6.2.12:
     resolution: {integrity: sha512-9NiFmJEex0sy2Dk58j2UGBSHgUs2ypF9eZSu4L6vjOX3Dp96Sw1F3uL+H+D1sx02jZZdzUT0HgvCy59CuvXcWw==}
 
-  jose@6.2.9:
-    resolution: {integrity: sha512-XrchZOFZUl/T3vTwRe8XK+cJrGtMF4th1ARnDfwbBXFKThGhlsxEE4Zu03AD/bjJSt/9jT/mxrOCkJWOg77aPA==}
-
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
@@ -8249,9 +8242,6 @@ packages:
     peerDependencies:
       webpack: ^4.0.0 || ^5.0.0
 
-  oauth4webapi@3.8.7:
-    resolution: {integrity: sha512-4RxcKxXjuItDFZ20RRPf4YTw3kpeXJyCgJFxVzJ068A7PNJ18st2Dg90tlC1LkSDS0GecroagCLHYEIVUhCAkw==}
-
   oauth4webapi@3.8.8:
     resolution: {integrity: sha512-8N28E+a/oxfXWBgOMt+ZP/JUf/XR+IFbvkAEPP3gznXOMv9BpAAwiIj0TFNz3tGTPc0ZQ8zmWBNgN1nAys0gng==}
 
@@ -8320,9 +8310,6 @@ packages:
   opener@1.5.2:
     resolution: {integrity: sha512-ur5UIdyw5Y7yEj9wLzhqXiy6GZ3Mwx0yGI+5sMn2r0N0v3cKJvUmFH5yPP+WXh9e0xfyzyJX95D8l088DNFj7A==}
     hasBin: true
-
-  openid-client@6.8.7:
-    resolution: {integrity: sha512-gtKthNu7evSBvTdrrlHb4F3Fi9dcwlb5QaITlCs+9mfpvuOi0Q3qtBf5+iY4sEP8hy1qCoAdxBNPDcmZeVSDzQ==}
 
   openid-client@6.8.8:
     resolution: {integrity: sha512-ZsucJA5Ad04Uv7YN4ql+s4GXNmb9uAYQwyJTsJx7CH/MX3JZioLE2pVKi1SC+YrbSLA4Px3Gi30dMjgOZtb6pA==}
@@ -10705,9 +10692,6 @@ packages:
 
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
-
-  zxcvbn-ts@2.3.4:
-    resolution: {integrity: sha512-K98gEkpvRyqWh2GUjNABrSMQ8OW+k9KycIfSufa82CjkZbhK1fl85c75WNUk0mhNEvo59774jLK1dACnXbr0wg==}
 
   zxcvbn-ts@2.4.0:
     resolution: {integrity: sha512-mVJHPqJkPrlpdPXOzZ+iSv+0Gpo0HPyBBEIlQ/qkQh1tAv44gbALhsrr94EKDzL9qTJWvm851HlviYFATkCsCg==}
@@ -14154,32 +14138,6 @@ snapshots:
       pg: 8.23.1
       yaml: 2.9.0
 
-  '@maroonedsoftware/authentication@6.2.0(ioredis@6.0.0)':
-    dependencies:
-      '@maroonedsoftware/cache': 0.5.0(ioredis@6.0.0)
-      '@maroonedsoftware/encryption': 0.5.13
-      '@maroonedsoftware/errors': 1.9.1
-      '@maroonedsoftware/logger': 1.1.9
-      '@maroonedsoftware/policies': 0.6.9
-      '@maroonedsoftware/utilities': 1.11.5
-      '@node-rs/argon2': 2.2.0
-      '@zxcvbn-ts/core': 4.2.0
-      '@zxcvbn-ts/language-common': 4.1.3
-      '@zxcvbn-ts/language-en': 4.1.1
-      '@zxcvbn-ts/matcher-pwned': 4.1.3
-      arctic: 3.7.0
-      deepmerge-ts: 8.0.2
-      fido2-lib: 3.5.9
-      injectkit: 1.7.1
-      jsonwebtoken: 9.0.3
-      luxon: 3.7.2
-      openid-client: 6.8.7
-      qrcode: 1.5.4
-      rate-limiter-flexible: 11.2.1
-      zxcvbn-ts: 2.3.4
-    transitivePeerDependencies:
-      - ioredis
-
   '@maroonedsoftware/authentication@6.3.0(ioredis@6.0.0)':
     dependencies:
       '@maroonedsoftware/cache': 0.5.0(ioredis@6.0.0)
@@ -14288,9 +14246,9 @@ snapshots:
     dependencies:
       injectkit: 1.7.1
 
-  '@maroonedsoftware/mcp@0.5.1(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(ioredis@6.0.0)(zod@4.6.5)':
+  '@maroonedsoftware/mcp@0.7.1(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(ioredis@6.0.0)(zod@4.6.5)':
     dependencies:
-      '@maroonedsoftware/authentication': 6.2.0(ioredis@6.0.0)
+      '@maroonedsoftware/authentication': 6.3.0(ioredis@6.0.0)
       '@maroonedsoftware/errors': 1.9.1
       '@maroonedsoftware/logger': 1.1.9
       '@maroonedsoftware/policies': 0.6.9
@@ -18695,8 +18653,6 @@ snapshots:
 
   jose@6.2.12: {}
 
-  jose@6.2.9: {}
-
   joycon@3.1.1: {}
 
   js-tokens@4.0.0: {}
@@ -19731,8 +19687,6 @@ snapshots:
       schema-utils: 3.3.0
       webpack: 5.110.3(@swc/core@1.15.47(@swc/helpers@0.5.23))(esbuild@0.28.2)(postcss@8.5.25)
 
-  oauth4webapi@3.8.7: {}
-
   oauth4webapi@3.8.8: {}
 
   object-assign@4.1.1: {}
@@ -19805,11 +19759,6 @@ snapshots:
       is-wsl: 2.2.0
 
   opener@1.5.2: {}
-
-  openid-client@6.8.7:
-    dependencies:
-      jose: 6.2.9
-      oauth4webapi: 3.8.7
 
   openid-client@6.8.8:
     dependencies:
@@ -22548,7 +22497,5 @@ snapshots:
   zod@4.6.5: {}
 
   zwitch@2.0.4: {}
-
-  zxcvbn-ts@2.3.4: {}
 
   zxcvbn-ts@2.4.0: {}

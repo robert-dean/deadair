@@ -5,6 +5,7 @@ import {
     explainToolErrors,
     McpConfig,
     McpDispatcher,
+    McpPromptHandlerMap,
     McpResourceHandlerMap,
     McpServerFactory,
     McpSessionRegistry,
@@ -78,9 +79,10 @@ export const McpModule: ServerKitModule = {
         registry.register(SearchApiTool).useClass(SearchApiTool).asSingleton();
         registry.register(CallApiTool).useClass(CallApiTool).asSingleton();
         registry.register(McpToolHandlerMap).useFactory(buildMcpTools).asSingleton();
-        // Empty, and registered anyway: the server factory takes both maps, and advertises only what
-        // a non-empty one backs.
+        // Empty, and registered anyway: the server factory takes all three maps, and advertises only
+        // what a non-empty one backs.
         registry.register(McpResourceHandlerMap).useInstance(new McpResourceHandlerMap());
+        registry.register(McpPromptHandlerMap).useInstance(new McpPromptHandlerMap());
         registry.register(McpServerFactory).useClass(McpServerFactory).asSingleton();
         // Stateless never reaches it, but the dispatcher takes it unconditionally.
         registry.register(McpSessionRegistry).useClass(McpSessionRegistry).asSingleton();

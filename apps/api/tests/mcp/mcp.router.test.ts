@@ -16,6 +16,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 import {
     explainToolErrors,
     McpDispatcher,
+    McpPromptHandlerMap,
     McpResourceHandlerMap,
     McpServerFactory,
     McpSessionRegistry,
@@ -81,7 +82,7 @@ async function serve(session: AuthenticationSession, enabled = 'true'): Promise<
             [WHOAMI_TOOL, new WhoAmITool(config)],
         ]),
     );
-    const factory = new McpServerFactory(tools, new McpResourceHandlerMap(), mcpConfig, logger);
+    const factory = new McpServerFactory(tools, new McpResourceHandlerMap(), new McpPromptHandlerMap(), mcpConfig, logger);
     const dispatcher = new McpDispatcher(factory, new McpSessionRegistry(factory, logger), mcpConfig, logger);
     const grant = new OAuthGrantPolicy(config);
     const policiesFor = (roles: string[]) => ({

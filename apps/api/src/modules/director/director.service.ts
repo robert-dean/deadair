@@ -742,9 +742,28 @@ export class DirectorService {
      */
     private warmTick(): void {
         this.heartbeat.beat(HEARTBEATS.directorWarm);
-        if (!this.active || this.waitingOnAudioSince === undefined) return;
+        if (!this.active) return;
+        if (this.waitingOnAudioSince === undefined && !this.refillOverdue()) return;
 
         this.wake();
+    }
+
+    /**
+     * Whether a refill was sent for a shortfall that is still there, and its guard has run out.
+     *
+     * The second state a pass nobody triggered can get the station out of. {@link topUpIfShort}
+     * re-asks once {@link EXTEND_GUARD_MS} has passed, but only from inside a commit pass, and a
+     * pass runs when the order changes. An order that has run EMPTY never changes: nothing airs,
+     * the pusher holds no lease to pull with, and no boundary comes. On 2026-10-10 a refill was
+     * lost to its job's time limit four minutes into a show that opened empty, the guard expired at
+     * 11:48, and nothing asked again; the station reported `noProgramme` with a listener connected.
+     *
+     * Self-limiting the same way the audio wait is. The pass this wakes re-sends and re-stamps
+     * `extendSentAt`, so the next tick is inside the guard again, and an order that has grown clears
+     * it. On a healthy station `extendSentAt` is either unset or recent, and this posts nothing.
+     */
+    private refillOverdue(): boolean {
+        return this.extendSentAt !== undefined && Date.now() - this.extendSentAt >= EXTEND_GUARD_MS;
     }
 
     /**

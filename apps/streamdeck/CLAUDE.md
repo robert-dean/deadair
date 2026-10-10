@@ -311,6 +311,13 @@ hint the station itself stores and the console shows beside the key. The plugin'
 `logs/` inside the plugin folder, written by the SDK; a failure is logged when it starts and when it
 ends, not on every poll.
 
+**So a healthy plugin writes nothing at all, and an empty `logs/` is not a fault.** Under SDK 2 every
+start logged `Station settings`, because the plugin's own `getGlobalSettings()` also fired
+`onDidReceiveGlobalSettings`. SDK 3 fires that event only when the settings panel changes something,
+so the line now appears only when somebody saves the address or key. To tell whether a quiet plugin is
+alive, look at its connections to the station's address (`lsof -nP -a -p <pid> -i TCP`, a new one
+every few seconds), not at the folder.
+
 **The settings panel is written here, not taken from sdpi-components.** Elgato suggests that library,
 but its npm package of the same name is not its author's, the protocol is six messages, and a
 TypeScript panel shares the address parser and the message types with the plugin that answers it.
@@ -395,3 +402,7 @@ pixels. They are deliberately close — a dark heart either way, the faint one a
 different things: unlit is the station having no such opinion, faint is the key having nothing to
 have an opinion about. If they turn out to be one face in practice, lifting `FAINT` for these two, or
 giving the faint state an edge of its own, is the change to make.
+
+**The move to Elgato's SDK 3 was checked on the device too.** On 2026-10-10 the SDK 3.0.2 build,
+packed as `0.2.3.1` so it would install over the Marketplace copy, went onto Robert's Stream Deck+
+(app 7.5.1). It kept the station settings, polled the live station, and every key worked.

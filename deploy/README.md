@@ -170,8 +170,20 @@ description there is the same text.
 
 ## Anywhere else
 
-`docker-compose.yml` here is the same container described for Compose. Copy `.env.example` to
-`.env`, fill it in, and:
+One command, on any machine with Docker and the Compose plugin:
+
+```bash
+curl -fsSL https://deadair.radio/install.sh | sh
+```
+
+It asks where to put the station, which tag, which port, and the address you will type to reach it.
+Then it writes `docker-compose.yml` and `.env` from this directory, hands the data directory to the
+station's user, starts the station, waits for the first boot, and runs `deadair-doctor` inside it.
+Running it again keeps the `.env` it finds. [`install.sh`](install.sh) is short enough to read
+before you pipe it into a shell.
+
+By hand instead: `docker-compose.yml` here is the same container described for Compose. Copy
+`.env.example` to `.env`, fill it in, and:
 
 ```bash
 docker compose up -d

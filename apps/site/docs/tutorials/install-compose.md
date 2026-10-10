@@ -8,8 +8,15 @@ description: The station's own compose file and environment file, filled in and 
 By the end of this page the station is running under Docker Compose and you are signed in to its
 console as the administrator. It takes about ten minutes, most of it the first boot.
 
-This page uses the compose file and environment file the project ships in `deploy/`, with the `full`
-variant, which brings its own database and cache. [Install](../install.md) is the reference: the other
+**The short way** is one command. It asks four questions and does steps 1 to 4 below, then you
+create the administrator yourself:
+
+```bash
+curl -fsSL https://deadair.radio/install.sh | sh
+```
+
+This page does the same steps by hand. It uses the compose file and environment file the project
+ships in `deploy/`, with the `full` variant, which brings its own database and cache. [Install](../install.md) is the reference: the other
 variants, bringing your own PostgreSQL and Redis, a second disk for media, and putting the station on
 the internet.
 

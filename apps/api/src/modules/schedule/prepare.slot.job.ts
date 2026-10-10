@@ -4,7 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { PickResolver } from '#modules/director/pick.resolver.js';
-import { DEFAULT_COUNT, planRecords, songKeysOf } from '#modules/director/plan.records.js';
+import { DEFAULT_COUNT, planRecords, ranOutOfTime, songKeysOf } from '#modules/director/plan.records.js';
 import { resolveRules, stationRules } from '#modules/director/rotation.rules.js';
 import { SetGenerator } from '#modules/director/set.generator.js';
 import { StationLineupRepository } from '#modules/director/station.lineup.repository.js';
@@ -69,6 +69,8 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
     }
 
     protected async execute(payload?: PrepareSlotPayload, signal?: AbortSignal): Promise<void> {
+        // Read against the context's `expiresIn` if the run is stopped: see `ranOutOfTime`.
+        const startedAt = Date.now();
         const slotId = payload?.slotId;
         const occurrence = payload?.occurrence;
         if (slotId === undefined || occurrence === undefined) return;
@@ -104,7 +106,19 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
             // So a run pg-boss has stopped lets go of the model and resolves nothing.
             ...(signal === undefined ? {} : { signal }),
         });
-        if (signal?.aborted) return;
+        if (signal?.aborted) {
+            // Logged rather than put on the feed, for the reason an empty answer below is: the refill
+            // at the boundary says so if the show opens short. But logged, because this return used
+            // to be silent, and a show that opened empty gave no hint its opening had been chosen and
+            // thrown away. As a fault only when it was one: see `ranOutOfTime`.
+            const fields = { slot: slotId, occurrence, named: planned.named };
+            if (ranOutOfTime(this.context.expiresIn?.as('milliseconds'), startedAt)) {
+                this.logger.warn('schedule: preparing the next show ran past its time limit, so it opens without a prepared set', fields);
+            } else {
+                this.logger.info('schedule: preparing the next show was stopped by a shutdown', fields);
+            }
+            return;
+        }
 
         if (planned.tracks.length === 0) {
             // Nothing written, so the show opens and refills as it always did. Logged rather than put on

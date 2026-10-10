@@ -120,6 +120,27 @@ export const MAX_PLANNING_ATTEMPTS = 2;
 export const PLANNING_TIME_LIMIT_MS = 12 * 60_000;
 
 /**
+ * How close to its limit a stopped job has to be for the stop to read as the limit. pg-boss starts
+ * its clock when it hands the job over, a moment before the job's own `execute` starts, so a run
+ * stopped for time always reads as a little under it.
+ */
+const TIME_LIMIT_SLACK_MS = 5_000;
+
+/**
+ * Whether a planning job that was stopped ran out of TIME, as against being stopped by a shutdown or
+ * a cancel.
+ *
+ * pg-boss aborts the same signal for both and gives no reason, and the two want different words. A
+ * run past its limit is a fault: the work was done and thrown away, and the operator should hear so.
+ * A shutdown is every deploy: the order is put back at boot and the refill asked for again, and a
+ * warning on the feed each time teaches whoever reads it to skip the one that matters. So it is told
+ * apart by the clock. `limitMs` is the job context's `expiresIn`; a backend that reports none set no
+ * limit to run out of.
+ */
+export const ranOutOfTime = (limitMs: number | undefined, startedAt: number, now: number = Date.now()): boolean =>
+    limitMs !== undefined && now - startedAt >= limitMs - TIME_LIMIT_SLACK_MS;
+
+/**
  * Name a batch of records and turn them into ones the station can actually play.
  *
  * The rules go WITH the picks. `PickResolver` judges every one of them against these, whatever

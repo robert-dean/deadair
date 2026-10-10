@@ -3,11 +3,12 @@ import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { PlainJob } from '#modules/jobs/plain.job.js';
+import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { DirectorService } from './director.service.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { PickResolver } from './pick.resolver.js';
-import { DEFAULT_COUNT, artistKeysOf, artistsQueuedWithin, planRecords, songKeysOf } from './plan.records.js';
+import { DEFAULT_COUNT, artistKeysOf, artistsQueuedWithin, planRecords, ranOutOfTime, songKeysOf } from './plan.records.js';
 import { artistKey } from './rotation.keys.js';
 import { resolveRules, stationRules } from './rotation.rules.js';
 import { SetGenerator } from './set.generator.js';
@@ -62,6 +63,9 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
         // The reactor, which is a singleton: this job runs in its own scope and still has to reach
         // the one object that is actually airing the order it is replacing the tail of.
         private readonly director: DirectorService,
+        // A singleton, as on the refill: a replan stopped past its time limit is something the
+        // operator who asked for it should hear about, and the feed is where they look.
+        private readonly activity: ActivityRecorder,
         private readonly config: AppConfig,
         context: JobContext,
         container: Container,
@@ -71,6 +75,8 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
     }
 
     protected async execute(payload?: ReplanLineupPayload, signal?: AbortSignal): Promise<void> {
+        // Read against the context's `expiresIn` if the run is stopped: see `ranOutOfTime`.
+        const startedAt = Date.now();
         // Read for its rules, its brief and what it holds, never to write it: the swap at the end
         // goes through the director, which is the one thing that may.
         const lineup = await this.order.load();
@@ -184,7 +190,34 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
                     }),
             },
         );
-        if (signal?.aborted) return;
+        if (signal?.aborted) {
+            // Not posted, for the refill's reason: a run pg-boss has given up on has been failed, and
+            // the tail it would replace is the one the operator can ask to replan again. But said,
+            // because this return used to be silent and an operator who pressed Replan was left with
+            // the old hour and no word why. As a fault only when it was one: see `ranOutOfTime`.
+            if (!ranOutOfTime(this.context.expiresIn?.as('milliseconds'), startedAt)) {
+                this.logger.info('director: the replan was stopped by a shutdown before it could swap in what it chose', {
+                    job: this.context.id,
+                    named: planned.named,
+                });
+                return;
+            }
+            this.logger.warn('director: the replan ran past its time limit before it could swap in what it chose', {
+                job: this.context.id,
+                asked: count,
+                named: planned.named,
+            });
+            void this.activity.record({
+                module: 'director',
+                kind: 'order.replanAbandoned',
+                severity: 'warn',
+                detail:
+                    `Replanning the running order chose ${planned.named} records and ran past its time limit before it could swap them in, ` +
+                    'so the running order was left as it was.',
+                data: { asked: count, named: planned.named },
+            });
+            return;
+        }
 
         if (planned.tracks.length === 0) {
             // Nothing to swap in, so nothing is thrown out. Posting an empty replacement would

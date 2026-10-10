@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { NOMINAL_TRACK_MS } from '../../../src/modules/director/air.estimate.js';
-import { artistsQueuedWithin } from '../../../src/modules/director/plan.records.js';
+import { artistsQueuedWithin, ranOutOfTime } from '../../../src/modules/director/plan.records.js';
 import { artistKey } from '../../../src/modules/director/rotation.keys.js';
 import type { StationLineupItem } from '../../../src/modules/director/station.lineup.js';
 
@@ -69,5 +69,27 @@ describe('artistsQueuedWithin', () => {
 
         expect(artistsQueuedWithin(queue, 0)).toEqual(new Set());
         expect(artistsQueuedWithin(queue, Number.NaN)).toEqual(new Set());
+    });
+});
+
+describe('ranOutOfTime', () => {
+    const limit = 12 * 60_000;
+
+    it('reads a stop at the limit as the limit', () => {
+        expect(ranOutOfTime(limit, 0, limit)).toBe(true);
+    });
+
+    // pg-boss starts its clock when it hands the job over, a moment before the job's own start, so a
+    // run stopped for time always reads as a little under its limit from inside it.
+    it('reads a stop a moment short of the limit as the limit too', () => {
+        expect(ranOutOfTime(limit, 0, limit - 1_000)).toBe(true);
+    });
+
+    it('reads a stop well inside the limit as something else: a shutdown or a cancel', () => {
+        expect(ranOutOfTime(limit, 0, 60_000)).toBe(false);
+    });
+
+    it('reads any stop as something else when the backend reported no limit', () => {
+        expect(ranOutOfTime(undefined, 0, Number.MAX_SAFE_INTEGER)).toBe(false);
     });
 });

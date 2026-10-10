@@ -2,6 +2,11 @@ import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
+import { TrackSkipsRepository } from '#modules/director/track.skips.repository.js';
+import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
+import { isRenderItem } from '#modules/render/segment.source.js';
+import { errorText } from '#modules/shared/error.text.js';
+import { StationIdentity } from '#modules/shared/station.identity.js';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
 import { StreamService } from '#modules/stream/stream.service.js';
 import { MOUNT_PATHS, streamMounts } from '#modules/stream/stream.settings.js';
@@ -12,7 +17,7 @@ import { AudienceWatch } from './audience.watch.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
 import { PlayoutPusher, RECONCILE_TICK_MS } from './playout.pusher.js';
-import { Rundown, type RundownItem } from './rundown.js';
+import { Rundown, type NowPlaying, type RundownItem } from './rundown.js';
 import { diagnose } from './silence.diagnosis.js';
 import type {
     PlayoutAiredQuery,
@@ -105,6 +110,10 @@ export class PlayoutService {
         // place a silence is worth writing down.
         private readonly activity: ActivityRecorder,
         private readonly logger: Logger,
+        // Who pressed Skip, and where it is written down so the draw can lean away from it.
+        private readonly context: AuthorizationContext,
+        private readonly skips: TrackSkipsRepository,
+        private readonly identity: StationIdentity,
     ) {}
 
     /**
@@ -396,11 +405,38 @@ export class PlayoutService {
         // What the operator was looking at when they pressed Skip, read before anything waits. The cut
         // lands after a top-up pass, and aimed at nothing in particular it would take off whatever
         // started in the meantime. See `PlayoutPusher.skipCurrent`.
-        const airing = this.rundown.nowPlaying()?.item.id;
+        const playing = this.rundown.nowPlaying();
+        const airing = playing?.item.id;
         if (!(await this.pusher.skipCurrent(airing))) {
             throw httpError(409).withDetails({ message: 'the stream did not take the skip; it may be down' });
         }
+        this.rememberSkip(playing);
         return this.getStatus();
+    }
+
+    /**
+     * Write down that the operator cut this record, for the skip lean (`skip.lean.ts`).
+     *
+     * Here and only here: the console, the MCP tool and the chat command all reach Skip through this
+     * method, while a dislike's cut, a changeover's overrun and a skip-to go to the pusher directly,
+     * and none of those is a verdict on the record. A record only, never a break or a programme.
+     * Fire and forget, because the skip has already happened and a failed write must not turn it into
+     * an error the operator sees.
+     */
+    private rememberSkip(playing: NowPlaying | undefined): void {
+        if (playing === undefined || isRenderItem(playing.item) || playing.item.programme === true) return;
+
+        const startedAt = playing.startedAt;
+        const afterMs = typeof startedAt === 'number' && Number.isFinite(startedAt) ? Date.now() - startedAt : undefined;
+        const actorId = this.context.actor.kind === 'user' ? this.context.actor.actorId : undefined;
+        void this.skips
+            .record({
+                item: playing.item,
+                stationKey: this.identity.stationKey,
+                ...(afterMs === undefined ? {} : { afterMs }),
+                ...(actorId === undefined ? {} : { actorId }),
+            })
+            .catch(error => this.logger.warn(`playout: could not write down a skip (${errorText(error)})`));
     }
 
     /**

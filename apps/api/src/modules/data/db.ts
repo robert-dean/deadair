@@ -1135,6 +1135,18 @@ export interface DeadairTracks {
   year: number | null;
 }
 
+export interface DeadairTrackSkips {
+  actorId: string | null;
+  afterMs: number | null;
+  artistKey: string;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  skippedAt: Generated<DateTime>;
+  songKey: string;
+  stationKey: Generated<string>;
+  trackId: string | null;
+}
+
 export interface DeadairTrackSources {
   advisory: "explicit" | "clean" | null;
   bitrate: number | null;
@@ -1251,6 +1263,7 @@ export interface DB {
   "deadair.trackLyricLabels": DeadairTrackLyricLabels;
   "deadair.trackLyrics": DeadairTrackLyrics;
   "deadair.tracks": DeadairTracks;
+  "deadair.trackSkips": DeadairTrackSkips;
   "deadair.trackSources": DeadairTrackSources;
   "deadair.trackVocalOverrides": DeadairTrackVocalOverrides;
   schemaMigrations: SchemaMigrations;

@@ -24,7 +24,8 @@ describe('tidyListenerText', () => {
     it('clamps by code points, never splitting a surrogate pair', () => {
         const clamped = tidyListenerText('ab\u{1F600}\u{1F600}', 3);
         expect(clamped).toBe('ab\u{1F600}');
-        expect(clamped?.isWellFormed()).toBe(true);
+        // No lone surrogate: a high one not followed by a low one, or a low one not preceded by a high one.
+        expect(clamped).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/);
     });
 
     it('is nothing when nothing printable is left, and nothing for nothing', () => {

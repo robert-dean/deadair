@@ -36,6 +36,13 @@ import {
     SMART_SHUFFLE_KEYS,
 } from '../../../src/modules/director/smart.shuffle.js';
 import { clampSkipLeanDays, DEFAULT_SKIP_LEAN, DEFAULT_SKIP_LEAN_DAYS, SKIP_LEAN_KEYS } from '../../../src/modules/director/skip.lean.js';
+import {
+    clampArtistReturnDays,
+    DEFAULT_ARTIST_RETURN,
+    DEFAULT_ARTIST_RETURN_DAYS,
+    DEFAULT_DEEP_CUTS,
+    REDISCOVER_KEYS,
+} from '../../../src/modules/director/rediscover.js';
 import { ConfigFieldOptionSource } from '../../../src/modules/plugins/types/plugins.types.js';
 import { providerCapabilities } from '../../../src/modules/plugins/plugin.providers.js';
 import { DEFAULT_RULES, ROTATION_KEYS, stationRules } from '../../../src/modules/director/rotation.rules.js';
@@ -309,6 +316,19 @@ describe('the settings registry', () => {
         expect(resolveSyncEveryHours(every.max)).toBe(every.max);
         expect(resolveSyncEveryHours(every.max! + 1)).toBe(every.max);
         expect(resolveSyncEveryHours(every.min! - 1)).toBe(every.min);
+    });
+
+    it('declares the artist-return lean over the same defaults and range its resolver uses', () => {
+        expect(findDescriptor(REDISCOVER_KEYS.artistReturn)!.default).toBe(DEFAULT_ARTIST_RETURN);
+
+        const days = findDescriptor(REDISCOVER_KEYS.artistReturnDays)!;
+        expect(days.default).toBe(DEFAULT_ARTIST_RETURN_DAYS);
+        expect(clampArtistReturnDays(days.min)).toBe(days.min);
+        expect(clampArtistReturnDays(days.max)).toBe(days.max);
+        expect(clampArtistReturnDays(days.max! + 1)).toBe(days.max);
+        expect(clampArtistReturnDays(days.min! - 1)).toBe(days.min);
+        expect(days.dependsOn).toBe(REDISCOVER_KEYS.artistReturn);
+        expect(findDescriptor(REDISCOVER_KEYS.deepCuts)!.default).toBe(DEFAULT_DEEP_CUTS);
     });
 
     it('declares the skip lean over the same defaults and range its resolver uses', () => {

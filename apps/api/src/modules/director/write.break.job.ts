@@ -1351,6 +1351,8 @@ function neighboursOf(lineup: StationLineup, segmentId: string, programmes: Read
                     ...(item.track.durationMs === undefined ? {} : { durationMs: item.track.durationMs }),
                     // Why it is here, when a chart is the reason and the show says so. See `BreakTrack.chart`.
                     ...(item.track.chart === undefined || !sayChart ? {} : { chart: item.track.chart }),
+                    // And when being an unheard album track is the reason. See `BreakTrack.deepCut`.
+                    ...(item.track.deepCut === true ? { deepCut: true as const } : {}),
                 },
             };
         }

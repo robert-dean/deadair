@@ -171,6 +171,22 @@ describe('ReplanLineupJob', () => {
         expect(options.avoidArtistKeys).not.toContain(artistKey(['Discarded']));
     });
 
+    it('spaces the new tail against a record the operator pinned ahead of where it lands', async () => {
+        // What the operator added survives a replan, and the new batch starts in the slot of the first
+        // record the station chose for itself, so a record they put at the head is what it lands beside.
+        const { job, seed, lineup, resolve } = build({ existing: [track('Stays', 'Survivor'), track('Goes', 'Discarded')] });
+        await seed();
+        lineup.markHanded(lineup.all()[0]!.id);
+        lineup.insertTrack(track('Put There', 'Requested'), 1);
+
+        await job.run({ count: 2 });
+
+        const options = resolve.mock.calls[0]![2]!;
+        expect(options.seedArtistKey).toBe(artistKey(['Requested']));
+        expect(options.avoidArtistKeys).toContain(artistKey(['Requested']));
+        expect(options.avoidArtistKeys).not.toContain(artistKey(['Discarded']));
+    });
+
     it('holds the cooldown against the records the player is holding, not the ones it discards', async () => {
         const { job, seed, lineup, generate } = build({ existing: [track('Stays', 'Survivor'), track('Goes', 'Discarded')] });
         await seed();

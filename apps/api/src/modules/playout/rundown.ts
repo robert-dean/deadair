@@ -227,6 +227,11 @@ export interface RundownItem {
      * reads it is the break writer, so a presenter can say where the record stands.
      */
     chart?: ChartPlacing;
+    /**
+     * Drawn as a deep cut: an album track off an album the operator likes, not aired here in the
+     * history the station keeps. Set on {@link chart}'s rule and read by the break writer only.
+     */
+    deepCut?: true;
 }
 
 /**

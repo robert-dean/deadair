@@ -17,6 +17,7 @@ on:
             - 'apps/site/**'
             - 'apps/web/public/**'
             - 'deploy/README.md'
+            - 'deploy/install.sh'
             - 'CONTRIBUTING.md'
             - 'docs/licensing.md'
             - 'packages/plugin-sdk/README.md'

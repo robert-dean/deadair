@@ -324,6 +324,8 @@ export class PickResolver {
                 // Where a chart placed it, when a chart named it: what the pick was asked FOR rather
                 // than anything about the row matched, so it is the one field taken from the pick.
                 ...(pick.chart === undefined ? {} : { chart: pick.chart }),
+                // A deep cut, for the same reason: it is why the pick was drawn, not a fact of the row.
+                ...(pick.deepCut === true ? { deepCut: true as const } : {}),
             });
         }
 

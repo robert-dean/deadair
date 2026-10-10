@@ -2111,6 +2111,8 @@ export class DirectorService {
                         edit.atIndex ?? lineup.size(),
                         edit.overAtMs === undefined ? undefined : { atMs: edit.overAtMs },
                         edit.segmentKind,
+                        // An operator's edit: they put it there, so a replan leaves it there.
+                        true,
                     ),
                     dropped: [],
                 };

@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.15.4] — 2026-10-10
+
+- Now playing changes record when you hear it change. While the station was playing on your phone, the screen moved to the next record as soon as the station picked it, which could be several seconds before the music did and before the lock screen did, and its progress bar ran the same few seconds ahead and reached the end of a record that was still playing. The screen, the bar under it and the player bar on What's on now follow the audio you are hearing, as the lock screen and the widget already did. With the station stopped they show what the station is playing, as before.
+
 ## [0.15.3] — 2026-10-09
 
 - The station picks up again much sooner when your phone moves between wifi and mobile data. On the Automatic format (HLS) the app used to carry on over the network it had just left, so walking out of the house meant around eighteen seconds of silence before it noticed, gave up and reconnected. It now reconnects over the new network as soon as the phone switches, with a second or two of buffering.
@@ -206,7 +210,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.15.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.15.4...HEAD
+[0.15.4]: https://github.com/robert-dean/deadair/compare/android-v0.15.3...android-v0.15.4
 [0.15.3]: https://github.com/robert-dean/deadair/compare/android-v0.15.2...android-v0.15.3
 [0.15.2]: https://github.com/robert-dean/deadair/compare/android-v0.15.1...android-v0.15.2
 [0.15.1]: https://github.com/robert-dean/deadair/compare/android-v0.15.0...android-v0.15.1

@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.8.1] — 2026-10-10
+
+- Now playing changes record when you hear it change. While the station was playing on your phone, the screen and the player bar moved to the next record as soon as the station picked it, several seconds before the music did and before the lock screen did, and the progress bar ran the same few seconds ahead. They now follow the audio you are hearing, as the lock screen does. When a record changes before the app has heard about it, the lock screen no longer puts the previous record back up for a moment; it asks the station and shows the new one. A cover that takes a moment to load is no longer dropped when the station has already moved on to the next record. With the station stopped, the screen shows what the station is playing, as before.
+
 ## [0.8.0] — 2026-10-05
 
 - You can now start the station with Siri, a Shortcut or the Action button ("Play deadair"), even after you have swiped the app away. The app also has a CarPlay screen: the station as a single row, showing the record on air (or who is on the mic, with their picture during a break), and pressing it plays the station and opens the usual Now Playing screen. The CarPlay screen turns on once Apple approves it for the app, so for now this update changes nothing in the car.

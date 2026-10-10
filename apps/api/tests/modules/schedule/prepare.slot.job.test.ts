@@ -182,6 +182,39 @@ describe('PrepareSlotJob', () => {
         expect(generate).not.toHaveBeenCalled();
     });
 
+    // A person put the show on air by hand inside its own block: the order carries the slot and no
+    // night, and the tick never changes an order like that over at a night boundary, so a set saved
+    // now would never be read whichever night it was for.
+    it('does nothing while the show is on air by hand', async () => {
+        const lineup = new StationLineup({
+            name: 'Glam Slam',
+            mode: 'rotation',
+            onEnd: 'extend',
+            source: 'director',
+            slotId: 'glam',
+        });
+        const { run, generate } = build({ lineup });
+
+        await run();
+
+        expect(generate).not.toHaveBeenCalled();
+    });
+
+    it('still prepares the next show while a different one is on air by hand', async () => {
+        const lineup = new StationLineup({
+            name: 'Something else',
+            mode: 'rotation',
+            onEnd: 'extend',
+            source: 'director',
+            slotId: 'not-glam',
+        });
+        const { run, generate } = build({ lineup });
+
+        await run();
+
+        expect(generate).toHaveBeenCalled();
+    });
+
     it('does nothing for a mode that generates nothing', async () => {
         const { run, generate } = build({ slot: { ...glam, mode: 'setlist' } });
 

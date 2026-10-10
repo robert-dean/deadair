@@ -85,7 +85,7 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
         const lineup = await this.order.load();
         // Too late: the night has started and opened without one. A set saved now would be for a night
         // that is already on air, and nothing would ever read it.
-        if (lineup?.slotId === slotId && lineup.slotOccurrence === occurrence) return;
+        if (airsNight(lineup, slotId, occurrence)) return;
 
         const rules = resolveRules(slot.mode, undefined, stationRules(this.config));
         // A setlist or a feature: nothing generates into those, so there is nothing to prepare.
@@ -153,5 +153,22 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
  * songs to keep out of the opening.
  */
 export const PREPARE_AHEAD_MS = 10 * 60_000;
+
+/**
+ * Whether the order on air is already this night of this slot, so there is nothing left to prepare.
+ *
+ * Read by the tick before it asks and by the job before it plans, which is why it is one function:
+ * the two disagreeing is a run planned for a night that has started.
+ *
+ * An order stamped with the slot and NO night counts too. That is a person putting the show on air
+ * by hand inside its own block, which stamps the slot so the takeover holds to the next boundary
+ * but stamps no night, on purpose: the tick reads a missing night as "placed by a person, leave it
+ * alone" and never changes it over at the start of the slot's next night. So for as long as that
+ * order is on, no night of this slot opens on a prepared set, and preparing one plans an hour
+ * nothing will read. On 2026-10-10 a show put back on air by hand was prepared again every minute,
+ * each run queueing behind the show's own refill for the model and giving up after a minute.
+ */
+export const airsNight = (order: { slotId?: string; slotOccurrence?: string } | undefined, slotId: string, occurrence: string): boolean =>
+    order?.slotId === slotId && (order.slotOccurrence === undefined || order.slotOccurrence === occurrence);
 
 const named = (label: string): string => (label.trim().length > 0 ? `"${label.trim()}"` : 'the next show');

@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ScheduleSlot } from '@deadair/sdk';
 
-import { blockEdit, drawnEnd, type DraggedBlock } from '../../../src/components/schedule/schedule.edits';
+import { blockEdit, resizedEnd, type DraggedBlock } from '../../../src/components/schedule/schedule.edits';
 
 const slot = (id: string, startsAtMinutes: number, endsAtMinutes: number, days: number[] = []): ScheduleSlot => ({
     id,
@@ -78,20 +78,15 @@ describe('blockEdit', () => {
         expect(blockEdit(dragged, dragged.start, '2026-08-20 00:00:00', SLOTS)).toMatchObject({ endsAtMinutes: 0 });
     });
 
-    it('reads a drop on the last second of a day as an end of zero', () => {
-        // Which is where `drawnEnd` puts a block that ends at midnight, and where the grid leaves it
-        // after a move keeps its length.
+    it('moves a block ending at midnight by whole minutes', () => {
+        // The grid is handed the API's own end, the next day's 00:00, so a drag keeps the block's
+        // length exactly: an hour earlier lands on 23:00 rather than a second short of it.
         const dragged = block('late', '22:00', '24:00');
 
-        expect(blockEdit(dragged, '2026-08-19 21:00:00', '2026-08-19 23:59:59', SLOTS)).toMatchObject({ startsAtMinutes: at(21), endsAtMinutes: 0 });
-    });
-
-    it('reads a moved block ending a second short of the minute as that minute', () => {
-        // A block drawn to 23:59:59 and dragged an hour earlier lands on 22:59:59. Saving that as
-        // 22:59 would lose a minute on every drag.
-        const dragged = block('late', '22:00', '24:00');
-
-        expect(blockEdit(dragged, '2026-08-19 21:00:00', '2026-08-19 22:59:59', SLOTS)).toMatchObject({ endsAtMinutes: at(23) });
+        expect(blockEdit(dragged, '2026-08-19 21:00:00', '2026-08-19 23:00:00', SLOTS)).toMatchObject({
+            startsAtMinutes: at(21),
+            endsAtMinutes: at(23),
+        });
     });
 
     it('refuses the tail of a block that started the night before', () => {
@@ -125,14 +120,29 @@ describe('blockEdit', () => {
     });
 });
 
-describe('drawnEnd', () => {
-    it('draws a block ending at the next midnight to the last second of its own day', () => {
-        // The grid drops an end of the next day's 00:00 altogether; see the render test beside this.
-        expect(drawnEnd('2026-08-19 22:00:00', '2026-08-20 00:00:00')).toBe('2026-08-19 23:59:59');
+describe('resizedEnd', () => {
+    it('reads a lower edge dragged to the bottom of the column as the next midnight', () => {
+        // The grid caps a resized edge at 23:59, which is the only way it says "the bottom".
+        expect(resizedEnd(block('drive', '20:00', '22:00'), '2026-08-19 23:59:00')).toBe('2026-08-20 00:00:00');
     });
 
-    it('leaves every other end as the API sent it', () => {
-        expect(drawnEnd('2026-08-19 06:00:00', '2026-08-19 10:00:00')).toBe('2026-08-19 10:00:00');
-        expect(drawnEnd('2026-08-20 00:00:00', '2026-08-20 02:00:00')).toBe('2026-08-20 02:00:00');
+    it('saves that resize as a block ending at midnight', () => {
+        const dragged = block('late', '22:00', '23:00');
+
+        expect(blockEdit(dragged, dragged.start, resizedEnd(dragged, '2026-08-19 23:59:00'), SLOTS)).toMatchObject({ endsAtMinutes: 0 });
+    });
+
+    it('leaves an end the gesture did not move, even at 23:59', () => {
+        // A slot can genuinely end at 23:59, and dragging its top edge hands its end back untouched.
+        const dragged = block('drive', '20:00', '23:59');
+
+        expect(resizedEnd(dragged, dragged.end)).toBe('2026-08-19 23:59:00');
+    });
+
+    it('leaves every other end as the grid sent it', () => {
+        const dragged = block('drive', '20:00', '22:00');
+
+        expect(resizedEnd(dragged, '2026-08-19 23:45:00')).toBe('2026-08-19 23:45:00');
+        expect(resizedEnd(dragged, '2026-08-20 00:00:00')).toBe('2026-08-20 00:00:00');
     });
 });

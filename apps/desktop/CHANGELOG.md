@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.7.3] — 2026-10-10
+
+- The progress bar now follows the record whose title it is drawn under. For a few seconds after every record change it was counting down the next record while the previous one's title was still showing, and the rest of the time it ran a few seconds ahead of what you could hear, reaching the end while the music was still playing. The bar and the position in the system's Now Playing now follow the audio, as the title already did.
+
 ## [0.7.2] — 2026-10-09
 
 - A schedule slot can have co-hosts who present beside its host (`coHosts`): every night, on fixed nights, or as a visitor who turns up at random (`everyN`, with `cooldownDays` between visits), like a guest host. Up to three are on air on any one night. The running order and `GET /schedule/current` say who is co-presenting tonight, and a visiting co-host's night begins at the top of the show. On a show with co-hosts, talk breaks go round them: each one is written and spoken by whichever presenter was heard least recently, and every break knows who else is presenting tonight. A **banter** is a new kind of production for a show with co-hosts: the presenters trade lines for a few minutes, the lead bringing the others in and handing back to the music at the end. Put a `banter` band on the format clock to have a few a show; one asked for on a show with nobody beside the host fails with a reason. In the console, the slot editor has Co-hosts under Guest hosts (every night, on these nights, or visiting), and Today names tonight's co-hosts beside the host. The desktop editor carries a slot's co-hosts through untouched.
@@ -100,7 +104,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.3...HEAD
+[0.7.3]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.2...desktop-v0.7.3
 [0.7.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.1...desktop-v0.7.2
 [0.7.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.0...desktop-v0.7.1
 [0.7.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.6.0...desktop-v0.7.0

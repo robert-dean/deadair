@@ -2161,6 +2161,18 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/NowPlaying'
+    '/nowplaying/lyrics':
+        get:
+            operationId: getNowPlayingLyrics
+            summary: 'Get now playing lyrics'
+            description: 'The words of the record on air, with what a player needs to follow along line by line'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/NowPlayingLyrics'
     '/auth/oauth/authorize/context':
         post:
             operationId: describe
@@ -9411,6 +9423,29 @@ components:
                     '$ref': '#/components/schemas/NowPlayingTrack'
             required: [station, onAir, listeners, mounts]
             description: 'What the station is playing, for anything that wants to display it'
+        NowPlayingLyrics:
+            type: object
+            properties:
+                onAir:
+                    type: boolean
+                    description: 'False when nothing is airing, with everything else absent'
+                trackId:
+                    type: string
+                    format: uuid
+                    description: 'The catalog record on air. Absent while the station is talking, and for a record the catalog has never held'
+                startedAt:
+                    type: integer
+                    minimum: 0
+                    description: 'Unix epoch millis when the record went on air, the same instant `/nowplaying` reports'
+                cueInMs:
+                    type: integer
+                    minimum: 0
+                    description: "Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top"
+                lyrics:
+                    '$ref': '#/components/schemas/TrackLyrics'
+                    description: "The station's answer for that record. Absent with no `trackId`"
+            required: [onAir]
+            description: 'The words of whatever record is on air, and where it is in them'
         OAuthAuthorizationQuery:
             type: object
             properties:

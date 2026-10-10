@@ -2,6 +2,7 @@
 package com.maroonedsoftware.deadair.sdk.clients
 
 import com.maroonedsoftware.deadair.sdk.models.NowPlaying
+import com.maroonedsoftware.deadair.sdk.models.NowPlayingLyrics
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 import io.ktor.http.HttpMethod
 
@@ -14,6 +15,17 @@ class NowplayingClient(private val http: SdkHttp) {
     suspend fun getNowPlaying(): NowPlaying {
         val response = http.execute(HttpMethod.Get) {
             path("nowplaying")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Get now playing lyrics
+     * The words of the record on air, with what a player needs to follow along line by line
+     */
+    suspend fun getNowPlayingLyrics(): NowPlayingLyrics {
+        val response = http.execute(HttpMethod.Get) {
+            path("nowplaying", "lyrics")
         }
         return http.decodeJson(response)
     }

@@ -83,6 +83,62 @@ public sealed record NowPlayingShow
     public string? HostArtUrl { get; init; }
 }
 
+/// <summary>The words of whatever record is on air, and where it is in them</summary>
+public sealed record NowPlayingLyrics
+{
+    /// <summary>False when nothing is airing, with everything else absent</summary>
+    [JsonPropertyName("onAir")]
+    public required bool OnAir { get; init; }
+
+    /// <summary>The catalog record on air. Absent while the station is talking, and for a record the catalog has never held</summary>
+    [JsonPropertyName("trackId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? TrackId { get; init; }
+
+    /// <summary>Unix epoch millis when the record went on air, the same instant `/nowplaying` reports</summary>
+    [JsonPropertyName("startedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? StartedAt { get; init; }
+
+    /// <summary>Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top</summary>
+    [JsonPropertyName("cueInMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? CueInMs { get; init; }
+
+    /// <summary>The station's answer for that record. Absent with no `trackId`</summary>
+    [JsonPropertyName("lyrics")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TrackLyrics? Lyrics { get; init; }
+}
+
+/// <summary>The words of whatever record is on air, and where it is in them</summary>
+public sealed record NowPlayingLyricsInput
+{
+    /// <summary>False when nothing is airing, with everything else absent</summary>
+    [JsonPropertyName("onAir")]
+    public required bool OnAir { get; init; }
+
+    /// <summary>The catalog record on air. Absent while the station is talking, and for a record the catalog has never held</summary>
+    [JsonPropertyName("trackId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? TrackId { get; init; }
+
+    /// <summary>Unix epoch millis when the record went on air, the same instant `/nowplaying` reports</summary>
+    [JsonPropertyName("startedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? StartedAt { get; init; }
+
+    /// <summary>Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top</summary>
+    [JsonPropertyName("cueInMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? CueInMs { get; init; }
+
+    /// <summary>The station's answer for that record. Absent with no `trackId`</summary>
+    [JsonPropertyName("lyrics")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TrackLyricsInput? Lyrics { get; init; }
+}
+
 /// <summary>What the station is playing, for anything that wants to display it</summary>
 public sealed record NowPlaying
 {

@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { TrackLyrics } from '../../catalog/types/catalog.types.js';
+import { TrackLyricsInput } from '../../catalog/types/catalog.types.js';
 
 /**
  * What a listener is hearing right now: a record, or the station talking
@@ -88,6 +90,54 @@ export const NowPlayingShow = z.strictObject({
         ),
 });
 export type NowPlayingShow = z.infer<typeof NowPlayingShow>;
+
+/**
+ * The words of whatever record is on air, and where it is in them
+ * generated from [NowPlayingLyrics](../../../../data/contracts/nowplaying/nowplaying.types.ck)
+ */
+export const NowPlayingLyrics = z.strictObject({
+    onAir: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe('False when nothing is airing, with everything else absent'),
+    trackId: z
+        .uuid()
+        .optional()
+        .describe('The catalog record on air. Absent while the station is talking, and for a record the catalog has never held'),
+    startedAt: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .optional()
+        .describe('Unix epoch millis when the record went on air, the same instant `/nowplaying` reports'),
+    cueInMs: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .optional()
+        .describe(
+            "Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top",
+        ),
+    lyrics: TrackLyrics.optional().describe("The station's answer for that record. Absent with no `trackId`"),
+});
+export type NowPlayingLyrics = z.infer<typeof NowPlayingLyrics>;
+
+export const NowPlayingLyricsInput = z.strictObject({
+    onAir: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe('False when nothing is airing, with everything else absent'),
+    trackId: z
+        .uuid()
+        .optional()
+        .describe('The catalog record on air. Absent while the station is talking, and for a record the catalog has never held'),
+    startedAt: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .optional()
+        .describe('Unix epoch millis when the record went on air, the same instant `/nowplaying` reports'),
+    cueInMs: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .optional()
+        .describe(
+            "Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top",
+        ),
+    lyrics: TrackLyricsInput.optional().describe("The station's answer for that record. Absent with no `trackId`"),
+});
+export type NowPlayingLyricsInput = z.infer<typeof NowPlayingLyricsInput>;
 
 /**
  * What the station is playing, for anything that wants to display it

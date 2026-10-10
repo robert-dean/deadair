@@ -4,6 +4,8 @@
 import { DateTime } from 'luxon';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { NowPlaying, RundownItem } from '../../../src/modules/playout/rundown.js';
+import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import { LYRICS_KEYS } from '../../../src/modules/lyrics/lyrics.keys.js';
 import { LyricsReadService, pickLyrics } from '../../../src/modules/lyrics/lyrics.read.service.js';
 import type { ServedLyrics } from '../../../src/modules/lyrics/lyrics.repository.js';
@@ -19,10 +21,11 @@ const row = (provider: string, fields: Partial<ServedLyrics> = {}): ServedLyrics
     ...fields,
 });
 
-const build = (rows: ServedLyrics[], settings: Record<string, string> = {}, exists = true) => {
+const build = (rows: ServedLyrics[], settings: Record<string, string> = {}, exists = true, onAir?: NowPlaying) => {
     const lyrics = { wordsForServing: vi.fn(async () => rows.map(each => ({ ...each }))) };
     const tracks = { findTrack: vi.fn(async () => (exists ? { id: TRACK } : undefined)) };
-    return new LyricsReadService(tracks as never, lyrics as never, settingsConfig(settings).config);
+    const rundown = { nowPlaying: vi.fn(() => onAir) };
+    return new LyricsReadService(tracks as never, lyrics as never, settingsConfig(settings).config, rundown as never);
 };
 
 describe('pickLyrics', () => {
@@ -84,5 +87,43 @@ describe('LyricsReadService', () => {
     it('404s a record the catalog does not hold, on both routes', async () => {
         await expect(build([], {}, false).getTrackLyrics(TRACK)).rejects.toMatchObject({ statusCode: 404 });
         await expect(build([], {}, false).listTrackLyricsSources(TRACK)).rejects.toMatchObject({ statusCode: 404 });
+    });
+});
+
+describe('LyricsReadService.getNowPlayingLyrics', () => {
+    const STARTED = 1_790_000_000_000;
+    const airing = (item: Partial<RundownItem>): NowPlaying => ({
+        item: { pluginId: 'deadair.navidrome', ...item } as RundownItem,
+        startedAt: STARTED,
+    });
+    const words = [row('deadair.lrclib', { synced: [{ atMs: 9_000, text: 'first words' }] })];
+
+    it('answers off air with nothing else', async () => {
+        await expect(build(words).getNowPlayingLyrics()).resolves.toEqual({ onAir: false });
+    });
+
+    it('carries no lyrics while the station is talking', async () => {
+        const answer = await build(words, {}, true, airing({ pluginId: RENDER_PLUGIN_ID, trackId: TRACK })).getNowPlayingLyrics();
+        expect(answer).toEqual({ onAir: true, startedAt: STARTED });
+    });
+
+    it('carries no lyrics for a record the catalog never held', async () => {
+        await expect(build(words, {}, true, airing({})).getNowPlayingLyrics()).resolves.toEqual({ onAir: true, startedAt: STARTED });
+    });
+
+    it('answers the record’s lyrics with its start and its cue-in, timings left on the file’s timeline', async () => {
+        const answer = await build(words, {}, true, airing({ trackId: TRACK, cueInMs: 1_500.4 })).getNowPlayingLyrics();
+        expect(answer).toEqual({
+            onAir: true,
+            trackId: TRACK,
+            startedAt: STARTED,
+            cueInMs: 1_500,
+            lyrics: { trackId: TRACK, kind: 'words', provider: 'deadair.lrclib', synced: [{ atMs: 9_000, text: 'first words' }] },
+        });
+    });
+
+    it('leaves the cue-in out for a record that airs from the top, and answers none rather than failing', async () => {
+        const answer = await build([], {}, true, airing({ trackId: TRACK, cueInMs: 0 })).getNowPlayingLyrics();
+        expect(answer).toEqual({ onAir: true, trackId: TRACK, startedAt: STARTED, lyrics: { trackId: TRACK, kind: 'none' } });
     });
 });

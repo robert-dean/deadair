@@ -136,6 +136,102 @@ public struct NowPlayingShow: Codable, Equatable, Sendable {
     }
 }
 
+/// The words of whatever record is on air, and where it is in them
+public struct NowPlayingLyrics: Codable, Equatable, Sendable {
+    /// False when nothing is airing, with everything else absent
+    public var onAir: Bool
+    /// The catalog record on air. Absent while the station is talking, and for a record the catalog has never held
+    public var trackId: UUID?
+    /// Unix epoch millis when the record went on air, the same instant `/nowplaying` reports
+    public var startedAt: Int?
+    /// Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top
+    public var cueInMs: Int?
+    /// The station's answer for that record. Absent with no `trackId`
+    public var lyrics: TrackLyrics?
+
+    public init(onAir: Bool, trackId: UUID? = nil, startedAt: Int? = nil, cueInMs: Int? = nil, lyrics: TrackLyrics? = nil) {
+        self.onAir = onAir
+        self.trackId = trackId
+        self.startedAt = startedAt
+        self.cueInMs = cueInMs
+        self.lyrics = lyrics
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case onAir = "onAir"
+        case trackId = "trackId"
+        case startedAt = "startedAt"
+        case cueInMs = "cueInMs"
+        case lyrics = "lyrics"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.onAir = try container.decode(Bool.self, forKey: .onAir)
+        self.trackId = try container.decodeIfPresent(UUID.self, forKey: .trackId)
+        self.startedAt = try container.decodeIfPresent(Int.self, forKey: .startedAt)
+        self.cueInMs = try container.decodeIfPresent(Int.self, forKey: .cueInMs)
+        self.lyrics = try container.decodeIfPresent(TrackLyrics.self, forKey: .lyrics)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.onAir, forKey: .onAir)
+        try container.encodeIfPresent(self.trackId, forKey: .trackId)
+        try container.encodeIfPresent(self.startedAt, forKey: .startedAt)
+        try container.encodeIfPresent(self.cueInMs, forKey: .cueInMs)
+        try container.encodeIfPresent(self.lyrics, forKey: .lyrics)
+    }
+}
+
+/// The words of whatever record is on air, and where it is in them
+public struct NowPlayingLyricsInput: Codable, Equatable, Sendable {
+    /// False when nothing is airing, with everything else absent
+    public var onAir: Bool
+    /// The catalog record on air. Absent while the station is talking, and for a record the catalog has never held
+    public var trackId: UUID?
+    /// Unix epoch millis when the record went on air, the same instant `/nowplaying` reports
+    public var startedAt: Int?
+    /// Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top
+    public var cueInMs: Int?
+    /// The station's answer for that record. Absent with no `trackId`
+    public var lyrics: TrackLyricsInput?
+
+    public init(onAir: Bool, trackId: UUID? = nil, startedAt: Int? = nil, cueInMs: Int? = nil, lyrics: TrackLyricsInput? = nil) {
+        self.onAir = onAir
+        self.trackId = trackId
+        self.startedAt = startedAt
+        self.cueInMs = cueInMs
+        self.lyrics = lyrics
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case onAir = "onAir"
+        case trackId = "trackId"
+        case startedAt = "startedAt"
+        case cueInMs = "cueInMs"
+        case lyrics = "lyrics"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.onAir = try container.decode(Bool.self, forKey: .onAir)
+        self.trackId = try container.decodeIfPresent(UUID.self, forKey: .trackId)
+        self.startedAt = try container.decodeIfPresent(Int.self, forKey: .startedAt)
+        self.cueInMs = try container.decodeIfPresent(Int.self, forKey: .cueInMs)
+        self.lyrics = try container.decodeIfPresent(TrackLyricsInput.self, forKey: .lyrics)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.onAir, forKey: .onAir)
+        try container.encodeIfPresent(self.trackId, forKey: .trackId)
+        try container.encodeIfPresent(self.startedAt, forKey: .startedAt)
+        try container.encodeIfPresent(self.cueInMs, forKey: .cueInMs)
+        try container.encodeIfPresent(self.lyrics, forKey: .lyrics)
+    }
+}
+
 /// What the station is playing, for anything that wants to display it
 public struct NowPlaying: Codable, Equatable, Sendable {
     /// The station's on-air name

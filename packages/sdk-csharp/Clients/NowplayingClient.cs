@@ -32,4 +32,17 @@ public sealed class NowplayingClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<NowPlaying>(response);
     }
+
+    /// <summary>
+    /// Get now playing lyrics
+    /// The words of the record on air, with what a player needs to follow along line by line
+    /// </summary>
+    public async Task<NowPlayingLyrics> GetNowPlayingLyricsAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("nowplaying", "lyrics"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<NowPlayingLyrics>(response);
+    }
 }

@@ -3,6 +3,9 @@ import { httpError } from '@maroonedsoftware/errors';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import type { TrackLyrics, TrackLyricsSource, TrackLyricsSources } from '#modules/catalog/types/catalog.types.js';
+import type { NowPlayingLyrics } from '#modules/nowplaying/types/nowplaying.types.js';
+import { Rundown } from '#modules/playout/rundown.js';
+import { isRenderItem } from '#modules/render/segment.source.js';
 import { lyricsProviderRank } from './lyrics.rank.js';
 import { LyricsRepository, type ServedLyrics } from './lyrics.repository.js';
 
@@ -46,6 +49,7 @@ export class LyricsReadService {
         private readonly tracks: TracksRepository,
         private readonly lyrics: LyricsRepository,
         private readonly config: AppConfig,
+        private readonly rundown: Rundown,
     ) {}
 
     /** @throws 404 for a record the catalog does not hold. A record with no lyrics yet is `kind: none`, not a 404. */
@@ -59,6 +63,32 @@ export class LyricsReadService {
         await this.mustExist(id);
         const sources: TrackLyricsSource[] = await this.ranked(id);
         return { trackId: id, sources };
+    }
+
+    /**
+     * The words of the record on air, and the two instants a player needs to follow along.
+     *
+     * What is on air is what the PLAYER says, as `/nowplaying` reads it, not what was last handed
+     * over. A spoken item carries no lyrics: a break has none, and a talk-over rides its record, which
+     * is what is reported. The cue-in travels separately rather than being folded into the line
+     * timings, so the timings stay on the one timeline every other lyrics answer uses.
+     */
+    async getNowPlayingLyrics(): Promise<NowPlayingLyrics> {
+        const nowPlaying = this.rundown.nowPlaying();
+        if (!nowPlaying) return { onAir: false };
+
+        const { item, startedAt } = nowPlaying;
+        const trackId = isRenderItem(item) ? undefined : item.trackId;
+        if (trackId === undefined) return { onAir: true, startedAt };
+
+        const cueInMs = item.cueInMs !== undefined && Number.isFinite(item.cueInMs) && item.cueInMs > 0 ? Math.round(item.cueInMs) : undefined;
+        return {
+            onAir: true,
+            trackId,
+            startedAt,
+            ...(cueInMs === undefined ? {} : { cueInMs }),
+            lyrics: pickLyrics(trackId, await this.ranked(trackId)),
+        };
     }
 
     /** Every source's answer for the record, best first. */

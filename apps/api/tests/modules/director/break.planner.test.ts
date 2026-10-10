@@ -1334,6 +1334,21 @@ describe('BreakPlanner.ripen', () => {
             expect(built.reasons.get(segmentId)).toBe('the record it named is no longer what plays next');
         });
 
+        it('never un-writes a dedication whose record has moved away, so it cannot be said about another one', async () => {
+            // 10 October: a dedication whose record left the order was judged stale here, written again
+            // naming the record now behind it, and aired eight minutes late in front of the wrong one.
+            // The running order drops it instead; this is the half that must not write it again first.
+            const { built, lineup, segmentId, promised } = await written();
+            built.known.set(segmentId, { ...built.known.get(segmentId)!, kind: 'dedication' });
+            lineup.move(promised, lineup.all().length - 1);
+
+            const result = await built.planner.ripen(lineup, clock());
+
+            expect(result.rewritten).toEqual([]);
+            expect(asked(built.send)).toEqual([]);
+            expect(built.known.get(segmentId)).toMatchObject({ state: 'written', claimsItemId: promised });
+        });
+
         it('un-writes a break whose words are no longer true of the time', async () => {
             const { built, lineup, segmentId } = await written();
             const segment = built.known.get(segmentId)!;
@@ -1410,6 +1425,24 @@ describe('BreakPlanner.ripen', () => {
             expect(built.reasons.get(moved.segmentId)).toBe('the record it named is no longer what plays next');
             expect(built.reasons.get(overtaken.segmentId)).toBe('the clock has moved past the time it named');
             expect(built.reopenSegments).toHaveBeenCalledTimes(2);
+        });
+
+        it('leaves alone a row the player already holds, however stale its words have become', async () => {
+            // The same row at two positions, which idents from the shared library legitimately are.
+            // The copy in front is handed, so its audio is in Liquidsoap: rewriting the row would
+            // change nothing anybody hears and spend a model call doing it. On 2026-10-10 a break was
+            // rewritten while it aired and the old words went out anyway.
+            const { built, lineup, segmentId } = await written();
+            const { claimsItemId, ...rest } = built.known.get(segmentId)!;
+            built.known.set(segmentId, { ...rest, claimsReadingUntil: Date.now() - 60_000 });
+            lineup.insertSegment(segmentId, 0);
+            for (const item of lineup.nextPlanned(1)) lineup.markHanded(item.id);
+
+            const result = await built.planner.ripen(lineup, clock());
+
+            expect(result.rewritten).toEqual([]);
+            expect(built.reopenSegments).not.toHaveBeenCalled();
+            expect(built.known.get(segmentId)).toMatchObject({ state: 'written' });
         });
 
         it('leaves alone a break whose reading is still current', async () => {

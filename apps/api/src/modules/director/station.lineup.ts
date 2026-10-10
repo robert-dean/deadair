@@ -241,6 +241,16 @@ export interface StationLineupSegmentItem extends StationLineupLine {
      * all. See `lengthOf` in `air.clock.ts`.
      */
     durationMs?: number;
+    /**
+     * The line this dedication was said for: the id of the request's own record, directly behind it.
+     *
+     * Only ever on a `dedication`, set by {@link StationLineup.insertRequested} and never updated, on
+     * {@link segmentKind}'s rule. It is what makes the pair one thing: a dedication is a listener's
+     * words about ONE record, so anything that would put something else after them drops the words
+     * instead ({@link StationLineup.dropSeparatedDedications}). Absent on an order saved before it
+     * existed, where the request record directly behind the dedication is taken to be its own.
+     */
+    dedicates?: string;
 }
 
 export type StationLineupItem = StationLineupTrackItem | StationLineupSegmentItem;
@@ -1236,8 +1246,12 @@ export class StationLineup implements LiveOrder {
      * that airs an hour after anybody remembers asking.
      *
      * A `dedication` goes in the same gap, directly in front of the record, so the words said with a
-     * request are the last thing before it. Its writer names the record that follows, and the claim
-     * that stamps drops the dedication at hand-over if anything ever comes between them.
+     * request are the last thing before it, and it carries the record's id
+     * ({@link StationLineupSegmentItem.dedicates}). From then on the two are one thing: an insert
+     * aimed between them lands outside the pair, a move takes both, and a dedication whose record is
+     * no longer directly behind it is dropped by {@link dropSeparatedDedications} rather than written
+     * again about whatever follows. Its writer names the record too, so the claim check at hand-over
+     * is the last line of the same rule.
      */
     insertRequested(track: RundownTrack, requestId: string, dedication?: { segmentId: string; segmentKind: string }): EditResult {
         const committed = this.committedThrough();
@@ -1263,6 +1277,7 @@ export class StationLineup implements LiveOrder {
                           segmentId: dedication.segmentId,
                           segmentKind: dedication.segmentKind,
                           pinned: true,
+                          dedicates: item.id,
                       },
                       item,
                   ];
@@ -1325,8 +1340,12 @@ export class StationLineup implements LiveOrder {
             return refuse('already-aired', 'that position has already been handed to the player');
         }
 
-        for (const placement of [...placements].sort((left, right) => right.atIndex - left.atIndex)) {
-            const index = Math.min(placement.atIndex, this.itemList.length);
+        // Every position is moved off a dedication's back BEFORE anything is spliced, so each is judged
+        // against the order the caller computed it from. See {@link outsidePair}.
+        const placed = placements.map(placement => ({ placement, index: this.outsidePair(Math.min(placement.atIndex, this.itemList.length)) }));
+        if (placed.some(({ index }) => index < committed)) return refuse('already-aired', 'that position has already been handed to the player');
+
+        for (const { placement, index } of placed.sort((left, right) => right.index - left.index)) {
             this.itemList.splice(index, 0, {
                 id: randomUUID(),
                 kind: 'segment',
@@ -1370,7 +1389,8 @@ export class StationLineup implements LiveOrder {
         // Built as one list and spliced once, rather than through `insertSegments`: that one applies
         // highest-index-first so independent placements do not drift, which is exactly wrong here.
         // These are contiguous and ordered, and beat 2 must land after beat 1.
-        const index = Math.min(atIndex, this.itemList.length);
+        const index = this.outsidePair(Math.min(atIndex, this.itemList.length));
+        if (index < this.committedThrough()) return refuse('already-aired', 'that position has already been handed to the player');
         this.itemList.splice(
             index,
             0,
@@ -1425,7 +1445,8 @@ export class StationLineup implements LiveOrder {
     insertTrack(track: RundownTrack, atIndex: number): EditResult {
         if (atIndex < this.committedThrough()) return refuse('already-aired', 'that position has already been handed to the player');
 
-        const index = Math.min(atIndex, this.itemList.length);
+        const index = this.outsidePair(Math.min(atIndex, this.itemList.length));
+        if (index < this.committedThrough()) return refuse('already-aired', 'that position has already been handed to the player');
         this.itemList.splice(index, 0, { ...toItem(track), pinned: true });
         return OK;
     }
@@ -1437,6 +1458,11 @@ export class StationLineup implements LiveOrder {
      * inside the committed head is refused rather than clamped: the operator is asking
      * to reorder something a listener is about to hear, and quietly doing something
      * else instead is worse than saying no.
+     *
+     * **A dedication and its record move together**, whichever of the two is dragged: the words are
+     * about that record, so moving either half alone would leave a dedication in front of something
+     * else, which is the one thing a dedication may never do. Both must still be `planned`; a pair the
+     * player has started on is refused like any other handed item.
      */
     move(itemId: string, toIndex: number): EditResult {
         const from = this.itemList.findIndex(item => item.id === itemId);
@@ -1444,8 +1470,23 @@ export class StationLineup implements LiveOrder {
         if (this.itemList[from]!.state !== 'planned') return refuse('already-aired', 'that item has already been handed to the player');
         if (toIndex < this.committedThrough()) return refuse('already-aired', 'that position has already been handed to the player');
 
-        const [item] = this.itemList.splice(from, 1);
-        this.itemList.splice(Math.min(toIndex, this.itemList.length), 0, item!);
+        const pair = this.pairAt(from);
+        if (pair !== undefined && pair.some(index => this.itemList[index]!.state !== 'planned')) {
+            return refuse('already-aired', 'that item has already been handed to the player');
+        }
+
+        // Judged against the order with the moving lines already out of it, which is the order the
+        // position lands in; put back whole on a refusal, since nothing may change when one is given.
+        const positions = pair ?? [from];
+        const moving = positions.map(index => this.itemList[index]!);
+        const before = this.itemList;
+        this.itemList = before.filter((_, index) => !positions.includes(index));
+        const index = this.outsidePair(Math.min(toIndex, this.itemList.length));
+        if (index < this.committedThrough()) {
+            this.itemList = before;
+            return refuse('already-aired', 'that position has already been handed to the player');
+        }
+        this.itemList.splice(index, 0, ...moving);
         return OK;
     }
 
@@ -1505,6 +1546,35 @@ export class StationLineup implements LiveOrder {
             if (member.kind === 'segment' && member.groupId === group && member.state === 'planned') member.state = 'removed';
         }
         return OK;
+    }
+
+    /**
+     * Drop every dedication that is no longer directly in front of the record it was said for.
+     *
+     * **A dedication airs in front of its record or not at all**, and this is the half of that rule
+     * that cannot be enforced edit by edit. The record can leave the order (an operator removes it, a
+     * dislike vetoes it, the commit pass finds no copy that will serve and marks it `unavailable`), or
+     * something else can come between the two. Every one of those used to leave the dedication in the
+     * order in front of a different record, where `BreakPlanner.ripen` found its claim broken and had
+     * it WRITTEN AGAIN, naming whatever now followed. Measured on 10 October: a listener's dedication
+     * for one record aired eight minutes after it, in front of another, after the operator had played
+     * the request early from a second copy and removed the original line.
+     *
+     * Marked `removed` rather than `skipped`. It has not been reached, and {@link committedThrough}
+     * counts `skipped` as the head, which would freeze everything in front of it. Only `planned`
+     * dedications are judged: one already with the player cannot be taken back from here, and its
+     * record is behind it in the player's own queue.
+     *
+     * @returns the dedications it dropped, so the caller can retire their rows and write the order down.
+     */
+    dropSeparatedDedications(): StationLineupItem[] {
+        const dropped: StationLineupItem[] = [];
+        this.itemList.forEach((item, index) => {
+            if (!isDedication(item) || item.state !== 'planned' || this.dedicatedRecordIndex(index) >= 0) return;
+            item.state = 'removed';
+            dropped.push(item);
+        });
+        return dropped;
     }
 
     /**
@@ -1648,7 +1718,8 @@ export class StationLineup implements LiveOrder {
      */
     shuffleRemaining(smart?: SmartShuffleOrder): ShuffleResult {
         const head = this.itemList.filter(item => item.state !== 'planned');
-        const tail = this.itemList.filter((item): item is StationLineupTrackItem => item.state === 'planned' && isTrackItem(item) && !isPinned(item));
+        const staysPut = this.staysPut();
+        const tail = this.itemList.filter((item): item is StationLineupTrackItem => item.state === 'planned' && isTrackItem(item) && !staysPut(item));
         if (tail.length < 2) return { result: refuse('empty', 'there is nothing left to shuffle'), dropped: [] };
 
         for (let index = tail.length - 1; index > 0; index--) {
@@ -1657,7 +1728,11 @@ export class StationLineup implements LiveOrder {
         }
         // The committed head keeps its own order and its place, which is the one thing a shuffle
         // must not touch: those items are already with the player.
-        const { lines, dropped } = fillAround(this.itemList, smart === undefined ? tail : programmeShuffled(tail, smart, lastAiredArtistOf(head)));
+        const { lines, dropped } = fillAround(
+            this.itemList,
+            smart === undefined ? tail : programmeShuffled(tail, smart, lastAiredArtistOf(head)),
+            staysPut,
+        );
         this.itemList = lines;
         return { result: OK, dropped: dropped.filter(item => !isTrackItem(item)) };
     }
@@ -1690,11 +1765,13 @@ export class StationLineup implements LiveOrder {
      * rather than gathering the pinned items at the front, because a request was placed in a quiet
      * gap and a production at its hour, and both of those positions mean something.
      *
+     * **So does the record a break in the player's hands has announced** ({@link staysPut}).
+     *
      * @returns the items it dropped, because the caller has work to do on them: the segments among
      *   them own `deadair.segments` rows that are now describing a break that will never air.
      */
     replacePlanned(tracks: readonly RundownTrack[]): StationLineupItem[] {
-        const { lines, dropped } = fillAround(this.itemList, tracks.map(toItem));
+        const { lines, dropped } = fillAround(this.itemList, tracks.map(toItem), this.staysPut());
 
         this.itemList = lines;
         return dropped;
@@ -1733,9 +1810,46 @@ export class StationLineup implements LiveOrder {
             followsRequestId: requestId,
             pinned: true,
         }));
-        const { lines, dropped } = fillAround(behind, following);
+        // Asked of the WHOLE order, not of `behind`: the break that made the promise sits in front of
+        // the request, and only the order can see both of them.
+        const { lines, dropped } = fillAround(behind, following, this.staysPut());
         this.itemList = [...this.itemList.slice(0, at + 1), ...lines];
         return dropped;
+    }
+
+    /**
+     * What a replan, a shuffle or a request's follow-on has to leave where it is, as a predicate
+     * over this order as it stands now.
+     *
+     * Everything {@link isPinned}, and the first record after any break the player already holds
+     * ({@link nextTrackAfter}, so it is the record a "coming up" names). That record is `planned`,
+     * so it used to go with the rest of the tail while the break in front of it kept its place, and
+     * the station then said "coming up, X" and played something else. The claim check cannot catch
+     * it: it runs at hand-over, and the break was handed with a claim that was true at the time.
+     * Measured on 2026-10-10: a break naming "No One Knows" was handed when the record before it
+     * started, a shuffle and a request's follow-on dropped "No One Knows" while that record played,
+     * and the break aired its promise in front of a different record.
+     *
+     * Keeping the record rather than retracting the break, because a handed break may be seconds
+     * from air or already airing, a retraction throws away what the player has fetched, and the
+     * promise is cheap to keep: one record holds its slot, and everything behind it is still the
+     * operator's to change. The order cannot see a break's words, so it keeps the record after
+     * every held break rather than only after one that named it; for a break that claimed nothing
+     * that costs one record its turn in a shuffle, and nothing else. A talk-over cue is not such a
+     * break: it reaches the player with its record, never ahead of it.
+     */
+    staysPut(): (item: StationLineupItem) => boolean {
+        const promised = new Set<string>();
+        for (const item of this.itemList) {
+            if (item.kind !== 'segment' || (item.state !== 'handed' && item.state !== 'airing')) continue;
+            // A talk-over cue is marked handed when the director attaches it to the record's prepared
+            // form, and its audio reaches the player only WITH that record. While the record is
+            // `planned` nothing has been promised to anybody, and moving it is `forgetStranded`'s case.
+            if (item.over !== undefined) continue;
+            const next = this.nextTrackAfter(item.id);
+            if (next?.state === 'planned') promised.add(next.id);
+        }
+        return item => isPinned(item) || promised.has(item.id);
     }
 
     /** Empty it. What is on air is the transport's business, not this one's. */
@@ -1784,6 +1898,68 @@ export class StationLineup implements LiveOrder {
 
     // ── internals ──────────────────────────────────────────────────────────────
 
+    /**
+     * Where the record the dedication at `index` was said for sits, or -1 when it is not the next
+     * thing that will be heard after it.
+     *
+     * The next line that will actually air, so a break already cut or passed over between the two
+     * does not count as coming between them. That line has to be the record itself, still to come:
+     * one that is `skipped`, `unavailable` or `removed` will never follow the words.
+     */
+    private dedicatedRecordIndex(index: number): number {
+        const dedication = this.itemList[index];
+        if (dedication === undefined || !isDedication(dedication)) return -1;
+
+        for (let at = index + 1; at < this.itemList.length; at++) {
+            const line = this.itemList[at]!;
+            if (!willAir(line)) continue;
+            if (line.kind !== 'track') return -1;
+            const own = dedication.dedicates === undefined ? line.requestId !== undefined : line.id === dedication.dedicates;
+            return own ? at : -1;
+        }
+        return -1;
+    }
+
+    /**
+     * The positions of a dedication and its record, when the item at `index` is either half of a pair
+     * that still holds.
+     */
+    private pairAt(index: number): [number, number] | undefined {
+        const item = this.itemList[index]!;
+        if (isDedication(item)) {
+            const record = this.dedicatedRecordIndex(index);
+            return record < 0 ? undefined : [index, record];
+        }
+        if (item.kind !== 'track') return undefined;
+
+        for (let at = index - 1; at >= 0; at--) {
+            if (!willAir(this.itemList[at]!)) continue;
+            return this.dedicatedRecordIndex(at) === index ? [at, index] : undefined;
+        }
+        return undefined;
+    }
+
+    /**
+     * An insert position moved off the back of a dedication, so nothing is ever put between a
+     * dedication and its record.
+     *
+     * In front of the dedication when it is still `planned`, which keeps the insert as near the head
+     * as the caller asked for. Behind the record when the dedication is already with the player,
+     * because the player will air the words next and nothing can go in front of them now. Any other
+     * position is returned as it was.
+     */
+    private outsidePair(index: number): number {
+        for (let at = index - 1; at >= 0; at--) {
+            const line = this.itemList[at]!;
+            if (!willAir(line)) continue;
+
+            const record = this.dedicatedRecordIndex(at);
+            if (record < index) return index;
+            return line.state === 'planned' ? at : record + 1;
+        }
+        return index;
+    }
+
     /** Move one item between two states, and say whether it was in the first one. */
     private transition(itemId: string, from: StationLineupItemState, to: StationLineupItemState): boolean {
         const item = this.itemList.find(candidate => candidate.id === itemId);
@@ -1800,20 +1976,22 @@ const toItem = (track: RundownTrack): StationLineupItem => ({ id: randomUUID(), 
  * Lay new records into an order, around everything a replan has to leave alone.
  *
  * Anything not `planned` keeps its place, because the player holds it or it is the record of what
- * happened, and so does anything {@link isPinned}. Every other planned line goes; a record's slot is
- * taken by the next new record, a segment's is not (the planner plants into the result afresh), and
- * whatever new records are left over go on the end.
+ * happened, and so does anything `staysPut` names: what {@link isPinned} names, and the record a held
+ * break has announced. Every other planned line goes; a record's slot is taken by the next new record,
+ * a segment's is not (the planner plants into the result afresh), and whatever new records are left
+ * over go on the end.
  */
 const fillAround = (
     lines: readonly StationLineupItem[],
     fresh: readonly StationLineupItem[],
+    staysPut: (item: StationLineupItem) => boolean,
 ): { lines: StationLineupItem[]; dropped: StationLineupItem[] } => {
     const kept: StationLineupItem[] = [];
     const dropped: StationLineupItem[] = [];
     let next = 0;
 
     for (const line of lines) {
-        if (line.state !== 'planned' || isPinned(line)) {
+        if (line.state !== 'planned' || staysPut(line)) {
             kept.push(line);
             continue;
         }
@@ -1839,10 +2017,19 @@ const fillAround = (
 export const isPinned = (item: StationLineupItem): boolean => {
     if (item.pinned === true) return true;
     if (item.kind === 'track') return item.requestId !== undefined || item.followsRequestId !== undefined;
-    // `DEDICATION_KIND` in `dedication.writer.ts`, spelled out rather than imported: that module pulls
-    // the break writers in, and the running order has no business depending on them.
-    return item.groupId !== undefined || item.segmentKind === 'dedication';
+    return item.groupId !== undefined || isDedication(item);
 };
+
+/**
+ * Whether this line is a listener's dedication.
+ *
+ * `DEDICATION_KIND` in `dedication.writer.ts`, spelled out rather than imported: that module pulls the
+ * break writers in, and the running order has no business depending on them.
+ */
+const isDedication = (item: StationLineupItem): item is StationLineupSegmentItem => item.kind === 'segment' && item.segmentKind === 'dedication';
+
+/** Whether a line can still be heard: not cut, not passed over, not given up on for want of audio. */
+const willAir = (item: StationLineupItem): boolean => item.state !== 'removed' && item.state !== 'skipped' && item.state !== 'unavailable';
 
 /** Narrow an item to the records, for anything that reasons about what the station is PLAYING. */
 export const isTrackItem = (item: StationLineupItem): item is StationLineupTrackItem => item.kind === 'track';

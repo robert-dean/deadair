@@ -276,6 +276,9 @@ describe('PlayoutPusher.reconcile', () => {
             // is forgotten by the player, so it comes back to us.
             vi.advanceTimersByTime(30_000);
             rundown.reconcile({ queued: 0, ready: false });
+            // And still forgotten a grace later, on the pass's own reading: one short reading is what
+            // a track boundary looks like too, so it takes two.
+            vi.advanceTimersByTime(5_000);
             await pusher.reconcile();
 
             expect(pushed).toHaveLength(2);

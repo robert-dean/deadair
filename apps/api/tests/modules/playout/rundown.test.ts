@@ -18,9 +18,22 @@ import { describe, expect, it, vi } from 'vitest';
 import { Rundown, type RundownItem, type RundownTrack } from '../../../src/modules/playout/rundown.js';
 import { StationLineup, isTrackItem } from '../../../src/modules/director/station.lineup.js';
 import { TrackResolver } from '../../../src/modules/playout/playout.capability.js';
+import type { QueueStatus } from '../../../src/modules/playout/liquidsoap.control.js';
 import type { Logger } from '@maroonedsoftware/logger';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
+
+/**
+ * The same short reading twice, the grace apart: what it takes for a push to be called lost.
+ *
+ * One is not enough, because a reading taken on a track boundary misses the item the player is
+ * starting. Needs fake timers.
+ */
+const missTwice = (rundown: Rundown, reading: QueueStatus): void => {
+    rundown.reconcile(reading);
+    vi.advanceTimersByTime(5_000);
+    rundown.reconcile(reading);
+};
 
 /** Resolves everything to a fake URL, except ids listed as unresolvable. */
 class StubResolver extends TrackResolver {
@@ -250,7 +263,7 @@ describe('Rundown.reconcile', () => {
 
             // Long enough that the player cannot still be fetching them.
             vi.advanceTimersByTime(30_000);
-            rundown.reconcile({ queued: 0, ready: false });
+            missTwice(rundown, { queued: 0, ready: false });
 
             expect(rundown.queuedCount()).toBe(3);
             expect((await rundown.next())?.item.externalId).toBe('a');
@@ -273,7 +286,7 @@ describe('Rundown.reconcile', () => {
                 const pulled = await rundown.next();
                 expect(pulled?.item.externalId).toBe('a');
                 vi.advanceTimersByTime(30_000);
-                rundown.reconcile({ queued: 0, ready: false });
+                missTwice(rundown, { queued: 0, ready: false });
             }
 
             expect(order.all().find(item => item.id === order.all()[0]!.id)?.state).toBe('skipped');
@@ -297,7 +310,7 @@ describe('Rundown.reconcile', () => {
             for (let attempt = 0; attempt < 2; attempt++) {
                 await rundown.next();
                 vi.advanceTimersByTime(30_000);
-                rundown.reconcile({ queued: 0, ready: false });
+                missTwice(rundown, { queued: 0, ready: false });
             }
 
             expect(order.all().every(item => item.state === 'planned')).toBe(true);
@@ -319,7 +332,7 @@ describe('Rundown.reconcile', () => {
             for (let attempt = 0; attempt < 2; attempt++) {
                 await rundown.next();
                 vi.advanceTimersByTime(30_000);
-                rundown.reconcile({ queued: 0, ready: false });
+                missTwice(rundown, { queued: 0, ready: false });
             }
 
             rundown.retract();
@@ -329,7 +342,7 @@ describe('Rundown.reconcile', () => {
 
             await rundown.next();
             vi.advanceTimersByTime(30_000);
-            rundown.reconcile({ queued: 0, ready: false });
+            missTwice(rundown, { queued: 0, ready: false });
 
             expect(order.all()[0]!.state).toBe('skipped');
         } finally {
@@ -350,7 +363,7 @@ describe('Rundown.reconcile', () => {
             for (let attempt = 0; attempt < 2; attempt++) {
                 await rundown.next();
                 vi.advanceTimersByTime(30_000);
-                rundown.reconcile({ queued: 0, ready: false });
+                missTwice(rundown, { queued: 0, ready: false });
             }
 
             rundown.reset();
@@ -358,7 +371,7 @@ describe('Rundown.reconcile', () => {
 
             await rundown.next();
             vi.advanceTimersByTime(30_000);
-            rundown.reconcile({ queued: 0, ready: false });
+            missTwice(rundown, { queued: 0, ready: false });
 
             // Reclaimed rather than skipped: this is attempt one of three again.
             expect(order.all()[0]!.state).toBe('planned');
@@ -401,7 +414,7 @@ describe('Rundown.reconcile', () => {
             await rundown.next();
 
             vi.advanceTimersByTime(30_000);
-            rundown.reconcile({ queued: 0, resolving: 1, ready: true, onAir: 'something-else' });
+            missTwice(rundown, { queued: 0, resolving: 1, ready: true, onAir: 'something-else' });
 
             expect(rundown.queuedCount()).toBe(1);
             expect(rundown.upcoming().map(entry => entry.externalId)).toEqual(['a', 'b']);
@@ -419,9 +432,61 @@ describe('Rundown.reconcile', () => {
             await rundown.next();
 
             vi.advanceTimersByTime(30_000);
-            rundown.reconcile({ queued: 0, resolving: 0, ready: true, onAir: 'something-else' });
+            missTwice(rundown, { queued: 0, resolving: 0, ready: true, onAir: 'something-else' });
 
             expect(rundown.queuedCount()).toBe(2);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('does not call the next item lost on the reading taken as the player starts it', async () => {
+        // Measured on 2026-10-10. Liquidsoap pops the next request off its queue before its on_track
+        // hook names it on air, and the reading comes from another thread, so a reading on that
+        // boundary holds nothing and still names the record that just ended. The break behind it had
+        // been handed three minutes earlier, so the grace had long run out: it was taken back to
+        // `planned` while it aired, and the break planner rewrote it.
+        vi.useFakeTimers();
+        try {
+            const rundown = new Rundown(new StubResolver(), logger);
+            const order = orderOf(rundown, ['a', 'b', 'c']);
+            const first = await rundown.next();
+            rundown.markAired(first!.item.id);
+            const second = await rundown.next();
+
+            vi.advanceTimersByTime(180_000);
+            rundown.reconcile({ queued: 0, resolving: 0, ready: true, onAir: first!.item.id });
+
+            expect(order.find(second!.item.id)?.state).toBe('handed');
+            expect(rundown.queuedCount()).toBe(1);
+
+            // The next reading names it, and it is on air rather than back in the queue.
+            vi.advanceTimersByTime(2_000);
+            rundown.reconcile({ queued: 0, resolving: 0, ready: true, onAir: second!.item.id });
+
+            expect(rundown.nowPlaying()?.item.id).toBe(second!.item.id);
+            expect(order.find(second!.item.id)?.state).toBe('airing');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('starts the grace again for an item a reading has accounted for in between', async () => {
+        // Missing on one reading, held on the next, missing again: the clock is about the run of
+        // readings that missed it, so the third reading alone does not call it lost.
+        vi.useFakeTimers();
+        try {
+            const rundown = rundownWith(['a', 'b']);
+            await rundown.next();
+
+            vi.advanceTimersByTime(30_000);
+            rundown.reconcile({ queued: 0, ready: true, onAir: 'something-else' });
+            vi.advanceTimersByTime(2_000);
+            rundown.reconcile({ queued: 1, ready: true, onAir: 'something-else' });
+            vi.advanceTimersByTime(4_000);
+            rundown.reconcile({ queued: 0, ready: true, onAir: 'something-else' });
+
+            expect(rundown.queuedCount()).toBe(1);
         } finally {
             vi.useRealTimers();
         }
@@ -456,45 +521,6 @@ describe('Rundown.reconcile', () => {
         expect(rundown.upcoming().map(entry => entry.externalId)).toEqual(['a', 'b']);
     });
 
-    it('does not call an item lost in the instant it leaves the queue to go on air', async () => {
-        // Measured on the live station on 2026-10-10. A break sat in the player's queue for three
-        // minutes, so its hand-over stamp was far older than the grace. At the boundary the queue
-        // popped it to play it, and a reading taken before the `on_track` hook moved `onAir` found it
-        // in neither `queued` nor `resolving`, with `onAir` still naming the record before it. That
-        // one reading reclaimed a break that was on air, and the writer rewrote it under the listener.
-        vi.useFakeTimers();
-        try {
-            const rundown = rundownWith(['a', 'b', 'c']);
-            const order = orderOf(rundown, ['a', 'b', 'c']);
-            const airing = await rundown.next();
-            rundown.markAired(airing!.item.id);
-            const waiting = await rundown.next();
-
-            // Three minutes of readings that all count it.
-            for (let tick = 0; tick < 90; tick++) {
-                vi.advanceTimersByTime(2_000);
-                rundown.reconcile({ queued: 1, resolving: 0, ready: true, onAir: airing!.item.id });
-            }
-
-            // The boundary reading: popped, not yet named.
-            vi.mocked(logger.warn).mockClear();
-            vi.advanceTimersByTime(700);
-            rundown.reconcile({ queued: 0, resolving: 0, ready: true, onAir: airing!.item.id });
-
-            expect(order.all().find(item => item.id === waiting!.item.id)?.state).toBe('handed');
-            expect(logger.warn).not.toHaveBeenCalledWith(expect.stringContaining('never took'));
-
-            // A tick later the hook has run and the reading names it.
-            vi.advanceTimersByTime(2_000);
-            rundown.reconcile({ queued: 0, resolving: 0, ready: true, onAir: waiting!.item.id });
-
-            expect(rundown.nowPlaying()?.item.externalId).toBe('b');
-            expect(order.all().find(item => item.id === waiting!.item.id)?.state).toBe('airing');
-        } finally {
-            vi.useRealTimers();
-        }
-    });
-
     it('does not call it lost at a boundary that reads as nothing on air either', async () => {
         // The same instant can read `ready: false`: the record before has finished and the next has
         // not produced a frame yet. That retires the record before, and must not reclaim the next.
@@ -512,34 +538,6 @@ describe('Rundown.reconcile', () => {
             rundown.reconcile({ queued: 0, resolving: 0, ready: false });
 
             expect(order.all().find(item => item.id === waiting!.item.id)?.state).toBe('handed');
-        } finally {
-            vi.useRealTimers();
-        }
-    });
-
-    it('still calls an item lost once readings have missed it for longer than the grace', async () => {
-        // The other side: refreshing the stamp from readings is not a pardon. A push the player
-        // dropped after a reading counted it (a Liquidsoap restart) is reclaimed one grace later.
-        vi.useFakeTimers();
-        try {
-            const rundown = rundownWith(['a', 'b']);
-            const order = orderOf(rundown, ['a', 'b']);
-            const airing = await rundown.next();
-            rundown.markAired(airing!.item.id);
-            const waiting = await rundown.next();
-
-            vi.advanceTimersByTime(60_000);
-            rundown.reconcile({ queued: 1, resolving: 0, ready: true, onAir: airing!.item.id });
-
-            // Short, but inside the grace of that last count.
-            vi.advanceTimersByTime(2_000);
-            rundown.reconcile({ queued: 0, resolving: 0, ready: true, onAir: airing!.item.id });
-            expect(order.all().find(item => item.id === waiting!.item.id)?.state).toBe('handed');
-
-            // Still short past it.
-            vi.advanceTimersByTime(4_000);
-            rundown.reconcile({ queued: 0, resolving: 0, ready: true, onAir: airing!.item.id });
-            expect(order.all().find(item => item.id === waiting!.item.id)?.state).toBe('planned');
         } finally {
             vi.useRealTimers();
         }

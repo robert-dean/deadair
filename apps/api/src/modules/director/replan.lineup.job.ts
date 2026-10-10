@@ -14,7 +14,7 @@ import { DEFAULT_COUNT, artistKeysOf, artistsQueuedWithin, planRecords, ranOutOf
 import { artistKey } from './rotation.keys.js';
 import { resolveRules, stationRules } from './rotation.rules.js';
 import { SetGenerator } from './set.generator.js';
-import { isPinned, isTrackItem } from './station.lineup.js';
+import { isTrackItem } from './station.lineup.js';
 
 export interface ReplanLineupPayload {
     /** How many tracks to programme. Absent means {@link DEFAULT_COUNT}. */
@@ -122,7 +122,7 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
         // below is about.
         //
         // Not `upcoming()`, which is what a refill reads and is the wrong list here. `replacePlanned`
-        // keeps the items that are not `planned` and the pinned ones, and the new batch starts in the
+        // keeps the items that are not `planned` and the ones `staysPut` names, and the new batch starts in the
         // slot of the first record the station chose for itself, so `upcoming()`'s tail is mostly the
         // planned records this job is about to THROW AWAY: seeding off them spaces the new batch
         // against records that will never air, while the item it really lands beside — the last
@@ -130,8 +130,9 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
         // against at all. That put the same artist on both sides of the join, which is the adjacency
         // this window exists to prevent.
         const items = lineup.all();
-        const firstSlot = items.findIndex(item => item.state === 'planned' && isTrackItem(item) && !isPinned(item));
-        const surviving = (firstSlot < 0 ? items : items.slice(0, firstSlot)).filter(item => item.state !== 'planned' || isPinned(item));
+        const staysPut = lineup.staysPut();
+        const firstSlot = items.findIndex(item => item.state === 'planned' && isTrackItem(item) && !staysPut(item));
+        const surviving = (firstSlot < 0 ? items : items.slice(0, firstSlot)).filter(item => item.state !== 'planned' || staysPut(item));
         const tail = surviving.slice(-(rules.maxPerArtist + 1));
         const tailTracks = tail.filter(isTrackItem);
         // The last track in that window, if there is one — a window that ends on a scheduled break

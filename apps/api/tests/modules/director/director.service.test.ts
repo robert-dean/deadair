@@ -3558,6 +3558,69 @@ describe('DirectorService following a request', () => {
     });
 });
 
+// A dedication airs directly in front of its record or not at all. On 10 October one outlived its
+// record's line in the order, was written again about the record behind it, and aired eight minutes
+// late in front of the wrong one.
+describe('DirectorService keeping a dedication with its record', () => {
+    const dedicationIn = (lineup: StationLineup) => lineup.all().find(item => item.kind === 'segment' && item.segmentId === 'ded')!;
+
+    it('drops the dedication and retires its row when the operator removes the record it was for', async () => {
+        const { director, lineup, activity, segmentStub, seed } = build({
+            items: ['a', 'b', 'c'],
+            segments: [{ id: 'ded', kind: 'dedication', state: 'written', label: 'Dedication', source: 'render' }],
+        });
+        await seed();
+        await director.start();
+        lineup.insertRequested(track('r'), 'req-1', { segmentId: 'ded', segmentKind: 'dedication' });
+        const requested = lineup.all().find(item => item.kind === 'track' && item.requestId === 'req-1')!;
+
+        expect(await director.applyEdit({ kind: 'remove', itemId: requested.id })).toEqual({ ok: true });
+
+        expect(dedicationIn(lineup).state).toBe('removed');
+        expect(segmentStub.markFailed).toHaveBeenCalledWith('ded', expect.stringContaining('dedication'), 'written');
+        expect(activity.record).toHaveBeenCalledWith(
+            expect.objectContaining({ kind: 'item.skipped', data: expect.objectContaining({ segmentId: 'ded' }) }),
+        );
+    });
+
+    it('leaves a dedication alone while its record is still behind it', async () => {
+        const { director, lineup, seed } = build({
+            items: ['a', 'b', 'c'],
+            segments: [{ id: 'ded', kind: 'dedication', state: 'ready', label: 'Dedication', source: 'render' }],
+        });
+        await seed();
+        await director.start();
+        lineup.insertRequested(track('r'), 'req-1', { segmentId: 'ded', segmentKind: 'dedication' });
+
+        await director.applyEdit({ kind: 'shuffle' });
+
+        const ded = dedicationIn(lineup);
+        expect(ded.state).toBe('planned');
+        expect(lineup.nextTrackAfter(ded.id)).toMatchObject({ requestId: 'req-1' });
+    });
+
+    it('never hands the dedication over when its record turns out to have no audio', async () => {
+        // The two are judged in one batch, and the words' claim still held when they were judged.
+        const { director, lineup, rundown, seedCatalogued } = build({
+            items: ['a', 'b', 'c'],
+            servable: ['track-a', 'track-b', 'track-c'],
+            segments: [{ id: 'ded', kind: 'dedication', state: 'ready', label: 'Dedication', source: 'render' }],
+        });
+        await seedCatalogued();
+        await director.start();
+        lineup.insertRequested(catalogued('r'), 'req-1', { segmentId: 'ded', segmentKind: 'dedication' });
+
+        const aired: string[] = [];
+        for (let boundary = 0; boundary < 5; boundary++) {
+            const pulled = await airNext(rundown);
+            if (pulled !== undefined) aired.push(pulled.item.id);
+        }
+
+        expect(aired).not.toContain(dedicationIn(lineup).id);
+        expect(dedicationIn(lineup).state).toBe('removed');
+    });
+});
+
 describe('DirectorService asking for a refill', () => {
     it('sends the refill from a scope of its own', async () => {
         const { director, jobs, lineup, seed } = build({ items: ['a', 'b', 'c'] });

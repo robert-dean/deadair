@@ -4,7 +4,7 @@
 // already aired, or losing one that was handed over and taken back before anybody
 // heard it.
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
     MAX_PLAYED_KEPT,
@@ -486,7 +486,13 @@ describe('StationLineup editing', () => {
 
         const after = idsOf(lineup.all());
         expect(after).toHaveLength(9);
-        for (const [at, id] of [[1, 'segment:ded'], [2, 'r'], [5, 'segment:beat'], [7, 'o']] as const) expect(after[at]).toBe(id);
+        for (const [at, id] of [
+            [1, 'segment:ded'],
+            [2, 'r'],
+            [5, 'segment:beat'],
+            [7, 'o'],
+        ] as const)
+            expect(after[at]).toBe(id);
         expect([after[0], after[3], after[4], after[6], after[8]].sort()).toEqual(['a', 'b', 'c', 'd', 'e']);
         expect(idsOf(dropped)).toEqual(['segment:talk']);
     });
@@ -666,8 +672,8 @@ describe('StationLineup editing', () => {
 
     it('keeps an order saved before pinning existed: a request and a production still read as pinned', () => {
         const lineup = new StationLineup(binding('rotation'), [
-                { id: '1', kind: 'track', state: 'planned', track: track('a') },
-                { id: '2', kind: 'track', state: 'planned', track: track('r'), requestId: 'req-1' },
+            { id: '1', kind: 'track', state: 'planned', track: track('a') },
+            { id: '2', kind: 'track', state: 'planned', track: track('r'), requestId: 'req-1' },
             { id: '3', kind: 'segment', state: 'planned', segmentId: 'beat', groupId: 'episode-1' },
         ]);
 
@@ -1615,6 +1621,89 @@ describe('StationLineup following a request', () => {
     });
 });
 
+// Measured on 2026-10-10: a break saying "coming up, No One Knows" was handed to the player when the
+// record before it started, and while that record played a shuffle and a request's follow-on both
+// dropped "No One Knows" from the planned tail. The break kept its place, as everything handed does,
+// and aired its promise in front of a different record. The hand-over claim check had already passed.
+describe('StationLineup and the record a held break announced', () => {
+    /** a airing, the break after it handed, and the record it names still planned. */
+    const announced = (): StationLineup => {
+        const lineup = lineupWith(['a', 'b', 'c', 'd', 'e']);
+        lineup.insertSegment('talk', 1);
+        const [first] = hand(lineup, 2);
+        lineup.markAiring(first!.id);
+        return lineup;
+    };
+
+    it('keeps it in place through a shuffle, and shuffles everything behind it', () => {
+        const lineup = announced();
+
+        // Always swapping with the front: without the rule the tail b, c, d, e comes out c, d, e, b.
+        const random = vi.spyOn(Math, 'random').mockReturnValue(0);
+        try {
+            expect(lineup.shuffleRemaining().result).toEqual({ ok: true });
+        } finally {
+            random.mockRestore();
+        }
+
+        const ids = idsOf(lineup.all());
+        expect(ids.slice(0, 3)).toEqual(['a', 'segment:talk', 'b']);
+        expect(ids.slice(3).sort()).toEqual(['c', 'd', 'e']);
+    });
+
+    it('keeps it in place through a replan, and replaces everything behind it', () => {
+        const lineup = announced();
+
+        const dropped = lineup.replacePlanned([track('x'), track('y')]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:talk', 'b', 'x', 'y']);
+        expect(idsOf(dropped)).toEqual(['c', 'd', 'e']);
+    });
+
+    it('keeps it while the break is airing, too', () => {
+        const lineup = announced();
+        lineup.markPlayed(lineup.all()[0]!.id);
+        lineup.markAiring(lineup.all()[1]!.id);
+
+        lineup.replacePlanned([track('x')]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:talk', 'b', 'x']);
+    });
+
+    it("stays in front of a request placed behind it, and of that request's follow-on", () => {
+        const lineup = announced();
+        lineup.insertRequested(track('r'), 'req-1');
+        expect(idsOf(lineup.all()).slice(0, 4)).toEqual(['a', 'segment:talk', 'b', 'r']);
+
+        lineup.followRequest('req-1', [track('x')]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:talk', 'b', 'r', 'x']);
+    });
+
+    it('promises nothing for a break that is only planned, which the hand-over check still answers for', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('talk', 1);
+        const [first] = hand(lineup, 1);
+        lineup.markAiring(first!.id);
+
+        lineup.replacePlanned([track('x'), track('y')]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'x', 'y']);
+    });
+
+    it('promises nothing for a talk-over cue, which reaches the player with its record and not before it', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('link', 1, { atMs: 5_000 });
+        const [first, cue] = hand(lineup, 2);
+        lineup.markAiring(first!.id);
+        expect(cue?.kind).toBe('segment');
+
+        lineup.replacePlanned([track('x'), track('y')]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:link', 'x', 'y']);
+    });
+});
+
 describe('StationLineup dedications', () => {
     it('puts a dedication directly in front of the record it goes with', () => {
         const lineup = lineupWith(['a', 'b', 'c']);
@@ -1634,5 +1723,155 @@ describe('StationLineup dedications', () => {
 
         expect(lineup.insertRequested(track('r'), 'req-1', { segmentId: 'ded', segmentKind: 'dedication' }).ok).toBe(false);
         expect(idsOf(lineup.all())).not.toContain('segment:ded');
+    });
+});
+
+// A dedication is a listener's words about ONE record. On 10 October one aired eight minutes after
+// its record, in front of a different one: the operator played the request early from a second copy
+// of the record and removed the request's own line, the dedication stayed in the order, and the
+// planner wrote it again about whatever followed. It airs directly in front of its record or not at all.
+describe('StationLineup keeping a dedication with its record', () => {
+    const lineWith = (lineup: StationLineup, externalId: string): StationLineupItem =>
+        lineup.all().find(item => item.kind === 'track' && item.track.externalId === externalId)!;
+    const dedicationOf = (lineup: StationLineup): StationLineupItem =>
+        lineup.all().find(item => item.kind === 'segment' && item.segmentId === 'ded')!;
+
+    /** a handed over, then [dedication, r] in the first quiet gap behind it. */
+    const dedicated = (): StationLineup => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        hand(lineup, 1);
+        lineup.insertRequested(track('r'), 'req-1', { segmentId: 'ded', segmentKind: 'dedication' });
+        return lineup;
+    };
+
+    it('names the line it was said for', () => {
+        const lineup = dedicated();
+
+        expect(dedicationOf(lineup)).toMatchObject({ dedicates: lineWith(lineup, 'r').id });
+    });
+
+    it('drops nothing while the pair is together', () => {
+        const lineup = dedicated();
+
+        expect(lineup.dropSeparatedDedications()).toEqual([]);
+        expect(dedicationOf(lineup).state).toBe('planned');
+    });
+
+    it('drops the dedication when its record is removed, even with another copy of the record playing first', () => {
+        // The live sequence: a second copy of the requested record put in at the head, then the
+        // request's own line removed. The copy is the same record, and still not the one the words
+        // were said in front of.
+        const lineup = dedicated();
+        lineup.insertTrack(track('r'), lineup.committedThrough());
+        const requested = lineup.all().find(item => item.kind === 'track' && item.requestId === 'req-1')!;
+        expect(lineup.remove(requested.id)).toEqual({ ok: true });
+        expect(idsOf(lineup.all())).toEqual(['a', 'r', 'b', 'segment:ded', 'c']);
+
+        const dropped = lineup.dropSeparatedDedications();
+
+        expect(dropped.map(item => item.id)).toEqual([dedicationOf(lineup).id]);
+        expect(dedicationOf(lineup).state).toBe('removed');
+        // Removed rather than skipped, so it does not freeze the order in front of it as head.
+        expect(lineup.committedThrough()).toBe(1);
+        // And nothing still to come is a dedication.
+        expect(lineup.upcoming().some(item => item.kind === 'segment' && item.segmentKind === 'dedication')).toBe(false);
+    });
+
+    it('drops the dedication when its record turns out to have no audio', () => {
+        const lineup = dedicated();
+        lineup.markUnavailable(lineWith(lineup, 'r').id);
+
+        expect(lineup.dropSeparatedDedications()).toHaveLength(1);
+        expect(dedicationOf(lineup).state).toBe('removed');
+    });
+
+    it('drops the dedication when its record is vetoed', () => {
+        const lineup = dedicated();
+        lineup.veto([lineWith(lineup, 'r').id]);
+
+        expect(lineup.dropSeparatedDedications()).toHaveLength(1);
+    });
+
+    it('never drops a dedication the player already holds', () => {
+        // It cannot be taken back from here, and its record is behind it in the player's own queue.
+        const lineup = dedicated();
+        hand(lineup, 2);
+        lineup.markUnavailable(lineWith(lineup, 'r').id);
+
+        expect(lineup.dropSeparatedDedications()).toEqual([]);
+        expect(dedicationOf(lineup).state).toBe('handed');
+    });
+
+    it('puts a record aimed between the two in front of the dedication', () => {
+        const lineup = dedicated();
+
+        expect(lineup.insertTrack(track('x'), 3)).toEqual({ ok: true });
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'b', 'x', 'segment:ded', 'r', 'c']);
+        expect(lineup.dropSeparatedDedications()).toEqual([]);
+    });
+
+    it('puts a record aimed between the two behind the record once the player holds the dedication', () => {
+        // The words are the next thing the player airs, so nothing can go in front of them any more.
+        const lineup = dedicated();
+        hand(lineup, 2);
+
+        expect(lineup.insertTrack(track('x'), lineup.committedThrough())).toEqual({ ok: true });
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'b', 'segment:ded', 'r', 'x', 'c']);
+    });
+
+    it('puts a break aimed between the two in front of the dedication', () => {
+        const lineup = dedicated();
+
+        expect(lineup.insertSegment('break', 3)).toEqual({ ok: true });
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'b', 'segment:break', 'segment:ded', 'r', 'c']);
+    });
+
+    it('moves the dedication with its record', () => {
+        const lineup = dedicated();
+
+        expect(lineup.move(lineWith(lineup, 'r').id, 3)).toEqual({ ok: true });
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'b', 'c', 'segment:ded', 'r']);
+    });
+
+    it('moves the record with its dedication', () => {
+        const lineup = dedicated();
+
+        expect(lineup.move(dedicationOf(lineup).id, 1)).toEqual({ ok: true });
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:ded', 'r', 'b', 'c']);
+    });
+
+    it('moves nothing when the move is refused', () => {
+        const lineup = dedicated();
+        hand(lineup, 1);
+
+        expect(lineup.move(lineWith(lineup, 'r').id, 0)).toMatchObject({ ok: false, reason: 'already-aired' });
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'b', 'segment:ded', 'r', 'c']);
+    });
+
+    it('judges an order saved before dedications named their record by the request behind them', () => {
+        const planned = (id: string, externalId: string, requestId?: string): StationLineupItem => ({
+            id,
+            kind: 'track',
+            state: 'planned',
+            track: track(externalId),
+            ...(requestId === undefined ? {} : { requestId }),
+        });
+        const words = (id: string): StationLineupItem => ({
+            id,
+            kind: 'segment',
+            state: 'planned',
+            segmentId: id,
+            segmentKind: 'dedication',
+            pinned: true,
+        });
+        const lineup = new StationLineup(binding(), [words('kept'), planned('r', 'r', 'req-1'), words('lost'), planned('c', 'c')]);
+
+        expect(lineup.dropSeparatedDedications().map(item => item.id)).toEqual(['lost']);
     });
 });

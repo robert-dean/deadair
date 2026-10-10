@@ -182,6 +182,19 @@ sits between two different records is not rewritten here; the claim check drops 
 that check's whole job. Undoing a replan is deliberately not built: it would need the dropped breaks kept
 alive rather than retired, for a press that is rare.
 
+**A break the player already holds has passed that check, so the record it announced stays put as well.**
+`StationLineup.staysPut` is `isPinned` plus the first record after any `handed` or `airing` break
+(`nextTrackAfter`, the record a "coming up" names), and it is what `fillAround`, the shuffle's tail and the
+replan job's seed all read. On 10 October a break naming "No One Knows" was handed as the record before it
+started; a shuffle and a request's follow-on then dropped "No One Knows" while that record played, the
+break kept its place as everything handed does, and the station said "coming up" about a record it did
+not play. The record is kept rather than the break retracted: a handed break is seconds from air or
+already on it, a retraction throws away audio the player has fetched, and keeping the promise costs one
+record its turn. The order cannot see a break's words, so it keeps the record after every held break,
+not only after one that named it. A talk-over cue is the exception: it is marked `handed` when it is
+attached to its record's prepared form and reaches the player only with that record, so while the record
+is `planned` nothing has been promised and moving it is `forgetStranded`'s case.
+
 **A dislike is the one edit nobody types at the desk.** Every other arm of `OrderEdit` is something an
 operator did to the running order; `vetoDisliked` arrives from `DislikeVeto` when they rate something in the
 CATALOG, which is the same instruction given somewhere else, and it wants the same answer and the same feed
@@ -390,10 +403,10 @@ argument, and the live station measured it too short: on 2026-10-02 downloads ra
 the same record again, and the pusher then flushed the station's own records as a stranger's queue. So
 `radio.liq` now reports `resolving`, the requests it is downloading, and `heldBy` adds them to `queued`
 wherever the app asks what the player holds. The grace is the fallback for a script that does not report it,
-and it runs from the last reading that COUNTED an item rather than from its hand-over: at a boundary the queue
-pops the next request before `on_track` moves `onAir` onto it, so one reading in between finds it nowhere. On
-2026-10-10 that reclaimed a break three minutes after its hand-over and 0.7s into its airing, and the break
-writer rewrote it under the listener.
+and it runs from the first reading that MISSED an item (`Rundown.missingSince`) as well as from its hand-over:
+at a boundary the queue pops the next request before `on_track` moves `onAir` onto it, so one reading in between
+finds it nowhere. On 2026-10-10 that reclaimed a break three minutes after its hand-over and 0.7s into its
+airing, and the break writer rewrote it under the listener.
 `MAX_HAND_OVERS` STAYS at 3: it covers a Liquidsoap that restarted and dropped what it held, which is not an
 audio-availability fact.
 

@@ -29,6 +29,7 @@ import { TALK_BREAK_KIND } from './talk.break.writer.js';
 import { WELCOME_KIND } from './welcome.writer.js';
 import { CHANGEOVER_KIND } from './changeover.writer.js';
 import { JINGLE_KIND } from './jingle.writer.js';
+import { DEDICATION_KIND } from './dedication.writer.js';
 
 /**
  * The kind of break whose audio already exists, because somebody recorded it and
@@ -1101,9 +1102,21 @@ export class BreakPlanner {
      * ordinary state of every break written ahead of its own window and the one fault a rewrite
      * cannot repair — it would re-derive the same phrasing from the same `airsAt`. Read the note in
      * `break.claims.ts` before removing this: acting on it looped, and the loop spent the news.
+     *
+     * **Nor does it touch a row the player already holds.** A segment `handed` or `airing` anywhere in
+     * the order has its audio in Liquidsoap, and a rewrite changes the row and nothing the listener
+     * hears: the old words air and the model call is spent on audio nobody will play. The window
+     * starts at `committedThrough`, so a held LINE never reaches here; a held ROW still can, through
+     * a second position (idents come from a shared library). The other way in was a held line the
+     * rundown wrongly took back to `planned` at a boundary, which is how a break was rewritten while
+     * it aired on 2026-10-10; that one is answered in `Rundown.reconcileServed`, since by the time
+     * the line reads `planned` nothing here can tell it from a break that never left.
      */
     private staleClaims(lineup: StationLineup, window: readonly StationLineupItem[], segments: Map<string, Segment>): Map<string, BrokenClaim> {
         const now = Date.now();
+        const held = new Set(
+            lineup.all().flatMap(item => (item.kind === 'segment' && (item.state === 'handed' || item.state === 'airing') ? [item.segmentId] : [])),
+        );
         // Segment id to whether every position it holds is broken, and to the fault at the FIRST
         // position that was. Seeded by the first position and narrowed by the rest, so one position
         // that still holds spares the row. The fault is kept because `rewriteStale` writes it to the
@@ -1113,6 +1126,8 @@ export class BreakPlanner {
 
         for (const item of window) {
             if (item.kind !== 'segment') continue;
+
+            if (held.has(item.segmentId)) continue;
 
             const segment = segments.get(item.segmentId);
             // A break that claimed nothing cannot be wrong, which is most of them, and skipping
@@ -1127,6 +1142,11 @@ export class BreakPlanner {
                 continue;
 
             const fault = brokenClaim(segment, { previous: lineup.previousTrackBefore(item.id)?.id, next: lineup.nextTrackAfter(item.id)?.id }, now);
+            // A dedication whose record is no longer next is never written again: a rewrite names
+            // whatever follows now, and a listener's words for one record then air in front of
+            // another. The order drops it instead (`StationLineup.dropSeparatedDedications`), and the
+            // claim check at hand-over is the floor under that.
+            if (segment.kind === DEDICATION_KIND && fault?.kind === 'item') continue;
             const seen = verdicts.get(item.segmentId);
             // The first position's fault is the one kept, and a later position can only ever clear
             // the verdict rather than change what it is recorded as. A row that survives to be

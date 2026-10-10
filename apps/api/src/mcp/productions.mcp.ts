@@ -22,7 +22,7 @@ const RequestProductionArgs = z.object({ body: ProductionRequest });
 const CancelProductionArgs = z.object({ id: z.string().min(1).max(100) });
 
 /**
- * from [productions.ck](../../data/contracts/productions/productions.ck#L29)
+ * from [productions.ck](../../data/contracts/productions/productions.ck) `GET /productions`
  */
 @Injectable()
 export class ListProductionsMcpTool implements McpToolHandler {
@@ -44,7 +44,7 @@ export class ListProductionsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [productions.ck](../../data/contracts/productions/productions.ck#L42)
+ * from [productions.ck](../../data/contracts/productions/productions.ck) `POST /productions`
  */
 @Injectable()
 export class RequestProductionMcpTool implements McpToolHandler {
@@ -67,7 +67,7 @@ export class RequestProductionMcpTool implements McpToolHandler {
 }
 
 /**
- * from [productions.ck](../../data/contracts/productions/productions.ck#L67)
+ * from [productions.ck](../../data/contracts/productions/productions.ck) `POST /productions/{id}/cancel`
  */
 @Injectable()
 export class CancelProductionMcpTool implements McpToolHandler {

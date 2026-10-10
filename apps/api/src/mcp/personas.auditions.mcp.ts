@@ -23,7 +23,7 @@ const GetPersonaAuditionArgs = z.object({ id: z.string().min(1).max(100), auditi
 const CancelPersonaAuditionArgs = z.object({ id: z.string().min(1).max(100), auditionId: z.string().min(1).max(100) });
 
 /**
- * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck#L42)
+ * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck) `GET /personas/{id}/auditions`
  */
 @Injectable()
 export class ListPersonaAuditionsMcpTool implements McpToolHandler {
@@ -46,7 +46,7 @@ export class ListPersonaAuditionsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck#L55)
+ * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck) `POST /personas/{id}/auditions`
  */
 @Injectable()
 export class StartPersonaAuditionMcpTool implements McpToolHandler {
@@ -69,7 +69,7 @@ export class StartPersonaAuditionMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck#L74)
+ * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck) `GET /personas/{id}/auditions/{auditionId}`
  */
 @Injectable()
 export class GetPersonaAuditionMcpTool implements McpToolHandler {
@@ -92,7 +92,7 @@ export class GetPersonaAuditionMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck#L98)
+ * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck) `POST /personas/{id}/auditions/{auditionId}/cancel`
  */
 @Injectable()
 export class CancelPersonaAuditionMcpTool implements McpToolHandler {

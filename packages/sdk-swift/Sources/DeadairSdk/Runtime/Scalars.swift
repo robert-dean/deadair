@@ -90,23 +90,42 @@ public struct BigIntValue: Codable, Hashable, Sendable, CustomStringConvertible,
 /// JSON number: by the time a number reaches this type it has already been through a double, so
 /// the precision the contract asked for is gone. Hand `rawValue` to whatever big-decimal library
 /// you use for arithmetic.
+/// 
+/// The text must be plain digits, the form the OpenAPI `pattern` publishes and the server accepts:
+/// no exponent, no `+`, no whitespace, no non-finite values. Decoding or encoding anything else throws.
 public struct DecimalValue: Codable, Hashable, Sendable, CustomStringConvertible, HeaderDecodable {
     public var rawValue: String
+
+    private static let wireForm = #"^-?[0-9]+(\.[0-9]+)?$"#
+
+    /// Whether the text is in the form this value travels in.
+    public static func isWireForm(_ text: String) -> Bool {
+        text.range(of: wireForm, options: .regularExpression) == text.startIndex..<text.endIndex
+    }
 
     public init(_ rawValue: String) {
         self.rawValue = rawValue
     }
 
     public init?(headerValue: String) {
-        self.init(headerValue.trimmingCharacters(in: .whitespaces))
+        let text = headerValue.trimmingCharacters(in: .whitespaces)
+        guard Self.isWireForm(text) else { return nil }
+        self.init(text)
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        rawValue = try container.decode(String.self)
+        let text = try container.decode(String.self)
+        guard Self.isWireForm(text) else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "'\(text)' is not a valid DecimalValue.")
+        }
+        rawValue = text
     }
 
     public func encode(to encoder: Encoder) throws {
+        guard Self.isWireForm(rawValue) else {
+            throw EncodingError.invalidValue(rawValue, EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "'\(rawValue)' is not a valid DecimalValue."))
+        }
         var container = encoder.singleValueContainer()
         try container.encode(rawValue)
     }

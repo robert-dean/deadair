@@ -171,20 +171,20 @@ importers:
         specifier: ^0.11.9
         version: 0.11.9(prettier@3.9.9)
       '@contractkit/plugin-csharp':
+        specifier: ^0.3.1
+        version: 0.3.1
+      '@contractkit/plugin-docs':
+        specifier: ^0.8.0
+        version: 0.8.0
+      '@contractkit/plugin-kotlin':
         specifier: ^0.2.1
         version: 0.2.1
-      '@contractkit/plugin-docs':
-        specifier: ^0.5.1
-        version: 0.5.1
-      '@contractkit/plugin-kotlin':
-        specifier: ^0.1.8
-        version: 0.1.8
       '@contractkit/plugin-swift':
-        specifier: ^0.1.8
-        version: 0.1.8
+        specifier: ^0.2.1
+        version: 0.2.1
       '@contractkit/plugin-typescript':
-        specifier: ^0.39.1
-        version: 0.39.1
+        specifier: ^0.41.0
+        version: 0.41.0
       '@deadair/plugin-musicbrainz':
         specifier: workspace:*
         version: link:../../plugins/musicbrainz
@@ -1857,29 +1857,26 @@ packages:
       prettier:
         optional: true
 
-  '@contractkit/core@0.32.0':
-    resolution: {integrity: sha512-QtWR9OXW4OmtwvW66pyrp/xQ6E5JwtHuIy6ObwVM9QVKo8i7bt6NqXDZQbQDIH/sfPkcPkwdk5eNXuFCZX7KMQ==}
-
   '@contractkit/core@0.34.0':
     resolution: {integrity: sha512-TxbFe2ytD2zOUhck1iVs+5tYOpAvCO2+Wcrn8OFBSmJYYJ0Ph+pyO52th4TxqdoWi1OrGqOZVw1BsAfO5glARg==}
 
   '@contractkit/openapi-to-ck@0.12.11':
     resolution: {integrity: sha512-Z9qFvwnGxa5B0peu3OPkpARG/sr5iyIpEM26K+cfPjKQpd1FkgRcYLsdHAzL8WQrfQBuLmmgmpD0tVl3u+Dbjw==}
 
-  '@contractkit/plugin-csharp@0.2.1':
-    resolution: {integrity: sha512-Cc8M4dd3/Mub4qaz5yuWQ/71XjVj933IusQJ76P6mpsiua6hjcrFwS+TljtqS+Yn/1BDLhXNa4cMQIzTqXcQ8Q==}
+  '@contractkit/plugin-csharp@0.3.1':
+    resolution: {integrity: sha512-ktjhdwdN/wA4BhEREIKqiZshno1TxK3fiaR7nR8EgJz+OycwfwPOdo91ZqeKV50rGpWwvPdeIvMjVlAn31qY0g==}
 
-  '@contractkit/plugin-docs@0.5.1':
-    resolution: {integrity: sha512-/CXi3XL6bHOaOLdA6K4MpNolL73Y7FR1G14IOy79fhLzpAxx45L8qXxhtmMPmcXt6ZOw5awO9d/CyrrED9PFwg==}
+  '@contractkit/plugin-docs@0.8.0':
+    resolution: {integrity: sha512-dvuRolUbnTbU2nv9fdUtkKZvBdjZAG69bMjXTS5jUDE8xBMVa2fmnNLcV5hmzDwQ0sJ1ulKdN6BKzbwLkraMQw==}
 
-  '@contractkit/plugin-kotlin@0.1.8':
-    resolution: {integrity: sha512-Yn/rkgIw71yqmdRGW+Tmqb0kAOp3CzwMdRuogpHyblxyYUic11spFB+TVWG0w26KojdVScvfWEvHLPLZgpVgog==}
+  '@contractkit/plugin-kotlin@0.2.1':
+    resolution: {integrity: sha512-R6Lmfifa6nVnndLbnP5TgXctyRoYyeRwzODeBXFXu6A1HajlGPNLlPRMyCt1udiqyAjIb65r9vB3r0rULvbCPA==}
 
-  '@contractkit/plugin-swift@0.1.8':
-    resolution: {integrity: sha512-/VZ8QNrKlyMoNCR+QJP6yGEb0jUXRp69Irrp0JrrUZzJW1aHpX3C/PjRt++hNwv02Ee45X3WwpOQKQSOtpQcog==}
+  '@contractkit/plugin-swift@0.2.1':
+    resolution: {integrity: sha512-4Cvt7SHKjaZHcWxFFvv2tdztJFX6EeZBLmJyY4ITR+lebFQH2zcpTmIQOuemNGUXoDl6z/21SLv2zxXduqEttA==}
 
-  '@contractkit/plugin-typescript@0.39.1':
-    resolution: {integrity: sha512-wtk7+FSUhauCqWwZMaTvd8SyxIXcT0P4mzyPMP5YWPuMQoGsLaYwFR+yceVc7m+8Eb238Qz0s6PpTGrx8VIWWA==}
+  '@contractkit/plugin-typescript@0.41.0':
+    resolution: {integrity: sha512-gXxDLsYOT9WcUOWg/Gk5XthITHUB59kSbrjqSCaClQat1X6KmuUjLUiEGn2znsuKuS55hEsGOE85g6fJUITdzw==}
 
   '@contractkit/prettier-plugin@0.14.14':
     resolution: {integrity: sha512-UYIvWcnvoTEkl3V4l6//VAPfIz74C08jxv/jrnBKRwrEPrD+6P84hxOgkkOu41H7QavZCeQG55qKTXV2ATfGWg==}
@@ -2698,15 +2695,6 @@ packages:
   '@eslint/plugin-kit@0.7.3':
     resolution: {integrity: sha512-IkO+/KEUvwbVpiURZg+P7zF74z5Jxe0UgJxVni+RtoHQ6IZieXaO02kmadomap/q+l6bc/jdPGGqTjhuZnuz1Q==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
-
-  '@exodus/bytes@1.15.1':
-    resolution: {integrity: sha512-S6mL0yNB/Abt9Ei4tq8gDhcczc4S3+vQ4ra7vxnAf+YHC02srtqxKKZghx2Dq6p0e66THKwR6r8N6P95wEty7Q==}
-    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
-    peerDependencies:
-      '@noble/hashes': ^1.8.0 || ^2.0.0
-    peerDependenciesMeta:
-      '@noble/hashes':
-        optional: true
 
   '@exodus/bytes@1.16.0':
     resolution: {integrity: sha512-IcpW84uEn3N7ETtNZMlxKhfl6Pec8rUNGOTBtWbK1FKhJxIFAptZyVrvVRVBimAJxJCgc3PxepxkdWWG4DVzfA==}
@@ -5029,9 +5017,6 @@ packages:
 
   '@types/react-router@5.1.20':
     resolution: {integrity: sha512-jGjmu/ZqS7FjSH6owMcD5qpq19+1RS9DeVRqfl1FeBMxTDQAGwlMWOcs52NDoXaNKyG3d1cYQFMs9rCrb88o9Q==}
-
-  '@types/react@19.2.18':
-    resolution: {integrity: sha512-AnzbBERsrLKtk2XSfTbYRLjQPdy116Sty4q+T+Bp3IC4l6jNBvreVPAHmpq9qhXQM7CXZPjLVmGMw9sy+hxQ3w==}
 
   '@types/react@19.3.0':
     resolution: {integrity: sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg==}
@@ -10949,9 +10934,9 @@ snapshots:
       '@babel/helper-compilation-targets': 7.29.7
       '@babel/helper-module-transforms': 7.29.7(@babel/core@7.29.7)
       '@babel/helpers': 7.29.7
-      '@babel/parser': 7.29.8
+      '@babel/parser': 7.29.9
       '@babel/template': 7.29.7
-      '@babel/traverse': 7.29.8
+      '@babel/traverse': 7.29.10
       '@babel/types': 7.29.8
       '@jridgewell/remapping': 2.3.5
       convert-source-map: 2.0.0
@@ -10972,7 +10957,7 @@ snapshots:
 
   '@babel/generator@7.29.8':
     dependencies:
-      '@babel/parser': 7.29.8
+      '@babel/parser': 7.29.9
       '@babel/types': 7.29.8
       '@jridgewell/gen-mapping': 0.3.13
       '@jridgewell/trace-mapping': 0.3.31
@@ -11032,7 +11017,7 @@ snapshots:
 
   '@babel/helper-module-imports@7.29.7':
     dependencies:
-      '@babel/traverse': 7.29.8
+      '@babel/traverse': 7.29.10
       '@babel/types': 7.29.8
     transitivePeerDependencies:
       - supports-color
@@ -11042,7 +11027,7 @@ snapshots:
       '@babel/core': 7.29.7
       '@babel/helper-module-imports': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
-      '@babel/traverse': 7.29.8
+      '@babel/traverse': 7.29.10
     transitivePeerDependencies:
       - supports-color
 
@@ -11897,10 +11882,6 @@ snapshots:
     optionalDependencies:
       prettier: 3.9.9
 
-  '@contractkit/core@0.32.0':
-    dependencies:
-      ohm-js: 17.5.0
-
   '@contractkit/core@0.34.0':
     dependencies:
       ohm-js: 17.5.0
@@ -11910,25 +11891,25 @@ snapshots:
       '@contractkit/core': 0.34.0
       yaml: 2.9.1
 
-  '@contractkit/plugin-csharp@0.2.1':
+  '@contractkit/plugin-csharp@0.3.1':
     dependencies:
-      '@contractkit/core': 0.32.0
+      '@contractkit/core': 0.34.0
 
-  '@contractkit/plugin-docs@0.5.1':
+  '@contractkit/plugin-docs@0.8.0':
     dependencies:
-      '@contractkit/core': 0.32.0
+      '@contractkit/core': 0.34.0
 
-  '@contractkit/plugin-kotlin@0.1.8':
+  '@contractkit/plugin-kotlin@0.2.1':
     dependencies:
-      '@contractkit/core': 0.32.0
+      '@contractkit/core': 0.34.0
 
-  '@contractkit/plugin-swift@0.1.8':
+  '@contractkit/plugin-swift@0.2.1':
     dependencies:
-      '@contractkit/core': 0.32.0
+      '@contractkit/core': 0.34.0
 
-  '@contractkit/plugin-typescript@0.39.1':
+  '@contractkit/plugin-typescript@0.41.0':
     dependencies:
-      '@contractkit/core': 0.32.0
+      '@contractkit/core': 0.34.0
 
   '@contractkit/prettier-plugin@0.14.14(prettier@3.9.9)':
     dependencies:
@@ -13096,7 +13077,7 @@ snapshots:
 
   '@docusaurus/react-loadable@6.0.0(react@19.3.0)':
     dependencies:
-      '@types/react': 19.2.18
+      '@types/react': 19.3.0
       react: 19.3.0
 
   '@docusaurus/theme-classic@3.10.2(@docusaurus/faster@3.10.2(@docusaurus/types@3.10.2(@swc/core@1.15.47(@swc/helpers@0.5.23))(esbuild@0.28.2)(postcss@8.5.25)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@swc/helpers@0.5.23)(esbuild@0.28.2)(postcss@8.5.25))(@rspack/core@1.7.12(@swc/helpers@0.5.23))(@swc/core@1.15.47(@swc/helpers@0.5.23))(@types/react@19.3.0)(esbuild@0.28.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@6.0.3)':
@@ -13164,7 +13145,7 @@ snapshots:
       '@docusaurus/utils': 3.10.2(@swc/core@1.15.47(@swc/helpers@0.5.23))(esbuild@0.28.2)(postcss@8.5.25)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@docusaurus/utils-common': 3.10.2(@swc/core@1.15.47(@swc/helpers@0.5.23))(esbuild@0.28.2)(postcss@8.5.25)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@types/history': 4.7.11
-      '@types/react': 19.2.18
+      '@types/react': 19.3.0
       '@types/react-router-config': 5.0.11
       clsx: 2.1.1
       parse-numeric-range: 1.3.0
@@ -13656,10 +13637,6 @@ snapshots:
     dependencies:
       '@eslint/core': 1.2.1
       levn: 0.4.1
-
-  '@exodus/bytes@1.15.1(@noble/hashes@2.4.0)':
-    optionalDependencies:
-      '@noble/hashes': 2.4.0
 
   '@exodus/bytes@1.16.0(@noble/hashes@2.4.0)':
     optionalDependencies:
@@ -15134,7 +15111,7 @@ snapshots:
 
   '@slorber/react-helmet-async@1.3.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
-      '@babel/runtime': 7.29.7
+      '@babel/runtime': 7.29.10
       invariant: 2.2.4
       prop-types: 15.8.1
       react: 19.3.0
@@ -15905,10 +15882,6 @@ snapshots:
     dependencies:
       '@types/history': 4.7.11
       '@types/react': 19.3.0
-
-  '@types/react@19.2.18':
-    dependencies:
-      csstype: 3.2.3
 
   '@types/react@19.3.0':
     dependencies:
@@ -18268,7 +18241,7 @@ snapshots:
 
   html-encoding-sniffer@7.0.0(@noble/hashes@2.4.0):
     dependencies:
-      '@exodus/bytes': 1.15.1(@noble/hashes@2.4.0)
+      '@exodus/bytes': 1.16.0(@noble/hashes@2.4.0)
     transitivePeerDependencies:
       - '@noble/hashes'
 
@@ -18705,7 +18678,7 @@ snapshots:
 
   jest-worker@27.5.1:
     dependencies:
-      '@types/node': 26.1.2
+      '@types/node': 26.6.4
       merge-stream: 2.0.0
       supports-color: 8.1.1
 
@@ -21719,7 +21692,7 @@ snapshots:
   terser@5.51.2:
     dependencies:
       '@jridgewell/source-map': 0.3.11
-      acorn: 8.18.0
+      acorn: 8.19.0
       commander: 2.20.3
       source-map-support: 0.5.21
 
@@ -22246,7 +22219,7 @@ snapshots:
       '@webassemblyjs/ast': 1.14.1
       '@webassemblyjs/wasm-edit': 1.14.1
       '@webassemblyjs/wasm-parser': 1.14.1
-      acorn: 8.18.0
+      acorn: 8.19.0
       browserslist: 4.28.9
       chrome-trace-event: 1.0.4
       enhanced-resolve: 5.24.5
@@ -22285,7 +22258,7 @@ snapshots:
       '@webassemblyjs/ast': 1.14.1
       '@webassemblyjs/wasm-edit': 1.14.1
       '@webassemblyjs/wasm-parser': 1.14.1
-      acorn: 8.18.0
+      acorn: 8.19.0
       browserslist: 4.28.9
       chrome-trace-event: 1.0.4
       enhanced-resolve: 5.24.5
@@ -22324,7 +22297,7 @@ snapshots:
       '@webassemblyjs/ast': 1.14.1
       '@webassemblyjs/wasm-edit': 1.14.1
       '@webassemblyjs/wasm-parser': 1.14.1
-      acorn: 8.18.0
+      acorn: 8.19.0
       browserslist: 4.28.9
       chrome-trace-event: 1.0.4
       enhanced-resolve: 5.24.5
@@ -22363,7 +22336,7 @@ snapshots:
       '@webassemblyjs/ast': 1.14.1
       '@webassemblyjs/wasm-edit': 1.14.1
       '@webassemblyjs/wasm-parser': 1.14.1
-      acorn: 8.18.0
+      acorn: 8.19.0
       browserslist: 4.28.9
       chrome-trace-event: 1.0.4
       enhanced-resolve: 5.24.5

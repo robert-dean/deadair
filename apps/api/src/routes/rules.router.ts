@@ -11,7 +11,7 @@ export const RulesRouter = ServerKitRouter();
 
 /**
  * Every never-play rule on this station, newest first, each saying whether it holds right now
- * from [rules.ck](../../data/contracts/director/rules.ck#L19)
+ * from [rules.ck](../../data/contracts/director/rules.ck) `GET /rules`
  */
 RulesRouter.get('/rules', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(BlockRulesService);
@@ -24,7 +24,7 @@ RulesRouter.get('/rules', requirePolicy({ policy: 'platform.view' }), async ctx 
 
 /**
  * Adds a rule. It holds from the next record the station chooses
- * from [rules.ck](../../data/contracts/director/rules.ck#L31)
+ * from [rules.ck](../../data/contracts/director/rules.ck) `POST /rules`
  */
 RulesRouter.post('/rules', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, BlockRuleInput);
@@ -39,7 +39,7 @@ RulesRouter.post('/rules', requirePolicy({ policy: 'platform.manage' }), bodyPar
 
 /**
  * The lean in force, if any
- * from [rules.ck](../../data/contracts/director/rules.ck#L49)
+ * from [rules.ck](../../data/contracts/director/rules.ck) `GET /rules/steer`
  */
 RulesRouter.get('/rules/steer', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(BlockRulesService);
@@ -52,7 +52,7 @@ RulesRouter.get('/rules/steer', requirePolicy({ policy: 'platform.view' }), asyn
 
 /**
  * Leans the station toward some genres for a number of hours, replacing any lean already in force
- * from [rules.ck](../../data/contracts/director/rules.ck#L61)
+ * from [rules.ck](../../data/contracts/director/rules.ck) `PUT /rules/steer`
  */
 RulesRouter.put('/rules/steer', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, GenreSteerInput);
@@ -67,7 +67,7 @@ RulesRouter.put('/rules/steer', requirePolicy({ policy: 'platform.manage' }), bo
 
 /**
  * Ends the lean now
- * from [rules.ck](../../data/contracts/director/rules.ck#L73)
+ * from [rules.ck](../../data/contracts/director/rules.ck) `DELETE /rules/steer`
  */
 RulesRouter.delete('/rules/steer', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(BlockRulesService);
@@ -80,7 +80,7 @@ RulesRouter.delete('/rules/steer', requirePolicy({ policy: 'platform.manage' }),
 
 /**
  * Replaces a rule
- * from [rules.ck](../../data/contracts/director/rules.ck#L89)
+ * from [rules.ck](../../data/contracts/director/rules.ck) `PUT /rules/{id}`
  */
 RulesRouter.put('/rules/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -102,7 +102,7 @@ RulesRouter.put('/rules/:id', requirePolicy({ policy: 'platform.manage' }), body
 
 /**
  * Removes a rule
- * from [rules.ck](../../data/contracts/director/rules.ck#L103)
+ * from [rules.ck](../../data/contracts/director/rules.ck) `DELETE /rules/{id}`
  */
 RulesRouter.delete('/rules/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(

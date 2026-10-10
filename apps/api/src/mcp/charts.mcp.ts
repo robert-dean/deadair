@@ -21,7 +21,7 @@ const ListChartsArgs = z.object({});
 const ReadChartArgs = z.object({ id: z.string().min(1).max(400), query: ChartQuery.optional() });
 
 /**
- * from [charts.ck](../../data/contracts/charts/charts.ck#L22)
+ * from [charts.ck](../../data/contracts/charts/charts.ck) `GET /charts`
  */
 @Injectable()
 export class ListChartsMcpTool implements McpToolHandler {
@@ -43,7 +43,7 @@ export class ListChartsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [charts.ck](../../data/contracts/charts/charts.ck#L37)
+ * from [charts.ck](../../data/contracts/charts/charts.ck) `GET /charts/{id}`
  */
 @Injectable()
 export class ReadChartMcpTool implements McpToolHandler {

@@ -19,7 +19,7 @@ function requireMcpContainer(context: McpToolContext): Container {
 const ReadStorageArgs = z.object({});
 
 /**
- * from [storage.ck](../../data/contracts/storage/storage.ck#L25)
+ * from [storage.ck](../../data/contracts/storage/storage.ck) `GET /storage`
  */
 @Injectable()
 export class ReadStorageMcpTool implements McpToolHandler {

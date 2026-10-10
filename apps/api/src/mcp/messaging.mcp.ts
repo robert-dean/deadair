@@ -21,7 +21,7 @@ const ListMessagingLinksArgs = z.object({});
 const RemoveMessagingLinkArgs = z.object({ pluginId: z.string().max(200), platformUserId: z.string().max(200) });
 
 /**
- * from [messaging.ck](../../data/contracts/messaging/messaging.ck#L18)
+ * from [messaging.ck](../../data/contracts/messaging/messaging.ck) `GET /messaging/links`
  */
 @Injectable()
 export class ListMessagingLinksMcpTool implements McpToolHandler {
@@ -43,7 +43,7 @@ export class ListMessagingLinksMcpTool implements McpToolHandler {
 }
 
 /**
- * from [messaging.ck](../../data/contracts/messaging/messaging.ck#L47)
+ * from [messaging.ck](../../data/contracts/messaging/messaging.ck) `DELETE /messaging/links/{pluginId}/{platformUserId}`
  */
 @Injectable()
 export class RemoveMessagingLinkMcpTool implements McpToolHandler {

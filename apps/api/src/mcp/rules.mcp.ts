@@ -26,7 +26,7 @@ const ChangeANeverPlayRuleArgs = z.object({ id: z.uuid(), body: BlockRuleInput }
 const RemoveANeverPlayRuleArgs = z.object({ id: z.uuid() });
 
 /**
- * from [rules.ck](../../data/contracts/director/rules.ck#L19)
+ * from [rules.ck](../../data/contracts/director/rules.ck) `GET /rules`
  */
 @Injectable()
 export class ListNeverPlayRulesMcpTool implements McpToolHandler {
@@ -48,7 +48,7 @@ export class ListNeverPlayRulesMcpTool implements McpToolHandler {
 }
 
 /**
- * from [rules.ck](../../data/contracts/director/rules.ck#L31)
+ * from [rules.ck](../../data/contracts/director/rules.ck) `POST /rules`
  */
 @Injectable()
 export class AddANeverPlayRuleMcpTool implements McpToolHandler {
@@ -71,7 +71,7 @@ export class AddANeverPlayRuleMcpTool implements McpToolHandler {
 }
 
 /**
- * from [rules.ck](../../data/contracts/director/rules.ck#L49)
+ * from [rules.ck](../../data/contracts/director/rules.ck) `GET /rules/steer`
  */
 @Injectable()
 export class ReadTheGenreSteerMcpTool implements McpToolHandler {
@@ -93,7 +93,7 @@ export class ReadTheGenreSteerMcpTool implements McpToolHandler {
 }
 
 /**
- * from [rules.ck](../../data/contracts/director/rules.ck#L61)
+ * from [rules.ck](../../data/contracts/director/rules.ck) `PUT /rules/steer`
  */
 @Injectable()
 export class SteerTowardGenresMcpTool implements McpToolHandler {
@@ -116,7 +116,7 @@ export class SteerTowardGenresMcpTool implements McpToolHandler {
 }
 
 /**
- * from [rules.ck](../../data/contracts/director/rules.ck#L73)
+ * from [rules.ck](../../data/contracts/director/rules.ck) `DELETE /rules/steer`
  */
 @Injectable()
 export class StopSteeringMcpTool implements McpToolHandler {
@@ -138,7 +138,7 @@ export class StopSteeringMcpTool implements McpToolHandler {
 }
 
 /**
- * from [rules.ck](../../data/contracts/director/rules.ck#L89)
+ * from [rules.ck](../../data/contracts/director/rules.ck) `PUT /rules/{id}`
  */
 @Injectable()
 export class ChangeANeverPlayRuleMcpTool implements McpToolHandler {
@@ -161,7 +161,7 @@ export class ChangeANeverPlayRuleMcpTool implements McpToolHandler {
 }
 
 /**
- * from [rules.ck](../../data/contracts/director/rules.ck#L103)
+ * from [rules.ck](../../data/contracts/director/rules.ck) `DELETE /rules/{id}`
  */
 @Injectable()
 export class RemoveANeverPlayRuleMcpTool implements McpToolHandler {

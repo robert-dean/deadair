@@ -8,7 +8,7 @@ const _ZodDatetime = z.preprocess(
 
 /**
  * A language pack: every word the console says, in one language, as the file a translator made. The same document is exported, imported and stored. The console's language only; what the station broadcasts in is the `stream.language` setting
- * generated from [ConsoleLanguagePack](../../../../data/contracts/languages/languages.types.ck#L8)
+ * generated from [ConsoleLanguagePack](../../../../data/contracts/languages/languages.types.ck)
  */
 export const ConsoleLanguagePack = z.strictObject({
     format: z.literal('deadair.console-language').describe('Says the file is a console language pack'),
@@ -33,7 +33,7 @@ export type ConsoleLanguagePack = z.infer<typeof ConsoleLanguagePack>;
 
 /**
  * A language the console can be shown in on this station, without its strings
- * generated from [ConsoleLanguage](../../../../data/contracts/languages/languages.types.ck#L19)
+ * generated from [ConsoleLanguage](../../../../data/contracts/languages/languages.types.ck)
  */
 export const ConsoleLanguage = z.strictObject({
     locale: z.string().min(2).max(35),
@@ -46,7 +46,7 @@ export type ConsoleLanguage = z.infer<typeof ConsoleLanguage>;
 
 /**
  * The language the signed-in operator chose for the console. Absent means none was chosen, and the console follows the browser's own preference among the languages it has
- * generated from [ConsoleLanguageChoice](../../../../data/contracts/languages/languages.types.ck#L32)
+ * generated from [ConsoleLanguageChoice](../../../../data/contracts/languages/languages.types.ck)
  */
 export const ConsoleLanguageChoice = z.strictObject({
     locale: z
@@ -59,7 +59,7 @@ export const ConsoleLanguageChoice = z.strictObject({
 export type ConsoleLanguageChoice = z.infer<typeof ConsoleLanguageChoice>;
 
 /**
- * generated from [ConsoleLanguageList](../../../../data/contracts/languages/languages.types.ck#L27)
+ * generated from [ConsoleLanguageList](../../../../data/contracts/languages/languages.types.ck)
  */
 export const ConsoleLanguageList = z.strictObject({
     languages: z.array(ConsoleLanguage).describe('In order of their tags. English is built in and is never listed'),

@@ -10,7 +10,7 @@ export const NewsRouter = ServerKitRouter();
 
 /**
  * Every feed every installed news plugin currently offers
- * from [news.ck](../../data/contracts/news/news.ck#L22)
+ * from [news.ck](../../data/contracts/news/news.ck) `GET /news/feeds`
  */
 NewsRouter.get('/news/feeds', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(NewsService);
@@ -23,7 +23,7 @@ NewsRouter.get('/news/feeds', requirePolicy({ policy: 'platform.view' }), async 
 
 /**
  * Published entries, newest first
- * from [news.ck](../../data/contracts/news/news.ck#L34)
+ * from [news.ck](../../data/contracts/news/news.ck) `GET /news`
  */
 NewsRouter.get('/news', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, NewsQuery.strict());

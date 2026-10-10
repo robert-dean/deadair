@@ -9,7 +9,7 @@ const _ZodDatetime = z.preprocess(
 /**
  * A playlist the station owns: records it holds in its own library, in an order somebody chose, cloned
  * from somewhere else and free to differ from it afterwards
- * generated from [StationPlaylist](../../../../data/contracts/playlists/station.playlists.types.ck#L9)
+ * generated from [StationPlaylist](../../../../data/contracts/playlists/station.playlists.types.ck)
  */
 export const StationPlaylist = z.strictObject({
     id: z.string().min(1).max(100),
@@ -39,7 +39,7 @@ export type StationPlaylistInput = z.infer<typeof StationPlaylistInput>;
 
 /**
  * One row of a station playlist: a record in the library, or a placeholder for one it does not hold yet
- * generated from [StationPlaylistTrack](../../../../data/contracts/playlists/station.playlists.types.ck#L25)
+ * generated from [StationPlaylistTrack](../../../../data/contracts/playlists/station.playlists.types.ck)
  */
 export const StationPlaylistTrack = z.strictObject({
     id: z.string().min(1).max(100).describe("The row's own id, not the record's"),
@@ -63,7 +63,7 @@ export type StationPlaylistTrack = z.infer<typeof StationPlaylistTrack>;
 
 /**
  * What may change about a station playlist after it exists. Absent fields are left alone
- * generated from [StationPlaylistUpdate](../../../../data/contracts/playlists/station.playlists.types.ck#L43)
+ * generated from [StationPlaylistUpdate](../../../../data/contracts/playlists/station.playlists.types.ck)
  */
 export const StationPlaylistUpdate = z.strictObject({
     name: z.string().min(1).max(200).optional(),
@@ -74,7 +74,7 @@ export type StationPlaylistUpdate = z.infer<typeof StationPlaylistUpdate>;
 /**
  * Where a record in a file came from, when it came from a provider's copy. Carried so a record the
  * receiving library does not hold can still be matched by that copy later
- * generated from [PlaylistFileOrigin](../../../../data/contracts/playlists/station.playlists.types.ck#L50)
+ * generated from [PlaylistFileOrigin](../../../../data/contracts/playlists/station.playlists.types.ck)
  */
 export const PlaylistFileOrigin = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -84,7 +84,7 @@ export type PlaylistFileOrigin = z.infer<typeof PlaylistFileOrigin>;
 
 /**
  * A playlist one of the station's music sources holds, named the way the playlists listing names it
- * generated from [PlaylistProviderRef](../../../../data/contracts/playlists/station.playlists.types.ck#L77)
+ * generated from [PlaylistProviderRef](../../../../data/contracts/playlists/station.playlists.types.ck)
  */
 export const PlaylistProviderRef = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -94,7 +94,7 @@ export type PlaylistProviderRef = z.infer<typeof PlaylistProviderRef>;
 
 /**
  * What importing one record would do here
- * generated from [PlaylistImportEntry](../../../../data/contracts/playlists/station.playlists.types.ck#L94)
+ * generated from [PlaylistImportEntry](../../../../data/contracts/playlists/station.playlists.types.ck)
  */
 export const PlaylistImportEntry = z.strictObject({
     position: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
@@ -110,7 +110,7 @@ export const PlaylistImportEntry = z.strictObject({
 export type PlaylistImportEntry = z.infer<typeof PlaylistImportEntry>;
 
 /**
- * generated from [StationPlaylistList](../../../../data/contracts/playlists/station.playlists.types.ck#L20)
+ * generated from [StationPlaylistList](../../../../data/contracts/playlists/station.playlists.types.ck)
  */
 export const StationPlaylistList = z.strictObject({
     playlists: z.array(StationPlaylist),
@@ -123,7 +123,7 @@ export const StationPlaylistListInput = z.strictObject({
 export type StationPlaylistListInput = z.infer<typeof StationPlaylistListInput>;
 
 /**
- * generated from [StationPlaylistDetail](../../../../data/contracts/playlists/station.playlists.types.ck#L38)
+ * generated from [StationPlaylistDetail](../../../../data/contracts/playlists/station.playlists.types.ck)
  */
 export const StationPlaylistDetail = StationPlaylist.extend({
     tracks: z.array(StationPlaylistTrack),
@@ -138,7 +138,7 @@ export type StationPlaylistDetailInput = z.infer<typeof StationPlaylistDetailInp
 /**
  * One record as a playlist file names it. By its words and its ISRC, never by an id of this station's:
  * ids are minted afresh by every library, so a file keyed by them would restore onto nothing
- * generated from [PlaylistFileTrack](../../../../data/contracts/playlists/station.playlists.types.ck#L57)
+ * generated from [PlaylistFileTrack](../../../../data/contracts/playlists/station.playlists.types.ck)
  */
 export const PlaylistFileTrack = z.strictObject({
     title: z.string().min(1).max(400),
@@ -152,7 +152,7 @@ export type PlaylistFileTrack = z.infer<typeof PlaylistFileTrack>;
 
 /**
  * What an import WOULD do, written nowhere
- * generated from [PlaylistImportPlan](../../../../data/contracts/playlists/station.playlists.types.ck#L107)
+ * generated from [PlaylistImportPlan](../../../../data/contracts/playlists/station.playlists.types.ck)
  */
 export const PlaylistImportPlan = z.strictObject({
     name: z.string().min(1).max(200),
@@ -169,7 +169,7 @@ export type PlaylistImportPlan = z.infer<typeof PlaylistImportPlan>;
 
 /**
  * A playlist as a file: everything somebody would need to rebuild it on another station
- * generated from [PlaylistFile](../../../../data/contracts/playlists/station.playlists.types.ck#L67)
+ * generated from [PlaylistFile](../../../../data/contracts/playlists/station.playlists.types.ck)
  */
 export const PlaylistFile = z.strictObject({
     format: z.string().min(1).max(50).describe('What shape this is, so a file from a later build says so rather than being read wrongly'),
@@ -182,7 +182,7 @@ export const PlaylistFile = z.strictObject({
 export type PlaylistFile = z.infer<typeof PlaylistFile>;
 
 /**
- * generated from [PlaylistImportResult](../../../../data/contracts/playlists/station.playlists.types.ck#L117)
+ * generated from [PlaylistImportResult](../../../../data/contracts/playlists/station.playlists.types.ck)
  */
 export const PlaylistImportResult = z.strictObject({
     plan: PlaylistImportPlan,
@@ -198,7 +198,7 @@ export type PlaylistImportResultInput = z.infer<typeof PlaylistImportResultInput
 
 /**
  * Something to import a playlist from. Exactly one source
- * generated from [PlaylistImportInput](../../../../data/contracts/playlists/station.playlists.types.ck#L83)
+ * generated from [PlaylistImportInput](../../../../data/contracts/playlists/station.playlists.types.ck)
  */
 export const PlaylistImportInput = z.strictObject({
     file: PlaylistFile.optional().describe('A playlist exported from a deadair station'),

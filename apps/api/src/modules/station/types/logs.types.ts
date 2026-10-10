@@ -12,14 +12,14 @@ const _ZodDatetime = z.preprocess(
  * by `DeadairLogger`, which tees every level the app-wide `Logger` has, `trace` included. Narrowing
  * here would make a `trace` line unrepresentable in the type of the surface that reads the file it
  * is in.
- * generated from [LogLevel](../../../../data/contracts/station/logs.types.ck#L12)
+ * generated from [LogLevel](../../../../data/contracts/station/logs.types.ck)
  */
 export const LogLevel = z.enum(['trace', 'debug', 'info', 'warn', 'error']);
 export type LogLevel = z.infer<typeof LogLevel>;
 
 /**
  * One log file this install has, whether or not anything has been written to it
- * generated from [LogSource](../../../../data/contracts/station/logs.types.ck#L14)
+ * generated from [LogSource](../../../../data/contracts/station/logs.types.ck)
  */
 export const LogSource = z.strictObject({
     id: z.string().min(1).max(40).describe('A closed set the API owns: `api`, `liquidsoap`, `shim`. Never a path'),
@@ -40,7 +40,7 @@ export type LogSource = z.infer<typeof LogSource>;
 
 /**
  * One line, as far as it could be read back
- * generated from [LogLine](../../../../data/contracts/station/logs.types.ck#L28)
+ * generated from [LogLine](../../../../data/contracts/station/logs.types.ck)
  */
 export const LogLine = z.strictObject({
     ts: z.string().max(40).optional().describe('Absent on a line this API did not write, and on one of its own that did not parse'),
@@ -50,7 +50,7 @@ export const LogLine = z.strictObject({
 export type LogLine = z.infer<typeof LogLine>;
 
 /**
- * generated from [LogQuery](../../../../data/contracts/station/logs.types.ck#L41)
+ * generated from [LogQuery](../../../../data/contracts/station/logs.types.ck)
  */
 export const LogQuery = z.strictObject({
     limit: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(2000)).optional(),
@@ -59,7 +59,7 @@ export const LogQuery = z.strictObject({
 export type LogQuery = z.infer<typeof LogQuery>;
 
 /**
- * generated from [LogSourceList](../../../../data/contracts/station/logs.types.ck#L24)
+ * generated from [LogSourceList](../../../../data/contracts/station/logs.types.ck)
  */
 export const LogSourceList = z.strictObject({
     sources: z.array(LogSource).describe('Every source, in a fixed order, including the ones that are not present'),
@@ -67,7 +67,7 @@ export const LogSourceList = z.strictObject({
 export type LogSourceList = z.infer<typeof LogSourceList>;
 
 /**
- * generated from [LogPage](../../../../data/contracts/station/logs.types.ck#L34)
+ * generated from [LogPage](../../../../data/contracts/station/logs.types.ck)
  */
 export const LogPage = z.strictObject({
     sourceId: z.string().min(1).max(40),

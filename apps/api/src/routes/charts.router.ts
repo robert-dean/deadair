@@ -11,7 +11,7 @@ export const ChartsRouter = ServerKitRouter();
 
 /**
  * Every chart every installed chart plugin currently offers
- * from [charts.ck](../../data/contracts/charts/charts.ck#L22)
+ * from [charts.ck](../../data/contracts/charts/charts.ck) `GET /charts`
  */
 ChartsRouter.get('/charts', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(ChartsService);
@@ -24,7 +24,7 @@ ChartsRouter.get('/charts', requirePolicy({ policy: 'platform.view' }), async ct
 
 /**
  * One chart's records, ranked
- * from [charts.ck](../../data/contracts/charts/charts.ck#L37)
+ * from [charts.ck](../../data/contracts/charts/charts.ck) `GET /charts/{id}`
  */
 ChartsRouter.get('/charts/:id', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(

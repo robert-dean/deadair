@@ -23,7 +23,7 @@ const UpdateClockBandArgs = z.object({ id: z.string().min(1).max(100), body: Clo
 const DeleteClockBandArgs = z.object({ id: z.string().min(1).max(100) });
 
 /**
- * from [clock.ck](../../data/contracts/director/clock.ck#L27)
+ * from [clock.ck](../../data/contracts/director/clock.ck) `GET /clock/bands`
  */
 @Injectable()
 export class ListClockBandsMcpTool implements McpToolHandler {
@@ -45,7 +45,7 @@ export class ListClockBandsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [clock.ck](../../data/contracts/director/clock.ck#L40)
+ * from [clock.ck](../../data/contracts/director/clock.ck) `POST /clock/bands`
  */
 @Injectable()
 export class CreateClockBandMcpTool implements McpToolHandler {
@@ -68,7 +68,7 @@ export class CreateClockBandMcpTool implements McpToolHandler {
 }
 
 /**
- * from [clock.ck](../../data/contracts/director/clock.ck#L58)
+ * from [clock.ck](../../data/contracts/director/clock.ck) `PUT /clock/bands/{id}`
  */
 @Injectable()
 export class UpdateClockBandMcpTool implements McpToolHandler {
@@ -91,7 +91,7 @@ export class UpdateClockBandMcpTool implements McpToolHandler {
 }
 
 /**
- * from [clock.ck](../../data/contracts/director/clock.ck#L70)
+ * from [clock.ck](../../data/contracts/director/clock.ck) `DELETE /clock/bands/{id}`
  */
 @Injectable()
 export class DeleteClockBandMcpTool implements McpToolHandler {

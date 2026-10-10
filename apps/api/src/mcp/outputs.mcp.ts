@@ -23,7 +23,7 @@ const StartCastArgs = z.object({ body: OutputCastRequest });
 const StopCastArgs = z.object({ pluginId: z.string().min(1).max(200), deviceId: z.string().min(1).max(400) });
 
 /**
- * from [outputs.ck](../../data/contracts/outputs/outputs.ck#L16)
+ * from [outputs.ck](../../data/contracts/outputs/outputs.ck) `GET /outputs/devices`
  */
 @Injectable()
 export class ListOutputDevicesMcpTool implements McpToolHandler {
@@ -45,7 +45,7 @@ export class ListOutputDevicesMcpTool implements McpToolHandler {
 }
 
 /**
- * from [outputs.ck](../../data/contracts/outputs/outputs.ck#L31)
+ * from [outputs.ck](../../data/contracts/outputs/outputs.ck) `GET /outputs/casts`
  */
 @Injectable()
 export class ListCastsMcpTool implements McpToolHandler {
@@ -67,7 +67,7 @@ export class ListCastsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [outputs.ck](../../data/contracts/outputs/outputs.ck#L43)
+ * from [outputs.ck](../../data/contracts/outputs/outputs.ck) `POST /outputs/casts`
  */
 @Injectable()
 export class StartCastMcpTool implements McpToolHandler {
@@ -91,7 +91,7 @@ export class StartCastMcpTool implements McpToolHandler {
 }
 
 /**
- * from [outputs.ck](../../data/contracts/outputs/outputs.ck#L62)
+ * from [outputs.ck](../../data/contracts/outputs/outputs.ck) `DELETE /outputs/casts/{pluginId}/{deviceId}`
  */
 @Injectable()
 export class StopCastMcpTool implements McpToolHandler {

@@ -42,7 +42,7 @@ const GrantRequestArgs = z.object({ id: z.uuid() });
 const DeclineRequestArgs = z.object({ id: z.uuid(), body: ListenerRequestDecline });
 
 /**
- * from [requests.ck](../../data/contracts/requests/requests.ck#L17)
+ * from [requests.ck](../../data/contracts/requests/requests.ck) `GET /requests/search`
  */
 @Injectable()
 export class SearchRequestableRecordsMcpTool implements McpToolHandler {
@@ -69,7 +69,7 @@ export class SearchRequestableRecordsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [requests.ck](../../data/contracts/requests/requests.ck#L36)
+ * from [requests.ck](../../data/contracts/requests/requests.ck) `GET /requests`
  */
 @Injectable()
 export class ListRequestsMcpTool implements McpToolHandler {
@@ -92,7 +92,7 @@ export class ListRequestsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [requests.ck](../../data/contracts/requests/requests.ck#L51)
+ * from [requests.ck](../../data/contracts/requests/requests.ck) `POST /requests`
  */
 @Injectable()
 export class CreateRequestMcpTool implements McpToolHandler {
@@ -116,7 +116,7 @@ export class CreateRequestMcpTool implements McpToolHandler {
 }
 
 /**
- * from [requests.ck](../../data/contracts/requests/requests.ck#L69)
+ * from [requests.ck](../../data/contracts/requests/requests.ck) `GET /requests/mine`
  */
 @Injectable()
 export class ListMyRequestsMcpTool implements McpToolHandler {
@@ -138,7 +138,7 @@ export class ListMyRequestsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [requests.ck](../../data/contracts/requests/requests.ck#L87)
+ * from [requests.ck](../../data/contracts/requests/requests.ck) `POST /requests/{id}/grant`
  */
 @Injectable()
 export class GrantRequestMcpTool implements McpToolHandler {
@@ -161,7 +161,7 @@ export class GrantRequestMcpTool implements McpToolHandler {
 }
 
 /**
- * from [requests.ck](../../data/contracts/requests/requests.ck#L105)
+ * from [requests.ck](../../data/contracts/requests/requests.ck) `POST /requests/{id}/decline`
  */
 @Injectable()
 export class DeclineRequestMcpTool implements McpToolHandler {

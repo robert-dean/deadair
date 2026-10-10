@@ -91,8 +91,11 @@ export interface PlannedRecords {
  * more attempts. What the last attempt answers with then is what both attempts' searches found,
  * spread across the artists they were for, and the floor only where those came up short: see
  * `ModelSetGenerator.rescue`.
+ *
+ * Exported because it is half of how long a planning job may run: every queue that plans holds an
+ * `expiresIn` above this many model conversations, and `job.mappings.test.ts` reads it to say so.
  */
-const MAX_PLANNING_ATTEMPTS = 2;
+export const MAX_PLANNING_ATTEMPTS = 2;
 
 /**
  * Name a batch of records and turn them into ones the station can actually play.

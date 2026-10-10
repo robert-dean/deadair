@@ -8,7 +8,7 @@ const _ZodDatetime = z.preprocess(
 
 /**
  * Which store, as a stable id the console can key off rather than a name it renders.
- * generated from [StorageStoreId](../../../../data/contracts/storage/storage.types.ck#L8)
+ * generated from [StorageStoreId](../../../../data/contracts/storage/storage.types.ck)
  */
 export const StorageStoreId = z.enum(['tracks', 'art', 'segments', 'voices']);
 export type StorageStoreId = z.infer<typeof StorageStoreId>;
@@ -20,7 +20,7 @@ export type StorageStoreId = z.infer<typeof StorageStoreId>;
  * in two directions and each direction means something different — a file nothing claims is what a
  * crash between writing bytes and writing a row leaves behind, and a row whose file is gone is what
  * an operator emptying a directory leaves. Reporting one number would hide both.
- * generated from [StorageStore](../../../../data/contracts/storage/storage.types.ck#L16)
+ * generated from [StorageStore](../../../../data/contracts/storage/storage.types.ck)
  */
 export const StorageStore = z.strictObject({
     id: StorageStoreId,
@@ -59,7 +59,7 @@ export type StorageStoreInput = z.infer<typeof StorageStoreInput>;
  * `readAt` is not decoration: the figures come from walking directories, which is real I/O on a
  * station holding tens of thousands of files, so the answer is cached for a short while and this is
  * what stops a page mistaking it for live.
- * generated from [StorageReport](../../../../data/contracts/storage/storage.types.ck#L35)
+ * generated from [StorageReport](../../../../data/contracts/storage/storage.types.ck)
  */
 export const StorageReport = z.strictObject({
     readAt: _ZodDatetime,

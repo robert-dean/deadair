@@ -2,7 +2,7 @@ import type { ConfigFieldDescriptor } from '../../plugins/types/plugins.types.js
 
 /**
  * Which part of the console owns a setting. Every one of these but `schedule`, `personas`, `phrasings` and `providers` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes, `personas` on the characters page, beside the names it stands behind, `phrasings` on the Voice page's Phrasings tab, beside everything else about what the station says, and `providers` on the Providers section, which draws each capability beside the plugins that answer it rather than as a form of text fields.
- * generated from [SettingGroup](../../../../../apps/api/data/contracts/settings/settings.types.ck#L7)
+ * generated from [SettingGroup](../../../../../apps/api/data/contracts/settings/settings.types.ck)
  */
 export type SettingGroup =
     | 'station'
@@ -25,7 +25,7 @@ export type SettingGroup =
 /**
  * A submitted settings form. Partial: a key that is present is written, a key that is absent is left
  * alone, so a console may send one field. A secret submitted blank clears it
- * generated from [StationSettingsInput](../../../../../apps/api/data/contracts/settings/settings.types.ck#L53)
+ * generated from [StationSettingsInput](../../../../../apps/api/data/contracts/settings/settings.types.ck)
  */
 export interface StationSettingsInput {
     values: Record<string, unknown>;
@@ -33,7 +33,7 @@ export interface StationSettingsInput {
 
 /**
  * One identity provider row, and whether its issuer answered as one
- * generated from [SigninProviderCheck](../../../../../apps/api/data/contracts/settings/settings.types.ck#L58)
+ * generated from [SigninProviderCheck](../../../../../apps/api/data/contracts/settings/settings.types.ck)
  */
 export interface SigninProviderCheck {
     /** The row's name */
@@ -52,7 +52,7 @@ export interface SigninProviderCheck {
  * A station setting as the console needs to render it. `ConfigFieldDescriptor` is the plugins area's,
  * and shared deliberately: a plugin's settings form and the station's are the same problem, and the
  * console renders both with one component
- * generated from [StationSettingDescriptor](../../../../../apps/api/data/contracts/settings/settings.types.ck#L39)
+ * generated from [StationSettingDescriptor](../../../../../apps/api/data/contracts/settings/settings.types.ck)
  */
 export interface StationSettingDescriptor extends ConfigFieldDescriptor {
     group: SettingGroup;
@@ -60,7 +60,7 @@ export interface StationSettingDescriptor extends ConfigFieldDescriptor {
 
 /**
  * Every identity provider row the station could read, and the ones it could not use at all
- * generated from [SigninProvidersCheck](../../../../../apps/api/data/contracts/settings/settings.types.ck#L67)
+ * generated from [SigninProvidersCheck](../../../../../apps/api/data/contracts/settings/settings.types.ck)
  */
 export interface SigninProvidersCheck {
     /** In the order the rows are listed */
@@ -71,7 +71,7 @@ export interface SigninProvidersCheck {
 
 /**
  * Every station setting, with what it is currently worth
- * generated from [StationSettings](../../../../../apps/api/data/contracts/settings/settings.types.ck#L44)
+ * generated from [StationSettings](../../../../../apps/api/data/contracts/settings/settings.types.ck)
  */
 export interface StationSettings {
     descriptors: StationSettingDescriptor[];

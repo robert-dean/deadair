@@ -10,7 +10,7 @@ const _ZodDatetime = z.preprocess(
  * One person in a production: the presenter, or somebody cast to phone in. A snapshot rather than a
  * reference, because the persona it names may be edited or deleted while the programme is still being
  * made and what the turns were written as has to be what an operator reads back
- * generated from [ProductionCastMember](../../../../data/contracts/productions/productions.types.ck#L10)
+ * generated from [ProductionCastMember](../../../../data/contracts/productions/productions.types.ck)
  */
 export const ProductionCastMember = z.strictObject({
     role: z.enum(['host', 'caller', 'guest', 'cohost']),
@@ -21,7 +21,7 @@ export type ProductionCastMember = z.infer<typeof ProductionCastMember>;
 
 /**
  * What an operator asks for. Everything else about a production is decided by the passes that make it
- * generated from [ProductionRequest](../../../../data/contracts/productions/productions.types.ck#L39)
+ * generated from [ProductionRequest](../../../../data/contracts/productions/productions.types.ck)
  */
 export const ProductionRequest = z.strictObject({
     kind: z.string().min(1).max(100).optional(),
@@ -43,7 +43,7 @@ export type ProductionRequest = z.infer<typeof ProductionRequest>;
 
 /**
  * Something the station makes rather than something it says: several beats of speech, written in several passes, that airs as one block
- * generated from [Production](../../../../data/contracts/productions/productions.types.ck#L17)
+ * generated from [Production](../../../../data/contracts/productions/productions.types.ck)
  */
 export const Production = z.strictObject({
     id: z.string().min(1).max(100),
@@ -103,7 +103,7 @@ export const ProductionInput = z.strictObject({
 export type ProductionInput = z.infer<typeof ProductionInput>;
 
 /**
- * generated from [ProductionList](../../../../data/contracts/productions/productions.types.ck#L34)
+ * generated from [ProductionList](../../../../data/contracts/productions/productions.types.ck)
  */
 export const ProductionList = z.strictObject({
     productions: z.array(Production),

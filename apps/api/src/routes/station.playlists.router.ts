@@ -21,7 +21,7 @@ export const StationPlaylistsRouter = ServerKitRouter();
 
 /**
  * Every playlist the station owns, newest first
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L17)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck) `GET /station-playlists`
  */
 StationPlaylistsRouter.get('/station-playlists', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(StationPlaylistsService);
@@ -34,7 +34,7 @@ StationPlaylistsRouter.get('/station-playlists', requirePolicy({ policy: 'platfo
 
 /**
  * One station playlist with its records in order, placeholders included
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L35)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck) `GET /station-playlists/{id}`
  */
 StationPlaylistsRouter.get('/station-playlists/:id', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -54,7 +54,7 @@ StationPlaylistsRouter.get('/station-playlists/:id', requirePolicy({ policy: 'pl
 
 /**
  * Renames a station playlist, or rewrites what it is for
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L48)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck) `PATCH /station-playlists/{id}`
  */
 StationPlaylistsRouter.patch('/station-playlists/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -76,7 +76,7 @@ StationPlaylistsRouter.patch('/station-playlists/:id', requirePolicy({ policy: '
 
 /**
  * Deletes a station playlist. The records it named stay in the library
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L61)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck) `DELETE /station-playlists/{id}`
  */
 StationPlaylistsRouter.delete('/station-playlists/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -94,7 +94,7 @@ StationPlaylistsRouter.delete('/station-playlists/:id', requirePolicy({ policy: 
 
 /**
  * Looks up the records this playlist names and the library does not hold, in the background, and adds the ones a provider has. The activity feed says how it went
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L75)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck) `POST /station-playlists/{id}/fill`
  */
 StationPlaylistsRouter.post('/station-playlists/:id/fill', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -112,7 +112,7 @@ StationPlaylistsRouter.post('/station-playlists/:id/fill', requirePolicy({ polic
 
 /**
  * One station playlist as a file another station can import
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L89)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck) `GET /station-playlists/{id}/export`
  */
 StationPlaylistsRouter.get('/station-playlists/:id/export', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -133,7 +133,7 @@ StationPlaylistsRouter.get('/station-playlists/:id/export', requirePolicy({ poli
 
 /**
  * Reads a source and reports which of its records the library holds and which it would have to find. Writes nothing
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L110)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck) `POST /station-playlists/import/preview`
  */
 StationPlaylistsRouter.post(
     '/station-playlists/import/preview',
@@ -153,7 +153,7 @@ StationPlaylistsRouter.post(
 
 /**
  * Makes a new station playlist from a source and answers with what it did
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L127)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck) `POST /station-playlists/import`
  */
 StationPlaylistsRouter.post('/station-playlists/import', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, PlaylistImportInput);

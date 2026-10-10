@@ -8,7 +8,7 @@ const _ZodDatetime = z.preprocess(
 
 /**
  * One of the station's mounts a speaker can play
- * generated from [OutputMount](../../../../data/contracts/outputs/outputs.types.ck#L7)
+ * generated from [OutputMount](../../../../data/contracts/outputs/outputs.types.ck)
  */
 export const OutputMount = z.strictObject({
     format: z.enum(['mp3', 'opus', 'aac', 'flac', 'hls']),
@@ -18,7 +18,7 @@ export type OutputMount = z.infer<typeof OutputMount>;
 
 /**
  * A plugin that could not list its speakers
- * generated from [OutputProblem](../../../../data/contracts/outputs/outputs.types.ck#L23)
+ * generated from [OutputProblem](../../../../data/contracts/outputs/outputs.types.ck)
  */
 export const OutputProblem = z.strictObject({
     pluginId: z.string().max(200),
@@ -28,7 +28,7 @@ export type OutputProblem = z.infer<typeof OutputProblem>;
 
 /**
  * A speaker the station is meant to be playing on, and how it is doing
- * generated from [OutputCast](../../../../data/contracts/outputs/outputs.types.ck#L34)
+ * generated from [OutputCast](../../../../data/contracts/outputs/outputs.types.ck)
  */
 export const OutputCast = z.strictObject({
     pluginId: z.string().max(200),
@@ -47,7 +47,7 @@ export type OutputCast = z.infer<typeof OutputCast>;
 
 /**
  * Play the station on a speaker
- * generated from [OutputCastRequest](../../../../data/contracts/outputs/outputs.types.ck#L48)
+ * generated from [OutputCastRequest](../../../../data/contracts/outputs/outputs.types.ck)
  */
 export const OutputCastRequest = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -63,7 +63,7 @@ export type OutputCastRequest = z.infer<typeof OutputCastRequest>;
 
 /**
  * A speaker the station can play on, as an `output` plugin listed it
- * generated from [OutputDevice](../../../../data/contracts/outputs/outputs.types.ck#L12)
+ * generated from [OutputDevice](../../../../data/contracts/outputs/outputs.types.ck)
  */
 export const OutputDevice = z.strictObject({
     pluginId: z.string().max(200).describe('The plugin that drives it, for example `deadair.cast`'),
@@ -81,7 +81,7 @@ export type OutputDevice = z.infer<typeof OutputDevice>;
 
 /**
  * Every speaker the station is meant to be playing on
- * generated from [OutputCastList](../../../../data/contracts/outputs/outputs.types.ck#L44)
+ * generated from [OutputCastList](../../../../data/contracts/outputs/outputs.types.ck)
  */
 export const OutputCastList = z.strictObject({
     casts: z.array(OutputCast),
@@ -90,7 +90,7 @@ export type OutputCastList = z.infer<typeof OutputCastList>;
 
 /**
  * Every speaker every `output` plugin can play the station on
- * generated from [OutputDeviceList](../../../../data/contracts/outputs/outputs.types.ck#L28)
+ * generated from [OutputDeviceList](../../../../data/contracts/outputs/outputs.types.ck)
  */
 export const OutputDeviceList = z.strictObject({
     devices: z.array(OutputDevice),

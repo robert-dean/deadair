@@ -42,7 +42,7 @@ const GetPluginLogsArgs = z.object({ id: z.string().min(1).max(200), query: Plug
 const SetPluginLogLevelArgs = z.object({ id: z.string().min(1).max(200), body: PluginLogLevelInput });
 
 /**
- * from [plugins.ck](../../data/contracts/plugins/plugins.ck#L29)
+ * from [plugins.ck](../../data/contracts/plugins/plugins.ck) `GET /plugins`
  */
 @Injectable()
 export class ListPluginsMcpTool implements McpToolHandler {
@@ -65,7 +65,7 @@ export class ListPluginsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [plugins.ck](../../data/contracts/plugins/plugins.ck#L47)
+ * from [plugins.ck](../../data/contracts/plugins/plugins.ck) `GET /plugins/grants`
  */
 @Injectable()
 export class ListPluginGrantsMcpTool implements McpToolHandler {
@@ -87,7 +87,7 @@ export class ListPluginGrantsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [plugins.ck](../../data/contracts/plugins/plugins.ck#L65)
+ * from [plugins.ck](../../data/contracts/plugins/plugins.ck) `GET /plugins/providers`
  */
 @Injectable()
 export class ListCapabilityProvidersMcpTool implements McpToolHandler {
@@ -109,7 +109,7 @@ export class ListCapabilityProvidersMcpTool implements McpToolHandler {
 }
 
 /**
- * from [plugins.ck](../../data/contracts/plugins/plugins.ck#L83)
+ * from [plugins.ck](../../data/contracts/plugins/plugins.ck) `POST /plugins/rescan`
  */
 @Injectable()
 export class RescanPluginsMcpTool implements McpToolHandler {
@@ -132,7 +132,7 @@ export class RescanPluginsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [plugins.ck](../../data/contracts/plugins/plugins.ck#L122)
+ * from [plugins.ck](../../data/contracts/plugins/plugins.ck) `GET /plugins/{id}`
  */
 @Injectable()
 export class GetPluginMcpTool implements McpToolHandler {
@@ -155,7 +155,7 @@ export class GetPluginMcpTool implements McpToolHandler {
 }
 
 /**
- * from [plugins.ck](../../data/contracts/plugins/plugins.ck#L174)
+ * from [plugins.ck](../../data/contracts/plugins/plugins.ck) `POST /plugins/{id}/enable`
  */
 @Injectable()
 export class EnablePluginMcpTool implements McpToolHandler {
@@ -178,7 +178,7 @@ export class EnablePluginMcpTool implements McpToolHandler {
 }
 
 /**
- * from [plugins.ck](../../data/contracts/plugins/plugins.ck#L189)
+ * from [plugins.ck](../../data/contracts/plugins/plugins.ck) `POST /plugins/{id}/disable`
  */
 @Injectable()
 export class DisablePluginMcpTool implements McpToolHandler {
@@ -201,7 +201,7 @@ export class DisablePluginMcpTool implements McpToolHandler {
 }
 
 /**
- * from [plugins.ck](../../data/contracts/plugins/plugins.ck#L223)
+ * from [plugins.ck](../../data/contracts/plugins/plugins.ck) `POST /plugins/{id}/reload`
  */
 @Injectable()
 export class ReloadPluginMcpTool implements McpToolHandler {
@@ -224,7 +224,7 @@ export class ReloadPluginMcpTool implements McpToolHandler {
 }
 
 /**
- * from [plugins.ck](../../data/contracts/plugins/plugins.ck#L238)
+ * from [plugins.ck](../../data/contracts/plugins/plugins.ck) `POST /plugins/{id}/test`
  */
 @Injectable()
 export class TestPluginConnectionMcpTool implements McpToolHandler {
@@ -247,7 +247,7 @@ export class TestPluginConnectionMcpTool implements McpToolHandler {
 }
 
 /**
- * from [plugins.ck](../../data/contracts/plugins/plugins.ck#L253)
+ * from [plugins.ck](../../data/contracts/plugins/plugins.ck) `POST /plugins/{id}/config/suggestions`
  */
 @Injectable()
 export class SuggestPluginConfigOptionsMcpTool implements McpToolHandler {
@@ -270,7 +270,7 @@ export class SuggestPluginConfigOptionsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [plugins.ck](../../data/contracts/plugins/plugins.ck#L272)
+ * from [plugins.ck](../../data/contracts/plugins/plugins.ck) `GET /plugins/{id}/logs`
  */
 @Injectable()
 export class GetPluginLogsMcpTool implements McpToolHandler {
@@ -293,7 +293,7 @@ export class GetPluginLogsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [plugins.ck](../../data/contracts/plugins/plugins.ck#L306)
+ * from [plugins.ck](../../data/contracts/plugins/plugins.ck) `PUT /plugins/{id}/logs/level`
  */
 @Injectable()
 export class SetPluginLogLevelMcpTool implements McpToolHandler {

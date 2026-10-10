@@ -24,7 +24,7 @@ const UpdateTopicArgs = z.object({ id: z.string().min(1).max(100), body: TopicIn
 const DeleteTopicArgs = z.object({ id: z.string().min(1).max(100) });
 
 /**
- * from [topics.ck](../../data/contracts/topics/topics.ck#L25)
+ * from [topics.ck](../../data/contracts/topics/topics.ck) `GET /topics`
  */
 @Injectable()
 export class ListTopicsMcpTool implements McpToolHandler {
@@ -47,7 +47,7 @@ export class ListTopicsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [topics.ck](../../data/contracts/topics/topics.ck#L39)
+ * from [topics.ck](../../data/contracts/topics/topics.ck) `POST /topics`
  */
 @Injectable()
 export class CreateTopicMcpTool implements McpToolHandler {
@@ -70,7 +70,7 @@ export class CreateTopicMcpTool implements McpToolHandler {
 }
 
 /**
- * from [topics.ck](../../data/contracts/topics/topics.ck#L59)
+ * from [topics.ck](../../data/contracts/topics/topics.ck) `GET /topics/kinds`
  */
 @Injectable()
 export class ListTopicKindsMcpTool implements McpToolHandler {
@@ -92,7 +92,7 @@ export class ListTopicKindsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [topics.ck](../../data/contracts/topics/topics.ck#L77)
+ * from [topics.ck](../../data/contracts/topics/topics.ck) `PUT /topics/{id}`
  */
 @Injectable()
 export class UpdateTopicMcpTool implements McpToolHandler {
@@ -115,7 +115,7 @@ export class UpdateTopicMcpTool implements McpToolHandler {
 }
 
 /**
- * from [topics.ck](../../data/contracts/topics/topics.ck#L89)
+ * from [topics.ck](../../data/contracts/topics/topics.ck) `DELETE /topics/{id}`
  */
 @Injectable()
 export class DeleteTopicMcpTool implements McpToolHandler {

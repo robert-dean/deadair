@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * What a liveness probe gets back from the API
- * generated from [Health](../../../../data/contracts/health/health.types.ck#L7)
+ * generated from [Health](../../../../data/contracts/health/health.types.ck)
  */
 export const Health = z.strictObject({
     status: z

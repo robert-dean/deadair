@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * What a listener is hearing right now: a record, or the station talking
- * generated from [NowPlayingTrack](../../../../data/contracts/nowplaying/nowplaying.types.ck#L7)
+ * generated from [NowPlayingTrack](../../../../data/contracts/nowplaying/nowplaying.types.ck)
  */
 export const NowPlayingTrack = z.strictObject({
     kind: z
@@ -39,7 +39,7 @@ export type NowPlayingTrack = z.infer<typeof NowPlayingTrack>;
 
 /**
  * One way to listen to this station right now
- * generated from [NowPlayingMount](../../../../data/contracts/nowplaying/nowplaying.types.ck#L18)
+ * generated from [NowPlayingMount](../../../../data/contracts/nowplaying/nowplaying.types.ck)
  */
 export const NowPlayingMount = z.strictObject({
     format: z
@@ -61,7 +61,7 @@ export type NowPlayingMount = z.infer<typeof NowPlayingMount>;
 
 /**
  * The programme on air, as a listener would be told it
- * generated from [NowPlayingShow](../../../../data/contracts/nowplaying/nowplaying.types.ck#L24)
+ * generated from [NowPlayingShow](../../../../data/contracts/nowplaying/nowplaying.types.ck)
  */
 export const NowPlayingShow = z.strictObject({
     name: z
@@ -89,7 +89,7 @@ export type NowPlayingShow = z.infer<typeof NowPlayingShow>;
 
 /**
  * What the station is playing, for anything that wants to display it
- * generated from [NowPlaying](../../../../data/contracts/nowplaying/nowplaying.types.ck#L30)
+ * generated from [NowPlaying](../../../../data/contracts/nowplaying/nowplaying.types.ck)
  */
 export const NowPlaying = z.strictObject({
     station: z.string().max(200).describe("The station's on-air name"),

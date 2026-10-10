@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * A feed one installed plugin offers
- * generated from [StationFeed](../../../../data/contracts/news/news.types.ck#L7)
+ * generated from [StationFeed](../../../../data/contracts/news/news.types.ck)
  */
 export const StationFeed = z.strictObject({
     id: z
@@ -22,7 +22,7 @@ export type StationFeed = z.infer<typeof StationFeed>;
 
 /**
  * One published entry
- * generated from [NewsStory](../../../../data/contracts/news/news.types.ck#L20)
+ * generated from [NewsStory](../../../../data/contracts/news/news.types.ck)
  */
 export const NewsStory = z.strictObject({
     id: z
@@ -48,7 +48,7 @@ export const NewsStory = z.strictObject({
 export type NewsStory = z.infer<typeof NewsStory>;
 
 /**
- * generated from [NewsQuery](../../../../data/contracts/news/news.types.ck#L32)
+ * generated from [NewsQuery](../../../../data/contracts/news/news.types.ck)
  */
 export const NewsQuery = z.strictObject({
     feedId: z.string().max(400).optional().describe('One feed, or absent for every feed the station can see, merged newest first'),
@@ -64,7 +64,7 @@ export const NewsQuery = z.strictObject({
 export type NewsQuery = z.infer<typeof NewsQuery>;
 
 /**
- * generated from [StationFeedList](../../../../data/contracts/news/news.types.ck#L16)
+ * generated from [StationFeedList](../../../../data/contracts/news/news.types.ck)
  */
 export const StationFeedList = z.strictObject({
     feeds: z.array(StationFeed),
@@ -72,7 +72,7 @@ export const StationFeedList = z.strictObject({
 export type StationFeedList = z.infer<typeof StationFeedList>;
 
 /**
- * generated from [NewsPage](../../../../data/contracts/news/news.types.ck#L39)
+ * generated from [NewsPage](../../../../data/contracts/news/news.types.ck)
  */
 export const NewsPage = z.strictObject({
     stories: z

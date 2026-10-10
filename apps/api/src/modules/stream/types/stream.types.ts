@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * What the station's track fetcher holds by way of a Spotify login
- * generated from [FetcherAuthorization](../../../../data/contracts/stream/stream.types.ck#L8)
+ * generated from [FetcherAuthorization](../../../../data/contracts/stream/stream.types.ck)
  */
 export const FetcherAuthorization = z.strictObject({
     reachable: z
@@ -43,7 +43,7 @@ export type FetcherAuthorization = z.infer<typeof FetcherAuthorization>;
 
 /**
  * An authorization to open in a browser
- * generated from [FetcherAuthorizationStart](../../../../data/contracts/stream/stream.types.ck#L19)
+ * generated from [FetcherAuthorizationStart](../../../../data/contracts/stream/stream.types.ck)
  */
 export const FetcherAuthorizationStart = z.strictObject({
     authorizeUrl: z.string().min(1).max(2000).describe('The Spotify consent page, to be opened by the operator'),
@@ -55,7 +55,7 @@ export type FetcherAuthorizationStart = z.infer<typeof FetcherAuthorizationStart
 
 /**
  * The callback the browser could not deliver, handed over by the operator instead
- * generated from [FetcherAuthorizationInput](../../../../data/contracts/stream/stream.types.ck#L25)
+ * generated from [FetcherAuthorizationInput](../../../../data/contracts/stream/stream.types.ck)
  */
 export const FetcherAuthorizationInput = z.strictObject({
     redirectUrl: z
@@ -70,7 +70,7 @@ export type FetcherAuthorizationInput = z.infer<typeof FetcherAuthorizationInput
 
 /**
  * Which account the station now fetches as
- * generated from [FetcherAuthorizationFinished](../../../../data/contracts/stream/stream.types.ck#L30)
+ * generated from [FetcherAuthorizationFinished](../../../../data/contracts/stream/stream.types.ck)
  */
 export const FetcherAuthorizationFinished = z.strictObject({
     username: z

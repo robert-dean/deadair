@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * A chart one installed plugin offers
- * generated from [StationChart](../../../../data/contracts/charts/charts.types.ck#L7)
+ * generated from [StationChart](../../../../data/contracts/charts/charts.types.ck)
  */
 export const StationChart = z.strictObject({
     id: z
@@ -22,7 +22,7 @@ export type StationChart = z.infer<typeof StationChart>;
 
 /**
  * One record's place in a chart
- * generated from [ChartRecord](../../../../data/contracts/charts/charts.types.ck#L20)
+ * generated from [ChartRecord](../../../../data/contracts/charts/charts.types.ck)
  */
 export const ChartRecord = z.strictObject({
     rank: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1)),
@@ -43,7 +43,7 @@ export const ChartRecord = z.strictObject({
 export type ChartRecord = z.infer<typeof ChartRecord>;
 
 /**
- * generated from [ChartQuery](../../../../data/contracts/charts/charts.types.ck#L31)
+ * generated from [ChartQuery](../../../../data/contracts/charts/charts.types.ck)
  */
 export const ChartQuery = z.strictObject({
     limit: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(100)).optional(),
@@ -58,7 +58,7 @@ export const ChartQuery = z.strictObject({
 export type ChartQuery = z.infer<typeof ChartQuery>;
 
 /**
- * generated from [StationChartList](../../../../data/contracts/charts/charts.types.ck#L16)
+ * generated from [StationChartList](../../../../data/contracts/charts/charts.types.ck)
  */
 export const StationChartList = z.strictObject({
     charts: z.array(StationChart),
@@ -66,7 +66,7 @@ export const StationChartList = z.strictObject({
 export type StationChartList = z.infer<typeof StationChartList>;
 
 /**
- * generated from [ChartPage](../../../../data/contracts/charts/charts.types.ck#L36)
+ * generated from [ChartPage](../../../../data/contracts/charts/charts.types.ck)
  */
 export const ChartPage = z.strictObject({
     chartId: z.string().min(1).max(400),

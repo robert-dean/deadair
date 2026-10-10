@@ -18,7 +18,7 @@ const __wireDt = (v: unknown, fmt: string): unknown =>
  * every one of those facts was already stored — the fetch error on `track_audio.last_error`, the
  * provider's refusal on `track_sources.playable` — and reachable only by finding the record and
  * hovering a cell on its page. This is that fact travelling with the row that counted it.
- * generated from [AttentionEvidence](../../../../data/contracts/station/station.types.ck#L14)
+ * generated from [AttentionEvidence](../../../../data/contracts/station/station.types.ck)
  */
 export const AttentionEvidence = z.strictObject({
     label: z.string().min(1).max(300).describe("The thing itself, as an operator would name it: a record's title and who made it"),
@@ -48,7 +48,7 @@ export type AttentionEvidence = z.infer<typeof AttentionEvidence>;
  *
  * `lastBeat` is absent until a loop finishes its first pass, which is why `startedAt` is there: from
  * the two of them a reader can tell a loop that has never completed anything from one that stopped.
- * generated from [StationHeartbeat](../../../../data/contracts/station/station.types.ck#L46)
+ * generated from [StationHeartbeat](../../../../data/contracts/station/station.types.ck)
  */
 export const StationHeartbeat = z.strictObject({
     name: z.string().min(1).max(100),
@@ -65,7 +65,7 @@ export type StationHeartbeatInput = z.infer<typeof StationHeartbeatInput>;
  *
  * The counts `/catalog/tracks` already answers with, lifted out of a page of rows: a check-up wants
  * the sentence "13 of 581 measured" without asking for thirteen tracks to get it.
- * generated from [StationBacklog](../../../../data/contracts/station/station.types.ck#L56)
+ * generated from [StationBacklog](../../../../data/contracts/station/station.types.ck)
  */
 export const StationBacklog = z.strictObject({
     total: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
@@ -83,7 +83,7 @@ export type StationBacklogInput = z.infer<typeof StationBacklogInput>;
  * The model is shared by every break, every programme refill and every production, one generation at
  * a time, so a slot held for far longer than any generation takes is the station's ability to speak
  * stuck behind one answer. Nothing else exposes it.
- * generated from [StationModelHolder](../../../../data/contracts/station/station.types.ck#L67)
+ * generated from [StationModelHolder](../../../../data/contracts/station/station.types.ck)
  */
 export const StationModelHolder = z.strictObject({
     priority: z
@@ -103,7 +103,7 @@ export type StationModelHolderInput = z.infer<typeof StationModelHolderInput>;
 
 /**
  * One release of the station, in the words its changelog entry used
- * generated from [StationRelease](../../../../data/contracts/station/station.types.ck#L108)
+ * generated from [StationRelease](../../../../data/contracts/station/station.types.ck)
  */
 export const StationRelease = z.strictObject({
     version: z.string().min(1).max(50).describe('The release, as its tag names it without the leading `v`'),
@@ -136,7 +136,7 @@ export function serializeStationRelease(value: StationRelease): unknown {
 
 /**
  * One thing that wants the operator's attention, or the fact that nothing does
- * generated from [AttentionItem](../../../../data/contracts/station/station.types.ck#L21)
+ * generated from [AttentionItem](../../../../data/contracts/station/station.types.ck)
  */
 export const AttentionItem = z.strictObject({
     code: z
@@ -181,7 +181,7 @@ export type AttentionItem = z.infer<typeof AttentionItem>;
 
 /**
  * The model slot and its queue
- * generated from [StationModel](../../../../data/contracts/station/station.types.ck#L74)
+ * generated from [StationModel](../../../../data/contracts/station/station.types.ck)
  */
 export const StationModel = z.strictObject({
     waiting: z
@@ -196,7 +196,7 @@ export type StationModelInput = z.infer<typeof StationModelInput>;
 
 /**
  * What this build is, and what changed in it
- * generated from [StationReleases](../../../../data/contracts/station/station.types.ck#L116)
+ * generated from [StationReleases](../../../../data/contracts/station/station.types.ck)
  */
 export const StationReleases = z.strictObject({
     current: z
@@ -245,7 +245,7 @@ export function serializeStationReleases(value: StationReleases): unknown {
 
 /**
  * Everything wrong or waiting, worst first
- * generated from [StationAttention](../../../../data/contracts/station/station.types.ck#L33)
+ * generated from [StationAttention](../../../../data/contracts/station/station.types.ck)
  */
 export const StationAttention = z.strictObject({
     items: z.array(AttentionItem),
@@ -272,7 +272,7 @@ export type StationAttention = z.infer<typeof StationAttention>;
  * `operation(internal)`, deliberately, so it generates no SDK method and the console cannot call it
  * — which would leave "which build is this" answerable only from a shell, the one thing carrying it
  * here exists to fix.
- * generated from [StationCheckup](../../../../data/contracts/station/station.types.ck#L98)
+ * generated from [StationCheckup](../../../../data/contracts/station/station.types.ck)
  */
 export const StationCheckup = z.strictObject({
     readAt: _ZodDatetime.describe('When this reading was taken, so a stale page cannot pass itself off as now'),

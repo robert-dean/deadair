@@ -12,7 +12,7 @@ const __dt = (v: unknown, path: string): DateTime => {
  * A never-play rule: a KIND of record the station must not play. Absolute, like a dislike, and
  * exclude-only: there is no "only these" rule, because one could leave the station nothing to play.
  * Every scope is optional and an absent one means "always"
- * generated from [BlockRule](../../../../../apps/api/data/contracts/director/rules.types.ck#L10)
+ * generated from [BlockRule](../../../../../apps/api/data/contracts/director/rules.types.ck)
  */
 export interface BlockRule {
     id: string;
@@ -71,7 +71,7 @@ export function reviveBlockRule(raw: BlockRule): BlockRule {
 /**
  * A lean toward some genres for a while. The opposite of a rule: the station favours them when it
  * chooses records, and still plays anything else rather than run dry
- * generated from [GenreSteer](../../../../../apps/api/data/contracts/director/rules.types.ck#L31)
+ * generated from [GenreSteer](../../../../../apps/api/data/contracts/director/rules.types.ck)
  */
 export interface GenreSteer {
     /** What to favour, as genres. A record tagged with any of them, or a kind of one, is preferred */
@@ -89,7 +89,7 @@ export function reviveGenreSteer(raw: GenreSteer): GenreSteer {
 
 /**
  * Lean the station toward some genres for a number of hours
- * generated from [GenreSteerInput](../../../../../apps/api/data/contracts/director/rules.types.ck#L42)
+ * generated from [GenreSteerInput](../../../../../apps/api/data/contracts/director/rules.types.ck)
  */
 export interface GenreSteerInput {
     genres: string[];
@@ -99,7 +99,7 @@ export interface GenreSteerInput {
 
 /**
  * Every rule on the station, newest first
- * generated from [BlockRuleList](../../../../../apps/api/data/contracts/director/rules.types.ck#L25)
+ * generated from [BlockRuleList](../../../../../apps/api/data/contracts/director/rules.types.ck)
  */
 export interface BlockRuleList {
     rules: BlockRule[];
@@ -123,7 +123,7 @@ export function reviveBlockRuleList(raw: BlockRuleList): BlockRuleList {
 
 /**
  * The lean in force, or none
- * generated from [GenreSteerReading](../../../../../apps/api/data/contracts/director/rules.types.ck#L37)
+ * generated from [GenreSteerReading](../../../../../apps/api/data/contracts/director/rules.types.ck)
  */
 export interface GenreSteerReading {
     /** Absent when nothing is leaning the station, including once one has run out */

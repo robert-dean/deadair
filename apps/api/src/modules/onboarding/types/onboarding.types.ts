@@ -1,14 +1,14 @@
 import { z } from 'zod';
 
 /**
- * generated from [OnboardingRequirementKey](../../../../data/contracts/onboarding/onboarding.types.ck#L7)
+ * generated from [OnboardingRequirementKey](../../../../data/contracts/onboarding/onboarding.types.ck)
  */
 export const OnboardingRequirementKey = z.enum(['admin.account']);
 export type OnboardingRequirementKey = z.infer<typeof OnboardingRequirementKey>;
 
 /**
  * A single onboarding requirement
- * generated from [CoreOnboardingRequirement](../../../../data/contracts/onboarding/onboarding.types.ck#L9)
+ * generated from [CoreOnboardingRequirement](../../../../data/contracts/onboarding/onboarding.types.ck)
  */
 export const CoreOnboardingRequirement = z.strictObject({
     key: OnboardingRequirementKey.describe('The key of the requirement'),
@@ -26,7 +26,7 @@ export const CoreOnboardingRequirementInput = z.strictObject({
 export type CoreOnboardingRequirementInput = z.infer<typeof CoreOnboardingRequirementInput>;
 
 /**
- * generated from [AdminAccountOnboardingRequirement](../../../../data/contracts/onboarding/onboarding.types.ck#L16)
+ * generated from [AdminAccountOnboardingRequirement](../../../../data/contracts/onboarding/onboarding.types.ck)
  */
 export const AdminAccountOnboardingRequirement = CoreOnboardingRequirement.extend({
     key: z.literal('admin.account'),
@@ -43,7 +43,7 @@ export const AdminAccountOnboardingRequirementInput = CoreOnboardingRequirementI
 export type AdminAccountOnboardingRequirementInput = z.infer<typeof AdminAccountOnboardingRequirementInput>;
 
 /**
- * generated from [OnboardingRequirement](../../../../data/contracts/onboarding/onboarding.types.ck#L24)
+ * generated from [OnboardingRequirement](../../../../data/contracts/onboarding/onboarding.types.ck)
  */
 export const OnboardingRequirement = AdminAccountOnboardingRequirement;
 export type OnboardingRequirement = z.infer<typeof OnboardingRequirement>;

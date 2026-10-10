@@ -20,7 +20,7 @@ function requireMcpContainer(context: McpToolContext): Container {
 const ReadActivityArgs = z.object({ query: ActivityQuery.optional() });
 
 /**
- * from [activity.ck](../../data/contracts/activity/activity.ck#L25)
+ * from [activity.ck](../../data/contracts/activity/activity.ck) `GET /activity`
  */
 @Injectable()
 export class ReadActivityMcpTool implements McpToolHandler {

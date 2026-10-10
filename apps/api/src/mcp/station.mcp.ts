@@ -26,7 +26,7 @@ const ReadStationReleasesArgs = z.object({});
 const CheckStationReleasesArgs = z.object({});
 
 /**
- * from [station.ck](../../data/contracts/station/station.ck#L27)
+ * from [station.ck](../../data/contracts/station/station.ck) `GET /station/attention`
  */
 @Injectable()
 export class ReadStationAttentionMcpTool implements McpToolHandler {
@@ -48,7 +48,7 @@ export class ReadStationAttentionMcpTool implements McpToolHandler {
 }
 
 /**
- * from [station.ck](../../data/contracts/station/station.ck#L46)
+ * from [station.ck](../../data/contracts/station/station.ck) `POST /station/attention/{code}/dismiss`
  */
 @Injectable()
 export class DismissStationAttentionMcpTool implements McpToolHandler {
@@ -70,7 +70,7 @@ export class DismissStationAttentionMcpTool implements McpToolHandler {
 }
 
 /**
- * from [station.ck](../../data/contracts/station/station.ck#L71)
+ * from [station.ck](../../data/contracts/station/station.ck) `GET /station/checkup`
  */
 @Injectable()
 export class ReadStationCheckupMcpTool implements McpToolHandler {
@@ -92,7 +92,7 @@ export class ReadStationCheckupMcpTool implements McpToolHandler {
 }
 
 /**
- * from [station.ck](../../data/contracts/station/station.ck#L86)
+ * from [station.ck](../../data/contracts/station/station.ck) `GET /station/releases`
  */
 @Injectable()
 export class ReadStationReleasesMcpTool implements McpToolHandler {
@@ -115,7 +115,7 @@ export class ReadStationReleasesMcpTool implements McpToolHandler {
 }
 
 /**
- * from [station.ck](../../data/contracts/station/station.ck#L101)
+ * from [station.ck](../../data/contracts/station/station.ck) `POST /station/releases/check`
  */
 @Injectable()
 export class CheckStationReleasesMcpTool implements McpToolHandler {

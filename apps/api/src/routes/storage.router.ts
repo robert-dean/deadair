@@ -9,7 +9,7 @@ export const StorageRouter = ServerKitRouter();
 
 /**
  * What is on disk, per store, against what the database says should be
- * from [storage.ck](../../data/contracts/storage/storage.ck#L25)
+ * from [storage.ck](../../data/contracts/storage/storage.ck) `GET /storage`
  */
 StorageRouter.get('/storage', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(StorageService);

@@ -486,7 +486,13 @@ describe('StationLineup editing', () => {
 
         const after = idsOf(lineup.all());
         expect(after).toHaveLength(9);
-        for (const [at, id] of [[1, 'segment:ded'], [2, 'r'], [5, 'segment:beat'], [7, 'o']] as const) expect(after[at]).toBe(id);
+        for (const [at, id] of [
+            [1, 'segment:ded'],
+            [2, 'r'],
+            [5, 'segment:beat'],
+            [7, 'o'],
+        ] as const)
+            expect(after[at]).toBe(id);
         expect([after[0], after[3], after[4], after[6], after[8]].sort()).toEqual(['a', 'b', 'c', 'd', 'e']);
         expect(idsOf(dropped)).toEqual(['segment:talk']);
     });
@@ -666,8 +672,8 @@ describe('StationLineup editing', () => {
 
     it('keeps an order saved before pinning existed: a request and a production still read as pinned', () => {
         const lineup = new StationLineup(binding('rotation'), [
-                { id: '1', kind: 'track', state: 'planned', track: track('a') },
-                { id: '2', kind: 'track', state: 'planned', track: track('r'), requestId: 'req-1' },
+            { id: '1', kind: 'track', state: 'planned', track: track('a') },
+            { id: '2', kind: 'track', state: 'planned', track: track('r'), requestId: 'req-1' },
             { id: '3', kind: 'segment', state: 'planned', segmentId: 'beat', groupId: 'episode-1' },
         ]);
 

@@ -3,7 +3,7 @@ import type { ArtAsset } from './art.repository.js';
 /**
  * Where the station serves one cached asset, as a path under the API root.
  *
- * **This is the same string `cachedOrUpstream` in `catalog.art.ts` builds in SQL, and the two have
+ * **This is the same string `cachedOrSource` in `catalog.art.ts` builds in SQL, and the two have
  * to agree.** They cannot share an implementation: one is a `select` running inside a catalog read
  * and the other is a TypeScript call on a row already in hand. `catalog.art.test.ts` pins the SQL's
  * half and this file's tests pin the other, so a change to either shape fails a test rather than

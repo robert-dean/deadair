@@ -4,6 +4,7 @@ import { errorText } from '#modules/shared/error.text.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 import { artPath } from './art.path.js';
 import { ArtRepository } from './art.repository.js';
+import { stationCover } from './art.source.token.js';
 
 /** How long a cover the store did not hold waits before the store is asked about it again. */
 export const COVER_RETRY_MS = 5_000;
@@ -27,17 +28,20 @@ export interface CoverLookup {
  * nothing serialises, and every reader that shows a cover to a listener asks here instead of
  * trusting what the item was built with. So the cover appears the moment the cache job lands, and
  * the provider's URL (a Subsonic one carries the operator's user and token) never leaves the server.
+ * Until the cache lands, it answers the station's proxy path for the cover instead, so a listener
+ * sees the sleeve straight away rather than the logo.
  *
  * **Synchronous on purpose.** Its two readers answer out of memory: `/nowplaying` is a public poll
  * that does no database work at all, and the pusher stamps a hand-over inline. So `resolve` answers
  * from what is remembered and, on a miss, starts ONE read of the store in a scope of its own and
- * answers nothing for now. The next read after that lookup lands gets the path. Only hits are kept:
- * a miss is asked again on a later read, which is what lets a cover appear as soon as the cache job
- * writes it rather than being pinned to the logo for the life of the process. The retry is spaced by
+ * answers the proxy path for now. The next read after that lookup lands gets the cached path. Only
+ * hits are kept: a miss is asked again on a later read, which is what moves a cover onto its plain
+ * `art/<id>` path as soon as the cache job writes it rather than leaving it on the proxy for the
+ * life of the process. The retry is spaced by
  * {@link COVER_RETRY_MS} per URL so a poll from every listener during an uncached record costs one
  * query every few seconds rather than one per poll.
  *
- * A store that cannot be read answers nothing, which is the station's logo, and is asked again later.
+ * A store that cannot be read answers the proxy path, and is asked again later.
  */
 export class CoverResolver implements CoverLookup {
     private readonly hits = new Map<string, string>();
@@ -50,14 +54,24 @@ export class CoverResolver implements CoverLookup {
         private readonly now: () => number = Date.now,
     ) {}
 
-    /** The station's own `art/` path for this upstream cover, or nothing while the station does not hold it. */
+    /**
+     * The station's own `art/` path for this upstream cover: the cached copy once the station holds
+     * it, and until then its proxy path (`art/source/<token>/cover.jpg`), which fetches the cover on
+     * first ask. Either way an `art/` path and never the upstream URL. Nothing only for something that
+     * is not an upstream URL, or when no sealing key is configured.
+     *
+     * The proxy path carries a filename for the reason a cached cover's does: a hardware player
+     * handed the mount's artwork URL fetches one ending in `.jpg` and ignores one ending in an id. The
+     * name is decoration and the response's content type says what the image really is.
+     */
     resolve(sourceUrl: string): string | undefined {
         const hit = this.hits.get(sourceUrl);
         if (hit !== undefined) return hit;
         if (!/^https?:\/\//i.test(sourceUrl)) return undefined;
 
         void this.ask(sourceUrl);
-        return undefined;
+        const proxy = stationCover(sourceUrl);
+        return proxy === undefined ? undefined : `${proxy}/cover.jpg`;
     }
 
     /**

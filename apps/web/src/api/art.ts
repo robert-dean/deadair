@@ -3,10 +3,11 @@ import { BASE_URL } from './client';
 /**
  * The `src` for an `imageUrl` off the catalog.
  *
- * The API reports one of two things in that field: an absolute URL at the provider's own CDN, for
- * art nothing has cached yet, or a path relative to the API root (`art/<uuid>`) once the station
- * holds its own copy. The API mounts its routers at the root and knows nothing about the `/api`
- * prefix the edge adds, so resolving the relative form is the client's job.
+ * The API reports a path relative to its own root: `art/<uuid>` once the station holds its own
+ * copy, or `art/source/<token>` for a cover it fetches on first ask. Never a provider's URL, which
+ * can carry a credential; an absolute URL is still passed through, for an older station. The API
+ * mounts its routers at the root and knows nothing about the `/api` prefix the edge adds, so
+ * resolving the relative form is the client's job.
  *
  * Undefined in, undefined out, so a caller can hand it a row's field without checking first.
  */

@@ -4,6 +4,7 @@ import { DataRepository } from '../data/data.repository.js';
 import { DB } from '../data/db.js';
 import { CatalogListQuery, columnFor, directionFor, likeContains } from './catalog.query.js';
 import { artUrl } from './catalog.art.js';
+import { withStationCover } from '#modules/art/art.source.token.js';
 
 /**
  * `nameKey` is a match key for ingest and never read out; `artistName` is joined in below.
@@ -80,7 +81,7 @@ export class AlbumsRepository extends DataRepository {
             .offset(offset)
             .execute();
 
-        return { total: Number(total), data: data.map(countAsNumber) };
+        return { total: Number(total), data: data.map(row => withStationCover(countAsNumber(row), 'imageUrl')) };
     }
 
     /** Undefined when no such album exists, and equally when it was merged away. */
@@ -95,7 +96,7 @@ export class AlbumsRepository extends DataRepository {
             .select(eb => [trackCount(eb)])
             .executeTakeFirst();
 
-        return row === undefined ? undefined : countAsNumber(row);
+        return row === undefined ? undefined : withStationCover(countAsNumber(row), 'imageUrl');
     }
 
     /** What the station thinks of this record, as the column spells it. Merged rows are not rated; see `ArtistsRepository.setRating`. */

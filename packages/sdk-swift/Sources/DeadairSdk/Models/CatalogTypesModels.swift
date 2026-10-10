@@ -758,17 +758,17 @@ public struct RateInput: Codable, Equatable, Sendable {
 /// only ingest cares about: `artist_key` is a match key, and a row with `merged_into_id` set is
 /// never read out at all.
 ///
-/// `imageUrl` on both contracts below is one field with two spellings. An absolute URL is the
-/// provider's own, still hotlinked because nothing has cached it yet; a relative `art/<uuid>` is
-/// the station's copy, to be resolved against the API base the client already configures (the API
-/// mounts at the root and does not know the `/api` prefix the edge adds). Prefer the local one by
-/// doing nothing: the switch happens server-side as soon as the art cache pass has the bytes.
+/// `imageUrl` on both contracts below is always a path under the API root, never a provider's URL:
+/// `art/<uuid>` for the station's cached copy, or `art/source/<token>` for one it has not cached
+/// yet, which the station fetches on first ask and serves as its own. Resolve either against the
+/// API base the client already configures (the API mounts at the root and does not know the `/api`
+/// prefix the edge adds). The switch from the second to the first happens server-side.
 public struct Artist: Codable, Equatable, Sendable {
     public var id: UUID
     public var name: String
     /// MusicBrainz artist id, absent until enrichment resolves one
     public var mbid: UUID?
-    /// Absolute upstream URL, or an API-relative path to the local copy
+    /// An API-relative path: the cached copy, or the station's proxy for an uncached one
     public var imageUrl: String?
     public var rating: Rating
     /// Unmerged albums credited to this artist
@@ -823,16 +823,16 @@ public struct Artist: Codable, Equatable, Sendable {
 /// only ingest cares about: `artist_key` is a match key, and a row with `merged_into_id` set is
 /// never read out at all.
 ///
-/// `imageUrl` on both contracts below is one field with two spellings. An absolute URL is the
-/// provider's own, still hotlinked because nothing has cached it yet; a relative `art/<uuid>` is
-/// the station's copy, to be resolved against the API base the client already configures (the API
-/// mounts at the root and does not know the `/api` prefix the edge adds). Prefer the local one by
-/// doing nothing: the switch happens server-side as soon as the art cache pass has the bytes.
+/// `imageUrl` on both contracts below is always a path under the API root, never a provider's URL:
+/// `art/<uuid>` for the station's cached copy, or `art/source/<token>` for one it has not cached
+/// yet, which the station fetches on first ask and serves as its own. Resolve either against the
+/// API base the client already configures (the API mounts at the root and does not know the `/api`
+/// prefix the edge adds). The switch from the second to the first happens server-side.
 public struct ArtistInput: Codable, Equatable, Sendable {
     public var name: String
     /// MusicBrainz artist id, absent until enrichment resolves one
     public var mbid: UUID?
-    /// Absolute upstream URL, or an API-relative path to the local copy
+    /// An API-relative path: the cached copy, or the station's proxy for an uncached one
     public var imageUrl: String?
     public var rating: Rating
 
@@ -876,7 +876,7 @@ public struct Album: Codable, Equatable, Sendable {
     /// MusicBrainz release-group id, absent until enrichment resolves one
     public var mbid: UUID?
     public var year: Int?
-    /// Absolute upstream URL, or an API-relative path to the local copy
+    /// An API-relative path: the cached copy, or the station's proxy for an uncached one
     public var imageUrl: String?
     public var rating: Rating
     public var trackCount: Int
@@ -937,7 +937,7 @@ public struct AlbumInput: Codable, Equatable, Sendable {
     /// MusicBrainz release-group id, absent until enrichment resolves one
     public var mbid: UUID?
     public var year: Int?
-    /// Absolute upstream URL, or an API-relative path to the local copy
+    /// An API-relative path: the cached copy, or the station's proxy for an uncached one
     public var imageUrl: String?
     public var rating: Rating
 
@@ -984,7 +984,7 @@ public struct Track: Codable, Equatable, Sendable {
     /// Absent on a single ingested outside any release: `tracks.album_id` is nullable
     public var albumId: UUID?
     public var albumName: String?
-    /// The record's cover, in the two spellings `Album.imageUrl` has. Nothing hangs art off a recording
+    /// The record's cover, as `Album.imageUrl` spells it. Nothing hangs art off a recording
     public var albumImageUrl: String?
     /// Display credit as written on the release ("X feat. Y"), not a join key
     public var artists: String
@@ -1224,10 +1224,11 @@ public struct TrackEnrichmentData: Codable, Equatable, Sendable {
     public var musicalKey: String?
     public var label: String?
     public var isrc: String?
+    /// The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied
     public var artworkUrl: String?
     public var externalIds: [EnrichmentExternalId]?
     public var links: [EnrichmentLink]?
-    /// What the plugin said that the SDK has no field for. Per provider only: the merged view drops it
+    /// What the plugin said that the SDK has no field for. Per provider only: the merged view drops it. Never holds a URL: any string with one is dropped when read, along with the key or array element that held it
     public var extra: [String: JSONValue]?
 
     public init(artist: String? = nil, title: String? = nil, album: String? = nil, year: Int? = nil, releaseDate: String? = nil, genres: [String]? = nil, moods: [String]? = nil, biography: String? = nil, facts: [String]? = nil, bpm: Double? = nil, musicalKey: String? = nil, label: String? = nil, isrc: String? = nil, artworkUrl: String? = nil, externalIds: [EnrichmentExternalId]? = nil, links: [EnrichmentLink]? = nil, extra: [String: JSONValue]? = nil) {
@@ -1316,6 +1317,7 @@ public struct TrackEnrichmentData: Codable, Equatable, Sendable {
 public struct ArtistEnrichmentData: Codable, Equatable, Sendable {
     public var name: String?
     public var biography: String?
+    /// The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied
     public var imageUrl: String?
     public var genres: [String]?
     public var facts: [String]?
@@ -1380,6 +1382,7 @@ public struct AlbumEnrichmentData: Codable, Equatable, Sendable {
     public var label: String?
     public var genres: [String]?
     public var facts: [String]?
+    /// The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied
     public var artworkUrl: String?
     public var externalIds: [EnrichmentExternalId]?
     public var links: [EnrichmentLink]?
@@ -1569,7 +1572,7 @@ public struct TrackDetail: Codable, Equatable, Sendable {
     /// Absent on a single ingested outside any release: `tracks.album_id` is nullable
     public var albumId: UUID?
     public var albumName: String?
-    /// The record's cover, in the two spellings `Album.imageUrl` has. Nothing hangs art off a recording
+    /// The record's cover, as `Album.imageUrl` spells it. Nothing hangs art off a recording
     public var albumImageUrl: String?
     /// Display credit as written on the release ("X feat. Y"), not a join key
     public var artists: String
@@ -1748,7 +1751,7 @@ public struct TrackRow: Codable, Equatable, Sendable {
     /// Absent on a single ingested outside any release: `tracks.album_id` is nullable
     public var albumId: UUID?
     public var albumName: String?
-    /// The record's cover, in the two spellings `Album.imageUrl` has. Nothing hangs art off a recording
+    /// The record's cover, as `Album.imageUrl` spells it. Nothing hangs art off a recording
     public var albumImageUrl: String?
     /// Display credit as written on the release ("X feat. Y"), not a join key
     public var artists: String

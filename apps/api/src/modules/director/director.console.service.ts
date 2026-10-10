@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { stationCover } from '#modules/art/art.source.token.js';
 import type { ChartEntry } from '@deadair/plugin-sdk';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
@@ -1592,7 +1593,9 @@ export class DirectorConsoleService {
                     artists: item.track.artists,
                     ...(item.track.durationMs === undefined ? {} : { durationMs: item.track.durationMs }),
                     ...(item.track.album === undefined ? {} : { album: item.track.album }),
-                    ...(item.track.artworkUrl === undefined ? {} : { artworkUrl: item.track.artworkUrl }),
+                    // The line holds the cover it was PICKED with, which can be a provider's URL; the
+                    // console is told the station's path or its proxy for it, never that URL.
+                    ...(stationCover(item.track.artworkUrl) === undefined ? {} : { artworkUrl: stationCover(item.track.artworkUrl)! }),
                     ...(item.track.year === undefined ? {} : { year: item.track.year }),
                     ...(item.track.trackId === undefined ? {} : { trackId: item.track.trackId }),
                     // Absent for a record the catalog has never seen, which has nothing to rate.

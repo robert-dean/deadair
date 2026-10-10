@@ -324,11 +324,11 @@ export interface RateInput {
  * only ingest cares about: `artist_key` is a match key, and a row with `merged_into_id` set is
  * never read out at all.
  *
- * `imageUrl` on both contracts below is one field with two spellings. An absolute URL is the
- * provider's own, still hotlinked because nothing has cached it yet; a relative `art/<uuid>` is
- * the station's copy, to be resolved against the API base the client already configures (the API
- * mounts at the root and does not know the `/api` prefix the edge adds). Prefer the local one by
- * doing nothing: the switch happens server-side as soon as the art cache pass has the bytes.
+ * `imageUrl` on both contracts below is always a path under the API root, never a provider's URL:
+ * `art/<uuid>` for the station's cached copy, or `art/source/<token>` for one it has not cached
+ * yet, which the station fetches on first ask and serves as its own. Resolve either against the
+ * API base the client already configures (the API mounts at the root and does not know the `/api`
+ * prefix the edge adds). The switch from the second to the first happens server-side.
  * generated from [Artist](../../../../../apps/api/data/contracts/catalog/catalog.types.ck)
  */
 export interface Artist {
@@ -336,7 +336,7 @@ export interface Artist {
     name: string;
     /** MusicBrainz artist id, absent until enrichment resolves one */
     mbid?: string;
-    /** Absolute upstream URL, or an API-relative path to the local copy */
+    /** An API-relative path: the cached copy, or the station's proxy for an uncached one */
     imageUrl?: string;
     rating?: Rating;
     /** Unmerged albums credited to this artist */
@@ -349,7 +349,7 @@ export interface ArtistInput {
     name: string;
     /** MusicBrainz artist id, absent until enrichment resolves one */
     mbid?: string;
-    /** Absolute upstream URL, or an API-relative path to the local copy */
+    /** An API-relative path: the cached copy, or the station's proxy for an uncached one */
     imageUrl?: string;
     rating?: Rating;
 }
@@ -366,7 +366,7 @@ export interface Album {
     /** MusicBrainz release-group id, absent until enrichment resolves one */
     mbid?: string;
     year?: number;
-    /** Absolute upstream URL, or an API-relative path to the local copy */
+    /** An API-relative path: the cached copy, or the station's proxy for an uncached one */
     imageUrl?: string;
     rating?: Rating;
     trackCount: number;
@@ -377,7 +377,7 @@ export interface AlbumInput {
     /** MusicBrainz release-group id, absent until enrichment resolves one */
     mbid?: string;
     year?: number;
-    /** Absolute upstream URL, or an API-relative path to the local copy */
+    /** An API-relative path: the cached copy, or the station's proxy for an uncached one */
     imageUrl?: string;
     rating?: Rating;
 }
@@ -393,7 +393,7 @@ export interface Track {
     /** Absent on a single ingested outside any release: `tracks.album_id` is nullable */
     albumId?: string;
     albumName?: string;
-    /** The record's cover, in the two spellings `Album.imageUrl` has. Nothing hangs art off a recording */
+    /** The record's cover, as `Album.imageUrl` spells it. Nothing hangs art off a recording */
     albumImageUrl?: string;
     /** Display credit as written on the release ("X feat. Y"), not a join key */
     artists: string;
@@ -451,10 +451,11 @@ export interface TrackEnrichmentData {
     musicalKey?: string;
     label?: string;
     isrc?: string;
+    /** The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied */
     artworkUrl?: string;
     externalIds?: EnrichmentExternalId[];
     links?: EnrichmentLink[];
-    /** What the plugin said that the SDK has no field for. Per provider only: the merged view drops it */
+    /** What the plugin said that the SDK has no field for. Per provider only: the merged view drops it. Never holds a URL: any string with one is dropped when read, along with the key or array element that held it */
     extra?: Record<string, unknown>;
 }
 
@@ -464,6 +465,7 @@ export interface TrackEnrichmentData {
 export interface ArtistEnrichmentData {
     name?: string;
     biography?: string;
+    /** The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied */
     imageUrl?: string;
     genres?: string[];
     facts?: string[];
@@ -485,6 +487,7 @@ export interface AlbumEnrichmentData {
     label?: string;
     genres?: string[];
     facts?: string[];
+    /** The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied */
     artworkUrl?: string;
     externalIds?: EnrichmentExternalId[];
     links?: EnrichmentLink[];

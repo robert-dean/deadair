@@ -58,8 +58,9 @@ export class ArtService {
      *
      * @throws 404 for an id nobody cached, for a row whose fetches all failed (it has no bytes to
      * serve and never had any), and for a row whose file has gone missing under it. All three are
-     * the same answer to the browser: there is no art here. The catalog keeps reporting the
-     * upstream URL until a fetch succeeds, so a 404 here is not a broken page.
+     * the same answer to the browser: there is no art here. A read reports this path only for a
+     * cover with bytes, and `art/source/<token>` (`ArtSourceService`) for one without, so a 404 here
+     * is a cover that has genuinely gone, and the console draws its placeholder.
      */
     async getArt(id: string): Promise<ArtResponse> {
         const asset = await this.artRepository.findById(id);
@@ -86,7 +87,7 @@ export class ArtService {
      * The filename is never read. It exists because a client can decide whether a URL is worth
      * fetching by looking at the URL: a BluOS player handed an artwork link in the stream's ICY
      * metadata fetches one ending in `.jpg` and does not request one ending in an id at all,
-     * which is measurable as zero requests rather than as a failure. So `cachedOrUpstream` in
+     * which is measurable as zero requests rather than as a failure. So `cachedOrSource` in
      * `catalog.art.ts` mints `art/<id>/cover.<ext>` and this answers it.
      *
      * The extension in that name is what the store recorded for the asset, so it is normally

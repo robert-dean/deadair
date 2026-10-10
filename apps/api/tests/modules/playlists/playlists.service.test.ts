@@ -7,7 +7,7 @@
 // `plugin:view` itself: `listPlaylists` by filtering with `listVisibleIds`,
 // `getPlaylistTracks` by calling `require` per object.
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
 import type { Logger } from '@maroonedsoftware/logger';
 import { IsHttpError } from '@maroonedsoftware/errors';
@@ -22,6 +22,7 @@ import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.rec
 import { hiddenPlaylistKey } from '../../../src/modules/catalog/hidden.playlists.repository.js';
 import type { ProviderPlaylistListing } from '../../../src/modules/catalog/provider.playlists.repository.js';
 import { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
+import { clearArtSourceKey, configureArtSourceKey } from '../../../src/modules/art/art.source.token.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 
 const SPOTIFY_ID = 'deadair.spotify';
@@ -828,5 +829,43 @@ describe('PlaylistsService refresh', () => {
 
         await expectHttpStatus(service.requestPlaylistRefresh(SPOTIFY_ID, 'p1'), 403);
         expect(jobs.send).not.toHaveBeenCalled();
+    });
+});
+
+// A provider's playlist cover, and a playlist track's, are live provider reads that never touch the
+// catalog, and a Navidrome one carries the operator's user and token. Both go out as the station's
+// proxy path.
+describe('PlaylistsService covers', () => {
+    const UPSTREAM = 'https://music.example/rest/getCoverArt.view?id=pl-1&u=operator&t=secret&s=salt';
+
+    beforeEach(() => configureArtSourceKey('ab'.repeat(32)));
+    afterEach(() => clearArtSourceKey());
+
+    it("reports a playlist's cover through the station, never as the provider's URL", async () => {
+        const { service, registry } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(
+            record(SPOTIFY_ID, {
+                instance: catalogInstance({ listPlaylists: vi.fn(async () => [{ id: 'p1', name: 'Playlist 1', artworkUrl: UPSTREAM }]) }) as never,
+            }),
+        );
+
+        const page = await service.listPlaylists();
+
+        expect(page.playlists[0]!.artworkUrl).toMatch(/^art\/source\//);
+        expect(JSON.stringify(page)).not.toContain('music.example');
+    });
+
+    it("reports a playlist track's cover through the station too", async () => {
+        const { service, registry } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(
+            record(SPOTIFY_ID, {
+                instance: catalogInstance({ getPlaylistTracks: vi.fn(async () => [{ ...track('t1'), artworkUrl: UPSTREAM }]) }) as never,
+            }),
+        );
+
+        const result = await service.getPlaylistTracks(SPOTIFY_ID, 'p1');
+
+        expect(result.tracks[0]!.artworkUrl).toMatch(/^art\/source\//);
+        expect(JSON.stringify(result)).not.toContain('music.example');
     });
 });

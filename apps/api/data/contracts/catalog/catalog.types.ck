@@ -18,16 +18,16 @@ contract RateInput: {
 # only ingest cares about: `artist_key` is a match key, and a row with `merged_into_id` set is
 # never read out at all.
 #
-# `imageUrl` on both contracts below is one field with two spellings. An absolute URL is the
-# provider's own, still hotlinked because nothing has cached it yet; a relative `art/<uuid>` is
-# the station's copy, to be resolved against the API base the client already configures (the API
-# mounts at the root and does not know the `/api` prefix the edge adds). Prefer the local one by
-# doing nothing: the switch happens server-side as soon as the art cache pass has the bytes.
+# `imageUrl` on both contracts below is always a path under the API root, never a provider's URL:
+# `art/<uuid>` for the station's cached copy, or `art/source/<token>` for one it has not cached
+# yet, which the station fetches on first ask and serves as its own. Resolve either against the
+# API base the client already configures (the API mounts at the root and does not know the `/api`
+# prefix the edge adds). The switch from the second to the first happens server-side.
 contract Artist: {
     id: readonly uuid
     name: string
     mbid?: uuid # MusicBrainz artist id, absent until enrichment resolves one
-    imageUrl?: string # Absolute upstream URL, or an API-relative path to the local copy
+    imageUrl?: string # An API-relative path: the cached copy, or the station's proxy for an uncached one
     rating: Rating = neutral
     albumCount: readonly int(min=0) # Unmerged albums credited to this artist
     trackCount: readonly int(min=0) # Unmerged tracks credited to this artist
@@ -40,7 +40,7 @@ contract Album: {
     artistName: readonly string # Joined, so a list renders without a second request per row
     mbid?: uuid # MusicBrainz release-group id, absent until enrichment resolves one
     year?: int
-    imageUrl?: string # Absolute upstream URL, or an API-relative path to the local copy
+    imageUrl?: string # An API-relative path: the cached copy, or the station's proxy for an uncached one
     rating: Rating = neutral
     trackCount: readonly int(min=0)
 }
@@ -52,7 +52,7 @@ contract Track: {
     artistName: readonly string
     albumId?: readonly uuid # Absent on a single ingested outside any release: `tracks.album_id` is nullable
     albumName?: readonly string
-    albumImageUrl?: readonly string # The record's cover, in the two spellings `Album.imageUrl` has. Nothing hangs art off a recording
+    albumImageUrl?: readonly string # The record's cover, as `Album.imageUrl` spells it. Nothing hangs art off a recording
     artists: string # Display credit as written on the release ("X feat. Y"), not a join key
     genre?: string
     year?: int
@@ -292,16 +292,16 @@ contract TrackEnrichmentData: {
     musicalKey?: string(max=2000)
     label?: string(max=2000)
     isrc?: string(max=2000)
-    artworkUrl?: string(max=2000)
+    artworkUrl?: string(max=2000) # The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied
     externalIds?: array(EnrichmentExternalId)
     links?: array(EnrichmentLink)
-    extra?: record(string, unknown) # What the plugin said that the SDK has no field for. Per provider only: the merged view drops it
+    extra?: record(string, unknown) # What the plugin said that the SDK has no field for. Per provider only: the merged view drops it. Never holds a URL: any string with one is dropped when read, along with the key or array element that held it
 }
 
 contract ArtistEnrichmentData: {
     name?: string(max=2000)
     biography?: string(max=20000)
-    imageUrl?: string(max=2000)
+    imageUrl?: string(max=2000) # The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied
     genres?: array(string(max=2000))
     facts?: array(string(max=2000))
     externalIds?: array(EnrichmentExternalId)
@@ -317,7 +317,7 @@ contract AlbumEnrichmentData: {
     label?: string(max=2000)
     genres?: array(string(max=2000))
     facts?: array(string(max=2000))
-    artworkUrl?: string(max=2000)
+    artworkUrl?: string(max=2000) # The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied
     externalIds?: array(EnrichmentExternalId)
     links?: array(EnrichmentLink)
     extra?: record(string, unknown)

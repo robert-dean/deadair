@@ -235,11 +235,26 @@ again at air (`announce`), both through `listenerCover`, which also refuses anyt
 `art/` path whatever the item carries. The resolver is synchronous because both readers answer out
 of memory: it remembers hits only, and on a miss starts one read of the store off the caller, at
 most every five seconds per cover, so a poll never waits on the database and a cover cached a
-minute after the commit is on the very next poll. A syndicated episode's cover is the feed's URL
-and takes the same route. The console's own reads still hand out `cachedOrUpstream`, which is a
-signed-in operator surface and a separate change.
+minute after the commit is on the very next poll. Until it lands the resolver answers the
+station's proxy path for the cover (`art/source/<token>/cover.jpg`), so a listener sees the sleeve
+at once rather than the logo. A syndicated episode's cover is the feed's URL and takes the same
+route.
 
-**That is also why a cached cover's URL ends in a filename.** `cachedOrUpstream` in `catalog.art.ts`
+**No read anywhere reports a provider's cover URL, cached or not.** The sweep caches about fifty
+covers every ten minutes, so a fresh library would sit blank for hours if an uncached cover were
+simply left out. Every read (albums, artists, tracks, history, the console's running order, provider
+playlists and `/nowplaying`) reports such a cover as `art/source/<token>`: the URL sealed with AES-GCM
+under a synthetic IV and a key derived from `KMS_LOCAL_ROOT_KEY` (`modules/art/art.source.token.ts`),
+so the URL cannot be read back out of the path and a token the station did not mint opens to
+nothing. `GET /art/source/{token}` (`ArtSourceService`) serves the bytes the store holds for that
+URL, and otherwise fetches them first through `ArtCacheService.cache`, the sweep's own fetch with
+its private-address refusal, size caps and failure record, single-flight per URL. A recorded
+failure is not retried before its `next_attempt_at`, and every failure answers 404. The SQL in
+`catalog.art.ts` still returns the raw column for an uncached cover because the key is not in the
+database; `stationCover` is the TS step after every query that seals it, and an unconfigured key
+answers no cover rather than the URL.
+
+**That is also why a cached cover's URL ends in a filename.** `cachedOrSource` in `catalog.art.ts`
 mints `art/<id>/cover.<ext>` from the extension the store recorded, and `GET /art/{id}/{filename}`
 answers it by id while ignoring the name, so a stale name can never serve the wrong bytes and the
 response's own content type stays the authority. Measured on the Office M10 V2 on 2026-09-16, same

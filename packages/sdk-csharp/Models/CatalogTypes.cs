@@ -511,11 +511,11 @@ public sealed record RateInput
 /// only ingest cares about: `artist_key` is a match key, and a row with `merged_into_id` set is
 /// never read out at all.
 ///
-/// `imageUrl` on both contracts below is one field with two spellings. An absolute URL is the
-/// provider's own, still hotlinked because nothing has cached it yet; a relative `art/&lt;uuid&gt;` is
-/// the station's copy, to be resolved against the API base the client already configures (the API
-/// mounts at the root and does not know the `/api` prefix the edge adds). Prefer the local one by
-/// doing nothing: the switch happens server-side as soon as the art cache pass has the bytes.
+/// `imageUrl` on both contracts below is always a path under the API root, never a provider's URL:
+/// `art/&lt;uuid&gt;` for the station's cached copy, or `art/source/&lt;token&gt;` for one it has not cached
+/// yet, which the station fetches on first ask and serves as its own. Resolve either against the
+/// API base the client already configures (the API mounts at the root and does not know the `/api`
+/// prefix the edge adds). The switch from the second to the first happens server-side.
 /// </summary>
 public sealed record Artist
 {
@@ -530,7 +530,7 @@ public sealed record Artist
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Guid? Mbid { get; init; }
 
-    /// <summary>Absolute upstream URL, or an API-relative path to the local copy</summary>
+    /// <summary>An API-relative path: the cached copy, or the station's proxy for an uncached one</summary>
     [JsonPropertyName("imageUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ImageUrl { get; init; }
@@ -552,11 +552,11 @@ public sealed record Artist
 /// only ingest cares about: `artist_key` is a match key, and a row with `merged_into_id` set is
 /// never read out at all.
 ///
-/// `imageUrl` on both contracts below is one field with two spellings. An absolute URL is the
-/// provider's own, still hotlinked because nothing has cached it yet; a relative `art/&lt;uuid&gt;` is
-/// the station's copy, to be resolved against the API base the client already configures (the API
-/// mounts at the root and does not know the `/api` prefix the edge adds). Prefer the local one by
-/// doing nothing: the switch happens server-side as soon as the art cache pass has the bytes.
+/// `imageUrl` on both contracts below is always a path under the API root, never a provider's URL:
+/// `art/&lt;uuid&gt;` for the station's cached copy, or `art/source/&lt;token&gt;` for one it has not cached
+/// yet, which the station fetches on first ask and serves as its own. Resolve either against the
+/// API base the client already configures (the API mounts at the root and does not know the `/api`
+/// prefix the edge adds). The switch from the second to the first happens server-side.
 /// </summary>
 public sealed record ArtistInput
 {
@@ -568,7 +568,7 @@ public sealed record ArtistInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Guid? Mbid { get; init; }
 
-    /// <summary>Absolute upstream URL, or an API-relative path to the local copy</summary>
+    /// <summary>An API-relative path: the cached copy, or the station's proxy for an uncached one</summary>
     [JsonPropertyName("imageUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ImageUrl { get; init; }
@@ -601,7 +601,7 @@ public sealed record Album
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? Year { get; init; }
 
-    /// <summary>Absolute upstream URL, or an API-relative path to the local copy</summary>
+    /// <summary>An API-relative path: the cached copy, or the station's proxy for an uncached one</summary>
     [JsonPropertyName("imageUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ImageUrl { get; init; }
@@ -627,7 +627,7 @@ public sealed record AlbumInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? Year { get; init; }
 
-    /// <summary>Absolute upstream URL, or an API-relative path to the local copy</summary>
+    /// <summary>An API-relative path: the cached copy, or the station's proxy for an uncached one</summary>
     [JsonPropertyName("imageUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ImageUrl { get; init; }
@@ -659,7 +659,7 @@ public sealed record Track
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? AlbumName { get; init; }
 
-    /// <summary>The record's cover, in the two spellings `Album.imageUrl` has. Nothing hangs art off a recording</summary>
+    /// <summary>The record's cover, as `Album.imageUrl` spells it. Nothing hangs art off a recording</summary>
     [JsonPropertyName("albumImageUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? AlbumImageUrl { get; init; }
@@ -829,6 +829,7 @@ public sealed record TrackEnrichmentData
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Isrc { get; init; }
 
+    /// <summary>The provider's picture as the station serves it: `art/&lt;id&gt;` once cached, else the station's proxy `art/source/&lt;token&gt;`. Never the URL the plugin supplied</summary>
     [JsonPropertyName("artworkUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ArtworkUrl { get; init; }
@@ -841,7 +842,7 @@ public sealed record TrackEnrichmentData
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<EnrichmentLink>? Links { get; init; }
 
-    /// <summary>What the plugin said that the SDK has no field for. Per provider only: the merged view drops it</summary>
+    /// <summary>What the plugin said that the SDK has no field for. Per provider only: the merged view drops it. Never holds a URL: any string with one is dropped when read, along with the key or array element that held it</summary>
     [JsonPropertyName("extra")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Dictionary<string, JsonElement>? Extra { get; init; }
@@ -857,6 +858,7 @@ public sealed record ArtistEnrichmentData
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Biography { get; init; }
 
+    /// <summary>The provider's picture as the station serves it: `art/&lt;id&gt;` once cached, else the station's proxy `art/source/&lt;token&gt;`. Never the URL the plugin supplied</summary>
     [JsonPropertyName("imageUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ImageUrl { get; init; }
@@ -914,6 +916,7 @@ public sealed record AlbumEnrichmentData
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Facts { get; init; }
 
+    /// <summary>The provider's picture as the station serves it: `art/&lt;id&gt;` once cached, else the station's proxy `art/source/&lt;token&gt;`. Never the URL the plugin supplied</summary>
     [JsonPropertyName("artworkUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ArtworkUrl { get; init; }
@@ -1001,7 +1004,7 @@ public sealed record TrackDetail
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? AlbumName { get; init; }
 
-    /// <summary>The record's cover, in the two spellings `Album.imageUrl` has. Nothing hangs art off a recording</summary>
+    /// <summary>The record's cover, as `Album.imageUrl` spells it. Nothing hangs art off a recording</summary>
     [JsonPropertyName("albumImageUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? AlbumImageUrl { get; init; }
@@ -1117,7 +1120,7 @@ public sealed record TrackRow
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? AlbumName { get; init; }
 
-    /// <summary>The record's cover, in the two spellings `Album.imageUrl` has. Nothing hangs art off a recording</summary>
+    /// <summary>The record's cover, as `Album.imageUrl` spells it. Nothing hangs art off a recording</summary>
     [JsonPropertyName("albumImageUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? AlbumImageUrl { get; init; }

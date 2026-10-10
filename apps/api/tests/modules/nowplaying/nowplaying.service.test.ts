@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 import { ArtRepository, type ArtAsset } from '../../../src/modules/art/art.repository.js';
 import { CoverResolver } from '../../../src/modules/art/cover.resolver.js';
+import { clearArtSourceKey, configureArtSourceKey } from '../../../src/modules/art/art.source.token.js';
 import { NowPlayingService } from '../../../src/modules/nowplaying/nowplaying.service.js';
 import type { Rundown, RundownBroadcast, NowPlaying as RundownNowPlaying } from '../../../src/modules/playout/rundown.js';
 import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
@@ -365,7 +366,21 @@ describe('NowPlayingService', () => {
             return { held, resolver };
         };
 
-        it('omits a cover the station does not hold yet, so a player shows the logo', () => {
+        it("reports the station's proxy for a cover it does not hold yet, so a player shows it at once", () => {
+            configureArtSourceKey('ef'.repeat(32));
+            try {
+                const { resolver } = withCache();
+                const { service } = build({ item: uncached, startedAt: 1 }, 'Station', 0, {}, undefined, resolver);
+
+                const artworkUrl = service.getNowPlaying().track?.artworkUrl;
+                expect(artworkUrl).toMatch(/^art\/source\/[A-Za-z0-9_-]+\/cover\.jpg$/);
+                expect(artworkUrl).not.toContain('music.example');
+            } finally {
+                clearArtSourceKey();
+            }
+        });
+
+        it('omits the cover rather than leak it when no sealing key is configured', () => {
             const { resolver } = withCache();
             const { service } = build({ item: uncached, startedAt: 1 }, 'Station', 0, {}, undefined, resolver);
 

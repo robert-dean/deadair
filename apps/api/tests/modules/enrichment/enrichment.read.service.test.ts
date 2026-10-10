@@ -3,13 +3,15 @@
 // so the only thing the plugin registry contributes is the order the stored
 // payloads are merged in.
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
 
 import { EnrichmentReadService, MAX_FACT_CHARS } from '../../../src/modules/enrichment/enrichment.read.service.js';
+import { clearArtSourceKey, configureArtSourceKey, openSourceToken } from '../../../src/modules/art/art.source.token.js';
 import type { EnrichmentRepository, StoredProviderPayload, TrackFactPayloads } from '../../../src/modules/enrichment/enrichment.repository.js';
 import type { EnrichmentService } from '../../../src/modules/enrichment/enrichment.service.js';
 import type { ClaimForTrack, FactRepository, StoredFact } from '../../../src/modules/enrichment/fact.repository.js';
+import { GetArtistEnrichmentMcpTool } from '../../../src/mcp/catalog.mcp.js';
 
 const TRACK_ID = '11111111-1111-4111-8111-111111111111';
 const ARTIST_ID = '22222222-2222-4222-8222-222222222222';
@@ -236,7 +238,9 @@ describe('EnrichmentReadService', () => {
 
         expect(detail.artistId).toBe(ARTIST_ID);
         expect(detail.merged.facts).toEqual(['Portishead formed in Bristol in 1991.']);
-        expect(detail.merged.imageUrl).toBe('https://example.test/p.jpg');
+        // The provider's picture goes out as the station's proxy for it, never as the URL; with no
+        // sealing key configured, as here, that is no picture at all. See the describe below.
+        expect(detail.merged.imageUrl).toBeUndefined();
     });
 
     it('reads an album, keeping the partial release date the source actually claimed', async () => {
@@ -574,5 +578,110 @@ describe('EnrichmentReadService', () => {
                 expect(facts.markUsed).toHaveBeenCalledWith(['fact-0']);
             });
         });
+    });
+});
+
+// A provider's picture in an enrichment view is the plugin's URL, and a Navidrome one carries the
+// operator's user and token. These views back the console's enrichment panels and the MCP tools, so
+// the picture goes out as the station's proxy path, in the merged view and in every provider's
+// stored answer alike. The links a provider gave are pages a person clicks, not pictures, and stay.
+describe('EnrichmentReadService pictures go through the station', () => {
+    const UPSTREAM = 'https://music.example/rest/getCoverArt.view?id=ar-1&u=operator&t=secret&s=salt';
+
+    beforeEach(() => configureArtSourceKey('ab'.repeat(32)));
+    afterEach(() => clearArtSourceKey());
+
+    const expectProxy = (value: string | undefined): void => {
+        expect(value).toMatch(/^art\/source\//);
+        expect(openSourceToken(value!.slice('art/source/'.length))).toBe(UPSTREAM);
+    };
+
+    it('an artist image, merged and per provider', async () => {
+        const read = service({
+            artist: [payload(MUSICBRAINZ, { imageUrl: UPSTREAM, links: [{ label: 'Page', url: 'https://example.test/artist' }] })],
+        });
+
+        const detail = await read.getArtistEnrichment(ARTIST_ID);
+
+        expectProxy(detail.merged.imageUrl);
+        expectProxy(detail.sources[0]!.data.imageUrl);
+        expect(JSON.stringify(detail)).not.toContain('music.example');
+        // A link is a page, not a picture: left as the provider gave it.
+        expect(detail.merged.links).toEqual([{ label: 'Page', url: 'https://example.test/artist' }]);
+    });
+
+    it("an album's and a track's artwork, merged and per provider", async () => {
+        const read = service({
+            album: [payload(MUSICBRAINZ, { artworkUrl: UPSTREAM })],
+            track: [payload(MUSICBRAINZ, { artworkUrl: UPSTREAM })],
+        });
+
+        for (const detail of [await read.getAlbumEnrichment(ALBUM_ID), await read.getTrackEnrichment(TRACK_ID)]) {
+            expectProxy(detail.merged.artworkUrl);
+            expectProxy(detail.sources[0]!.data.artworkUrl);
+            expect(JSON.stringify(detail)).not.toMatch(/"(imageUrl|artworkUrl)":"https?:/);
+        }
+    });
+
+    it("leaves a picture the station already holds as the station's own path", async () => {
+        const read = service({ artist: [payload(MUSICBRAINZ, { imageUrl: 'art/asset-1/cover.jpg' })] });
+
+        expect((await read.getArtistEnrichment(ARTIST_ID)).merged.imageUrl).toBe('art/asset-1/cover.jpg');
+    });
+});
+
+// `extra` is whatever a plugin said that the SDK has no field for, so nothing can tell a picture from
+// a page link from a URL carrying the operator's credentials. A URL in it never reaches a response;
+// a plugin with a picture puts it in the typed image field. Only Last.fm fills `extra` today, with
+// tags and counts, and that has to come through exactly as it is.
+describe("EnrichmentReadService keeps URLs out of a provider's extra fields", () => {
+    const LASTFM_EXTRA = { tags: ['trip hop', 'bristol', 'female vocalists'], listeners: 1_234_567, playcount: 9_876_543 };
+
+    it('passes a Last.fm-shaped extra through untouched', async () => {
+        const read = service({ track: [payload(MUSICBRAINZ, { extra: LASTFM_EXTRA })] });
+
+        const detail = await read.getTrackEnrichment(TRACK_ID);
+
+        expect(detail.sources[0]!.data.extra).toEqual(LASTFM_EXTRA);
+    });
+
+    it('drops a URL nested in objects and arrays, a URL inside prose, and one with userinfo', async () => {
+        const read = service({
+            artist: [
+                payload(MUSICBRAINZ, {
+                    extra: {
+                        listeners: 12,
+                        photo: 'https://music.example/rest/getCoverArt.view?u=operator&t=secret',
+                        note: 'See the full story at http://example.test/story for more.',
+                        mirror: 'ftp://operator:hunter2@files.example/art.jpg',
+                        nested: { deeper: [{ src: 'https://cdn.example/a.jpg', caption: 'A caption' }, 'plain words', 'https://cdn.example/b.jpg'] },
+                        'https://key.example/': 'a key that is a URL',
+                    },
+                }),
+            ],
+        });
+
+        const extra = (await read.getArtistEnrichment(ARTIST_ID)).sources[0]!.data.extra;
+
+        expect(extra).toEqual({ listeners: 12, nested: { deeper: [{ caption: 'A caption' }, 'plain words'] } });
+        expect(JSON.stringify(extra)).not.toMatch(/:\/\//);
+    });
+
+    it('does the same for an MCP client, which reads through the same service', async () => {
+        const read = service({
+            artist: [payload(MUSICBRAINZ, { extra: { ...LASTFM_EXTRA, page: 'https://music.example/artist?u=operator&t=secret' } })],
+        });
+        const tool = new GetArtistEnrichmentMcpTool();
+        const context = {
+            toolName: 'get_artist_enrichment',
+            authenticationSession: { sessionToken: 's', subject: 'u' },
+            container: { get: (token: unknown) => (token === EnrichmentReadService ? read : { assert: async () => undefined }) },
+        };
+
+        const result = await tool.handle({ id: ARTIST_ID }, context as never);
+
+        const detail = result.structuredContent as { sources: { data: { extra?: unknown } }[] };
+        expect(detail.sources[0]!.data.extra).toEqual(LASTFM_EXTRA);
+        expect(JSON.stringify(result)).not.toContain('music.example');
     });
 });

@@ -76,6 +76,24 @@ export class ArtRepository extends DataRepository {
     }
 
     /**
+     * The asset for an upstream URL, plus whether its last failure is still inside its backoff.
+     *
+     * For `ArtSourceService`, which fetches a cover on demand and must not turn every request for a
+     * dead one into a fetch: the sweep's own `next_attempt_at` is the answer to "may I try again",
+     * read here in the database's clock so the two agree.
+     */
+    async findSourceState(sourceUrl: string): Promise<{ asset: ArtAsset; backingOff: boolean } | undefined> {
+        const row = await this.db
+            .selectFrom('deadair.artAssets')
+            .select(ASSET_COLUMNS)
+            .select(sql<boolean>`deadair.art_assets.next_attempt_at is not null and deadair.art_assets.next_attempt_at > now()`.as('backingOff'))
+            .where('sourceUrl', '=', sourceUrl)
+            .executeTakeFirst();
+
+        return row === undefined ? undefined : { asset: toAsset(row), backingOff: row.backingOff === true };
+    }
+
+    /**
      * The assets behind a batch of upstream URLs, keyed by the URL that was asked for.
      *
      * One query rather than a call each, because the caller is a running order: the director asks

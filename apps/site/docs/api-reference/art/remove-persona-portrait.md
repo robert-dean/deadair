@@ -1,7 +1,7 @@
 ---
 title: 'Remove persona portrait'
 sidebar_label: 'Remove persona portrait'
-sidebar_position: 8
+sidebar_position: 10
 mdx:
     format: 'md'
 ---

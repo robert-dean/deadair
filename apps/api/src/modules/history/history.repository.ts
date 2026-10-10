@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
 import { DataRepository } from '#modules/data/data.repository.js';
 import { artUrl } from '#modules/catalog/catalog.art.js';
+import { stationCover } from '#modules/art/art.source.token.js';
 import { decodeCursor } from '#modules/activity/activity.feed.js';
 import type { HistoryRow } from './history.page.js';
 
@@ -106,7 +107,8 @@ export class HistoryRepository extends DataRepository {
             title: row.title,
             artists: row.artists,
             album: row.album,
-            artworkUrl: row.artworkUrl ?? null,
+            // The station's own path, or its proxy for one it has not cached; never the provider's URL.
+            artworkUrl: stationCover(row.artworkUrl) ?? null,
             durationMs: row.durationMs,
             trackId: row.trackId,
         }));

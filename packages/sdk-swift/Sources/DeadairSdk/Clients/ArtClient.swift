@@ -9,6 +9,58 @@ public final class ArtClient: Sendable {
         self.http = http
     }
 
+    /// Get source art
+    /// The bytes of a cover the station fetches on first ask, addressed by its sealed source
+    public func getSourceArt(token: String) async throws -> GetSourceArtResponse {
+        let request = try SdkRequest(method: "GET", path: ["art", "source", http.segment(token)])
+        let response = try await http.execute(request, expectStatuses: [304])
+        switch response.status {
+        case 304:
+            return .status304
+        default:
+            let headers = try GetSourceArt200Headers(
+                cacheControl: http.optionalHeader(response, "cache-control", as: String.self),
+                etag: http.optionalHeader(response, "etag", as: String.self)
+            )
+            switch response.contentType {
+            case "image/png":
+                return .status200ImagePng(data: response.body, headers: headers)
+            case "image/webp":
+                return .status200ImageWebp(data: response.body, headers: headers)
+            case "image/gif":
+                return .status200ImageGif(data: response.body, headers: headers)
+            default:
+                return .status200ImageJpeg(data: response.body, headers: headers)
+            }
+        }
+    }
+
+    /// Get source art file
+    /// The bytes of a cover the station fetches on first ask, under any filename
+    public func getSourceArtFile(token: String, filename: String) async throws -> GetSourceArtFileResponse {
+        let request = try SdkRequest(method: "GET", path: ["art", "source", http.segment(token), http.segment(filename)])
+        let response = try await http.execute(request, expectStatuses: [304])
+        switch response.status {
+        case 304:
+            return .status304
+        default:
+            let headers = try GetSourceArtFile200Headers(
+                cacheControl: http.optionalHeader(response, "cache-control", as: String.self),
+                etag: http.optionalHeader(response, "etag", as: String.self)
+            )
+            switch response.contentType {
+            case "image/png":
+                return .status200ImagePng(data: response.body, headers: headers)
+            case "image/webp":
+                return .status200ImageWebp(data: response.body, headers: headers)
+            case "image/gif":
+                return .status200ImageGif(data: response.body, headers: headers)
+            default:
+                return .status200ImageJpeg(data: response.body, headers: headers)
+            }
+        }
+    }
+
     /// Get art
     /// The bytes of one cached image, addressed by its id alone
     public func getArt(id: UUID) async throws -> GetArtResponse {
@@ -60,6 +112,50 @@ public final class ArtClient: Sendable {
             }
         }
     }
+}
+
+/// Response headers declared on GET /art/source/{token}.
+public struct GetSourceArt200Headers: Equatable, Sendable {
+    public let cacheControl: String?
+    public let etag: String?
+
+    public init(cacheControl: String?, etag: String?) {
+        self.cacheControl = cacheControl
+        self.etag = etag
+    }
+}
+
+/// What GET /art/source/{token} returned.
+///
+/// The operation declares several statuses the service produces, so the status is part of the value.
+public enum GetSourceArtResponse: Equatable, Sendable {
+    case status200ImageJpeg(data: Data, headers: GetSourceArt200Headers)
+    case status200ImagePng(data: Data, headers: GetSourceArt200Headers)
+    case status200ImageWebp(data: Data, headers: GetSourceArt200Headers)
+    case status200ImageGif(data: Data, headers: GetSourceArt200Headers)
+    case status304
+}
+
+/// Response headers declared on GET /art/source/{token}/{filename}.
+public struct GetSourceArtFile200Headers: Equatable, Sendable {
+    public let cacheControl: String?
+    public let etag: String?
+
+    public init(cacheControl: String?, etag: String?) {
+        self.cacheControl = cacheControl
+        self.etag = etag
+    }
+}
+
+/// What GET /art/source/{token}/{filename} returned.
+///
+/// The operation declares several statuses the service produces, so the status is part of the value.
+public enum GetSourceArtFileResponse: Equatable, Sendable {
+    case status200ImageJpeg(data: Data, headers: GetSourceArtFile200Headers)
+    case status200ImagePng(data: Data, headers: GetSourceArtFile200Headers)
+    case status200ImageWebp(data: Data, headers: GetSourceArtFile200Headers)
+    case status200ImageGif(data: Data, headers: GetSourceArtFile200Headers)
+    case status304
 }
 
 /// Response headers declared on GET /art/{id}.

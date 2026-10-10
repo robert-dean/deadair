@@ -1,29 +1,28 @@
 ---
-title: 'Get art file'
-sidebar_label: 'Get art file'
-sidebar_position: 7
+title: 'Get source art'
+sidebar_label: 'Get source art'
+sidebar_position: 4
 mdx:
     format: 'md'
 ---
 
-The bytes of one cached image, under any filename
+The bytes of a cover the station fetches on first ask, addressed by its sealed source
 
-**`GET`** `/art/{id}/{filename}`
+**`GET`** `/art/source/{token}`
 
 :::note
-SDK method: `getArtFile`
+SDK method: `getSourceArt`
 Security: public
 :::
 
 ## Attributes
 
 <details>
-<summary>Attributes (2)</summary>
+<summary>Attributes (1)</summary>
 
-| Attribute  | Type     | Required | Description     |
-| ---------- | -------- | -------- | --------------- |
-| `filename` | `string` | Yes      | Path parameter. |
-| `id`       | `string` | Yes      | Path parameter. |
+| Attribute | Type     | Required | Description     |
+| --------- | -------- | -------- | --------------- |
+| `token`   | `string` | Yes      | Path parameter. |
 
 </details>
 

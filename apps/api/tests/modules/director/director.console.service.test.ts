@@ -20,6 +20,7 @@ import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
 import type { ArtAsset, ArtRepository } from '../../../src/modules/art/art.repository.js';
 import { breakArtKey } from '../../../src/modules/art/break.art.js';
+import { clearArtSourceKey, configureArtSourceKey } from '../../../src/modules/art/art.source.token.js';
 import type { SettingsService } from '../../../src/modules/settings/settings.service.js';
 import type { PickResolver } from '../../../src/modules/director/pick.resolver.js';
 import type { CandidatesRepository } from '../../../src/modules/director/candidates.repository.js';
@@ -1625,6 +1626,36 @@ describe('DirectorConsoleService editing the running order', () => {
 
         expect(tracks.catalogRowsByTrackId).toHaveBeenCalledWith(['trk_known']);
         expect(drawn.items.map(item => item.rating)).toEqual(['disliked', undefined]);
+    });
+
+    // A line keeps the cover it was PICKED with, which for an uncached one is the provider's URL, and a
+    // Navidrome one carries the operator's user and token. The console is shown the station's proxy
+    // for it, and the cached path as it is.
+    it("draws a record's cover through the station, never as the provider's URL", async () => {
+        configureArtSourceKey('ab'.repeat(32));
+        try {
+            const order = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            order.append([
+                {
+                    pluginId: 'p',
+                    externalId: 't0',
+                    title: 'Upstream',
+                    artists: ['X'],
+                    artist: 'X',
+                    artworkUrl: 'https://music.example/rest/getCoverArt.view?id=1&u=operator&t=secret&s=salt',
+                },
+                { pluginId: 'p', externalId: 't1', title: 'Cached', artists: ['Y'], artist: 'Y', artworkUrl: 'art/asset-1/cover.jpg' },
+            ]);
+            const { service } = build({ order });
+
+            const drawn = await service.getOrder();
+
+            expect(drawn.items[0]!.artworkUrl).toMatch(/^art\/source\//);
+            expect(drawn.items[1]!.artworkUrl).toBe('art/asset-1/cover.jpg');
+            expect(JSON.stringify(drawn)).not.toContain('music.example');
+        } finally {
+            clearArtSourceKey();
+        }
     });
 
     // What a console draws its links from. The uningested record is the case that matters: it has

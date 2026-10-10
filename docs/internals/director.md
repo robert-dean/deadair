@@ -269,13 +269,28 @@ station had already conceded it: `set.prompt.ts` tells the model never to write 
 says a mood dropdown is strictly weaker than prose, and it was, while nothing knew what mood a record was
 in: a mood column could only have been matched against a vocabulary nothing filled. Once a model has
 judged each record (`deadair.track_lyric_labels`, with `lyrics.moods` on), "comfort" is a share every
-judged record carries, and the floor can lean on it with nothing reading prose. So `station_lineup.mood`
-and `schedule_slots.mood` (0066) ride beside the period, copied at a changeover and read on every refill,
-and reach `SetInputs.mood`. It differs from the period in one way that matters: it LEANS and never
-narrows, because a mood read off lyrics is wrong often enough that keeping a record off the air for it
-would be the station acting on a guess. See `director/mood.lean.ts`. A broadcast put on by hand can carry
-one through `PutOnAirInput.mood`; the sustaining hours and the console's put-on-air form do not offer one
-yet.
+judged record carries, and the floor can lean on it with nothing reading prose. So `station_lineup.moods`
+and `schedule_slots.moods` (0066, made lists by 0084) ride beside the period, copied at a changeover and
+read on every refill, and one of them reaches `SetInputs.mood`. It differs from the period in one way that
+matters: it LEANS and never narrows, because a mood read off lyrics is wrong often enough that keeping a
+record off the air for it would be the station acting on a guess. See `director/mood.lean.ts`. A broadcast
+put on by hand can carry them through `PutOnAirInput.moods`; the sustaining hours and the console's
+put-on-air form do not offer them yet.
+
+**A slot's moods are STAGES, one to four, and a refill leans into the one its records will mostly air
+in.** An evening that should open warm and close lonelier could only say one of those while a slot held
+one mood. The stages split the slot into equal shares in order, and `refillMood` (`mood.stage.ts`) picks
+one per batch: from the slot in force NOW, which is the only instant `minutesIntoSlot` is defined for, plus
+how far ahead the batch mostly airs (`batchMidpointMs`: where it starts after the queue, plus half of it
+at `NOMINAL_TRACK_MS`), and past the end is the last stage. **One stage per batch is coarse and is meant
+to be**: a refill is about an hour of records, so a slot with more stages than hours airs only the stages
+its refills land in, and that is written here rather than discovered. A broadcast whose slot is not the one
+in force (put on by hand outside it, or still airing after a changeover moved on) leans into its first
+stage, so does a single stage, and the schedule is only read when there is a choice to make. A replan
+measures from behind what the player holds, since that is all of the old order its new tail follows.
+**Deferred, deliberately: holding a strong record for the last spot before a changeover.** The refill
+cannot know it is filling the last spot, so that needs the changeover to reserve one, which is a design
+of its own.
 
 **Every binding in the chain narrows on it, and the two in the middle do so for a reason that is not
 efficiency**: `PickResolver` drops an out-of-period pick whatever named it, so a generator that names one

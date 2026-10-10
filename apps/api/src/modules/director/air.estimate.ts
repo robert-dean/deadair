@@ -72,3 +72,15 @@ export function estimateStartOffsets(items: readonly StationLineupItem[], leadMs
     offsets.push(at);
     return offsets;
 }
+
+/**
+ * How far from now a batch of `count` records appended after `ahead` will MOSTLY be airing: where it
+ * starts plus half its length, each record counted at {@link NOMINAL_TRACK_MS} since none is chosen yet.
+ *
+ * What a refill reads to decide which of a slot's mood stages it is choosing for (`mood.stage.ts`).
+ * The record on air now is not counted, for `artistsQueuedWithin`'s reason: it is at most one record,
+ * and a stage lasts a good part of an hour.
+ */
+export function batchMidpointMs(ahead: readonly StationLineupItem[], count: number): number {
+    return estimateStartOffsets(ahead).at(-1)! + (Math.max(0, count) * NOMINAL_TRACK_MS) / 2;
+}

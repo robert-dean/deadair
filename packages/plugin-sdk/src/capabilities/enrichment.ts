@@ -122,6 +122,14 @@ export interface AlbumRef {
 /**
  * The union of facts enrichment can contribute. Every field is optional: a
  * plugin returns a `Partial<TrackEnrichment>` containing only what it knows.
+ *
+ * A key the SDK has no field for is not lost: the host keeps it, per provider,
+ * as that provider's `extra`, which the console shows. **A URL in `extra` never
+ * reaches a response.** The host cannot tell a picture from a page link from an
+ * address carrying credentials in a field it has no meaning for, so any string
+ * holding one is dropped when the enrichment is read. Put a picture in the
+ * typed image field (`artworkUrl` here, `imageUrl` on an artist), which the
+ * station serves through its own cache, and a page in `links`.
  */
 export interface TrackEnrichment {
     /**

@@ -126,6 +126,8 @@ const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
  * Nothing reads `extra` as a known field. It does not merge across providers
  * (it does not have to: payloads are stored per provider, so two plugins'
  * unknown keys cannot collide) and it never promotes onto a canonical column.
+ * It is stored as the plugin wrote it, and `EnrichmentReadService` drops any
+ * string holding a URL from it before it reaches a response.
  */
 export type StoredEnrichment = Partial<TrackEnrichment> & { extra?: Record<string, unknown> };
 

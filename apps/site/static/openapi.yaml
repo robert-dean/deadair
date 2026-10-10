@@ -7774,7 +7774,7 @@ components:
                 extra:
                     type: object
                     additionalProperties: {}
-                    description: 'What the plugin said that the SDK has no field for. Per provider only: the merged view drops it'
+                    description: 'What the plugin said that the SDK has no field for. Per provider only: the merged view drops it. Never holds a URL: any string with one is dropped when read, along with the key or array element that held it'
             description: "`releaseDate` is a string and not `datetime` because it is a partial date: MusicBrainz answers\n`1997`, `1997-06` or `1997-06-24` depending on what is actually known about the release, and the\nSDK types it the same way. A `datetime` would reject the first two or invent a day and a time\nfor them, which is a precision the source never claimed."
         ArtistEnrichmentData:
             type: object

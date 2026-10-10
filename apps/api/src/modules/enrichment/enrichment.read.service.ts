@@ -510,7 +510,56 @@ function imageThroughStation<T extends object>(data: T, field: string): T {
     return (cover === undefined ? rest : { ...rest, [field]: cover }) as T;
 }
 
-/** {@link imageThroughStation} over every provider's stored answer, leaving the rest of each untouched. */
+/**
+ * {@link imageThroughStation} over every provider's stored answer, and {@link withoutUrls} over its
+ * `extra`, leaving the rest of each untouched.
+ */
 function sourcesThroughStation<S extends { data: object }>(sources: readonly S[], field: string): S[] {
-    return sources.map(source => ({ ...source, data: imageThroughStation(source.data, field) }));
+    return sources.map(source => ({ ...source, data: extraWithoutUrls(imageThroughStation(source.data, field)) }));
+}
+
+/**
+ * A URL anywhere in a string: a scheme followed by `://`. Deliberately loose, so a URL inside prose
+ * and one carrying userinfo (`https://user:pass@host`) both match.
+ */
+const CONTAINS_URL = /[a-z][a-z0-9+.-]*:\/\//i;
+
+/** How deep the walk goes. `extraFields` already refuses anything deeper than five levels at write time. */
+const MAX_WALK_DEPTH = 8;
+
+/** A provider's answer with every URL taken out of its `extra`, or as it was when it has none. */
+function extraWithoutUrls<T extends object>(data: T): T {
+    const extra = (data as { extra?: unknown }).extra;
+    if (extra === undefined || extra === null || typeof extra !== 'object') return data;
+    const cleaned = withoutUrls(extra, 0);
+    const { extra: _stored, ...rest } = data as Record<string, unknown>;
+    return (cleaned === undefined ? rest : { ...rest, extra: cleaned }) as T;
+}
+
+/**
+ * `extra` with every string that holds a URL removed, along with the array element or object key
+ * that held it. Returns `undefined` for a value that is itself such a string.
+ *
+ * **Why `extra` is closed this way rather than sealed like the picture fields.** `extra` is whatever a
+ * plugin said that the SDK has no field for, so nothing here can tell a picture from a page link
+ * from a URL with the operator's credentials in its query string. A typed picture field has one
+ * meaning and goes through `stationCover`; a URL in `extra` has none, so it never reaches a response
+ * at all. A plugin with a picture to give puts it in the typed image field. Read-time only: the
+ * stored payload keeps what the plugin wrote. Past {@link MAX_WALK_DEPTH} a branch is dropped
+ * rather than walked, which the write path's own depth limit makes unreachable.
+ */
+function withoutUrls(value: unknown, depth: number): unknown {
+    if (typeof value === 'string') return CONTAINS_URL.test(value) ? undefined : value;
+    if (value === null || typeof value !== 'object') return value;
+    if (depth >= MAX_WALK_DEPTH) return undefined;
+    if (Array.isArray(value)) {
+        return value.map(item => withoutUrls(item, depth + 1)).filter(item => item !== undefined);
+    }
+    const kept: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+        if (CONTAINS_URL.test(key)) continue;
+        const cleaned = withoutUrls(item, depth + 1);
+        if (cleaned !== undefined) kept[key] = cleaned;
+    }
+    return kept;
 }

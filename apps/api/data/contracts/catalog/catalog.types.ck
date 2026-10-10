@@ -295,7 +295,7 @@ contract TrackEnrichmentData: {
     artworkUrl?: string(max=2000) # The provider's picture as the station serves it: `art/<id>` once cached, else the station's proxy `art/source/<token>`. Never the URL the plugin supplied
     externalIds?: array(EnrichmentExternalId)
     links?: array(EnrichmentLink)
-    extra?: record(string, unknown) # What the plugin said that the SDK has no field for. Per provider only: the merged view drops it
+    extra?: record(string, unknown) # What the plugin said that the SDK has no field for. Per provider only: the merged view drops it. Never holds a URL: any string with one is dropped when read, along with the key or array element that held it
 }
 
 contract ArtistEnrichmentData: {

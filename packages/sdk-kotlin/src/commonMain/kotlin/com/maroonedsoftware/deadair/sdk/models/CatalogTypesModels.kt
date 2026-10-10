@@ -522,7 +522,7 @@ data class TrackEnrichmentData(
     val artworkUrl: String? = null,
     val externalIds: List<EnrichmentExternalId>? = null,
     val links: List<EnrichmentLink>? = null,
-    /** What the plugin said that the SDK has no field for. Per provider only: the merged view drops it */
+    /** What the plugin said that the SDK has no field for. Per provider only: the merged view drops it. Never holds a URL: any string with one is dropped when read, along with the key or array element that held it */
     val extra: Map<String, JsonElement>? = null,
 )
 

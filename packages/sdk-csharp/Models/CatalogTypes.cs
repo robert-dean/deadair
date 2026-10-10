@@ -842,7 +842,7 @@ public sealed record TrackEnrichmentData
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<EnrichmentLink>? Links { get; init; }
 
-    /// <summary>What the plugin said that the SDK has no field for. Per provider only: the merged view drops it</summary>
+    /// <summary>What the plugin said that the SDK has no field for. Per provider only: the merged view drops it. Never holds a URL: any string with one is dropped when read, along with the key or array element that held it</summary>
     [JsonPropertyName("extra")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Dictionary<string, JsonElement>? Extra { get; init; }

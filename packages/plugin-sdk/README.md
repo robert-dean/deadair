@@ -106,6 +106,12 @@ the website, at https://deadair.radio/docs/plugin-development.
    becomes a new row and another download of identical bytes; nothing errors,
    it just never caches. `resolveStreamUrl` is under no such rule, because
    nothing stores what it returns.
+8. **A URL in an enrichment's unknown keys never reaches a response.** A key
+   the SDK has no field for is kept as your `extra` and shown in the console,
+   but any string in it holding a URL is dropped when it is read, because the
+   host cannot tell what such a URL is. Put a picture in the typed image field
+   (`artworkUrl`, or `imageUrl` on an artist), which the station serves through
+   its own cache rather than handing your URL out, and a page in `links`.
 
 ## A complete minimal plugin
 

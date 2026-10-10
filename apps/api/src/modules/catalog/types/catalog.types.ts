@@ -439,7 +439,9 @@ export const TrackEnrichmentData = z.strictObject({
     extra: z
         .record(z.string(), z.unknown())
         .optional()
-        .describe('What the plugin said that the SDK has no field for. Per provider only: the merged view drops it'),
+        .describe(
+            'What the plugin said that the SDK has no field for. Per provider only: the merged view drops it. Never holds a URL: any string with one is dropped when read, along with the key or array element that held it',
+        ),
 });
 export type TrackEnrichmentData = z.infer<typeof TrackEnrichmentData>;
 

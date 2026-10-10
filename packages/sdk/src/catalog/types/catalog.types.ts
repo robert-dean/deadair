@@ -455,7 +455,7 @@ export interface TrackEnrichmentData {
     artworkUrl?: string;
     externalIds?: EnrichmentExternalId[];
     links?: EnrichmentLink[];
-    /** What the plugin said that the SDK has no field for. Per provider only: the merged view drops it */
+    /** What the plugin said that the SDK has no field for. Per provider only: the merged view drops it. Never holds a URL: any string with one is dropped when read, along with the key or array element that held it */
     extra?: Record<string, unknown>;
 }
 

@@ -1228,7 +1228,7 @@ public struct TrackEnrichmentData: Codable, Equatable, Sendable {
     public var artworkUrl: String?
     public var externalIds: [EnrichmentExternalId]?
     public var links: [EnrichmentLink]?
-    /// What the plugin said that the SDK has no field for. Per provider only: the merged view drops it
+    /// What the plugin said that the SDK has no field for. Per provider only: the merged view drops it. Never holds a URL: any string with one is dropped when read, along with the key or array element that held it
     public var extra: [String: JSONValue]?
 
     public init(artist: String? = nil, title: String? = nil, album: String? = nil, year: Int? = nil, releaseDate: String? = nil, genres: [String]? = nil, moods: [String]? = nil, biography: String? = nil, facts: [String]? = nil, bpm: Double? = nil, musicalKey: String? = nil, label: String? = nil, isrc: String? = nil, artworkUrl: String? = nil, externalIds: [EnrichmentExternalId]? = nil, links: [EnrichmentLink]? = nil, extra: [String: JSONValue]? = nil) {

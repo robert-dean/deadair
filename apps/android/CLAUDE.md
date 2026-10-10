@@ -254,6 +254,17 @@ over a record that was playing perfectly well. And **playing or stopped is REPOR
 `PlaybackService` alive on behalf of a picture, and a process that died reports nothing, which is
 correct, because a foreground service that was playing would still be alive.
 
+**The app's own screens take the gate's copy too, while this phone is playing.** They drew the
+poll for longer than the widget did, and it showed: Now playing named the next record seconds
+before the music changed and before the lock screen beside it did, and the bar under it ran a
+whole buffer ahead and reached the end of a record that was still playing. `AppGraph.aired` is the
+gate's released reading, and `NowPlayingState.heard` swaps it in while playing and only then;
+stopped, there is nothing to be behind, and the poll is the station's word. The released reading's
+`readAtMs` is moved later by the WHOLE buffer (not the hold, which is the buffer minus the age:
+the listener is a buffer behind at every moment, however old the reading), and `project` therefore
+lets `nowMs` fall before `readAtMs`. It used to clamp that gap to nothing, which on a stamp a
+buffer ahead held the bar still until the next reading re-anchored it, for ever.
+
 **Three things about Glance that a Compose UI habit gets wrong, each measured on the emulator.** A
 composition runs inside a WorkManager job, so a suspend in `provideGlance` that never returns is an
 ANR (`No response to onStartJob`) rather than a blank widget: it waits for this app's own state with

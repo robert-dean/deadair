@@ -46,6 +46,24 @@ struct PlayheadTests {
         #expect(anchored.remainingMs == 120_000)
     }
 
+    @Test func countsDownFromWhatIsAudibleWhenTheReadingIsStampedForTheEars() throws {
+        // Read at 0 with 120s left, released stamped ten seconds later because ten seconds of audio
+        // stood between the station and the listener. Three seconds after the poll, the listener is
+        // still hearing what the station played seven seconds BEFORE it was read.
+        let head = try #require(Playhead.project(track(remainingMs: 120_000), readAt: at(10_000), now: at(3_000)))
+
+        #expect(head == Playhead(elapsedMs: 173_000, remainingMs: 127_000, durationMs: 300_000))
+    }
+
+    @Test func aStampForTheEarsMovesBetweenReadingsRatherThanStandingStill() throws {
+        // Clamping the gap before the stamp to nothing held the bar at the station's figure for a
+        // whole buffer, and a poll faster than the buffer re-anchored it there before it moved.
+        let early = try #require(Playhead.project(track(remainingMs: 120_000), readAt: at(10_000), now: at(1_000)))
+        let later = try #require(Playhead.project(track(remainingMs: 120_000), readAt: at(10_000), now: at(2_500)))
+
+        #expect(early.remainingMs - later.remainingMs == 1_500)
+    }
+
     @Test func stopsAtTheEndOfTheRecordRatherThanRunningPastIt() throws {
         // The next reading is late, a slow poll or a backed-off one, and a clock that ran
         // negative would show a progress bar past its own end.

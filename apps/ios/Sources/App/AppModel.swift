@@ -158,9 +158,16 @@ final class AppModel {
     /// station still decides every press, and `operatorActions` re-reads this when it says no.
     var isOperator: Bool { session.state.isOperator }
 
+    /// What Now playing and the player bar draw: the record this phone's listener is hearing while
+    /// it plays, which is the one the lock screen shows, and the poll's reading otherwise. Drawn
+    /// raw, the screen moved to the next record a buffer before the music did. See `heard`.
+    var heardState: NowPlayingState {
+        nowPlaying.state.heard(listening.aired, playing: listening.wantsToPlay)
+    }
+
     /// The Now playing screen's state, from the reading and the player together.
     var nowPlayingUi: NowPlayingUiState {
-        let state = nowPlaying.state
+        let state = heardState
         let reading = state.latest?.value
         // The format ASKED for, as Android shows it: the fallback note names it, and says MP3 is
         // what is playing instead, only while something is playing.

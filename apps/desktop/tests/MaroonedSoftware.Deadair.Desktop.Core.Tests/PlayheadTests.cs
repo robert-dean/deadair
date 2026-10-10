@@ -61,10 +61,25 @@ public class PlayheadTests
     }
 
     [Fact]
-    public void DoesNotRunBackwardsIfTheClockDisagreesWithTheReading()
+    public void CountsFromWhatIsAudible_WhenTheAnchorIsWhenTheListenerHearsTheReading()
     {
-        var position = Playhead.Position(Track(300_000, 120_000), ReadAt, ReadAt.AddSeconds(-10));
+        // Anchored where the listener hears the reading, which is the hold's lead after the poll
+        // answered. Two seconds after the poll the listener is still three seconds short of the
+        // moment the station reported, so the bar is three seconds behind the station's figure.
+        // Clamping that gap to zero held the bar at 180s until the next reading re-anchored it there.
+        var heardAt = ReadAt.AddSeconds(5);
+        var position = Playhead.Position(Track(300_000, 120_000), heardAt, ReadAt.AddSeconds(2));
 
-        Assert.Equal(TimeSpan.FromSeconds(180), position);
+        Assert.Equal(TimeSpan.FromSeconds(177), position);
+    }
+
+    [Fact]
+    public void NeverAnswersBeforeTheStartOfTheRecord()
+    {
+        // A record a second old, anchored five seconds ahead: the listener is still in the record
+        // before it, and a bar does not go below its own start.
+        var position = Playhead.Position(Track(300_000, 299_000), ReadAt.AddSeconds(5), ReadAt);
+
+        Assert.Equal(TimeSpan.Zero, position);
     }
 }

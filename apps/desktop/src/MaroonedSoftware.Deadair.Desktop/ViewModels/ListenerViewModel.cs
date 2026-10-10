@@ -58,7 +58,12 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     private NowPlayingRepository? _repository;
     private IDisposable? _lease;
     private StationUrl _station;
-    private DateTimeOffset? _readAt;
+    /// <summary>
+    /// The reading the title and the cover were last drawn from, and when the listener hears it. The
+    /// playhead and the system widget project from this and never from the repository's latest, which
+    /// is a new record's countdown for the whole of the lead while its title is still being held.
+    /// </summary>
+    private HeardReading? _heldReading;
 
     /// <summary>The width the playing record's cover is decoded to, in pixels.</summary>
     /// <remarks>
@@ -471,7 +476,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _appliedItemKey = null;
         _artworkShowing = null;
         _artworkBytes = null;
-        _readAt = null;
+        _heldReading = null;
 
         Title = null;
         Artist = null;
@@ -625,7 +630,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
             return;
         }
 
-        var track = _repository?.Current.Value?.Track;
+        var track = _heldReading?.Reading.Track;
 
         _systemNowPlaying.Show(new NowPlayingCard(
             Title ?? StationName,
@@ -633,14 +638,13 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
             Album,
             _artworkBytes,
             Playhead.Duration(track),
-            Playhead.Position(track, _readAt, DateTimeOffset.UtcNow) ?? TimeSpan.Zero,
+            Playhead.Position(track, _heldReading?.HeardAt, DateTimeOffset.UtcNow) ?? TimeSpan.Zero,
             Playing));
     }
 
     private void OnReading(Reading<NowPlayingReading> reading)
     {
         Stale = reading.Stale;
-        _readAt = reading.ReadAt;
 
         if (reading.Value is not { } now)
         {
@@ -665,9 +669,9 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         // it would be up to NowPlayingHold.NowPlayingLead ahead of what is actually coming out of the
         // speakers. A same-item reading (or one still within the lead of the last new item) is held or
         // passed straight through by the hold itself; either way, ApplyTrack is where it lands.
-        if (_hold.Offer(ItemKey(now), now) is { } released)
+        if (_hold.Offer(ItemKey(now), now, reading.ReadAt) is not null && _hold.Heard is { } heard)
         {
-            ApplyTrack(released);
+            ApplyTrack(heard);
         }
     }
 
@@ -679,13 +683,16 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     /// <summary>A reading the hold has released, raised on its own timer thread rather than the UI one.</summary>
     private void OnHoldReleased(NowPlayingReading now)
     {
+        // Taken here, on the timer's thread, rather than once posted: the hold has just set it beside
+        // `now`, and a later poll of the same record may only ever replace it with a newer pair.
+        var heard = _hold.Heard ?? new HeardReading(now, null);
         var attachment = _attachment;
         _dispatcher.Post(() =>
         {
             // Released for a station the app has since let go of: see DetachAsync.
             if (attachment == _attachment)
             {
-                ApplyTrack(now);
+                ApplyTrack(heard);
             }
         });
     }
@@ -695,8 +702,10 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     /// reloads artwork only when the item they describe is not the one already showing. So a poll
     /// that merely confirms the same record is still playing does neither.
     /// </summary>
-    private void ApplyTrack(NowPlayingReading now)
+    private void ApplyTrack(HeardReading heard)
     {
+        _heldReading = heard;
+        var now = heard.Reading;
         var track = now.Track;
         Title = track?.Title;
         Artist = track?.Artist;
@@ -725,8 +734,8 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
     private void Tick()
     {
-        var track = _repository?.Current.Value?.Track;
-        var position = Playhead.Position(track, _readAt, DateTimeOffset.UtcNow);
+        var track = _heldReading?.Reading.Track;
+        var position = Playhead.Position(track, _heldReading?.HeardAt, DateTimeOffset.UtcNow);
         var duration = Playhead.Duration(track);
 
         if (position is null || duration is null)

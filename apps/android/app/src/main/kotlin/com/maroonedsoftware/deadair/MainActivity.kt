@@ -33,6 +33,7 @@ import androidx.navigation3.ui.NavDisplay
 import kotlinx.coroutines.flow.MutableStateFlow
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
+import com.maroonedsoftware.deadair.nowplaying.heard
 import com.maroonedsoftware.deadair.playback.PlayerConnection
 import com.maroonedsoftware.deadair.playback.playOnOpen
 import com.maroonedsoftware.deadair.station.StationLink
@@ -188,7 +189,11 @@ private fun Listener(
     // Collected here so the poll runs while the app is up. It stops on its own when it is not, and
     // through `watched` rather than `state` because this is a screen: a collector that is drawing
     // the readings for somebody is what asks the poll for its fast cadence.
-    val nowPlaying by graph.nowPlaying.watched.collectAsStateWithLifecycle()
+    val polled by graph.nowPlaying.watched.collectAsStateWithLifecycle()
+    // What the listener is hearing, which is the poll's reading only while nothing is playing here:
+    // see `heard`. The format picker below still reads the poll, which is the station's own list.
+    val aired by graph.aired.collectAsStateWithLifecycle()
+    val nowPlaying = polled.heard(aired, playing = playback.requested)
 
     // Play when the app opens, if the listener asked for that. Decided ONCE per activity, at the
     // first moment it can be (the controller bound, the settings read), and kept across rotation and
@@ -287,7 +292,7 @@ private fun Listener(
                                     // minutes past it.
                                     availability =
                                         availableFormats(
-                                            when (val current = nowPlaying) {
+                                            when (val current = polled) {
                                                 is NowPlayingState.Answered -> current.reading.nowPlaying.mounts
                                                 is NowPlayingState.Unreachable -> current.lastGood?.nowPlaying?.mounts
                                                 NowPlayingState.Loading -> null

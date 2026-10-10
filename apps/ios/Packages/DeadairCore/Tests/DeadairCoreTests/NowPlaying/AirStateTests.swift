@@ -44,3 +44,33 @@ struct AirStateTests {
         #expect(airState(.unreachable(lastGood: lastGood), playbackRequested: true) == .unreachable)
     }
 }
+
+/// Which reading a screen draws. While this phone plays, the record and its playhead are the ones
+/// the listener is hearing, and whether the station is answering is still the poll's to say.
+struct HeardStateTests {
+    private let polled = Reading(NowPlaying(station: "S", onAir: true, listeners: 1, mounts: [], track: NowPlayingTrack(title: "Next", artist: "a", startedAt: 2)), readAt: .now)
+    private let aired = Reading(
+        NowPlaying(station: "S", onAir: true, listeners: 1, mounts: [], track: NowPlayingTrack(title: "Still Playing", artist: "a", startedAt: 1)),
+        readAt: .now.advanced(by: .seconds(8))
+    )
+
+    @Test func playingTheScreenDrawsWhatTheListenerIsHearing() {
+        #expect(NowPlayingState.answered(polled).heard(aired, playing: true) == .answered(aired))
+    }
+
+    @Test func anUnreachableStationIsStillUnreachableOverTheRecordThatIsPlaying() {
+        #expect(NowPlayingState.unreachable(lastGood: polled).heard(aired, playing: true) == .unreachable(lastGood: aired))
+    }
+
+    @Test func stoppedThePollIsTheOnlyWordThereIs() {
+        #expect(NowPlayingState.answered(polled).heard(aired, playing: false) == .answered(polled))
+    }
+
+    @Test func playingWithNothingReleasedYetDrawsThePoll() {
+        #expect(NowPlayingState.answered(polled).heard(nil, playing: true) == .answered(polled))
+    }
+
+    @Test func aPollStartingOverIsNotAnsweredByAReleaseFromBeforeIt() {
+        #expect(NowPlayingState.loading.heard(aired, playing: true) == .loading)
+    }
+}

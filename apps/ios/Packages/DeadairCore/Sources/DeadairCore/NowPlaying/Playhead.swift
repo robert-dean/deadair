@@ -29,7 +29,13 @@ public struct Playhead: Equatable, Sendable {
         // Clamped at both ends. A late reading leaves more time carried than was left, and a clock
         // that ran past the end of the record would read as a fault; a clock that ran backwards
         // would claim more left than the record is long.
-        let carried = max(0, milliseconds(readAt.duration(to: now)))
+        //
+        // `carried` itself is NOT clamped, and it was. A reading released by `NowPlayingGate` is
+        // stamped for the listener's ears, a buffer later than the poll took it, so until the ears
+        // get there `now` is before `readAt` and more of the record is left than the station
+        // reported. Clamping that gap to nothing froze the bar for a whole buffer after every
+        // reading, which on a three-second poll and a longer buffer is a bar that never moves.
+        let carried = milliseconds(readAt.duration(to: now))
         let remaining = min(max(reported - carried, 0), duration)
         return Playhead(elapsedMs: duration - remaining, remainingMs: remaining, durationMs: duration)
     }

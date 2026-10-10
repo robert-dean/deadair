@@ -167,6 +167,91 @@ public class NowPlayingHoldTests
         Assert.Null(hold.Offer("100", Reading("100")));
     }
 
+    [Fact]
+    public void ReleasesAHeldItem_WithWhenTheListenerHearsIt()
+    {
+        // The lead is how far behind the station the audio is, so the moment a reading describes
+        // reaches the speakers a lead after it was read. The playhead projects from that, and so runs
+        // under the title it is drawn with instead of a lead ahead of it.
+        var time = new FakeTimeProvider();
+        var hold = new NowPlayingHold(time);
+        var readAt = new DateTimeOffset(2026, 10, 10, 12, 0, 0, TimeSpan.Zero);
+        var reading = Reading("100");
+
+        hold.Offer("100", reading, readAt);
+        Assert.Null(hold.Heard);
+
+        time.Advance(NowPlayingHold.NowPlayingLead);
+        Assert.Equal(new HeardReading(reading, readAt + NowPlayingHold.NowPlayingLead), hold.Heard);
+    }
+
+    [Fact]
+    public void ReleasesTheNewestReadingOfAHeldItem_WithItsOwnReadAt()
+    {
+        // Polled again inside the lead: the newer reading is the one released, and its stamp goes
+        // with it. A stamp from the first poll with the second poll's countdown would put the bar a
+        // poll interval out.
+        var time = new FakeTimeProvider();
+        var hold = new NowPlayingHold(time);
+        var readAt = new DateTimeOffset(2026, 10, 10, 12, 0, 0, TimeSpan.Zero);
+        hold.Offer("100", Reading("100"), readAt);
+        time.Advance(TimeSpan.FromSeconds(3));
+        var newer = Reading("100", listeners: 7);
+        hold.Offer("100", newer, readAt.AddSeconds(3));
+
+        time.Advance(NowPlayingHold.NowPlayingLead);
+
+        Assert.Equal(new HeardReading(newer, readAt.AddSeconds(3) + NowPlayingHold.NowPlayingLead), hold.Heard);
+    }
+
+    [Fact]
+    public void KeepsTheCurrentRecordsAnchor_WhileTheNextIsHeld()
+    {
+        // While a new record waits out its lead, the one still playing is what the bar is under. The
+        // view used to project from the repository's latest reading, which by then was the NEXT
+        // record's countdown under the current record's title.
+        var time = new FakeTimeProvider();
+        var hold = new NowPlayingHold(time);
+        var readAt = new DateTimeOffset(2026, 10, 10, 12, 0, 0, TimeSpan.Zero);
+        var current = Reading("100");
+        hold.Offer("100", current, readAt);
+        time.Advance(NowPlayingHold.NowPlayingLead);
+
+        hold.Offer("200", Reading("200"), readAt.AddSeconds(9));
+
+        Assert.Equal(new HeardReading(current, readAt + NowPlayingHold.NowPlayingLead), hold.Heard);
+    }
+
+    [Fact]
+    public void PassesASameItemUpdate_WithItsOwnHeardAt()
+    {
+        var time = new FakeTimeProvider();
+        var hold = new NowPlayingHold(time);
+        var readAt = new DateTimeOffset(2026, 10, 10, 12, 0, 0, TimeSpan.Zero);
+        hold.Offer("100", Reading("100"), readAt);
+        time.Advance(NowPlayingHold.NowPlayingLead);
+
+        var update = Reading("100", listeners: 42);
+        hold.Offer("100", update, readAt.AddSeconds(6));
+
+        // The audio is the same lead behind the station for a reading of the same record, so its
+        // anchor moves on by the same amount; the bar re-anchors on every reading as it always did.
+        Assert.Equal(new HeardReading(update, readAt.AddSeconds(6) + NowPlayingHold.NowPlayingLead), hold.Heard);
+    }
+
+    [Fact]
+    public void ForgetsWhenTheListenerHeardIt_OnReset()
+    {
+        var time = new FakeTimeProvider();
+        var hold = new NowPlayingHold(time);
+        hold.Offer("100", Reading("100"), DateTimeOffset.UnixEpoch);
+        time.Advance(NowPlayingHold.NowPlayingLead);
+
+        hold.Reset();
+
+        Assert.Null(hold.Heard);
+    }
+
     private static NowPlayingReading Reading(string startedAt, long listeners = 0) => new()
     {
         Station = "deadair",

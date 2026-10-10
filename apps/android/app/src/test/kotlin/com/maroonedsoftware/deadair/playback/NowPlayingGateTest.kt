@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.playback
 
+import com.maroonedsoftware.deadair.nowplaying.Reading
 import com.maroonedsoftware.deadair.sdk.models.NowPlaying
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingShow
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingTrack
@@ -31,14 +32,82 @@ class NowPlayingGateTest {
             track = NowPlayingTrack(title = title, artist = "Someone", startedAt = startedAt),
         )
 
-    private fun TestScope.gate(refresh: () -> Unit = {}, push: (NowPlaying?) -> Unit) =
+    private fun TestScope.gate(refresh: () -> Unit = {}, aired: (Reading?) -> Unit = {}, push: (NowPlaying?) -> Unit) =
         NowPlayingGate(
             // `.let` rather than a `{ job.cancel() }` on a line of its own, which Kotlin reads as a
             // trailing lambda passed to the `launch` above it.
             schedule = { ms, run -> backgroundScope.launch { delay(ms); run() }.let { job -> { job.cancel() } } },
             push = push,
             refresh = refresh,
+            aired = aired,
         )
+
+    @Test
+    fun `the released reading is stamped a whole buffer after it was read`() = runTest {
+        var aired: Reading? = null
+        val gate = gate(aired = { aired = it }) {}
+
+        val first = reading(startedAt = 1_000)
+        gate.onPoll(first, bufferedMs = 8_000, readAtMs = 50_000)
+
+        // The listener hears what the station was doing at 50s when the clock reads 58s, and a
+        // playhead projected from 50s would run those eight seconds ahead of the audio.
+        assertEquals(Reading(first, 58_000), aired)
+    }
+
+    @Test
+    fun `the stamp is the whole buffer even for a reading taken a while ago`() = runTest {
+        var aired: Reading? = null
+        val gate = gate(aired = { aired = it }) {}
+
+        // The hold is the buffer minus the age, because that is what is left to PLAY. The stamp
+        // is not: the moment the reading describes still reaches the ears a buffer after it.
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 8_000, ageMs = 20_000, readAtMs = 50_000)
+
+        assertEquals(58_000L, aired?.readAtMs)
+    }
+
+    @Test
+    fun `an unmoved reading re-anchors the playhead even when the lock screen is left alone`() = runTest {
+        val aired = mutableListOf<Reading?>()
+        var pushes = 0
+        val gate = gate(aired = { aired += it }) { pushes += 1 }
+
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 5_000, readAtMs = 0)
+        gate.onPoll(reading(startedAt = 1_000).copy(listeners = 99), bufferedMs = 5_000, readAtMs = 3_000)
+
+        assertEquals(1, pushes)
+        assertEquals(listOf(5_000L, 8_000L), aired.map { it?.readAtMs })
+    }
+
+    @Test
+    fun `a moved record reaches the screens when it reaches the lock screen, and not before`() = runTest {
+        var aired: Reading? = null
+        val gate = gate(aired = { aired = it }) {}
+
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 5_000, readAtMs = 0)
+        val moved = reading(startedAt = 2_000, title = "Next")
+        gate.onPoll(moved, bufferedMs = 4_000, readAtMs = 3_000)
+
+        // Held: the screens keep drawing the record the listener is still hearing.
+        assertEquals("A Song", aired?.nowPlaying?.track?.title)
+
+        advanceTimeBy(4_001)
+        assertEquals(Reading(moved, 7_000), aired)
+    }
+
+    @Test
+    fun `an ICY release hands the screens the held reading with its stamp`() = runTest {
+        var aired: Reading? = null
+        val gate = gate(aired = { aired = it }) {}
+
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 5_000, readAtMs = 0)
+        val moved = reading(startedAt = 2_000, title = "Next")
+        gate.onPoll(moved, bufferedMs = 30_000, readAtMs = 3_000)
+        gate.onIcyTitle("Next - Someone")
+
+        assertEquals(Reading(moved, 33_000), aired)
+    }
 
     @Test
     fun `first reading pushes immediately`() = runTest {

@@ -179,6 +179,24 @@ export function catalogTrackVocalMarkersOptions(id: string) {
     });
 }
 
+/** The words of one record, from the lyrics source the station believes. A lyric once found does not change, so it keeps the record's stale time. */
+export function catalogTrackLyricsOptions(id: string) {
+    return queryOptions({
+        queryKey: queryKeys.catalog.trackLyrics(id),
+        queryFn: () => sdk.catalog.getTrackLyrics(id),
+        staleTime: TRACK_DETAIL_STALE_TIME,
+    });
+}
+
+/** What every lyrics source answered for one record. Read only when an operator asks to see the sources. */
+export function catalogTrackLyricsSourcesOptions(id: string) {
+    return queryOptions({
+        queryKey: queryKeys.catalog.trackLyricsSources(id),
+        queryFn: () => sdk.catalog.listTrackLyricsSources(id),
+        staleTime: TRACK_DETAIL_STALE_TIME,
+    });
+}
+
 export function catalogTracksOptions(input: CatalogTrackPageInput) {
     return queryOptions({
         queryKey: queryKeys.catalog.tracks(input.page, input.search, input.state, order(input)),

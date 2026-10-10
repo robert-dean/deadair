@@ -1,5 +1,8 @@
 package com.maroonedsoftware.deadair.ui.home
 
+import com.maroonedsoftware.deadair.nowplaying.LyricsUiState
+import com.maroonedsoftware.deadair.nowplaying.lyricsUiState
+import com.maroonedsoftware.deadair.ui.nowplaying.LyricsSheet
 import com.maroonedsoftware.deadair.nowplaying.coverPath
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.size
@@ -271,13 +274,22 @@ fun HomeRoute(
                 // The record, as the transport reading names it: the public one names none.
                 val onAirTrackId = loaded?.status?.nowPlaying?.item?.trackId
                 val like = if (isOperator && onAirTrackId != null) rememberLike(graph, onAirTrackId) else null
+                // Frozen while the station is unreachable: a bar still sweeping from a reading
+                // minutes old is a moving, confident lie about where the record is.
+                val playhead = rememberPlayhead(reading.takeIf { nowPlaying is NowPlayingState.Answered }, ticking = !rest.resting)
+                // The words of what this listener is HEARING: keyed on the reading the screen draws,
+                // which while playing is the gate's delayed copy, and lit from the same playhead.
+                val heardStartedAt = reading?.nowPlaying?.track?.startedAt
+                val lyricsAnswer = rememberLyrics(graph, signedIn = session is SessionState.SignedIn, heardStartedAt = heardStartedAt)
+                val lyrics = lyricsUiState(lyricsAnswer, heardStartedAt, playhead)
+                var lyricsOpen by rememberSaveable { mutableStateOf(false) }
+                if (lyricsOpen && lyrics != LyricsUiState.Hidden) LyricsSheet(lyrics, onDismiss = { lyricsOpen = false })
                 NowPlayingScreen(
                     state = nowState,
                     artworkUrl = artworkUrl,
                     hostPortraitUrl = hostPortraitUrl,
-                    // Frozen while the station is unreachable: a bar still sweeping from a reading
-                    // minutes old is a moving, confident lie about where the record is.
-                    playhead = rememberPlayhead(reading.takeIf { nowPlaying is NowPlayingState.Answered }, ticking = !rest.resting),
+                    playhead = playhead,
+                    onLyrics = if (lyrics != LyricsUiState.Hidden) ({ lyricsOpen = true }) else null,
                     onPlay = play,
                     onStop = connection::stop,
                     operator = OperatorControls(skip = skip, shuffle = shuffle, like = like),

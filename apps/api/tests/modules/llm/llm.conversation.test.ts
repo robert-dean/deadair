@@ -558,6 +558,33 @@ describe('preemption', () => {
         await expect(broke).resolves.toBe('the break got in');
     });
 
+    it('says the budget ran out, not that it was preempted, when nobody took the model', async () => {
+        // The gate aborts the same signal for both, and calling a spent budget a preemption is what
+        // made a refill that had used its whole three minutes retry for another three with no break
+        // anywhere near the slot.
+        const { record, cancelled } = endlessPlugin();
+        const { service, gate } = serviceFor(record);
+
+        const result = await service.converse(ask(), { priority: 'background', budgetMs: 30 });
+
+        expect(result.finishReason).toBe('budget');
+        expect(result.text).toBe('');
+        expect(cancelled()).toBe(true);
+        expect(gate.generating()).toBe(false);
+    });
+
+    it('still says preempted when a break takes a budgeted conversation back first', async () => {
+        const { record } = endlessPlugin();
+        const { service, gate } = serviceFor(record);
+
+        const conversing = service.converse(ask(), { priority: 'background', budgetMs: 60_000 });
+        await new Promise(resolve => setImmediate(resolve));
+        const broke = gate.hold(async () => 'the break got in', { priority: 'air' });
+
+        expect((await conversing).finishReason).toBe('preempted');
+        await broke;
+    });
+
     it('hands the slot on rather than holding it until the model finishes', async () => {
         const { record } = endlessPlugin();
         const { service, gate } = serviceFor(record);

@@ -11,7 +11,8 @@ import { VocalMarkersReader } from './vocal.markers.reader.js';
 import { VocalMarkersService } from './vocal.markers.service.js';
 
 /**
- * The words of the station's records, which it reads and never says.
+ * The words of the station's records, which it reads and never says, and serves read-only to a
+ * signed-in app through `LyricsReadService`.
  *
  * No loop and no hooks: the walk is a cron job, and everything else here is resolved by whoever
  * reads a record's timings or labels. Scoped, as the enrichment services beside it are, because the

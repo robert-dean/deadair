@@ -156,7 +156,8 @@ export class LyricsRepository extends DataRepository {
      * The words of each of these records, from whichever source holds them, plain preferred.
      *
      * For a DERIVATION or a GUARD and nothing else: the break writer's guard compares a script against
-     * these lines, and nothing that reads them may put them on the wire or in a prompt.
+     * these lines, and nothing that reads them may put them on the wire or in a prompt. The routes that
+     * serve the words read them through `wordsForServing` instead.
      */
     async textForDerivation(trackIds: readonly string[]): Promise<Map<string, string>> {
         if (trackIds.length === 0) return new Map();

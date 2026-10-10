@@ -552,7 +552,7 @@ public struct TrackStateCounts: Codable, Equatable, Sendable {
     public var enriched: Int
     public var benched: Int
     public var failing: Int
-    /// A lyrics source has the words of it. The words themselves are never served
+    /// A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`
     public var lyrics: Int
     /// A lyrics source has the timing of its lines, which says when the singing starts
     public var synced: Int

@@ -261,7 +261,7 @@ export interface TrackStateCounts {
     enriched: number;
     benched: number;
     failing: number;
-    /** A lyrics source has the words of it. The words themselves are never served */
+    /** A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics` */
     lyrics: number;
     /** A lyrics source has the timing of its lines, which says when the singing starts */
     synced: number;

@@ -253,7 +253,7 @@ contract TrackStateCounts: {
     enriched: readonly int(min=0)
     benched: readonly int(min=0)
     failing: readonly int(min=0)
-    lyrics: readonly int(min=0) # A lyrics source has the words of it. The words themselves are never served
+    lyrics: readonly int(min=0) # A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`
     synced: readonly int(min=0) # A lyrics source has the timing of its lines, which says when the singing starts
     instrumental: readonly int(min=0) # A lyrics source says nobody sings on it
     moods: readonly int(min=0) # A model has judged what mood it is in

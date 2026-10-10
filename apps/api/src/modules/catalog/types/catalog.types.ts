@@ -245,7 +245,7 @@ export const TrackStateCounts = z.strictObject({
     failing: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
     lyrics: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
-        .describe('A lyrics source has the words of it. The words themselves are never served'),
+        .describe('A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`'),
     synced: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .describe('A lyrics source has the timing of its lines, which says when the singing starts'),

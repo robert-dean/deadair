@@ -415,7 +415,7 @@ public sealed record TrackStateCounts
     [JsonPropertyName("failing")]
     public required long Failing { get; init; }
 
-    /// <summary>A lyrics source has the words of it. The words themselves are never served</summary>
+    /// <summary>A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`</summary>
     [JsonPropertyName("lyrics")]
     public required long Lyrics { get; init; }
 

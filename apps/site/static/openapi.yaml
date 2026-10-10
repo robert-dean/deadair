@@ -7751,7 +7751,7 @@ components:
                     type: integer
                     minimum: 0
                     readOnly: true
-                    description: 'A lyrics source has the words of it. The words themselves are never served'
+                    description: 'A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`'
                 synced:
                     type: integer
                     minimum: 0

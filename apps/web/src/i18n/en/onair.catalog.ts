@@ -47,7 +47,7 @@ export const onair = {
             new: 'Start a new show',
         },
         keepIntro:
-            'Everything still to come is dropped and the station programmes that stretch again. What is playing, and what the player is already holding, keeps going.',
+            "The station's own records still to come are dropped and it programmes that stretch again. What is playing, what the player is already holding, listeners' requests, productions and anything you added yourself all keep their places.",
         newIntro:
             'The station programmes itself against this, from your own library first and from your providers when the library cannot fill it. A record it does not own yet is fetched and kept. What you like and dislike is taken into account either way.',
         newWarning: 'This starts a new broadcast: everything still to come is dropped, and what is playing stops.',

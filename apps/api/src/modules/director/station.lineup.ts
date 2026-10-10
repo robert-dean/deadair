@@ -1388,13 +1388,18 @@ export class StationLineup implements LiveOrder {
         return OK;
     }
 
-    /** Put one segment into the order at a position. An operator's edit, so it is {@link StationLineupLine.pinned}. */
-    insertSegment(segmentId: string, atIndex: number, over?: { atMs: number }, segmentKind?: string): EditResult {
+    /**
+     * Put one segment into the order at a position.
+     *
+     * `pinned` when somebody asked for it, which is what the operator's own edit passes and what a
+     * replan then leaves where it is. See {@link StationLineupLine.pinned}.
+     */
+    insertSegment(segmentId: string, atIndex: number, over?: { atMs: number }, segmentKind?: string, pinned?: true): EditResult {
         return this.insertSegments([
             {
                 segmentId,
                 atIndex,
-                pinned: true,
+                ...(pinned ? { pinned } : {}),
                 ...(over === undefined ? {} : { over }),
                 ...(segmentKind === undefined ? {} : { segmentKind }),
             },
@@ -1666,17 +1671,25 @@ export class StationLineup implements LiveOrder {
      * Planned SEGMENTS go too, and this is deliberately not {@link remove}'s asymmetry. A record is
      * spliced there and a break is left as a `removed` mark, because `BreakPlanner` counts records
      * since the last segment already in the order and could not otherwise tell an operator's cut
-     * from a slot it never planted into. Here the whole tail goes at once, so what the planner walks
-     * is a run of records with no segments in it — exactly the state it is built to plant into, and
-     * exactly what it should do with a tail nobody has ever talked over.
+     * from a slot it never planted into. Here the station's whole tail goes at once, so what the
+     * planner walks is a run of records with no breaks of its own in it — exactly the state it is
+     * built to plant into, and exactly what it should do with a tail nobody has ever talked over.
+     *
+     * **What somebody else put there stays where it is** ({@link isPinned}), and the new records fill
+     * the slots the station's own records leave, in order, with the rest going on the end. A replan
+     * is the operator asking the station to choose again, which says nothing about a listener's
+     * request, a production or the record they added themselves; all of those used to go with the
+     * rest, and a request then lapsed hours later as having left the running order. Slot for slot
+     * rather than gathering the pinned items at the front, because a request was placed in a quiet
+     * gap and a production at its hour, and both of those positions mean something.
      *
      * @returns the items it dropped, because the caller has work to do on them: the segments among
      *   them own `deadair.segments` rows that are now describing a break that will never air.
      */
     replacePlanned(tracks: readonly RundownTrack[]): StationLineupItem[] {
-        const dropped = this.itemList.filter(item => item.state === 'planned');
+        const { lines, dropped } = fillAround(this.itemList, tracks.map(toItem));
 
-        this.itemList = [...this.itemList.filter(item => item.state !== 'planned'), ...tracks.map(toItem)];
+        this.itemList = lines;
         return dropped;
     }
 
@@ -1684,10 +1697,11 @@ export class StationLineup implements LiveOrder {
      * Replace everything still planned after a listener's request with records chosen to follow it.
      *
      * {@link replacePlanned}'s swap with a floor under it: lines up to and including the request
-     * keep their places, as does anything after it the player already holds, and the planned lines
-     * behind it go, segments included, for that method's reason. The new records go in at the end,
-     * stamped {@link StationLineupTrackItem.followsRequestId}, so the gap rule keeps the next request
-     * from splitting the run.
+     * keep their places, as does anything after it the player already holds or somebody pinned, and
+     * the station's own planned lines behind it go, segments included, for that method's reason. The
+     * new records take their slots and then the end, stamped
+     * {@link StationLineupTrackItem.followsRequestId}, so the gap rule keeps the next request from
+     * splitting the run.
      *
      * Refused (`undefined`) when the request is no longer going to be heard, and when a later
      * request already sits behind it. The second cannot happen through {@link insertRequested},
@@ -1704,7 +1718,6 @@ export class StationLineup implements LiveOrder {
         const behind = this.itemList.slice(at + 1);
         if (behind.some(item => item.kind === 'track' && item.requestId !== undefined)) return undefined;
 
-        const dropped = behind.filter(item => item.state === 'planned');
         const following = tracks.map((track): StationLineupTrackItem => ({
             id: randomUUID(),
             kind: 'track',
@@ -1713,7 +1726,8 @@ export class StationLineup implements LiveOrder {
             followsRequestId: requestId,
             pinned: true,
         }));
-        this.itemList = [...this.itemList.slice(0, at + 1), ...behind.filter(item => item.state !== 'planned'), ...following];
+        const { lines, dropped } = fillAround(behind, following);
+        this.itemList = [...this.itemList.slice(0, at + 1), ...lines];
         return dropped;
     }
 
@@ -1774,6 +1788,33 @@ export class StationLineup implements LiveOrder {
 }
 
 const toItem = (track: RundownTrack): StationLineupItem => ({ id: randomUUID(), kind: 'track', state: 'planned', track });
+
+/**
+ * Lay new records into an order, around everything a replan has to leave alone.
+ *
+ * Anything not `planned` keeps its place, because the player holds it or it is the record of what
+ * happened, and so does anything {@link isPinned}. Every other planned line goes; a record's slot is
+ * taken by the next new record, a segment's is not (the planner plants into the result afresh), and
+ * whatever new records are left over go on the end.
+ */
+const fillAround = (
+    lines: readonly StationLineupItem[],
+    fresh: readonly StationLineupItem[],
+): { lines: StationLineupItem[]; dropped: StationLineupItem[] } => {
+    const kept: StationLineupItem[] = [];
+    const dropped: StationLineupItem[] = [];
+    let next = 0;
+
+    for (const line of lines) {
+        if (line.state !== 'planned' || isPinned(line)) {
+            kept.push(line);
+            continue;
+        }
+        dropped.push(line);
+        if (line.kind === 'track' && next < fresh.length) kept.push(fresh[next++]!);
+    }
+    return { lines: [...kept, ...fresh.slice(next)], dropped };
+};
 
 /**
  * Whether a replan or a shuffle has to leave this item where it is.

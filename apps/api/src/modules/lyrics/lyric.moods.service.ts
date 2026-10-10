@@ -92,6 +92,28 @@ export class LyricMoodsService {
                 break;
             }
 
+            // This record took longer than {@link MOODS_BUDGET_MS}, which is a fact about the record
+            // (a long lyric, searches that went nowhere) rather than about the station's schedule,
+            // so it costs this record a retry later and the pass carries on. Stopping here, as a
+            // preemption does, would let one slow record hold back every record behind it.
+            if (answer.finishReason === 'budget') {
+                summary.failed++;
+                try {
+                    await this.labels.recordMoodFailure(
+                        candidate.trackId,
+                        'the model ran out of time',
+                        MOODS_FAILURE_RETRY_MS,
+                        MOODS_FAILURE_MAX_RETRY_MS,
+                    );
+                } catch (error) {
+                    this.logger.warn('lyric moods: could not record a judgement that ran out of time', {
+                        trackId: candidate.trackId,
+                        error: errorText(error),
+                    });
+                }
+                continue;
+            }
+
             const moods = readMoods(answer.text);
             try {
                 if (moods === undefined) {

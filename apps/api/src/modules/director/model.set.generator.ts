@@ -487,6 +487,19 @@ export class ModelSetGenerator extends SetGenerator {
                     ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
                     searches: result.toolCallsMade,
                 });
+            } else if (result.finishReason === 'budget') {
+                // NOT marked, and that is the whole difference from the branch above. A preemption
+                // says nothing about this refill and the retry gets the model back in seconds; a
+                // refill that used all of {@link BUDGET_MS} will use all of it again, so a retry is
+                // three more minutes for the same answer. On 2026-10-10 the two were one finish
+                // reason and this was exactly what happened, under a line blaming a break that never
+                // came. A warning rather than info: unlike a preemption this is the model being
+                // too slow for the job, which an operator can do something about.
+                this.logger.warn('director: the refill ran out of time before the model named any records', {
+                    ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
+                    budgetMs: BUDGET_MS,
+                    searches: result.toolCallsMade,
+                });
             } else if (result.toolCallsMade === 0) {
                 // The one failure worth naming as the model's own. A run that searched and found
                 // nothing is a thin library and is not this; a run that never searched and answered

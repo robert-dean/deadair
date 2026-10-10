@@ -457,11 +457,13 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // speaker was offered.
                 answer => speakable(answer.text, reactions, board.names, this.language().language, casting),
                 {
-                    onEmpty: () =>
-                        this.logger.info('productions: a beat came back empty, so it is being asked again', {
-                            production: claimed.id,
-                            beat: beat.ordinal,
-                        }),
+                    onEmpty: (_empties, outOfTime) =>
+                        this.logger.info(
+                            outOfTime
+                                ? 'productions: a beat ran out of time, so it is being asked again'
+                                : 'productions: a beat came back empty, so it is being asked again',
+                            { production: claimed.id, beat: beat.ordinal },
+                        ),
                     onPreempted: preemptions =>
                         this.logger.info('productions: a break took the model back mid-beat; it is being asked again', {
                             production: claimed.id,
@@ -490,7 +492,9 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                     claimed.id,
                     outcome.reason === 'preempted'
                         ? `beat ${beat.ordinal + 1} was preempted by a break ${outcome.preempted} times`
-                        : `beat ${beat.ordinal + 1} came back empty twice`,
+                        : outcome.reason === 'budget'
+                          ? `beat ${beat.ordinal + 1} came back empty twice, the second time because it ran out of time`
+                          : `beat ${beat.ordinal + 1} came back empty twice`,
                 );
                 return false;
             }

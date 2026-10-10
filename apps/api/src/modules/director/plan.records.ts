@@ -115,6 +115,11 @@ export const MAX_PLANNING_ATTEMPTS = 2;
  * second job: `LlmGate` queues it, the break ahead of it finishes in seconds, and if the gate times
  * out the chain absorbs it exactly as it absorbs every other way a generator can fail.
  *
+ * **A refill that ran out of its own budget is NOT planned again.** The gate stops a conversation
+ * the same way for both, and until the loop told them apart (`'budget'` beside `'preempted'`) a
+ * refill that had used all three minutes was retried for three more with no break waiting, on
+ * 2026-10-10. Too slow once is too slow twice; the chain fills that batch.
+ *
  * **Planned again from scratch rather than topped up**, because the floor's picks were chosen to
  * fill a hole the model was going to fill properly, and keeping them would leave the batch shaped by
  * the interruption. **And resolution happens once, after the last attempt** — a discarded batch must

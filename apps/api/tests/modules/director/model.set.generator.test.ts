@@ -380,6 +380,21 @@ describe('ModelSetGenerator', () => {
         expect(preemption.took()).toBe(true);
     });
 
+    it('does not ask for another go when the refill ran out of its own budget', async () => {
+        // The gate aborts the same signal for a preemption and for a spent budget, and when both
+        // read as `'preempted'` a refill that had used its whole three minutes was planned again
+        // for another three, logged as a break taking the model back when none was waiting.
+        vi.mocked(logger.info).mockClear();
+        vi.mocked(logger.warn).mockClear();
+        const { generator, preemption } = build({ enabled: true, toolCallsMade: 4, finishReason: 'budget', text: '' });
+
+        expect(await generator.generate(inputs(5))).toEqual([]);
+        expect(preemption.took()).toBe(false);
+        expect(logger.info).not.toHaveBeenCalledWith(expect.stringContaining('a break took the model back'), expect.anything());
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('ran out of time'), expect.objectContaining({ searches: 4 }));
+        expect(logger.warn).not.toHaveBeenCalledWith(expect.stringContaining('not using its tools'));
+    });
+
     it('asks for nothing when the model simply had nothing to say', async () => {
         // The distinction the retry rests on: a model that searched and found nothing has ANSWERED,
         // and asking it again would produce the same answer at twice the cost.
@@ -722,6 +737,15 @@ describe('when the model goes quiet, what its searches found', () => {
 
         expect(picked.map(pick => pick.artist)).toEqual(['Mitch Murder', 'Lost Years', 'Kavinsky']);
         expect(preemption.took()).toBe(true);
+    });
+
+    it('fills a refill that ran out of budget from its searches, without a retry', async () => {
+        const { generator, preemption } = build({ enabled: true, text: '', toolCallsMade: 2, finishReason: 'budget', searched: found });
+
+        const picked = await generator.generate(inputs(5));
+
+        expect(picked.map(pick => pick.artist)).toEqual(['Mitch Murder', 'Lost Years', 'Kavinsky']);
+        expect(preemption.took()).toBe(false);
     });
 
     it('leaves a PREEMPTED refill that never searched for the chain to fill', async () => {

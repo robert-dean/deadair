@@ -33,7 +33,8 @@ export class RefillPreemption {
      * loop answers only where it abandoned a step that had ALREADY asked for tools. A model that
      * simply had nothing to say does not come through here, and must not: this is the one signal
      * that distinguishes work the station interrupted from work the model declined to do, and a
-     * retry is only owed to the first.
+     * retry is only owed to the first. Nor does a refill that spent its whole budget, which the loop
+     * answers as `'budget'`: the same work asked again would spend the same budget again.
      */
     mark(): void {
         this.preempted = true;

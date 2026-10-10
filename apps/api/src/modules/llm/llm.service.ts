@@ -3,6 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import {
     collectGeneration,
+    isPluginError,
     PLUGIN_CAPABILITY_LLM,
     PluginError,
     type LlmFinishReason,
@@ -84,8 +85,27 @@ const STRAY_LOG_CHARS = 200;
  * So the reason carries it. A caller that wants "did the model run out of room" asks for `'length'`
  * and gets an answer that is true, and a caller that logs the reason and nothing else — which is all
  * of them — reports what happened.
+ *
+ * **`'budget'` is its sibling, and is NOT a preemption.** The gate aborts one signal for two
+ * reasons: something that outranks this caller wanted the model (`unavailable`), or the caller's own
+ * `budgetMs` ran out (`timeout`). For a while both were reported as `'preempted'`, and the callers
+ * that branch on it all read it as "a break wanted the model, ask again" — so on 2026-10-10 a refill
+ * that had spent its whole three minutes was told a break took the model back, marked itself
+ * preempted, and was planned again for another three, with no break anywhere near the slot. A
+ * preemption says nothing about the work and is worth retrying; a budget says the work did not fit
+ * in the time it was given, and the same work asked the same way will usually not fit again. The two
+ * are read off the abort reason's code by {@link stoppedBy}.
  */
-export type ConversationFinishReason = LlmFinishReason | 'preempted';
+export type ConversationFinishReason = LlmFinishReason | 'preempted' | 'budget';
+
+/**
+ * Which of the gate's two endings stopped a conversation, read off the reason the signal was aborted
+ * with. The budget timer aborts with a `timeout`; anything else, a preemption's `unavailable`
+ * included, is the station taking the model back.
+ */
+function stoppedBy(signal: AbortSignal): 'preempted' | 'budget' {
+    return isPluginError(signal.reason) && signal.reason.code === 'timeout' ? 'budget' : 'preempted';
+}
 
 /**
  * What a model is told when the loop has run out of steps.
@@ -581,19 +601,23 @@ export class LlmService {
                 // part-way through. The slot is what was being taken back, so coming back promptly
                 // with nothing is the whole point — waiting for the words in order to return them
                 // would hand the break that preempted this exactly the delay it preempted to avoid.
+                // The same signal also fires when this caller's own budget runs out, and the two
+                // are told apart by {@link stoppedBy} rather than both being called a preemption.
                 if (!signal.aborted) throw error;
 
-                this.logger.info('llm: a conversation was preempted mid-generation', {
-                    plugin: plugin.record.id,
-                    step,
-                    searches: toolCallsMade,
-                });
+                const stopped = stoppedBy(signal);
+                this.logger.info(
+                    stopped === 'budget'
+                        ? 'llm: a conversation ran out of budget mid-generation'
+                        : 'llm: a conversation was preempted mid-generation',
+                    { plugin: plugin.record.id, step, searches: toolCallsMade },
+                );
                 // No text, because there is none: what the model had said so far belongs to a
                 // generation nobody drained. The provider would report this as `length`; it is
                 // reported as what it is, so that a caller telling it apart from a model with
                 // nothing to say does not have to know to ask a second question. See
                 // {@link ConversationFinishReason}.
-                return { text: '', toolCalls: [], usage, model, toolCallsMade, transcript: messages, finishReason: 'preempted' };
+                return { text: '', toolCalls: [], usage, model, toolCallsMade, transcript: messages, finishReason: stopped };
             }
             addUsage(usage, result.usage);
 
@@ -643,23 +667,27 @@ export class LlmService {
             }
 
             if (signal.aborted) {
-                // The budget went while the station was doing its own work. Answer with what the
-                // model has said so far rather than throwing: a partial line is worth more to a
-                // writer that can fall back than an exception is.
+                // The budget went, or a break took the model, while the station was doing its own
+                // work. Answer with what the model has said so far rather than throwing: a partial
+                // line is worth more to a writer that can fall back than an exception is.
                 //
                 // Note where this sits: the step above produced tool calls (or the return before it
                 // would have taken us), so what is being abandoned is a model that ASKED to search.
                 // `toolCallsMade` therefore stays at whatever ran BEFORE this step, and a caller
                 // reading 0 there is reading the station's interruption rather than an idle model —
                 // which is why the finish reason is overridden here rather than passed through.
-                this.logger.info('llm: a conversation ran out of budget mid-loop', {
-                    plugin: plugin.record.id,
-                    step,
-                    // The number that says what was lost. A preemption at step 0 costs the whole
-                    // refill; one at step 3 costs the answer and keeps the searching.
-                    wanted: asked.length,
-                });
-                return { ...result, usage, model, toolCallsMade, transcript: messages, finishReason: 'preempted' };
+                const stopped = stoppedBy(signal);
+                this.logger.info(
+                    stopped === 'budget' ? 'llm: a conversation ran out of budget mid-loop' : 'llm: a conversation was preempted mid-loop',
+                    {
+                        plugin: plugin.record.id,
+                        step,
+                        // The number that says what was lost. A preemption at step 0 costs the whole
+                        // refill; one at step 3 costs the answer and keeps the searching.
+                        wanted: asked.length,
+                    },
+                );
+                return { ...result, usage, model, toolCallsMade, transcript: messages, finishReason: stopped };
             }
 
             // The assistant turn AND its calls, as one message. A model that cannot see its own

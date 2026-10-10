@@ -15,6 +15,7 @@ interface Answer {
 
 const said = (text: string): Answer => ({ text, finishReason: 'stop' });
 const preempted = (): Answer => ({ text: '', finishReason: 'preempted' });
+const outOfTime = (): Answer => ({ text: '', finishReason: 'budget' });
 
 /** Answers in order, then the last one forever. */
 const asking = (answers: Answer[]) => {
@@ -85,6 +86,33 @@ describe('askForBeat', () => {
         expect(outcome.reason).toBe('empty');
         expect(outcome.asked).toHaveLength(EMPTY_BEAT_RETRIES + 1);
         expect(onEmpty).toHaveBeenCalledTimes(EMPTY_BEAT_RETRIES);
+    });
+
+    it('counts an ask that ran out of its own budget as an empty attempt, not a preemption', async () => {
+        // The gate stops both the same way. Nothing took the model from this one: it had the whole
+        // budget and did not finish, and three free re-asks would cost two minutes each.
+        const ask = asking([outOfTime()]);
+        const onEmpty = vi.fn();
+        const onPreempted = vi.fn();
+
+        const outcome = await askForBeat(ask, read, { onEmpty, onPreempted });
+
+        expect(outcome.script).toBe('');
+        expect(outcome.reason).toBe('budget');
+        expect(outcome.preempted).toBe(0);
+        expect(outcome.asked).toHaveLength(EMPTY_BEAT_RETRIES + 1);
+        expect(ask).toHaveBeenCalledTimes(EMPTY_BEAT_RETRIES + 1);
+        expect(onEmpty).toHaveBeenCalledWith(1, true);
+        expect(onPreempted).not.toHaveBeenCalled();
+    });
+
+    it('keeps the answer after one that ran out of time', async () => {
+        const ask = asking([outOfTime(), said('Good evening.')]);
+
+        const outcome = await askForBeat(ask, read);
+
+        expect(outcome.script).toBe('Good evening.');
+        expect(outcome.asked.map(attempt => attempt.answer.finishReason)).toEqual(['budget', 'stop']);
     });
 
     it('judges emptiness by what the reader makes of the answer, not by the raw text', async () => {

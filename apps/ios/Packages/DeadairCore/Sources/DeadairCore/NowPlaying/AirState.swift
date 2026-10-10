@@ -3,6 +3,32 @@ import DeadairSdk
 /// What the station answered, polled.
 public typealias NowPlayingState = PollState<NowPlaying>
 
+extension PollState where Value == NowPlaying {
+    /// The state a screen draws: the poll's, with the record swapped for the one this listener is
+    /// hearing.
+    ///
+    /// While this phone is playing, the poll runs a buffer ahead of the audio: it names the next
+    /// record the moment the station commits it, and its playhead counts down the station's decoder
+    /// rather than the listener's ears. Drawn raw, Now playing changed title seconds before the
+    /// music did and before the lock screen did, and its bar reached the end of a record that was
+    /// still playing. `aired` is `NowPlayingGate`'s released reading, already stamped for the ears,
+    /// so it is what a screen shows while `playing`.
+    ///
+    /// Whether the station is ANSWERING stays the poll's to say: one failed request is still shown
+    /// as one, over the record that is still playing. Stopped, or before the gate has released
+    /// anything, the poll's reading is all there is. Android's `heard`, case for case.
+    public func heard(_ aired: Reading<NowPlaying>?, playing: Bool) -> PollState<NowPlaying> {
+        guard playing, let aired else { return self }
+        switch self {
+        case .answered: return .answered(aired)
+        case .unreachable: return .unreachable(lastGood: aired)
+        // The poll started over (a station change) and has not answered yet: whatever was
+        // released belongs to the session before it.
+        case .loading: return self
+        }
+    }
+}
+
 /// What to tell the listener the station is doing.
 public enum AirState: Equatable, Sendable {
     /// A record is playing and this is it.

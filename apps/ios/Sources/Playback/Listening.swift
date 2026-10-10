@@ -31,6 +31,11 @@ final class Listening {
     /// The reading the lock screen is showing, which is the one `NowPlayingGate` has released: held
     /// until the audio reaches it, so a car's screen reads from here and agrees with the tile.
     private(set) var shown: NowPlaying?
+    /// The same release for the app's own screens, with when it was read moved later by the buffer
+    /// between the station and the listener's ears, so a playhead projected from it follows the
+    /// audio. Every reading the gate lets through lands here, including the ones that change nothing
+    /// on the lock screen, because the bar re-anchors on each. `nil` while nothing is playing.
+    private(set) var aired: Reading<NowPlaying>?
 
     @ObservationIgnored private let player: StationPlayer
     @ObservationIgnored private let gate: NowPlayingGate
@@ -68,6 +73,11 @@ final class Listening {
         sleepTimer.onVolume = { [weak self] volume in self?.player.volume = volume }
 
         gate.push = { [weak self] reading in self?.publish(reading) }
+        gate.aired = { [weak self] reading in
+            guard let self, self.conductor.wantsToPlay else { return }
+            self.aired = reading
+        }
+        gate.refresh = { [weak self] in self?.nowPlaying.retry() }
         player.onPhase = { [weak self] phase in self?.observed(phase) }
         player.onTitle = { [weak self] title in self?.gate.onTitle(title) }
         conductor.onRetryDue = { [weak self] in self?.retarget(force: true) }
@@ -111,6 +121,7 @@ final class Listening {
         lease = nil
         choice = nil
         shown = nil
+        aired = nil
         gate.cancel()
         releaseBackgroundTime()
         system.clear()
@@ -193,7 +204,8 @@ final class Listening {
     private func readingChanged() {
         guard conductor.wantsToPlay else { return }
         retarget(force: false)
-        gate.onPoll(nowPlaying.state.latest?.value, buffered: player.buffered)
+        let latest = nowPlaying.state.latest
+        gate.onPoll(latest?.value, buffered: player.buffered, age: latest.map { $0.readAt.duration(to: .now) } ?? .zero, readAt: latest?.readAt)
         sleepTimer.onReading(nowPlaying.state.latest, buffered: player.buffered)
     }
 
@@ -206,8 +218,11 @@ final class Listening {
         guard let art = coverArtUrl(station: station, reading: reading).flatMap(URL.init(string:)) else { return }
         Task {
             let image = await artwork.image(for: art)
-            // Only if the record it belongs to is still the one showing.
-            guard conductor.wantsToPlay, nowPlaying.state.latest?.value.track?.startedAt == reading?.track?.startedAt else { return }
+            // Only if the record it belongs to is still the one showing. The one the LOCK SCREEN is
+            // showing, which is the gate's: the poll's raw reading moves on a buffer earlier, and
+            // compared against that, a cover that took a moment to load was dropped whenever the
+            // next record had been committed in the meantime.
+            guard conductor.wantsToPlay, shown?.track?.startedAt == reading?.track?.startedAt else { return }
             system.show(station: name, reading: reading, artwork: image, playing: conductor.state == .playing)
         }
     }

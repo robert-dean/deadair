@@ -35,7 +35,7 @@ struct MiniPlayerBar: View {
     var body: some View {
         let ui = model.nowPlayingUi
         let listening = model.listening
-        let reading = model.nowPlaying.state.latest?.value
+        let reading = model.heardState.latest?.value
 
         HStack(spacing: 12) {
             // The artwork and the words are one target, which opens Now playing; the button beside

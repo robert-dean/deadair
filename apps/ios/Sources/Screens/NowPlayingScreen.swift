@@ -38,7 +38,7 @@ struct NowPlayingScreen: View {
 
     var body: some View {
         let ui = model.nowPlayingUi
-        let reading = model.nowPlaying.state.latest
+        let reading = model.heardState.latest
         let station = model.settings.settings.station
         let artwork = artworkURL(station: station, reading: reading?.value)
         // The transport reading, for the operator only. It is what says whether there is anything to
@@ -281,7 +281,7 @@ struct NowPlayingScreen: View {
             // Their picture beside the name when the station has one.
             if let host = ui.hostLine {
                 HStack(spacing: 6) {
-                    if let portrait = hostPortraitUrl(station: model.settings.settings.station, reading: model.nowPlaying.state.latest?.value)
+                    if let portrait = hostPortraitUrl(station: model.settings.settings.station, reading: model.heardState.latest?.value)
                         .flatMap(URL.init(string:)) {
                         HostPortrait(url: portrait, loader: model.artwork)
                     }

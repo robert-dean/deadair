@@ -116,8 +116,17 @@ it. Polling happens only while somebody holds a `PollLease` (a SwiftUI `.task` h
 `hold()`), with five seconds' grace, so a stopped app in the background asks the station nothing.
 
 **The lock screen follows the audio, not the poll.** `NowPlayingGate` holds a changed record for as
-long as the player has buffered and releases it early when the in-band title changes, which is
-Android's gate decision for decision.
+long as the player has buffered (less the reading's age) and releases it early when the in-band
+title changes, which is Android's gate decision for decision. A title change with nothing held asks
+the station for a fresh reading and publishes that answer at once; it used to republish the latest
+reading, which was the record that had just ended.
+
+**So do Now playing and the player bar, while this phone plays.** They drew the poll, and named the
+next record a buffer before the music changed. `Listening.aired` is the gate's release with its
+`readAt` moved later by the WHOLE buffer (the listener is a buffer behind at every moment, however
+old the reading), and `AppModel.heardState` swaps it in while playing; stopped, the poll is drawn.
+`Playhead.project` lets `now` fall before `readAt` for that reason: clamping that gap held the bar
+still for a buffer after every reading. Android's `heard` and `aired`, case for case.
 
 **Words: pure state returns a `Message`, never a sentence**, as on Android. `Message.text` carries
 only words the station sent. The resolver that turns a `Message` into words belongs to the app and

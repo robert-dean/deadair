@@ -573,6 +573,8 @@
     <string name="schedule_in">in %1$s</string>
     <string name="schedule_sustaining_for">The station is on its sustaining source for the next %1$s.</string>
     <string name="schedule_no_block_due">No block is due from here on, so the station stays on whatever it is set to sustain on.</string>
+    <string name="schedule_show_more">Show more</string>
+    <string name="schedule_show_less">Show less</string>
     <string name="schedule_taken_over">The station is airing something else, which is what happens when it was put on by hand. It moves back to the schedule when the next block begins.</string>
     <!-- "20:00–22:00", and with a weekday when it is not today: "Mon 09:00–11:00" -->
     <string name="schedule_hours">%1$s–%2$s</string>

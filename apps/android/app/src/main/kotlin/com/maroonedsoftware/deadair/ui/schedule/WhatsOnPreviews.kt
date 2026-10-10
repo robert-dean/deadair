@@ -60,3 +60,23 @@ private fun NothingDuePreview() = Framed(ScheduleState.Answered(reading(Schedule
 @PreviewLightDark
 @Composable
 private fun StalePreview() = Framed(ScheduleState.Unreachable(reading(liveNow), lastGoodAtMs = 1_800_000_000_000L))
+
+@PreviewLightDark
+@Composable
+private fun LongBriefPreview() =
+    Framed(
+        ScheduleState.Answered(
+            ScheduleReading(
+                now = liveNow,
+                slots =
+                    slots.map {
+                        it.copy(
+                            brief =
+                                "Slow records for the hour after midnight: late soul, ambient and the quieter end of jazz, nothing with a " +
+                                    "drum kit until the second half, and a back-announce after every third record so nobody tuning in is lost.",
+                        )
+                    },
+                personas = personas,
+            ),
+        ),
+    )

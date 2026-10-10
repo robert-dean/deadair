@@ -1,6 +1,8 @@
 package com.maroonedsoftware.deadair.ui.schedule
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,16 +14,25 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -101,31 +112,31 @@ private fun Blocks(state: WhatsOnUiState, artUrlFor: (String?) -> String?, stale
                 is OnNow.Between -> BetweenCard(onNow)
             }
 
-            state.ahead.forEach { AheadCard(it, artUrlFor) }
+            // Keyed on the block, so a card opened to read it stays with that block when a poll moves
+            // it from "after that" to "up next", rather than staying in the slot it was opened in.
+            state.ahead.forEach { key(it.block) { AheadCard(it, artUrlFor) } }
         }
     }
 }
 
 @Composable
 private fun LiveCard(live: OnNow.Live, artUrlFor: (String?) -> String?) {
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Heading(live.eyebrow.resolve(), live.leftLabel.resolve())
-            BlockBody(live.block, artUrlFor)
-            // Silent to a screen reader: the "left" label beside the eyebrow already says how far
-            // through the block it is, and a bar announcing a percentage on top of it said the
-            // same thing twice in two units.
-            LinearProgressIndicator(progress = { live.progress }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp).clearAndSetSemantics {})
+    ExpandableCard(live.block) { expanded, onTruncated ->
+        Heading(live.eyebrow.resolve(), live.leftLabel.resolve())
+        BlockBody(live.block, artUrlFor, expanded, onTruncated)
+        // Silent to a screen reader: the "left" label beside the eyebrow already says how far
+        // through the block it is, and a bar announcing a percentage on top of it said the
+        // same thing twice in two units.
+        LinearProgressIndicator(progress = { live.progress }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp).clearAndSetSemantics {})
 
-            if (live.takenOver) {
-                // The word in the eyebrow is the correction; this is why. Without it, a listener is
-                // told a show is on while plainly hearing something else.
-                Text(
-                    stringResource(R.string.schedule_taken_over),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+        if (live.takenOver) {
+            // The word in the eyebrow is the correction; this is why. Without it, a listener is
+            // told a show is on while plainly hearing something else.
+            Text(
+                stringResource(R.string.schedule_taken_over),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -143,10 +154,46 @@ private fun BetweenCard(between: OnNow.Between) {
 
 @Composable
 private fun AheadCard(ahead: Ahead, artUrlFor: (String?) -> String?) {
+    ExpandableCard(ahead.block) { expanded, onTruncated ->
+        Heading(ahead.eyebrow.resolve(), ahead.startsIn.resolve())
+        BlockBody(ahead.block, artUrlFor, expanded, onTruncated)
+    }
+}
+
+/**
+ * A block's card, which opens to the whole of its label and brief when either was cut short.
+ *
+ * Pressable only when there is more to read: a card that answered a tap by doing nothing would look
+ * broken, and one that offered "Show more" over text already shown in full would be lying. Whether
+ * anything was cut is what the collapsed layout reported, so it is remembered across the expanded
+ * one, which by definition cuts nothing.
+ */
+@Composable
+private fun ExpandableCard(block: BlockCard, content: @Composable (expanded: Boolean, onTruncated: (Boolean) -> Unit) -> Unit) {
+    var expanded by rememberSaveable(block) { mutableStateOf(false) }
+    var truncated by remember(block) { mutableStateOf(false) }
+    val onTruncated: (Boolean) -> Unit = { if (!expanded) truncated = it }
+    val label = stringResource(if (expanded) R.string.schedule_show_less else R.string.schedule_show_more)
+
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Heading(ahead.eyebrow.resolve(), ahead.startsIn.resolve())
-            BlockBody(ahead.block, artUrlFor)
+        Column(
+            modifier =
+                Modifier.fillMaxWidth()
+                    .then(if (truncated || expanded) Modifier.clickable(onClickLabel = label, role = Role.Button) { expanded = !expanded } else Modifier)
+                    .animateContentSize()
+                    .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            content(expanded, onTruncated)
+            if (truncated || expanded) {
+                // The press's label already says it to a screen reader.
+                Icon(
+                    painterResource(if (expanded) R.drawable.ic_expand_less else R.drawable.ic_expand_more),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp).align(Alignment.CenterHorizontally),
+                )
+            }
         }
     }
 }
@@ -168,8 +215,22 @@ private fun Heading(eyebrow: String, trailing: String) {
 }
 
 @Composable
-private fun BlockBody(block: BlockCard, artUrlFor: (String?) -> String?) {
-    Text(block.label.resolve(), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+private fun BlockBody(block: BlockCard, artUrlFor: (String?) -> String?, expanded: Boolean, onTruncated: (Boolean) -> Unit) {
+    // Either line being cut makes the card worth opening, so each reports its own and they are or'd.
+    var labelCut by remember(block) { mutableStateOf(false) }
+    var briefCut by remember(block) { mutableStateOf(false) }
+    val maxLines = if (expanded) Int.MAX_VALUE else 2
+
+    Text(
+        block.label.resolve(),
+        style = MaterialTheme.typography.titleMedium,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+        onTextLayout = {
+            labelCut = it.hasVisualOverflow
+            onTruncated(labelCut || briefCut)
+        },
+    )
 
     val hours = block.hours?.resolve()
     val line =
@@ -200,8 +261,12 @@ private fun BlockBody(block: BlockCard, artUrlFor: (String?) -> String?) {
             it,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 2,
+            maxLines = maxLines,
             overflow = TextOverflow.Ellipsis,
+            onTextLayout = { layout ->
+                briefCut = layout.hasVisualOverflow
+                onTruncated(labelCut || briefCut)
+            },
         )
     }
 }

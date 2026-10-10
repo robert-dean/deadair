@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.8.2] — 2026-10-10
+
+- Now playing has a Request button for anybody signed in, so asking the station for a record no longer means going to Up next first. It sits at the end of the play controls, with the operator's heart moved from beside the title to the other end, and Request has a new icon everywhere it appears: a speech bubble with a note in it.
+
 ## [0.8.1] — 2026-10-10
 
 - Now playing changes record when you hear it change. While the station was playing on your phone, the screen and the player bar moved to the next record as soon as the station picked it, several seconds before the music did and before the lock screen did, and the progress bar ran the same few seconds ahead. They now follow the audio you are hearing, as the lock screen does. When a record changes before the app has heard about it, the lock screen no longer puts the previous record back up for a moment; it asks the station and shows the new one. A cover that takes a moment to load is no longer dropped when the station has already moved on to the next record. With the station stopped, the screen shows what the station is playing, as before.

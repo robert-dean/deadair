@@ -229,8 +229,10 @@ A writer cannot quote a line it was never shown, which is why the subject travel
 **A signed-in app can read the words, and that changes nothing above.** Since 2026-10-10
 `LyricsReadService` serves them read-only: `/catalog/tracks/{id}/lyrics` (the source the station believes,
 in `lyrics.providerOrder`, timed lines before plain, one source's fields never mixed with another's),
-`/catalog/tracks/{id}/lyrics/sources`, and `/nowplaying/lyrics` with the record's `startedAt` and
-`cueInMs`, so a player highlights a line on the file's timeline as the vocal markers read it. All three
+`/catalog/tracks/{id}/lyrics/sources`, and `/nowplaying/lyrics` with the record's `startedAt` and the
+cues the player was handed (`playedCues` in `playout/annotate.ts`). The decoder's `remainingMs` counts
+down to the cue-out, so a client's position in the file is `(cueOutMs ?? durationMs) - remainingMs`,
+read off the playhead it already projects and never off the wall clock since `startedAt`. All three
 are `platform.view` and `mcp: exclude`: a model that can read a lyric can recite it, so the MCP surface is
 the one reader treated like a writer here. This reverses the "never on the wire" rule that migration 0063's
 comment and [track-lyrics](https://github.com/robert-dean/deadair/discussions/47) state; the migration is

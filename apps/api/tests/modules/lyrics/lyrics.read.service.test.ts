@@ -111,19 +111,29 @@ describe('LyricsReadService.getNowPlayingLyrics', () => {
         await expect(build(words, {}, true, airing({})).getNowPlayingLyrics()).resolves.toEqual({ onAir: true, startedAt: STARTED });
     });
 
-    it('answers the record’s lyrics with its start and its cue-in, timings left on the file’s timeline', async () => {
-        const answer = await build(words, {}, true, airing({ trackId: TRACK, cueInMs: 1_500.4 })).getNowPlayingLyrics();
+    it('answers the record’s lyrics with its start and both cues, timings left on the file’s timeline', async () => {
+        const answer = await build(words, {}, true, airing({ trackId: TRACK, cueInMs: 1_500.4, cueOutMs: 238_000.6 })).getNowPlayingLyrics();
         expect(answer).toEqual({
             onAir: true,
             trackId: TRACK,
             startedAt: STARTED,
             cueInMs: 1_500,
+            cueOutMs: 238_001,
             lyrics: { trackId: TRACK, kind: 'words', provider: 'deadair.lrclib', synced: [{ atMs: 9_000, text: 'first words' }] },
         });
     });
 
-    it('leaves the cue-in out for a record that airs from the top, and answers none rather than failing', async () => {
-        const answer = await build([], {}, true, airing({ trackId: TRACK, cueInMs: 0 })).getNowPlayingLyrics();
-        expect(answer).toEqual({ onAir: true, trackId: TRACK, startedAt: STARTED, lyrics: { trackId: TRACK, kind: 'none' } });
+    it('sends a cue-out without a cue-in for a record that airs from the top, and answers none rather than failing', async () => {
+        const answer = await build([], {}, true, airing({ trackId: TRACK, cueInMs: 0, cueOutMs: 200_000 })).getNowPlayingLyrics();
+        expect(answer).toEqual({ onAir: true, trackId: TRACK, startedAt: STARTED, cueOutMs: 200_000, lyrics: { trackId: TRACK, kind: 'none' } });
+    });
+
+    it('sends neither cue when the player was not given them, so no client assumes a trim that did not happen', async () => {
+        const half = await build(words, {}, true, airing({ trackId: TRACK, cueInMs: 1_500 })).getNowPlayingLyrics();
+        expect(half).not.toHaveProperty('cueInMs');
+        expect(half).not.toHaveProperty('cueOutMs');
+
+        const backwards = await build(words, {}, true, airing({ trackId: TRACK, cueInMs: 9_000, cueOutMs: 8_000 })).getNowPlayingLyrics();
+        expect(backwards).not.toHaveProperty('cueOutMs');
     });
 });

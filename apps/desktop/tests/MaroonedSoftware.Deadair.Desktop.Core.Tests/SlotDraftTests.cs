@@ -147,14 +147,14 @@ public class SlotDraftTests
     public void ASlotsHoursReadInTheList(long start, long end, string expected) => Assert.Equal(expected, SlotText.Window(start, end));
 
     [Fact]
-    public void ASpecialsDatesAndAMoodSurviveASave_ThoughTheEditorDrawsNeither()
+    public void ASpecialsDatesAndItsMoodStagesSurviveASave_ThoughTheEditorDrawsNeither()
     {
         var special = Slot() with
         {
             StartsOn = "2026-10-31",
             EndsOn = "2026-10-31",
             Yearly = true,
-            Mood = ScheduleSlotMood.Fear,
+            Moods = [ScheduleSlotMoods.Comfort, ScheduleSlotMoods.Fear],
             GuestHosts = [new SlotGuestHost { PersonaId = "rockzo", EveryN = 7 }],
             CoHosts = [new SlotCoHost { PersonaId = "lemmy", EveryN = 25, CooldownDays = 14 }],
         };
@@ -164,7 +164,7 @@ public class SlotDraftTests
         Assert.Equal("2026-10-31", input.StartsOn);
         Assert.Equal("2026-10-31", input.EndsOn);
         Assert.True(input.Yearly);
-        Assert.Equal(ScheduleSlotMood.Fear, input.Mood);
+        Assert.Equal([ScheduleSlotMoods.Comfort, ScheduleSlotMoods.Fear], input.Moods);
         Assert.Equal("rockzo", Assert.Single(input.GuestHosts!).PersonaId);
         Assert.Equal("lemmy", Assert.Single(input.CoHosts!).PersonaId);
     }

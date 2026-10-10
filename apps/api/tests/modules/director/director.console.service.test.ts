@@ -29,6 +29,7 @@ import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
 import { ROTATION_KEYS } from '../../../src/modules/director/rotation.rules.js';
 import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
+import type { RouteLink } from '../../../src/modules/director/route.planner.js';
 import { SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import type { PersonaKind } from '../../../src/modules/personas/persona.js';
@@ -37,6 +38,8 @@ import { settingsConfig } from '../../utils/settings.config.js';
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
 interface Options {
+    /** A route's stops, each with the record chosen for it, or absent for no route between the two. */
+    route?: { name: string; trackId: string; title: string; link?: RouteLink }[];
     /** A playlist the station owns, by its rows, or absent for one it does not hold. */
     stationPlaylist?: { name: string; rows: StationPlaylistRowTrack[] };
     /** An album the library holds, as `TracksRepository.inAlbumOrder` answers it, or absent for one it does not. */
@@ -222,6 +225,24 @@ function build(options: Options = {}) {
     // Read-only too, and asked one question: which kinds of break have a picture. Keyed the way the
     // service keys it, through `breakArtKey`, so a test that spelled the row key by hand could not
     // pass against a service that spelled it differently.
+    const routes = {
+        plan: vi.fn(async () =>
+            options.route === undefined
+                ? undefined
+                : options.route.map(stop => ({
+                      artistKey: stop.name.toLowerCase(),
+                      name: stop.name,
+                      ...(stop.link === undefined ? {} : { link: stop.link }),
+                  })),
+        ),
+        records: vi.fn(async (stops: { artistKey: string; name: string }[]) =>
+            stops.map((stop, index) => ({
+                stop,
+                record: { trackId: options.route![index]!.trackId, title: options.route![index]!.title, liked: false },
+            })),
+        ),
+    };
+
     const art = {
         findBySourceUrls: vi.fn(async (sourceUrls: readonly string[]) => {
             if (options.artError !== undefined) throw options.artError;
@@ -368,7 +389,9 @@ function build(options: Options = {}) {
                 get: (id: string) =>
                     ({ 'deadair.lastfm': { manifest: { name: 'Last.fm' } }, 'deadair.spotify': { manifest: { name: 'Spotify' } } })[id],
             } as never,
+            routes as never,
         ),
+        routes,
         pusher,
         art,
         cutAgainst,
@@ -913,6 +936,74 @@ describe('DirectorConsoleService.putOnAir', () => {
                 details: { message: expect.stringContaining('that album') },
             });
             expect(director.post).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('a route from one artist to another', () => {
+        const route = [
+            { name: 'Gorillaz', trackId: 'cat-1', title: 'Feel Good Inc' },
+            { name: 'Blur', trackId: 'cat-2', title: 'Tender', link: { kind: 'credit' as const, title: 'Shared Song', lead: 'Gorillaz' } },
+            { name: 'Daft Punk', trackId: 'cat-3', title: 'Digital Love', link: { kind: 'similar' as const, source: 'deadair.lastfm' } },
+        ];
+        const bindings = {
+            'cat-1': { pluginId: 'deadair.navidrome', externalId: 'nd-1' },
+            'cat-2': { pluginId: 'deadair.navidrome', externalId: 'nd-2' },
+            'cat-3': { pluginId: 'deadair.navidrome', externalId: 'nd-3' },
+        };
+
+        it('airs one record per stop in order, named for its two ends, and vets them like any other source', async () => {
+            const { service, posted, resolver } = build({ route, stationBindings: bindings });
+
+            await service.putOnAir({ routeFrom: 'Gorillaz', routeTo: 'Daft Punk', mode: 'setlist', breaks: true });
+
+            const command = posted().at(-1);
+            if (command?.kind !== 'putOnAir') throw new Error('expected the station to be put on air');
+            expect(command.tracks.map(track => [track.title, track.artist])).toEqual([
+                ['Feel Good Inc', 'Gorillaz'],
+                ['Tender', 'Blur'],
+                ['Digital Love', 'Daft Punk'],
+            ]);
+            expect(command.binding).toMatchObject({ name: 'Gorillaz to Daft Punk', source: 'route', mode: 'setlist' });
+            expect(resolver.vet).toHaveBeenCalled();
+        });
+
+        it('tells each record how it connects to the one before, by name, and nothing across a stop that was closed up', async () => {
+            const { service, posted } = build({ route, stationBindings: bindings });
+            await service.putOnAir({ routeFrom: 'Gorillaz', routeTo: 'Daft Punk' });
+            const command = posted().at(-1);
+            if (command?.kind !== 'putOnAir') throw new Error('expected the station to be put on air');
+            expect(command.tracks[0]!.link).toBeUndefined();
+            expect(command.tracks[1]!.link).toEqual({
+                fromSongKey: songKey('Feel Good Inc', ['Gorillaz']),
+                reason: 'Gorillaz and Blur are both credited on "Shared Song" by Gorillaz',
+            });
+            expect(command.tracks[2]!.link?.reason).toBe('Last.fm lists Daft Punk among the artists most like Blur');
+
+            // Blur has no copy to air, so Gorillaz and Daft Punk end up side by side with no planned link.
+            const closed = build({ route, stationBindings: { 'cat-1': bindings['cat-1'], 'cat-3': bindings['cat-3'] } });
+            await closed.service.putOnAir({ routeFrom: 'Gorillaz', routeTo: 'Daft Punk' });
+            const after = closed.posted().at(-1);
+            if (after?.kind !== 'putOnAir') throw new Error('expected the station to be put on air');
+            expect(after.tracks.map(track => track.link)).toEqual([undefined, undefined]);
+        });
+
+        it('says there is no route rather than going on air with nothing', async () => {
+            const { service, director } = build({ stationBindings: bindings });
+
+            await expect(service.putOnAir({ routeFrom: 'Gorillaz', routeTo: 'Nobody' })).rejects.toMatchObject({
+                statusCode: 422,
+                details: { message: expect.stringContaining('no route from Gorillaz to Nobody') },
+            });
+            expect(director.post).not.toHaveBeenCalled();
+        });
+
+        it('refuses half a route, or a route beside another source', async () => {
+            const { service } = build({ route, stationBindings: bindings });
+
+            expect(await statusOf(service.putOnAir({ routeFrom: 'Gorillaz' }))).toBe(400);
+            expect(
+                await statusOf(service.putOnAir({ routeFrom: 'Gorillaz', routeTo: 'Daft Punk', albumId: '00000000-0000-4000-8000-000000000002' })),
+            ).toBe(400);
         });
     });
 

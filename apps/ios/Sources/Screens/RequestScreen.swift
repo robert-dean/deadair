@@ -153,7 +153,7 @@ struct RequestScreen: View {
                     }
                 }
                 Spacer()
-                Image(systemName: "text.badge.plus").foregroundStyle(.tint)
+                RequestIcon().foregroundStyle(.tint)
             }
             .contentShape(Rectangle())
         }
@@ -221,5 +221,26 @@ private struct RequestSheet: View {
     /// A field that cannot hold more than the station takes.
     private func capped(_ field: WritableKeyPath<RequestForm, String>, _ max: Int) -> Binding<String> {
         Binding(get: { form[keyPath: field] }, set: { form[keyPath: field] = String($0.prefix(max)) })
+    }
+}
+
+/// Request's icon: a speech bubble with a note in it, asking the station for a record. Drawn from two
+/// system symbols because there is no one symbol for it, and sized off the surrounding font so it
+/// stands wherever an `Image(systemName:)` would. `apps/android`'s `ic_request`.
+struct RequestIcon: View {
+    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 17
+    var points: CGFloat?
+
+    var body: some View {
+        let side = points ?? size
+        Image(systemName: "bubble.left")
+            .font(.system(size: side))
+            .overlay {
+                // The bubble's body sits above its tail, so the note goes a little above the middle.
+                Image(systemName: "music.note")
+                    .font(.system(size: side * 0.45, weight: .semibold))
+                    .offset(y: -side * 0.06)
+            }
+            .accessibilityHidden(true)
     }
 }

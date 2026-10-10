@@ -1,5 +1,6 @@
 import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type {
+    RoutePreviewInput,
     AddStationSegmentInput,
     AddStationTrackInput,
     ExtendStationInput,
@@ -216,6 +217,13 @@ export function useExtendOrder() {
  * nudge rather than the mechanism — what actually shows the new hour is the running order's own
  * poll, which a replan may well outlast.
  */
+/** What a route between two artists would be, without putting anything on air. */
+export function usePreviewRoute() {
+    return useMutation({
+        mutationFn: (input: RoutePreviewInput) => sdk.director.previewAnArtistRoute(input),
+    });
+}
+
 export function useReplanOrder() {
     const queryClient = useQueryClient();
     return useMutation({

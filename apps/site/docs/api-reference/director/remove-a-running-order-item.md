@@ -1,7 +1,7 @@
 ---
 title: 'Remove a running order item'
 sidebar_label: 'Remove a running order item'
-sidebar_position: 18
+sidebar_position: 19
 mdx:
     format: 'md'
 ---

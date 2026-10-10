@@ -43,7 +43,7 @@ private fun OnAirPreview() = Framed {
 @PreviewLightDark
 @Composable
 private fun InAShowPreview() = Framed {
-    NowPlayingScreen(state(AirState.OnAir(track), playing = true, show = show), artworkUrl = null, playhead = Playhead(102_000, 264_000, 366_000), onPlay = {}, onStop = {})
+    NowPlayingScreen(state(AirState.OnAir(track), playing = true, show = show), artworkUrl = null, playhead = Playhead(102_000, 264_000, 366_000), onPlay = {}, onStop = {}, onRequest = {})
 }
 
 @PreviewLightDark
@@ -74,7 +74,7 @@ private fun StalePreview() = Framed {
 @PreviewLightDark
 @Composable
 private fun OperatorPreview() = Framed {
-    NowPlayingScreen(state(AirState.OnAir(track), playing = true, show = show), artworkUrl = null, playhead = Playhead(102_000, 264_000, 366_000), onPlay = {}, onStop = {}, operator = OperatorControls(skip, ShuffleControl(enabled = true) {}, LikeControl(liked = true, enabled = true) {}))
+    NowPlayingScreen(state(AirState.OnAir(track), playing = true, show = show), artworkUrl = null, playhead = Playhead(102_000, 264_000, 366_000), onPlay = {}, onStop = {}, operator = OperatorControls(skip, ShuffleControl(enabled = true) {}, LikeControl(liked = true, enabled = true) {}), onRequest = {})
 }
 
 @PreviewLightDark

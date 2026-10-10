@@ -117,7 +117,7 @@ struct UpNextScreen: View {
     /// and may be said on air, which is not what the operator's own Play next does.
     private var requestLink: some View {
         NavigationLink(value: PageRoute.request) {
-            Image(systemName: "text.badge.plus").font(.title3).frame(width: 48, height: 48)
+            RequestIcon(points: 20).frame(width: 48, height: 48)
         }
         .accessibilityLabel(Text(String(localized: "Request a record")))
     }

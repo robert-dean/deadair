@@ -169,6 +169,50 @@ public sealed record ReplanStationInput
     public string? Brief { get; init; }
 }
 
+/// <summary>Where a route starts and where it ends, as artist names</summary>
+public sealed record RoutePreviewInput
+{
+    /// <summary>The artist to start at. The library has to hold a record by them</summary>
+    [JsonPropertyName("from")]
+    public required string From { get; init; }
+
+    /// <summary>The artist to end at. The library has to hold a record by them</summary>
+    [JsonPropertyName("to")]
+    public required string To { get; init; }
+}
+
+/// <summary>One artist on a route, and how it connects to the one before</summary>
+public sealed record RouteStop
+{
+    [JsonPropertyName("artist")]
+    public required string Artist { get; init; }
+
+    /// <summary>How this stop connects to the one before: a record the two are credited on together, or a similarity source naming them alike. Absent on the first stop</summary>
+    [JsonPropertyName("link")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RouteStopLink? Link { get; init; }
+
+    /// <summary>For a shared credit, the record they share</summary>
+    [JsonPropertyName("sharedTitle")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SharedTitle { get; init; }
+
+    /// <summary>For a shared credit, that record's lead artist</summary>
+    [JsonPropertyName("sharedLead")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SharedLead { get; init; }
+
+    /// <summary>For a similarity link, the plugin whose answer it was, by id</summary>
+    [JsonPropertyName("source")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Source { get; init; }
+
+    /// <summary>The same plugin by the name it gives itself, when the station still has it</summary>
+    [JsonPropertyName("sourceName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourceName { get; init; }
+}
+
 /// <summary>Change how the station decides to be on air</summary>
 public sealed record SetStationAirInput
 {
@@ -252,6 +296,16 @@ public sealed record PutOnAirInput
     [JsonPropertyName("albumId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Guid? AlbumId { get; init; }
+
+    /// <summary>Start a route at this artist and travel to `routeTo` through artists the library holds, one record each, every step a record two of them share or a similarity source naming them alike. Send both or neither, and nothing else that names a source. Preview it first with `/director/route/preview`, which also makes this quicker</summary>
+    [JsonPropertyName("routeFrom")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RouteFrom { get; init; }
+
+    /// <summary>Where a route ends. See `routeFrom`</summary>
+    [JsonPropertyName("routeTo")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RouteTo { get; init; }
 
     /// <summary>A playlist the station owns to build from instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`: its records are the library's own, so each airs from whichever provider serves a copy, and a row the library does not hold yet is left out</summary>
     [JsonPropertyName("stationPlaylistId")]
@@ -440,6 +494,26 @@ public sealed record StationOrderItem
     public long? OverAtMs { get; init; }
 }
 
+/// <summary>A route between two artists, or the news that there is none</summary>
+public sealed record ArtistRoute
+{
+    /// <summary>False when either end is not an artist the library holds a record by, or no route turned up within the search's bounds</summary>
+    [JsonPropertyName("found")]
+    public required bool Found { get; init; }
+
+    /// <summary>In order, the first artist first. Empty when nothing was found</summary>
+    [JsonPropertyName("stops")]
+    public required List<RouteStop> Stops { get; init; }
+
+    /// <summary>How many hops rest on a record the two artists share</summary>
+    [JsonPropertyName("factual")]
+    public required long Factual { get; init; }
+
+    /// <summary>How many hops rest on a similarity source's opinion</summary>
+    [JsonPropertyName("similar")]
+    public required long Similar { get; init; }
+}
+
 /// <summary>The station's live running order: what is airing, item by item</summary>
 public sealed record StationOrder
 {
@@ -579,4 +653,15 @@ public enum PutOnAirInputMoods
 
     [JsonStringEnumMemberName("fear")]
     Fear,
+}
+
+/// <summary>How this stop connects to the one before: a record the two are credited on together, or a similarity source naming them alike. Absent on the first stop</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<RouteStopLink>))]
+public enum RouteStopLink
+{
+    [JsonStringEnumMemberName("credit")]
+    Credit,
+
+    [JsonStringEnumMemberName("similar")]
+    Similar,
 }

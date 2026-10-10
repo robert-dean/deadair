@@ -88,6 +88,8 @@ contract PutOnAirInput: { # Put the station on air, building its running order f
     chartOrder?: enum(countdown, ranked, unordered) # Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId`
     chartPositions?: boolean # Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes. Set it false to air a chart without its positions read out. A record no chart named has no position to say whatever this says
     albumId?: uuid # An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends
+    routeFrom?: string(min=1, max=200) # Start a route at this artist and travel to `routeTo` through artists the library holds, one record each, every step a record two of them share or a similarity source naming them alike. Send both or neither, and nothing else that names a source. Preview it first with `/director/route/preview`, which also makes this quicker
+    routeTo?: string(min=1, max=200) # Where a route ends. See `routeFrom`
     stationPlaylistId?: uuid # A playlist the station owns to build from instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`: its records are the library's own, so each airs from whichever provider serves a copy, and a row the library does not hold yet is left out
     name?: string(min=1, max=200) # What to call this broadcast. Absent names it after the chart, or after the plugin, since only the surface that listed the source knows its own name for it
     brief?: string(max=500) # What the station should play, in your own words: "heavy metal hits". It steers every refill for as long as this broadcast runs, not just the first batch, and it needs a model to programme with. Absent programmes the station the way its own rules do
@@ -132,4 +134,25 @@ contract ExtendStationInput: { # Add tracks to the running order now, rather tha
 contract ReplanStationInput: { # Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
     count?: int(min=1, max=100) # How many records to programme. Absent is roughly an hour
     brief?: string(max=500) # What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the station's ordinary rotation. It steers every later refill too, not just this one batch
+}
+
+contract RoutePreviewInput: { # Where a route starts and where it ends, as artist names
+    from: string(min=1, max=200) # The artist to start at. The library has to hold a record by them
+    to: string(min=1, max=200) # The artist to end at. The library has to hold a record by them
+}
+
+contract RouteStop: { # One artist on a route, and how it connects to the one before
+    artist: string(max=200)
+    link?: enum(credit, similar) # How this stop connects to the one before: a record the two are credited on together, or a similarity source naming them alike. Absent on the first stop
+    sharedTitle?: string(max=500) # For a shared credit, the record they share
+    sharedLead?: string(max=200) # For a shared credit, that record's lead artist
+    source?: string(max=200) # For a similarity link, the plugin whose answer it was, by id
+    sourceName?: string(max=200) # The same plugin by the name it gives itself, when the station still has it
+}
+
+contract ArtistRoute: { # A route between two artists, or the news that there is none
+    found: boolean # False when either end is not an artist the library holds a record by, or no route turned up within the search's bounds
+    stops: array(RouteStop) # In order, the first artist first. Empty when nothing was found
+    factual: int(min=0) # How many hops rest on a record the two artists share
+    similar: int(min=0) # How many hops rest on a similarity source's opinion
 }

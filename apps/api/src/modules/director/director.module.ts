@@ -49,6 +49,8 @@ import { DirectorService } from './director.service.js';
 import { PickResolver } from './pick.resolver.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
+import { RouteRepository } from './route.repository.js';
+import { RouteService } from './route.service.js';
 import { TrackSkipsRepository } from './track.skips.repository.js';
 import { ProviderTrackLookup } from './provider.track.lookup.js';
 import { SetGenerator } from './set.generator.js';
@@ -73,6 +75,8 @@ export const DirectorModule: ServerKitModule = {
         registry.register(StationLineupRepository).useClass(StationLineupRepository).asScoped();
         registry.register(StationAirRepository).useClass(StationAirRepository).asScoped();
         registry.register(PlayHistoryRepository).useClass(PlayHistoryRepository).asScoped();
+        registry.register(RouteRepository).useClass(RouteRepository).asScoped();
+        registry.register(RouteService).useClass(RouteService).asScoped();
         registry.register(TrackSkipsRepository).useClass(TrackSkipsRepository).asScoped();
         registry.register(CandidatesRepository).useClass(CandidatesRepository).asScoped();
         // What the station has been asked to say, as opposed to what its own rules decided. Scoped

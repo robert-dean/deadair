@@ -228,6 +228,13 @@ export interface RundownItem {
      */
     chart?: ChartPlacing;
     /**
+     * How this record connects to the one before it on a route between two artists, said as a fact a
+     * presenter can use: "Gorillaz and Blur are credited together on "Shared Song"". `fromSongKey` is
+     * the record it was planned to follow, so a break only says it while that record really is the one
+     * before (an edit or a skip can come between). Set when the route is put on air, never updated.
+     */
+    link?: { fromSongKey: string; reason: string };
+    /**
      * Drawn as a deep cut: an album track off an album the operator likes, not aired here in the
      * history the station keeps. Set on {@link chart}'s rule and read by the break writer only.
      */

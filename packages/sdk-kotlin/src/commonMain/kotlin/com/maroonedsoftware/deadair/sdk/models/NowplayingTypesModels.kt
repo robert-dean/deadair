@@ -55,12 +55,10 @@ data class NowPlayingLyrics(
     val onAir: Boolean,
     /** The catalog record on air. Absent while the station is talking, and for a record the catalog has never held */
     val trackId: Uuid? = null,
-    /** Unix epoch millis when the record went on air, the same instant `/nowplaying` reports. Match on it before pairing these lyrics with a `/nowplaying` reading */
+    /** Unix epoch millis when the record went on air, the same instant `/nowplaying` reports */
     val startedAt: Long? = null,
-    /** Where in the file the record started playing. Absent means the top of the file */
+    /** Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top */
     val cueInMs: Long? = null,
-    /** Where in the file the record stops playing. A line's `atMs` counts from the top of the file and the decoder's `remainingMs` counts down to this point, so the position to highlight is this (or the record's `durationMs` when absent) minus `remainingMs`. Absent for a record nothing has measured, which plays to the end of the file */
-    val cueOutMs: Long? = null,
     /** The station's answer for that record. Absent with no `trackId` */
     val lyrics: TrackLyrics? = null,
 )
@@ -72,12 +70,10 @@ data class NowPlayingLyricsInput(
     val onAir: Boolean,
     /** The catalog record on air. Absent while the station is talking, and for a record the catalog has never held */
     val trackId: Uuid? = null,
-    /** Unix epoch millis when the record went on air, the same instant `/nowplaying` reports. Match on it before pairing these lyrics with a `/nowplaying` reading */
+    /** Unix epoch millis when the record went on air, the same instant `/nowplaying` reports */
     val startedAt: Long? = null,
-    /** Where in the file the record started playing. Absent means the top of the file */
+    /** Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top */
     val cueInMs: Long? = null,
-    /** Where in the file the record stops playing. A line's `atMs` counts from the top of the file and the decoder's `remainingMs` counts down to this point, so the position to highlight is this (or the record's `durationMs` when absent) minus `remainingMs`. Absent for a record nothing has measured, which plays to the end of the file */
-    val cueOutMs: Long? = null,
     /** The station's answer for that record. Absent with no `trackId` */
     val lyrics: TrackLyricsInput? = null,
 )

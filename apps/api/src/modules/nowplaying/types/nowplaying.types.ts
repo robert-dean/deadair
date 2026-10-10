@@ -106,18 +106,12 @@ export const NowPlayingLyrics = z.strictObject({
     startedAt: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .optional()
-        .describe(
-            'Unix epoch millis when the record went on air, the same instant `/nowplaying` reports. Match on it before pairing these lyrics with a `/nowplaying` reading',
-        ),
+        .describe('Unix epoch millis when the record went on air, the same instant `/nowplaying` reports'),
     cueInMs: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .optional()
-        .describe('Where in the file the record started playing. Absent means the top of the file'),
-    cueOutMs: z
-        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
-        .optional()
         .describe(
-            "Where in the file the record stops playing. A line's `atMs` counts from the top of the file and the decoder's `remainingMs` counts down to this point, so the position to highlight is this (or the record's `durationMs` when absent) minus `remainingMs`. Absent for a record nothing has measured, which plays to the end of the file",
+            "Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top",
         ),
     lyrics: TrackLyrics.optional().describe("The station's answer for that record. Absent with no `trackId`"),
 });
@@ -134,18 +128,12 @@ export const NowPlayingLyricsInput = z.strictObject({
     startedAt: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .optional()
-        .describe(
-            'Unix epoch millis when the record went on air, the same instant `/nowplaying` reports. Match on it before pairing these lyrics with a `/nowplaying` reading',
-        ),
+        .describe('Unix epoch millis when the record went on air, the same instant `/nowplaying` reports'),
     cueInMs: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .optional()
-        .describe('Where in the file the record started playing. Absent means the top of the file'),
-    cueOutMs: z
-        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
-        .optional()
         .describe(
-            "Where in the file the record stops playing. A line's `atMs` counts from the top of the file and the decoder's `remainingMs` counts down to this point, so the position to highlight is this (or the record's `durationMs` when absent) minus `remainingMs`. Absent for a record nothing has measured, which plays to the end of the file",
+            "Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top",
         ),
     lyrics: TrackLyricsInput.optional().describe("The station's answer for that record. Absent with no `trackId`"),
 });

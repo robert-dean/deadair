@@ -90,7 +90,8 @@ import com.maroonedsoftware.deadair.ui.theme.Gutter
  * words, where the record has got to, and two round controls of the same size, centred. Stop, which
  * stops THIS PHONE, and Skip, for the operator, which ends one record. Everything that can take the
  * station off air is on the desk, so nothing here can be mistaken for it, and nothing appears or
- * disappears above the pair, so it never moves under a thumb.
+ * disappears above the pair, so it never moves under a thumb. Request, for anybody signed in, and
+ * the operator's like take the row's two ends.
  *
  * It carries no `Scaffold` and no app bar. Upright, the cover runs the full width from just under
  * the status bar, its foot bleeds into the background, and the words start in that fade rather
@@ -117,6 +118,8 @@ fun NowPlayingScreen(
     operator: OperatorControls = OperatorControls(skip = null, shuffle = null, like = null),
     /** Where the cover leads, when the record is known. */
     onArtwork: (() -> Unit)? = null,
+    /** Open the request page. `null` for anybody signed out, who has nobody to ask as. */
+    onRequest: (() -> Unit)? = null,
     /** The idle timer, upright only. `null` keeps everything on screen. */
     rest: RestState? = null,
     /** Room kept clear at the foot for something drawn over this screen, the tabs, whether or not it is showing. */
@@ -151,12 +154,12 @@ fun NowPlayingScreen(
                         modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).heightIn(min = viewportHeight - 32.dp),
                         verticalArrangement = Arrangement.Center,
                     ) {
-                        Words(state, centred = false, like = operator.like, hostPortraitUrl = hostPortraitUrl)
-                        Controls(state, playhead, onPlay, onStop, operator, onLyrics)
+                        Words(state, centred = false, hostPortraitUrl = hostPortraitUrl)
+                        Controls(state, playhead, onPlay, onStop, operator, onRequest, onLyrics)
                     }
                 }
             } else {
-                FullBleed(state, artworkUrl, hostPortraitUrl, palette?.mesh.orEmpty(), playhead, onPlay, onStop, operator, onArtwork, rest, bottomReserve, onLyrics)
+                FullBleed(state, artworkUrl, hostPortraitUrl, palette?.mesh.orEmpty(), playhead, onPlay, onStop, operator, onArtwork, onRequest, rest, bottomReserve, onLyrics)
             }
         }
     }
@@ -182,6 +185,7 @@ private fun FullBleed(
     onStop: () -> Unit,
     operator: OperatorControls,
     onArtwork: (() -> Unit)?,
+    onRequest: (() -> Unit)?,
     rest: RestState?,
     bottomReserve: Dp,
     onLyrics: (() -> Unit)?,
@@ -269,8 +273,8 @@ private fun FullBleed(
             }
             Column(modifier = Modifier.fillMaxWidth().alpha(shown).padding(horizontal = Gutter)) {
                 Spacer(Modifier.height(CoverGap))
-                Words(state, centred = true, like = operator.like, hostPortraitUrl = hostPortraitUrl)
-                Controls(state, playhead, onPlay, onStop, operator, onLyrics)
+                Words(state, centred = true, hostPortraitUrl = hostPortraitUrl)
+                Controls(state, playhead, onPlay, onStop, operator, onRequest, onLyrics)
             }
         }
     }
@@ -290,7 +294,7 @@ private const val BleedStrength = 0.8f
 
 
 @Composable
-private fun Words(state: NowPlayingUiState, centred: Boolean, like: LikeControl?, hostPortraitUrl: String?, modifier: Modifier = Modifier) {
+private fun Words(state: NowPlayingUiState, centred: Boolean, hostPortraitUrl: String?, modifier: Modifier = Modifier) {
     val align = if (centred) TextAlign.Center else TextAlign.Start
     Column(
         // Announced when it changes, without being focused: off air to warming up to a record is
@@ -299,20 +303,14 @@ private fun Words(state: NowPlayingUiState, centred: Boolean, like: LikeControl?
         horizontalAlignment = if (centred) Alignment.CenterHorizontally else Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        // The heart sits at the end of the title's line, because it is about the record rather than
-        // about playing it. The title keeps a heart's width clear on BOTH sides, so it stays centred
-        // and a long one wraps before it reaches the heart.
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Text(
-                state.title.resolve(),
-                style = MaterialTheme.typography.headlineLarge,
-                textAlign = align,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = if (like != null) HeartRoom else 0.dp),
-            )
-            like?.let { Heart(it, modifier = Modifier.align(Alignment.CenterEnd)) }
-        }
+        Text(
+            state.title.resolve(),
+            style = MaterialTheme.typography.headlineLarge,
+            textAlign = align,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth(),
+        )
         state.subtitle?.let {
             // A long credit scrolls past rather than being cut, which is what a now-playing line
             // does on every player a listener has used. A sentence of the app's own wraps instead:
@@ -365,26 +363,33 @@ private fun Words(state: NowPlayingUiState, centred: Boolean, like: LikeControl?
     }
 }
 
-/** The operator's three controls: Skip and Shuffle beside the play button, the like beside the title. Each `null` for anyone the station does not call its operator. */
+/** The operator's three controls: Skip and Shuffle beside the play button, the like at the row's start. Each `null` for anyone the station does not call its operator. */
 data class OperatorControls(val skip: SkipControl?, val shuffle: ShuffleControl?, val like: LikeControl?) {
     /** Whether the play button has company in its row. */
     val besidePlay: Boolean get() = skip != null || shuffle != null
 }
 
 @Composable
-private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -> Unit, onStop: () -> Unit, operator: OperatorControls, onLyrics: (() -> Unit)?) {
+private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -> Unit, onStop: () -> Unit, operator: OperatorControls, onRequest: (() -> Unit)?, onLyrics: (() -> Unit)?) {
     // Only when the decoder could say how long is left. A line that appeared with a guessed
     // position would be worse than no line.
     if (playhead != null) PlayheadLine(playhead, modifier = Modifier.padding(top = 20.dp))
 
+    // Like, Shuffle, play, Skip, Request: the play button in the middle, the operator's two commands
+    // either side of it, and at the ends the two things about the music rather than about playing
+    // it, the like for the record on air and Request for one to come. Each place is kept, empty,
+    // whenever its partner on the other side is drawn, so the play button never moves off centre.
+    // There is no "previous": a station has no going back.
+    val ends = operator.like != null || onRequest != null
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 28.dp),
-        horizontalArrangement = Arrangement.spacedBy(PlayNeighbourGap, Alignment.CenterHorizontally),
+        // Five across do not fit at the three-control gap on a narrow phone, so they share the width.
+        horizontalArrangement = if (ends && operator.besidePlay) Arrangement.SpaceEvenly else Arrangement.spacedBy(PlayNeighbourGap, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Shuffle, play, Skip, the play button in the middle and one control either side of it at
-        // the same distance. Both places are kept whichever the station grants, so the play button
-        // never moves off centre. There is no "previous": a station has no going back.
+        if (ends) {
+            Slot { operator.like?.let { Heart(it) } }
+        }
         if (operator.besidePlay) {
             Slot { operator.shuffle?.let { SmallControl(R.drawable.ic_shuffle, stringResource(R.string.shuffle), it.enabled, it.onShuffle) } }
         }
@@ -392,10 +397,14 @@ private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -
         if (operator.besidePlay) {
             Slot { operator.skip?.let { SmallControl(R.drawable.ic_skip_next, stringResource(R.string.skip), it.enabled, it.onSkip) } }
         }
+        if (ends) {
+            // Up next's header has the same page behind the same icon, a bubble with a note in it.
+            Slot { onRequest?.let { SmallControl(R.drawable.ic_request, stringResource(R.string.request_a_record), enabled = true, onClick = it) } }
+        }
     }
 
-    // Under the row rather than in it: the row's places either side of play are the operator's, and a
-    // listener's button there would move the play button off centre for everyone who is not one.
+    // Under the row rather than in it: the row's five places are spoken for, each paired with one on
+    // the other side so the play button stays centred, and a sixth would crowd a narrow phone.
     if (onLyrics != null) {
         Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) {
             TextButton(onClick = onLyrics) {
@@ -415,9 +424,6 @@ private val PlayNeighbourGap = 48.dp
 
 /** The presenter's portrait beside the host line: about the height of the line, so the row does not grow. */
 private val HostPortraitSize = 28.dp
-
-/** The room the title keeps clear either side, for the heart at its end. */
-private val HeartRoom = 48.dp
 
 /**
  * Where the record has got to: a hairline with a dot on it rather than a bar, because nothing here

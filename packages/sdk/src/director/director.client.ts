@@ -4,11 +4,13 @@ import type { ClockBandInput, ClockBandList } from './types/clock.types.js';
 import type {
     AddStationSegmentInput,
     AddStationTrackInput,
+    ArtistRoute,
     ExtendStationInput,
     HoldStationInput,
     MoveStationItemInput,
     PutOnAirInput,
     ReplanStationInput,
+    RoutePreviewInput,
     SetStationAirInput,
     SetStationHostInput,
     StationAir,
@@ -143,6 +145,19 @@ export class DirectorClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
+    }
+
+    /**
+     * @name Preview an artist route
+     * @description Finds a route from one artist to another through artists the library holds, and says how each stop connects to the one before. Nothing goes on air: this is what a route would be
+     */
+    async previewAnArtistRoute(body: RoutePreviewInput): Promise<ArtistRoute> {
+        const result = await this.fetch(`/director/route/preview`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<ArtistRoute>(result);
     }
 
     /**

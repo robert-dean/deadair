@@ -142,21 +142,18 @@ public struct NowPlayingLyrics: Codable, Equatable, Sendable {
     public var onAir: Bool
     /// The catalog record on air. Absent while the station is talking, and for a record the catalog has never held
     public var trackId: UUID?
-    /// Unix epoch millis when the record went on air, the same instant `/nowplaying` reports. Match on it before pairing these lyrics with a `/nowplaying` reading
+    /// Unix epoch millis when the record went on air, the same instant `/nowplaying` reports
     public var startedAt: Int?
-    /// Where in the file the record started playing. Absent means the top of the file
+    /// Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top
     public var cueInMs: Int?
-    /// Where in the file the record stops playing. A line's `atMs` counts from the top of the file and the decoder's `remainingMs` counts down to this point, so the position to highlight is this (or the record's `durationMs` when absent) minus `remainingMs`. Absent for a record nothing has measured, which plays to the end of the file
-    public var cueOutMs: Int?
     /// The station's answer for that record. Absent with no `trackId`
     public var lyrics: TrackLyrics?
 
-    public init(onAir: Bool, trackId: UUID? = nil, startedAt: Int? = nil, cueInMs: Int? = nil, cueOutMs: Int? = nil, lyrics: TrackLyrics? = nil) {
+    public init(onAir: Bool, trackId: UUID? = nil, startedAt: Int? = nil, cueInMs: Int? = nil, lyrics: TrackLyrics? = nil) {
         self.onAir = onAir
         self.trackId = trackId
         self.startedAt = startedAt
         self.cueInMs = cueInMs
-        self.cueOutMs = cueOutMs
         self.lyrics = lyrics
     }
 
@@ -165,7 +162,6 @@ public struct NowPlayingLyrics: Codable, Equatable, Sendable {
         case trackId = "trackId"
         case startedAt = "startedAt"
         case cueInMs = "cueInMs"
-        case cueOutMs = "cueOutMs"
         case lyrics = "lyrics"
     }
 
@@ -175,7 +171,6 @@ public struct NowPlayingLyrics: Codable, Equatable, Sendable {
         self.trackId = try container.decodeIfPresent(UUID.self, forKey: .trackId)
         self.startedAt = try container.decodeIfPresent(Int.self, forKey: .startedAt)
         self.cueInMs = try container.decodeIfPresent(Int.self, forKey: .cueInMs)
-        self.cueOutMs = try container.decodeIfPresent(Int.self, forKey: .cueOutMs)
         self.lyrics = try container.decodeIfPresent(TrackLyrics.self, forKey: .lyrics)
     }
 
@@ -185,7 +180,6 @@ public struct NowPlayingLyrics: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.trackId, forKey: .trackId)
         try container.encodeIfPresent(self.startedAt, forKey: .startedAt)
         try container.encodeIfPresent(self.cueInMs, forKey: .cueInMs)
-        try container.encodeIfPresent(self.cueOutMs, forKey: .cueOutMs)
         try container.encodeIfPresent(self.lyrics, forKey: .lyrics)
     }
 }
@@ -196,21 +190,18 @@ public struct NowPlayingLyricsInput: Codable, Equatable, Sendable {
     public var onAir: Bool
     /// The catalog record on air. Absent while the station is talking, and for a record the catalog has never held
     public var trackId: UUID?
-    /// Unix epoch millis when the record went on air, the same instant `/nowplaying` reports. Match on it before pairing these lyrics with a `/nowplaying` reading
+    /// Unix epoch millis when the record went on air, the same instant `/nowplaying` reports
     public var startedAt: Int?
-    /// Where in the file the record started playing. Absent means the top of the file
+    /// Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top
     public var cueInMs: Int?
-    /// Where in the file the record stops playing. A line's `atMs` counts from the top of the file and the decoder's `remainingMs` counts down to this point, so the position to highlight is this (or the record's `durationMs` when absent) minus `remainingMs`. Absent for a record nothing has measured, which plays to the end of the file
-    public var cueOutMs: Int?
     /// The station's answer for that record. Absent with no `trackId`
     public var lyrics: TrackLyricsInput?
 
-    public init(onAir: Bool, trackId: UUID? = nil, startedAt: Int? = nil, cueInMs: Int? = nil, cueOutMs: Int? = nil, lyrics: TrackLyricsInput? = nil) {
+    public init(onAir: Bool, trackId: UUID? = nil, startedAt: Int? = nil, cueInMs: Int? = nil, lyrics: TrackLyricsInput? = nil) {
         self.onAir = onAir
         self.trackId = trackId
         self.startedAt = startedAt
         self.cueInMs = cueInMs
-        self.cueOutMs = cueOutMs
         self.lyrics = lyrics
     }
 
@@ -219,7 +210,6 @@ public struct NowPlayingLyricsInput: Codable, Equatable, Sendable {
         case trackId = "trackId"
         case startedAt = "startedAt"
         case cueInMs = "cueInMs"
-        case cueOutMs = "cueOutMs"
         case lyrics = "lyrics"
     }
 
@@ -229,7 +219,6 @@ public struct NowPlayingLyricsInput: Codable, Equatable, Sendable {
         self.trackId = try container.decodeIfPresent(UUID.self, forKey: .trackId)
         self.startedAt = try container.decodeIfPresent(Int.self, forKey: .startedAt)
         self.cueInMs = try container.decodeIfPresent(Int.self, forKey: .cueInMs)
-        self.cueOutMs = try container.decodeIfPresent(Int.self, forKey: .cueOutMs)
         self.lyrics = try container.decodeIfPresent(TrackLyricsInput.self, forKey: .lyrics)
     }
 
@@ -239,7 +228,6 @@ public struct NowPlayingLyricsInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.trackId, forKey: .trackId)
         try container.encodeIfPresent(self.startedAt, forKey: .startedAt)
         try container.encodeIfPresent(self.cueInMs, forKey: .cueInMs)
-        try container.encodeIfPresent(self.cueOutMs, forKey: .cueOutMs)
         try container.encodeIfPresent(self.lyrics, forKey: .lyrics)
     }
 }

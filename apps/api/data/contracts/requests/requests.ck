@@ -14,7 +14,7 @@ options {
 }
 
 operation /requests/search: {
-    get: { # Records the station could be asked to play, matching a title or an artist. When the station holds few, the music providers are asked too
+    get: { # Records the station could be asked to play, matching a title or an artist, then what the music providers carry in the room left
         name: Search requestable records
         mcp: {
             description: "Finds records listeners can ask the station to play, by title, artist or both. Use it before create_request: a record the station holds carries a trackId, and one only a music provider carries comes with a source instead. It answers at most 25."

@@ -228,6 +228,89 @@ public struct ReplanStationInput: Codable, Equatable, Sendable {
     }
 }
 
+/// Where a route starts and where it ends, as artist names
+public struct RoutePreviewInput: Codable, Equatable, Sendable {
+    /// The artist to start at. The library has to hold a record by them
+    public var from: String
+    /// The artist to end at. The library has to hold a record by them
+    public var to: String
+
+    public init(from: String, to: String) {
+        self.from = from
+        self.to = to
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case from = "from"
+        case to = "to"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.from = try container.decode(String.self, forKey: .from)
+        self.to = try container.decode(String.self, forKey: .to)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.from, forKey: .from)
+        try container.encode(self.to, forKey: .to)
+    }
+}
+
+/// One artist on a route, and how it connects to the one before
+public struct RouteStop: Codable, Equatable, Sendable {
+    public var artist: String
+    /// How this stop connects to the one before: a record the two are credited on together, or a similarity source naming them alike. Absent on the first stop
+    public var link: RouteStopLink?
+    /// For a shared credit, the record they share
+    public var sharedTitle: String?
+    /// For a shared credit, that record's lead artist
+    public var sharedLead: String?
+    /// For a similarity link, the plugin whose answer it was, by id
+    public var source: String?
+    /// The same plugin by the name it gives itself, when the station still has it
+    public var sourceName: String?
+
+    public init(artist: String, link: RouteStopLink? = nil, sharedTitle: String? = nil, sharedLead: String? = nil, source: String? = nil, sourceName: String? = nil) {
+        self.artist = artist
+        self.link = link
+        self.sharedTitle = sharedTitle
+        self.sharedLead = sharedLead
+        self.source = source
+        self.sourceName = sourceName
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case artist = "artist"
+        case link = "link"
+        case sharedTitle = "sharedTitle"
+        case sharedLead = "sharedLead"
+        case source = "source"
+        case sourceName = "sourceName"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.artist = try container.decode(String.self, forKey: .artist)
+        self.link = try container.decodeIfPresent(RouteStopLink.self, forKey: .link)
+        self.sharedTitle = try container.decodeIfPresent(String.self, forKey: .sharedTitle)
+        self.sharedLead = try container.decodeIfPresent(String.self, forKey: .sharedLead)
+        self.source = try container.decodeIfPresent(String.self, forKey: .source)
+        self.sourceName = try container.decodeIfPresent(String.self, forKey: .sourceName)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.artist, forKey: .artist)
+        try container.encodeIfPresent(self.link, forKey: .link)
+        try container.encodeIfPresent(self.sharedTitle, forKey: .sharedTitle)
+        try container.encodeIfPresent(self.sharedLead, forKey: .sharedLead)
+        try container.encodeIfPresent(self.source, forKey: .source)
+        try container.encodeIfPresent(self.sourceName, forKey: .sourceName)
+    }
+}
+
 /// Change how the station decides to be on air
 public struct SetStationAirInput: Codable, Equatable, Sendable {
     public var airMode: AirMode
@@ -337,6 +420,10 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var chartPositions: Bool?
     /// An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends
     public var albumId: UUID?
+    /// Start a route at this artist and travel to `routeTo` through artists the library holds, one record each, every step a record two of them share or a similarity source naming them alike. Send both or neither, and nothing else that names a source. Preview it first with `/director/route/preview`, which also makes this quicker
+    public var routeFrom: String?
+    /// Where a route ends. See `routeFrom`
+    public var routeTo: String?
     /// A playlist the station owns to build from instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`: its records are the library's own, so each airs from whichever provider serves a copy, and a row the library does not hold yet is left out
     public var stationPlaylistId: UUID?
     /// What to call this broadcast. Absent names it after the chart, or after the plugin, since only the surface that listed the source knows its own name for it
@@ -368,13 +455,15 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var mode: StationMode?
     public var onEnd: StationOnEnd?
 
-    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, albumId: UUID? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [PutOnAirInputMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, requestCooldownMinutes: Int? = nil, requestMaxOpen: Int? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
+    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, albumId: UUID? = nil, routeFrom: String? = nil, routeTo: String? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [PutOnAirInputMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, requestCooldownMinutes: Int? = nil, requestMaxOpen: Int? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
         self.pluginId = pluginId
         self.playlistId = playlistId
         self.chartId = chartId
         self.chartOrder = chartOrder
         self.chartPositions = chartPositions
         self.albumId = albumId
+        self.routeFrom = routeFrom
+        self.routeTo = routeTo
         self.stationPlaylistId = stationPlaylistId
         self.name = name
         self.brief = brief
@@ -400,6 +489,8 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         case chartOrder = "chartOrder"
         case chartPositions = "chartPositions"
         case albumId = "albumId"
+        case routeFrom = "routeFrom"
+        case routeTo = "routeTo"
         case stationPlaylistId = "stationPlaylistId"
         case name = "name"
         case brief = "brief"
@@ -426,6 +517,8 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.chartOrder = try container.decodeIfPresent(PutOnAirInputChartOrder.self, forKey: .chartOrder)
         self.chartPositions = try container.decodeIfPresent(Bool.self, forKey: .chartPositions)
         self.albumId = try container.decodeIfPresent(UUID.self, forKey: .albumId)
+        self.routeFrom = try container.decodeIfPresent(String.self, forKey: .routeFrom)
+        self.routeTo = try container.decodeIfPresent(String.self, forKey: .routeTo)
         self.stationPlaylistId = try container.decodeIfPresent(UUID.self, forKey: .stationPlaylistId)
         self.name = try container.decodeIfPresent(String.self, forKey: .name)
         self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
@@ -452,6 +545,8 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.chartOrder, forKey: .chartOrder)
         try container.encodeIfPresent(self.chartPositions, forKey: .chartPositions)
         try container.encodeIfPresent(self.albumId, forKey: .albumId)
+        try container.encodeIfPresent(self.routeFrom, forKey: .routeFrom)
+        try container.encodeIfPresent(self.routeTo, forKey: .routeTo)
         try container.encodeIfPresent(self.stationPlaylistId, forKey: .stationPlaylistId)
         try container.encodeIfPresent(self.name, forKey: .name)
         try container.encodeIfPresent(self.brief, forKey: .brief)
@@ -621,6 +716,48 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
     }
 }
 
+/// A route between two artists, or the news that there is none
+public struct ArtistRoute: Codable, Equatable, Sendable {
+    /// False when either end is not an artist the library holds a record by, or no route turned up within the search's bounds
+    public var found: Bool
+    /// In order, the first artist first. Empty when nothing was found
+    public var stops: [RouteStop]
+    /// How many hops rest on a record the two artists share
+    public var factual: Int
+    /// How many hops rest on a similarity source's opinion
+    public var similar: Int
+
+    public init(found: Bool, stops: [RouteStop], factual: Int, similar: Int) {
+        self.found = found
+        self.stops = stops
+        self.factual = factual
+        self.similar = similar
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case found = "found"
+        case stops = "stops"
+        case factual = "factual"
+        case similar = "similar"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.found = try container.decode(Bool.self, forKey: .found)
+        self.stops = try container.decode([RouteStop].self, forKey: .stops)
+        self.factual = try container.decode(Int.self, forKey: .factual)
+        self.similar = try container.decode(Int.self, forKey: .similar)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.found, forKey: .found)
+        try container.encode(self.stops, forKey: .stops)
+        try container.encode(self.factual, forKey: .factual)
+        try container.encode(self.similar, forKey: .similar)
+    }
+}
+
 /// The station's live running order: what is airing, item by item
 public struct StationOrder: Codable, Equatable, Sendable {
     /// What is on, for a console to draw. A label for this broadcast rather than the name of a stored object
@@ -751,4 +888,10 @@ public enum PutOnAirInputMoods: String, Codable, CaseIterable, Sendable {
     case loneliness = "loneliness"
     case anger = "anger"
     case fear = "fear"
+}
+
+/// How this stop connects to the one before: a record the two are credited on together, or a similarity source naming them alike. Absent on the first stop
+public enum RouteStopLink: String, Codable, CaseIterable, Sendable {
+    case credit = "credit"
+    case similar = "similar"
 }

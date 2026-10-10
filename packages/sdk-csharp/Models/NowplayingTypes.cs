@@ -95,20 +95,15 @@ public sealed record NowPlayingLyrics
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Guid? TrackId { get; init; }
 
-    /// <summary>Unix epoch millis when the record went on air, the same instant `/nowplaying` reports. Match on it before pairing these lyrics with a `/nowplaying` reading</summary>
+    /// <summary>Unix epoch millis when the record went on air, the same instant `/nowplaying` reports</summary>
     [JsonPropertyName("startedAt")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? StartedAt { get; init; }
 
-    /// <summary>Where in the file the record started playing. Absent means the top of the file</summary>
+    /// <summary>Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top</summary>
     [JsonPropertyName("cueInMs")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? CueInMs { get; init; }
-
-    /// <summary>Where in the file the record stops playing. A line's `atMs` counts from the top of the file and the decoder's `remainingMs` counts down to this point, so the position to highlight is this (or the record's `durationMs` when absent) minus `remainingMs`. Absent for a record nothing has measured, which plays to the end of the file</summary>
-    [JsonPropertyName("cueOutMs")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public long? CueOutMs { get; init; }
 
     /// <summary>The station's answer for that record. Absent with no `trackId`</summary>
     [JsonPropertyName("lyrics")]
@@ -128,20 +123,15 @@ public sealed record NowPlayingLyricsInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Guid? TrackId { get; init; }
 
-    /// <summary>Unix epoch millis when the record went on air, the same instant `/nowplaying` reports. Match on it before pairing these lyrics with a `/nowplaying` reading</summary>
+    /// <summary>Unix epoch millis when the record went on air, the same instant `/nowplaying` reports</summary>
     [JsonPropertyName("startedAt")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? StartedAt { get; init; }
 
-    /// <summary>Where in the file the record started playing. Absent means the top of the file</summary>
+    /// <summary>Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top</summary>
     [JsonPropertyName("cueInMs")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? CueInMs { get; init; }
-
-    /// <summary>Where in the file the record stops playing. A line's `atMs` counts from the top of the file and the decoder's `remainingMs` counts down to this point, so the position to highlight is this (or the record's `durationMs` when absent) minus `remainingMs`. Absent for a record nothing has measured, which plays to the end of the file</summary>
-    [JsonPropertyName("cueOutMs")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public long? CueOutMs { get; init; }
 
     /// <summary>The station's answer for that record. Absent with no `trackId`</summary>
     [JsonPropertyName("lyrics")]

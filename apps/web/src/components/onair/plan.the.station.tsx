@@ -22,6 +22,7 @@ import {
     TalkField,
 } from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
+import { RouteFields } from './route.fields';
 
 /**
  * Changing what the station is playing, and saying whether this is still the same show.
@@ -119,14 +120,18 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
             return;
         }
 
-        if (asked.length === 0) return;
+        const routeFrom = form.values.routeFrom.trim();
+        const routeTo = form.values.routeTo.trim();
+        const routed = routeFrom.length > 0 && routeTo.length > 0;
+        if (asked.length === 0 && !routed) return;
 
         onAir.mutate(
             {
-                brief: asked,
                 // The brief doubles as the label. An operator who asked for heavy metal hits should
-                // see that on the page rather than "The station".
-                name: asked,
+                // see that on the page rather than "The station". A route with no brief is named
+                // for its two ends by the station.
+                ...(asked.length === 0 ? {} : { brief: asked, name: asked }),
+                ...(routed ? { routeFrom, routeTo } : {}),
                 ...(form.values.personaId ? { personaId: form.values.personaId } : {}),
                 ...(typeof form.values.eraFrom === 'number' ? { eraFrom: form.values.eraFrom } : {}),
                 ...(typeof form.values.eraTo === 'number' ? { eraTo: form.values.eraTo } : {}),
@@ -200,6 +205,11 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
                                 </Tooltip>
                             </Group>
 
+                            <RouteFields
+                                from={{ ...form.getInputProps('routeFrom'), value: form.values.routeFrom }}
+                                to={{ ...form.getInputProps('routeTo'), value: form.values.routeTo }}
+                            />
+
                             <HostField markOnAir {...form.getInputProps('personaId')} />
 
                             <EraFields from={form.getInputProps('eraFrom')} to={form.getInputProps('eraTo')} />
@@ -240,7 +250,11 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
                         <Button variant="default" onClick={close}>
                             {t('common:action.cancel')}
                         </Button>
-                        <Button loading={busy} disabled={!keeping && form.values.brief.trim().length === 0} onClick={send}>
+                        <Button
+                            loading={busy}
+                            disabled={!keeping && form.values.brief.trim().length === 0 && !routeChosen(form.values)}
+                            onClick={send}
+                        >
                             {keeping ? t('plan.replan') : t('plan.goOnAir')}
                         </Button>
                     </Group>
@@ -267,6 +281,9 @@ const PARTY_NIGHT: Partial<FormValues> = {
 
 interface FormValues {
     brief: string;
+    /** Both set puts a route on air; either empty is an ordinary show. See `RouteFields`. */
+    routeFrom: string;
+    routeTo: string;
     personaId: string;
     /** Empty string is Mantine's "nothing typed" for a NumberInput, and it means no bound. */
     eraFrom: number | string;
@@ -297,6 +314,8 @@ interface FormValues {
 function valuesOf(order?: StationOrder): FormValues {
     return {
         brief: order?.brief ?? '',
+        routeFrom: '',
+        routeTo: '',
         personaId: '',
         eraFrom: '',
         eraTo: '',
@@ -310,3 +329,7 @@ function valuesOf(order?: StationOrder): FormValues {
         onEnd: 'extend',
     };
 }
+
+/** Whether both ends of a route are filled in, which lets a show go on air without a brief. */
+const routeChosen = (values: Pick<FormValues, 'routeFrom' | 'routeTo'>): boolean =>
+    values.routeFrom.trim().length > 0 && values.routeTo.trim().length > 0;

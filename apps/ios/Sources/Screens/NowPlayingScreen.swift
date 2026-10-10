@@ -285,22 +285,13 @@ struct NowPlayingScreen: View {
 
     private func words(ui: NowPlayingUiState, centred: Bool, transport: TransportUiState?) -> some View {
         let alignment: TextAlignment = centred ? .center : .leading
-        let heart = model.isOperator ? transport?.onAirTrackId.flatMap(UUID.init(uuidString:)) : nil
         return VStack(alignment: centred ? .center : .leading, spacing: 2) {
-            // The heart sits at the end of the title's line, because it is about the record rather
-            // than about playing it. The title keeps a heart's width clear on BOTH sides, so it stays
-            // centred and a long one wraps before it reaches the heart.
             Text(ui.title.words)
                 .font(.largeTitle)
                 .multilineTextAlignment(alignment)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
                 .frame(maxWidth: .infinity, alignment: centred ? .center : .leading)
-                .padding(.leading, model.isOperator && centred ? Self.heartRoom : 0)
-                .padding(.trailing, model.isOperator ? Self.heartRoom : 0)
-                .overlay(alignment: .trailing) {
-                    if let heart { LikeHeart(trackId: heart) }
-                }
             if let subtitle = ui.subtitle {
                 // A credit stays on one line; a sentence of the app's own wraps, since cut short it
                 // loses the half that says what to do.
@@ -345,25 +336,54 @@ struct NowPlayingScreen: View {
                     .padding(.top, 20)
             }
 
-            // Shuffle, play, Skip: the play button in the middle and one control either side of it at
-            // the same distance. There is no "previous": a station has no going back.
-            HStack(spacing: Self.playNeighbourGap) {
-                if model.isOperator, let transport {
+            // Like, Shuffle, play, Skip, Request: the play button in the middle, the operator's two
+            // commands either side of it, and at the ends the two things about the music rather than
+            // about playing it, the like for the record on air and Request for one to come. Each end is
+            // kept, empty, whenever its partner is drawn, so the play button never moves off centre.
+            // There is no "previous": a station has no going back. Android's row, place for place.
+            let heart = model.isOperator ? transport?.onAirTrackId.flatMap(UUID.init(uuidString:)) : nil
+            let ends = heart != nil || model.signedIn
+            let besidePlay = model.isOperator && transport != nil
+            // Five across do not fit at the three-control gap on an SE, so they share the width.
+            let even = ends && besidePlay
+            HStack(spacing: even ? 0 : Self.playNeighbourGap) {
+                if even { Spacer(minLength: 0) }
+                if ends {
+                    slot { if let heart { LikeHeart(trackId: heart) } }
+                    if even { Spacer(minLength: 0) }
+                }
+                if besidePlay, let transport {
                     operatorControl("shuffle", label: String(localized: "Shuffle"), enabled: !busy && transport.skipEnabled) {
                         await model.orderActions.shuffle()
                     }
+                    if even { Spacer(minLength: 0) }
                 }
                 PlayButton(fill: cover.palette?.accent.map { Color(rgb: $0.accent) } ?? .accentColor, onAccent: cover.palette?.accent.map { Color(rgb: $0.onAccent) })
-                if model.isOperator, let transport {
+                if besidePlay, let transport {
+                    if even { Spacer(minLength: 0) }
                     operatorControl("forward.end.fill", label: String(localized: "Skip"), enabled: transport.skipEnabled) {
                         await model.transport.skip()
                     }
                 }
+                if ends {
+                    if even { Spacer(minLength: 0) }
+                    // Up next's header has the same page behind the same icon.
+                    slot {
+                        if model.signedIn {
+                            NavigationLink(value: PageRoute.request) {
+                                RequestIcon(points: 24).frame(width: 48, height: 48).contentShape(Rectangle())
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityLabel(Text(String(localized: "Request a record")))
+                        }
+                    }
+                }
+                if even { Spacer(minLength: 0) }
             }
             .padding(.top, 28)
 
-            // Under the row rather than in it: the places either side of play are the operator's, and
-            // a listener's button there would move the play button off centre for everyone else.
+            // Under the row rather than in it: the row's places are spoken for, each paired with one on
+            // the other side so the play button stays centred, and another would crowd a narrow phone.
             if hasLyrics {
                 Button {
                     lyricsOpen = true
@@ -397,11 +417,14 @@ struct NowPlayingScreen: View {
     private static let gutter: CGFloat = 16
     /// How far the controls either side of the play button stand from it.
     private static let playNeighbourGap: CGFloat = 48
-    /// The room the title keeps clear either side, for the heart at its end.
-    private static let heartRoom: CGFloat = 48
 }
 
 extension NowPlayingScreen {
+    /// A place in the controls row, the same width whether or not anything is in it.
+    private func slot(@ViewBuilder _ content: () -> some View) -> some View {
+        content().frame(width: 48, height: 48)
+    }
+
     /// One of the operator's controls beside the play button: it takes the one turn there is, and
     /// gives it back when the station has answered.
     private func operatorControl(_ symbol: String, label: String, enabled: Bool, action: @escaping @MainActor () async -> Void) -> some View {

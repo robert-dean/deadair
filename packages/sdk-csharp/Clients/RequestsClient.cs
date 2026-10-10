@@ -22,7 +22,7 @@ public sealed class RequestsClient(SdkHttp http)
 {
     /// <summary>
     /// Search requestable records
-    /// Records the station could be asked to play, matching a title or an artist. When the station holds few, the music providers are asked too
+    /// Records the station could be asked to play, matching a title or an artist, then what the music providers carry in the room left
     /// </summary>
     public async Task<RequestableTrackList> SearchRequestableRecordsAsync(SearchRequestableRecordsQuery query, CancellationToken cancellationToken = default)
     {

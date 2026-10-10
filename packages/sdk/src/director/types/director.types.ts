@@ -98,6 +98,35 @@ export interface ReplanStationInput {
 }
 
 /**
+ * Where a route starts and where it ends, as artist names
+ * generated from [RoutePreviewInput](../../../../../apps/api/data/contracts/director/director.types.ck)
+ */
+export interface RoutePreviewInput {
+    /** The artist to start at. The library has to hold a record by them */
+    from: string;
+    /** The artist to end at. The library has to hold a record by them */
+    to: string;
+}
+
+/**
+ * One artist on a route, and how it connects to the one before
+ * generated from [RouteStop](../../../../../apps/api/data/contracts/director/director.types.ck)
+ */
+export interface RouteStop {
+    artist: string;
+    /** How this stop connects to the one before: a record the two are credited on together, or a similarity source naming them alike. Absent on the first stop */
+    link?: 'credit' | 'similar';
+    /** For a shared credit, the record they share */
+    sharedTitle?: string;
+    /** For a shared credit, that record's lead artist */
+    sharedLead?: string;
+    /** For a similarity link, the plugin whose answer it was, by id */
+    source?: string;
+    /** The same plugin by the name it gives itself, when the station still has it */
+    sourceName?: string;
+}
+
+/**
  * Change how the station decides to be on air
  * generated from [SetStationAirInput](../../../../../apps/api/data/contracts/director/director.types.ck)
  */
@@ -147,6 +176,10 @@ export interface PutOnAirInput {
     chartPositions?: boolean;
     /** An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends */
     albumId?: string;
+    /** Start a route at this artist and travel to `routeTo` through artists the library holds, one record each, every step a record two of them share or a similarity source naming them alike. Send both or neither, and nothing else that names a source. Preview it first with `/director/route/preview`, which also makes this quicker */
+    routeFrom?: string;
+    /** Where a route ends. See `routeFrom` */
+    routeTo?: string;
     /** A playlist the station owns to build from instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`: its records are the library's own, so each airs from whichever provider serves a copy, and a row the library does not hold yet is left out */
     stationPlaylistId?: string;
     /** What to call this broadcast. Absent names it after the chart, or after the plugin, since only the surface that listed the source knows its own name for it */
@@ -224,6 +257,21 @@ export interface StationOrderItem {
     segmentWriter?: string;
     /** Heard OVER the record that follows, this far into it, with the music ducked under it. Such an item is never handed to the player in its own right */
     overAtMs?: number;
+}
+
+/**
+ * A route between two artists, or the news that there is none
+ * generated from [ArtistRoute](../../../../../apps/api/data/contracts/director/director.types.ck)
+ */
+export interface ArtistRoute {
+    /** False when either end is not an artist the library holds a record by, or no route turned up within the search's bounds */
+    found: boolean;
+    /** In order, the first artist first. Empty when nothing was found */
+    stops: RouteStop[];
+    /** How many hops rest on a record the two artists share */
+    factual: number;
+    /** How many hops rest on a similarity source's opinion */
+    similar: number;
 }
 
 /**

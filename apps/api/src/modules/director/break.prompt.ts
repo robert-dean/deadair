@@ -1186,7 +1186,7 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
             // rest of the sentence is about.
             `The station knows nothing about ${unknown.map(track => `"${spoken(track.title)}"`).join(' or ')} beyond what is listed above. ` +
                 'Say nothing else about it as fact — no dates beyond any year listed above, no labels, no pressings or catalogue numbers, ' +
-                'no studios, no sessions, no chart placings beyond any listed above, no connection to any other record. What you think of it is yours to say. ' +
+                'no studios, no sessions, no chart placings beyond any listed above, no connection to any other record beyond any listed above. What you think of it is yours to say. ' +
                 'What happened to it is not, unless you were told.',
         );
     }
@@ -1499,6 +1499,8 @@ function describe(track: BreakTrack, withFacts: boolean): string {
         if (track.chart) lines.push(`- Chart: ${spokenPlacing(track.chart)}`);
         // Said as why it is on, as a chart position is: a deep cut is a choice the station made.
         if (track.deepCut) lines.push('- Deep cut: an album track this station has not played in months');
+        // The one connection to another record a break may state, because the station planned it.
+        if (track.link?.trim()) lines.push(`- How it connects to the record before: ${track.link.trim()}`);
     }
     // What it is about, in the station's own words rather than the record's: the writer is shown this
     // and never the lyric. Behind `withFacts` with the rest of the material, for the same reason.
@@ -3006,6 +3008,8 @@ export function permittedYears(
         if (record.year !== undefined) years.add(record.year);
         for (const year of yearsIn(record.album ?? '')) years.add(year);
         for (const fact of record.facts ?? []) for (const year of yearsIn(fact)) years.add(year);
+        // A route link can name a shared record whose title is a year: saying it is no invented date.
+        for (const year of yearsIn(record.link ?? '')) years.add(year);
     }
 
     for (const text of shown) for (const year of yearsIn(text)) years.add(year);

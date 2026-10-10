@@ -159,8 +159,8 @@ shows. That poll is the only way an app learns a request moved on: `tell` reache
 and nothing is pushed to a phone. A refusal arrives as a 201 with `declined` and a `reason`, so both apps
 decide what to say from the status and never from the code.
 
-**The app search reaches records the station does not hold, and the chat search does not.** When the
-library has fewer than three matches, `GET /requests/search` adds what the music providers carry
+**The app search reaches records the station does not hold, and the chat search does not.** After the
+library's matches, `GET /requests/search` fills the rest of the page with what the music providers carry
 (`RequestProviderSearch`, described in `programming.md` beside the model's search tool). Such a row has a
 `source` (plugin and the provider's own id) and no `trackId`, and `POST /requests` takes exactly one of
 the two: a `source` is taken into the library through `ProviderCopyResolver` first, as `discovered`, and the

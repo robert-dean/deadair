@@ -36,10 +36,14 @@ The first is the **Secret key**: it encrypts every credential the station stores
 1. Open **Apps** and search for `deadair`.
 2. Choose **Install**. Unraid opens the container's settings form, already filled in with the
    template's defaults.
-3. Check that **Repository** ends in `:full`. It does by default.
+3. Make **Repository** end in `:full`. If Unraid asks which tag to install, choose `full` there.
+   Otherwise change the end of **Repository** from `:latest` to `:full`. The template's default is
+   `latest`, which expects a database and cache you run yourself. Left on it with those fields empty,
+   the first boot stops at `deadair: no database.`
 
 ![The top of the Add Container form, with the repository field holding the tag](/img/unraid/form.webp)
-*Fig. 1. The top of the form. The tag is the end of **Repository**.*
+*Fig. 1. The top of the form, with **Repository** already changed to `:full`. The tag is the end of
+**Repository**.*
 
 ## 3. Fill in the six required fields
 

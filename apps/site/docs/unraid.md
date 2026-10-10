@@ -51,9 +51,14 @@ Images are `linux/amd64`, so an arm64 server cannot run this yet.
 **Apps**, search for `deadair`, and install it. That fills in everything the template ships with and
 leaves you on the container's settings form, which is where every field below lives.
 
+**The template installs `latest` unless you choose otherwise.** If Unraid asks which tag to install,
+pick there. Otherwise change the end of **Repository**. For the `full` this page assumes, that means
+changing `:latest` to `:full`. Leave it on `latest` with the database fields empty and the first boot
+stops at `deadair: no database.`
+
 ![The top of the Add Container form: the template, the container's name, its overview, and the repository field holding the tag](/img/unraid/form.webp)
-*Fig. 1. The top of the form. **Repository** is where the tag is chosen: change `:full` there to
-`:latest` or `:slim` if one of those suits your server better.*
+*Fig. 1. The top of the form, with **Repository** changed to `:full`. This is where the tag is
+chosen: `:latest`, `:full` or `:slim`.*
 
 The form has a **Basic view** and an **Advanced view**, switched at the top right. Everything
 required is in Basic. Advanced holds the second database role, the Redis authentication fields,

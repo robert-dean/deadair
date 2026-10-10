@@ -144,6 +144,65 @@ describe('ScriptHistoryRepository.outcomeCountsSince', () => {
     });
 });
 
+describe('ScriptHistoryRepository.spokenSince', () => {
+    it('answers nothing for a window of zero without asking the database', async () => {
+        await expect(repositoryOver(untouchableDb()).spokenSince(0, 6, 'broadcast-1')).resolves.toEqual([]);
+    });
+
+    it('answers nothing for a limit of zero without asking the database', async () => {
+        await expect(repositoryOver(untouchableDb()).spokenSince(3_600_000, 0, 'broadcast-1')).resolves.toEqual([]);
+    });
+
+    // A broadcast id names one station already; a time window does not.
+    it('reads only this station', async () => {
+        const captured: Captured = {};
+        await repositoryOver(fakeDb([], captured)).spokenSince(3_600_000, 6, 'broadcast-1');
+
+        expect(captured.sql).toContain('station_key =');
+        expect(captured.parameters).toContain(STATION);
+    });
+
+    it('cuts the window against the database clock', async () => {
+        const captured: Captured = {};
+        await repositoryOver(fakeDb([], captured)).spokenSince(3_600_000, 6, 'broadcast-1');
+
+        expect(captured.sql).toContain(`created_at >= now() - '3600000 milliseconds'::interval`);
+    });
+
+    // `is distinct from`, so a line written while no broadcast was on still counts: `<>` against a
+    // null broadcast answers null and would drop it.
+    it('leaves out the broadcast it was asked to, and keeps lines written outside any broadcast', async () => {
+        const captured: Captured = {};
+        await repositoryOver(fakeDb([], captured)).spokenSince(3_600_000, 6, 'broadcast-1');
+
+        expect(captured.sql).toContain('broadcast_id is distinct from');
+        expect(captured.parameters).toContain('broadcast-1');
+    });
+
+    it('asks for no broadcast clause when there is no broadcast to leave out', async () => {
+        const captured: Captured = {};
+        await repositoryOver(fakeDb([], captured)).spokenSince(3_600_000, 6, undefined);
+
+        expect(captured.sql).not.toContain('broadcast_id');
+    });
+
+    // The same three clauses `spokenDuring` stands on: only what aired, the latest attempt per
+    // segment, newest first.
+    it('reads the latest written attempt per segment, newest first', async () => {
+        const captured: Captured = {};
+        const said = await repositoryOver(fakeDb([{ script: 'the last show signing off' }, { script: 'the one before' }], captured)).spokenSince(
+            3_600_000,
+            6,
+            'broadcast-1',
+        );
+
+        expect(captured.sql).toContain(`outcome = 'written'`);
+        expect(captured.sql).toContain('distinct on (coalesce(segment_id::text, id::text))');
+        expect(captured.sql).toContain('order by said.created_at desc');
+        expect(said).toEqual(['the last show signing off', 'the one before']);
+    });
+});
+
 describe('ScriptHistoryRepository.page', () => {
     it('answers nothing for a page of zero without asking the database', async () => {
         await expect(repositoryOver(untouchableDb()).page({ limit: 0 })).resolves.toEqual([]);

@@ -30,11 +30,20 @@ import { AUDIO_TOKEN_PARAM, verifyAudioToken } from '#modules/playout/playout.au
  * authentication middleware resolved, and a headerless fetch costs that middleware nothing.
  */
 
-/** The routes this gates, as the paths they are served at. Ids are uuids; a stored blob is a sha256 and an extension. */
+/**
+ * The routes this gates, as the paths they are served at. Ids are uuids; a stored blob is a sha256 and an extension.
+ *
+ * **Matched the way the ROUTER matches, not the way the contract spells them.** `@koa/router` is
+ * case-insensitive and serves a path with a trailing slash as the path without one, and the generated
+ * routers cannot be told otherwise. A gate stricter than the router is a hole: `/SEGMENTS/<id>/audio`
+ * or `/playout/audio/<id>/` used to miss every pattern here and reach the route ungated. So every
+ * pattern is `/i` and tolerates one trailing slash. Being looser than the router costs nothing, since
+ * a path the router would not serve is a 404 behind a gate either way.
+ */
 export const SIGNED_AUDIO_PATHS: readonly RegExp[] = [
-    /^\/segments\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/audio$/i,
-    /^\/audio\/[0-9a-f]{64}\/[A-Za-z0-9]{1,8}$/,
-    /^\/playout\/audio\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    /^\/segments\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/audio\/?$/i,
+    /^\/audio\/[0-9a-f]{64}\/[A-Za-z0-9]{1,8}\/?$/i,
+    /^\/playout\/audio\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/?$/i,
 ];
 
 export const isSignedAudioPath = (path: string): boolean => SIGNED_AUDIO_PATHS.some(pattern => pattern.test(path));
@@ -64,7 +73,10 @@ export const signedAudioMiddleware = (): ServerKitMiddleware => {
         }
 
         const secret = container.get(LiquidsoapEndpoint).secret();
-        if (!verifyAudioToken(secret, ctx.path, token, Date.now())) {
+        // Verified against the path as it arrived, less a trailing slash the router ignores too. Its
+        // CASE is kept: a token signs the path the station minted, so a case-varied copy of a signed
+        // URL fails here with a 401, which is the closed way to be wrong.
+        if (!verifyAudioToken(secret, ctx.path.replace(/\/+$/, ''), token, Date.now())) {
             // One answer for a bad signature, an expired one and an unseeded secret: a caller
             // presenting a token is the player, and the operator's fix is the same setting either
             // way.

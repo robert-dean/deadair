@@ -120,6 +120,17 @@ because a cue's URL is armed when the record it rides is pushed and fetched when
 new anonymous audio route goes on the middleware's list, and its test reads the contracts to check
 that nothing `security: none` in `render.ck` or `playout.ck` is outside the list or the bridge.
 
+**Both gates match a path the way the ROUTER does, which is looser than the contract spells it.**
+`@koa/router` is case-insensitive and serves `/x/` as `/x`, and the generated routers cannot be told
+otherwise, so a gate that compared the contract's spelling was a hole: `/PLAYOUT/BRIDGE/aired`
+skipped the bridge secret and `/playout/audio/<id>/` skipped the signature, each reaching the route
+it guarded. The audio patterns are `/i` and take one trailing slash, a token is checked against the
+path as it arrived less that slash (so a re-cased signed URL fails closed with a 401), and the bridge
+prefix is compared lowercased. Both middleware tests mount a real `ServerKitRouter` behind the gate
+and ask for every spelling, expecting a refusal or a 404 and never the handler. The edges also
+refuse `/api/playout/bridge` outright, beside `/api/health`: the stream reaches the bridge at
+`PLAYOUT_BASE_URL`, never through nginx.
+
 ## What a listener's player is told
 
 **The mount carries one line of text and one URL, and that is the whole display ceiling for anything

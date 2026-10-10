@@ -120,6 +120,17 @@ because a cue's URL is armed when the record it rides is pushed and fetched when
 new anonymous audio route goes on the middleware's list, and its test reads the contracts to check
 that nothing `security: none` in `render.ck` or `playout.ck` is outside the list or the bridge.
 
+**Both gates match a path the way the ROUTER does, which is looser than the contract spells it.**
+`@koa/router` is case-insensitive and serves `/x/` as `/x`, and the generated routers cannot be told
+otherwise, so a gate that compared the contract's spelling was a hole: `/PLAYOUT/BRIDGE/aired`
+skipped the bridge secret and `/playout/audio/<id>/` skipped the signature, each reaching the route
+it guarded. The audio patterns are `/i` and take one trailing slash, a token is checked against the
+path as it arrived less that slash (so a re-cased signed URL fails closed with a 401), and the bridge
+prefix is compared lowercased. Both middleware tests mount a real `ServerKitRouter` behind the gate
+and ask for every spelling, expecting a refusal or a 404 and never the handler. The edges also
+refuse `/api/playout/bridge` outright, beside `/api/health`: the stream reaches the bridge at
+`PLAYOUT_BASE_URL`, never through nginx.
+
 ## What a listener's player is told
 
 **The mount carries one line of text and one URL, and that is the whole display ceiling for anything
@@ -212,6 +223,21 @@ tried and has no bytes for is deliberately NOT asked for, because that row alrea
 `next_attempt_at` and asking by name bypasses the backoff. Unlike the audio gate this fails open in
 both directions: a cover that is late, failed or unreadable costs the logo for that record and
 never holds a slot.
+
+**A cover that was still upstream at the commit is carried server-side, and resolved again at
+read.** The commit pass is about one item before air, so the cover it asked for usually lands while
+the record before it is still playing, after the item was built. The item therefore never holds the
+provider's URL in `artworkUrl`, which `/nowplaying` answers and which used to carry it to every
+listener, credential and all: the URL goes in `RundownItem.coverSourceUrl`, which nothing serialises,
+and `CoverResolver` (`modules/art/cover.resolver.ts`) turns it into the station's `art/` path the
+moment the store holds it. `/nowplaying` asks on every poll and the pusher asks at hand-over and
+again at air (`announce`), both through `listenerCover`, which also refuses anything that is not an
+`art/` path whatever the item carries. The resolver is synchronous because both readers answer out
+of memory: it remembers hits only, and on a miss starts one read of the store off the caller, at
+most every five seconds per cover, so a poll never waits on the database and a cover cached a
+minute after the commit is on the very next poll. A syndicated episode's cover is the feed's URL
+and takes the same route. The console's own reads still hand out `cachedOrUpstream`, which is a
+signed-in operator surface and a separate change.
 
 **That is also why a cached cover's URL ends in a filename.** `cachedOrUpstream` in `catalog.art.ts`
 mints `art/<id>/cover.<ext>` from the extension the store recorded, and `GET /art/{id}/{filename}`

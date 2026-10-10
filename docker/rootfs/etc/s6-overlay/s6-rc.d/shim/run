@@ -7,17 +7,23 @@ exec 2>&1
 config=/data/streamconfig/radio.env
 [ -f "$config" ] || config=/defaults/radio.env
 
-set -a
-# shellcheck disable=SC1090
-. "$config"
-set +a
-
+# Read as the station's user, never as root, for the reason the audio chain's run script gives at
+# length: the app writes this file, and a value in it is shell that `.` executes. The file is
+# handed over as `$1`, so its path is never parsed as shell either.
+#
 # The session it opens is worth keeping across a restart: re-authorizing is a browser visit an
 # operator has to make by hand.
+#
+# Supervised directly. The restart loop and the log file the compose deployment wrapped this in
+# are both things the supervisor already does, and doing them twice hides the exit code.
+# shellcheck disable=SC2016
+exec s6-setuidgid deadair sh -c '
+set -a
+# shellcheck disable=SC1090
+. "$1"
+set +a
 SHIM_CREDENTIALS="${SHIM_CREDENTIALS:-/data/streamstate/spotify-credentials.json}"
 SHIM_LOG_DIR="${SHIM_LOG_DIR:-/data/streamlogs}"
 export SHIM_CREDENTIALS SHIM_LOG_DIR
-
-# Supervised directly. The restart loop and the log file the compose deployment wrapped this in
-# are both things the supervisor already does, and doing them twice hides the exit code.
-exec s6-setuidgid deadair deadair-shim
+exec deadair-shim
+' sh "$config"

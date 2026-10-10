@@ -15,6 +15,7 @@
  * kept pure and unit-tested.
  */
 
+import type { CoverLookup } from '#modules/art/cover.resolver.js';
 import { isRenderItem } from '#modules/render/segment.source.js';
 import { stationArtwork, stationOrigin } from '#modules/stream/stream.settings.js';
 import { blendFor } from './crossfade.js';
@@ -94,6 +95,12 @@ export interface AnnotationContext {
      * artwork off the mount altogether. See {@link listenerArtwork}.
      */
     publicUrl: string;
+    /**
+     * Where an item still holding only a provider's cover ({@link RundownItem.coverSourceUrl}) is
+     * asked for the station's own copy. Absent answers nothing for such an item, which is the logo.
+     * See {@link listenerArtwork}.
+     */
+    covers?: CoverLookup;
     /**
      * Whether a record gets the static per-item correction {@link gainFor}
      * computes. See `LEVELING_ENABLED_KEY` in `gain.ts`.
@@ -177,7 +184,7 @@ export interface AnnotationContext {
 export function itemAnnotations(item: RundownItem, context: AnnotationContext): Record<string, string> {
     const artist = listenerArtist(item, context.stationName);
     const title = listenerTitle(item, context.stationName);
-    const artwork = listenerArtwork(item, context.publicUrl);
+    const artwork = listenerArtwork(item, context.publicUrl, context.covers);
     return {
         [ITEM_KEY]: item.id,
         ...(title ? { title } : {}),
@@ -310,14 +317,38 @@ export function listenerArtist(item: RundownItem, stationName: string): string {
  * the labels it puts up itself, through `STREAM_ART_URL`, which is
  * {@link stationArtwork} rendered into its environment.
  */
-export function listenerArtwork(item: RundownItem, publicUrl: string): string | undefined {
+export function listenerArtwork(item: RundownItem, publicUrl: string, covers?: CoverLookup): string | undefined {
     const origin = stationOrigin(publicUrl);
     if (!origin) return undefined;
 
-    const cover = item.artworkUrl?.trim() ?? '';
-    if (/^\/?art\//.test(cover)) return `${origin}/api/${cover.replace(/^\/+/, '')}`;
+    const cover = listenerCover(item, covers);
+    if (cover !== undefined) return `${origin}/api/${cover.replace(/^\/+/, '')}`;
 
     return stationArtwork(origin);
+}
+
+/**
+ * Whether a cover URL is one this station serves out of its own store: a path under the API root
+ * beginning `art/`. The whole of the rule {@link listenerArtwork} states, as one test, so the mount
+ * and `/nowplaying` cannot drift apart on it. A provider's URL is absolute and fails it.
+ */
+export function isStationArt(url: string | undefined): url is string {
+    return url !== undefined && /^\/?art\//.test(url.trim());
+}
+
+/**
+ * The cover a LISTENER may be shown for this item, as the station's own `art/` path, or nothing.
+ *
+ * The item's own `artworkUrl` where it is the station's art. Otherwise, for a record whose cover was
+ * still upstream when it was committed, whatever `covers` now says the station holds for that
+ * upstream URL, so a cover cached after the commit reaches the very record it belongs to. Never the
+ * upstream URL itself, whatever happens: see {@link listenerArtwork} for why both reasons are absolute.
+ */
+export function listenerCover(item: RundownItem, covers?: CoverLookup): string | undefined {
+    if (isStationArt(item.artworkUrl)) return item.artworkUrl.trim();
+    if (item.coverSourceUrl === undefined || covers === undefined) return undefined;
+    const resolved = covers.resolve(item.coverSourceUrl);
+    return isStationArt(resolved) ? resolved.trim() : undefined;
 }
 
 /**

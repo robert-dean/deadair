@@ -48,6 +48,14 @@ same reason: without it, a role named `deadair` resolves dbmate's bookkeeping ta
 moment the first migration creates it, and that migration is applied on every boot forever. The bundled cluster
 also pins its role's path in `scripts/init-database`, but the URL is what covers a database the operator brought.
 
+**`radio.env` is read as the station's user, never as root.** The audio chain's and the shim's run
+scripts source it with `.`, which makes every value shell, and the app (running as 99:100) is what
+writes it. Sourced as root, a `$(…)` that reached a setting would have run as root inside the
+container. So each run script does only its config-free root work (the `HOME` directory and its
+`chown`) and then hands the file to `s6-setuidgid deadair sh -c '…' sh "$config"`, which sources it,
+sets its defaults and execs the binary. The path rides as `$1` rather than being spliced into the
+script. The config watch never sources the file, which is why it is unchanged.
+
 And **everything the station keeps is under `/data`**, so a backup is one directory; the runtime user is
 99:100 to match what a home server's app share is owned by, so there is no ownership step.
 

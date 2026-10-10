@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Group, Modal, Stack, Text } from '@mantine/core';
+import { Button, Checkbox, Group, Modal, Stack, Text } from '@mantine/core';
 import { Dropzone } from '@mantine/dropzone';
 import { IconPackage, IconUpload, IconX } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
@@ -20,27 +20,30 @@ export interface PluginImportModalProps {
  * The door into the plugins directory for somebody with no shell on the box: the tarball `npm pack`
  * writes, dropped in the browser.
  *
- * The copy repeats the trust stance in one line rather than implying a check that does not exist
- * (`packages/plugin-sdk/CLAUDE.md` § "Trust and egress"): the station reads a plugin's manifest by
- * loading its code, exactly as a rescan does, so importing is already running it. What landing
- * disabled buys is that the station does not USE it until somebody switches it on, and the trust
- * dialog asks the first time they do.
+ * The copy says plainly that importing RUNS the plugin (`packages/plugin-sdk/CLAUDE.md` § "Trust and
+ * egress"): the station reads a plugin's manifest by loading its code, exactly as a rescan does, so
+ * the code has run inside the server before the plugin is ever listed. Landing disabled buys only
+ * that the station does not USE it until somebody switches it on. So the trust question is asked
+ * HERE, before anything is sent, and Import stays unavailable until the operator ticks that they
+ * trust the code: the enable dialog asking later was asking after the fact.
  */
 export function PluginImportModal({ opened, onClose }: PluginImportModalProps) {
     const { t } = useTranslation(['plugins', 'common']);
     const importPlugin = useImportPlugin();
     const [file, setFile] = useState<File | undefined>(undefined);
     const [needsRestart, setNeedsRestart] = useState<string | undefined>(undefined);
+    const [trusted, setTrusted] = useState(false);
 
     const close = () => {
         setFile(undefined);
         setNeedsRestart(undefined);
+        setTrusted(false);
         importPlugin.reset();
         onClose();
     };
 
     const send = async () => {
-        if (file === undefined) return;
+        if (file === undefined || !trusted) return;
         const body = new FormData();
         body.append('file', file);
 
@@ -103,6 +106,13 @@ export function PluginImportModal({ opened, onClose }: PluginImportModalProps) {
                     </Group>
                 </Dropzone>
 
+                <Checkbox
+                    label={t('import.confirm')}
+                    checked={trusted}
+                    onChange={event => setTrusted(event.currentTarget.checked)}
+                    disabled={importPlugin.isPending}
+                />
+
                 <Group justify="flex-end">
                     <Button variant="default" onClick={close} disabled={importPlugin.isPending}>
                         {needsRestart === undefined ? t('common:action.cancel') : t('import.close')}
@@ -110,7 +120,7 @@ export function PluginImportModal({ opened, onClose }: PluginImportModalProps) {
                     <Button
                         leftSection={<IconUpload size={16} />}
                         loading={importPlugin.isPending}
-                        disabled={file === undefined}
+                        disabled={file === undefined || !trusted}
                         onClick={() => void send()}
                     >
                         {t('import.submit')}

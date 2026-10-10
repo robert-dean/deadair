@@ -5,12 +5,16 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
+import type { Logger } from '@maroonedsoftware/logger';
+import { ArtRepository, type ArtAsset } from '../../../src/modules/art/art.repository.js';
+import { CoverResolver } from '../../../src/modules/art/cover.resolver.js';
 import { NowPlayingService } from '../../../src/modules/nowplaying/nowplaying.service.js';
 import type { Rundown, RundownBroadcast, NowPlaying as RundownNowPlaying } from '../../../src/modules/playout/rundown.js';
 import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 import { TEMPLATE_KEYS } from '../../../src/modules/director/break.templates.js';
 import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import { settingsConfig } from '../../utils/settings.config.js';
+import { stubContainer } from '../../utils/stub.container.js';
 
 /** The station's audience, as this route reports it. Zero unless a test says otherwise. */
 const audienceOf = (listeners = 0) => ({ listenerCount: () => listeners }) as unknown as AudienceWatch;
@@ -52,6 +56,7 @@ const build = (
     listeners = 0,
     settings: Record<string, string> = {},
     broadcast?: RundownBroadcast,
+    covers?: CoverResolver,
 ) => {
     const rundown = { nowPlaying: vi.fn(() => nowPlaying), broadcast: vi.fn(() => broadcast) } as unknown as Rundown;
     // A real `AppConfig` over a plain object, because this service reads SETTINGS and every
@@ -59,7 +64,7 @@ const build = (
     // would pass whichever way the code read it, which is the failure this repository has already
     // had once.
     const config = settingsConfig({ [STREAM_KEYS.title]: stationName, ...settings });
-    const service = new NowPlayingService(rundown, audienceOf(listeners), config.config);
+    const service = new NowPlayingService(rundown, audienceOf(listeners), config.config, covers);
     return { service, rundown, config };
 };
 
@@ -343,5 +348,49 @@ describe('NowPlayingService', () => {
         );
 
         expect(service.getNowPlaying().show).toEqual({ name: 'Afternoons', host: 'Ray', hostArtUrl: 'art/portrait-1/cover.png' });
+    });
+
+    describe("a record's cover", () => {
+        // A Subsonic cover URL carries the operator's user and token, and this route is public. So
+        // the field is the station's own cached copy or nothing, and a record committed before its
+        // cover was cached picks the cached copy up as soon as it lands.
+        const UPSTREAM = 'https://music.example/rest/getCoverArt?id=al-1&u=operator&t=secret&s=salt';
+        const uncached = { ...item, artworkUrl: undefined, coverSourceUrl: UPSTREAM };
+
+        const withCache = () => {
+            const held = new Map<string, ArtAsset>();
+            const findBySourceUrls = vi.fn(async (urls: readonly string[]) => new Map([...held].filter(([url]) => urls.includes(url))));
+            const { container } = stubContainer([[ArtRepository, { findBySourceUrls }]]);
+            const resolver = new CoverResolver(container, { warn: vi.fn() } as unknown as Logger, () => 0);
+            return { held, resolver };
+        };
+
+        it('omits a cover the station does not hold yet, so a player shows the logo', () => {
+            const { resolver } = withCache();
+            const { service } = build({ item: uncached, startedAt: 1 }, 'Station', 0, {}, undefined, resolver);
+
+            expect(service.getNowPlaying().track).not.toHaveProperty('artworkUrl');
+        });
+
+        it("answers the station's path for the same item once the cache holds it", async () => {
+            const { held, resolver } = withCache();
+            held.set(UPSTREAM, { id: 'asset-9', sourceUrl: UPSTREAM, checksum: 'abc', ext: 'jpg' });
+            const { service } = build({ item: uncached, startedAt: 1 }, 'Station', 0, {}, undefined, resolver);
+
+            service.getNowPlaying();
+            await resolver.ask(UPSTREAM);
+
+            expect(service.getNowPlaying().track?.artworkUrl).toBe('art/asset-9/cover.jpg');
+        });
+
+        it('never reports an absolute URL, whatever the item carries', () => {
+            // Defence in depth: an item built by anything that forgot the rule still cannot leak.
+            const leaky = { ...item, artworkUrl: UPSTREAM, coverSourceUrl: UPSTREAM };
+            const { service } = build({ item: leaky, startedAt: 1 });
+
+            const answer = JSON.stringify(service.getNowPlaying());
+            expect(answer).not.toContain('https://');
+            expect(answer).not.toContain('coverSourceUrl');
+        });
     });
 });

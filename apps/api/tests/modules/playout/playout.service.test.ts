@@ -432,6 +432,19 @@ describe('PlayoutService.getStatus', () => {
         });
     });
 
+    it("never carries a record's upstream cover URL, which may hold the operator's credentials", async () => {
+        // `coverSourceUrl` is server-only: it exists so the station can find its own cached copy.
+        const withSource = { ...item, coverSourceUrl: 'https://music.example/rest/getCoverArt?id=1&u=op&t=t0ken-9f3a' };
+        const { service, rundown } = build();
+        vi.mocked(rundown.nowPlaying).mockReturnValue({ item: withSource, startedAt: 1 });
+        vi.mocked(rundown.upcoming).mockReturnValue([withSource]);
+
+        const answer = JSON.stringify(await service.getStatus());
+
+        expect(answer).not.toContain('coverSourceUrl');
+        expect(answer).not.toContain('t0ken-9f3a');
+    });
+
     it('omits the playhead when the decoder could not say', async () => {
         const { service, rundown } = build();
         vi.mocked(rundown.nowPlaying).mockReturnValue({ item, startedAt: 1_700_000_000_000 });

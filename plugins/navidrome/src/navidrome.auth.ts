@@ -52,10 +52,14 @@ const newSalt = (): string => randomBytes(SALT_BYTES).toString('hex');
  *   one row and one download of identical bytes per mention, and a cache that
  *   could never hit.
  *
- * Reusing a salt costs nothing an attacker could not already have. The digest is
- * of a password the operator gave us for a server they run, the URL is being
- * written down either way, and anyone holding one of these URLs can already
- * fetch that image.
+ * **What one of these URLs grants is the operator's whole account, not the
+ * image.** Subsonic checks `u`, `t` and `s` on every endpoint alike, so a
+ * `getCoverArt` URL replayed against `getUser`, `stream` or `deletePlaylist`
+ * works just as well, and a stable salt makes that same token good for the life
+ * of the plugin. Reusing the salt does not widen that (the token is already in
+ * a stored URL either way), but it is why such a URL must never leave the
+ * station: the host serves the cached copy at its own `art/` path and keeps the
+ * upstream URL server-side, and nothing that answers a listener may hand it out.
  */
 export class SubsonicAuth {
     private readonly stableSalt = newSalt();

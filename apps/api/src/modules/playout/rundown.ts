@@ -82,8 +82,20 @@ export interface RundownItem {
     artist: string;
     durationMs?: number;
     album?: string;
-    /** Cover art: the station's own cached copy where there is one, the provider's URL otherwise. */
+    /**
+     * Cover art, as the station's own `art/` path and never anything else. Absent while the station
+     * does not hold the cover, which is what lets every reader show it to a listener as it stands.
+     */
     artworkUrl?: string;
+    /**
+     * The provider's own cover URL, for a record whose cover the station did not yet hold when the
+     * item was built. SERVER-ONLY: it may carry a credential (a Subsonic `getCoverArt` link holds the
+     * operator's user and token), so nothing that answers a request or feeds the mount may copy it
+     * out. It exists so `CoverResolver` can turn it into the station's `art/` path the moment the
+     * cache job lands, rather than the record wearing the logo for its whole length. See
+     * `listenerCover` in `annotate.ts`.
+     */
+    coverSourceUrl?: string;
     year?: number;
     /**
      * The canonical `deadair.tracks` id, when the catalog holds this track.

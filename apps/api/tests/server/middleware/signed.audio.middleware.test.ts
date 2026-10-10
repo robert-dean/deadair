@@ -7,8 +7,13 @@
 // the contracts and holds the two together.
 
 import { readFileSync } from 'node:fs';
+import type { Server } from 'node:http';
+import { request as httpRequest } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import Koa from 'koa';
+import { ServerKitRouter, errorMiddleware } from '@maroonedsoftware/koa';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { invalidAuthenticationSession } from '@maroonedsoftware/authentication';
 import { PolicyService } from '@maroonedsoftware/policies';
 
@@ -21,6 +26,10 @@ const SECRET = 'bridge-secret';
 const SEGMENT = '/segments/8c1c9f2e-3b6a-4d1e-9c1a-2f3b4c5d6e7f/audio';
 const STORED = `/audio/${'ab'.repeat(32)}/mp3`;
 const TRACK = '/playout/audio/8c1c9f2e-3b6a-4d1e-9c1a-2f3b4c5d6e7f';
+
+// Explicitly, for the reason `art.router.test.ts` gives: `listen(0)` on the wildcard is flaky under a
+// sandbox that has no route to every interface it binds.
+const LOOPBACK = '127.0.0.1';
 
 /** A policy service whose only policy is the read floor, granted to whoever the test says. */
 const policies = (granted: boolean) => ({
@@ -121,6 +130,34 @@ describe('signedAudioMiddleware', () => {
         expect((await run(request(SEGMENT))).status).toBe(401);
     });
 
+    // `@koa/router` is case-insensitive and serves a path with a trailing slash as the path without
+    // one, so each of these reaches an audio route, and each must meet the gate.
+    it.each([
+        SEGMENT.toUpperCase(),
+        `${SEGMENT}/`,
+        STORED.toUpperCase(),
+        `${STORED}/`,
+        TRACK.toUpperCase(),
+        `${TRACK}/`,
+        '/Playout/Audio/8C1C9F2E-3B6A-4D1E-9C1A-2F3B4C5D6E7F',
+    ])('gates %s, a spelling the router serves', async path => {
+        expect((await run(request(path))).status).toBe(401);
+    });
+
+    it('accepts a signed URL with a trailing slash the router ignores', async () => {
+        const t = signAudioPath(SECRET, TRACK, Date.now() + 60_000);
+
+        expect(await run(request(`${TRACK}/`, { query: { t } }))).toEqual({ passed: true });
+    });
+
+    it('refuses a signed URL whose path was re-cased, rather than serving it', async () => {
+        // The token signs the path the station minted. A re-cased copy is not that path, and failing
+        // closed is the right way to be wrong.
+        const t = signAudioPath(SECRET, TRACK, Date.now() + 60_000);
+
+        expect((await run(request(TRACK.toUpperCase(), { query: { t } }))).status).toBe(401);
+    });
+
     it('leaves every other path alone', async () => {
         for (const path of [
             '/segments',
@@ -187,5 +224,86 @@ describe('the audio routes the contracts leave to this middleware', () => {
 
     it('no longer leaves the pad route open', () => {
         expect(anonymousOperations('render/render.ck')).not.toContain('/pads/{id}/audio');
+    });
+});
+
+// The list is only as wide as the paths the ROUTER would serve. So this mounts a real router with the
+// three audio routes behind the real middleware and asks for every spelling of them somebody might
+// try with no session and no token: each is either refused by the gate or unknown to the router, and
+// none of them reaches a handler.
+describe('signedAudioMiddleware against the router it guards', () => {
+    let server: Server | undefined;
+
+    afterEach(async () => {
+        await new Promise<void>(resolve => (server ? server.close(() => resolve()) : resolve()));
+        server = undefined;
+    });
+
+    const serve = async () => {
+        const handled = vi.fn();
+        const router = ServerKitRouter();
+        for (const template of ['/segments/:id/audio', '/audio/:checksum/:ext', '/playout/audio/:sourceId']) {
+            router.get(template, async ctx => {
+                handled(ctx.path);
+                ctx.status = 200;
+                ctx.body = 'audio';
+            });
+        }
+
+        const app = new Koa();
+        app.use(errorMiddleware() as unknown as Koa.Middleware);
+        app.use(async (ctx, next) => {
+            const stub = request(ctx.path);
+            (ctx as unknown as { container: unknown }).container = stub.container;
+            (ctx as unknown as { authenticationSession: unknown }).authenticationSession = stub.authenticationSession;
+            await next();
+        });
+        app.use(signedAudioMiddleware() as unknown as Koa.Middleware);
+        app.use(router.routes() as unknown as Koa.Middleware);
+
+        server = app.listen(0, LOOPBACK);
+        await new Promise<void>(resolve => server!.once('listening', () => resolve()));
+        return { base: `http://${LOOPBACK}:${(server!.address() as AddressInfo).port}`, handled };
+    };
+
+    const get = (url: string): Promise<number> =>
+        new Promise((resolve, reject) => {
+            const req = httpRequest(url, { method: 'GET' }, response => {
+                response.resume();
+                response.on('end', () => resolve(response.statusCode ?? 0));
+            });
+            req.on('error', reject);
+            req.end();
+        });
+
+    it('serves a signed URL, so the harness is real', async () => {
+        const { base, handled } = await serve();
+        const t = signAudioPath(SECRET, TRACK, Date.now() + 60_000);
+
+        expect(await get(`${base}${TRACK}?t=${encodeURIComponent(t)}`)).toBe(200);
+        expect(handled).toHaveBeenCalledOnce();
+    });
+
+    it.each([
+        SEGMENT,
+        SEGMENT.toUpperCase(),
+        `${SEGMENT}/`,
+        '/Segments/8c1c9f2e-3b6a-4d1e-9c1a-2f3b4c5d6e7f/Audio',
+        STORED,
+        STORED.toUpperCase(),
+        `${STORED}/`,
+        TRACK,
+        TRACK.toUpperCase(),
+        `${TRACK}/`,
+        '/PLAYOUT/audio/8c1c9f2e-3b6a-4d1e-9c1a-2f3b4c5d6e7f/',
+        '/playout/%61udio/8c1c9f2e-3b6a-4d1e-9c1a-2f3b4c5d6e7f',
+        '//playout/audio/8c1c9f2e-3b6a-4d1e-9c1a-2f3b4c5d6e7f',
+    ])('never serves %s without a token or a session', async path => {
+        const { base, handled } = await serve();
+
+        const status = await get(`${base}${path}`);
+
+        expect([401, 404]).toContain(status);
+        expect(handled).not.toHaveBeenCalled();
     });
 });

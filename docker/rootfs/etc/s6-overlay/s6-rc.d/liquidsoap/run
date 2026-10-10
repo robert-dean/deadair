@@ -15,25 +15,35 @@ exec 2>&1
 config=/data/streamconfig/radio.env
 [ -f "$config" ] || config=/defaults/radio.env
 
-set -a
-# shellcheck disable=SC1090
-. "$config"
-set +a
-
-# Not in the rendered file, because these are properties of this image's layout rather than of
-# the station's settings.
-LOG_FILE="${LOG_FILE:-/data/streamlogs/liquidsoap.log}"
-export LOG_FILE
-
 # Somewhere to keep the compiled script. The default is the HOME of whoever is running, which in
 # the image this base ships is root — and here this runs as the station's user, so every start
 # said it could not read root's cache and then compiled the whole script again. It goes on the
 # volume rather than in the image because the point of it is to survive a restart.
-HOME=/data/streamstate
-export HOME
-# Made here rather than left to Liquidsoap: this line runs as root, so the directory has to be
-# handed to the user the line below drops to.
-mkdir -p "$HOME/.cache"
-chown 99:100 "$HOME" "$HOME/.cache" 2>/dev/null || true
+#
+# Made here rather than left to Liquidsoap: this part runs as root, so the directory has to be
+# handed to the user the line below drops to. It reads nothing from the config, which is what lets
+# it stay above the drop.
+mkdir -p /data/streamstate/.cache
+chown 99:100 /data/streamstate /data/streamstate/.cache 2>/dev/null || true
 
-exec s6-setuidgid deadair liquidsoap /radio/radio.liq
+# Everything from here runs as the station's user, and that INCLUDES reading the config. The file
+# is written by the app, which runs as that same user, so sourcing it as root would let anything
+# able to write a setting run a command as root: a value is shell, and `$(…)` in one is executed
+# by `.` before Liquidsoap ever sees it. Dropping first means the worst a hostile line can do is
+# what the app could already do. The file is handed over as `$1` rather than spliced into the
+# script, so no path is ever parsed as shell either.
+#
+# HOME is set after the file is read, as it always was, so a stray HOME in it changes nothing.
+# LOG_FILE is not in the rendered file, because it is a property of this image's layout rather than
+# of the station's settings.
+# shellcheck disable=SC2016
+exec s6-setuidgid deadair sh -c '
+set -a
+# shellcheck disable=SC1090
+. "$1"
+set +a
+HOME=/data/streamstate
+LOG_FILE="${LOG_FILE:-/data/streamlogs/liquidsoap.log}"
+export HOME LOG_FILE
+exec liquidsoap /radio/radio.liq
+' sh "$config"

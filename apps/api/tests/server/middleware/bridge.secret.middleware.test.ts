@@ -6,12 +6,21 @@
 // /playout/bridge/ protected without anyone remembering to protect it, and what keeps the
 // gate off the rest of the app.
 
-import { describe, expect, it, vi } from 'vitest';
+import type { Server } from 'node:http';
+import { request as httpRequest } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import Koa from 'koa';
+import { ServerKitRouter, errorMiddleware } from '@maroonedsoftware/koa';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { BRIDGE_PATH_PREFIX, bridgeSecretMiddleware } from '../../../src/server/middleware/bridge.secret.middleware.js';
 import { LiquidsoapEndpoint } from '../../../src/modules/playout/liquidsoap.endpoint.js';
 
 const SECRET = 'bridge-secret';
+
+// Explicitly, for the reason `art.router.test.ts` gives: `listen(0)` on the wildcard is flaky under a
+// sandbox that has no route to every interface it binds.
+const LOOPBACK = '127.0.0.1';
 
 /**
  * A request as Koa presents it, with only the parts this middleware touches: the path, the
@@ -81,11 +90,90 @@ describe('bridgeSecretMiddleware', () => {
         expect(result.passed).toBe(true);
     });
 
+    it.each(['/PLAYOUT/BRIDGE/aired', '/Playout/Bridge/Listener', '/playout/BRIDGE/aired/'])(
+        'gates %s, a spelling the case-insensitive router serves as a bridge route',
+        async path => {
+            expect((await run(request(path))).status).toBe(401);
+            expect(await run(request(path, { 'x-playout-secret': SECRET }))).toEqual({ passed: true });
+        },
+    );
+
     it('matches a path segment, not a string prefix', async () => {
         // Without the trailing slash on BRIDGE_PATH_PREFIX this would be gated by accident,
         // and an accidental gate is as much of a surprise as an accidental hole.
         const result = await run(request('/playout/bridgehead'));
 
         expect(result.passed).toBe(true);
+    });
+});
+
+// The gate is only as wide as the paths the ROUTER would serve, and `@koa/router` is case-insensitive
+// and ignores a trailing slash. So this mounts a real router behind the real middleware and asks for
+// every spelling of a bridge route somebody might try: each one is either refused by the gate or
+// unknown to the router, and none of them reaches the handler.
+describe('bridgeSecretMiddleware against the router it guards', () => {
+    let server: Server | undefined;
+
+    afterEach(async () => {
+        await new Promise<void>(resolve => (server ? server.close(() => resolve()) : resolve()));
+        server = undefined;
+    });
+
+    const serve = async () => {
+        const handled = vi.fn();
+        const router = ServerKitRouter();
+        router.post('/playout/bridge/aired', async ctx => {
+            handled(ctx.path);
+            ctx.status = 200;
+            ctx.body = 'served';
+        });
+
+        const app = new Koa();
+        app.use(errorMiddleware() as unknown as Koa.Middleware);
+        app.use(async (ctx, next) => {
+            (ctx as unknown as { container: unknown }).container = request(ctx.path).container;
+            await next();
+        });
+        app.use(bridgeSecretMiddleware() as unknown as Koa.Middleware);
+        app.use(router.routes() as unknown as Koa.Middleware);
+
+        server = app.listen(0, LOOPBACK);
+        await new Promise<void>(resolve => server!.once('listening', () => resolve()));
+        return { base: `http://${LOOPBACK}:${(server!.address() as AddressInfo).port}`, handled };
+    };
+
+    const post = (url: string, headers: Record<string, string> = {}): Promise<number> =>
+        new Promise((resolve, reject) => {
+            const req = httpRequest(url, { method: 'POST', headers }, response => {
+                response.resume();
+                response.on('end', () => resolve(response.statusCode ?? 0));
+            });
+            req.on('error', reject);
+            req.end();
+        });
+
+    it('serves the route itself to a caller holding the secret, so the harness is real', async () => {
+        const { base, handled } = await serve();
+
+        expect(await post(`${base}/playout/bridge/aired`, { 'x-playout-secret': SECRET })).toBe(200);
+        expect(handled).toHaveBeenCalledOnce();
+    });
+
+    it.each([
+        '/playout/bridge/aired',
+        '/PLAYOUT/BRIDGE/AIRED',
+        '/Playout/Bridge/aired',
+        '/playout/BRIDGE/aired',
+        '/playout/bridge/aired/',
+        '/PLAYOUT/bridge/aired/',
+        '/playout/%62ridge/aired',
+        '/playout//bridge/aired',
+    ])('never serves %s without the secret', async path => {
+        const { base, handled } = await serve();
+
+        const status = await post(`${base}${path}`);
+
+        expect([401, 404]).toContain(status);
+        expect(handled).not.toHaveBeenCalled();
     });
 });

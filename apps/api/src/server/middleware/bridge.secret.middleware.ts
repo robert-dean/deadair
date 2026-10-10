@@ -21,10 +21,15 @@ import { LiquidsoapEndpoint } from '#modules/playout/liquidsoap.endpoint.js';
  * a route is protected by living here, and the only way to add an unprotected
  * one is to put it somewhere that is visibly not the bridge.
  *
- * Registered after {@link listenerCredentialMiddleware}, which is what puts
- * Icecast's HTTP-basic password onto the header this reads, and before
- * ServerKit's authentication middleware, so a rejected call never touches the
- * session machinery at all.
+ * Registered before ServerKit's authentication middleware, so a rejected call
+ * never touches the session machinery at all.
+ *
+ * **The prefix is compared the way the ROUTER compares.** `@koa/router` matches
+ * case-insensitively, and the generated routers cannot be told otherwise, so a
+ * case-sensitive `startsWith` here let `/PLAYOUT/BRIDGE/aired` past the gate and
+ * into the very route it guards. The path is lowercased before the compare; a
+ * trailing slash needs nothing, since every bridge route is a segment under the
+ * prefix and the prefix already ends in one.
  */
 
 /**
@@ -36,7 +41,7 @@ export const BRIDGE_PATH_PREFIX = '/playout/bridge/';
 
 export const bridgeSecretMiddleware = (): ServerKitMiddleware => {
     return async (ctx, next) => {
-        if (ctx.path.startsWith(BRIDGE_PATH_PREFIX)) {
+        if (ctx.path.toLowerCase().startsWith(BRIDGE_PATH_PREFIX)) {
             const container = ctx.container as ScopedContainer;
             const expected = container.get(LiquidsoapEndpoint).secret();
 

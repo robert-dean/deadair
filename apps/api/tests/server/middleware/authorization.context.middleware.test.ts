@@ -42,6 +42,10 @@ interface HarnessOptions {
     keyGrants?: string[];
     /** Whether this request is the first in the key's use window. */
     firstInWindow?: boolean;
+    /** `TRUST_PROXY`, as the string a config layer holds. Unset unless a test says. */
+    trustProxy?: string;
+    /** The forwarded address the edge set, when a test needs one. */
+    realIp?: string;
 }
 
 const harness = (options: HarnessOptions = {}): Harness & { checkSubject: ReturnType<typeof vi.fn>; insertLogin: ReturnType<typeof vi.fn> } => {
@@ -63,7 +67,10 @@ const harness = (options: HarnessOptions = {}): Harness & { checkSubject: Return
         [DeadairPermissionsTupleRepository, { listRelationsForSubjectOnObject: vi.fn().mockResolvedValue(options.relations ?? []) }],
         // Clearing the dead cookie reads TRUST_PROXY to decide whether this request's scheme can
         // be taken off a forwarded header. A layer answers with strings; nothing here sets one.
-        [AppConfig, { get: (_key: string, fallback: unknown) => fallback }],
+        [
+            AppConfig,
+            { get: (key: string, fallback: unknown) => (key === 'TRUST_PROXY' && options.trustProxy !== undefined ? options.trustProxy : fallback) },
+        ],
     ]);
 
     const ctx = {
@@ -71,8 +78,9 @@ const harness = (options: HarnessOptions = {}): Harness & { checkSubject: Return
         path: options.path ?? '/plugins/rescan',
         requestId: 'req-1',
         ipAddress: '203.0.113.1',
+        ip: '203.0.113.1',
         secure: false,
-        req: { headers: {} },
+        req: { headers: options.realIp === undefined ? {} : { 'x-real-ip': options.realIp } },
         request: { headers: {} },
         cookies: { set: cookieSet, get: vi.fn() },
         authenticationSession: {
@@ -306,6 +314,20 @@ describe('authorizationContextMiddleware', () => {
             // `app.request_id` GUC name one decision instead of two.
             expect(seen).toEqual({ id: 'req-1', kind: 'GET /plugins' });
             expect((h.overrides.get(AuthorizationContext) as AuthorizationContext).request.requestId).toBe('req-1');
+        });
+
+        it('names the caller for a per-caller limit the way the rate limiter does', async () => {
+            // The raw peer stays `ipAddress` for the audit trail; `clientAddress` is what the
+            // password lockout keys on, and behind a trusted edge it is the forwarded address.
+            const untrusted = harness({ realIp: '198.51.100.9' });
+            await authorizationContextMiddleware()(untrusted.ctx, untrusted.next);
+            expect((untrusted.overrides.get(AuthorizationContext) as AuthorizationContext).request.clientAddress).toBe('203.0.113.1');
+
+            const trusted = harness({ realIp: '198.51.100.9', trustProxy: 'true' });
+            await authorizationContextMiddleware()(trusted.ctx, trusted.next);
+            const request = (trusted.overrides.get(AuthorizationContext) as AuthorizationContext).request;
+            expect(request.clientAddress).toBe('198.51.100.9');
+            expect(request.ipAddress).toBe('203.0.113.1');
         });
 
         it('closes the trace before the response leaves, even when the route throws', async () => {

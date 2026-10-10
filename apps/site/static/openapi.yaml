@@ -3643,7 +3643,7 @@ paths:
         post:
             operationId: importPlugin
             summary: 'Import plugin'
-            description: 'Takes a plugin in from the browser as the tarball npm pack writes and puts it in the plugins directory. It lands disabled, and a newer version of an installed plugin replaces the older one'
+            description: "Takes a plugin in from the browser as the tarball npm pack writes and puts it in the plugins directory. Importing runs the plugin's code: the station loads it to read its manifest, inside the server and with the server's privileges. It lands disabled, which only means the station does not use it until it is enabled. A newer version of an installed plugin replaces the older one"
             requestBody:
                 required: true
                 content:
@@ -9073,7 +9073,7 @@ components:
                 artworkUrl:
                     type: string
                     maxLength: 2000
-                    description: "The station's own cached cover where there is one, the provider's URL otherwise. Relative values are paths under the API root"
+                    description: "The station's own cached cover, as a path under the API root (`art/...`). Absent while the station does not yet hold the cover, which a player answers with the station's logo; never a provider's URL"
                 durationMs:
                     type: integer
                     minimum: 0

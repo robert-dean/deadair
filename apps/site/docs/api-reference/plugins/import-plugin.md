@@ -6,7 +6,7 @@ mdx:
     format: 'md'
 ---
 
-Takes a plugin in from the browser as the tarball npm pack writes and puts it in the plugins directory. It lands disabled, and a newer version of an installed plugin replaces the older one
+Takes a plugin in from the browser as the tarball npm pack writes and puts it in the plugins directory. Importing runs the plugin's code: the station loads it to read its manifest, inside the server and with the server's privileges. It lands disabled, which only means the station does not use it until it is enabled. A newer version of an installed plugin replaces the older one
 
 **`POST`** `/plugins/import`
 

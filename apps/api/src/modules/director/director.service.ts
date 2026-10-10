@@ -13,6 +13,7 @@ import { Epoch } from '#modules/shared/epoch.js';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
+import { isStationArt } from '#modules/playout/annotate.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { PersonaArtworkService } from '#modules/art/persona.artwork.service.js';
 import type { Persona } from '#modules/personas/persona.js';
@@ -2760,16 +2761,8 @@ export class DirectorService {
      * follows: the batch resolves to nothing, every record carries the logo for now, and the next
      * pass tries again.
      */
-    private async stationArtwork(items: readonly StationLineupItem[]): Promise<Map<string, string>> {
-        const upstream = [
-            ...new Set(
-                items.flatMap(item =>
-                    item.kind === 'track' && item.track.artworkUrl !== undefined && /^https?:\/\//i.test(item.track.artworkUrl)
-                        ? [item.track.artworkUrl]
-                        : [],
-                ),
-            ),
-        ];
+    private async stationArtwork(covers: readonly (string | undefined)[]): Promise<Map<string, string>> {
+        const upstream = [...new Set(covers.filter((url): url is string => url !== undefined && /^https?:\/\//i.test(url)))];
         if (upstream.length === 0) return new Map();
 
         const held = await inScope(this.container, async scope => scope.get(ArtRepository).findBySourceUrls(upstream)).catch(error => {
@@ -2914,8 +2907,17 @@ export class DirectorService {
                   });
         const expired = new Set<string>();
 
-        // The cover each record should be shown with, as the station itself can serve it.
-        const artwork = await this.stationArtwork(items);
+        // The cover each record, and each syndicated programme, should be shown with, as the station
+        // itself can serve it.
+        const artwork = await this.stationArtwork(
+            items.map(item =>
+                item.kind === 'track'
+                    ? item.track.artworkUrl
+                    : item.kind === 'segment'
+                      ? segmentRundownTrackCover(segments.get(item.segmentId))
+                      : undefined,
+            ),
+        );
         // And the picture each KIND of break wears, resolved on the same pass and for the same
         // reason: an operator who replaces the weather picture has replaced it for the forecast
         // that is about to air, not for the one after the next refill.
@@ -2966,13 +2968,14 @@ export class DirectorService {
                 // The order's own id, carried through unchanged. It rides the annotation into
                 // Liquidsoap and comes back on its readings, which is what lets a restarted
                 // process name the record a listener is in the middle of.
+                // Resolved rather than carried: the line holds whatever the cover was when the record
+                // was PICKED, which is the upstream URL for anything the station had not cached by
+                // then. See {@link stationArtwork} and {@link coverFields}.
+                const { artworkUrl: pickedCover, ...track } = item.track;
                 playable.push({
-                    ...item.track,
+                    ...track,
                     id: item.id,
-                    // Resolved rather than carried: the line holds whatever the cover was when the
-                    // record was PICKED, which is the upstream URL for anything the station had not
-                    // cached by then. See {@link stationArtwork}.
-                    ...(artwork.get(item.track.artworkUrl ?? '') === undefined ? {} : { artworkUrl: artwork.get(item.track.artworkUrl ?? '')! }),
+                    ...coverFields(pickedCover, artwork),
                     ...(pending === undefined
                         ? {}
                         : {
@@ -3226,7 +3229,7 @@ export class DirectorService {
                 continue;
             }
 
-            const spoken = segmentRundownTrack(segment);
+            const { artworkUrl: ownCover, ...spoken } = segmentRundownTrack(segment);
             const picture = breakArtwork.get(segment.kind) ?? hostArtwork;
 
             playable.push({
@@ -3236,7 +3239,9 @@ export class DirectorService {
                 // episode's artwork ({@link programmeRundownTrack}) from being replaced by the
                 // picture for whatever kind its band happens to be called. The kind's picture wins
                 // over the host's portrait: an operator who gave the forecast one chose it for that.
-                ...(spoken.artworkUrl === undefined && picture !== undefined ? { artworkUrl: picture } : {}),
+                // An episode's own cover is the feed's URL, so it goes through the station's cache
+                // exactly as a record's does.
+                ...(ownCover === undefined ? (picture === undefined ? {} : { artworkUrl: picture }) : coverFields(ownCover, artwork)),
             });
         }
 
@@ -3762,4 +3767,27 @@ function takeForLead(candidates: readonly StationLineupItem[], wanted: number): 
 function hostOf(incoming: { persona?: Persona; portrait?: string }): { name?: string; art?: string } {
     const name = onAirName(incoming.persona);
     return { ...(name === undefined ? {} : { name }), ...(incoming.portrait === undefined ? {} : { art: incoming.portrait }) };
+}
+
+/** A segment's own cover, which only a syndicated programme has: its feed's URL. Nothing for anything else, or no row. */
+function segmentRundownTrackCover(segment: Segment | undefined): string | undefined {
+    return segment === undefined ? undefined : segmentRundownTrack(segment).artworkUrl;
+}
+
+/**
+ * The cover fields of a player item, from the cover its line was picked with.
+ *
+ * `artworkUrl` is only ever the station's own `art/` path: the one {@link DirectorService.stationArtwork}
+ * resolved on this pass, or the one the line already held. A provider's URL the station does not hold
+ * yet goes in `coverSourceUrl`, which is server-only, so `/nowplaying` and the mount can ask
+ * `CoverResolver` for the cached copy once it lands and never hand the provider's URL (and whatever
+ * credential its query string carries) to a listener. Anything else is dropped.
+ */
+function coverFields(picked: string | undefined, resolved: ReadonlyMap<string, string>): { artworkUrl?: string; coverSourceUrl?: string } {
+    if (picked === undefined) return {};
+    const station = resolved.get(picked);
+    if (station !== undefined) return { artworkUrl: station };
+    if (isStationArt(picked)) return { artworkUrl: picked };
+    if (/^https?:\/\//i.test(picked)) return { coverSourceUrl: picked };
+    return {};
 }

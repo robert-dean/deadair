@@ -8,7 +8,7 @@ import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { RequestDesk } from './request.desk.js';
 import { dedicationOf } from './request.dedication.js';
-import { UNNAMED_REQUESTER } from './listener.text.js';
+import { MAX_REQUESTER_NAME, UNNAMED_REQUESTER, tidyListenerText } from './listener.text.js';
 import { RequestProviderSearch } from './request.provider.search.js';
 import { RequestsRepository, type RequestRow } from './requests.repository.js';
 import type {
@@ -81,7 +81,7 @@ export class RequestsService {
         const record = await this.repository.findRequestable(trackId);
         if (record === undefined) throw httpError(404).withDetails({ message: 'the station has no record it could play by that id' });
 
-        const name = body.name?.trim() || UNNAMED_REQUESTER;
+        const name = tidyListenerText(body.name, MAX_REQUESTER_NAME) ?? UNNAMED_REQUESTER;
         const dedication = dedicationOf(body.dedicateTo, body.message);
         const row = await this.desk.submit({ key: `user:${actorId}`, name, actorId }, record, dedication);
         return toListenerRequest(row);

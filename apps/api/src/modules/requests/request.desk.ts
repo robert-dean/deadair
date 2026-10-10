@@ -2,17 +2,21 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
+import { TEMPLATE_KEYS } from '#modules/director/break.templates.js';
 import { DEDICATION_CONTEXT, DEDICATION_KIND, DEDICATION_LABEL } from '#modules/director/dedication.writer.js';
 import { DirectorService } from '#modules/director/director.service.js';
 import { PickResolver } from '#modules/director/pick.resolver.js';
 import { resolveRules, stationRules } from '#modules/director/rotation.rules.js';
 import { StationLineupRepository } from '#modules/director/station.lineup.repository.js';
 import { NowPlayingService } from '#modules/nowplaying/nowplaying.service.js';
+import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { TrackAudioRepository } from '#modules/playout/audio/track.audio.repository.js';
 import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
+import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
+import { UNNAMED_REQUESTER, screenName } from './listener.text.js';
 import { arbitrate } from './request.arbiter.js';
 import { RequestsRepository, type ChatReplyTarget, type Dedication, type RequestRow, type RequestStatus } from './requests.repository.js';
 import { requestSettings } from './requests.settings.js';
@@ -70,6 +74,14 @@ export type PlaceOutcome = 'queued' | 'waiting' | 'declined';
  * Somebody who asked from a chat is told what became of it through the messaging module's announce
  * job, by name, since that module sits after this one in the list. What they are told is the
  * station's own sentence and never repeats anything they wrote.
+ *
+ * ## Names said on air are screened
+ *
+ * A dedication's two names are the listener's, and the floor writer says them as given. So before
+ * they reach a writer each goes through `screenName`, with the station's own names as the reserved
+ * list: a name that is not a name, or that would have the presenter introduce a listener as the
+ * station or one of its presenters, becomes "a listener" (who it is from) or is left out (who it is
+ * for). The request itself goes ahead exactly as it would have; only what is said changes.
  */
 @Injectable()
 export class RequestDesk {
@@ -84,6 +96,7 @@ export class RequestDesk {
         private readonly trackAudio: TrackAudioService,
         private readonly director: DirectorService,
         private readonly segments: SegmentRepository,
+        private readonly personas: PersonaRepository,
         private readonly jobs: PgBossJobBroker,
         private readonly logger: Logger,
     ) {}
@@ -266,16 +279,46 @@ export class RequestDesk {
      * Plan the words to go in front of a dedicated request, and answer the segment's id, or nothing
      * when there is no dedication or the station is not saying them. The listener's words ride the
      * segment's context to the writer, which is the only thing that reads them.
+     *
+     * Both names are screened first (see the class). The stored request keeps them as typed, since
+     * the operator should see what was sent; only the segment's context carries the screened ones.
      */
     private async planDedication(request: RequestRow): Promise<string | undefined> {
         if (request.dedication === undefined || !requestSettings(this.config).dedications) return undefined;
 
-        const context: Record<string, string> = { [DEDICATION_CONTEXT.from]: request.requesterName };
-        if (request.dedication.to !== undefined) context[DEDICATION_CONTEXT.to] = request.dedication.to;
+        const reserved = await this.reservedNames();
+        // Without the reserved names nothing can be judged, so nothing typed is said: the request
+        // still goes ahead, with "a listener" and nobody named.
+        const from = reserved === undefined ? undefined : screenName(request.requesterName, reserved);
+        const to = reserved === undefined ? undefined : screenName(request.dedication.to, reserved);
+        if (from === undefined || (request.dedication.to !== undefined && to === undefined)) {
+            this.logger.info('requests: a name in a dedication is not one the station will say on air, so it is left out');
+        }
+
+        const context: Record<string, string> = { [DEDICATION_CONTEXT.from]: from ?? UNNAMED_REQUESTER };
+        if (to !== undefined) context[DEDICATION_CONTEXT.to] = to;
         if (request.dedication.message !== undefined) context[DEDICATION_CONTEXT.message] = request.dedication.message;
 
         const segment = await this.segments.plan({ kind: DEDICATION_KIND, label: DEDICATION_LABEL, context });
         return segment.id;
+    }
+
+    /**
+     * The names a listener may not be introduced as: the station's, its presenter's, and every
+     * persona's, by on-air name and by label. Nothing when the personas could not be read.
+     */
+    private async reservedNames(): Promise<string[] | undefined> {
+        try {
+            const personas = await this.personas.list();
+            return [
+                this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
+                this.config.get(TEMPLATE_KEYS.djName, ''),
+                ...personas.flatMap(persona => [persona.label, ...(persona.djName === undefined ? [] : [persona.djName])]),
+            ];
+        } catch (error) {
+            this.logger.warn(`requests: could not read the station's own names to screen a dedication against (${errorText(error)})`);
+            return undefined;
+        }
     }
 
     private async refuse(request: RequestRow, reason: string, say: (row: RequestRow, text: string) => void): Promise<void> {

@@ -213,6 +213,20 @@ characters and held to the contract's lengths (`request.dedication.ts`), shown t
 and never put in `reason`, the activity feed, or a listener label: the player's metadata says
 "Dedication", not a name somebody typed.
 
+**One normaliser, for every path** (`listener.text.ts`). The requester's name (an app's `name`, a chat's
+display name) and both parts of a dedication go through `tidyListenerText`: NFKC, format characters
+DELETED (so a zero-width space inside a name leaves the name, not two words), control characters turned
+into a space, and the clamp counted in code points.
+
+**A name is screened before it is said, and a refused one changes only what is said.** When the desk plans
+the words, both names go through `screenName` against the station's own: `stream.title`,
+`station.djName`, and every persona's on-air name and label. A name with no letters, over 40 characters
+or four words, shaped like an address or a handle, or containing a reserved name as whole words (compared
+without accents, case or a small table of Cyrillic and Greek look-alikes) is refused rather than trimmed:
+who it is from becomes "a listener" and who it is for is left out. The request goes ahead exactly as it
+would have, and the stored row keeps what was typed for the operator. If the personas cannot be read,
+nothing typed is said.
+
 **The words are planted in front of the record, not requested as a break.** When a dedicated request is
 placed, the desk plans a `dedication` segment and the same `insertRequested` edit puts it directly before
 the record, in the same quiet gap. It is written when its slot comes near like any planted break, and its

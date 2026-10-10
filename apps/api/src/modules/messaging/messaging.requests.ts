@@ -1,6 +1,7 @@
 import { Container, Injectable } from 'injectkit';
 import type { OutgoingMessage } from '@maroonedsoftware/comms';
 import type { InboundMessage } from '@deadair/plugin-sdk';
+import { MAX_REQUESTER_NAME, UNNAMED_REQUESTER, tidyListenerText } from '#modules/requests/listener.text.js';
 import { dedicationOf } from '#modules/requests/request.dedication.js';
 import { RequestDesk, type Requester } from '#modules/requests/request.desk.js';
 import { RequestsRepository, type Dedication, type RequestRow, type RequestableRow } from '#modules/requests/requests.repository.js';
@@ -160,7 +161,8 @@ export class MessagingRequests {
         const actorId = await scope.get(MessagingRepository).linkedActor(pluginId, message.sender.id);
         const requester: Requester = {
             key: actorId === undefined ? `chat:${pluginId}:${message.sender.id}` : `user:${actorId}`,
-            name: message.sender.displayName,
+            // The name the platform shows, which its user chose and no contract held to anything.
+            name: tidyListenerText(message.sender.displayName, MAX_REQUESTER_NAME) ?? UNNAMED_REQUESTER,
             ...(actorId === undefined ? {} : { actorId }),
             chat: { pluginId, chatId: message.chatId, chatKind: message.chatKind, messageId: message.id },
         };

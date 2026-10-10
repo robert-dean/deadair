@@ -68,6 +68,15 @@ const config: Config = {
         ],
     ],
 
+    // A page that moves keeps its old address, because somebody has linked to it. GitHub Pages has no
+    // server-side redirects, so this writes a page at the old path that sends the browser on.
+    plugins: [
+        [
+            '@docusaurus/plugin-client-redirects',
+            { redirects: [{ from: '/docs/features/making-a-voice', to: '/docs/tutorials/making-a-voice' }] },
+        ],
+    ],
+
     themeConfig: {
         // The console is dark-first and so is this. One scheme means one set of colours to get right.
         colorMode: { defaultMode: 'dark', disableSwitch: true, respectPrefersColorScheme: false },
@@ -81,6 +90,7 @@ const config: Config = {
             // install guide, the front page and the footer.
             items: [
                 { type: 'docSidebar', sidebarId: 'run', label: 'Run it', position: 'left' },
+                { type: 'docSidebar', sidebarId: 'tutorials', label: 'Tutorials', position: 'left' },
                 { type: 'docSidebar', sidebarId: 'build', label: 'Develop', position: 'left' },
                 { type: 'docSidebar', sidebarId: 'api', label: 'API', position: 'left' },
                 { to: '/community', label: 'Community', position: 'left' },
@@ -95,6 +105,7 @@ const config: Config = {
                     items: [
                         { label: 'Features', to: '/docs/features' },
                         { label: 'Install', to: '/docs/install' },
+                        { label: 'Tutorials', to: '/docs/tutorials' },
                         { label: 'Music licensing', to: '/docs/licensing' },
                         { label: 'Help', to: '/docs/help' },
                     ],

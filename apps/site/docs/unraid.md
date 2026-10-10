@@ -12,6 +12,7 @@ with a working station or one that looks perfect and plays nothing.
 
 If you would rather read the short version, it is three steps: install the template from **Apps**,
 fill in the six fields marked required below, and start it.
+[Install on Unraid](./tutorials/install-unraid.md) is the same path as numbered steps.
 
 ## Before you start
 

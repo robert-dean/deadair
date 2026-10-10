@@ -294,7 +294,7 @@ export const PutOnAirInput = z.strictObject({
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
         .describe(
-            "Whether this is a request show: the station plays as it otherwise would until a listener's request is placed, then replaces what was planned behind the request with records that sound like it, found through the similarity plugin. A second request waits for the first one's records to play out. Absent is no: there is no station-wide default behind it",
+            "Whether this is a request show: the station plays as it otherwise would until a listener's request is placed, then replaces what was planned behind the request with records that sound like it, found through the similarity plugin. A second request waits for the first one's records to play out. Absent is no: there is no station-wide default behind it. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away",
         ),
     requestFollowOn: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(10))

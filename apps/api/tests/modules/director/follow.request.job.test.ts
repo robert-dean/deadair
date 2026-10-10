@@ -13,7 +13,7 @@ import { DateTime } from 'luxon';
 
 import { FollowRequestJob } from '../../../src/modules/director/follow.request.job.js';
 import { SimilarPicker } from '../../../src/modules/director/similar.picker.js';
-import { StationLineup, isTrackItem, type StationLineupRules } from '../../../src/modules/director/station.lineup.js';
+import { StationLineup, isTrackItem, type StationLineupMode, type StationLineupRules } from '../../../src/modules/director/station.lineup.js';
 import type { StationLineupRepository } from '../../../src/modules/director/station.lineup.repository.js';
 import type { DirectorService } from '../../../src/modules/director/director.service.js';
 import type { DirectorCommand } from '../../../src/modules/director/director.mailbox.js';
@@ -47,6 +47,7 @@ const alike = (count: number): ArtistTrack[] => Array.from({ length: count }, (_
 
 interface Options {
     rules?: StationLineupRules;
+    mode?: StationLineupMode;
     hasSimilarity?: boolean;
     /** Records like one record. Absent is a plugin that answers about artists only. */
     similarTracks?: ArtistTrack[];
@@ -58,7 +59,7 @@ function build(options: Options = {}) {
     const station = settingsConfig({});
     const lineup = new StationLineup({
         name: 'Requests',
-        mode: 'rotation',
+        mode: options.mode ?? 'rotation',
         onEnd: 'extend',
         source: 'director',
         rules: options.rules ?? { requestShow: true },
@@ -195,6 +196,15 @@ describe('FollowRequestJob', () => {
 
     it('does nothing on a show that is not a request show', async () => {
         const { job, lineup, similarTracks, posted } = build({ rules: {}, similarTracks: alike(8) });
+
+        await job.run({ broadcastId: lineup.broadcastId, requestId: 'req-1' });
+
+        expect(similarTracks).not.toHaveBeenCalled();
+        expect(posted()).toEqual([]);
+    });
+
+    it("leaves a setlist's own sequence alone", async () => {
+        const { job, lineup, similarTracks, posted } = build({ mode: 'setlist', similarTracks: alike(8) });
 
         await job.run({ broadcastId: lineup.broadcastId, requestId: 'req-1' });
 

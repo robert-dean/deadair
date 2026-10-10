@@ -8432,7 +8432,7 @@ components:
                     description: "Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records, found through the similarity plugin. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off. A setlist and a feature never have anything mixed in"
                 requestShow:
                     type: boolean
-                    description: "Whether this is a request show: the station plays as it otherwise would until a listener's request is placed, then replaces what was planned behind the request with records that sound like it, found through the similarity plugin. A second request waits for the first one's records to play out. Absent is no: there is no station-wide default behind it"
+                    description: "Whether this is a request show: the station plays as it otherwise would until a listener's request is placed, then replaces what was planned behind the request with records that sound like it, found through the similarity plugin. A second request waits for the first one's records to play out. Absent is no: there is no station-wide default behind it. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away"
                 requestFollowOn:
                     type: integer
                     minimum: 0
@@ -13370,7 +13370,7 @@ components:
                     description: 'Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot''s chart without its positions read out'
                 requestShow:
                     type: boolean
-                    description: 'Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no'
+                    description: 'Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away'
                 requestFollowOn:
                     type: integer
                     minimum: 0

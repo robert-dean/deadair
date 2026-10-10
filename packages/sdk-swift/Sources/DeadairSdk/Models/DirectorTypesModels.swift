@@ -357,7 +357,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var callins: Bool?
     /// Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records, found through the similarity plugin. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off. A setlist and a feature never have anything mixed in
     public var mixInSimilar: Bool?
-    /// Whether this is a request show: the station plays as it otherwise would until a listener's request is placed, then replaces what was planned behind the request with records that sound like it, found through the similarity plugin. A second request waits for the first one's records to play out. Absent is no: there is no station-wide default behind it
+    /// Whether this is a request show: the station plays as it otherwise would until a listener's request is placed, then replaces what was planned behind the request with records that sound like it, found through the similarity plugin. A second request waits for the first one's records to play out. Absent is no: there is no station-wide default behind it. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away
     public var requestShow: Bool?
     /// How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true
     public var requestFollowOn: Int?

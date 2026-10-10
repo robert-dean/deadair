@@ -85,6 +85,17 @@ export class FollowRequestJob extends PlainJob<FollowRequestPayload> {
         const want = followOnFor(lineup.rules);
         if (want === 0) return;
 
+        // Only a broadcast the station programmes itself. A setlist or a feature is somebody's own
+        // sequence, which a run would throw away, and nothing refills behind the run there.
+        const rules = resolveRules(lineup.mode, lineup.rules, stationRules(this.config));
+        if (!rules.mayGenerate) {
+            this.logger.info('director: a request show only follows requests on a broadcast the station programmes; skipping', {
+                job: this.context.id,
+                mode: lineup.mode,
+            });
+            return;
+        }
+
         const request = this.stillLast(lineup, requestId);
         if (request === undefined) {
             this.logger.info('director: a request is no longer the last one coming, so nothing is found to follow it', {
@@ -117,7 +128,6 @@ export class FollowRequestJob extends PlainJob<FollowRequestPayload> {
         }
         if (signal?.aborted) return;
 
-        const rules = resolveRules(lineup.mode, lineup.rules, stationRules(this.config));
         const tracks =
             picks.length === 0
                 ? []

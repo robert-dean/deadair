@@ -181,7 +181,7 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ChartPositions { get; init; }
 
-    /// <summary>Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no</summary>
+    /// <summary>Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away</summary>
     [JsonPropertyName("requestShow")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? RequestShow { get; init; }
@@ -312,7 +312,7 @@ public sealed record ScheduleSlotInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ChartPositions { get; init; }
 
-    /// <summary>Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no</summary>
+    /// <summary>Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away</summary>
     [JsonPropertyName("requestShow")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? RequestShow { get; init; }

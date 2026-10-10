@@ -193,7 +193,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var mixInSimilar: Bool?
     /// Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot's chart without its positions read out
     public var chartPositions: Bool?
-    /// Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no
+    /// Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away
     public var requestShow: Bool?
     /// How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true
     public var requestFollowOn: Int?
@@ -374,7 +374,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var mixInSimilar: Bool?
     /// Whether the host says where the chart placed each record it named: "number seven on the Hot 100". Absent is yes, exactly as it is when an operator puts a chart on air by hand. Set it false to air this slot's chart without its positions read out
     public var chartPositions: Bool?
-    /// Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no
+    /// Whether this stretch of the day is a request show: each listener request placed in it is followed by records that sound like it, in place of what was planned. Absent is no. A `setlist` or a `feature` never has a request followed, since that would throw its own sequence away
     public var requestShow: Bool?
     /// How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true
     public var requestFollowOn: Int?

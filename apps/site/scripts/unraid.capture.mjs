@@ -95,9 +95,9 @@ const DESCRIPTIONS = {
     'Container Variable: TZ':
         'An IANA zone name such as America/New_York or Europe/London. The station reads the clock in this when it says the time and when it works out what half of the day it is; left unset a container reports UTC, which is a presenter saying "tonight" through your afternoon.',
     'Container Variable: KMS_LOCAL_ROOT_KEY':
-        "Encrypts every credential the station stores, including your music provider's. Generate once with: openssl rand -hex 32 — it must be hex, and keep it. Losing it means entering all of them again.",
+        "Encrypts every credential the station stores, including your music provider's. Leave it empty and the station makes one on its first boot, in secrets/ under Data. Set it only to keep the key off that share: generate once with openssl rand -hex 32 (it must be hex), and keep it. Losing it means entering all of them again.",
     'Container Variable: AUTHENTICATION_SESSION_JWT_PRIVATE_KEY':
-        'Signs sessions, RS256, so it must be an RSA key. Generate one with: openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | base64 -w0 — a key is several lines and this field is one, so base64 it and paste that. Losing it signs everybody out and nothing worse.',
+        'Signs sessions. Leave it empty and the station makes one on its first boot, in secrets/ under Data. To set your own it must be RSA: openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | base64 -w0, since a key is several lines and this field is one. Losing it signs everybody out and nothing worse.',
     'Container Variable: DATABASE_HOST':
         'Your PostgreSQL server, version 13 or newer (17 is what the station is tested on). No extensions needed. Leave every database and cache field blank on the full tag, which runs its own.',
     'Container Variable: REDIS_HOST':

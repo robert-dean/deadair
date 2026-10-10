@@ -24,7 +24,14 @@ it; the voice is the one part of this that genuinely wants one.
 
 ## Before the first start
 
-Two secrets, generated once and kept:
+Two secrets, and **the station makes both itself** on its first boot when neither is set. It writes
+them to `secrets/` in the data directory and reads them back from there on every boot after, so
+that directory is as much the station as anything else in `/data`: back it up with the rest, because
+losing `KMS_LOCAL_ROOT_KEY` loses every credential it encrypted.
+
+Set them yourself only if you want the root key somewhere other than the volume it protects, such as
+a secrets manager that injects the environment. A variable always wins over the file, and the
+station says so at boot if the two disagree. To generate your own:
 
 ```bash
 openssl rand -hex 32

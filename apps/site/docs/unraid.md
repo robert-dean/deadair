@@ -11,24 +11,10 @@ what each one wants, which ones you can leave alone, and the three that decide w
 with a working station or one that looks perfect and plays nothing.
 
 If you would rather read the short version, it is three steps: install the template from **Apps**,
-fill in the six fields marked required below, and start it.
+fill in the four fields marked required below, and start it.
 [Install on Unraid](./tutorials/install-unraid.md) is the same path as numbered steps.
 
 ## Before you start
-
-**Generate the two keys.** Both go in the form, so have them in front of you. From a terminal on any
-machine, or the Unraid web terminal:
-
-```bash
-openssl rand -hex 32
-```
-
-```bash
-openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | base64 -w0
-```
-
-The first encrypts every credential the station stores and has to be hex. The second signs sessions
-and has to be RSA. On macOS the second command is `base64` with no `-w0`.
 
 **Decide which tag.** The template's **Repository** field ends in a tag, and the choice is only about
 what your server already runs:
@@ -76,12 +62,12 @@ connections**, rather than here.
 | **Data** | `/mnt/user/appdata/deadair`, and the default is right. This is what the station **is**: settings, presenters, the schedule, pronunciations, ratings, installed plugins, the stream's own credentials, your own recordings, logs, and on the `full` tag the database as well. Small, authored, and the thing to back up. Belongs on the cache pool. |
 | **Public address** | The address you type into a browser to reach this station, all of it, with nothing after the port: `http://192.168.1.10:8080` on your own network, or `https://radio.example.com` behind a proxy that terminates TLS. |
 | **Console address** | The same address again. One port serves the console and the API, so these two always match. |
-| **Secret key** | The `openssl rand -hex 32` output from above. |
-| **Session key** | The base64 RSA key from above, on one line. |
+| **Secret key** | Leave it empty and the station makes one on its first boot, in `secrets/` under **Data**. It encrypts every credential the station stores. Set it only to keep it off that share, and then it has to be hex: `openssl rand -hex 32`. |
+| **Session key** | Leave it empty too. It signs sessions. Your own has to be RSA: `openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \| base64 -w0`. |
 
-![The six required fields: WebUI, Data, Public address, Console address, Secret key and Session key, each with its description](/img/unraid/required.webp)
-*Fig. 2. The six required fields, filled in for a station reached at `http://192.168.1.10:8080`. The
-two keys are empty here; yours go in before you start it.*
+![The required fields: WebUI, Data, Public address, Console address, and the two keys, each with its description](/img/unraid/required.webp)
+*Fig. 2. The required fields, filled in for a station reached at `http://192.168.1.10:8080`, and the
+two keys left empty for the station to make.*
 
 **The two addresses are the field most worth getting right**, and the one whose mistake is hardest to
 spot. They do not decide whether the console loads: it talks to `/api` on whatever address it was
@@ -185,15 +171,16 @@ move on every push that changes the station; pin `deadair/deadair:0.1` in the Re
 track releases only.
 
 Everything the station keeps is under **Data**, so moving it to another server is copying that one
-directory and filling in the same form. Keep the **Secret key**: without it, every credential the
-station stored has to be entered again.
+directory and filling in the same form. The keys the station made are in `secrets/` inside it and
+travel with it. A **Secret key** you set yourself does not, so keep that one: without it, every
+credential the station stored has to be entered again.
 
 ## When it will not start
 
 Unraid's own container log is the first place to look, and the station names what it is missing
 rather than failing quietly:
 
-- **It exits naming a variable.** That field is empty in the form. The two keys are the usual pair.
+- **It exits naming a variable.** That field is empty in the form.
 - **It cannot reach the database.** On `latest`, check the database exists and the user owns it. On
   `full`, this should not happen: leave those fields empty.
 - **The console loads but sign-in links go nowhere.** The two address fields are wrong. They are the

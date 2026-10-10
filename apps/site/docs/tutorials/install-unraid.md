@@ -73,8 +73,11 @@ That account is the only way in, so keep the password somewhere safe.
 
 ## If it goes wrong
 
-- **The container stops, and the log names a variable.** That field is empty in the form. It is
-  usually one of the two keys.
+**Ask the container.** In the Unraid web terminal, `docker exec deadair deadair-doctor` checks the
+data share, the keys, the database, the cache and the two addresses, and says what to fix in one line
+each.
+
+- **The container stops, and the log names a variable.** That field is empty in the form.
 - **The log says it cannot reach the database.** The tag is not `full`, or a database field has
   something in it. Empty them, or see [On Unraid](../unraid.md) for `latest`.
 - **The console loads but a sign-in link goes nowhere.** Fix **Public address** and **Console

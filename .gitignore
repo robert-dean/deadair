@@ -80,8 +80,10 @@ captures/
 # The desktop app is the third non-Node thing in the tree, after the sidecar and the Android
 # listener, and these are MSBuild's droppings. `bin/` and `obj/` are bare rather than anchored
 # because nothing else in this repository uses either name, and a NuGet restore writes them beside
-# every project rather than in one place.
+# every project rather than in one place. The image's own `usr/local/bin` is the one exception: it
+# holds `deadair-doctor`, which an operator runs with `docker exec`.
 bin/
+!docker/rootfs/usr/local/bin/
 obj/
 .vs/
 *.user

@@ -227,6 +227,25 @@ Nothing here needs a URL pointing at another container. The parts of the station
 other inside the container, and the speech and measurement plugins are already looking at the
 right place.
 
+## Checking the install
+
+```bash
+docker exec deadair deadair-doctor
+```
+
+One line per check, and a non-zero exit when one fails:
+
+- the data volume is mounted and the station can write to it;
+- both keys are there, and where each came from;
+- the database answers and its schema is current;
+- the cache answers;
+- the two addresses are set and agree;
+- the speech model's weights are downloaded;
+- the API is answering.
+
+It answers whether the container is set up right. Why a running station is quiet is a different
+question, and the console's **Check-up** page answers that one.
+
 ## Putting it on the internet
 
 Publish the one port through whatever you already use — a reverse proxy or a tunnel. It carries

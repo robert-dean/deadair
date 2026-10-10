@@ -177,6 +177,10 @@ credential the station stored has to be entered again.
 
 ## When it will not start
 
+**Ask the container.** In the Unraid web terminal, `docker exec deadair deadair-doctor` checks the
+data share, the keys, the database, the cache and the two addresses, and says what to fix in one line
+each.
+
 Unraid's own container log is the first place to look, and the station names what it is missing
 rather than failing quietly:
 

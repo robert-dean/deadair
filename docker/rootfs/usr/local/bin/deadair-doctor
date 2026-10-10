@@ -1,0 +1,16 @@
+#!/bin/sh
+# A preflight an operator runs from the host: `docker exec deadair deadair-doctor`.
+#
+# It sees the station's environment the way the station does, which is the container's own plus
+# what the boot scripts fill in (the bundled database's defaults, where the derived half is kept,
+# the keys made on the first boot). So it sources those same scripts, in the same order the API's
+# run script does, rather than repeating their rules in a second place that could disagree.
+
+# shellcheck source=/dev/null
+. /etc/s6-overlay/scripts/database-env
+# shellcheck source=/dev/null
+. /etc/s6-overlay/scripts/storage-env
+# shellcheck source=/dev/null
+. /etc/s6-overlay/scripts/station-secrets
+
+exec node /usr/local/lib/deadair/doctor.mjs "$@"

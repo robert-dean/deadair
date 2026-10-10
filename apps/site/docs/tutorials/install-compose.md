@@ -95,6 +95,9 @@ That account is the only way in, so keep the password somewhere safe.
 
 ## If it goes wrong
 
+**Ask the container first.** `docker exec deadair deadair-doctor` checks the data directory, the keys,
+the database, the cache and the two addresses, and says what to fix in one line each.
+
 - **The container exits and the log names a variable.** That line in `.env` is empty.
 - **The log says permission denied under `/data`.** Step 3 was skipped. Run the `chown` and
   `docker compose up -d` again.

@@ -313,6 +313,16 @@ public sealed record PutOnAirInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? RequestFollowOn { get; init; }
 
+    /// <summary>Minutes one listener waits between requests during this broadcast, in place of the station's `requests.cooldownMinutes`. Absent keeps the station's. A party night wants it short</summary>
+    [JsonPropertyName("requestCooldownMinutes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? RequestCooldownMinutes { get; init; }
+
+    /// <summary>How many requests may be waiting at once during this broadcast, in place of the station's `requests.maxOpen`. Absent keeps the station's</summary>
+    [JsonPropertyName("requestMaxOpen")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? RequestMaxOpen { get; init; }
+
     [JsonPropertyName("mode")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public StationMode? Mode { get; init; }

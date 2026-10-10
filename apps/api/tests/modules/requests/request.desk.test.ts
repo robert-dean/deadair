@@ -256,6 +256,15 @@ describe('a request show', () => {
         expect(jobs.send).not.toHaveBeenCalledWith('director.follow_request', expect.anything());
     });
 
+    it("holds the line to the broadcast's own length rather than the station's", async () => {
+        const { desk } = build({ audio: 'remote', rules: { requestMaxOpen: 1 } });
+        await desk.submit(app('a-1'), TEARDROP);
+
+        const second = await desk.submit(app('a-2'), { trackId: 't-2', title: 'Angel', artist: 'Massive Attack' });
+
+        expect(second).toMatchObject({ status: 'declined', reason: expect.stringContaining('request line is full') });
+    });
+
     it('still places the request when the ask cannot be sent', async () => {
         const { desk, jobs } = build({ rules: { requestShow: true } });
         jobs.send.mockImplementation(async (name: string) => {

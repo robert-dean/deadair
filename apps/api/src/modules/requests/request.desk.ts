@@ -20,7 +20,7 @@ import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js
 import { UNNAMED_REQUESTER, screenName } from './listener.text.js';
 import { arbitrate } from './request.arbiter.js';
 import { RequestsRepository, type ChatReplyTarget, type Dedication, type RequestRow, type RequestStatus } from './requests.repository.js';
-import { requestSettings } from './requests.settings.js';
+import { requestSettings, requestSettingsFor } from './requests.settings.js';
 
 /** Who is asking, however they reached the station. */
 export interface Requester {
@@ -108,7 +108,8 @@ export class RequestDesk {
      */
     async submit(requester: Requester, record: { trackId: string; title: string; artist: string }, dedication?: Dedication): Promise<RequestRow> {
         const stationKey = this.identity.stationKey;
-        const settings = requestSettings(this.config);
+        // The broadcast's own request rules where it has any: a party night's, say.
+        const settings = requestSettingsFor(this.config, (await this.lineups.load())?.rules);
         const open = await this.repository.open(stationKey);
         const mine = open.find(request => request.requesterKey === requester.key);
         const lastGranted = await this.repository.lastGrantedAt(stationKey, requester.key);

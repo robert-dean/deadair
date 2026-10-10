@@ -60,6 +60,9 @@ export const onair = {
             'Choosing records against your words needs a model configured to programme with. Without one the station plays its own rotation, which is the designed answer rather than a failure.',
         replan: 'Replan',
         goOnAir: 'Go on air',
+        party: 'Party night',
+        partyHint:
+            'Fill in a request show for a crowd: three records after each request, a short wait between one guest’s requests, and room for more of them at once. Every field stays yours to change.',
     },
     order: {
         writer: {

@@ -1738,6 +1738,8 @@ function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRules } {
         ...(input.chartPositions === undefined ? {} : { chartPositions: input.chartPositions }),
         ...(input.requestShow === undefined ? {} : { requestShow: input.requestShow }),
         ...(input.requestFollowOn === undefined ? {} : { requestFollowOn: input.requestFollowOn }),
+        ...(input.requestCooldownMinutes === undefined ? {} : { requestCooldownMinutes: input.requestCooldownMinutes }),
+        ...(input.requestMaxOpen === undefined ? {} : { requestMaxOpen: input.requestMaxOpen }),
     };
     return Object.keys(rules).length === 0 ? {} : { rules };
 }

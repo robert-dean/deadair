@@ -361,10 +361,14 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var requestShow: Bool?
     /// How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true
     public var requestFollowOn: Int?
+    /// Minutes one listener waits between requests during this broadcast, in place of the station's `requests.cooldownMinutes`. Absent keeps the station's. A party night wants it short
+    public var requestCooldownMinutes: Int?
+    /// How many requests may be waiting at once during this broadcast, in place of the station's `requests.maxOpen`. Absent keeps the station's
+    public var requestMaxOpen: Int?
     public var mode: StationMode?
     public var onEnd: StationOnEnd?
 
-    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, albumId: UUID? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: PutOnAirInputMood? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
+    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, albumId: UUID? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: PutOnAirInputMood? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, requestCooldownMinutes: Int? = nil, requestMaxOpen: Int? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
         self.pluginId = pluginId
         self.playlistId = playlistId
         self.chartId = chartId
@@ -383,6 +387,8 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.mixInSimilar = mixInSimilar
         self.requestShow = requestShow
         self.requestFollowOn = requestFollowOn
+        self.requestCooldownMinutes = requestCooldownMinutes
+        self.requestMaxOpen = requestMaxOpen
         self.mode = mode
         self.onEnd = onEnd
     }
@@ -406,6 +412,8 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         case mixInSimilar = "mixInSimilar"
         case requestShow = "requestShow"
         case requestFollowOn = "requestFollowOn"
+        case requestCooldownMinutes = "requestCooldownMinutes"
+        case requestMaxOpen = "requestMaxOpen"
         case mode = "mode"
         case onEnd = "onEnd"
     }
@@ -430,6 +438,8 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.mixInSimilar = try container.decodeIfPresent(Bool.self, forKey: .mixInSimilar)
         self.requestShow = try container.decodeIfPresent(Bool.self, forKey: .requestShow)
         self.requestFollowOn = try container.decodeIfPresent(Int.self, forKey: .requestFollowOn)
+        self.requestCooldownMinutes = try container.decodeIfPresent(Int.self, forKey: .requestCooldownMinutes)
+        self.requestMaxOpen = try container.decodeIfPresent(Int.self, forKey: .requestMaxOpen)
         self.mode = try container.decodeIfPresent(StationMode.self, forKey: .mode)
         self.onEnd = try container.decodeIfPresent(StationOnEnd.self, forKey: .onEnd)
     }
@@ -454,6 +464,8 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.mixInSimilar, forKey: .mixInSimilar)
         try container.encodeIfPresent(self.requestShow, forKey: .requestShow)
         try container.encodeIfPresent(self.requestFollowOn, forKey: .requestFollowOn)
+        try container.encodeIfPresent(self.requestCooldownMinutes, forKey: .requestCooldownMinutes)
+        try container.encodeIfPresent(self.requestMaxOpen, forKey: .requestMaxOpen)
         try container.encodeIfPresent(self.mode, forKey: .mode)
         try container.encodeIfPresent(self.onEnd, forKey: .onEnd)
     }

@@ -320,6 +320,13 @@ export interface StationLineupRules {
     requestShow?: boolean;
     /** How many records follow each request on a request show. See `followOnFor` for the default and the bounds. */
     requestFollowOn?: number;
+    /**
+     * Minutes one listener waits between requests during this broadcast, in place of
+     * `requests.cooldownMinutes`. A party night wants it short. See `requestSettingsFor`.
+     */
+    requestCooldownMinutes?: number;
+    /** How many requests may be open at once during this broadcast, in place of `requests.maxOpen`. */
+    requestMaxOpen?: number;
 }
 
 /** Everything about the running order except the items: what the row says it is. */

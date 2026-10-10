@@ -8438,6 +8438,16 @@ components:
                     minimum: 0
                     maximum: 10
                     description: 'How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true'
+                requestCooldownMinutes:
+                    type: integer
+                    minimum: 0
+                    maximum: 1440
+                    description: "Minutes one listener waits between requests during this broadcast, in place of the station's `requests.cooldownMinutes`. Absent keeps the station's. A party night wants it short"
+                requestMaxOpen:
+                    type: integer
+                    minimum: 1
+                    maximum: 20
+                    description: "How many requests may be waiting at once during this broadcast, in place of the station's `requests.maxOpen`. Absent keeps the station's"
                 mode:
                     '$ref': '#/components/schemas/StationMode'
                 onEnd:

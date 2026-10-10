@@ -192,6 +192,10 @@ data class PutOnAirInput(
     val requestShow: Boolean? = null,
     /** How many records follow each request on a request show. Absent is 4. Ignored unless `requestShow` is true */
     val requestFollowOn: Long? = null,
+    /** Minutes one listener waits between requests during this broadcast, in place of the station's `requests.cooldownMinutes`. Absent keeps the station's. A party night wants it short */
+    val requestCooldownMinutes: Long? = null,
+    /** How many requests may be waiting at once during this broadcast, in place of the station's `requests.maxOpen`. Absent keeps the station's */
+    val requestMaxOpen: Long? = null,
     val mode: StationMode? = null,
     val onEnd: StationOnEnd? = null,
 )

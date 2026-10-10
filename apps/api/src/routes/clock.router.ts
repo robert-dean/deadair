@@ -11,7 +11,7 @@ export const ClockRouter = ServerKitRouter();
 
 /**
  * Every band on this station's clock, including the ones switched off, in the operator's own order
- * from [clock.ck](../../data/contracts/director/clock.ck#L27)
+ * from [clock.ck](../../data/contracts/director/clock.ck) `GET /clock/bands`
  */
 ClockRouter.get('/clock/bands', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(ClockService);
@@ -24,7 +24,7 @@ ClockRouter.get('/clock/bands', requirePolicy({ policy: 'platform.view' }), asyn
 
 /**
  * Adds a band. It claims its first boundary on the next commit pass
- * from [clock.ck](../../data/contracts/director/clock.ck#L40)
+ * from [clock.ck](../../data/contracts/director/clock.ck) `POST /clock/bands`
  */
 ClockRouter.post('/clock/bands', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, ClockBandInput);
@@ -39,7 +39,7 @@ ClockRouter.post('/clock/bands', requirePolicy({ policy: 'platform.manage' }), b
 
 /**
  * Rewrites one band. Breaks it has already planted stay where they are: the running order is the memory
- * from [clock.ck](../../data/contracts/director/clock.ck#L58)
+ * from [clock.ck](../../data/contracts/director/clock.ck) `PUT /clock/bands/{id}`
  */
 ClockRouter.put('/clock/bands/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -61,7 +61,7 @@ ClockRouter.put('/clock/bands/:id', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * Removes a band, which costs it the boundaries it had not claimed yet and nothing else
- * from [clock.ck](../../data/contracts/director/clock.ck#L70)
+ * from [clock.ck](../../data/contracts/director/clock.ck) `DELETE /clock/bands/{id}`
  */
 ClockRouter.delete('/clock/bands/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(

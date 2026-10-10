@@ -21,7 +21,7 @@ const ReadTracesArgs = z.object({ query: TracesQuery.optional() });
 const ReadTraceArgs = z.object({ id: z.string().min(1).max(200) });
 
 /**
- * from [traces.ck](../../data/contracts/station/traces.ck#L27)
+ * from [traces.ck](../../data/contracts/station/traces.ck) `GET /traces`
  */
 @Injectable()
 export class ReadTracesMcpTool implements McpToolHandler {
@@ -44,7 +44,7 @@ export class ReadTracesMcpTool implements McpToolHandler {
 }
 
 /**
- * from [traces.ck](../../data/contracts/station/traces.ck#L43)
+ * from [traces.ck](../../data/contracts/station/traces.ck) `GET /traces/{id}`
  */
 @Injectable()
 export class ReadTraceMcpTool implements McpToolHandler {

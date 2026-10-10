@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * Something the station can read out, as one installed plugin describes it
- * generated from [StationSeries](../../../../data/contracts/narrations/narrations.types.ck#L7)
+ * generated from [StationSeries](../../../../data/contracts/narrations/narrations.types.ck)
  */
 export const StationSeries = z.strictObject({
     id: z
@@ -29,7 +29,7 @@ export type StationSeries = z.infer<typeof StationSeries>;
 
 /**
  * One instalment, and what the station has done with it
- * generated from [StationPiece](../../../../data/contracts/narrations/narrations.types.ck#L23)
+ * generated from [StationPiece](../../../../data/contracts/narrations/narrations.types.ck)
  */
 export const StationPiece = z.strictObject({
     id: z.string().min(1).max(100).describe("The station's own id for this piece"),
@@ -79,7 +79,7 @@ export const StationPiece = z.strictObject({
 export type StationPiece = z.infer<typeof StationPiece>;
 
 /**
- * generated from [StationPieceQuery](../../../../data/contracts/narrations/narrations.types.ck#L47)
+ * generated from [StationPieceQuery](../../../../data/contracts/narrations/narrations.types.ck)
  */
 export const StationPieceQuery = z.strictObject({
     seriesId: z.string().max(400).optional().describe("One series' pieces in its own order, or absent for every series' newest first"),
@@ -88,7 +88,7 @@ export const StationPieceQuery = z.strictObject({
 export type StationPieceQuery = z.infer<typeof StationPieceQuery>;
 
 /**
- * generated from [StationSeriesList](../../../../data/contracts/narrations/narrations.types.ck#L19)
+ * generated from [StationSeriesList](../../../../data/contracts/narrations/narrations.types.ck)
  */
 export const StationSeriesList = z.strictObject({
     series: z.array(StationSeries),
@@ -96,7 +96,7 @@ export const StationSeriesList = z.strictObject({
 export type StationSeriesList = z.infer<typeof StationSeriesList>;
 
 /**
- * generated from [StationPiecePage](../../../../data/contracts/narrations/narrations.types.ck#L52)
+ * generated from [StationPiecePage](../../../../data/contracts/narrations/narrations.types.ck)
  */
 export const StationPiecePage = z.strictObject({
     pieces: z.array(StationPiece).describe('Empty when the station knows of none, which is not an error'),

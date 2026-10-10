@@ -11,7 +11,7 @@ export const SettingsRouter = ServerKitRouter();
 
 /**
  * Every station setting, its descriptor and its current value
- * from [settings.ck](../../data/contracts/settings/settings.ck#L27)
+ * from [settings.ck](../../data/contracts/settings/settings.ck) `GET /settings`
  */
 SettingsRouter.get('/settings', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(SettingsService);
@@ -24,7 +24,7 @@ SettingsRouter.get('/settings', requirePolicy({ policy: 'platform.view' }), asyn
 
 /**
  * Applies a submitted settings form and answers with the settings as they now stand
- * from [settings.ck](../../data/contracts/settings/settings.ck#L36)
+ * from [settings.ck](../../data/contracts/settings/settings.ck) `PUT /settings`
  */
 SettingsRouter.put('/settings', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, StationSettingsInput);
@@ -39,7 +39,7 @@ SettingsRouter.put('/settings', requirePolicy({ policy: 'platform.manage' }), bo
 
 /**
  * Asks each identity provider in the sign-in settings for its discovery document, the way a sign-in would, and says which answered
- * from [settings.ck](../../data/contracts/settings/settings.ck#L57)
+ * from [settings.ck](../../data/contracts/settings/settings.ck) `GET /settings/signin/check`
  */
 SettingsRouter.get('/settings/signin/check', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(SigninProviderCheckService);

@@ -112,7 +112,7 @@ const PreviewPersonaMemoryRollbackArgs = z.object({
 const RollBackPersonaMemoryArgs = z.object({ id: z.string().min(1).max(100), body: PersonaMemoryRollback });
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L29)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `GET /personas`
  */
 @Injectable()
 export class ListPersonasMcpTool implements McpToolHandler {
@@ -134,7 +134,7 @@ export class ListPersonasMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L42)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `POST /personas`
  */
 @Injectable()
 export class CreatePersonaMcpTool implements McpToolHandler {
@@ -157,7 +157,7 @@ export class CreatePersonaMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L80)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `POST /personas/restore`
  */
 @Injectable()
 export class RestoreStationPersonasMcpTool implements McpToolHandler {
@@ -180,7 +180,7 @@ export class RestoreStationPersonasMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L99)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `GET /personas/export`
  */
 @Injectable()
 export class ExportPersonasMcpTool implements McpToolHandler {
@@ -202,7 +202,7 @@ export class ExportPersonasMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L124)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `GET /personas/{id}/export`
  */
 @Injectable()
 export class ExportPersonaMcpTool implements McpToolHandler {
@@ -225,7 +225,7 @@ export class ExportPersonaMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L155)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `POST /personas/import/preview`
  */
 @Injectable()
 export class PreviewPersonaImportMcpTool implements McpToolHandler {
@@ -248,7 +248,7 @@ export class PreviewPersonaImportMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L180)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `POST /personas/import`
  */
 @Injectable()
 export class ImportPersonasMcpTool implements McpToolHandler {
@@ -271,7 +271,7 @@ export class ImportPersonasMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L198)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `PUT /personas/{id}`
  */
 @Injectable()
 export class UpdatePersonaMcpTool implements McpToolHandler {
@@ -294,7 +294,7 @@ export class UpdatePersonaMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L210)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `DELETE /personas/{id}`
  */
 @Injectable()
 export class DeletePersonaMcpTool implements McpToolHandler {
@@ -317,7 +317,7 @@ export class DeletePersonaMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L228)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `PUT /personas/{id}/default-host`
  */
 @Injectable()
 export class SetTheStationHostMcpTool implements McpToolHandler {
@@ -340,7 +340,7 @@ export class SetTheStationHostMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L251)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `GET /personas/{id}/notes`
  */
 @Injectable()
 export class ListPersonaNotesMcpTool implements McpToolHandler {
@@ -363,7 +363,7 @@ export class ListPersonaNotesMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L263)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `POST /personas/{id}/notes`
  */
 @Injectable()
 export class WritePersonaNoteMcpTool implements McpToolHandler {
@@ -386,7 +386,7 @@ export class WritePersonaNoteMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L282)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `PUT /personas/{id}/notes/{noteId}`
  */
 @Injectable()
 export class UpdatePersonaNoteMcpTool implements McpToolHandler {
@@ -409,7 +409,7 @@ export class UpdatePersonaNoteMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L294)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `DELETE /personas/{id}/notes/{noteId}`
  */
 @Injectable()
 export class DeletePersonaNoteMcpTool implements McpToolHandler {
@@ -432,7 +432,7 @@ export class DeletePersonaNoteMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L310)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `PUT /personas/{id}/notes/{noteId}/state`
  */
 @Injectable()
 export class SetPersonaNoteStateMcpTool implements McpToolHandler {
@@ -455,7 +455,7 @@ export class SetPersonaNoteStateMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L336)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `GET /personas/{id}/stories`
  */
 @Injectable()
 export class ListPersonaStoriesMcpTool implements McpToolHandler {
@@ -478,7 +478,7 @@ export class ListPersonaStoriesMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L348)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `POST /personas/{id}/stories`
  */
 @Injectable()
 export class WritePersonaStoryMcpTool implements McpToolHandler {
@@ -501,7 +501,7 @@ export class WritePersonaStoryMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L367)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `PUT /personas/{id}/stories/{storyId}`
  */
 @Injectable()
 export class UpdatePersonaStoryMcpTool implements McpToolHandler {
@@ -524,7 +524,7 @@ export class UpdatePersonaStoryMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L379)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `DELETE /personas/{id}/stories/{storyId}`
  */
 @Injectable()
 export class DeletePersonaStoryMcpTool implements McpToolHandler {
@@ -548,7 +548,7 @@ export class DeletePersonaStoryMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L395)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `PUT /personas/{id}/stories/{storyId}/state`
  */
 @Injectable()
 export class SetPersonaStoryStateMcpTool implements McpToolHandler {
@@ -571,7 +571,7 @@ export class SetPersonaStoryStateMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L414)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `POST /personas/{id}/stories/{storyId}/details`
  */
 @Injectable()
 export class AddPersonaStoryDetailMcpTool implements McpToolHandler {
@@ -594,7 +594,7 @@ export class AddPersonaStoryDetailMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L434)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `PUT /personas/{id}/stories/{storyId}/details/{detailId}`
  */
 @Injectable()
 export class UpdatePersonaStoryDetailMcpTool implements McpToolHandler {
@@ -617,7 +617,7 @@ export class UpdatePersonaStoryDetailMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L446)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `DELETE /personas/{id}/stories/{storyId}/details/{detailId}`
  */
 @Injectable()
 export class DeletePersonaStoryDetailMcpTool implements McpToolHandler {
@@ -640,7 +640,7 @@ export class DeletePersonaStoryDetailMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L463)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `PUT /personas/{id}/stories/{storyId}/details/{detailId}/state`
  */
 @Injectable()
 export class SetPersonaStoryDetailStateMcpTool implements McpToolHandler {
@@ -663,7 +663,7 @@ export class SetPersonaStoryDetailStateMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L509)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `POST /personas/{id}/stories/{storyId}/beats`
  */
 @Injectable()
 export class AddPersonaStoryBeatMcpTool implements McpToolHandler {
@@ -686,7 +686,7 @@ export class AddPersonaStoryBeatMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L529)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `PUT /personas/{id}/stories/{storyId}/beats/{beatId}`
  */
 @Injectable()
 export class UpdatePersonaStoryBeatMcpTool implements McpToolHandler {
@@ -709,7 +709,7 @@ export class UpdatePersonaStoryBeatMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L541)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `DELETE /personas/{id}/stories/{storyId}/beats/{beatId}`
  */
 @Injectable()
 export class DeletePersonaStoryBeatMcpTool implements McpToolHandler {
@@ -732,7 +732,7 @@ export class DeletePersonaStoryBeatMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L558)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `PUT /personas/{id}/stories/{storyId}/beats/{beatId}/state`
  */
 @Injectable()
 export class SetPersonaStoryBeatStateMcpTool implements McpToolHandler {
@@ -755,7 +755,7 @@ export class SetPersonaStoryBeatStateMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L585)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `GET /personas/{id}/memory`
  */
 @Injectable()
 export class ReadPersonaMemoryMcpTool implements McpToolHandler {
@@ -778,7 +778,7 @@ export class ReadPersonaMemoryMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L603)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `GET /personas/{id}/memory/preview`
  */
 @Injectable()
 export class PreviewPersonaMemoryRollbackMcpTool implements McpToolHandler {
@@ -804,7 +804,7 @@ export class PreviewPersonaMemoryRollbackMcpTool implements McpToolHandler {
 }
 
 /**
- * from [personas.ck](../../data/contracts/personas/personas.ck#L624)
+ * from [personas.ck](../../data/contracts/personas/personas.ck) `POST /personas/{id}/memory/rollback`
  */
 @Injectable()
 export class RollBackPersonaMemoryMcpTool implements McpToolHandler {

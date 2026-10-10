@@ -11,7 +11,7 @@ export const MessagingRouter = ServerKitRouter();
 
 /**
  * The chat accounts linked to the signed-in account
- * from [messaging.ck](../../data/contracts/messaging/messaging.ck#L18)
+ * from [messaging.ck](../../data/contracts/messaging/messaging.ck) `GET /messaging/links`
  */
 MessagingRouter.get('/messaging/links', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(MessagingLinksService);
@@ -24,7 +24,7 @@ MessagingRouter.get('/messaging/links', requirePolicy({ policy: 'platform.manage
 
 /**
  * A new one-time code for linking a chat account. It replaces any earlier code and stops working after ten minutes
- * from [messaging.ck](../../data/contracts/messaging/messaging.ck#L30)
+ * from [messaging.ck](../../data/contracts/messaging/messaging.ck) `POST /messaging/links/code`
  */
 MessagingRouter.post('/messaging/links/code', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(MessagingLinksService);
@@ -37,7 +37,7 @@ MessagingRouter.post('/messaging/links/code', requirePolicy({ policy: 'platform.
 
 /**
  * Unlink a chat account. Its operator commands are refused from the next one on
- * from [messaging.ck](../../data/contracts/messaging/messaging.ck#L47)
+ * from [messaging.ck](../../data/contracts/messaging/messaging.ck) `DELETE /messaging/links/{pluginId}/{platformUserId}`
  */
 MessagingRouter.delete('/messaging/links/:pluginId/:platformUserId', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { pluginId, platformUserId } = await parseAndValidate(

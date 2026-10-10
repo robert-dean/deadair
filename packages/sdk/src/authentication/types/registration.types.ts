@@ -12,7 +12,7 @@ const __dt = (v: unknown, path: string): DateTime => {
 };
 
 /**
- * generated from [PhoneFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L7)
+ * generated from [PhoneFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface PhoneFactorRegistration {
     /** The method of the factor */
@@ -24,7 +24,7 @@ export interface PhoneFactorRegistration {
 }
 
 /**
- * generated from [PasswordFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L13)
+ * generated from [PasswordFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface PasswordFactorRegistration {
     /** The method of the factor */
@@ -34,7 +34,7 @@ export interface PasswordFactorRegistration {
 }
 
 /**
- * generated from [EmailFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L18)
+ * generated from [EmailFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface EmailFactorRegistration {
     /** The method of the factor */
@@ -46,7 +46,7 @@ export interface EmailFactorRegistration {
 }
 
 /**
- * generated from [AuthenticatorFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L24)
+ * generated from [AuthenticatorFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface AuthenticatorFactorRegistration {
     /** The method of the factor */
@@ -58,7 +58,7 @@ export interface AuthenticatorFactorRegistration {
 }
 
 /**
- * generated from [FidoFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L30)
+ * generated from [FidoFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface FidoFactorRegistration {
     /** The method of the factor */
@@ -69,7 +69,7 @@ export interface FidoFactorRegistration {
 
 /**
  * Link an identity provider to the signed-in account. Answered with the provider's address; the browser goes there and comes back to Security
- * generated from [OidcFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L35)
+ * generated from [OidcFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface OidcFactorRegistration {
     /** The method of the factor */
@@ -79,7 +79,7 @@ export interface OidcFactorRegistration {
 }
 
 /**
- * generated from [PhoneFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L42)
+ * generated from [PhoneFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface PhoneFactorRegistrationResponse {
     /** The method of the factor */
@@ -101,7 +101,7 @@ export function revivePhoneFactorRegistrationResponse(raw: PhoneFactorRegistrati
 }
 
 /**
- * generated from [PasswordFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L49)
+ * generated from [PasswordFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface PasswordFactorRegistrationResponse {
     /** The method of the factor */
@@ -111,7 +111,7 @@ export interface PasswordFactorRegistrationResponse {
 }
 
 /**
- * generated from [EmailFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L54)
+ * generated from [EmailFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface EmailFactorRegistrationResponse {
     /** The method of the factor */
@@ -133,7 +133,7 @@ export function reviveEmailFactorRegistrationResponse(raw: EmailFactorRegistrati
 }
 
 /**
- * generated from [AuthenticatorFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L61)
+ * generated from [AuthenticatorFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface AuthenticatorFactorRegistrationResponse {
     /** The method of the factor */
@@ -162,7 +162,7 @@ export function reviveAuthenticatorFactorRegistrationResponse(raw: Authenticator
 
 /**
  * The FIDO factor attestation information
- * generated from [FidoFactorAttestation](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L71)
+ * generated from [FidoFactorAttestation](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface FidoFactorAttestation {
     /** The relying party */
@@ -179,7 +179,7 @@ export interface FidoFactorAttestation {
 }
 
 /**
- * generated from [OidcFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L96)
+ * generated from [OidcFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface OidcFactorRegistrationResponse {
     /** The method of the factor */
@@ -198,7 +198,7 @@ export function reviveOidcFactorRegistrationResponse(raw: OidcFactorRegistration
 }
 
 /**
- * generated from [PhoneFactorRegistrationVerification](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L104)
+ * generated from [PhoneFactorRegistrationVerification](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface PhoneFactorRegistrationVerification {
     /** The method of the factor */
@@ -212,7 +212,7 @@ export interface PhoneFactorRegistrationVerification {
 }
 
 /**
- * generated from [EmailFactorRegistrationVerification](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L111)
+ * generated from [EmailFactorRegistrationVerification](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface EmailFactorRegistrationVerification {
     /** The method of the factor */
@@ -226,7 +226,7 @@ export interface EmailFactorRegistrationVerification {
 }
 
 /**
- * generated from [AuthenticatorFactorRegistrationVerification](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L118)
+ * generated from [AuthenticatorFactorRegistrationVerification](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface AuthenticatorFactorRegistrationVerification {
     /** The method of the factor */
@@ -240,7 +240,7 @@ export interface AuthenticatorFactorRegistrationVerification {
 }
 
 /**
- * generated from [FidoFactorRegistrationVerification](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L125)
+ * generated from [FidoFactorRegistrationVerification](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface FidoFactorRegistrationVerification {
     /** The method of the factor */
@@ -253,7 +253,7 @@ export interface FidoFactorRegistrationVerification {
 
 /**
  * Begin enrolling a TOTP authenticator during a pending login MFA challenge (no session — authorized by the challenge)
- * generated from [MfaEnrollAuthenticatorStart](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L133)
+ * generated from [MfaEnrollAuthenticatorStart](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface MfaEnrollAuthenticatorStart {
     /** The pending MFA challenge from the `mfa_required` login response */
@@ -264,7 +264,7 @@ export interface MfaEnrollAuthenticatorStart {
 
 /**
  * Verify the first TOTP code, persist the authenticator, and complete login
- * generated from [MfaEnrollAuthenticatorVerify](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L138)
+ * generated from [MfaEnrollAuthenticatorVerify](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface MfaEnrollAuthenticatorVerify {
     /** The same pending MFA challenge */
@@ -277,13 +277,13 @@ export interface MfaEnrollAuthenticatorVerify {
 
 /**
  * A second-factor method a user may enroll
- * generated from [EnrollmentMethod](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L144)
+ * generated from [EnrollmentMethod](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export type EnrollmentMethod = 'authenticator' | 'phone' | 'fido';
 
 /**
  * Begin enrolling an SMS phone factor during a pending login MFA challenge (no session — authorized by the challenge)
- * generated from [MfaEnrollPhoneStart](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L150)
+ * generated from [MfaEnrollPhoneStart](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface MfaEnrollPhoneStart {
     /** The pending MFA challenge from the `mfa_required` login response */
@@ -294,7 +294,7 @@ export interface MfaEnrollPhoneStart {
 
 /**
  * Acknowledges the phone registration and that an OTP was texted
- * generated from [MfaEnrollPhoneStartResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L155)
+ * generated from [MfaEnrollPhoneStartResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface MfaEnrollPhoneStartResponse {
     /** The method of the factor */
@@ -317,7 +317,7 @@ export function reviveMfaEnrollPhoneStartResponse(raw: MfaEnrollPhoneStartRespon
 
 /**
  * Verify the texted OTP, persist the phone factor, and complete login
- * generated from [MfaEnrollPhoneVerify](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L162)
+ * generated from [MfaEnrollPhoneVerify](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface MfaEnrollPhoneVerify {
     /** The same pending MFA challenge */
@@ -330,7 +330,7 @@ export interface MfaEnrollPhoneVerify {
 
 /**
  * Begin enrolling a passkey during a pending login MFA challenge (no session — authorized by the challenge)
- * generated from [MfaEnrollFidoStart](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L168)
+ * generated from [MfaEnrollFidoStart](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface MfaEnrollFidoStart {
     /** The pending MFA challenge from the `mfa_required` login response */
@@ -341,7 +341,7 @@ export interface MfaEnrollFidoStart {
 
 /**
  * Post the new credential back, persist the passkey factor, and complete login
- * generated from [MfaEnrollFidoVerify](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L181)
+ * generated from [MfaEnrollFidoVerify](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface MfaEnrollFidoVerify {
     /** The same pending MFA challenge */
@@ -353,7 +353,7 @@ export interface MfaEnrollFidoVerify {
 }
 
 /**
- * generated from [AuthenticationFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L40)
+ * generated from [AuthenticationFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export type AuthenticationFactorRegistration =
     | PhoneFactorRegistration
@@ -364,7 +364,7 @@ export type AuthenticationFactorRegistration =
     | OidcFactorRegistration;
 
 /**
- * generated from [FidoFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L88)
+ * generated from [FidoFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface FidoFactorRegistrationResponse {
     /** The method of the factor */
@@ -389,7 +389,7 @@ export function reviveFidoFactorRegistrationResponse(raw: FidoFactorRegistration
 
 /**
  * WebAuthn attestation options for `navigator.credentials.create`
- * generated from [MfaEnrollFidoStartResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L173)
+ * generated from [MfaEnrollFidoStartResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface MfaEnrollFidoStartResponse {
     /** The method of the factor */
@@ -413,7 +413,7 @@ export function reviveMfaEnrollFidoStartResponse(raw: MfaEnrollFidoStartResponse
 }
 
 /**
- * generated from [AuthenticationFactorRegistrationVerification](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L131)
+ * generated from [AuthenticationFactorRegistrationVerification](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export type AuthenticationFactorRegistrationVerification =
     | PhoneFactorRegistrationVerification
@@ -423,7 +423,7 @@ export type AuthenticationFactorRegistrationVerification =
 
 /**
  * Which second factors this instance permits enrolling. `phone` is present only when an SMS provider is configured (SMS_DELIVERY != noop); `authenticator` and `fido` are always available.
- * generated from [EnrollmentMethods](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L146)
+ * generated from [EnrollmentMethods](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export interface EnrollmentMethods {
     /** The enrollable factor methods, in suggested display order */
@@ -431,7 +431,7 @@ export interface EnrollmentMethods {
 }
 
 /**
- * generated from [AuthenticationFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L102)
+ * generated from [AuthenticationFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck)
  */
 export type AuthenticationFactorRegistrationResponse =
     | PhoneFactorRegistrationResponse

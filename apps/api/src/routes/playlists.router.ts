@@ -11,7 +11,7 @@ export const PlaylistsRouter = ServerKitRouter();
 
 /**
  * Every playlist the installed `catalog` plugins offer, as the library sync last read each one's list. A source with no list kept yet is asked while the request waits
- * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L19)
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck) `GET /playlists`
  */
 PlaylistsRouter.get('/playlists', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(PlaylistsService);
@@ -24,7 +24,7 @@ PlaylistsRouter.get('/playlists', requirePolicy({ policy: 'platform.view' }), as
 
 /**
  * One playlist's tracks from one plugin
- * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L40)
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck) `GET /playlists/{pluginId}/{playlistId}/tracks`
  */
 PlaylistsRouter.get('/playlists/:pluginId/:playlistId/tracks', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { pluginId, playlistId } = await parseAndValidate(
@@ -45,7 +45,7 @@ PlaylistsRouter.get('/playlists/:pluginId/:playlistId/tracks', requirePolicy({ p
 
 /**
  * Hides one playlist from this station: the listing marks it hidden, the pickers stop offering it and the library sync stops reading it. Hiding one already hidden changes nothing
- * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L60)
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck) `PUT /playlists/{pluginId}/{playlistId}/hidden`
  */
 PlaylistsRouter.put('/playlists/:pluginId/:playlistId/hidden', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { pluginId, playlistId } = await parseAndValidate(
@@ -64,7 +64,7 @@ PlaylistsRouter.put('/playlists/:pluginId/:playlistId/hidden', requirePolicy({ p
 
 /**
  * Shows a hidden playlist again. Showing one that is not hidden changes nothing
- * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L64)
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck) `DELETE /playlists/{pluginId}/{playlistId}/hidden`
  */
 PlaylistsRouter.delete('/playlists/:pluginId/:playlistId/hidden', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { pluginId, playlistId } = await parseAndValidate(
@@ -83,7 +83,7 @@ PlaylistsRouter.delete('/playlists/:pluginId/:playlistId/hidden', requirePolicy(
 
 /**
  * Reads every playlist on every music source again, in the background, rather than waiting for the next scheduled read. New records reach the library; records gone from every playlist are retired
- * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L71)
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck) `POST /playlists/refresh`
  */
 PlaylistsRouter.post('/playlists/refresh', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(PlaylistsService);
@@ -94,7 +94,7 @@ PlaylistsRouter.post('/playlists/refresh', requirePolicy({ policy: 'platform.man
 
 /**
  * Reads one playlist again, in the background. New records reach the library; a record taken out of it stays until the next full read judges it
- * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L82)
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck) `POST /playlists/{pluginId}/{playlistId}/refresh`
  */
 PlaylistsRouter.post('/playlists/:pluginId/:playlistId/refresh', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { pluginId, playlistId } = await parseAndValidate(

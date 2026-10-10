@@ -11,7 +11,7 @@ export const ProductionsRouter = ServerKitRouter();
 
 /**
  * Everything the station has made or is making, newest first
- * from [productions.ck](../../data/contracts/productions/productions.ck#L29)
+ * from [productions.ck](../../data/contracts/productions/productions.ck) `GET /productions`
  */
 ProductionsRouter.get('/productions', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(ProductionsService);
@@ -24,7 +24,7 @@ ProductionsRouter.get('/productions', requirePolicy({ policy: 'platform.view' })
 
 /**
  * Asks the station to make one. It is queued, not started
- * from [productions.ck](../../data/contracts/productions/productions.ck#L42)
+ * from [productions.ck](../../data/contracts/productions/productions.ck) `POST /productions`
  */
 ProductionsRouter.post('/productions', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, ProductionRequest);
@@ -39,7 +39,7 @@ ProductionsRouter.post('/productions', requirePolicy({ policy: 'platform.manage'
 
 /**
  * Stops a production being made, for good
- * from [productions.ck](../../data/contracts/productions/productions.ck#L67)
+ * from [productions.ck](../../data/contracts/productions/productions.ck) `POST /productions/{id}/cancel`
  */
 ProductionsRouter.post('/productions/:id/cancel', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(

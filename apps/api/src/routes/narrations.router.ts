@@ -11,7 +11,7 @@ export const NarrationsRouter = ServerKitRouter();
 
 /**
  * Every series every installed narration plugin offers
- * from [narrations.ck](../../data/contracts/narrations/narrations.ck#L20)
+ * from [narrations.ck](../../data/contracts/narrations/narrations.ck) `GET /narrations/series`
  */
 NarrationsRouter.get('/narrations/series', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(NarrationsService);
@@ -24,7 +24,7 @@ NarrationsRouter.get('/narrations/series', requirePolicy({ policy: 'platform.vie
 
 /**
  * The pieces the station knows about, in their series' own order, with what it has done with each
- * from [narrations.ck](../../data/contracts/narrations/narrations.ck#L32)
+ * from [narrations.ck](../../data/contracts/narrations/narrations.ck) `GET /narrations/pieces`
  */
 NarrationsRouter.get('/narrations/pieces', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, StationPieceQuery.strict());
@@ -39,7 +39,7 @@ NarrationsRouter.get('/narrations/pieces', requirePolicy({ policy: 'platform.vie
 
 /**
  * Has one piece spoken now, rather than waiting for its slot to come near
- * from [narrations.ck](../../data/contracts/narrations/narrations.ck#L48)
+ * from [narrations.ck](../../data/contracts/narrations/narrations.ck) `POST /narrations/pieces/{id}/render`
  */
 NarrationsRouter.post('/narrations/pieces/:id/render', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -59,7 +59,7 @@ NarrationsRouter.post('/narrations/pieces/:id/render', requirePolicy({ policy: '
 
 /**
  * Reads every series again, in the background, rather than waiting for the next scheduled refresh
- * from [narrations.ck](../../data/contracts/narrations/narrations.ck#L65)
+ * from [narrations.ck](../../data/contracts/narrations/narrations.ck) `POST /narrations/refresh`
  */
 NarrationsRouter.post('/narrations/refresh', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(NarrationsService);

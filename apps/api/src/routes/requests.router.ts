@@ -18,7 +18,7 @@ export const RequestsRouter = ServerKitRouter();
 
 /**
  * Records the station could be asked to play, matching a title or an artist. When the station holds few, the music providers are asked too
- * from [requests.ck](../../data/contracts/requests/requests.ck#L17)
+ * from [requests.ck](../../data/contracts/requests/requests.ck) `GET /requests/search`
  */
 RequestsRouter.get('/requests/search', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(
@@ -42,7 +42,7 @@ RequestsRouter.get('/requests/search', requirePolicy({ policy: 'platform.view' }
 
 /**
  * Every recent request, for the operator deciding on them
- * from [requests.ck](../../data/contracts/requests/requests.ck#L36)
+ * from [requests.ck](../../data/contracts/requests/requests.ck) `GET /requests`
  */
 RequestsRouter.get('/requests', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const query = await parseAndValidate(
@@ -62,7 +62,7 @@ RequestsRouter.get('/requests', requirePolicy({ policy: 'platform.manage' }), as
 
 /**
  * Ask the station to play a record. Answers with the request whatever became of it, so a refusal says why in `reason`
- * from [requests.ck](../../data/contracts/requests/requests.ck#L51)
+ * from [requests.ck](../../data/contracts/requests/requests.ck) `POST /requests`
  */
 RequestsRouter.post('/requests', requirePolicy({ policy: 'platform.view' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, ListenerRequestCreate);
@@ -77,7 +77,7 @@ RequestsRouter.post('/requests', requirePolicy({ policy: 'platform.view' }), bod
 
 /**
  * The signed-in account's own recent requests
- * from [requests.ck](../../data/contracts/requests/requests.ck#L69)
+ * from [requests.ck](../../data/contracts/requests/requests.ck) `GET /requests/mine`
  */
 RequestsRouter.get('/requests/mine', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(RequestsService);
@@ -90,7 +90,7 @@ RequestsRouter.get('/requests/mine', requirePolicy({ policy: 'platform.view' }),
 
 /**
  * Let a waiting request through. It goes into the running order once its audio is here
- * from [requests.ck](../../data/contracts/requests/requests.ck#L87)
+ * from [requests.ck](../../data/contracts/requests/requests.ck) `POST /requests/{id}/grant`
  */
 RequestsRouter.post('/requests/:id/grant', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -110,7 +110,7 @@ RequestsRouter.post('/requests/:id/grant', requirePolicy({ policy: 'platform.man
 
 /**
  * Turn a request down. One already in the running order is left there; take it out of the order instead
- * from [requests.ck](../../data/contracts/requests/requests.ck#L105)
+ * from [requests.ck](../../data/contracts/requests/requests.ck) `POST /requests/{id}/decline`
  */
 RequestsRouter.post('/requests/:id/decline', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(

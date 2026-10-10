@@ -10,7 +10,7 @@ const __dt = (v: unknown, path: string): DateTime => {
 
 /**
  * A music provider's copy of a record the station has not taken in yet
- * generated from [RequestableSource](../../../../../apps/api/data/contracts/requests/requests.types.ck#L7)
+ * generated from [RequestableSource](../../../../../apps/api/data/contracts/requests/requests.types.ck)
  */
 export interface RequestableSource {
     /** The plugin that carries it */
@@ -20,18 +20,18 @@ export interface RequestableSource {
 }
 
 /**
- * generated from [RequestStatus](../../../../../apps/api/data/contracts/requests/requests.types.ck#L26)
+ * generated from [RequestStatus](../../../../../apps/api/data/contracts/requests/requests.types.ck)
  */
 export type RequestStatus = 'waiting' | 'pending' | 'queued' | 'aired' | 'declined' | 'expired';
 
 /**
- * generated from [RequestSource](../../../../../apps/api/data/contracts/requests/requests.types.ck#L28)
+ * generated from [RequestSource](../../../../../apps/api/data/contracts/requests/requests.types.ck)
  */
 export type RequestSource = 'app' | 'chat';
 
 /**
  * Turn a request down
- * generated from [ListenerRequestDecline](../../../../../apps/api/data/contracts/requests/requests.types.ck#L56)
+ * generated from [ListenerRequestDecline](../../../../../apps/api/data/contracts/requests/requests.types.ck)
  */
 export interface ListenerRequestDecline {
     /** What to tell the listener. Omit for a plain no */
@@ -40,7 +40,7 @@ export interface ListenerRequestDecline {
 
 /**
  * A record the station could be asked for: one it holds, or one a music provider carries
- * generated from [RequestableTrack](../../../../../apps/api/data/contracts/requests/requests.types.ck#L12)
+ * generated from [RequestableTrack](../../../../../apps/api/data/contracts/requests/requests.types.ck)
  */
 export interface RequestableTrack {
     /** What to send as `trackId` to make the request. Absent for a record from a provider, which is asked for by `source` instead */
@@ -58,7 +58,7 @@ export interface RequestableTrack {
 
 /**
  * Ask the station to play a record
- * generated from [ListenerRequestCreate](../../../../../apps/api/data/contracts/requests/requests.types.ck#L48)
+ * generated from [ListenerRequestCreate](../../../../../apps/api/data/contracts/requests/requests.types.ck)
  */
 export interface ListenerRequestCreate {
     /** A record from the request search that the station holds. Send this or `source`, never both */
@@ -75,7 +75,7 @@ export interface ListenerRequestCreate {
 
 /**
  * A record somebody asked the station to play, and what became of it
- * generated from [ListenerRequest](../../../../../apps/api/data/contracts/requests/requests.types.ck#L30)
+ * generated from [ListenerRequest](../../../../../apps/api/data/contracts/requests/requests.types.ck)
  */
 export interface ListenerRequest {
     id: string;
@@ -112,7 +112,7 @@ export function reviveListenerRequest(raw: ListenerRequest): ListenerRequest {
 
 /**
  * Records matching a search, best matches first, the station's own before any a provider carries
- * generated from [RequestableTrackList](../../../../../apps/api/data/contracts/requests/requests.types.ck#L22)
+ * generated from [RequestableTrackList](../../../../../apps/api/data/contracts/requests/requests.types.ck)
  */
 export interface RequestableTrackList {
     tracks: RequestableTrack[];
@@ -120,7 +120,7 @@ export interface RequestableTrackList {
 
 /**
  * Requests, newest first
- * generated from [ListenerRequestList](../../../../../apps/api/data/contracts/requests/requests.types.ck#L44)
+ * generated from [ListenerRequestList](../../../../../apps/api/data/contracts/requests/requests.types.ck)
  */
 export interface ListenerRequestList {
     requests: ListenerRequest[];

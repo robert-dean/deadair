@@ -10,7 +10,7 @@ const __dt = (v: unknown, path: string): DateTime => {
 
 /**
  * An app's authorization request, as the consent page received it
- * generated from [OAuthAuthorizationQuery](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L7)
+ * generated from [OAuthAuthorizationQuery](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export interface OAuthAuthorizationQuery {
     /** The query string the app sent the browser to the consent page with, as `window.location.search` holds it */
@@ -19,13 +19,13 @@ export interface OAuthAuthorizationQuery {
 
 /**
  * How the station knows an app: registered by an operator, registered by itself, or described by a document on its own website
- * generated from [OAuthClientKind](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L11)
+ * generated from [OAuthClientKind](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export type OAuthClientKind = 'preregistered' | 'dynamic' | 'metadata_document';
 
 /**
  * A request with something wrong that the app should be told about: send the browser back to it
- * generated from [OAuthAuthorizationRedirect](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L27)
+ * generated from [OAuthAuthorizationRedirect](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export interface OAuthAuthorizationRedirect {
     /** Discriminator */
@@ -36,7 +36,7 @@ export interface OAuthAuthorizationRedirect {
 
 /**
  * A request that names no app the station knows, or an address the app did not register. Never sent anywhere
- * generated from [OAuthAuthorizationRefusal](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L32)
+ * generated from [OAuthAuthorizationRefusal](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export interface OAuthAuthorizationRefusal {
     /** Discriminator */
@@ -49,7 +49,7 @@ export interface OAuthAuthorizationRefusal {
 
 /**
  * Denying a stashed request
- * generated from [OAuthAuthorizationDecision](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L40)
+ * generated from [OAuthAuthorizationDecision](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export interface OAuthAuthorizationDecision {
     /** From the context */
@@ -58,13 +58,13 @@ export interface OAuthAuthorizationDecision {
 
 /**
  * What a connected app may do on the station. `view` reads it; `manage` changes it and includes `view`. Never more than the person approving it may do
- * generated from [OAuthGrantScope](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L44)
+ * generated from [OAuthGrantScope](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export type OAuthGrantScope = 'view' | 'manage';
 
 /**
  * Where to send the browser now
- * generated from [OAuthAuthorizationOutcome](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L51)
+ * generated from [OAuthAuthorizationOutcome](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export interface OAuthAuthorizationOutcome {
     /** The app's own address, carrying the code or the refusal */
@@ -73,13 +73,13 @@ export interface OAuthAuthorizationOutcome {
 
 /**
  * How the app proves itself at the token endpoint. `none` is a public client, which is what apps on somebody's own device are
- * generated from [OAuthClientAuthMethod](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L55)
+ * generated from [OAuthClientAuthMethod](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export type OAuthClientAuthMethod = 'none' | 'client_secret_post' | 'client_secret_basic';
 
 /**
  * An app the signed-in person has let act as them
- * generated from [OAuthGrant](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L83)
+ * generated from [OAuthGrant](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export interface OAuthGrant {
     /** For disconnecting it */
@@ -110,7 +110,7 @@ export function reviveOAuthGrant(raw: OAuthGrant): OAuthGrant {
 
 /**
  * A valid request, stashed for the signed-in person to approve or deny
- * generated from [OAuthAuthorizationContext](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L13)
+ * generated from [OAuthAuthorizationContext](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export interface OAuthAuthorizationContext {
     /** Discriminator */
@@ -139,7 +139,7 @@ export interface OAuthAuthorizationContext {
 
 /**
  * Approving a stashed request, with what the app may do
- * generated from [OAuthAuthorizationApproval](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L46)
+ * generated from [OAuthAuthorizationApproval](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export interface OAuthAuthorizationApproval {
     /** From the context */
@@ -150,7 +150,7 @@ export interface OAuthAuthorizationApproval {
 
 /**
  * An app registered with the station
- * generated from [OAuthClientSummary](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L57)
+ * generated from [OAuthClientSummary](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export interface OAuthClientSummary {
     /** Its client id */
@@ -186,7 +186,7 @@ export function reviveOAuthClientSummary(raw: OAuthClientSummary): OAuthClientSu
 
 /**
  * An app an operator registers by hand, for a client that cannot register itself
- * generated from [OAuthClientCreate](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L72)
+ * generated from [OAuthClientCreate](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export interface OAuthClientCreate {
     /** What to call it */
@@ -198,7 +198,7 @@ export interface OAuthClientCreate {
 }
 
 /**
- * generated from [OAuthGrantList](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L93)
+ * generated from [OAuthGrantList](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export interface OAuthGrantList {
     /** Most recent first */
@@ -218,12 +218,12 @@ export function reviveOAuthGrantList(raw: OAuthGrantList): OAuthGrantList {
 }
 
 /**
- * generated from [OAuthAuthorizationContextResult](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L38)
+ * generated from [OAuthAuthorizationContextResult](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export type OAuthAuthorizationContextResult = OAuthAuthorizationContext | OAuthAuthorizationRedirect | OAuthAuthorizationRefusal;
 
 /**
- * generated from [OAuthClientList](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L68)
+ * generated from [OAuthClientList](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export interface OAuthClientList {
     /** Newest first. Apps that describe themselves are not listed: nothing is stored for them */
@@ -244,7 +244,7 @@ export function reviveOAuthClientList(raw: OAuthClientList): OAuthClientList {
 
 /**
  * A registered app, with its secret. The only time the secret is ever returned
- * generated from [OAuthClientIssued](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L78)
+ * generated from [OAuthClientIssued](../../../../../apps/api/data/contracts/oauth/oauth.types.ck)
  */
 export interface OAuthClientIssued {
     /** The app as it will appear in the list */

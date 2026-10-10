@@ -10,7 +10,7 @@ const __dt = (v: unknown, path: string): DateTime => {
 
 /**
  * An action a source will permit on one playlist's items. Item-scoped: neither value covers the playlist's own name or description
- * generated from [PlaylistPermission](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L8)
+ * generated from [PlaylistPermission](../../../../../apps/api/data/contracts/playlists/playlists.types.ck)
  */
 export type PlaylistPermission = 'read' | 'edit';
 
@@ -21,7 +21,7 @@ export type PlaylistPermission = 'read' | 'edit';
  * listing of what a playlist holds, not of what the station has ingested. The three ids below are the
  * station's own and are absent for anything it has never seen, which on most playlists is plenty of
  * rows — a playlist is a provider's list and the library is what a sync has walked
- * generated from [CatalogTrack](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L30)
+ * generated from [CatalogTrack](../../../../../apps/api/data/contracts/playlists/playlists.types.ck)
  */
 export interface CatalogTrack {
     /** The PROVIDER's id for this copy, which is what an import names it by. Never a `deadair.tracks` id */
@@ -43,7 +43,7 @@ export interface CatalogTrack {
 
 /**
  * One catalog-capable plugin that could not be listed
- * generated from [CatalogSourceError](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L44)
+ * generated from [CatalogSourceError](../../../../../apps/api/data/contracts/playlists/playlists.types.ck)
  */
 export interface CatalogSourceError {
     pluginId: string;
@@ -53,7 +53,7 @@ export interface CatalogSourceError {
 
 /**
  * One music source whose playlists are in this answer, and how old its list is
- * generated from [CatalogPlaylistSource](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L51)
+ * generated from [CatalogPlaylistSource](../../../../../apps/api/data/contracts/playlists/playlists.types.ck)
  */
 export interface CatalogPlaylistSource {
     pluginId: string;
@@ -71,7 +71,7 @@ export function reviveCatalogPlaylistSource(raw: CatalogPlaylistSource): Catalog
 
 /**
  * A playlist a catalog-capable plugin offers, tagged with the plugin it came from so an aggregated list is addressable
- * generated from [CatalogPlaylist](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L11)
+ * generated from [CatalogPlaylist](../../../../../apps/api/data/contracts/playlists/playlists.types.ck)
  */
 export interface CatalogPlaylist {
     pluginId: string;
@@ -90,7 +90,7 @@ export interface CatalogPlaylist {
 }
 
 /**
- * generated from [CatalogPlaylistTracks](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L63)
+ * generated from [CatalogPlaylistTracks](../../../../../apps/api/data/contracts/playlists/playlists.types.ck)
  */
 export interface CatalogPlaylistTracks {
     pluginId: string;
@@ -99,7 +99,7 @@ export interface CatalogPlaylistTracks {
 }
 
 /**
- * generated from [CatalogPlaylistPage](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L57)
+ * generated from [CatalogPlaylistPage](../../../../../apps/api/data/contracts/playlists/playlists.types.ck)
  */
 export interface CatalogPlaylistPage {
     playlists: CatalogPlaylist[];

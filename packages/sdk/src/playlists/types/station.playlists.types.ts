@@ -11,7 +11,7 @@ const __dt = (v: unknown, path: string): DateTime => {
 /**
  * A playlist the station owns: records it holds in its own library, in an order somebody chose, cloned
  * from somewhere else and free to differ from it afterwards
- * generated from [StationPlaylist](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L9)
+ * generated from [StationPlaylist](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck)
  */
 export interface StationPlaylist {
     id: string;
@@ -44,7 +44,7 @@ export function reviveStationPlaylist(raw: StationPlaylist): StationPlaylist {
 
 /**
  * One row of a station playlist: a record in the library, or a placeholder for one it does not hold yet
- * generated from [StationPlaylistTrack](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L25)
+ * generated from [StationPlaylistTrack](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck)
  */
 export interface StationPlaylistTrack {
     /** The row's own id, not the record's */
@@ -65,7 +65,7 @@ export interface StationPlaylistTrack {
 
 /**
  * What may change about a station playlist after it exists. Absent fields are left alone
- * generated from [StationPlaylistUpdate](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L43)
+ * generated from [StationPlaylistUpdate](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck)
  */
 export interface StationPlaylistUpdate {
     name?: string;
@@ -75,7 +75,7 @@ export interface StationPlaylistUpdate {
 /**
  * Where a record in a file came from, when it came from a provider's copy. Carried so a record the
  * receiving library does not hold can still be matched by that copy later
- * generated from [PlaylistFileOrigin](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L50)
+ * generated from [PlaylistFileOrigin](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck)
  */
 export interface PlaylistFileOrigin {
     pluginId: string;
@@ -84,7 +84,7 @@ export interface PlaylistFileOrigin {
 
 /**
  * A playlist one of the station's music sources holds, named the way the playlists listing names it
- * generated from [PlaylistProviderRef](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L77)
+ * generated from [PlaylistProviderRef](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck)
  */
 export interface PlaylistProviderRef {
     pluginId: string;
@@ -93,7 +93,7 @@ export interface PlaylistProviderRef {
 
 /**
  * What importing one record would do here
- * generated from [PlaylistImportEntry](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L94)
+ * generated from [PlaylistImportEntry](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck)
  */
 export interface PlaylistImportEntry {
     position: number;
@@ -106,7 +106,7 @@ export interface PlaylistImportEntry {
 }
 
 /**
- * generated from [StationPlaylistList](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L20)
+ * generated from [StationPlaylistList](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck)
  */
 export interface StationPlaylistList {
     playlists: StationPlaylist[];
@@ -129,7 +129,7 @@ export function reviveStationPlaylistList(raw: StationPlaylistList): StationPlay
 }
 
 /**
- * generated from [StationPlaylistDetail](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L38)
+ * generated from [StationPlaylistDetail](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck)
  */
 export interface StationPlaylistDetail extends StationPlaylist {
     tracks: StationPlaylistTrack[];
@@ -148,7 +148,7 @@ export function reviveStationPlaylistDetail(raw: StationPlaylistDetail): Station
 /**
  * One record as a playlist file names it. By its words and its ISRC, never by an id of this station's:
  * ids are minted afresh by every library, so a file keyed by them would restore onto nothing
- * generated from [PlaylistFileTrack](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L57)
+ * generated from [PlaylistFileTrack](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck)
  */
 export interface PlaylistFileTrack {
     title: string;
@@ -162,7 +162,7 @@ export interface PlaylistFileTrack {
 
 /**
  * What an import WOULD do, written nowhere
- * generated from [PlaylistImportPlan](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L107)
+ * generated from [PlaylistImportPlan](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck)
  */
 export interface PlaylistImportPlan {
     name: string;
@@ -178,7 +178,7 @@ export interface PlaylistImportPlan {
 
 /**
  * A playlist as a file: everything somebody would need to rebuild it on another station
- * generated from [PlaylistFile](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L67)
+ * generated from [PlaylistFile](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck)
  */
 export interface PlaylistFile {
     /** What shape this is, so a file from a later build says so rather than being read wrongly */
@@ -193,7 +193,7 @@ export interface PlaylistFile {
 }
 
 /**
- * generated from [PlaylistImportResult](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L117)
+ * generated from [PlaylistImportResult](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck)
  */
 export interface PlaylistImportResult {
     plan: PlaylistImportPlan;
@@ -214,7 +214,7 @@ export function revivePlaylistImportResult(raw: PlaylistImportResult): PlaylistI
 
 /**
  * Something to import a playlist from. Exactly one source
- * generated from [PlaylistImportInput](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L83)
+ * generated from [PlaylistImportInput](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck)
  */
 export interface PlaylistImportInput {
     /** A playlist exported from a deadair station */

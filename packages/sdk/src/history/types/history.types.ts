@@ -10,7 +10,7 @@ const __dt = (v: unknown, path: string): DateTime => {
 
 /**
  * One record the station actually played
- * generated from [HistoryEntry](../../../../../apps/api/data/contracts/history/history.types.ck#L7)
+ * generated from [HistoryEntry](../../../../../apps/api/data/contracts/history/history.types.ck)
  */
 export interface HistoryEntry {
     /** Unique across the history, and half of the cursor below */
@@ -39,7 +39,7 @@ export function reviveHistoryEntry(raw: HistoryEntry): HistoryEntry {
 
 /**
  * One page of the history, newest first
- * generated from [HistoryQuery](../../../../../apps/api/data/contracts/history/history.types.ck#L18)
+ * generated from [HistoryQuery](../../../../../apps/api/data/contracts/history/history.types.ck)
  */
 export interface HistoryQuery {
     limit?: number;
@@ -48,7 +48,7 @@ export interface HistoryQuery {
 }
 
 /**
- * generated from [HistoryPage](../../../../../apps/api/data/contracts/history/history.types.ck#L23)
+ * generated from [HistoryPage](../../../../../apps/api/data/contracts/history/history.types.ck)
  */
 export interface HistoryPage {
     entries: HistoryEntry[];

@@ -10,7 +10,7 @@ export const ActivityRouter = ServerKitRouter();
 
 /**
  * The feed, newest first, one page at a time
- * from [activity.ck](../../data/contracts/activity/activity.ck#L25)
+ * from [activity.ck](../../data/contracts/activity/activity.ck) `GET /activity`
  */
 ActivityRouter.get('/activity', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, ActivityQuery.strict());

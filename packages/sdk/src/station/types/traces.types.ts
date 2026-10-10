@@ -12,13 +12,13 @@ const __dt = (v: unknown, path: string): DateTime => {
  * Whether a call produced what it was asked for. Two values on purpose: every finer distinction —
  * timed out, was preempted, came back empty — is a fact the caller knew and the recorder did not, so
  * it lives in `detail` where it can be named
- * generated from [TraceOutcome](../../../../../apps/api/data/contracts/station/traces.types.ck#L10)
+ * generated from [TraceOutcome](../../../../../apps/api/data/contracts/station/traces.types.ck)
  */
 export type TraceOutcome = 'ok' | 'failed';
 
 /**
  * One decision, folded: a job execution or a request
- * generated from [TraceDecision](../../../../../apps/api/data/contracts/station/traces.types.ck#L22)
+ * generated from [TraceDecision](../../../../../apps/api/data/contracts/station/traces.types.ck)
  */
 export interface TraceDecision {
     /** The job id or the request id. Already the station's correlation id, never generated for this */
@@ -46,7 +46,7 @@ export function reviveTraceDecision(raw: TraceDecision): TraceDecision {
 
 /**
  * Which slice of the kept window to read
- * generated from [TracesQuery](../../../../../apps/api/data/contracts/station/traces.types.ck#L32)
+ * generated from [TracesQuery](../../../../../apps/api/data/contracts/station/traces.types.ck)
  */
 export interface TracesQuery {
     limit?: number;
@@ -58,7 +58,7 @@ export interface TracesQuery {
 
 /**
  * One call inside a decision, and what it cost
- * generated from [TraceSpan](../../../../../apps/api/data/contracts/station/traces.types.ck#L12)
+ * generated from [TraceSpan](../../../../../apps/api/data/contracts/station/traces.types.ck)
  */
 export interface TraceSpan {
     /** When the call ended, which is when its cost was known */
@@ -84,7 +84,7 @@ export function reviveTraceSpan(raw: TraceSpan): TraceSpan {
 }
 
 /**
- * generated from [TracesPage](../../../../../apps/api/data/contracts/station/traces.types.ck#L38)
+ * generated from [TracesPage](../../../../../apps/api/data/contracts/station/traces.types.ck)
  */
 export interface TracesPage {
     /** Newest first */
@@ -109,7 +109,7 @@ export function reviveTracesPage(raw: TracesPage): TracesPage {
 
 /**
  * One decision, its calls, and the decisions on either side of it
- * generated from [TraceDetail](../../../../../apps/api/data/contracts/station/traces.types.ck#L44)
+ * generated from [TraceDetail](../../../../../apps/api/data/contracts/station/traces.types.ck)
  */
 export interface TraceDetail {
     decision: TraceDecision;

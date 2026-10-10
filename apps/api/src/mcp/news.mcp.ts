@@ -21,7 +21,7 @@ const ListFeedsArgs = z.object({});
 const ReadNewsArgs = z.object({ query: NewsQuery.optional() });
 
 /**
- * from [news.ck](../../data/contracts/news/news.ck#L22)
+ * from [news.ck](../../data/contracts/news/news.ck) `GET /news/feeds`
  */
 @Injectable()
 export class ListFeedsMcpTool implements McpToolHandler {
@@ -43,7 +43,7 @@ export class ListFeedsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [news.ck](../../data/contracts/news/news.ck#L34)
+ * from [news.ck](../../data/contracts/news/news.ck) `GET /news`
  */
 @Injectable()
 export class ReadNewsMcpTool implements McpToolHandler {

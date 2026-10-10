@@ -3,7 +3,7 @@ import { ConfigFieldDescriptor } from '../../plugins/types/plugins.types.js';
 
 /**
  * What a break can be about: a news category, and later a weather location. The operator's own vocabulary, per sort of break
- * generated from [Topic](../../../../data/contracts/topics/topics.types.ck#L8)
+ * generated from [Topic](../../../../data/contracts/topics/topics.types.ck)
  */
 export const Topic = z.strictObject({
     id: z.string().min(1).max(100),
@@ -42,7 +42,7 @@ export type TopicInput = z.infer<typeof TopicInput>;
 
 /**
  * A sort of break that has subjects at all, and how one of its subjects is edited. `ConfigFieldDescriptor` is the plugins area's, shared for the reason a station setting shares it: one form component renders them all
- * generated from [TopicKindDescriptor](../../../../data/contracts/topics/topics.types.ck#L22)
+ * generated from [TopicKindDescriptor](../../../../data/contracts/topics/topics.types.ck)
  */
 export const TopicKindDescriptor = z.strictObject({
     kind: z.string().min(1).max(100),
@@ -54,7 +54,7 @@ export const TopicKindDescriptor = z.strictObject({
 export type TopicKindDescriptor = z.infer<typeof TopicKindDescriptor>;
 
 /**
- * generated from [TopicQuery](../../../../data/contracts/topics/topics.types.ck#L34)
+ * generated from [TopicQuery](../../../../data/contracts/topics/topics.types.ck)
  */
 export const TopicQuery = z.strictObject({
     kind: z.string().max(100).optional().describe('One sort of break, or absent for every subject this station has named'),
@@ -62,7 +62,7 @@ export const TopicQuery = z.strictObject({
 export type TopicQuery = z.infer<typeof TopicQuery>;
 
 /**
- * generated from [TopicList](../../../../data/contracts/topics/topics.types.ck#L17)
+ * generated from [TopicList](../../../../data/contracts/topics/topics.types.ck)
  */
 export const TopicList = z.strictObject({
     topics: z.array(Topic),
@@ -75,7 +75,7 @@ export const TopicListInput = z.strictObject({
 export type TopicListInput = z.infer<typeof TopicListInput>;
 
 /**
- * generated from [TopicKindList](../../../../data/contracts/topics/topics.types.ck#L30)
+ * generated from [TopicKindList](../../../../data/contracts/topics/topics.types.ck)
  */
 export const TopicKindList = z.strictObject({
     kinds: z.array(TopicKindDescriptor),

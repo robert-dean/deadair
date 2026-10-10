@@ -16,7 +16,7 @@ export const StreamRouter = ServerKitRouter();
 
 /**
  * One HLS playlist, and the tick that says somebody is still listening to it
- * from [stream.ck](../../data/contracts/stream/stream.ck#L57)
+ * from [stream.ck](../../data/contracts/stream/stream.ck) `GET /hls/{name}`
  * anonymous access, no security required
  */
 StreamRouter.get('/hls/:name', async ctx => {
@@ -44,7 +44,7 @@ StreamRouter.get('/hls/:name', async ctx => {
 
 /**
  * The station's streams as a PLS playlist, MP3 first, for a player that takes a playlist file rather than a stream address
- * from [stream.ck](../../data/contracts/stream/stream.ck#L82)
+ * from [stream.ck](../../data/contracts/stream/stream.ck) `GET /listen.pls`
  * anonymous access, no security required
  */
 StreamRouter.get('/listen.pls', async ctx => {
@@ -58,7 +58,7 @@ StreamRouter.get('/listen.pls', async ctx => {
 
 /**
  * The station's streams as an M3U playlist, MP3 first, for a player that takes a playlist file rather than a stream address
- * from [stream.ck](../../data/contracts/stream/stream.ck#L96)
+ * from [stream.ck](../../data/contracts/stream/stream.ck) `GET /listen.m3u`
  * anonymous access, no security required
  */
 StreamRouter.get('/listen.m3u', async ctx => {
@@ -72,7 +72,7 @@ StreamRouter.get('/listen.m3u', async ctx => {
 
 /**
  * What the track fetcher holds by way of a Spotify login, and whether an authorization is already waiting to be finished
- * from [stream.ck](../../data/contracts/stream/stream.ck#L110)
+ * from [stream.ck](../../data/contracts/stream/stream.ck) `GET /stream/authorization`
  */
 StreamRouter.get('/stream/authorization', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(StreamService);
@@ -85,7 +85,7 @@ StreamRouter.get('/stream/authorization', requirePolicy({ policy: 'platform.mana
 
 /**
  * Starts the fetcher's one-time authorization and answers with the URL to open. Starting another replaces whichever was pending
- * from [stream.ck](../../data/contracts/stream/stream.ck#L120)
+ * from [stream.ck](../../data/contracts/stream/stream.ck) `POST /stream/authorization`
  */
 StreamRouter.post('/stream/authorization', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(StreamService);
@@ -98,7 +98,7 @@ StreamRouter.post('/stream/authorization', requirePolicy({ policy: 'platform.man
 
 /**
  * Finishes an authorization from the address the operator's browser ended up at
- * from [stream.ck](../../data/contracts/stream/stream.ck#L133)
+ * from [stream.ck](../../data/contracts/stream/stream.ck) `POST /stream/authorization/complete`
  */
 StreamRouter.post('/stream/authorization/complete', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, FetcherAuthorizationInput);

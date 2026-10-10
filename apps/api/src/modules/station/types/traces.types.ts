@@ -10,14 +10,14 @@ const _ZodDatetime = z.preprocess(
  * Whether a call produced what it was asked for. Two values on purpose: every finer distinction —
  * timed out, was preempted, came back empty — is a fact the caller knew and the recorder did not, so
  * it lives in `detail` where it can be named
- * generated from [TraceOutcome](../../../../data/contracts/station/traces.types.ck#L10)
+ * generated from [TraceOutcome](../../../../data/contracts/station/traces.types.ck)
  */
 export const TraceOutcome = z.enum(['ok', 'failed']);
 export type TraceOutcome = z.infer<typeof TraceOutcome>;
 
 /**
  * One decision, folded: a job execution or a request
- * generated from [TraceDecision](../../../../data/contracts/station/traces.types.ck#L22)
+ * generated from [TraceDecision](../../../../data/contracts/station/traces.types.ck)
  */
 export const TraceDecision = z.strictObject({
     id: z.string().min(1).max(200).describe("The job id or the request id. Already the station's correlation id, never generated for this"),
@@ -38,7 +38,7 @@ export type TraceDecision = z.infer<typeof TraceDecision>;
 
 /**
  * Which slice of the kept window to read
- * generated from [TracesQuery](../../../../data/contracts/station/traces.types.ck#L32)
+ * generated from [TracesQuery](../../../../data/contracts/station/traces.types.ck)
  */
 export const TracesQuery = z.strictObject({
     limit: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(200)).optional(),
@@ -52,7 +52,7 @@ export type TracesQuery = z.infer<typeof TracesQuery>;
 
 /**
  * One call inside a decision, and what it cost
- * generated from [TraceSpan](../../../../data/contracts/station/traces.types.ck#L12)
+ * generated from [TraceSpan](../../../../data/contracts/station/traces.types.ck)
  */
 export const TraceSpan = z.strictObject({
     at: _ZodDatetime.describe('When the call ended, which is when its cost was known'),
@@ -71,7 +71,7 @@ export const TraceSpan = z.strictObject({
 export type TraceSpan = z.infer<typeof TraceSpan>;
 
 /**
- * generated from [TracesPage](../../../../data/contracts/station/traces.types.ck#L38)
+ * generated from [TracesPage](../../../../data/contracts/station/traces.types.ck)
  */
 export const TracesPage = z.strictObject({
     decisions: z.array(TraceDecision).describe('Newest first'),
@@ -86,7 +86,7 @@ export type TracesPage = z.infer<typeof TracesPage>;
 
 /**
  * One decision, its calls, and the decisions on either side of it
- * generated from [TraceDetail](../../../../data/contracts/station/traces.types.ck#L44)
+ * generated from [TraceDetail](../../../../data/contracts/station/traces.types.ck)
  */
 export const TraceDetail = z.strictObject({
     decision: TraceDecision,

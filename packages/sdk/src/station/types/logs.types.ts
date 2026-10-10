@@ -14,13 +14,13 @@ const __dt = (v: unknown, path: string): DateTime => {
  * by `DeadairLogger`, which tees every level the app-wide `Logger` has, `trace` included. Narrowing
  * here would make a `trace` line unrepresentable in the type of the surface that reads the file it
  * is in.
- * generated from [LogLevel](../../../../../apps/api/data/contracts/station/logs.types.ck#L12)
+ * generated from [LogLevel](../../../../../apps/api/data/contracts/station/logs.types.ck)
  */
 export type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error';
 
 /**
  * One log file this install has, whether or not anything has been written to it
- * generated from [LogSource](../../../../../apps/api/data/contracts/station/logs.types.ck#L14)
+ * generated from [LogSource](../../../../../apps/api/data/contracts/station/logs.types.ck)
  */
 export interface LogSource {
     /** A closed set the API owns: `api`, `liquidsoap`, `shim`. Never a path */
@@ -49,7 +49,7 @@ export function reviveLogSource(raw: LogSource): LogSource {
 
 /**
  * One line, as far as it could be read back
- * generated from [LogLine](../../../../../apps/api/data/contracts/station/logs.types.ck#L28)
+ * generated from [LogLine](../../../../../apps/api/data/contracts/station/logs.types.ck)
  */
 export interface LogLine {
     /** Absent on a line this API did not write, and on one of its own that did not parse */
@@ -61,7 +61,7 @@ export interface LogLine {
 }
 
 /**
- * generated from [LogQuery](../../../../../apps/api/data/contracts/station/logs.types.ck#L41)
+ * generated from [LogQuery](../../../../../apps/api/data/contracts/station/logs.types.ck)
  */
 export interface LogQuery {
     limit?: number;
@@ -70,7 +70,7 @@ export interface LogQuery {
 }
 
 /**
- * generated from [LogSourceList](../../../../../apps/api/data/contracts/station/logs.types.ck#L24)
+ * generated from [LogSourceList](../../../../../apps/api/data/contracts/station/logs.types.ck)
  */
 export interface LogSourceList {
     /** Every source, in a fixed order, including the ones that are not present */
@@ -90,7 +90,7 @@ export function reviveLogSourceList(raw: LogSourceList): LogSourceList {
 }
 
 /**
- * generated from [LogPage](../../../../../apps/api/data/contracts/station/logs.types.ck#L34)
+ * generated from [LogPage](../../../../../apps/api/data/contracts/station/logs.types.ck)
  */
 export interface LogPage {
     sourceId: string;

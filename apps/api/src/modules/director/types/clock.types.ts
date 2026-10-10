@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * One rule on the station's format clock: a sort of break, and when it happens
- * generated from [ClockBand](../../../../data/contracts/director/clock.types.ck#L8)
+ * generated from [ClockBand](../../../../data/contracts/director/clock.types.ck)
  */
 export const ClockBand = z.strictObject({
     id: z.string().min(1).max(100),
@@ -83,7 +83,7 @@ export const ClockBandInput = z.strictObject({
 export type ClockBandInput = z.infer<typeof ClockBandInput>;
 
 /**
- * generated from [ClockBandList](../../../../data/contracts/director/clock.types.ck#L21)
+ * generated from [ClockBandList](../../../../data/contracts/director/clock.types.ck)
  */
 export const ClockBandList = z.strictObject({
     bands: z.array(ClockBand),

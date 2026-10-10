@@ -88,9 +88,11 @@ describe('PresenterNamePanel', () => {
         const user = setupUser();
         await user.click(screen.getByRole('button', { name: 'Change' }));
 
-        // Awaited, because the fold is a `Collapse` and its content is hidden until it has opened.
-        // Opening on the stored value rather than the empty map of the first render is the key's job.
-        const field = await screen.findByLabelText('Presenter name');
+        // Awaited by role, because the fold is a `Collapse` that keeps its content mounted and hidden
+        // until it has opened: a label query finds the field while it is still hidden, and jsdom will
+        // not focus it there. Opening on the stored value rather than the empty map of the first
+        // render is the key's job.
+        const field = await screen.findByRole('textbox', { name: 'Presenter name' });
         expect(field).toHaveValue('Casey');
         await user.clear(field);
         await user.type(field, '  Sam ');
@@ -110,7 +112,7 @@ describe('PresenterNamePanel', () => {
         const user = setupUser();
         await user.click(screen.getByRole('button', { name: 'Change' }));
 
-        await user.clear(await screen.findByLabelText('Presenter name'));
+        await user.clear(await screen.findByRole('textbox', { name: 'Presenter name' }));
         await user.click(await screen.findByRole('button', { name: 'Save' }));
 
         await waitFor(() => {

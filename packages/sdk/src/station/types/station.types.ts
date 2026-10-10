@@ -24,7 +24,7 @@ const __dtf = (v: unknown, path: string, fmt: string): DateTime => {
  * every one of those facts was already stored — the fetch error on `track_audio.last_error`, the
  * provider's refusal on `track_sources.playable` — and reachable only by finding the record and
  * hovering a cell on its page. This is that fact travelling with the row that counted it.
- * generated from [AttentionEvidence](../../../../../apps/api/data/contracts/station/station.types.ck#L14)
+ * generated from [AttentionEvidence](../../../../../apps/api/data/contracts/station/station.types.ck)
  */
 export interface AttentionEvidence {
     /** The thing itself, as an operator would name it: a record's title and who made it */
@@ -45,7 +45,7 @@ export interface AttentionEvidence {
  *
  * `lastBeat` is absent until a loop finishes its first pass, which is why `startedAt` is there: from
  * the two of them a reader can tell a loop that has never completed anything from one that stopped.
- * generated from [StationHeartbeat](../../../../../apps/api/data/contracts/station/station.types.ck#L46)
+ * generated from [StationHeartbeat](../../../../../apps/api/data/contracts/station/station.types.ck)
  */
 export interface StationHeartbeat {
     name: string;
@@ -72,7 +72,7 @@ export function reviveStationHeartbeat(raw: StationHeartbeat): StationHeartbeat 
  *
  * The counts `/catalog/tracks` already answers with, lifted out of a page of rows: a check-up wants
  * the sentence "13 of 581 measured" without asking for thirteen tracks to get it.
- * generated from [StationBacklog](../../../../../apps/api/data/contracts/station/station.types.ck#L56)
+ * generated from [StationBacklog](../../../../../apps/api/data/contracts/station/station.types.ck)
  */
 export interface StationBacklog {
     total: number;
@@ -88,7 +88,7 @@ export interface StationBacklogInput {}
  * The model is shared by every break, every programme refill and every production, one generation at
  * a time, so a slot held for far longer than any generation takes is the station's ability to speak
  * stuck behind one answer. Nothing else exposes it.
- * generated from [StationModelHolder](../../../../../apps/api/data/contracts/station/station.types.ck#L67)
+ * generated from [StationModelHolder](../../../../../apps/api/data/contracts/station/station.types.ck)
  */
 export interface StationModelHolder {
     /** Whose work it is: `breaking` and `air` have a deadline, `background` (a refill, a production) does not, `preview` is an operator trying something */
@@ -110,7 +110,7 @@ export function reviveStationModelHolder(raw: StationModelHolder): StationModelH
 
 /**
  * One release of the station, in the words its changelog entry used
- * generated from [StationRelease](../../../../../apps/api/data/contracts/station/station.types.ck#L108)
+ * generated from [StationRelease](../../../../../apps/api/data/contracts/station/station.types.ck)
  */
 export interface StationRelease {
     /** The release, as its tag names it without the leading `v` */
@@ -136,7 +136,7 @@ export function reviveStationRelease(raw: StationRelease): StationRelease {
 
 /**
  * One thing that wants the operator's attention, or the fact that nothing does
- * generated from [AttentionItem](../../../../../apps/api/data/contracts/station/station.types.ck#L21)
+ * generated from [AttentionItem](../../../../../apps/api/data/contracts/station/station.types.ck)
  */
 export interface AttentionItem {
     /** What this is, as a stable key: `silence`, `benchedCopies`, `noPersona`. The console groups and counts on it rather than on the sentence */
@@ -159,7 +159,7 @@ export interface AttentionItem {
 
 /**
  * The model slot and its queue
- * generated from [StationModel](../../../../../apps/api/data/contracts/station/station.types.ck#L74)
+ * generated from [StationModel](../../../../../apps/api/data/contracts/station/station.types.ck)
  */
 export interface StationModel {
     /** Callers queued behind whoever holds the slot */
@@ -181,7 +181,7 @@ export function reviveStationModel(raw: StationModel): StationModel {
 
 /**
  * What this build is, and what changed in it
- * generated from [StationReleases](../../../../../apps/api/data/contracts/station/station.types.ck#L116)
+ * generated from [StationReleases](../../../../../apps/api/data/contracts/station/station.types.ck)
  */
 export interface StationReleases {
     /** The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read */
@@ -221,7 +221,7 @@ export function reviveStationReleases(raw: StationReleases): StationReleases {
 
 /**
  * Everything wrong or waiting, worst first
- * generated from [StationAttention](../../../../../apps/api/data/contracts/station/station.types.ck#L33)
+ * generated from [StationAttention](../../../../../apps/api/data/contracts/station/station.types.ck)
  */
 export interface StationAttention {
     items: AttentionItem[];
@@ -247,7 +247,7 @@ export interface StationAttention {
  * `operation(internal)`, deliberately, so it generates no SDK method and the console cannot call it
  * — which would leave "which build is this" answerable only from a shell, the one thing carrying it
  * here exists to fix.
- * generated from [StationCheckup](../../../../../apps/api/data/contracts/station/station.types.ck#L98)
+ * generated from [StationCheckup](../../../../../apps/api/data/contracts/station/station.types.ck)
  */
 export interface StationCheckup {
     /** When this reading was taken, so a stale page cannot pass itself off as now */

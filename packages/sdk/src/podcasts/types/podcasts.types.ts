@@ -1,6 +1,6 @@
 /**
  * A programme the station carries, as one installed plugin describes it
- * generated from [StationShow](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck#L7)
+ * generated from [StationShow](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck)
  */
 export interface StationShow {
     /** Unique across the station: the plugin's own id for the show, qualified with the plugin that offered it */
@@ -23,7 +23,7 @@ export interface StationShow {
 
 /**
  * One episode of a programme the station carries, and what the station has done with it
- * generated from [StationEpisode](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck#L25)
+ * generated from [StationEpisode](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck)
  */
 export interface StationEpisode {
     /** The station's own id for this episode */
@@ -60,7 +60,7 @@ export interface StationEpisode {
 
 /**
  * A show a podcast plugin's directory knows about, which the station may or may not carry
- * generated from [StationDirectoryEntry](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck#L45)
+ * generated from [StationDirectoryEntry](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck)
  */
 export interface StationDirectoryEntry {
     /** The directory's own id for the show. A key in a list, and nothing more */
@@ -79,7 +79,7 @@ export interface StationDirectoryEntry {
 }
 
 /**
- * generated from [StationDirectoryQuery](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck#L58)
+ * generated from [StationDirectoryQuery](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck)
  */
 export interface StationDirectoryQuery {
     /** Words to look a show up by: its name, its publisher, its subject */
@@ -88,7 +88,7 @@ export interface StationDirectoryQuery {
 }
 
 /**
- * generated from [StationEpisodeQuery](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck#L67)
+ * generated from [StationEpisodeQuery](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck)
  */
 export interface StationEpisodeQuery {
     /** One show's episodes, or absent for every show's, newest first */
@@ -97,14 +97,14 @@ export interface StationEpisodeQuery {
 }
 
 /**
- * generated from [StationShowList](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck#L21)
+ * generated from [StationShowList](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck)
  */
 export interface StationShowList {
     shows: StationShow[];
 }
 
 /**
- * generated from [StationEpisodePage](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck#L72)
+ * generated from [StationEpisodePage](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck)
  */
 export interface StationEpisodePage {
     /** Newest first. Empty when the station knows of none, which is not an error */
@@ -112,7 +112,7 @@ export interface StationEpisodePage {
 }
 
 /**
- * generated from [StationDirectoryPage](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck#L63)
+ * generated from [StationDirectoryPage](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck)
  */
 export interface StationDirectoryPage {
     /** Empty when nothing matched or no directory could be asked, which is not an error */

@@ -12,7 +12,7 @@ export const ArtPersonasRouter = ServerKitRouter();
 
 /**
  * Every persona that has a portrait
- * from [art.personas.ck](../../data/contracts/art/art.personas.ck#L17)
+ * from [art.personas.ck](../../data/contracts/art/art.personas.ck) `GET /art/personas`
  */
 ArtPersonasRouter.get('/art/personas', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(PersonaArtworkService);
@@ -25,7 +25,7 @@ ArtPersonasRouter.get('/art/personas', requirePolicy({ policy: 'platform.view' }
 
 /**
  * Puts a picture on a persona. A persona that already had one keeps its URL, so a player holding it picks up the new picture
- * from [art.personas.ck](../../data/contracts/art/art.personas.ck#L36)
+ * from [art.personas.ck](../../data/contracts/art/art.personas.ck) `POST /art/personas/{personaId}`
  */
 ArtPersonasRouter.post('/art/personas/:personaId', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['multipart']), async ctx => {
     const { personaId } = await parseAndValidate(
@@ -47,7 +47,7 @@ ArtPersonasRouter.post('/art/personas/:personaId', requirePolicy({ policy: 'plat
 
 /**
  * Takes a persona's picture away. A player shows the record's cover instead
- * from [art.personas.ck](../../data/contracts/art/art.personas.ck#L55)
+ * from [art.personas.ck](../../data/contracts/art/art.personas.ck) `DELETE /art/personas/{personaId}`
  */
 ArtPersonasRouter.delete('/art/personas/:personaId', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { personaId } = await parseAndValidate(

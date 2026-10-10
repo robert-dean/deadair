@@ -10,7 +10,7 @@ const __dt = (v: unknown, path: string): DateTime => {
 
 /**
  * Which part of the station an entry came from, and the console's one filter axis
- * generated from [ActivityModule](../../../../../apps/api/data/contracts/activity/activity.types.ck#L8)
+ * generated from [ActivityModule](../../../../../apps/api/data/contracts/activity/activity.types.ck)
  */
 export type ActivityModule = 'playout' | 'director' | 'render' | 'catalog' | 'plugins' | 'storage';
 
@@ -18,13 +18,13 @@ export type ActivityModule = 'playout' | 'director' | 'render' | 'catalog' | 'pl
  * How an entry reads, not how bad it is. There is deliberately no `waiting`: a station idling for
  * want of a listener says so in its own words and stays `info`, for the same reason the transport
  * reports it as `ready` rather than as a mild fault
- * generated from [ActivitySeverity](../../../../../apps/api/data/contracts/activity/activity.types.ck#L13)
+ * generated from [ActivitySeverity](../../../../../apps/api/data/contracts/activity/activity.types.ck)
  */
 export type ActivitySeverity = 'info' | 'warn' | 'fault';
 
 /**
  * One thing that happened, from whichever of the feed's sources holds it
- * generated from [ActivityEntry](../../../../../apps/api/data/contracts/activity/activity.types.ck#L15)
+ * generated from [ActivityEntry](../../../../../apps/api/data/contracts/activity/activity.types.ck)
  */
 export interface ActivityEntry {
     /** Unique across the whole feed, and half of the cursor below */
@@ -54,7 +54,7 @@ export function reviveActivityEntry(raw: ActivityEntry): ActivityEntry {
 
 /**
  * One page of the feed, newest first
- * generated from [ActivityQuery](../../../../../apps/api/data/contracts/activity/activity.types.ck#L27)
+ * generated from [ActivityQuery](../../../../../apps/api/data/contracts/activity/activity.types.ck)
  */
 export interface ActivityQuery {
     limit?: number;
@@ -66,7 +66,7 @@ export interface ActivityQuery {
 }
 
 /**
- * generated from [ActivityPage](../../../../../apps/api/data/contracts/activity/activity.types.ck#L34)
+ * generated from [ActivityPage](../../../../../apps/api/data/contracts/activity/activity.types.ck)
  */
 export interface ActivityPage {
     entries: ActivityEntry[];

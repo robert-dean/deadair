@@ -21,7 +21,7 @@ const ListPersonaPortraitsArgs = z.object({});
 const RemovePersonaPortraitArgs = z.object({ personaId: z.uuid() });
 
 /**
- * from [art.personas.ck](../../data/contracts/art/art.personas.ck#L17)
+ * from [art.personas.ck](../../data/contracts/art/art.personas.ck) `GET /art/personas`
  */
 @Injectable()
 export class ListPersonaPortraitsMcpTool implements McpToolHandler {
@@ -43,7 +43,7 @@ export class ListPersonaPortraitsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [art.personas.ck](../../data/contracts/art/art.personas.ck#L55)
+ * from [art.personas.ck](../../data/contracts/art/art.personas.ck) `DELETE /art/personas/{personaId}`
  */
 @Injectable()
 export class RemovePersonaPortraitMcpTool implements McpToolHandler {

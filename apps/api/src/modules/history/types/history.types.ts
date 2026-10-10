@@ -8,7 +8,7 @@ const _ZodDatetime = z.preprocess(
 
 /**
  * One record the station actually played
- * generated from [HistoryEntry](../../../../data/contracts/history/history.types.ck#L7)
+ * generated from [HistoryEntry](../../../../data/contracts/history/history.types.ck)
  */
 export const HistoryEntry = z.strictObject({
     id: z.string().min(1).max(100).describe('Unique across the history, and half of the cursor below'),
@@ -45,7 +45,7 @@ export type HistoryEntry = z.infer<typeof HistoryEntry>;
 
 /**
  * One page of the history, newest first
- * generated from [HistoryQuery](../../../../data/contracts/history/history.types.ck#L18)
+ * generated from [HistoryQuery](../../../../data/contracts/history/history.types.ck)
  */
 export const HistoryQuery = z.strictObject({
     limit: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(200)).optional(),
@@ -61,7 +61,7 @@ export const HistoryQuery = z.strictObject({
 export type HistoryQuery = z.infer<typeof HistoryQuery>;
 
 /**
- * generated from [HistoryPage](../../../../data/contracts/history/history.types.ck#L23)
+ * generated from [HistoryPage](../../../../data/contracts/history/history.types.ck)
  */
 export const HistoryPage = z.strictObject({
     entries: z.array(HistoryEntry),

@@ -31,7 +31,7 @@ const UpdateScheduleSlotArgs = z.object({ id: z.string().min(1).max(100), body: 
 const DeleteScheduleSlotArgs = z.object({ id: z.string().min(1).max(100) });
 
 /**
- * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L27)
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `GET /schedule`
  */
 @Injectable()
 export class ListScheduleMcpTool implements McpToolHandler {
@@ -53,7 +53,7 @@ export class ListScheduleMcpTool implements McpToolHandler {
 }
 
 /**
- * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L40)
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `POST /schedule`
  */
 @Injectable()
 export class CreateScheduleSlotMcpTool implements McpToolHandler {
@@ -76,7 +76,7 @@ export class CreateScheduleSlotMcpTool implements McpToolHandler {
 }
 
 /**
- * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L59)
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `GET /schedule/current`
  */
 @Injectable()
 export class ReadCurrentSlotMcpTool implements McpToolHandler {
@@ -99,7 +99,7 @@ export class ReadCurrentSlotMcpTool implements McpToolHandler {
 }
 
 /**
- * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L84)
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `GET /schedule/timetable`
  */
 @Injectable()
 export class ReadTimetableMcpTool implements McpToolHandler {
@@ -122,7 +122,7 @@ export class ReadTimetableMcpTool implements McpToolHandler {
 }
 
 /**
- * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L107)
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `PUT /schedule/{id}`
  */
 @Injectable()
 export class UpdateScheduleSlotMcpTool implements McpToolHandler {
@@ -145,7 +145,7 @@ export class UpdateScheduleSlotMcpTool implements McpToolHandler {
 }
 
 /**
- * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L119)
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `DELETE /schedule/{id}`
  */
 @Injectable()
 export class DeleteScheduleSlotMcpTool implements McpToolHandler {

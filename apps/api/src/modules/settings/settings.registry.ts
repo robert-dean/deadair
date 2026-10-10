@@ -82,6 +82,7 @@ import { SIMILARITY_ORDER_KEY } from '#modules/similarity/similarity.settings.js
 import { BRIEF_ONLY_DEFAULT, BRIEF_ONLY_KEY } from '#modules/director/set.generator.chain.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
 import { DEFAULT_SMART_SHUFFLE, DEFAULT_SMART_SHUFFLE_DAYS, SMART_SHUFFLE_DAYS_RANGE, SMART_SHUFFLE_KEYS } from '#modules/director/smart.shuffle.js';
+import { DEFAULT_SKIP_LEAN, DEFAULT_SKIP_LEAN_DAYS, SKIP_LEAN_DAYS_RANGE, SKIP_LEAN_KEYS } from '#modules/director/skip.lean.js';
 import { ADVISORY_DEFAULT, ADVISORY_KEY } from '#modules/director/advisory.policy.js';
 import { DEFAULT_BREAK_REASONING, MAX_OUTPUT_TOKENS, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
@@ -666,6 +667,29 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help:
             'A record that has just aired starts at a quarter of its usual chance of being drawn and warms up evenly until this many days ' +
             'have passed, when it is back to full. A fortnight suits most libraries. Play history is kept for 120 days, so that is the longest this can be.',
+    },
+    {
+        group: 'rotation',
+        key: SKIP_LEAN_KEYS.enabled,
+        label: 'Play what you skip less often',
+        type: 'boolean',
+        default: DEFAULT_SKIP_LEAN,
+        help:
+            'A record you cut short with Skip is drawn less often for a while: a quarter of its usual chance at first, recovering evenly ' +
+            'over the days below. Only your own Skip counts, from the console, an assistant or a chat command; a record cut because you ' +
+            'disliked it, or at a change of programme, does not. It is a lean and never a refusal (a dislike is how to stop a record ' +
+            'airing), and it shapes the draw from your own library only.',
+    },
+    {
+        group: 'rotation',
+        key: SKIP_LEAN_KEYS.days,
+        label: 'Days a skipped record takes to recover',
+        type: 'number',
+        default: DEFAULT_SKIP_LEAN_DAYS,
+        min: SKIP_LEAN_DAYS_RANGE.min,
+        max: SKIP_LEAN_DAYS_RANGE.max,
+        dependsOn: SKIP_LEAN_KEYS.enabled,
+        help: 'A fortnight suits most stations. Sixty at the most: longer than that is what a dislike is for.',
     },
     {
         group: 'rotation',

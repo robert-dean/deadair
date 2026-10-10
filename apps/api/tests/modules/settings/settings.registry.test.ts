@@ -35,6 +35,7 @@ import {
     DEFAULT_SMART_SHUFFLE_DAYS,
     SMART_SHUFFLE_KEYS,
 } from '../../../src/modules/director/smart.shuffle.js';
+import { clampSkipLeanDays, DEFAULT_SKIP_LEAN, DEFAULT_SKIP_LEAN_DAYS, SKIP_LEAN_KEYS } from '../../../src/modules/director/skip.lean.js';
 import { ConfigFieldOptionSource } from '../../../src/modules/plugins/types/plugins.types.js';
 import { providerCapabilities } from '../../../src/modules/plugins/plugin.providers.js';
 import { DEFAULT_RULES, ROTATION_KEYS, stationRules } from '../../../src/modules/director/rotation.rules.js';
@@ -308,6 +309,18 @@ describe('the settings registry', () => {
         expect(resolveSyncEveryHours(every.max)).toBe(every.max);
         expect(resolveSyncEveryHours(every.max! + 1)).toBe(every.max);
         expect(resolveSyncEveryHours(every.min! - 1)).toBe(every.min);
+    });
+
+    it('declares the skip lean over the same defaults and range its resolver uses', () => {
+        expect(findDescriptor(SKIP_LEAN_KEYS.enabled)!.default).toBe(DEFAULT_SKIP_LEAN);
+
+        const days = findDescriptor(SKIP_LEAN_KEYS.days)!;
+        expect(days.default).toBe(DEFAULT_SKIP_LEAN_DAYS);
+        expect(clampSkipLeanDays(days.min)).toBe(days.min);
+        expect(clampSkipLeanDays(days.max)).toBe(days.max);
+        expect(clampSkipLeanDays(days.max! + 1)).toBe(days.max);
+        expect(clampSkipLeanDays(days.min! - 1)).toBe(days.min);
+        expect(days.dependsOn).toBe(SKIP_LEAN_KEYS.enabled);
     });
 
     it('declares the smart shuffle over the same defaults and range its resolver uses', () => {

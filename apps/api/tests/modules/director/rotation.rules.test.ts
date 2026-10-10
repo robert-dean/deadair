@@ -29,6 +29,7 @@ import {
     weightOf,
     type RotationCandidate,
 } from '../../../src/modules/director/rotation.rules.js';
+import { SKIP_FLOOR } from '../../../src/modules/director/skip.lean.js';
 
 const candidate = (title: string, artists: string[], rating?: number, album?: string): RotationCandidate => ({
     songKey: songKey(title, artists),
@@ -442,6 +443,13 @@ describe('weightOf under smart shuffle', () => {
         expect(weightOf(fresh(-2))).toBe(FRESH_FLOOR);
         expect(weightOf(fresh(7))).toBe(1);
         expect(weightOf(fresh(Number.NaN))).toBe(1);
+    });
+
+    it('weighs a record the operator just skipped down to the skip floor, and lets it recover', () => {
+        expect(weightOf({ ...candidate('A', ['One']), skippedFor: 0 })).toBe(SKIP_FLOOR);
+        expect(weightOf({ ...candidate('A', ['One']), skippedFor: 1 })).toBe(1);
+        expect(weightOf({ ...candidate('A', ['One'], 1), skippedFor: 0, freshness: 0 })).toBe(2 * SKIP_FLOOR * FRESH_FLOOR);
+        expect(SKIP_FLOOR).toBeGreaterThan(0);
     });
 });
 

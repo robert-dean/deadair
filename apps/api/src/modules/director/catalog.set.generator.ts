@@ -14,6 +14,8 @@ import { albumKey, artistKey, songKey } from './rotation.keys.js';
 import { applyRulesHoldingQueue, spaceArtists, weightOf, type RotationCandidate } from './rotation.rules.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { freshnessOf, historyDaysFor, resolveSmartShuffle } from './smart.shuffle.js';
+import { resolveSkipLean, skipDaysFor } from './skip.lean.js';
+import { TrackSkipsRepository } from './track.skips.repository.js';
 import { trackLengthBounds } from './track.length.js';
 import { BlockRulesRepository } from './block.rules.repository.js';
 import { STEER_LEAN, steered } from './genre.steer.js';
@@ -85,6 +87,8 @@ export class CatalogSetGenerator extends SetGenerator {
         private readonly labels: LyricLabelsRepository,
         /** The never-play rules, applied to the draw itself so a refused record never takes a place in it. */
         private readonly neverPlay: NeverPlay,
+        /** What the operator cut short with Skip, for the skip lean. */
+        private readonly skips: TrackSkipsRepository,
     ) {
         super();
     }
@@ -107,15 +111,18 @@ export class CatalogSetGenerator extends SetGenerator {
         // batch. Deliberately not a field of `rules`: a setlist zeroes every rule, and a setlist is
         // never drawn from here anyway, so there is nothing for a per-lineup override to decide.
         const smartShuffle = resolveSmartShuffle(this.config);
+        const skipLean = resolveSkipLean(this.config);
 
         // Both windows are read at generation time rather than passed in, because
         // they move: a refill that ran a minute ago has itself changed the answer.
         // A disabled rule costs no query at all — see the repository. The smart shuffle's horizon
         // rides the same trip and the same rule: off, it asks for zero days and pays nothing.
-        const [songKeys, artistKeys, lastAired] = await Promise.all([
+        const [songKeys, artistKeys, lastAired, lastSkipped] = await Promise.all([
             this.history.songKeysSince(rules.repeatWindowDays, this.identity.stationKey),
             this.history.artistKeysSince(rules.artistCooldownMinutes, this.identity.stationKey),
             this.history.lastAiredSince(historyDaysFor(smartShuffle), this.identity.stationKey),
+            // Off, zero days and no query. A failed read costs the lean and never the batch.
+            this.skips.lastSkippedSince(skipDaysFor(skipLean), this.identity.stationKey).catch(() => new Map<string, DateTime>()),
         ]);
 
         const recent = {
@@ -163,8 +170,11 @@ export class CatalogSetGenerator extends SetGenerator {
                 smartShuffle.enabled ? { lastAired, now, horizonDays: smartShuffle.horizonDays } : undefined,
             );
             // The mood and the genre steer are two leans and both can hold: each multiplies in.
+            // How far a skipped record has come back, on the smart shuffle's own ramp.
+            const skipped = lastSkipped.get(candidate.songKey);
             return {
                 ...candidate,
+                ...(skipped === undefined ? {} : { skippedFor: freshnessOf(skipped, now, skipLean.days) }),
                 ...(fitting.has(track.trackId) ? { moodFit: true as const } : {}),
                 ...(leans?.has(track.trackId) ? { lean: STEER_LEAN } : {}),
             };

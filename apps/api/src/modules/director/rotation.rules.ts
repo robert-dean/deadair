@@ -1,4 +1,5 @@
 import { MOOD_BOOST } from './mood.lean.js';
+import { skipWeight } from './skip.lean.js';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { StationLineupMode, StationLineupRules } from './station.lineup.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
@@ -470,6 +471,12 @@ export interface RotationCandidate {
      * is leaned toward twice.
      */
     lean?: number;
+    /**
+     * How far a record the operator skipped has recovered, from `0` (just skipped) to `1` (a whole
+     * skip-lean window ago). Absent for anything never skipped inside it, which weighs like `1`. Set
+     * only by a draw that read the skips. See `skip.lean.ts`.
+     */
+    skippedFor?: number;
 }
 
 /** What the station has aired lately, as the rules read it. */
@@ -521,7 +528,11 @@ export const rejectDisliked = <T extends RotationCandidate>(candidates: readonly
  * that aired yesterday still come up, just less often than one nobody has heard in a fortnight.
  */
 export const weightOf = (candidate: RotationCandidate): number =>
-    (candidate.rating === 1 ? 2 : 1) * freshWeight(candidate.freshness) * (candidate.moodFit === true ? MOOD_BOOST : 1) * (candidate.lean ?? 1);
+    (candidate.rating === 1 ? 2 : 1) *
+    freshWeight(candidate.freshness) *
+    (candidate.moodFit === true ? MOOD_BOOST : 1) *
+    (candidate.lean ?? 1) *
+    skipWeight(candidate.skippedFor);
 
 /**
  * The share of its full weight a record that has JUST aired keeps under smart shuffle.

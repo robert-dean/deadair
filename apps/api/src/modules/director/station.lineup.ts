@@ -104,6 +104,14 @@ interface StationLineupLine {
     id: string;
     kind: StationLineupItemKind;
     state: StationLineupItemState;
+    /**
+     * Somebody put this here, so a replan or a shuffle leaves it where it is. See {@link isPinned}.
+     *
+     * On the item by {@link StationLineupTrackItem.mixedIn}'s rule: set when the item is created and
+     * never updated. Absent on everything the station chose for itself, which a replan is free to
+     * throw away because the operator asked it to choose again.
+     */
+    pinned?: true;
 }
 
 /** A record. */
@@ -247,6 +255,8 @@ export interface SegmentPlacement {
     groupId?: string;
     /** How long it runs, when known at planting. See {@link StationLineupSegmentItem.durationMs}. */
     durationMs?: number;
+    /** Somebody asked for this one. See {@link StationLineupLine.pinned}. */
+    pinned?: true;
 }
 
 /**
@@ -1240,12 +1250,19 @@ export class StationLineup implements LiveOrder {
         const gap = start < 0 ? (floor >= this.itemList.length ? this.itemList.length : undefined) : this.quietGapFrom(start);
         if (gap === undefined) return refuse('no-gap', 'there is no quiet place near the head of the order for a record just now');
 
-        const item: StationLineupTrackItem = { id: randomUUID(), kind: 'track', state: 'planned', track, requestId };
+        const item: StationLineupTrackItem = { id: randomUUID(), kind: 'track', state: 'planned', track, requestId, pinned: true };
         const lines: StationLineupItem[] =
             dedication === undefined
                 ? [item]
                 : [
-                      { id: randomUUID(), kind: 'segment', state: 'planned', segmentId: dedication.segmentId, segmentKind: dedication.segmentKind },
+                      {
+                          id: randomUUID(),
+                          kind: 'segment',
+                          state: 'planned',
+                          segmentId: dedication.segmentId,
+                          segmentKind: dedication.segmentKind,
+                          pinned: true,
+                      },
                       item,
                   ];
         this.itemList.splice(gap, 0, ...lines);
@@ -1318,6 +1335,7 @@ export class StationLineup implements LiveOrder {
                 ...(placement.over === undefined ? {} : { over: placement.over }),
                 ...(placement.groupId === undefined ? {} : { groupId: placement.groupId }),
                 ...(placement.durationMs === undefined ? {} : { durationMs: placement.durationMs }),
+                ...(placement.pinned ? { pinned: true as const } : {}),
             });
         }
         return OK;
@@ -1361,6 +1379,7 @@ export class StationLineup implements LiveOrder {
                 state: 'planned' as const,
                 segmentId: member.segmentId,
                 groupId,
+                pinned: true as const,
                 ...(segmentKind === undefined ? {} : { segmentKind }),
                 ...(member.durationMs === undefined ? {} : { durationMs: member.durationMs }),
             })),
@@ -1369,12 +1388,13 @@ export class StationLineup implements LiveOrder {
         return OK;
     }
 
-    /** Put one segment into the order at a position. */
+    /** Put one segment into the order at a position. An operator's edit, so it is {@link StationLineupLine.pinned}. */
     insertSegment(segmentId: string, atIndex: number, over?: { atMs: number }, segmentKind?: string): EditResult {
         return this.insertSegments([
             {
                 segmentId,
                 atIndex,
+                pinned: true,
                 ...(over === undefined ? {} : { over }),
                 ...(segmentKind === undefined ? {} : { segmentKind }),
             },
@@ -1400,7 +1420,7 @@ export class StationLineup implements LiveOrder {
         if (atIndex < this.committedThrough()) return refuse('already-aired', 'that position has already been handed to the player');
 
         const index = Math.min(atIndex, this.itemList.length);
-        this.itemList.splice(index, 0, toItem(track));
+        this.itemList.splice(index, 0, { ...toItem(track), pinned: true });
         return OK;
     }
 
@@ -1691,6 +1711,7 @@ export class StationLineup implements LiveOrder {
             state: 'planned',
             track,
             followsRequestId: requestId,
+            pinned: true,
         }));
         this.itemList = [...this.itemList.slice(0, at + 1), ...behind.filter(item => item.state !== 'planned'), ...following];
         return dropped;
@@ -1753,6 +1774,27 @@ export class StationLineup implements LiveOrder {
 }
 
 const toItem = (track: RundownTrack): StationLineupItem => ({ id: randomUUID(), kind: 'track', state: 'planned', track });
+
+/**
+ * Whether a replan or a shuffle has to leave this item where it is.
+ *
+ * What a replan is FOR is the station choosing again, so everything the station chose is fair game.
+ * What somebody else put there is not: a listener's request and the words dedicating it, the records
+ * a request show chose to follow it, a production (whose row is marked aired the moment it is
+ * planted, so dropping it loses the episode), a break somebody asked for, and anything the operator
+ * added by hand. Every one of those used to go with the rest of the planned tail, and a request then
+ * lapsed three hours later as having "left the running order".
+ *
+ * Read off the markers those items already carried as well as {@link StationLineupLine.pinned}, so an
+ * order written before the flag existed still keeps them across a restart.
+ */
+export const isPinned = (item: StationLineupItem): boolean => {
+    if (item.pinned === true) return true;
+    if (item.kind === 'track') return item.requestId !== undefined || item.followsRequestId !== undefined;
+    // `DEDICATION_KIND` in `dedication.writer.ts`, spelled out rather than imported: that module pulls
+    // the break writers in, and the running order has no business depending on them.
+    return item.groupId !== undefined || item.segmentKind === 'dedication';
+};
 
 /** Narrow an item to the records, for anything that reasons about what the station is PLAYING. */
 export const isTrackItem = (item: StationLineupItem): item is StationLineupTrackItem => item.kind === 'track';

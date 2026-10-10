@@ -265,6 +265,7 @@ const toItems = (value: unknown): StationLineupItem[] => {
                   mixedIn?: unknown;
                   requestId?: unknown;
                   followsRequestId?: unknown;
+                  pinned?: unknown;
                   track?: Partial<RundownTrack>;
               }
             | null
@@ -296,6 +297,7 @@ const toItems = (value: unknown): StationLineupItem[] => {
                 ...(typeof line.segmentKind === 'string' ? { segmentKind: line.segmentKind } : {}),
                 ...(atMs === undefined ? {} : { over: { atMs } }),
                 ...(typeof line.groupId === 'string' ? { groupId: line.groupId } : {}),
+                ...(line.pinned === true ? { pinned: true as const } : {}),
                 // The length an episode was planted with, or the hour it runs projects as nothing
                 // after a restart and the clock behind it is planted an hour early.
                 ...(typeof line.durationMs === 'number' && Number.isFinite(line.durationMs) && line.durationMs > 0
@@ -324,6 +326,7 @@ const toItems = (value: unknown): StationLineupItem[] => {
                 ...(line.mixedIn === true ? { mixedIn: true } : {}),
                 ...(typeof line.requestId === 'string' ? { requestId: line.requestId } : {}),
                 ...(typeof line.followsRequestId === 'string' ? { followsRequestId: line.followsRequestId } : {}),
+                ...(line.pinned === true ? { pinned: true as const } : {}),
             });
         }
         return items;

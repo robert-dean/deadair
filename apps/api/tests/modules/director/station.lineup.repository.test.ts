@@ -105,6 +105,14 @@ const items = (): StationLineupItem[] => [
     { id: 'item-news', kind: 'segment', state: 'handed', segmentId: 'seg-news', segmentKind: 'news' },
     { id: 'item-episode', kind: 'segment', state: 'planned', segmentId: 'seg-episode', segmentKind: 'syndicated', durationMs: 3_723_000 },
     { id: 'item-cue', kind: 'segment', state: 'planned', segmentId: 'seg-cue', segmentKind: 'talk', over: { atMs: 4_500 } },
+    { id: 'item-asked-for', kind: 'segment', state: 'planned', segmentId: 'seg-asked-for', segmentKind: 'welcome', pinned: true },
+    {
+        id: 'item-added',
+        kind: 'track',
+        state: 'planned',
+        track: { pluginId: 'spotify', externalId: 'ext-6', title: 'Put There', artist: 'Somebody Chosen', artists: ['Somebody Chosen'] },
+        pinned: true,
+    },
     { id: 'item-beat-1', kind: 'segment', state: 'planned', segmentId: 'seg-beat-1', segmentKind: 'production', groupId: 'episode-1' },
     { id: 'item-beat-2', kind: 'segment', state: 'planned', segmentId: 'seg-beat-2', segmentKind: 'production', groupId: 'episode-1' },
 ];
@@ -189,6 +197,12 @@ describe('StationLineupRepository round trip', () => {
         // And a record chosen to follow a request still says which, so the next request waits for the run.
         expect(byId.get('item-following')).toMatchObject({ followsRequestId: 'request-1' });
         expect(byId.get('item-track')).not.toHaveProperty('followsRequestId');
+        // And whatever somebody put there stays pinned across a restart, or the first replan after
+        // one throws it away with the station's own choices.
+        expect(byId.get('item-added')).toMatchObject({ pinned: true });
+        expect(byId.get('item-asked-for')).toMatchObject({ pinned: true });
+        expect(byId.get('item-track')).not.toHaveProperty('pinned');
+        expect(byId.get('item-break')).not.toHaveProperty('pinned');
     });
 
     it('reads a mixed-in flag that is not literally true as absent', async () => {

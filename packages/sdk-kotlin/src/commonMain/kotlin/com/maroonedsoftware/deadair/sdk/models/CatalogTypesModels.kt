@@ -170,6 +170,21 @@ data class VocalMarkersDetail(
 @Serializable
 class VocalMarkersDetailInput
 
+/** One timed line of a record's lyrics. Times are milliseconds from the start of the file. */
+@Serializable
+data class LyricLineDetail(
+    /** Where the line starts */
+    val atMs: Long,
+    /** Where the line ends, when the source published one. Absent rather than guessed */
+    val endMs: Long? = null,
+    /** The words of the line. Empty for a gap the source marked between lines */
+    val text: String,
+)
+
+/** One timed line of a record's lyrics. Times are milliseconds from the start of the file. */
+@Serializable
+class LyricLineDetailInput
+
 /** An operator's correction: either the record is instrumental, or the singing starts at `onsetMs`. */
 @Serializable
 data class VocalMarkersInput(
@@ -280,7 +295,7 @@ data class TrackStateCounts(
     val enriched: Long,
     val benched: Long,
     val failing: Long,
-    /** A lyrics source has the words of it. The words themselves are never served */
+    /** A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics` */
     val lyrics: Long,
     /** A lyrics source has the timing of its lines, which says when the singing starts */
     val synced: Long,
@@ -460,6 +475,53 @@ data class TrackInput(
     val durationMs: Long? = null,
     val rating: Rating? = Rating.NEUTRAL,
 )
+
+/**
+ * The station's answer for one record's lyrics: the words from the source it believes, or that nobody
+ * sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
+ * player following along adds the record's cue-in to how long it has been on air.
+ */
+@Serializable
+data class TrackLyrics(
+    val trackId: Uuid,
+    /** The words are here; a source says nobody sings on it; or no source has an answer yet */
+    val kind: TrackLyricsKind,
+    /** The plugin whose answer this is, when kind is words or instrumental */
+    val provider: String? = null,
+    /** The words without timings, when that source has them */
+    val plain: String? = null,
+    /** The timed lines, when that source has them. Preferred over plain when choosing a source */
+    val synced: List<LyricLineDetail>? = null,
+    /** A BCP 47 tag, when the source stated one */
+    val language: String? = null,
+)
+
+/**
+ * The station's answer for one record's lyrics: the words from the source it believes, or that nobody
+ * sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
+ * player following along adds the record's cue-in to how long it has been on air.
+ */
+@Serializable
+class TrackLyricsInput
+
+/** One lyrics source's answer for one record. A source that was asked and had nothing is not listed. */
+@Serializable
+data class TrackLyricsSource(
+    /** The plugin that answered */
+    val provider: String,
+    /** The source's own id for what it matched */
+    val providerRef: String? = null,
+    val plain: String? = null,
+    val synced: List<LyricLineDetail>? = null,
+    val language: String? = null,
+    /** The source says nobody sings on this record, so it holds no words */
+    val instrumental: Boolean,
+    val fetchedAt: Instant,
+)
+
+/** One lyrics source's answer for one record. A source that was asked and had nothing is not listed. */
+@Serializable
+class TrackLyricsSourceInput
 
 /**
  * Pagination plus a name filter. Every list operation here takes it, so the console's search box
@@ -693,6 +755,17 @@ data class TrackRowInput(
     val rating: Rating? = Rating.NEUTRAL,
 )
 
+/** Every lyrics source's answer for one record, in the order the station believes them. */
+@Serializable
+data class TrackLyricsSources(
+    val trackId: Uuid,
+    val sources: List<TrackLyricsSource>,
+)
+
+/** Every lyrics source's answer for one record, in the order the station believes them. */
+@Serializable
+class TrackLyricsSourcesInput
+
 /**
  * A track list, narrowed by what the station has of each record as well as by name.
  *
@@ -896,6 +969,17 @@ enum class VocalMarkersDetailSource {
     OVERRIDE,
     @SerialName("lyrics")
     LYRICS,
+    @SerialName("none")
+    NONE,
+}
+
+/** The words are here; a source says nobody sings on it; or no source has an answer yet */
+@Serializable
+enum class TrackLyricsKind {
+    @SerialName("words")
+    WORDS,
+    @SerialName("instrumental")
+    INSTRUMENTAL,
     @SerialName("none")
     NONE,
 }

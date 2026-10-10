@@ -54,7 +54,7 @@ export const lrclibManifest: PluginManifest = {
     capabilities: ['lyrics'],
     apiVersion: '^1.0.0',
     description:
-        'The words of each record and the timing of each line, from LRCLIB, an open lyrics database. The station never says or shows them: it uses the timings to know when the singing starts.',
+        'The words of each record and the timing of each line, from LRCLIB, an open lyrics database. The station never says them: it uses the timings to know when the singing starts, and a signed-in app can show them.',
     homepage: 'https://lrclib.net',
     permissions: {
         // The public host first, so a `baseUrl` left pointing at it keeps the gentle rate. A copy the
@@ -69,7 +69,7 @@ export const lrclibManifest: PluginManifest = {
             label: 'LRCLIB address',
             type: 'url',
             default: DEFAULT_BASE_URL,
-            help: 'The public LRCLIB, or a copy you run yourself from its published database. Its lyrics are contributed by volunteers and their rights are not cleared by anybody, so whether to keep them is your call. The station never says or shows them.',
+            help: 'The public LRCLIB, or a copy you run yourself from its published database. Its lyrics are contributed by volunteers and their rights are not cleared by anybody, so whether to keep them is your call. The station never says them, though a signed-in app can show them.',
         },
     ],
     configSchema,

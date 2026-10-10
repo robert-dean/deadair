@@ -145,6 +145,42 @@ contract VocalMarkersDetail: {
     source: readonly enum(override, lyrics, none) # An operator's correction, the record's timed lyrics, or neither
 }
 
+# One timed line of a record's lyrics. Times are milliseconds from the start of the file.
+contract LyricLineDetail: {
+    atMs: readonly int(min=0) # Where the line starts
+    endMs?: readonly int(min=0) # Where the line ends, when the source published one. Absent rather than guessed
+    text: readonly string # The words of the line. Empty for a gap the source marked between lines
+}
+
+# The station's answer for one record's lyrics: the words from the source it believes, or that nobody
+# sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
+# player following along adds the record's cue-in to how long it has been on air.
+contract TrackLyrics: {
+    trackId: readonly uuid
+    kind: readonly enum(words, instrumental, none) # The words are here; a source says nobody sings on it; or no source has an answer yet
+    provider?: readonly string # The plugin whose answer this is, when kind is words or instrumental
+    plain?: readonly string # The words without timings, when that source has them
+    synced?: readonly array(LyricLineDetail) # The timed lines, when that source has them. Preferred over plain when choosing a source
+    language?: readonly string # A BCP 47 tag, when the source stated one
+}
+
+# One lyrics source's answer for one record. A source that was asked and had nothing is not listed.
+contract TrackLyricsSource: {
+    provider: readonly string # The plugin that answered
+    providerRef?: readonly string # The source's own id for what it matched
+    plain?: readonly string
+    synced?: readonly array(LyricLineDetail)
+    language?: readonly string
+    instrumental: readonly boolean # The source says nobody sings on this record, so it holds no words
+    fetchedAt: readonly datetime
+}
+
+# Every lyrics source's answer for one record, in the order the station believes them.
+contract TrackLyricsSources: {
+    trackId: readonly uuid
+    sources: readonly array(TrackLyricsSource)
+}
+
 # An operator's correction: either the record is instrumental, or the singing starts at `onsetMs`.
 contract VocalMarkersInput: {
     instrumental?: boolean = false # Nobody sings on this record, whatever its lyrics say
@@ -217,7 +253,7 @@ contract TrackStateCounts: {
     enriched: readonly int(min=0)
     benched: readonly int(min=0)
     failing: readonly int(min=0)
-    lyrics: readonly int(min=0) # A lyrics source has the words of it. The words themselves are never served
+    lyrics: readonly int(min=0) # A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`
     synced: readonly int(min=0) # A lyrics source has the timing of its lines, which says when the singing starts
     instrumental: readonly int(min=0) # A lyrics source says nobody sings on it
     moods: readonly int(min=0) # A model has judged what mood it is in

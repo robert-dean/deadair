@@ -35,3 +35,11 @@ contract NowPlaying: { # What the station is playing, for anything that wants to
     show?: NowPlayingShow # Present whenever `track` is and the station has said what programme it belongs to. Absent off air, and while a station warming up has nothing airing yet
     track?: NowPlayingTrack
 }
+
+contract NowPlayingLyrics: { # The words of whatever record is on air, and where it is in them
+    onAir: boolean # False when nothing is airing, with everything else absent
+    trackId?: uuid # The catalog record on air. Absent while the station is talking, and for a record the catalog has never held
+    startedAt?: int(min=0) # Unix epoch millis when the record went on air, the same instant `/nowplaying` reports
+    cueInMs?: int(min=0) # Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top
+    lyrics?: TrackLyrics # The station's answer for that record. Absent with no `trackId`
+}

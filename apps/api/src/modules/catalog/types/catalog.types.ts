@@ -139,6 +139,23 @@ export const VocalMarkersDetailInput = z.strictObject({});
 export type VocalMarkersDetailInput = z.infer<typeof VocalMarkersDetailInput>;
 
 /**
+ * One timed line of a record's lyrics. Times are milliseconds from the start of the file.
+ * generated from [LyricLineDetail](../../../../data/contracts/catalog/catalog.types.ck)
+ */
+export const LyricLineDetail = z.strictObject({
+    atMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).describe('Where the line starts'),
+    endMs: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .optional()
+        .describe('Where the line ends, when the source published one. Absent rather than guessed'),
+    text: z.string().describe('The words of the line. Empty for a gap the source marked between lines'),
+});
+export type LyricLineDetail = z.infer<typeof LyricLineDetail>;
+
+export const LyricLineDetailInput = z.strictObject({});
+export type LyricLineDetailInput = z.infer<typeof LyricLineDetailInput>;
+
+/**
  * An operator's correction: either the record is instrumental, or the singing starts at `onsetMs`.
  * generated from [VocalMarkersInput](../../../../data/contracts/catalog/catalog.types.ck)
  */
@@ -228,7 +245,7 @@ export const TrackStateCounts = z.strictObject({
     failing: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
     lyrics: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
-        .describe('A lyrics source has the words of it. The words themselves are never served'),
+        .describe('A lyrics source has the words of it. The words themselves are at `/catalog/tracks/{id}/lyrics`'),
     synced: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .describe('A lyrics source has the timing of its lines, which says when the singing starts'),
@@ -385,6 +402,45 @@ export const TrackInput = z.strictObject({
     rating: Rating.default('neutral'),
 });
 export type TrackInput = z.infer<typeof TrackInput>;
+
+/**
+ * The station's answer for one record's lyrics: the words from the source it believes, or that nobody
+ * sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
+ * player following along adds the record's cue-in to how long it has been on air.
+ * generated from [TrackLyrics](../../../../data/contracts/catalog/catalog.types.ck)
+ */
+export const TrackLyrics = z.strictObject({
+    trackId: z.uuid(),
+    kind: z.enum(['words', 'instrumental', 'none']).describe('The words are here; a source says nobody sings on it; or no source has an answer yet'),
+    provider: z.string().optional().describe('The plugin whose answer this is, when kind is words or instrumental'),
+    plain: z.string().optional().describe('The words without timings, when that source has them'),
+    synced: z.array(LyricLineDetail).optional().describe('The timed lines, when that source has them. Preferred over plain when choosing a source'),
+    language: z.string().optional().describe('A BCP 47 tag, when the source stated one'),
+});
+export type TrackLyrics = z.infer<typeof TrackLyrics>;
+
+export const TrackLyricsInput = z.strictObject({});
+export type TrackLyricsInput = z.infer<typeof TrackLyricsInput>;
+
+/**
+ * One lyrics source's answer for one record. A source that was asked and had nothing is not listed.
+ * generated from [TrackLyricsSource](../../../../data/contracts/catalog/catalog.types.ck)
+ */
+export const TrackLyricsSource = z.strictObject({
+    provider: z.string().describe('The plugin that answered'),
+    providerRef: z.string().optional().describe("The source's own id for what it matched"),
+    plain: z.string().optional(),
+    synced: z.array(LyricLineDetail).optional(),
+    language: z.string().optional(),
+    instrumental: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe('The source says nobody sings on this record, so it holds no words'),
+    fetchedAt: _ZodDatetime,
+});
+export type TrackLyricsSource = z.infer<typeof TrackLyricsSource>;
+
+export const TrackLyricsSourceInput = z.strictObject({});
+export type TrackLyricsSourceInput = z.infer<typeof TrackLyricsSourceInput>;
 
 /**
  * Pagination plus a name filter. Every list operation here takes it, so the console's search box
@@ -569,6 +625,19 @@ export type TrackRow = z.infer<typeof TrackRow>;
 
 export const TrackRowInput = TrackInput.extend({});
 export type TrackRowInput = z.infer<typeof TrackRowInput>;
+
+/**
+ * Every lyrics source's answer for one record, in the order the station believes them.
+ * generated from [TrackLyricsSources](../../../../data/contracts/catalog/catalog.types.ck)
+ */
+export const TrackLyricsSources = z.strictObject({
+    trackId: z.uuid(),
+    sources: z.array(TrackLyricsSource),
+});
+export type TrackLyricsSources = z.infer<typeof TrackLyricsSources>;
+
+export const TrackLyricsSourcesInput = z.strictObject({});
+export type TrackLyricsSourcesInput = z.infer<typeof TrackLyricsSourcesInput>;
 
 /**
  * A track list, narrowed by what the station has of each record as well as by name.

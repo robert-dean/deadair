@@ -16,4 +16,12 @@ public final class NowplayingClient: Sendable {
         let response = try await http.execute(request)
         return try http.decodeJSON(NowPlaying.self, from: response)
     }
+
+    /// Get now playing lyrics
+    /// The words of the record on air, with what a player needs to follow along line by line
+    public func getNowPlayingLyrics() async throws -> NowPlayingLyrics {
+        let request = SdkRequest(method: "GET", path: ["nowplaying", "lyrics"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(NowPlayingLyrics.self, from: response)
+    }
 }

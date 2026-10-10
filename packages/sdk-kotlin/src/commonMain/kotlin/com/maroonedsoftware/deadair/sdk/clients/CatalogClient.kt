@@ -16,6 +16,8 @@ import com.maroonedsoftware.deadair.sdk.models.Track
 import com.maroonedsoftware.deadair.sdk.models.TrackClearResult
 import com.maroonedsoftware.deadair.sdk.models.TrackDetail
 import com.maroonedsoftware.deadair.sdk.models.TrackEnrichmentDetail
+import com.maroonedsoftware.deadair.sdk.models.TrackLyrics
+import com.maroonedsoftware.deadair.sdk.models.TrackLyricsSources
 import com.maroonedsoftware.deadair.sdk.models.TrackPage
 import com.maroonedsoftware.deadair.sdk.models.TrackQueryInput
 import com.maroonedsoftware.deadair.sdk.models.VocalMarkersDetail
@@ -201,6 +203,28 @@ class CatalogClient(private val http: SdkHttp) {
     suspend fun clearVocalMarkers(id: Uuid): VocalMarkersDetail {
         val response = http.execute(HttpMethod.Delete) {
             path("catalog", "tracks", segment(id), "vocal-markers")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Get track lyrics
+     * The words of one record, from the lyrics source the station believes, with the timing of each line when that source has it
+     */
+    suspend fun getTrackLyrics(id: Uuid): TrackLyrics {
+        val response = http.execute(HttpMethod.Get) {
+            path("catalog", "tracks", segment(id), "lyrics")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * List track lyrics sources
+     * What every lyrics source answered for one record, in the order the station believes them
+     */
+    suspend fun listTrackLyricsSources(id: Uuid): TrackLyricsSources {
+        val response = http.execute(HttpMethod.Get) {
+            path("catalog", "tracks", segment(id), "lyrics", "sources")
         }
         return http.decodeJson(response)
     }

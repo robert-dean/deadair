@@ -226,6 +226,18 @@ with the lyric. `WriteBreakJob.aboutTheRecords` stamps it on `BreakTrack.about` 
 `describe` renders it behind `withFacts` as "What it is about", beside a line asking for no quoting.
 A writer cannot quote a line it was never shown, which is why the subject travels and the lyric does not.
 
+**A signed-in app can read the words, and that changes nothing above.** Since 2026-10-10
+`LyricsReadService` serves them read-only: `/catalog/tracks/{id}/lyrics` (the source the station believes,
+in `lyrics.providerOrder`, timed lines before plain, one source's fields never mixed with another's),
+`/catalog/tracks/{id}/lyrics/sources`, and `/nowplaying/lyrics` with the record's `startedAt` and
+`cueInMs`, so a player highlights a line on the file's timeline as the vocal markers read it. All three
+are `platform.view` and `mcp: exclude`: a model that can read a lyric can recite it, so the MCP surface is
+the one reader treated like a writer here. This reverses the "never on the wire" rule that migration 0063's
+comment and [track-lyrics](https://github.com/robert-dean/deadair/discussions/47) state; the migration is
+left as written because an applied one is never edited. `wordsForServing` is the only repository read
+behind the routes, so `textForDerivation` stays the greppable list of everything that turns the words
+into something the station says.
+
 **A sentence written before the record's lyric arrived is written again once it has.** "Once per record"
 was literal at first, and the first live pass ran a quarter of an hour before the first lyrics pass,
 with the search returning nothing: fifteen of seventeen subjects came from the model's memory, one

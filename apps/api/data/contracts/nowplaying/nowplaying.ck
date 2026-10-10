@@ -4,6 +4,7 @@ options {
     }
     services: {
         NowPlayingService: "#src/modules/nowplaying/nowplaying.service.js"
+        LyricsReadService: "#src/modules/lyrics/lyrics.read.service.js"
     }
 }
 
@@ -27,6 +28,28 @@ operation /nowplaying: {
         response: {
             200: {
                 application/json: NowPlaying
+            }
+        }
+    }
+}
+
+operation /nowplaying/lyrics: {
+    get: { # The words of the record on air, with what a player needs to follow along line by line
+        name: Get now playing lyrics
+        # Kept off the MCP surface for the reason the catalog's lyrics routes are: a model that can
+        # read a lyric can recite it.
+        mcp: exclude
+        service: LyricsReadService.getNowPlayingLyrics
+        security: {
+            # NOT public, unlike `/nowplaying` above. What is on air is audible to anyone listening;
+            # the words are somebody's copyrighted text, so they take the catalog's read floor. The
+            # CORS opening and the transaction exemption both name `/nowplaying` exactly, so neither
+            # reaches this route, and this route reads the database.
+            policy: platform.view
+        }
+        response: {
+            200: {
+                application/json: NowPlayingLyrics
             }
         }
     }

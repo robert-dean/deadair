@@ -1733,7 +1733,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Look up the words of each record',
         type: 'boolean',
         default: LYRICS_FETCH_DEFAULT,
-        help: 'Asks your lyrics plugins for the words of each record and the timing of each line, a few records at a time in the background. The station never says or shows them: what it uses is when the singing starts and stops, and what a record is about. Lyrics are somebody else’s copyrighted text and the sources are run by volunteers, so this stays off until you decide to keep them.',
+        help: 'Asks your lyrics plugins for the words of each record and the timing of each line, a few records at a time in the background. The station never says them: what it uses is when the singing starts and stops, and what a record is about. A signed-in app can show them, for the record on air or any record in the library. Lyrics are somebody else’s copyrighted text and the sources are run by volunteers, so this stays off until you decide to keep them.',
     },
 
     // ── schedule ───────────────────────────────────────────────────────────────

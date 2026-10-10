@@ -231,6 +231,32 @@ public sealed class CatalogClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Get track lyrics
+    /// The words of one record, from the lyrics source the station believes, with the timing of each line when that source has it
+    /// </summary>
+    public async Task<TrackLyrics> GetTrackLyricsAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("catalog", "tracks", http.Segment(id), "lyrics"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<TrackLyrics>(response);
+    }
+
+    /// <summary>
+    /// List track lyrics sources
+    /// What every lyrics source answered for one record, in the order the station believes them
+    /// </summary>
+    public async Task<TrackLyricsSources> ListTrackLyricsSourcesAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("catalog", "tracks", http.Segment(id), "lyrics", "sources"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<TrackLyricsSources>(response);
+    }
+
+    /// <summary>
     /// Retry track audio
     /// Try this record's copies again now, rather than when the backoff says
     /// </summary>

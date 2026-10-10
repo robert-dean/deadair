@@ -143,6 +143,22 @@ public final class CatalogClient: Sendable {
         return try http.decodeJSON(VocalMarkersDetail.self, from: response)
     }
 
+    /// Get track lyrics
+    /// The words of one record, from the lyrics source the station believes, with the timing of each line when that source has it
+    public func getTrackLyrics(id: UUID) async throws -> TrackLyrics {
+        let request = try SdkRequest(method: "GET", path: ["catalog", "tracks", http.segment(id), "lyrics"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(TrackLyrics.self, from: response)
+    }
+
+    /// List track lyrics sources
+    /// What every lyrics source answered for one record, in the order the station believes them
+    public func listTrackLyricsSources(id: UUID) async throws -> TrackLyricsSources {
+        let request = try SdkRequest(method: "GET", path: ["catalog", "tracks", http.segment(id), "lyrics", "sources"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(TrackLyricsSources.self, from: response)
+    }
+
     /// Retry track audio
     /// Try this record's copies again now, rather than when the backoff says
     public func retryTrackAudio(id: UUID) async throws -> TrackClearResult {

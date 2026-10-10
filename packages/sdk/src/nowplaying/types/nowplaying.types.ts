@@ -1,3 +1,6 @@
+import type { TrackLyrics } from '../../catalog/types/catalog.types.js';
+import type { TrackLyricsInput } from '../../catalog/types/catalog.types.js';
+
 /**
  * What a listener is hearing right now: a record, or the station talking
  * generated from [NowPlayingTrack](../../../../../apps/api/data/contracts/nowplaying/nowplaying.types.ck)
@@ -42,6 +45,36 @@ export interface NowPlayingShow {
     host?: string;
     /** A picture of whoever is presenting, when the operator gave their persona one. A path under the API root, like a cover's. Absent for a persona with no picture, which a player answers by showing the record's cover as before */
     hostArtUrl?: string;
+}
+
+/**
+ * The words of whatever record is on air, and where it is in them
+ * generated from [NowPlayingLyrics](../../../../../apps/api/data/contracts/nowplaying/nowplaying.types.ck)
+ */
+export interface NowPlayingLyrics {
+    /** False when nothing is airing, with everything else absent */
+    onAir: boolean;
+    /** The catalog record on air. Absent while the station is talking, and for a record the catalog has never held */
+    trackId?: string;
+    /** Unix epoch millis when the record went on air, the same instant `/nowplaying` reports */
+    startedAt?: number;
+    /** Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top */
+    cueInMs?: number;
+    /** The station's answer for that record. Absent with no `trackId` */
+    lyrics?: TrackLyrics;
+}
+
+export interface NowPlayingLyricsInput {
+    /** False when nothing is airing, with everything else absent */
+    onAir: boolean;
+    /** The catalog record on air. Absent while the station is talking, and for a record the catalog has never held */
+    trackId?: string;
+    /** Unix epoch millis when the record went on air, the same instant `/nowplaying` reports */
+    startedAt?: number;
+    /** Where in the file the record started playing. A line's `atMs` counts from the top of the file, so the position to highlight is now minus `startedAt` plus this. Absent means the record airs from the top */
+    cueInMs?: number;
+    /** The station's answer for that record. Absent with no `trackId` */
+    lyrics?: TrackLyricsInput;
 }
 
 /**

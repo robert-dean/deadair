@@ -8,6 +8,7 @@ options {
         TracksService: "#src/modules/catalog/tracks.service.js"
         EnrichmentReadService: "#src/modules/enrichment/enrichment.read.service.js"
         VocalMarkersService: "#src/modules/lyrics/vocal.markers.service.js"
+        LyricsReadService: "#src/modules/lyrics/lyrics.read.service.js"
     }
     security: {
         # The floor for every operation in this file, cascading file -> route -> operation. Almost
@@ -296,6 +297,40 @@ operation /catalog/tracks/{id}/vocal-markers: {
         response: {
             200: {
                 application/json: VocalMarkersDetail
+            }
+        }
+    }
+}
+
+operation /catalog/tracks/{id}/lyrics: {
+    params: {
+        id: uuid
+    }
+    get: { # The words of one record, from the lyrics source the station believes, with the timing of each line when that source has it
+        name: Get track lyrics
+        # Kept off the MCP surface: a lyric is somebody's copyrighted text in full, and a model that
+        # can read it can recite it. The presenter's writer is never shown it either.
+        mcp: exclude
+        service: LyricsReadService.getTrackLyrics
+        response: {
+            200: {
+                application/json: TrackLyrics
+            }
+        }
+    }
+}
+
+operation /catalog/tracks/{id}/lyrics/sources: {
+    params: {
+        id: uuid
+    }
+    get: { # What every lyrics source answered for one record, in the order the station believes them
+        name: List track lyrics sources
+        mcp: exclude
+        service: LyricsReadService.listTrackLyricsSources
+        response: {
+            200: {
+                application/json: TrackLyricsSources
             }
         }
     }

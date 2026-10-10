@@ -4,20 +4,20 @@ import type { TrackRef } from './enrichment.js';
  * The `lyrics` kind. A lyrics plugin finds the words of a record, and the
  * timings of its lines when its source has them.
  *
- * ## Read by the host, and never said
+ * ## Read by the host, shown to a signed-in app, and never said
  *
  * A lyric is somebody's copyrighted text in full, and it is the one kind of
  * enrichment the station must never do what it does with everything else to:
- * say it out loud. Every other payload a plugin hands over exists to be spoken
- * or shown. This one exists to be read by the host and by nothing else, so the
- * host keeps it in a table of its own, never serves it on the wire, never
- * extracts a fact from it and never puts it in a prompt a deterministic writer
- * reads.
+ * say it out loud. Every other payload a plugin hands over exists to be spoken.
+ * This one is kept in a table of its own, never extracted into a fact, never
+ * put in a prompt a writer reads, and never offered to a connected assistant.
+ * The one place it leaves the host is the read-only lyrics routes, for a
+ * signed-in app to show on screen.
  *
  * That is also why this is a capability of its own rather than a field on
- * `TrackEnrichment`. Enrichment is merged last-wins by priority and served to
- * the console; a plain lyric from one source and a synced lyric from another
- * are two artifacts the station wants both of, and neither belongs on a page.
+ * `TrackEnrichment`. Enrichment is merged last-wins by priority and fed to the
+ * break writer; a plain lyric from one source and a synced lyric from another
+ * are two artifacts the station wants both of, and neither belongs in a prompt.
  *
  * ## What the host does with it
  *

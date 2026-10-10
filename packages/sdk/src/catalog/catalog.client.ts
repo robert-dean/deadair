@@ -14,12 +14,20 @@ import type {
     TrackClearResult,
     TrackDetail,
     TrackEnrichmentDetail,
+    TrackLyrics,
+    TrackLyricsSources,
     TrackPage,
     TrackQueryInput,
     VocalMarkersDetail,
     VocalMarkersInput,
 } from './types/catalog.types.js';
-import { reviveAlbumEnrichmentDetail, reviveArtistEnrichmentDetail, reviveTrackDetail, reviveTrackEnrichmentDetail } from './types/catalog.types.js';
+import {
+    reviveAlbumEnrichmentDetail,
+    reviveArtistEnrichmentDetail,
+    reviveTrackDetail,
+    reviveTrackEnrichmentDetail,
+    reviveTrackLyricsSources,
+} from './types/catalog.types.js';
 
 export class CatalogClient {
     constructor(private fetch: SdkFetch) {}
@@ -184,6 +192,24 @@ export class CatalogClient {
     async clearVocalMarkers(id: string): Promise<VocalMarkersDetail> {
         const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/vocal-markers`, { method: 'DELETE' });
         return await parseJson<VocalMarkersDetail>(result);
+    }
+
+    /**
+     * @name Get track lyrics
+     * @description The words of one record, from the lyrics source the station believes, with the timing of each line when that source has it
+     */
+    async getTrackLyrics(id: string): Promise<TrackLyrics> {
+        const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/lyrics`, { method: 'GET' });
+        return await parseJson<TrackLyrics>(result);
+    }
+
+    /**
+     * @name List track lyrics sources
+     * @description What every lyrics source answered for one record, in the order the station believes them
+     */
+    async listTrackLyricsSources(id: string): Promise<TrackLyricsSources> {
+        const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/lyrics/sources`, { method: 'GET' });
+        return reviveTrackLyricsSources(await parseJson<TrackLyricsSources>(result));
     }
 
     /**

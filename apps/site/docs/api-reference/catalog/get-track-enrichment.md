@@ -1,7 +1,7 @@
 ---
 title: 'Get track enrichment'
 sidebar_label: 'Get track enrichment'
-sidebar_position: 19
+sidebar_position: 21
 mdx:
     format: 'md'
 ---

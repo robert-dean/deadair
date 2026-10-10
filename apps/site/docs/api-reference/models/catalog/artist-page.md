@@ -1,6 +1,6 @@
 ---
 title: 'ArtistPage'
-sidebar_position: 21
+sidebar_position: 25
 mdx:
     format: 'md'
 ---

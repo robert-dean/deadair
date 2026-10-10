@@ -9,7 +9,7 @@ import { VocalMarkersReader, type SourcedVocalMarkers } from './vocal.markers.re
  * The operator's side of a record's vocal markers: read them, correct them, or drop the correction.
  *
  * What it answers is markers and where they came from, never a word of the lyric they were derived
- * from: the text never leaves the station.
+ * from. The words have routes of their own, in `LyricsReadService`.
  */
 @Injectable()
 export class VocalMarkersService {

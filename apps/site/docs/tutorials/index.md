@@ -30,3 +30,8 @@ station can do the rest by being asked. Each page shows both where both exist.
    programmes against.
 4. [Make a voice](./making-a-voice.md): design one in Claude with ElevenLabs, clone it, and give it to
    a character.
+
+## More
+
+- [Produce a segment](./produce-a-segment.md): a short programme the station writes and voices itself,
+  a listener's call, and a guest in the studio.

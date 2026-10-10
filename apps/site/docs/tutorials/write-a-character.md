@@ -73,7 +73,7 @@ the character in a show's **Hosted by** instead. See [Make a show](./make-a-show
 
 **A caller or a guest** does not go on air by itself. On their sheet, under **Who they ring** or
 **Whose shows they drop by**, choose the hosts they belong to. They are cast into phone-ins and
-visits from there; see [Phone-ins](../features/phone-ins.md).
+visits from there; see [Produce a segment](./produce-a-segment.md).
 
 ## With Claude
 

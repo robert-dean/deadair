@@ -63,6 +63,12 @@ const sidebars: SidebarsConfig = {
             collapsed: false,
             items: ['tutorials/connect-a-model', 'tutorials/write-a-character', 'tutorials/make-a-show', 'tutorials/making-a-voice'],
         },
+        {
+            type: 'category',
+            label: 'More',
+            collapsed: false,
+            items: ['tutorials/produce-a-segment'],
+        },
     ],
 
     build: [

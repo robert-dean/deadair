@@ -1,5 +1,5 @@
 import { jsonBody, type PluginHost } from '@deadair/plugin-sdk';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createGoogle } from '@ai-sdk/google';
 import { APICallError } from 'ai';
 import type { LanguageModel, ProviderMetadata } from 'ai';
 import { hostFetch } from './llm.fetch.js';
@@ -43,7 +43,7 @@ const MAX_MODEL_PAGES = 3;
 export function googleArm(host: PluginHost, options: { apiKey: string }): ProviderArm {
     const { apiKey } = options;
 
-    const provider = createGoogleGenerativeAI({
+    const provider = createGoogle({
         apiKey,
         baseURL: GOOGLE_BASE_URL,
         // Every byte through the host's fetch. See `llm.fetch.ts`.

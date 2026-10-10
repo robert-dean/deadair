@@ -6,12 +6,16 @@ import { hostFetch } from './llm.fetch.js';
 import { PROBE_TIMEOUT_MS } from './llm.manifest.js';
 import type { ProviderArm } from './llm.provider.js';
 
-/**
- * The name handed to the AI SDK, which is also the key its provider options are
- * read under. Fixed rather than derived from the plugin id, because changing it
- * would silently stop `reasoningEffort` reaching the server.
- */
+/** The name handed to the AI SDK. Fixed rather than derived from the plugin id. */
 const PROVIDER_NAME = 'openai-compatible';
+
+/**
+ * The key the provider's options are read under. It was `PROVIDER_NAME` itself until
+ * `@ai-sdk/openai-compatible` 3, which still reads that key but warns on every call that names it.
+ * Changing this to anything the package does not read would silently stop `reasoningEffort`
+ * reaching the server.
+ */
+const OPTIONS_KEY = 'openaiCompatible';
 
 /**
  * The `headers` cell of a provider row, one `Name: value` per line.
@@ -110,7 +114,7 @@ export function openAiCompatibleArm(host: PluginHost, options: { baseUrl: string
             // Verbatim, including `none`: that is the value a reasoning model reads as
             // "answer without reasoning", and it is this protocol's own vocabulary
             // rather than a translation of the station's.
-            return { [PROVIDER_NAME]: { reasoningEffort: effort } };
+            return { [OPTIONS_KEY]: { reasoningEffort: effort } };
         },
 
         /**

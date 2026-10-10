@@ -373,8 +373,8 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         const tools = toToolSet(request.tools);
 
         // Hoisted out of the message list rather than left in it: the SDK takes a system prompt as
-        // its own option, and warns about one inline because later content can imitate a system
-        // turn more easily than it can imitate a separate field.
+        // its own option (`instructions`), because later content can imitate a system turn more
+        // easily than it can imitate a separate field.
         const { system, rest } = splitSystemPrompt(request.messages);
 
         // One attempt, with or without the effort field. Building it is cheap and side-effect-free
@@ -391,8 +391,13 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
             const attempt: Partial<Attempt> = { controller };
             const stream = streamText({
                 model: arm.languageModel(model),
-                ...(system === undefined ? {} : { system }),
+                ...(system === undefined ? {} : { instructions: system }),
                 messages: toModelMessages(rest),
+                // A system turn that is NOT the first stays where the caller put it (see
+                // `splitSystemPrompt`), and since v7 the SDK refuses one inside `messages` unless told
+                // otherwise. Safe to allow: every system turn is written by the station's own code,
+                // and what a listener or a feed supplies only ever arrives as a user or tool turn.
+                allowSystemInMessages: true,
                 ...(temperature === undefined ? {} : { temperature }),
                 ...(request.maxOutputTokens === undefined ? {} : { maxOutputTokens: request.maxOutputTokens }),
                 ...(tools === undefined ? {} : { tools }),
@@ -464,15 +469,15 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
     /**
      * The text half of {@link generate}, and the one place the effort fallback lives.
      *
-     * Reads `first.stream.fullStream` rather than `textStream`, and that is not a style choice: with
-     * `maxRetries: 0`, a `doStream` fault never reaches a consumer as a rejection at all.
-     * `textStream`'s own transform forwards only `text-delta` parts and silently drops everything
-     * else, an `error` part included, so a refusal closes it as an ordinary empty stream — and by
-     * then the SDK's own step recorder has already flushed with nothing recorded, which is what
-     * `resultOf` sees: a generic `NoOutputGeneratedError` with no trace of the 400 or its body.
-     * `fullStream` is the one place the original fault is still attached to an `error` part, so this
-     * reads it directly and filters `text-delta` out by hand — the same thing `textStream` does
-     * internally.
+     * Reads `first.stream.stream` (the full stream, called `fullStream` before v7) rather than
+     * `textStream`, and that is not a style choice: with `maxRetries: 0`, a `doStream` fault never
+     * reaches a consumer as a rejection at all. `textStream`'s own transform forwards only
+     * `text-delta` parts and silently drops everything else, an `error` part included, so a refusal
+     * closes it as an ordinary empty stream — and by then the SDK's own step recorder has already
+     * flushed with nothing recorded, which is what `resultOf` sees: a generic
+     * `NoOutputGeneratedError` with no trace of the 400 or its body. The full stream is the one place
+     * the original fault is still attached to an `error` part, so this reads it directly and filters
+     * `text-delta` out by hand — the same thing `textStream` does internally.
      *
      * `retriable` is true only for the very first part read off `first`, and only when an effort
      * field actually went out on it; it is spent the moment a retry fires, so a second refusal on the
@@ -489,7 +494,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         resolveResult: (result: Promise<LlmResult> | LlmResult) => void,
     ): AsyncGenerator<string, void, unknown> {
         let current = first;
-        let reader = current.stream.fullStream.getReader();
+        let reader = current.stream.stream.getReader();
         let retriable = firstEffortSent !== undefined;
         let committed = false;
 
@@ -528,7 +533,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
 
                     current = buildAttempt(undefined);
                     active.controller = current.controller;
-                    reader = current.stream.fullStream.getReader();
+                    reader = current.stream.stream.getReader();
                     continue;
                 }
 
@@ -603,7 +608,17 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         const { stream, controller } = attempt;
         let settled;
         try {
-            settled = await Promise.all([stream.text, stream.reasoningText, stream.content, stream.toolCalls, stream.usage, stream.finishReason]);
+            // `finalStep` for the reasoning, where v7 moved it. This is always one step, since the
+            // tools come back unrun and nothing asks for another, so the all-steps `content`,
+            // `toolCalls` and `usage` read the same as that step's own.
+            settled = await Promise.all([
+                stream.text,
+                stream.finalStep.then(step => step.reasoningText),
+                stream.content,
+                stream.toolCalls,
+                stream.usage,
+                stream.finishReason,
+            ]);
         } catch (error) {
             // A generation the host stopped is not a fault, and every one of the promises above
             // rejects when the request is aborted. Reported as `unavailable` rather than passed on
@@ -657,7 +672,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
                 ...(usage.inputTokens === undefined ? {} : { inputTokens: usage.inputTokens }),
                 ...(usage.outputTokens === undefined ? {} : { outputTokens: usage.outputTokens }),
                 ...(usage.totalTokens === undefined ? {} : { totalTokens: usage.totalTokens }),
-                ...(usage.reasoningTokens === undefined ? {} : { reasoningTokens: usage.reasoningTokens }),
+                ...(usage.outputTokenDetails.reasoningTokens === undefined ? {} : { reasoningTokens: usage.outputTokenDetails.reasoningTokens }),
                 // Measured here rather than left to the host, because this is the only
                 // place the reasoning text exists: it is already read for the two debug
                 // lines above and never crosses the boundary as text. A server that does

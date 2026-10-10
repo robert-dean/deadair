@@ -39,7 +39,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -48,6 +50,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -88,7 +91,9 @@ import com.maroonedsoftware.deadair.ui.theme.Gutter
  * words, where the record has got to, and two round controls of the same size, centred. Stop, which
  * stops THIS PHONE, and Skip, for the operator, which ends one record. Everything that can take the
  * station off air is on the desk, so nothing here can be mistaken for it, and nothing appears or
- * disappears above the pair, so it never moves under a thumb.
+ * disappears above the pair, so it never moves under a thumb. Under them, for anybody signed in,
+ * Request: the one thing a listener can ASK of the station, so it is a sentence rather than a third
+ * round control, and it sits below the row so the play button keeps the middle.
  *
  * It carries no `Scaffold` and no app bar. Upright, the cover runs the full width from just under
  * the status bar, its foot bleeds into the background, and the words start in that fade rather
@@ -115,6 +120,8 @@ fun NowPlayingScreen(
     operator: OperatorControls = OperatorControls(skip = null, shuffle = null, like = null),
     /** Where the cover leads, when the record is known. */
     onArtwork: (() -> Unit)? = null,
+    /** Open the request page. `null` for anybody signed out, who has nobody to ask as. */
+    onRequest: (() -> Unit)? = null,
     /** The idle timer, upright only. `null` keeps everything on screen. */
     rest: RestState? = null,
     /** Room kept clear at the foot for something drawn over this screen, the tabs, whether or not it is showing. */
@@ -148,11 +155,11 @@ fun NowPlayingScreen(
                         verticalArrangement = Arrangement.Center,
                     ) {
                         Words(state, centred = false, like = operator.like, hostPortraitUrl = hostPortraitUrl)
-                        Controls(state, playhead, onPlay, onStop, operator)
+                        Controls(state, playhead, onPlay, onStop, operator, onRequest)
                     }
                 }
             } else {
-                FullBleed(state, artworkUrl, hostPortraitUrl, palette?.mesh.orEmpty(), playhead, onPlay, onStop, operator, onArtwork, rest, bottomReserve)
+                FullBleed(state, artworkUrl, hostPortraitUrl, palette?.mesh.orEmpty(), playhead, onPlay, onStop, operator, onArtwork, onRequest, rest, bottomReserve)
             }
         }
     }
@@ -178,6 +185,7 @@ private fun FullBleed(
     onStop: () -> Unit,
     operator: OperatorControls,
     onArtwork: (() -> Unit)?,
+    onRequest: (() -> Unit)?,
     rest: RestState?,
     bottomReserve: Dp,
 ) {
@@ -206,7 +214,8 @@ private fun FullBleed(
         val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + bottomReserve
         // As wide as the screen allows, and no taller than leaves the words and the controls their
         // room: on a short phone the cover gives way, never the controls.
-        val side = minOf(maxWidth, ArtworkMaxWidth * 2, (maxHeight - top - bottom - BelowCover).coerceAtLeast(MinCover))
+        val below = BelowCover + if (onRequest != null) RequestRoom else 0.dp
+        val side = minOf(maxWidth, ArtworkMaxWidth * 2, (maxHeight - top - bottom - below).coerceAtLeast(MinCover))
 
         // The cover's colours as a slow mesh over the whole page, behind everything: into the status
         // bar, behind the words and the controls, and through the translucent tabs. Painted from its
@@ -264,7 +273,7 @@ private fun FullBleed(
             Column(modifier = Modifier.fillMaxWidth().alpha(shown).padding(horizontal = Gutter)) {
                 Spacer(Modifier.height(CoverGap))
                 Words(state, centred = true, like = operator.like, hostPortraitUrl = hostPortraitUrl)
-                Controls(state, playhead, onPlay, onStop, operator)
+                Controls(state, playhead, onPlay, onStop, operator, onRequest)
             }
         }
     }
@@ -275,6 +284,9 @@ private val CoverGap = 16.dp
 
 /** What the words, the line and the controls take under the cover, at most: two lines of title, the credit, the host. */
 private val BelowCover = 300.dp
+
+/** What Request adds under the controls: its own height and the gap above it. */
+private val RequestRoom = 60.dp
 
 /** The smallest the cover gets on a short phone before the stack is allowed to crowd. */
 private val MinCover = 180.dp
@@ -366,7 +378,7 @@ data class OperatorControls(val skip: SkipControl?, val shuffle: ShuffleControl?
 }
 
 @Composable
-private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -> Unit, onStop: () -> Unit, operator: OperatorControls) {
+private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -> Unit, onStop: () -> Unit, operator: OperatorControls, onRequest: (() -> Unit)?) {
     // Only when the decoder could say how long is left. A line that appeared with a guessed
     // position would be worse than no line.
     if (playhead != null) PlayheadLine(playhead, modifier = Modifier.padding(top = 20.dp))
@@ -385,6 +397,16 @@ private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -
         PlayStopButton(playing = state.playing, buffering = state.buffering, onPlay = onPlay, onStop = onStop, glow = true)
         if (operator.besidePlay) {
             Slot { operator.skip?.let { SmallControl(R.drawable.ic_skip_next, stringResource(R.string.skip), it.enabled, it.onSkip) } }
+        }
+    }
+
+    // Quieter than the play button and in the cover's accent, so it reads as an offer rather than
+    // a transport control. Up next's header has the same page behind an icon.
+    onRequest?.let {
+        TextButton(onClick = it, modifier = Modifier.fillMaxWidth().padding(top = 12.dp).wrapContentWidth(Alignment.CenterHorizontally)) {
+            Icon(painterResource(R.drawable.ic_playlist_add), contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.request_a_record))
         }
     }
 }

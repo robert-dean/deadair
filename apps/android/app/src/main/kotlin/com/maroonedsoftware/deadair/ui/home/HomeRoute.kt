@@ -284,6 +284,8 @@ fun HomeRoute(
                     // The cover leads to the record's page, for a signed-in listener: the public
                     // reading names no record, so only the transport reading can say which it is.
                     onArtwork = onAirTrackId?.let { id -> { onTrack(id) } },
+                    // Anybody's who is signed in, as on Up next: see `upNextActions`.
+                    onRequest = onRequest.takeIf { session is SessionState.SignedIn },
                     rest = rest,
                     // It draws under the tabs and keeps their height clear, so they come and go
                     // without the screen moving; a touch anywhere on it brings them back.

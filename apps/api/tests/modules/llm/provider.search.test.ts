@@ -44,8 +44,43 @@ describe('ProviderSearch', () => {
         const { search, invoke } = build([]);
 
         await search.search('a', {}, 10);
-        await search.search('a', {}, 10, 'requests.search.searchTracks');
+        await search.search('a', {}, 10, { operation: 'requests.search.searchTracks' });
 
         expect(invoke.mock.calls.map(call => call[1])).toEqual(['llm.tool.searchTracks', 'requests.search.searchTracks']);
+    });
+
+    it("hands the caller's signal to each invocation", async () => {
+        const { search, invoke } = build([]);
+        const controller = new AbortController();
+
+        await search.search('a', {}, 10, { signal: controller.signal });
+
+        expect(invoke.mock.calls[0]?.[3]).toEqual({ signal: controller.signal });
+    });
+
+    it('asks no further provider once the signal has fired', async () => {
+        // The providers are asked one at a time. A conversation taken back during the first must not
+        // sit through every other provider's search with nobody left to read the answer.
+        const controller = new AbortController();
+        const plugin = (id: string) => ({
+            id,
+            status: 'active',
+            manifest: { capabilities: ['catalog'] },
+            instance: { listPlaylists: vi.fn(), getPlaylistTracks: vi.fn(), searchTracks: vi.fn(async () => []) },
+        });
+        const first = plugin('deadair.navidrome');
+        const second = plugin('deadair.spotify');
+        const registry = { list: vi.fn(() => [first, second]) } as unknown as PluginRegistry;
+        const invoke = vi.fn(async (_id: string, _op: string, call: () => Promise<unknown>) => {
+            const answer = await call();
+            controller.abort();
+            return answer;
+        });
+        const search = new ProviderSearch(registry, { invoke } as unknown as PluginInvoker, logger);
+
+        await search.search('a', {}, 10, { signal: controller.signal });
+
+        expect(first.instance.searchTracks).toHaveBeenCalled();
+        expect(second.instance.searchTracks).not.toHaveBeenCalled();
     });
 });

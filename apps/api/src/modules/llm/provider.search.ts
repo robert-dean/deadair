@@ -114,17 +114,26 @@ export class ProviderSearch {
      *
      * `operation` names the caller in the invoker's log and failure count, so a provider quarantined
      * by a run of failed searches says whose searches they were.
+     *
+     * `signal` is the caller's reason to stop waiting, and the providers are asked one at a time, so
+     * it is honoured twice: it goes to each invocation (which abandons a provider mid-answer, without
+     * counting that against it), and once it has fired no further provider is asked. A conversation
+     * the model gate took back mid-search would otherwise sit through every remaining provider's
+     * search in turn, each one starting and being stopped, with nobody left to read the answer.
      */
     async search(
         query: string,
         filters: ProviderSearchFilters,
         limit: number,
-        operation = 'llm.tool.searchTracks',
+        options: { operation?: string; signal?: AbortSignal } = {},
     ): Promise<{ tracks: FoundTrack[]; searched: number }> {
+        const operation = options.operation ?? 'llm.tool.searchTracks';
+        const { signal } = options;
         const catalogs = this.catalogs();
         const found: FoundTrack[] = [];
 
         for (const plugin of catalogs) {
+            if (signal?.aborted === true) break;
             try {
                 const tracks = await this.pluginInvoker.invoke(
                     plugin.record.id,
@@ -132,6 +141,7 @@ export class ProviderSearch {
                     // Non-null because `catalogs()` filtered on `searchesTracks`, which is the same
                     // declaration-and-implementation rule the rest of the host applies.
                     async () => (await plugin.instance.searchTracks!(query, { limit: PER_PROVIDER_LIMIT, ...filters })) ?? [],
+                    signal === undefined ? undefined : { signal },
                 );
 
                 for (const track of tracks) {

@@ -101,7 +101,7 @@ export class RequestProviderSearch {
         const cached = RequestProviderSearch.cache.get(key);
         if (cached !== undefined && Date.now() - cached.at < REQUEST_PROVIDER_TTL_MS) return cached.tracks;
 
-        const { tracks } = await this.providers.search(query.trim(), {}, REQUEST_PROVIDER_LIMIT, 'requests.search.searchTracks');
+        const { tracks } = await this.providers.search(query.trim(), {}, REQUEST_PROVIDER_LIMIT, { operation: 'requests.search.searchTracks' });
 
         // Oldest out first: a Map iterates in insertion order, and a re-asked term is re-inserted.
         RequestProviderSearch.cache.delete(key);

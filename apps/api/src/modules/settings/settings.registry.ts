@@ -82,6 +82,7 @@ import { SIMILARITY_ORDER_KEY } from '#modules/similarity/similarity.settings.js
 import { BRIEF_ONLY_DEFAULT, BRIEF_ONLY_KEY } from '#modules/director/set.generator.chain.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
 import { DEFAULT_SMART_SHUFFLE, DEFAULT_SMART_SHUFFLE_DAYS, SMART_SHUFFLE_DAYS_RANGE, SMART_SHUFFLE_KEYS } from '#modules/director/smart.shuffle.js';
+import { ARTIST_RETURN_DAYS_RANGE, DEFAULT_ARTIST_RETURN, DEFAULT_ARTIST_RETURN_DAYS, REDISCOVER_KEYS } from '#modules/director/rediscover.js';
 import { ADVISORY_DEFAULT, ADVISORY_KEY } from '#modules/director/advisory.policy.js';
 import { DEFAULT_BREAK_REASONING, MAX_OUTPUT_TOKENS, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
@@ -666,6 +667,28 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help:
             'A record that has just aired starts at a quarter of its usual chance of being drawn and warms up evenly until this many days ' +
             'have passed, when it is back to full. A fortnight suits most libraries. Play history is kept for 120 days, so that is the longest this can be.',
+    },
+    {
+        group: 'rotation',
+        key: REDISCOVER_KEYS.artistReturn,
+        label: 'Bring back artists you like',
+        type: 'boolean',
+        default: DEFAULT_ARTIST_RETURN,
+        help:
+            'An artist you have liked who has not aired for a while is drawn more often until they come back round: half again on top of the ' +
+            'like itself. It reads your rating of the artist, never how often the station has played them, and it is a lean and never a ' +
+            'refusal. It shapes the draw from your own library only.',
+    },
+    {
+        group: 'rotation',
+        key: REDISCOVER_KEYS.artistReturnDays,
+        label: 'Days before a liked artist counts as quiet',
+        type: 'number',
+        default: DEFAULT_ARTIST_RETURN_DAYS,
+        min: ARTIST_RETURN_DAYS_RANGE.min,
+        max: ARTIST_RETURN_DAYS_RANGE.max,
+        dependsOn: REDISCOVER_KEYS.artistReturn,
+        help: 'Three weeks suits most libraries. Play history is kept for 120 days, so that is the longest this can be.',
     },
     {
         group: 'rotation',

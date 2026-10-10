@@ -29,6 +29,7 @@ import {
     weightOf,
     type RotationCandidate,
 } from '../../../src/modules/director/rotation.rules.js';
+import { RETURN_LEAN } from '../../../src/modules/director/rediscover.js';
 
 const candidate = (title: string, artists: string[], rating?: number, album?: string): RotationCandidate => ({
     songKey: songKey(title, artists),
@@ -442,6 +443,12 @@ describe('weightOf under smart shuffle', () => {
         expect(weightOf(fresh(-2))).toBe(FRESH_FLOOR);
         expect(weightOf(fresh(7))).toBe(1);
         expect(weightOf(fresh(Number.NaN))).toBe(1);
+    });
+
+    it('leans half again toward a liked artist coming back, on top of the like', () => {
+        const returning: RotationCandidate = { ...candidate('A', ['One'], 1), returning: true };
+        expect(weightOf(returning)).toBe(2 * RETURN_LEAN);
+        expect(weightOf({ ...returning, freshness: 0 })).toBe(2 * RETURN_LEAN * FRESH_FLOOR);
     });
 });
 

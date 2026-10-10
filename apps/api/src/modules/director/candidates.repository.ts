@@ -30,6 +30,12 @@ export interface CandidateTrack {
     rating: number;
     /** The release this track came from, when the catalog has one. Absent for a single with no album row. */
     album?: string;
+    /**
+     * The operator liked the ARTIST itself, as against this record or its release. Only ever `true`
+     * or absent. What the artist-return lean reads (`rediscover.ts`): {@link rating} cannot say,
+     * because a like at any of the three levels carries it.
+     */
+    artistLiked?: true;
 }
 
 /**
@@ -240,6 +246,7 @@ export class CandidatesRepository extends DataRepository {
                 'deadair.artists.name as artist',
                 'deadair.tracks.artists as credit',
                 'deadair.albums.name as album',
+                'deadair.artists.rating as artistRating',
             ])
             // One number for "how does the station feel about this", across all three levels.
             .select(effectiveRating().as('rating'))
@@ -295,6 +302,7 @@ export class CandidatesRepository extends DataRepository {
             credit: row.credit,
             rating: Number(row.rating),
             ...(row.album == null ? {} : { album: row.album }),
+            ...(Number(row.artistRating) === 1 ? { artistLiked: true as const } : {}),
         }));
     }
 

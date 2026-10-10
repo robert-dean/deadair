@@ -54,7 +54,7 @@ Open **Voice → Characters**. Several characters come with the station. Choose 
 station host** on its card.
 
 A station with no model configured still talks, out of its own phrasings. [Give the station a
-model](../features/models-and-voices.md) later to have the presenter write its own words.
+model](./connect-a-model.md) later to have the presenter write its own words.
 
 ![Characters: the roster of hosts and callers](/img/console/voice.characters.webp)
 *Fig. 1. Voice → Characters, where the host is chosen.*
@@ -96,5 +96,5 @@ stream starts it.
 
 ## Next
 
-- [Models and voices](../features/models-and-voices.md), so the presenter writes what it says.
+- [Give the station a model](./connect-a-model.md), so the presenter writes what it says.
 - [The programme](../features/programme.md) to plan the week rather than one show at a time.

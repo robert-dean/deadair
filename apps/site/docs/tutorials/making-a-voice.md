@@ -113,3 +113,7 @@ station needs to change: the next thing it speaks in that voice is the new one.
 - **The character has gone quiet, and the sample on Voice → Voices fails.** The row names an engine
   voice the server does not have, so Rhapsode refuses it and the break is skipped rather than aired
   late. Check the id against `GET /engines/chatterbox/voices`.
+
+## Next
+
+[Write a character](./write-a-character.md) to give the new voice somebody to speak for.

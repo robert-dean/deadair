@@ -61,7 +61,7 @@ const sidebars: SidebarsConfig = {
             type: 'category',
             label: 'Create with AI',
             collapsed: false,
-            items: ['tutorials/making-a-voice'],
+            items: ['tutorials/connect-a-model', 'tutorials/write-a-character', 'tutorials/make-a-show', 'tutorials/making-a-voice'],
         },
     ],
 

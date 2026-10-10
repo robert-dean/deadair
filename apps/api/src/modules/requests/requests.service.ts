@@ -8,6 +8,7 @@ import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { RequestDesk } from './request.desk.js';
 import { dedicationOf } from './request.dedication.js';
+import { UNNAMED_REQUESTER } from './listener.text.js';
 import { RequestProviderSearch } from './request.provider.search.js';
 import { RequestsRepository, type RequestRow } from './requests.repository.js';
 import type {
@@ -20,8 +21,8 @@ import type {
     RequestableTrackList,
 } from './types/requests.types.js';
 
-/** What a person who gave no name is called. Their account's email address never is. */
-export const UNNAMED_REQUESTER = 'a listener';
+/** Where it has always been imported from; it lives beside the rest of what is done to listener text. */
+export { UNNAMED_REQUESTER };
 
 const DEFAULT_SEARCH_LIMIT = 10;
 

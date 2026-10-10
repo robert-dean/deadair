@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { MAX_MESSAGE, dedicationOf } from '../../../src/modules/requests/request.dedication.js';
 
 describe('dedicationOf', () => {
-    it('takes out control, zero-width and bidi-override characters', () => {
-        expect(dedicationOf('Da​ni‮elle', 'happy\u0007 birthday')).toEqual({ to: 'Da ni elle', message: 'happy birthday' });
+    it('takes out control, zero-width and bidi-override characters, and a zero-width one does not split the name', () => {
+        expect(dedicationOf('Da​ni‮elle', 'happy\u0007 birthday')).toEqual({ to: 'Danielle', message: 'happy birthday' });
     });
 
     it('holds the message to its length', () => {

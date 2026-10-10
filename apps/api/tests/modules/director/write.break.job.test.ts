@@ -84,6 +84,8 @@ function harness(
         deliveries?: readonly SpeechDelivery[];
         /** What the station has already said this broadcast. */
         said?: readonly string[];
+        /** What the station said in the last hour OUTSIDE this broadcast, for the carry-over across a boundary. */
+        saidBefore?: readonly string[];
         /** Present and `undefined` for the off-air case, which falls back to the per-kind read. */
         broadcastId?: string;
         /** For the one test that proves a broken history read still produces a break. */
@@ -130,6 +132,9 @@ function harness(
         spokenDuring: vi.fn(async () =>
             options.spokenThrows === true ? Promise.reject(new Error('the history table is gone')) : (options.said ?? []),
         ),
+        // Empty unless a test says, which is the state every assertion above this file's memory tests
+        // was written against: a list topped up from nowhere is the list it was.
+        spokenSince: vi.fn(async (_withinMs: number, _limit: number, _excluding?: string) => options.saidBefore ?? []),
     };
     const wrote = (script: string, label: string, writer: string) => ({
         written: { script, label },
@@ -1816,6 +1821,71 @@ describe('WriteBreakJob', () => {
             );
         });
 
+        // A broadcast boundary is not an audience boundary. A stand-down or a restart opens a new
+        // broadcast while the people who heard the last one are still listening, so a new show that
+        // has said nothing yet still must not open on the line the last one just closed on.
+        it('tops a fresh broadcast up with what the station said within the last hour before it', async () => {
+            const { job, writers, history } = harness({
+                lineup: await lineupWithBreak(),
+                said: ['the first thing this show said'],
+                saidBefore: ['the last show signing off', 'the last show before that'],
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            // Within an hour, and never this broadcast's own words a second time.
+            expect(history.spokenSince).toHaveBeenCalledWith(60 * 60 * 1000, expect.any(Number), 'broadcast-1');
+            // This broadcast's own words first, then the carried ones, newest first throughout.
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({ recent: ['the first thing this show said', 'the last show signing off', 'the last show before that'] }),
+            );
+        });
+
+        it('carries a line said either side of the boundary once', async () => {
+            const { job, writers } = harness({
+                lineup: await lineupWithBreak(),
+                said: ['good evening'],
+                saidBefore: ['good evening', 'that was the one before'],
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ recent: ['good evening', 'that was the one before'] }));
+        });
+
+        // The window is the bound: an empty answer from it, which is what a station back after a quiet
+        // night gets since everything it said is older than the hour, leaves the list as it was.
+        it('inherits nothing when the station said nothing within the hour', async () => {
+            const { job, writers, history } = harness({ lineup: await lineupWithBreak(), said: [], saidBefore: [] });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(history.spokenSince).toHaveBeenCalled();
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ recent: [] }));
+        });
+
+        it('does not look past a broadcast that has already said enough', async () => {
+            const said = ['one', 'two', 'three', 'four', 'five', 'six'];
+            const { job, writers, history } = harness({ lineup: await lineupWithBreak(), said, saidBefore: ['seven'] });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(history.spokenSince).not.toHaveBeenCalled();
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ recent: said }));
+        });
+
+        // What was SAID is an avoid-list and carries across; what was PLAYED is material a writer
+        // may refer back to, and a record the last show played is one this audience may never have
+        // heard.
+        it('never carries the played list across the boundary', async () => {
+            const { job, writers, plays } = harness({ lineup: await lineupWithBreak(), played: [], saidBefore: ['the last show signing off'] });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(plays.duringBroadcast).toHaveBeenCalledWith('broadcast-1', expect.any(Number));
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ played: expect.anything() }));
+        });
+
         it('leaves the played list off entirely when the broadcast has aired nothing yet', async () => {
             const { job, writers } = harness({ lineup: await lineupWithBreak(), played: [] });
 
@@ -1841,6 +1911,7 @@ describe('WriteBreakJob', () => {
             expect(segments.recentScripts).toHaveBeenCalledWith('talkbreak', expect.any(Number));
             expect(plays.duringBroadcast).not.toHaveBeenCalled();
             expect(history.spokenDuring).not.toHaveBeenCalled();
+            expect(history.spokenSince).not.toHaveBeenCalled();
 
             expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ played: expect.anything() }));
         });

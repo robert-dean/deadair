@@ -451,13 +451,18 @@ export interface BreakWriteRequest {
      * record stops sounding like a person within an hour. A model binding later reads the same field
      * to avoid repeating a signature line, which is why it is scripts and not template names.
      *
-     * **This is the broadcast's own memory now**, where it used to be the last few scripts of this
-     * KIND across all time. Both halves of that changed for the same reason. A listener who tuned in
-     * twenty minutes ago has heard this show and none of the one before it, so a phrase is spent
-     * only if it was spent tonight — which also means a station that has just gone on air honestly
-     * has nothing spent yet, rather than inheriting a ban from a programme nobody heard. And a talk
-     * break repeating what the bulletin before it just said is the same failure as one repeating
-     * another talk break, which only a kind-agnostic list can catch.
+     * **This is the broadcast's own memory, reaching back an hour across its start**, where it used
+     * to be the last few scripts of this KIND across all time. Both halves of that changed. A phrase
+     * is spent if a listener could still be hearing it ring, and that is a question of time rather
+     * than of programme: a stand-down or a restart opens a new broadcast while the people who heard
+     * the last one are still there, so a broadcast that has said fewer than a full list is topped up
+     * with what the station said in the hour before it, after its own and newest first. Bounded,
+     * because a station back on air after a quiet night has nobody who heard last night's lines and
+     * honestly has nothing spent, rather than inheriting a ban from a programme nobody heard. And a
+     * talk break repeating what the bulletin before it just said is the same failure as one repeating
+     * another talk break, which only a kind-agnostic list can catch. {@link played} below stays the
+     * broadcast's alone: it is material to refer back to, and the last show's records are not this
+     * audience's.
      */
     recent?: readonly string[];
     /**

@@ -57,6 +57,17 @@ import { rotationOf } from '#modules/shared/rotation.js';
 const RECENT_WINDOW = 6;
 
 /**
+ * How far back the station's memory of its own words reaches across a broadcast boundary.
+ *
+ * An hour, because that is about how long a listener stays, and a broadcast boundary is not an
+ * audience boundary: a stand-down or a restart opens a new broadcast while the people who heard the
+ * last one are still there. Bounded, because the other half of the old argument still holds: a
+ * station coming back after a quiet night has nobody who heard last night's lines, and should start
+ * with nothing spent rather than inheriting a ban from a programme nobody heard.
+ */
+const CARRY_WINDOW_MS = 60 * 60 * 1000;
+
+/**
  * How many of this broadcast's records a writer is shown.
  *
  * Small, and the size is the whole argument. This is a hint that there IS a show behind the current
@@ -621,10 +632,17 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
     /**
      * What the station remembers of the show it is in the middle of.
      *
-     * Two reads, both keyed by the BROADCAST rather than by a time window, because "what have we
-     * played tonight" and "what have we already said" are questions about a programme: a window
-     * answers them with the tail of the previous show whenever one has just started, which is a
-     * presenter referring back to something this audience never heard.
+     * Two reads, both keyed by the BROADCAST first, because "what have we played tonight" is a
+     * question about a programme: a window answers it with the tail of the previous show whenever
+     * one has just started, which is a presenter referring back to something this audience never
+     * heard. So `played` stays the broadcast's own and nothing else.
+     *
+     * **What was SAID is an avoid-list, and that changes the answer.** A broadcast that has only just
+     * begun has said little or nothing, and the listener who was here five minutes ago heard the last
+     * show's lines. So when this broadcast has said fewer than {@link RECENT_WINDOW} things, the list
+     * is topped up from what the station said outside it within {@link CARRY_WINDOW_MS}, newest first
+     * and after this broadcast's own. Inheriting a phrase to avoid costs a writer one choice; airing
+     * the same opening twice across a boundary is the repetition the list exists to stop.
      *
      * **The fallback is not a nicety.** A break written while no broadcast is on has no show to
      * remember, so `recent` falls back to what it always was — the last few scripts of this kind —
@@ -641,16 +659,38 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         if (broadcastId === undefined) return { recent: await this.segments.recentScripts(kind, RECENT_WINDOW) };
 
         try {
-            const [recent, played] = await Promise.all([
+            const [said, played] = await Promise.all([
                 this.history.spokenDuring(broadcastId, RECENT_WINDOW),
                 this.plays.duringBroadcast(broadcastId, PLAYED_WINDOW),
             ]);
+            const recent = said.length >= RECENT_WINDOW ? said : await this.carriedOver(said, broadcastId);
 
             return { recent, ...(played.length === 0 ? {} : { played }) };
         } catch (error) {
             this.logger.warn(`director: could not read what the station has said this broadcast (${errorText(error)})`);
             return { recent: await this.segments.recentScripts(kind, RECENT_WINDOW) };
         }
+    }
+
+    /**
+     * This broadcast's own words, topped up to {@link RECENT_WINDOW} from the hour before it.
+     *
+     * Everything carried over is older than everything said during this broadcast, so appending
+     * keeps the list newest first. A line that appears in both (the same phrasing used either side
+     * of the boundary) is kept once, at its newer place: listed twice it would tell a writer the
+     * station said it twice.
+     */
+    private async carriedOver(said: readonly string[], broadcastId: string): Promise<readonly string[]> {
+        const before = await this.history.spokenSince(CARRY_WINDOW_MS, RECENT_WINDOW, broadcastId);
+        // Asked for a whole window rather than the shortfall, so a line dropped as a duplicate below
+        // does not leave the list short.
+        const recent = [...said];
+        for (const script of before) {
+            if (recent.length >= RECENT_WINDOW) break;
+            if (!recent.includes(script)) recent.push(script);
+        }
+
+        return recent;
     }
 
     /**

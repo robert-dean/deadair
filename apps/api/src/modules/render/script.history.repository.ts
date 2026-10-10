@@ -340,6 +340,48 @@ export class ScriptHistoryRepository extends DataRepository {
     }
 
     /**
+     * What the station has actually said in the last `withinMs`, OUTSIDE one broadcast, newest first.
+     *
+     * The other half of a presenter's memory once a broadcast boundary has just gone by. A broadcast
+     * ends on a stand-down or a restart, and neither is an audience boundary: somebody listening at
+     * five to has heard the last show's lines, and a new broadcast that opens on them again sounds
+     * like a station with no memory at all. {@link spokenDuring} cannot see them by construction, so
+     * the writer tops its list up from here.
+     *
+     * Filtered, deduplicated and ordered exactly as {@link spokenDuring} is, for the same reasons.
+     * Two things differ. The station filter is explicit, because a broadcast id already names one
+     * station and a time window does not. And the broadcast clause is `is distinct from` rather than
+     * `<>`, so a line written while no broadcast was on (a null `broadcast_id`) still counts: a
+     * plain comparison against null answers null and would drop it.
+     *
+     * The window is cut against the DATABASE's clock, as {@link outcomeCountsSince} is: an app host
+     * whose clock has drifted must not remember a different hour than the rows were written in. It is
+     * served by `script_history_recent_idx` on `created_at`, so it needs no index of its own.
+     *
+     * `0` or less, on either bound, answers nothing without asking.
+     */
+    async spokenSince(withinMs: number, limit: number, excludeBroadcastId: string | undefined): Promise<string[]> {
+        if (withinMs <= 0 || limit <= 0) return [];
+
+        const rows = await sql<{ script: string }>`
+            select script from (
+                select distinct on (coalesce(segment_id::text, id::text)) script, created_at
+                from deadair.script_history
+                where station_key = ${this.identity.stationKey}
+                  and created_at >= now() - ${sql.lit(`${Math.floor(withinMs)} milliseconds`)}::interval
+                  ${excludeBroadcastId === undefined ? sql`` : sql`and broadcast_id is distinct from ${excludeBroadcastId}`}
+                  and outcome = 'written'
+                  and script is not null
+                order by coalesce(segment_id::text, id::text), created_at desc
+            ) said
+            order by said.created_at desc
+            limit ${Math.floor(limit)}
+        `.execute(this.db);
+
+        return rows.rows.map(row => row.script);
+    }
+
+    /**
      * What ONE character has actually said, oldest first, since a given moment.
      *
      * The read the notebook's distil pass makes, and the reason `persona_key` exists on this table.

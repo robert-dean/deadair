@@ -480,6 +480,8 @@ function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
         ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
         ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),
         ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),
+        ...(slot.requestShow === undefined ? {} : { requestShow: slot.requestShow }),
+        ...(slot.requestFollowOn === undefined ? {} : { requestFollowOn: slot.requestFollowOn }),
         ...(slot.startsOn === undefined ? {} : { startsOn: slot.startsOn }),
         ...(slot.endsOn === undefined ? {} : { endsOn: slot.endsOn }),
         ...(slot.yearly === undefined ? {} : { yearly: slot.yearly }),

@@ -317,6 +317,44 @@ describe('SlotEditor', () => {
         expect(onSubmit.mock.calls[1]?.[0].callins).toBe(true);
     });
 
+    it('sends a request show only when it is asked for, with how many records follow each request', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        const user = setupUser();
+
+        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+        await screen.findByRole('checkbox', { name: /Request show/ });
+
+        await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Request hour');
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('requestShow');
+        expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('requestFollowOn');
+
+        await user.click(screen.getByRole('checkbox', { name: /Request show/ }));
+        const count = screen.getByRole('textbox', { name: /Records after each request/ });
+        await user.clear(count);
+        await user.type(count, '6');
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit.mock.calls[1]?.[0]).toMatchObject({ requestShow: true, requestFollowOn: 6 });
+    });
+
+    it('offers a request show only under a rotation', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const user = setupUser();
+
+        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={vi.fn()} onDelete={noop} saving={false} deleting={false} />);
+        await screen.findByRole('checkbox', { name: /Request show/ });
+
+        await user.click(screen.getByRole('combobox', { name: 'Mode' }));
+        await user.click(await screen.findByRole('option', { name: 'Setlist' }));
+
+        expect(screen.queryByRole('checkbox', { name: /Request show/ })).toBeNull();
+    });
+
     it('sends both halves of a chosen playlist, which is what the pair encoding is for', async () => {
         // The source travels as one string because a picker holds one, so an encode that does not
         // match its decode loses the playlist silently and the slot reads as one the station fills

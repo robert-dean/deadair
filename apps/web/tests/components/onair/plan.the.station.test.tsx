@@ -125,6 +125,20 @@ describe('PlanTheStation', () => {
         expect(putTheStationOnAir).toHaveBeenCalledWith(expect.objectContaining({ mode: 'setlist', breaks: true }));
     });
 
+    it('puts a request show on air when somebody asked for one, and says nothing when nobody did', async () => {
+        const user = await open(running());
+
+        await user.click(await screen.findByRole('radio', { name: 'Start a new show' }));
+        await user.click(screen.getByRole('button', { name: 'Go on air' }));
+        expect(putTheStationOnAir).toHaveBeenLastCalledWith(expect.not.objectContaining({ requestShow: expect.anything() }));
+
+        await user.click(screen.getByRole('button', { name: /Plan/ }));
+        await user.click(await screen.findByRole('radio', { name: 'Start a new show' }));
+        await user.click(screen.getByLabelText(/Request show/));
+        await user.click(screen.getByRole('button', { name: 'Go on air' }));
+        expect(putTheStationOnAir).toHaveBeenLastCalledWith(expect.objectContaining({ requestShow: true, requestFollowOn: 4 }));
+    });
+
     it('asks for calls when somebody did', async () => {
         const user = await open(running());
 

@@ -6,7 +6,19 @@ import type { StationMode, StationOnEnd, StationOrder } from '@deadair/sdk';
 
 import { usePutStationOnAir, useReplanOrder } from '../../api/director.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
-import { BriefField, CallinsField, EraFields, EraNote, HostField, ShapeFields, ShapeNote, TalkField } from '../programme/programme.fields';
+import {
+    BriefField,
+    CallinsField,
+    EraFields,
+    EraNote,
+    HostField,
+    REQUEST_FOLLOW_ON_DEFAULT,
+    RequestShowFields,
+    requestShowInput,
+    ShapeFields,
+    ShapeNote,
+    TalkField,
+} from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
 
 /**
@@ -120,6 +132,8 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
                 ...(form.values.callins ? { callins: true } : {}),
                 // Only a setlist is changed by it: a rotation already talks and a feature never does.
                 ...(form.values.mode === 'setlist' && form.values.breaks ? { breaks: true } : {}),
+                // Only a rotation follows a request: a setlist's sequence is somebody's own.
+                ...(form.values.mode === 'rotation' ? requestShowInput(form.values.requestShow, form.values.requestFollowOn) : {}),
                 mode: form.values.mode,
                 onEnd: form.values.onEnd,
             },
@@ -185,6 +199,13 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
                             {form.values.mode === 'setlist' ? <TalkField {...form.getInputProps('breaks', { type: 'checkbox' })} /> : undefined}
 
                             <CallinsField {...form.getInputProps('callins', { type: 'checkbox' })} />
+
+                            {form.values.mode === 'rotation' ? (
+                                <RequestShowFields
+                                    on={form.getInputProps('requestShow', { type: 'checkbox' })}
+                                    count={form.getInputProps('requestFollowOn')}
+                                />
+                            ) : undefined}
                         </>
                     )}
 
@@ -217,6 +238,10 @@ interface FormValues {
     callins: boolean;
     /** Ticked sends `breaks: true`, a setlist with a host. Drawn only for a setlist. */
     breaks: boolean;
+    /** Ticked sends `requestShow: true`; unticked sends nothing. Drawn only for a rotation. See `RequestShowFields`. */
+    requestShow: boolean;
+    /** Empty string is Mantine's "nothing typed", which sends no count and takes the API's default. */
+    requestFollowOn: number | string;
     mode: StationMode;
     onEnd: StationOnEnd;
 }
@@ -237,6 +262,8 @@ function valuesOf(order?: StationOrder): FormValues {
         eraTo: '',
         callins: false,
         breaks: false,
+        requestShow: false,
+        requestFollowOn: REQUEST_FOLLOW_ON_DEFAULT,
         mode: 'rotation',
         onEnd: 'extend',
     };

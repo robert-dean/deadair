@@ -420,3 +420,39 @@ export function MixInSimilarField(input: GetInputPropsReturnType) {
     const { t } = useTranslation('programme');
     return <Checkbox label={t('mixInSimilar.label')} description={t('mixInSimilar.description')} {...input} />;
 }
+
+/** How many records follow a request on a request show when nobody changed it: the API's own default. */
+export const REQUEST_FOLLOW_ON_DEFAULT = 4;
+
+/**
+ * Whether this is a request show, and how many records follow each request on it.
+ *
+ * {@link CallinsField}'s three-way for the switch: ticked sends `requestShow: true` and unticked sends
+ * nothing, which is an ordinary show, since no station setting stands behind it. The count is drawn
+ * only once it is ticked. Only worth drawing for a rotation: the API leaves a setlist's or a
+ * feature's own sequence alone whatever this says.
+ */
+export function RequestShowFields({ on, count }: { on: GetInputPropsReturnType; count: GetInputPropsReturnType }) {
+    const { t } = useTranslation('programme');
+    return (
+        <>
+            <Checkbox label={t('requestShow.label')} description={t('requestShow.description')} {...on} />
+            {on.checked ? (
+                <NumberInput
+                    label={t('requestShow.followOnLabel')}
+                    description={t('requestShow.followOnDescription')}
+                    min={1}
+                    max={10}
+                    allowDecimal={false}
+                    className="da-num"
+                    maw={240}
+                    {...count}
+                />
+            ) : undefined}
+        </>
+    );
+}
+
+/** The request show's two fields as the API takes them: nothing at all when it is off. */
+export const requestShowInput = (on: boolean, count: number | string): { requestShow?: true; requestFollowOn?: number } =>
+    on ? { requestShow: true, ...(typeof count === 'number' ? { requestFollowOn: count } : {}) } : {};

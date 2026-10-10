@@ -94,4 +94,11 @@ export const programme = {
         description:
             'Every few records, one by an artist who sounds like the one just played, found through a similarity plugin. The playlist still plays in full around them. A setlist or a feature never has anything mixed in.',
     },
+    requestShow: {
+        label: 'Request show',
+        description:
+            'The station plays as it otherwise would until a listener asks for a record. Then what it had planned after the request is replaced by records that sound like it, found through a similarity plugin. A second request waits for the first one’s records to play out.',
+        followOnLabel: 'Records after each request',
+        followOnDescription: 'How many records like the request follow it before the station goes back to its own choices.',
+    },
 } as const;

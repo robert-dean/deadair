@@ -16,6 +16,9 @@ import {
     EraNote,
     HostField,
     MixInSimilarField,
+    REQUEST_FOLLOW_ON_DEFAULT,
+    RequestShowFields,
+    requestShowInput,
     MoodField,
     type Mood,
     ShapeFields,
@@ -138,6 +141,8 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             // Sent as `true` only for a setlist, the one mode it changes. A rotation slot that was
             // told to stay silent through the API keeps saying so, since no box here can say it.
             ...(values.mode === 'setlist' && values.breaks ? { breaks: true } : {}),
+            // Only a rotation follows a request: a setlist's sequence is somebody's own.
+            ...(values.mode === 'rotation' ? requestShowInput(values.requestShow, values.requestFollowOn) : {}),
             ...(values.mode === 'rotation' && slot?.breaks === false ? { breaks: false } : {}),
             mode: values.mode,
             onEnd: values.onEnd,
@@ -298,6 +303,13 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                         <MixInSimilarField {...form.getInputProps('mixInSimilar', { type: 'checkbox' })} />
                     ) : undefined}
 
+                    {form.values.mode === 'rotation' ? (
+                        <RequestShowFields
+                            on={form.getInputProps('requestShow', { type: 'checkbox' })}
+                            count={form.getInputProps('requestFollowOn')}
+                        />
+                    ) : undefined}
+
                     <Text size="xs" c="dimmed">
                         {t('slot.savingNote')}
                     </Text>
@@ -408,6 +420,10 @@ interface FormValues {
     yearly: boolean;
     /** Ticked sends `breaks: true`, a setlist with a host. Drawn only for a setlist. */
     breaks: boolean;
+    /** Ticked sends `requestShow: true`; unticked sends nothing. Drawn only for a rotation. See `RequestShowFields`. */
+    requestShow: boolean;
+    /** Empty string is Mantine's "nothing typed", which sends no count and takes the API's default. */
+    requestFollowOn: number | string;
     /** Who sits in for the host, and when. See `GuestHostsField`. */
     guestHosts: GuestRow[];
     /** Who presents beside the host, and when. The same rows, with "every night" offered too. */
@@ -449,6 +465,8 @@ function valuesOf(target?: EditorTarget): FormValues {
         dates: [slot?.startsOn ?? null, slot?.endsOn ?? null],
         yearly: slot?.yearly ?? false,
         breaks: slot?.breaks === true,
+        requestShow: slot?.requestShow === true,
+        requestFollowOn: slot?.requestFollowOn ?? REQUEST_FOLLOW_ON_DEFAULT,
         guestHosts: (slot?.guestHosts ?? []).map(guestRowOf),
         coHosts: (slot?.coHosts ?? []).map(guestRowOf),
         mode: slot?.mode ?? 'rotation',

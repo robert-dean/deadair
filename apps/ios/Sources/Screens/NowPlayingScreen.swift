@@ -173,7 +173,8 @@ struct NowPlayingScreen: View {
     private func fullBleed(ui: NowPlayingUiState, reading: Reading<NowPlaying>?, artwork: URL?, transport: TransportUiState?, size: CGSize) -> some View {
         // As wide as the screen allows, and no taller than leaves the words and the controls their
         // room: on a short phone the cover gives way, never the controls.
-        let side = max(min(size.width, Self.artworkMaxWidth * 2, size.height - Self.belowCover), Self.minCover)
+        let below = Self.belowCover + (model.signedIn ? Self.requestRoom : 0)
+        let side = max(min(size.width, Self.artworkMaxWidth * 2, size.height - below), Self.minCover)
 
         return VStack(spacing: 0) {
             cover(ui: ui, artwork: artwork, transport: transport)
@@ -333,6 +334,20 @@ struct NowPlayingScreen: View {
             if let words = model.listening.conductor.state.words, model.listening.conductor.state != .warmingUp {
                 Text(words).font(.footnote).foregroundStyle(.secondary).padding(.top, 12)
             }
+
+            // Request, for anybody signed in, as on Up next. The one thing a listener can ASK of the
+            // station, so it is words in the cover's accent under the row rather than a third round
+            // control beside the play button, which keeps the middle.
+            if model.signedIn {
+                NavigationLink(value: PageRoute.request) {
+                    Label(String(localized: "Request a record"), systemImage: "text.badge.plus")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .padding(.top, 12)
+            }
         }
     }
 
@@ -342,6 +357,8 @@ struct NowPlayingScreen: View {
     private static let coverGap: CGFloat = 16
     /// What the words, the line and the controls take under the cover, at most.
     private static let belowCover: CGFloat = 300
+    /// What Request adds under the controls: its own height and the gap above it.
+    private static let requestRoom: CGFloat = 56
     /// The smallest the cover gets on a short phone before the stack is allowed to crowd.
     private static let minCover: CGFloat = 180
     private static let artworkMaxWidth: CGFloat = 360

@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.52.2] — 2026-10-10
+
+- A listener's dedication now airs directly in front of the record it was for, or not at all. Removing or moving the request, a dislike, or the record turning out to have no audio used to leave the dedication in the running order, where it was written again about whatever came next and aired in front of the wrong record. Now an insert aimed between the two lands outside them, moving either one moves both, and a dedication whose record has gone is dropped.
+- A break already with the player keeps the record it announced. A shuffle, a replan or a request's follow-on used to replace the record after a break that had been handed over, so the presenter said "coming up" about a record the station then did not play. The record after a held break now stays in place and everything behind it is still free to change. The transport also no longer calls a break lost on the reading taken as the player starts it, which had sent it back to be rewritten while it was already on air.
+- Playout: follow a track's audio redirects by hand and refuse a redirect that resolves to a private address, for consistency with the podcast and art fetchers. The first resolved address is still fetched as before, so a record served from an operator's own Navidrome or a station-side helper keeps working.
+
 ## [0.52.1] — 2026-10-10
 
 - Each record's page has a Lyrics card: the words the station found, with the time of each line when the source has timings, which source they came from and in what language. It says when nobody sings on a record, or when nothing has been found yet and where lyrics are switched on. "Every source" lists what each lyrics source answered and when.
@@ -1233,7 +1239,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.52.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.52.2...HEAD
+[0.52.2]: https://github.com/robert-dean/deadair/compare/v0.52.1...v0.52.2
 [0.52.1]: https://github.com/robert-dean/deadair/compare/v0.52.0...v0.52.1
 [0.52.0]: https://github.com/robert-dean/deadair/compare/v0.51.0...v0.52.0
 [0.51.0]: https://github.com/robert-dean/deadair/compare/v0.50.2...v0.51.0

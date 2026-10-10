@@ -471,6 +471,33 @@ describe('StationLineup editing', () => {
         expect(lineup.insertSegments([])).toMatchObject({ ok: false, reason: 'empty' });
     });
 
+    it("leaves a request, its dedication, a production and the operator's own additions where they were", () => {
+        // A shuffle reorders what the station chose. Shuffling a request along with it landed the
+        // request anywhere in the hour, and dropped its dedication and every production beat with
+        // the station's own breaks.
+        const lineup = lineupWith(['a', 'b', 'c', 'd', 'e']);
+        lineup.insertRequested(track('r'), 'req-1', { segmentId: 'ded', segmentKind: 'dedication' });
+        lineup.insertGroup('episode-1', [{ segmentId: 'beat' }], 5, 'production');
+        lineup.insertTrack(track('o'), 7);
+        lineup.insertSegment('talk', 9);
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:ded', 'r', 'b', 'c', 'segment:beat', 'd', 'o', 'e', 'segment:talk']);
+
+        const { dropped } = lineup.shuffleRemaining();
+
+        const after = idsOf(lineup.all());
+        expect(after).toHaveLength(9);
+        for (const [at, id] of [[1, 'segment:ded'], [2, 'r'], [5, 'segment:beat'], [7, 'o']] as const) expect(after[at]).toBe(id);
+        expect([after[0], after[3], after[4], after[6], after[8]].sort()).toEqual(['a', 'b', 'c', 'd', 'e']);
+        expect(idsOf(dropped)).toEqual(['segment:talk']);
+    });
+
+    it('counts only the records the station chose when deciding there is something to shuffle', () => {
+        const lineup = lineupWith(['a']);
+        lineup.insertTrack(track('o'), 1);
+
+        expect(lineup.shuffleRemaining().result).toMatchObject({ ok: false, reason: 'empty' });
+    });
+
     it('shuffles only the tail, and keeps the committed head in front and in order', () => {
         const lineup = lineupWith(['a', 'b', 'c', 'd']);
         hand(lineup, 2);

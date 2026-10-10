@@ -166,6 +166,22 @@ about how far the broadcast has got and counting it would freeze the order in fr
 leaving any id still elsewhere in the order alone, since idents come from a shared library and the same row is
 legitimately at three slots in an hour.
 
+**A replan or a shuffle redoes what the STATION chose, and leaves what anybody else put there where it
+is.** Both used to treat every `planned` item as the station's to throw away, and on 10 October that was
+read as a bug rather than a rule: a replan dropped a listener's request (whose row, already `queued`, then
+lapsed three hours later as having "left the running order"), its dedication, a production (whose row is
+marked aired the moment it is planted, so the episode was simply lost), a break somebody asked for, and the
+record or segment the operator had added themselves. `isPinned` names those, from `StationLineupLine.pinned`
+and from the markers they already carried (`requestId`, `followsRequestId`, `groupId`, a `dedication` kind),
+so an order saved before the flag existed keeps them across a restart. `replacePlanned`, `followRequest` and
+`shuffleRemaining` all go through `fillAround`: anything not `planned` and anything pinned keeps its POSITION,
+the new or reshuffled records take the slots the station's own records leave, and whatever is left over goes
+on the end. Slot for slot rather than gathering the pinned items at the front, because a request was placed
+in a quiet gap and a production at its hour, and both positions mean something. A pinned talk break that now
+sits between two different records is not rewritten here; the claim check drops it at hand-over, which is
+that check's whole job. Undoing a replan is deliberately not built: it would need the dropped breaks kept
+alive rather than retired, for a press that is rare.
+
 **A dislike is the one edit nobody types at the desk.** Every other arm of `OrderEdit` is something an
 operator did to the running order; `vetoDisliked` arrives from `DislikeVeto` when they rate something in the
 CATALOG, which is the same instruction given somewhere else, and it wants the same answer and the same feed

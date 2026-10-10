@@ -1627,6 +1627,12 @@ export class StationLineup implements LiveOrder {
      * records since the last segment ALREADY in the order, so a tail with no segments in it is
      * exactly the state it is built to plant into.
      *
+     * **What somebody else put there stays where it is** ({@link isPinned}), on {@link replacePlanned}'s
+     * argument: the station's own records are shuffled into the slots its own records held, and a
+     * request, its dedication, a production and whatever the operator added keep their positions.
+     * Shuffling a request along with the rest used to land it anywhere in the hour, beside the next
+     * request or a mixed-in record, which is exactly the spacing its placement exists to keep.
+     *
      * **A smart shuffle programmes the result as well.** With {@link SmartShuffleOrder} the random
      * order is then split in two, keeping its randomness inside each half: records that have not
      * aired lately first, the ones that have behind them, so a listener who heard one yesterday
@@ -1641,18 +1647,18 @@ export class StationLineup implements LiveOrder {
      */
     shuffleRemaining(smart?: SmartShuffleOrder): ShuffleResult {
         const head = this.itemList.filter(item => item.state !== 'planned');
-        const planned = this.itemList.filter(item => item.state === 'planned');
-        const tail = planned.filter(isTrackItem);
+        const tail = this.itemList.filter((item): item is StationLineupTrackItem => item.state === 'planned' && isTrackItem(item) && !isPinned(item));
         if (tail.length < 2) return { result: refuse('empty', 'there is nothing left to shuffle'), dropped: [] };
 
         for (let index = tail.length - 1; index > 0; index--) {
             const swap = Math.floor(Math.random() * (index + 1));
             [tail[index], tail[swap]] = [tail[swap]!, tail[index]!];
         }
-        // The committed head keeps its own order and stays in front, which is the one
-        // thing a shuffle must not touch: those items are already with the player.
-        this.itemList = [...head, ...(smart === undefined ? tail : programmeShuffled(tail, smart, lastAiredArtistOf(head)))];
-        return { result: OK, dropped: planned.filter(item => !isTrackItem(item)) };
+        // The committed head keeps its own order and its place, which is the one thing a shuffle
+        // must not touch: those items are already with the player.
+        const { lines, dropped } = fillAround(this.itemList, smart === undefined ? tail : programmeShuffled(tail, smart, lastAiredArtistOf(head)));
+        this.itemList = lines;
+        return { result: OK, dropped: dropped.filter(item => !isTrackItem(item)) };
     }
 
     /**

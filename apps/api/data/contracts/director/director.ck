@@ -4,6 +4,7 @@ options {
     }
     services: {
         DirectorConsoleService: "#src/modules/director/director.console.service.js"
+        RouteService: "#src/modules/director/route.service.js"
     }
 }
 
@@ -130,6 +131,26 @@ operation /director/air/replan: {
         }
         response: {
             202:
+        }
+    }
+}
+
+operation /director/route/preview: {
+    post: { # Finds a route from one artist to another through artists the library holds, and says how each stop connects to the one before. Nothing goes on air: this is what a route would be
+        name: Preview an artist route
+        service: RouteService.preview
+        # Each artist on the way costs a similarity question to every source, so it is an operator action
+        # rather than something a listener's console should be able to set off.
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: RoutePreviewInput
+        }
+        response: {
+            200: {
+                application/json: ArtistRoute
+            }
         }
     }
 }

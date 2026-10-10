@@ -3,11 +3,13 @@ package com.maroonedsoftware.deadair.sdk.clients
 
 import com.maroonedsoftware.deadair.sdk.models.AddStationSegmentInput
 import com.maroonedsoftware.deadair.sdk.models.AddStationTrackInput
+import com.maroonedsoftware.deadair.sdk.models.ArtistRoute
 import com.maroonedsoftware.deadair.sdk.models.ExtendStationInput
 import com.maroonedsoftware.deadair.sdk.models.HoldStationInput
 import com.maroonedsoftware.deadair.sdk.models.MoveStationItemInput
 import com.maroonedsoftware.deadair.sdk.models.PutOnAirInput
 import com.maroonedsoftware.deadair.sdk.models.ReplanStationInput
+import com.maroonedsoftware.deadair.sdk.models.RoutePreviewInput
 import com.maroonedsoftware.deadair.sdk.models.SetStationAirInput
 import com.maroonedsoftware.deadair.sdk.models.SetStationHostInput
 import com.maroonedsoftware.deadair.sdk.models.StationAir
@@ -95,6 +97,18 @@ class DirectorClient(private val http: SdkHttp) {
             path("director", "air", "replan")
             jsonBody(body, "application/json")
         }
+    }
+
+    /**
+     * Preview an artist route
+     * Finds a route from one artist to another through artists the library holds, and says how each stop connects to the one before. Nothing goes on air: this is what a route would be
+     */
+    suspend fun previewAnArtistRoute(body: RoutePreviewInput): ArtistRoute {
+        val response = http.execute(HttpMethod.Post) {
+            path("director", "route", "preview")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
     }
 
     /**

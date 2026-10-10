@@ -13,12 +13,23 @@ import { render, screen, setupUser } from '../../utils/render';
 
 const putTheStationOnAir = vi.fn(async () => ({ active: true }));
 const replanTheRunningOrder = vi.fn(async () => undefined);
+const previewAnArtistRoute = vi.fn(async () => ({
+    found: true,
+    stops: [
+        { artist: 'Gorillaz' },
+        { artist: 'Blur', link: 'credit', sharedTitle: 'A Shared One', sharedLead: 'Gorillaz' },
+        { artist: 'Daft Punk', link: 'similar', source: 'deadair.lastfm', sourceName: 'Last.fm' },
+    ],
+    factual: 1,
+    similar: 1,
+}));
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
         director: {
             putTheStationOnAir: (...args: unknown[]) => putTheStationOnAir(...(args as [])),
             replanTheRunningOrder: (...args: unknown[]) => replanTheRunningOrder(...(args as [])),
+            previewAnArtistRoute: (...args: unknown[]) => previewAnArtistRoute(...(args as [])),
             getStationAir: () => Promise.resolve({ active: true }),
             getTheRunningOrder: () => Promise.resolve({ items: [] }),
         },
@@ -100,6 +111,24 @@ describe('PlanTheStation', () => {
         await user.click(screen.getByRole('button', { name: 'Go on air' }));
 
         expect(putTheStationOnAir).toHaveBeenCalledTimes(1);
+    });
+
+    it('previews a route between two artists and puts it on air with no brief needed', async () => {
+        const user = await open({ name: '', mode: 'rotation', onEnd: 'extend', source: 'director', items: [] } as StationOrder);
+
+        await user.type(await screen.findByRole('textbox', { name: 'From' }), 'Gorillaz');
+        await user.type(screen.getByRole('textbox', { name: 'To' }), 'Daft Punk');
+        await user.click(screen.getByRole('button', { name: 'Preview the route' }));
+
+        expect(previewAnArtistRoute).toHaveBeenCalledWith({ from: 'Gorillaz', to: 'Daft Punk' });
+        expect(await screen.findByText('3 stops: 1 on a shared record, 1 on a similarity source.')).toBeInTheDocument();
+        expect(screen.getByText('together on "A Shared One" by Gorillaz')).toBeInTheDocument();
+        expect(screen.getByText('named alike by Last.fm')).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Go on air' }));
+
+        expect(putTheStationOnAir).toHaveBeenCalledWith(expect.objectContaining({ routeFrom: 'Gorillaz', routeTo: 'Daft Punk' }));
+        expect(putTheStationOnAir).toHaveBeenCalledWith(expect.not.objectContaining({ brief: expect.anything() }));
     });
 
     it('says nothing about calls when nobody ticked the box', async () => {

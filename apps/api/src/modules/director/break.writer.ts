@@ -125,6 +125,11 @@ export interface BreakTrack {
     chart?: ChartPlacing;
     /** An album track the station has not aired in months, drawn because of it. Shown as material like {@link chart}. */
     deepCut?: true;
+    /**
+     * How this record connects to the one before it, on a route between two artists. Only on the
+     * record coming up, and only while the record before it is the one the route planned it after.
+     */
+    link?: string;
 }
 
 /**

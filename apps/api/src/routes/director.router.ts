@@ -1,14 +1,17 @@
 import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { DirectorConsoleService } from '#src/modules/director/director.console.service.js';
+import { RouteService } from '#src/modules/director/route.service.js';
 import {
     AddStationSegmentInput,
     AddStationTrackInput,
+    ArtistRoute,
     ExtendStationInput,
     HoldStationInput,
     MoveStationItemInput,
     PutOnAirInput,
     ReplanStationInput,
+    RoutePreviewInput,
     SetStationAirInput,
     SetStationHostInput,
     StationAir,
@@ -116,6 +119,21 @@ DirectorRouter.post('/director/air/replan', requirePolicy({ policy: 'platform.ma
     await service.replanOrder(body);
 
     ctx.status = 202;
+});
+
+/**
+ * Finds a route from one artist to another through artists the library holds, and says how each stop connects to the one before. Nothing goes on air: this is what a route would be
+ * from [director.ck](../../data/contracts/director/director.ck) `POST /director/route/preview`
+ */
+DirectorRouter.post('/director/route/preview', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, RoutePreviewInput);
+
+    const service = ctx.container.get(RouteService);
+    const result: ArtistRoute = await service.preview(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
 });
 
 /**

@@ -757,6 +757,15 @@ describe('breakPrompt', () => {
             expect(user(prompt({ kind: 'talkbreak', previous: known }))).not.toContain('- Deep cut:');
         });
 
+        it('says how a route connects two records, and lifts the ban on connections for that one', () => {
+            const said = user(
+                prompt({ kind: 'talkbreak', next: { ...previous, link: 'Gorillaz and Blur are both credited on "Shared Song" by Gorillaz' } }),
+            );
+
+            expect(said).toContain('- How it connects to the record before: Gorillaz and Blur are both credited on "Shared Song" by Gorillaz');
+            expect(said).not.toContain('no connection to any other record. ');
+        });
+
         it('says nothing about a chart for a record no chart named', () => {
             expect(user(prompt({ kind: 'talkbreak', previous: known }))).not.toContain('- Chart:');
         });
@@ -2476,6 +2485,12 @@ describe('permittedYears', () => {
         const record = { title: 'Crazy Train', artist: 'Ozzy Osbourne', album: 'Blizzard Of Ozz (1980)', year: 1980, facts: ['Released in 1980.'] };
 
         expect(permittedYears([record])).toEqual([1980]);
+    });
+
+    it('permits a year named in a route link, which is the title of the record two artists share', () => {
+        expect(permittedYears([{ title: 'Tender', artist: 'Blur', link: 'Gorillaz and Blur are both credited on "1999" by Gorillaz' }])).toEqual([
+            1999,
+        ]);
     });
 
     it('permits every year the prompt itself carried, rather than a list of the fields it came from', () => {

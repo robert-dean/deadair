@@ -95,6 +95,25 @@ it needs records labelled by hand on this station.
 
 **A playlist can ask for its neighbours to be mixed in, and they are seeded from the playlist, never from what aired.** Spotify's Smart Shuffle is a playlist with recommendations among it, and nothing here did that: the similar share of a refill only starts once a playlist runs out. `PutOnAirInput.mixInSimilar` (or `rotation.mixInSimilar`, off by default on the chart mix's argument: a playlist is what the operator chose) rides the broadcast's `rules`, and after the put-on-air commit the director sends one `director.mix_in_similar` job. `MixInSimilarJob` takes every `rotation.mixInEvery`-th planned record as an ANCHOR (four by default, at most `MAX_MIX_INS`), asks `SimilarPicker.pickLike` for one record like each anchor (the record-level `similarTracks` first, where a plugin implements it, then the anchor's artist through the same walk `SimilarSetGenerator` runs, lifted out of it for this), resolves the lot once through `PickResolver.resolve` with the broadcast's rules, and posts one `interleaveTracks` command naming each record's anchor. Three things are load-bearing. **The seed is the anchor, not the history**: at the moment a playlist goes on air the history is entirely the previous programme, which is the "Mitch Murder opened on thirteen thrash records" failure `SimilarSetGenerator.seeds` records. **Only a rotation mixes**: `resolveRules` ties the switch to `mayGenerate`, so a setlist or a feature refuses it whatever it asks, unlike crossfade, which a setlist may ask for; and a chart is excluded at the send, being somebody else's published document. **A pick that comes back from the resolver under a different name is dropped**, because the anchor is matched by song key and a guess would put a record after the wrong line. An operator who asked and got nothing is told: `order.mixInEmpty` on the feed, with no similarity plugin or with every pick refused.
 
+**A route is a source too: one artist to another, one record per stop, and every step has a reason.**
+`PutOnAirInput.routeFrom` and `routeTo` put on air the cheapest path `planRoute` (`route.planner.ts`) finds
+between two artists the library can air a record by (`RouteRepository.ownedArtists`, lead credit, a live
+copy, nothing disliked). The links are of two kinds, and the planner keeps which one each hop took: a FACT,
+two artists credited together on a record the library holds (`coCredits`, off `deadair.track_artists`),
+and an OPINION, one similarity source naming the other (`similarTo`, which now says which plugin's answer
+it was). A fact is strength `1`; an opinion is the source's `match`, or its rank where it gave none,
+because a score is only comparable inside one source's answer. Every hop costs a base, its weakness, and a
+fixed penalty that keeps a short plausible route ahead of a long chain of tiny gains, and those weights are
+unfitted and say so. The search is bounded at thirty expansions and sixteen stops, since every artist
+expanded is a similarity question to every source. `RouteService.records` then takes one record per stop,
+a liked one first and otherwise the one longest off air, and the lot goes through `libraryTracks` and
+`PickResolver.vet` exactly as an album does, so a dislike, the period and the advisory policy hold and a
+stop that fails them closes the route up. **Planned in the request, unlike a chart**: the console's preview
+(`POST /director/route/preview`) asks the same questions first and fills the day-long similarity cache, so
+going on air afterwards walks answers already held. `source` is `route`, which the mix-in already leaves
+alone. Not yet a schedule-slot source, and MusicBrainz's artist relations (members, collaborations) would be
+a second kind of fact the planner could use; neither is built.
+
 **A playlist put on air is a source, not a generator, and the instruction still applies to it.** `DirectorConsoleService.putOnAir` never names a `SetGenerator`, so it cannot go through `resolve` — and it must not, since `resolve` respaces a batch and overwrites title and artist from the catalog row, and a playlist's order and strings are the operator's own. `PickResolver.vet(tracks, { era, preference })` is the narrower method for exactly this: order-preserving, no rewritten strings, and built from the same `rejectDisliked`, `withinPeriod` and `bindingsFor` calls `resolve` makes, so a dislike, a period and the advisory policy hold for a track that arrived on a playlist exactly as they do for one a generator picked.
 
 **A pick the catalog has never seen is looked up at a provider and INGESTED, and the order of that against the

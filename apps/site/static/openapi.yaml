@@ -1551,6 +1551,24 @@ paths:
             responses:
                 '202':
                     description: 'Response 202'
+    '/director/route/preview':
+        post:
+            operationId: preview
+            summary: 'Preview an artist route'
+            description: 'Finds a route from one artist to another through artists the library holds, and says how each stop connects to the one before. Nothing goes on air: this is what a route would be'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/RoutePreviewInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ArtistRoute'
     '/director/air/hold':
         patch:
             operationId: holdAgainstSchedule
@@ -2547,7 +2565,7 @@ paths:
                     description: 'Not found'
     '/personas/import/preview':
         post:
-            operationId: preview
+            operationId: previewPersonaImport
             summary: 'Preview persona import'
             description: 'Reads a file and reports what importing it would create, rewrite and skip. Writes nothing'
             requestBody:
@@ -8485,6 +8503,16 @@ components:
                     type: string
                     format: uuid
                     description: 'An album the library holds, to play in the order it was made: by disc, then by track, with any record nobody numbered after the rest. An ALTERNATIVE to every source above, and like a station playlist its records air from whichever provider serves a copy. Pair it with `mode: feature` to play it whole, with no breaks and no blends'
+                routeFrom:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'Start a route at this artist and travel to `routeTo` through artists the library holds, one record each, every step a record two of them share or a similarity source naming them alike. Send both or neither, and nothing else that names a source. Preview it first with `/director/route/preview`, which also makes this quicker'
+                routeTo:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'Where a route ends. See `routeFrom`'
                 stationPlaylistId:
                     type: string
                     format: uuid
@@ -8620,6 +8648,70 @@ components:
                     maxLength: 500
                     description: "What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the station's ordinary rotation. It steers every later refill too, not just this one batch"
             description: 'Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues'
+        RoutePreviewInput:
+            type: object
+            properties:
+                from:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'The artist to start at. The library has to hold a record by them'
+                to:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'The artist to end at. The library has to hold a record by them'
+            required: [from, to]
+            description: 'Where a route starts and where it ends, as artist names'
+        RouteStop:
+            type: object
+            properties:
+                artist:
+                    type: string
+                    maxLength: 200
+                link:
+                    type: string
+                    enum: [credit, similar]
+                    description: 'How this stop connects to the one before: a record the two are credited on together, or a similarity source naming them alike. Absent on the first stop'
+                sharedTitle:
+                    type: string
+                    maxLength: 500
+                    description: 'For a shared credit, the record they share'
+                sharedLead:
+                    type: string
+                    maxLength: 200
+                    description: "For a shared credit, that record's lead artist"
+                source:
+                    type: string
+                    maxLength: 200
+                    description: 'For a similarity link, the plugin whose answer it was, by id'
+                sourceName:
+                    type: string
+                    maxLength: 200
+                    description: 'The same plugin by the name it gives itself, when the station still has it'
+            required: [artist]
+            description: 'One artist on a route, and how it connects to the one before'
+        ArtistRoute:
+            type: object
+            properties:
+                found:
+                    type: boolean
+                    description: "False when either end is not an artist the library holds a record by, or no route turned up within the search's bounds"
+                stops:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/RouteStop'
+                    description: 'In order, the first artist first. Empty when nothing was found'
+                factual:
+                    type: integer
+                    minimum: 0
+                    description: 'How many hops rest on a record the two artists share'
+                similar:
+                    type: integer
+                    minimum: 0
+                    description: "How many hops rest on a similarity source's opinion"
+            required: [found, stops, factual, similar]
+            description: 'A route between two artists, or the news that there is none'
         BlockRule:
             type: object
             properties:

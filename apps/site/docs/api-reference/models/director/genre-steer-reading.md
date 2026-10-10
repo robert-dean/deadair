@@ -1,6 +1,6 @@
 ---
 title: 'GenreSteerReading'
-sidebar_position: 23
+sidebar_position: 26
 mdx:
     format: 'md'
 ---

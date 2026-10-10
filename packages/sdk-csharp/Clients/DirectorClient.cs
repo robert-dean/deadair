@@ -115,6 +115,20 @@ public sealed class DirectorClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Preview an artist route
+    /// Finds a route from one artist to another through artists the library holds, and says how each stop connects to the one before. Nothing goes on air: this is what a route would be
+    /// </summary>
+    public async Task<ArtistRoute> PreviewAnArtistRouteAsync(RoutePreviewInput body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("director", "route", "preview"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<ArtistRoute>(response);
+    }
+
+    /// <summary>
     /// Hold the station against the schedule
     /// Holds the running order against the schedule, so a block boundary does not take back what an operator put on. A takeover is otherwise stamped with whichever slot was in force and is replaced when that block ends, which is correct and gives nobody any warning
     /// </summary>

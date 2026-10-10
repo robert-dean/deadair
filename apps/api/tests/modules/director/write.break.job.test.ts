@@ -19,6 +19,7 @@ import type { ScriptWrite } from '../../../src/modules/render/script.history.rep
 import type { VocalMarkers } from '../../../src/modules/lyrics/vocal.ranges.js';
 import { TALK_UP_KEYS } from '../../../src/modules/director/talk.up.js';
 import { ABOUT_THE_RECORD_KEYS } from '../../../src/modules/director/about.the.record.js';
+import { songKey } from '../../../src/modules/director/rotation.keys.js';
 
 vi.mock('../../../src/modules/jobs/job.authorization.js', () => ({ overrideJobActor: vi.fn() }));
 
@@ -1385,6 +1386,35 @@ describe('WriteBreakJob', () => {
         await job.run({ segmentId: 'seg-1' });
 
         expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake', deepCut: true } }));
+    });
+
+    it('tells the writer how a route connects the record coming up to the one before it', async () => {
+        const lineup = new StationLineup({ name: 'A to B', mode: 'setlist', onEnd: 'stop', source: 'route' });
+        const link = {
+            fromSongKey: songKey('Solid Air', ['John Martyn']),
+            reason: 'John Martyn and Nick Drake are both credited on "A Record" by John Martyn',
+        };
+        lineup.append([track('Solid Air', 'John Martyn'), { ...track('Pink Moon', 'Nick Drake'), link }]);
+        lineup.insertSegment('seg-1', 1);
+        const { job, writers } = harness({ lineup });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(
+            expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake', link: link.reason } }),
+        );
+    });
+
+    it('says nothing about a route link once the record before is not the one it was planned after', async () => {
+        const lineup = new StationLineup({ name: 'A to B', mode: 'setlist', onEnd: 'stop', source: 'route' });
+        const link = { fromSongKey: songKey('Something Else', ['Somebody']), reason: 'a link that no longer holds' };
+        lineup.append([track('Solid Air', 'John Martyn'), { ...track('Pink Moon', 'Nick Drake'), link }]);
+        lineup.insertSegment('seg-1', 1);
+        const { job, writers } = harness({ lineup });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake' } }));
     });
 
     it('keeps the position from the writer on a show that does not say them', async () => {

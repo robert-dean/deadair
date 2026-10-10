@@ -68,6 +68,15 @@ const config: Config = {
         ],
     ],
 
+    // A page that moves keeps its old address, because somebody has linked to it. GitHub Pages has no
+    // server-side redirects, so this writes a page at the old path that sends the browser on.
+    plugins: [
+        [
+            '@docusaurus/plugin-client-redirects',
+            { redirects: [{ from: '/docs/features/making-a-voice', to: '/docs/tutorials/making-a-voice' }] },
+        ],
+    ],
+
     themeConfig: {
         // The console is dark-first and so is this. One scheme means one set of colours to get right.
         colorMode: { defaultMode: 'dark', disableSwitch: true, respectPrefersColorScheme: false },

@@ -1,6 +1,5 @@
 ---
-title: Making a voice
-sidebar_position: 11
+title: Make a voice
 description: Giving a character a voice of its own, designed with Claude and ElevenLabs and cloned into Rhapsode, then wired to the character in three names.
 ---
 
@@ -45,7 +44,7 @@ cloning a person. For the same reason, don't name a real singer or presenter in 
 Describe the manner you want instead. Check that your ElevenLabs plan lets you use what it generates
 in the way you mean to.
 
-If the station speaks through the [ElevenLabs plugin](./models-and-voices.md#voices), there is nothing to clone.
+If the station speaks through the [ElevenLabs plugin](../features/models-and-voices.md#voices), there is nothing to clone.
 Save the preview you picked to your ElevenLabs account, and it appears by name in that plugin's Voices table.
 Give it the character's voice name there and skip to [wiring it to the character](#wiring-it-to-the-character).
 

@@ -39,7 +39,6 @@ const sidebars: SidebarsConfig = {
                 'features/check-up',
                 'features/plugins',
                 'features/models-and-voices',
-                'features/making-a-voice',
                 'features/console',
                 'features/languages',
                 'features/listening',
@@ -57,6 +56,12 @@ const sidebars: SidebarsConfig = {
             label: 'Install it',
             collapsed: false,
             items: ['tutorials/install-unraid', 'tutorials/install-compose', 'tutorials/first-hour'],
+        },
+        {
+            type: 'category',
+            label: 'Create with AI',
+            collapsed: false,
+            items: ['tutorials/making-a-voice'],
         },
     ],
 

@@ -16,3 +16,8 @@ makes every choice for you and is shorter than any of these.
 
 1. Install the station, either [on Unraid](./install-unraid.md) or [with Docker Compose](./install-compose.md).
 2. [Your first hour on air](./first-hour.md): music, a name, a presenter, and something playing.
+
+## Create with AI
+
+- [Make a voice](./making-a-voice.md): design one in Claude with ElevenLabs, clone it, and give it to a
+  character.

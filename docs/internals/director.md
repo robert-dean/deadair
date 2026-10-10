@@ -402,7 +402,11 @@ segments ride along for free and only RECORDS count against the lead. `RESOLVE_G
 argument, and the live station measured it too short: on 2026-10-02 downloads ran past it, the rundown pushed
 the same record again, and the pusher then flushed the station's own records as a stranger's queue. So
 `radio.liq` now reports `resolving`, the requests it is downloading, and `heldBy` adds them to `queued`
-wherever the app asks what the player holds. The grace is the fallback for a script that does not report it.
+wherever the app asks what the player holds. The grace is the fallback for a script that does not report it,
+and it runs from the first reading that MISSED an item (`Rundown.missingSince`) as well as from its hand-over:
+at a boundary the queue pops the next request before `on_track` moves `onAir` onto it, so one reading in between
+finds it nowhere. On 2026-10-10 that reclaimed a break three minutes after its hand-over and 0.7s into its
+airing, and the break writer rewrote it under the listener.
 `MAX_HAND_OVERS` STAYS at 3: it covers a Liquidsoap that restarted and dropped what it held, which is not an
 audio-availability fact.
 

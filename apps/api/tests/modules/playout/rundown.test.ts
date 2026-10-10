@@ -521,6 +521,28 @@ describe('Rundown.reconcile', () => {
         expect(rundown.upcoming().map(entry => entry.externalId)).toEqual(['a', 'b']);
     });
 
+    it('does not call it lost at a boundary that reads as nothing on air either', async () => {
+        // The same instant can read `ready: false`: the record before has finished and the next has
+        // not produced a frame yet. That retires the record before, and must not reclaim the next.
+        vi.useFakeTimers();
+        try {
+            const rundown = rundownWith(['a', 'b']);
+            const order = orderOf(rundown, ['a', 'b']);
+            const airing = await rundown.next();
+            rundown.markAired(airing!.item.id);
+            const waiting = await rundown.next();
+
+            vi.advanceTimersByTime(60_000);
+            rundown.reconcile({ queued: 1, resolving: 0, ready: true, onAir: airing!.item.id });
+            vi.advanceTimersByTime(700);
+            rundown.reconcile({ queued: 0, resolving: 0, ready: false });
+
+            expect(order.all().find(item => item.id === waiting!.item.id)?.state).toBe('handed');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('leaves the running order alone when the player holds what it was given', async () => {
         const rundown = rundownWith(['a', 'b']);
         const pulled = await rundown.next();

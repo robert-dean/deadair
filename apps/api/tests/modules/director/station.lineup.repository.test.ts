@@ -107,6 +107,15 @@ const items = (): StationLineupItem[] => [
     { id: 'item-cue', kind: 'segment', state: 'planned', segmentId: 'seg-cue', segmentKind: 'talk', over: { atMs: 4_500 } },
     { id: 'item-asked-for', kind: 'segment', state: 'planned', segmentId: 'seg-asked-for', segmentKind: 'welcome', pinned: true },
     {
+        id: 'item-dedication',
+        kind: 'segment',
+        state: 'planned',
+        segmentId: 'seg-dedication',
+        segmentKind: 'dedication',
+        pinned: true,
+        dedicates: 'item-requested',
+    },
+    {
         id: 'item-added',
         kind: 'track',
         state: 'planned',
@@ -197,6 +206,10 @@ describe('StationLineupRepository round trip', () => {
         // And a record chosen to follow a request still says which, so the next request waits for the run.
         expect(byId.get('item-following')).toMatchObject({ followsRequestId: 'request-1' });
         expect(byId.get('item-track')).not.toHaveProperty('followsRequestId');
+        // And a dedication still names the record it was said for, or a restart could no longer tell its
+        // own record from another request that ended up behind it.
+        expect(byId.get('item-dedication')).toMatchObject({ dedicates: 'item-requested' });
+        expect(byId.get('item-break')).not.toHaveProperty('dedicates');
         // And whatever somebody put there stays pinned across a restart, or the first replan after
         // one throws it away with the station's own choices.
         expect(byId.get('item-added')).toMatchObject({ pinned: true });

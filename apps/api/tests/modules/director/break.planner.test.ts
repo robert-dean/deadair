@@ -1334,6 +1334,21 @@ describe('BreakPlanner.ripen', () => {
             expect(built.reasons.get(segmentId)).toBe('the record it named is no longer what plays next');
         });
 
+        it('never un-writes a dedication whose record has moved away, so it cannot be said about another one', async () => {
+            // 10 October: a dedication whose record left the order was judged stale here, written again
+            // naming the record now behind it, and aired eight minutes late in front of the wrong one.
+            // The running order drops it instead; this is the half that must not write it again first.
+            const { built, lineup, segmentId, promised } = await written();
+            built.known.set(segmentId, { ...built.known.get(segmentId)!, kind: 'dedication' });
+            lineup.move(promised, lineup.all().length - 1);
+
+            const result = await built.planner.ripen(lineup, clock());
+
+            expect(result.rewritten).toEqual([]);
+            expect(asked(built.send)).toEqual([]);
+            expect(built.known.get(segmentId)).toMatchObject({ state: 'written', claimsItemId: promised });
+        });
+
         it('un-writes a break whose words are no longer true of the time', async () => {
             const { built, lineup, segmentId } = await written();
             const segment = built.known.get(segmentId)!;

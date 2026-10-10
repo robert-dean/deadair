@@ -2029,6 +2029,34 @@ export class DirectorService {
         }
     }
 
+    /**
+     * Drop every dedication that has lost its place directly in front of its record.
+     *
+     * Synchronous in the order, so it can run in the commit pass's apply step with nothing able to
+     * move underneath it; the rows are retired afterwards and nobody waits on that. A dedication is
+     * never written again about a different record, which is what used to happen here: see
+     * `StationLineup.dropSeparatedDedications`.
+     */
+    private dropSeparatedDedications(lineup: StationLineup): void {
+        const dropped = lineup.dropSeparatedDedications();
+        if (dropped.length === 0) return;
+
+        for (const item of dropped) {
+            this.logger.info('director: dropping a dedication that can no longer air in front of its record', {
+                item: item.id,
+                ...(item.kind === 'segment' ? { segment: item.segmentId } : {}),
+            });
+            void this.activity.record({
+                module: 'director',
+                kind: 'item.skipped',
+                detail: 'A dedication was dropped because the record it was for is no longer the next thing after it.',
+                data: { itemId: item.id, ...(item.kind === 'segment' ? { segmentId: item.segmentId } : {}) },
+            });
+        }
+        this.persistSoon();
+        void this.retireSegments(lineup, dropped, 'the record this dedication was for is no longer directly behind it');
+    }
+
     private async collectRemoved(lineup: StationLineup, itemId: string): Promise<void> {
         const item = lineup.find(itemId);
         if (item?.kind !== 'segment') return;
@@ -2216,6 +2244,11 @@ export class DirectorService {
             await scope.get(NarrationScheduler).ripen(Date.now());
         }).catch(error => this.logger.warn(`director: could not make the readings the clock will carry (${errorText(error)})`));
 
+        // Before planting and before `ripen`, which is the one that would otherwise find a dedication
+        // whose record has gone, judge its claim broken and have it written again about whatever is
+        // behind it now. An edit runs this pass, so this is also the edit's half of the rule.
+        this.dropSeparatedDedications(lineup);
+
         // BEFORE committing, so a break planted this pass is in the order before anything is
         // taken from it. The other way round, the tail would be topped up first and the break
         // would land behind the records that had just been handed over.
@@ -2316,6 +2349,9 @@ export class DirectorService {
                 this.rundown.prepare(prepared.items);
                 for (const itemId of prepared.skipped) lineup.markSkipped(itemId);
                 for (const itemId of prepared.unavailable) lineup.markUnavailable(itemId);
+                // A record just found to have no audio can be one a dedication in this same batch
+                // was said for, prepared a moment ago while its claim still held.
+                this.dropSeparatedDedications(lineup);
 
                 // The order moved, so a refill decision made a moment ago is stale.
                 if (lineup.remaining() >= EXTEND_BELOW) this.extendDueAt = undefined;

@@ -242,6 +242,17 @@ writers name the record after it (`claimsNext`), so the claim check drops the wo
 anything ever comes between them. A refused placement writes the planned segment off rather than leaving
 it looking like a break to come. `requests.dedications` off plays the record without the words.
 
+**The two are one thing in the running order, and the words air in front of their record or not at
+all.** The dedication's line carries the id of the record's line (`dedicates`). An insert aimed between
+them lands in front of the dedication (or behind the record, once the player holds the words), and a
+move takes both. Anything that still separates them (the record removed, vetoed or found to have no
+audio) drops the dedication: `StationLineup.dropSeparatedDedications` marks it `removed` on every commit
+pass, which every edit runs, and again in the pass's apply step for a record benched in the same batch.
+`BreakPlanner` never reopens a dedication whose record claim broke, because a rewrite names whatever now
+follows. That is what happened on 10 October: the operator played a request early from a second copy of
+the record and removed the request's own line, the planner wrote the dedication again about the record
+behind it, and it aired eight minutes late in front of the wrong one.
+
 **Two writers, and only one of them touches the message.** `DedicationWriter`, the floor, names who it is
 from and who it is for and never reads the message, because a template cannot judge whether it is fit to
 broadcast. `ModelDedicationWriter` passes the message on in its own words: the names and the message reach

@@ -10,6 +10,18 @@ import { normalizeKey } from '#modules/catalog/catalog.keys.js';
 import { errorText } from '#modules/shared/error.text.js';
 
 /**
+ * An artist that resembles the one asked about, and which plugin said so.
+ *
+ * The SDK's `SimilarArtist` with the one thing the merge used to throw away. A plugin's `match` is only
+ * comparable inside its own answer, so a reason given for a neighbour ("listeners on Last.fm link them")
+ * has to be able to say whose answer it was. Host-side only: a plugin never sees or sets it.
+ */
+export type Neighbour = SimilarArtist & {
+    /** The plugin id whose answer named this artist first. */
+    source: string;
+};
+
+/**
  * Who else sounds like this, out of whatever similarity plugins are installed.
  *
  * ## Two opinions are two opinions, not a conflict
@@ -66,7 +78,7 @@ const INVOKE_TIMEOUT_MS = 12_000;
 
 interface CacheEntry {
     at: number;
-    artists: SimilarArtist[];
+    artists: Neighbour[];
 }
 
 @Injectable()
@@ -109,14 +121,14 @@ export class SimilarityService {
      * one artist. The first source to name somebody wins their entry, which keeps
      * whichever ids came with it.
      */
-    async similarTo(ref: ArtistRef, limit: number): Promise<SimilarArtist[]> {
+    async similarTo(ref: ArtistRef, limit: number): Promise<Neighbour[]> {
         const key = normalizeKey(ref.name);
         if (key.length === 0) return [];
 
         const cached = SimilarityService.cache.get(key);
         if (cached && Date.now() - cached.at < SIMILARITY_TTL_MS) return cached.artists.slice(0, limit);
 
-        const found: SimilarArtist[] = [];
+        const found: Neighbour[] = [];
         const seen = new Set<string>([key]);
 
         for (const plugin of this.plugins()) {
@@ -146,7 +158,7 @@ export class SimilarityService {
                 if (artistKey.length === 0 || seen.has(artistKey)) continue;
 
                 seen.add(artistKey);
-                found.push(artist);
+                found.push({ ...artist, source: plugin.record.id });
             }
         }
 
@@ -234,7 +246,7 @@ export class SimilarityService {
      * several times a station's whole rotation, so anything evicted has not been
      * asked about in a very long time.
      */
-    private remember(key: string, artists: SimilarArtist[]): void {
+    private remember(key: string, artists: Neighbour[]): void {
         if (SimilarityService.cache.size >= SIMILARITY_CACHE_MAX) {
             const oldest = SimilarityService.cache.keys().next();
             if (!oldest.done) SimilarityService.cache.delete(oldest.value);

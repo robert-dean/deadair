@@ -101,6 +101,17 @@ describe('merging two sources', () => {
         const found = await service.similarTo({ name: 'Portishead' }, 10);
 
         expect(found.map(artist => artist.name)).toEqual(['Massive Attack', 'Tricky', 'Morcheeba']);
+        // And says whose answer each came from, because a reason given for a neighbour has to name it.
+        expect(found.map(artist => artist.source)).toEqual([LASTFM, LASTFM, OTHER]);
+    });
+
+    it('credits a name both offered to the source asked first', async () => {
+        const service = build([
+            record(LASTFM, { similarArtists: vi.fn(async () => named('Massive Attack')) }),
+            record(OTHER, { similarArtists: vi.fn(async () => named('Massive Attack')) }),
+        ]);
+
+        expect((await service.similarTo({ name: 'Portishead' }, 10))[0]?.source).toBe(LASTFM);
     });
 
     it('treats the same artist from two sources as one, however it is cased', async () => {

@@ -95,7 +95,6 @@
         "@swc-node/register": "^1.12.1",
         "@swc/core": "^1.16.13",
         "@types/koa": "^3.0.3",
-        "@types/koa__router": "^12.0.5",
         "@types/luxon": "^3.7.6",
         "@types/multicast-dns": "^7.2.4",
         "@types/node": "^26.6.4",

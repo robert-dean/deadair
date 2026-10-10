@@ -209,9 +209,6 @@ importers:
       '@types/koa':
         specifier: ^3.0.3
         version: 3.0.3
-      '@types/koa__router':
-        specifier: ^12.0.5
-        version: 12.0.5
       '@types/luxon':
         specifier: ^3.7.6
         version: 3.7.6
@@ -4958,9 +4955,6 @@ packages:
 
   '@types/koa@3.0.3':
     resolution: {integrity: sha512-TdtNEJ7sYSrFQcVuS2ySsVqnq5EyE3oJbnfFJvkC9UtGP4Kpem5KE7r+ivHIbIAQAofSqnlB5D3vkfYO69TQpg==}
-
-  '@types/koa__router@12.0.5':
-    resolution: {integrity: sha512-1HeLxuDn4n5it1yZYCSyOYXo++73zT0ffoviXnPxbwbxLbvDFEvWD9ZzpRiIpK4oKR0pi+K+Mk/ZjyROjW3HSw==}
 
   '@types/luxon@3.7.6':
     resolution: {integrity: sha512-6KSjliQAXK8ZLgFQO4B7iE4Rpf/B3rItzCFuXezBY/XIAGxOdLd7vRNK9/StRPwiS/yJsVbB7HKpW46B8tcEuQ==}
@@ -15814,10 +15808,6 @@ snapshots:
       '@types/keygrip': 1.0.6
       '@types/koa-compose': 3.2.9
       '@types/node': 26.6.4
-
-  '@types/koa__router@12.0.5':
-    dependencies:
-      '@types/koa': 3.0.3
 
   '@types/luxon@3.7.6': {}
 

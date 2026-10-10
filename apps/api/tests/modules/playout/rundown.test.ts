@@ -456,6 +456,95 @@ describe('Rundown.reconcile', () => {
         expect(rundown.upcoming().map(entry => entry.externalId)).toEqual(['a', 'b']);
     });
 
+    it('does not call an item lost in the instant it leaves the queue to go on air', async () => {
+        // Measured on the live station on 2026-10-10. A break sat in the player's queue for three
+        // minutes, so its hand-over stamp was far older than the grace. At the boundary the queue
+        // popped it to play it, and a reading taken before the `on_track` hook moved `onAir` found it
+        // in neither `queued` nor `resolving`, with `onAir` still naming the record before it. That
+        // one reading reclaimed a break that was on air, and the writer rewrote it under the listener.
+        vi.useFakeTimers();
+        try {
+            const rundown = rundownWith(['a', 'b', 'c']);
+            const order = orderOf(rundown, ['a', 'b', 'c']);
+            const airing = await rundown.next();
+            rundown.markAired(airing!.item.id);
+            const waiting = await rundown.next();
+
+            // Three minutes of readings that all count it.
+            for (let tick = 0; tick < 90; tick++) {
+                vi.advanceTimersByTime(2_000);
+                rundown.reconcile({ queued: 1, resolving: 0, ready: true, onAir: airing!.item.id });
+            }
+
+            // The boundary reading: popped, not yet named.
+            vi.mocked(logger.warn).mockClear();
+            vi.advanceTimersByTime(700);
+            rundown.reconcile({ queued: 0, resolving: 0, ready: true, onAir: airing!.item.id });
+
+            expect(order.all().find(item => item.id === waiting!.item.id)?.state).toBe('handed');
+            expect(logger.warn).not.toHaveBeenCalledWith(expect.stringContaining('never took'));
+
+            // A tick later the hook has run and the reading names it.
+            vi.advanceTimersByTime(2_000);
+            rundown.reconcile({ queued: 0, resolving: 0, ready: true, onAir: waiting!.item.id });
+
+            expect(rundown.nowPlaying()?.item.externalId).toBe('b');
+            expect(order.all().find(item => item.id === waiting!.item.id)?.state).toBe('airing');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('does not call it lost at a boundary that reads as nothing on air either', async () => {
+        // The same instant can read `ready: false`: the record before has finished and the next has
+        // not produced a frame yet. That retires the record before, and must not reclaim the next.
+        vi.useFakeTimers();
+        try {
+            const rundown = rundownWith(['a', 'b']);
+            const order = orderOf(rundown, ['a', 'b']);
+            const airing = await rundown.next();
+            rundown.markAired(airing!.item.id);
+            const waiting = await rundown.next();
+
+            vi.advanceTimersByTime(60_000);
+            rundown.reconcile({ queued: 1, resolving: 0, ready: true, onAir: airing!.item.id });
+            vi.advanceTimersByTime(700);
+            rundown.reconcile({ queued: 0, resolving: 0, ready: false });
+
+            expect(order.all().find(item => item.id === waiting!.item.id)?.state).toBe('handed');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('still calls an item lost once readings have missed it for longer than the grace', async () => {
+        // The other side: refreshing the stamp from readings is not a pardon. A push the player
+        // dropped after a reading counted it (a Liquidsoap restart) is reclaimed one grace later.
+        vi.useFakeTimers();
+        try {
+            const rundown = rundownWith(['a', 'b']);
+            const order = orderOf(rundown, ['a', 'b']);
+            const airing = await rundown.next();
+            rundown.markAired(airing!.item.id);
+            const waiting = await rundown.next();
+
+            vi.advanceTimersByTime(60_000);
+            rundown.reconcile({ queued: 1, resolving: 0, ready: true, onAir: airing!.item.id });
+
+            // Short, but inside the grace of that last count.
+            vi.advanceTimersByTime(2_000);
+            rundown.reconcile({ queued: 0, resolving: 0, ready: true, onAir: airing!.item.id });
+            expect(order.all().find(item => item.id === waiting!.item.id)?.state).toBe('handed');
+
+            // Still short past it.
+            vi.advanceTimersByTime(4_000);
+            rundown.reconcile({ queued: 0, resolving: 0, ready: true, onAir: airing!.item.id });
+            expect(order.all().find(item => item.id === waiting!.item.id)?.state).toBe('planned');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('leaves the running order alone when the player holds what it was given', async () => {
         const rundown = rundownWith(['a', 'b']);
         const pulled = await rundown.next();

@@ -314,8 +314,10 @@ export interface PulledItem {
  *
  * So this is now a FALLBACK. `radio.liq` reports `resolving`, the requests it is downloading, and
  * {@link heldBy} adds them to `queued`, so an item mid-download is counted rather than waited for.
- * The grace only does real work against an older script that does not report it, and against a
- * genuinely lost push, where five seconds is still the right time to give up.
+ * The grace only does real work against an older script that does not report it, against the
+ * instant at a boundary when the request going on air is in no list the reading counts (see
+ * `reconcileServed`, and why the grace runs from the last reading that counted an item), and against
+ * a genuinely lost push, where five seconds is still the right time to give up.
  */
 const RESOLVE_GRACE_MS = 5_000;
 
@@ -408,7 +410,8 @@ export class Rundown {
      */
     private prepared = new Map<string, RundownItem>();
     /**
-     * When each handed-over item was given to the player.
+     * When each handed-over item was last known to be with the player: given to it, or counted on
+     * a reading since.
      *
      * A pushed request is INVISIBLE for a while: Liquidsoap pops it off the queue to
      * resolve it — for an http uri, to download the whole track — and during that
@@ -419,8 +422,14 @@ export class Rundown {
      * Stamped when the item is marked `handed`, BEFORE this process resolves it, so the grace
      * covers the app's own resolve as well as the player's fetch: an item that is `handed` is
      * never without a stamp, and a reading that lands mid-resolve has nothing to misread.
+     *
+     * **Refreshed by every reading that accounts for it**, and that is what the grace is measured
+     * from rather than the hand-over alone. A request is invisible a SECOND time, at the boundary
+     * where it goes on air: see {@link reconcileServed}. An item handed over minutes earlier had a
+     * hand-over stamp far older than the grace by then, so one reading taken in that instant called
+     * it lost while it was airing.
      */
-    private servedAt = new Map<string, number>();
+    private accountedAt = new Map<string, number>();
     /**
      * How many times each item has been handed over and come back unheard.
      *
@@ -495,7 +504,7 @@ export class Rundown {
     detach(): void {
         this.order = undefined;
         this.prepared.clear();
-        this.servedAt.clear();
+        this.accountedAt.clear();
         this.handOvers.clear();
         this.airing = undefined;
         this.armedVoice = undefined;
@@ -631,7 +640,7 @@ export class Rundown {
     retract(): void {
         this.epoch.bump();
         this.order?.reclaimAll();
-        this.servedAt.clear();
+        this.accountedAt.clear();
         this.forgetPreparedExcept(this.airing?.id);
         // Not a stand-down: the station is still on air, playing the item it was
         // already playing, and only what comes after it has changed.
@@ -656,7 +665,7 @@ export class Rundown {
         this.epoch.bump();
         if (this.airing) this.order?.markPlayed(this.airing.id);
         this.order?.reclaimAll();
-        this.servedAt.clear();
+        this.accountedAt.clear();
         this.prepared.clear();
         // Cleared here and NOT in retract: a stand-down is an operator intervening,
         // and fixing whatever was refusing is the usual thing they intervene by
@@ -773,20 +782,20 @@ export class Rundown {
             // second, so it arrived: the item was reclaimed to `planned` mid-resolve, this pass
             // finished and handed it over anyway, and the next pass handed it over again. Two copies
             // in the player's queue, and the listener heard the record twice.
-            this.servedAt.set(item.id, Date.now());
+            this.accountedAt.set(item.id, Date.now());
             const url = await this.resolver.resolve(item);
 
             if (!this.epoch.isCurrent(token)) {
                 // Nothing to undo in the ORDER: a retraction has already reclaimed this item, and a
                 // stand-down means there is nothing to go back to. The stamp is this class's own and
                 // comes off with the item.
-                this.servedAt.delete(item.id);
+                this.accountedAt.delete(item.id);
                 this.logger.info('rundown: the running order changed while an item was being resolved; dropping it', { item: item.id });
                 return undefined;
             }
 
             if (!url) {
-                this.servedAt.delete(item.id);
+                this.accountedAt.delete(item.id);
                 // `unavailable` rather than `skipped`: nothing here is a decision the station made.
                 // The resolver answers with nothing when every copy of the record is benched or the
                 // provider will not serve one, which is a fact about the COPY and the one thing on
@@ -854,7 +863,7 @@ export class Rundown {
         if (this.stateOf(id) !== 'handed') return false;
 
         this.order?.reclaim([id]);
-        this.servedAt.delete(id);
+        this.accountedAt.delete(id);
         this.emit();
         return true;
     }
@@ -989,13 +998,31 @@ export class Rundown {
      * NORMAL state for the length of a download. Acting on that hands the same item
      * over a second time, so only an item that has been unaccounted for longer than
      * {@link RESOLVE_GRACE_MS} is treated as lost.
+     *
+     * **And at every boundary, on any script.** The queue pops the next request to play it, and the
+     * `on_track` hook that moves `onAir` onto it runs a moment later, in the streaming loop, while a
+     * reading is answered from the harbor's thread. A reading in between finds the request in neither
+     * `queued` nor `resolving` (it is `ready` now, and out of the queue) while `onAir` still names the
+     * record before it, or nothing at all. Measured on the live station on 2026-10-10: a break handed
+     * over three minutes earlier was reclaimed by a reading 0.7s into its own airing, and the break
+     * writer, seeing it `planned` again, rewrote and re-rendered a break that was already on air.
+     * "Unaccounted for" therefore means since the last reading that COUNTED it, not since it was
+     * handed over: one short reading at a boundary is now inside the grace, and the next one, a tick
+     * later, finds the item on air. A push genuinely lost is still lost one grace after the last
+     * reading that saw it, which costs a Liquidsoap restart a few seconds of recovery and nothing else.
+     *
+     * The count is positional, so it refreshes the head of the handed list first. That is the right
+     * way round for both cases it has to tell apart: the player consumes from the front, so the item
+     * a boundary is moving is the head, and a lost push is the tail.
      */
     private reconcileServed(held: number): void {
         const handed = this.handedIds();
+        const now = Date.now();
+        for (const id of handed.slice(0, held)) this.accountedAt.set(id, now);
         if (held >= handed.length) return;
 
-        const settledBy = Date.now() - RESOLVE_GRACE_MS;
-        const lost = handed.filter((id, index) => index >= held && (this.servedAt.get(id) ?? 0) <= settledBy);
+        const settledBy = now - RESOLVE_GRACE_MS;
+        const lost = handed.filter((id, index) => index >= held && (this.accountedAt.get(id) ?? 0) <= settledBy);
 
         // Everything short is still within its grace: the player is fetching, which
         // is the overwhelmingly common reason for a reading to be short at all.
@@ -1011,7 +1038,7 @@ export class Rundown {
             const attempts = (this.handOvers.get(id) ?? 0) + 1;
             this.handOvers.set(id, attempts);
             (attempts >= MAX_HAND_OVERS ? exhausted : retry).push(id);
-            this.servedAt.delete(id);
+            this.accountedAt.delete(id);
         }
 
         if (retry.length > 0) {
@@ -1067,7 +1094,7 @@ export class Rundown {
     private setAiring(id: string, passedOver = 0): void {
         this.airing = { id, startedAt: Date.now(), observedAt: Date.now() };
         this.unknownOnAir = undefined;
-        this.servedAt.delete(id);
+        this.accountedAt.delete(id);
 
         const item = this.prepared.get(id);
         if (item) {

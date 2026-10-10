@@ -849,7 +849,7 @@ export interface DeadairScheduleSlots {
   label: Generated<string>;
   mixInSimilar: boolean | null;
   mode: Generated<"rotation" | "setlist" | "feature">;
-  mood: "love" | "happiness" | "comfort" | "sadness" | "loneliness" | "anger" | "fear" | null;
+  moods: string[] | null;
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;
   requestFollowOn: number | null;
@@ -997,7 +997,7 @@ export interface DeadairStationLineup {
   holdUntil: DateTime | null;
   items: Generated<Json>;
   mode: Generated<"rotation" | "setlist" | "feature">;
-  mood: "love" | "happiness" | "comfort" | "sadness" | "loneliness" | "anger" | "fear" | null;
+  moods: string[] | null;
   name: Generated<string>;
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;
@@ -1135,6 +1135,18 @@ export interface DeadairTracks {
   year: number | null;
 }
 
+export interface DeadairTrackSkips {
+  actorId: string | null;
+  afterMs: number | null;
+  artistKey: string;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  skippedAt: Generated<DateTime>;
+  songKey: string;
+  stationKey: Generated<string>;
+  trackId: string | null;
+}
+
 export interface DeadairTrackSources {
   advisory: "explicit" | "clean" | null;
   bitrate: number | null;
@@ -1251,6 +1263,7 @@ export interface DB {
   "deadair.trackLyricLabels": DeadairTrackLyricLabels;
   "deadair.trackLyrics": DeadairTrackLyrics;
   "deadair.tracks": DeadairTracks;
+  "deadair.trackSkips": DeadairTrackSkips;
   "deadair.trackSources": DeadairTrackSources;
   "deadair.trackVocalOverrides": DeadairTrackVocalOverrides;
   schemaMigrations: SchemaMigrations;

@@ -1,4 +1,5 @@
 import { MOOD_BOOST } from './mood.lean.js';
+import { skipWeight } from './skip.lean.js';
 import { DEEP_CUT_LEAN, RETURN_LEAN } from './rediscover.js';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { StationLineupMode, StationLineupRules } from './station.lineup.js';
@@ -478,6 +479,12 @@ export interface RotationCandidate {
     returning?: true;
     /** An unaired album track from an album the operator likes: only ever `true` or absent. See `rediscover.ts`. */
     deepCut?: true;
+    /**
+     * How far a record the operator skipped has recovered, from `0` (just skipped) to `1` (a whole
+     * skip-lean window ago). Absent for anything never skipped inside it, which weighs like `1`. Set
+     * only by a draw that read the skips. See `skip.lean.ts`.
+     */
+    skippedFor?: number;
 }
 
 /** What the station has aired lately, as the rules read it. */
@@ -534,7 +541,8 @@ export const weightOf = (candidate: RotationCandidate): number =>
     (candidate.moodFit === true ? MOOD_BOOST : 1) *
     (candidate.lean ?? 1) *
     (candidate.returning === true ? RETURN_LEAN : 1) *
-    (candidate.deepCut === true ? DEEP_CUT_LEAN : 1);
+    (candidate.deepCut === true ? DEEP_CUT_LEAN : 1) *
+    skipWeight(candidate.skippedFor);
 
 /**
  * The share of its full weight a record that has JUST aired keeps under smart shuffle.

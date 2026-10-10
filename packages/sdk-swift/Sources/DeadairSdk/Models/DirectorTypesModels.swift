@@ -436,8 +436,8 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var eraFrom: Int?
     /// The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone
     public var eraTo: Int?
-    /// The mood this broadcast leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean
-    public var mood: PutOnAirInputMood?
+    /// The moods this broadcast leans into, as stages in order across the schedule slot it fills. Off the schedule, only the first is used. Records a model has judged to be in the mood are a little more likely to be picked; nothing is ever kept off the air for it. Absent or empty is no lean
+    public var moods: [PutOnAirInputMoods]?
     /// Whether the host talks between the records. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says
     public var breaks: Bool?
     /// Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent is no calls: there is no station-wide default behind it
@@ -455,7 +455,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var mode: StationMode?
     public var onEnd: StationOnEnd?
 
-    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, albumId: UUID? = nil, routeFrom: String? = nil, routeTo: String? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, mood: PutOnAirInputMood? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, requestCooldownMinutes: Int? = nil, requestMaxOpen: Int? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
+    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, albumId: UUID? = nil, routeFrom: String? = nil, routeTo: String? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [PutOnAirInputMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, requestCooldownMinutes: Int? = nil, requestMaxOpen: Int? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
         self.pluginId = pluginId
         self.playlistId = playlistId
         self.chartId = chartId
@@ -470,7 +470,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.personaId = personaId
         self.eraFrom = eraFrom
         self.eraTo = eraTo
-        self.mood = mood
+        self.moods = moods
         self.breaks = breaks
         self.callins = callins
         self.mixInSimilar = mixInSimilar
@@ -497,7 +497,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         case personaId = "personaId"
         case eraFrom = "eraFrom"
         case eraTo = "eraTo"
-        case mood = "mood"
+        case moods = "moods"
         case breaks = "breaks"
         case callins = "callins"
         case mixInSimilar = "mixInSimilar"
@@ -525,7 +525,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.personaId = try container.decodeIfPresent(String.self, forKey: .personaId)
         self.eraFrom = try container.decodeIfPresent(Int.self, forKey: .eraFrom)
         self.eraTo = try container.decodeIfPresent(Int.self, forKey: .eraTo)
-        self.mood = try container.decodeIfPresent(PutOnAirInputMood.self, forKey: .mood)
+        self.moods = try container.decodeIfPresent([PutOnAirInputMoods].self, forKey: .moods)
         self.breaks = try container.decodeIfPresent(Bool.self, forKey: .breaks)
         self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
         self.mixInSimilar = try container.decodeIfPresent(Bool.self, forKey: .mixInSimilar)
@@ -553,7 +553,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.personaId, forKey: .personaId)
         try container.encodeIfPresent(self.eraFrom, forKey: .eraFrom)
         try container.encodeIfPresent(self.eraTo, forKey: .eraTo)
-        try container.encodeIfPresent(self.mood, forKey: .mood)
+        try container.encodeIfPresent(self.moods, forKey: .moods)
         try container.encodeIfPresent(self.breaks, forKey: .breaks)
         try container.encodeIfPresent(self.callins, forKey: .callins)
         try container.encodeIfPresent(self.mixInSimilar, forKey: .mixInSimilar)
@@ -880,8 +880,7 @@ public enum PutOnAirInputChartOrder: String, Codable, CaseIterable, Sendable {
     case unordered = "unordered"
 }
 
-/// The mood this broadcast leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean
-public enum PutOnAirInputMood: String, Codable, CaseIterable, Sendable {
+public enum PutOnAirInputMoods: String, Codable, CaseIterable, Sendable {
     case love = "love"
     case happiness = "happiness"
     case comfort = "comfort"

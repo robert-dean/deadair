@@ -337,10 +337,10 @@ public sealed record PutOnAirInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? EraTo { get; init; }
 
-    /// <summary>The mood this broadcast leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean</summary>
-    [JsonPropertyName("mood")]
+    /// <summary>The moods this broadcast leans into, as stages in order across the schedule slot it fills. Off the schedule, only the first is used. Records a model has judged to be in the mood are a little more likely to be picked; nothing is ever kept off the air for it. Absent or empty is no lean</summary>
+    [JsonPropertyName("moods")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PutOnAirInputMood? Mood { get; init; }
+    public List<PutOnAirInputMoods>? Moods { get; init; }
 
     /// <summary>Whether the host talks between the records. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says</summary>
     [JsonPropertyName("breaks")]
@@ -630,9 +630,8 @@ public enum PutOnAirInputChartOrder
     Unordered,
 }
 
-/// <summary>The mood this broadcast leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PutOnAirInputMood>))]
-public enum PutOnAirInputMood
+[JsonConverter(typeof(JsonStringEnumConverter<PutOnAirInputMoods>))]
+public enum PutOnAirInputMoods
 {
     [JsonStringEnumMemberName("love")]
     Love,

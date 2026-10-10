@@ -18,6 +18,10 @@ import type { StreamConfigWarning, StreamConfigWatch } from '../../../src/module
 import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 import type { ServedAudio, TrackAudioService } from '../../../src/modules/playout/audio/track.audio.service.js';
 import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
+import type { AuthorizationContext } from '../../../src/modules/permissions/authorization.context.js';
+import type { TrackSkipsRepository } from '../../../src/modules/director/track.skips.repository.js';
+import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
+import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -172,8 +176,28 @@ function build(options: Options = {}) {
     // covered in its own file; this is only what the route does with the answer.
     const trackAudio = { ensure: async () => options.trackAudio } as unknown as TrackAudioService;
 
+    // Who pressed it, and where a Skip is written down for the skip lean.
+    const context = { actor: { kind: 'user', actorId: 'actor-1' } } as unknown as AuthorizationContext;
+    const skips = { record: vi.fn(async () => {}) } as unknown as TrackSkipsRepository;
+
     return {
-        service: new PlayoutService(rundown, pusher, director, endpoint, control, audience, stream, trackAudio, staleness, activity, logger),
+        service: new PlayoutService(
+            rundown,
+            pusher,
+            director,
+            endpoint,
+            control,
+            audience,
+            stream,
+            trackAudio,
+            staleness,
+            activity,
+            logger,
+            context,
+            skips,
+            new StationIdentity(),
+        ),
+        skips,
         audience,
         rundown,
         pusher,
@@ -471,6 +495,46 @@ describe('PlayoutService.skip and stop', () => {
         await service.skip();
 
         expect(pusher.skipCurrent).toHaveBeenCalledWith('item-7');
+    });
+
+    it('writes down the record the operator skipped, how far in, and who pressed it', async () => {
+        const { service, rundown, skips } = build();
+        const item = { id: 'item-7', pluginId: 'spotify', externalId: 'x', title: 'Song', artist: 'Band', artists: ['Band'] } as RundownItem;
+        vi.mocked(rundown.nowPlaying).mockReturnValue({ item, startedAt: Date.now() - 12_000 });
+
+        await service.skip();
+
+        expect(skips.record).toHaveBeenCalledWith({ item, stationKey: 'main', afterMs: expect.any(Number), actorId: 'actor-1' });
+        const [entry] = vi.mocked(skips.record).mock.calls[0]!;
+        expect(entry.afterMs).toBeGreaterThanOrEqual(12_000);
+    });
+
+    it('writes nothing for a skip the stream did not take, or for a break or a programme', async () => {
+        const failed = build({ skipLands: false });
+        vi.mocked(failed.rundown.nowPlaying).mockReturnValue({ item: { id: 'r', pluginId: 'spotify' } as RundownItem, startedAt: 0 });
+        await statusOf(failed.service.skip());
+        expect(failed.skips.record).not.toHaveBeenCalled();
+
+        const talk = build();
+        vi.mocked(talk.rundown.nowPlaying).mockReturnValue({ item: { id: 'b', pluginId: RENDER_PLUGIN_ID } as RundownItem, startedAt: 0 });
+        await talk.service.skip();
+        expect(talk.skips.record).not.toHaveBeenCalled();
+
+        const show = build();
+        vi.mocked(show.rundown.nowPlaying).mockReturnValue({ item: { id: 'p', pluginId: 'podcast', programme: true } as RundownItem, startedAt: 0 });
+        await show.service.skip();
+        expect(show.skips.record).not.toHaveBeenCalled();
+    });
+
+    it('still reports the skip when writing it down fails', async () => {
+        const { service, rundown, skips } = build();
+        vi.mocked(skips.record).mockRejectedValue(new Error('the table is gone'));
+        vi.mocked(rundown.nowPlaying).mockReturnValue({
+            item: { id: 'r', pluginId: 'spotify', title: 'S', artist: 'A' } as RundownItem,
+            startedAt: 0,
+        });
+
+        expect(await statusOf(service.skip())).toBe(200);
     });
 
     it('drops the running order on stop', async () => {

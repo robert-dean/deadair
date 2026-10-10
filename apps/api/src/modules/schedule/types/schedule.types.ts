@@ -144,11 +144,12 @@ export const ScheduleSlot = z.strictObject({
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1900).max(2100))
         .optional()
         .describe('The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone'),
-    mood: z
-        .enum(['love', 'happiness', 'comfort', 'sadness', 'loneliness', 'anger', 'fear'])
+    moods: z
+        .array(z.enum(['love', 'happiness', 'comfort', 'sadness', 'loneliness', 'anger', 'fear']))
+        .max(4)
         .optional()
         .describe(
-            'The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean',
+            "The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean",
         ),
     breaks: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
@@ -276,11 +277,12 @@ export const ScheduleSlotInput = z.strictObject({
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1900).max(2100))
         .optional()
         .describe('The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone'),
-    mood: z
-        .enum(['love', 'happiness', 'comfort', 'sadness', 'loneliness', 'anger', 'fear'])
+    moods: z
+        .array(z.enum(['love', 'happiness', 'comfort', 'sadness', 'loneliness', 'anger', 'fear']))
+        .max(4)
         .optional()
         .describe(
-            'The mood this stretch of the day leans into. Records a model has judged to be in it are a little more likely to be picked; nothing is ever kept off the air for it. Absent is no lean',
+            "The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean",
         ),
     breaks: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())

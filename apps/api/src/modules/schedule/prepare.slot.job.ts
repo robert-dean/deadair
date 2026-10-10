@@ -98,7 +98,7 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
             rules,
             ...(slot.brief ? { brief: slot.brief } : {}),
             ...(slot.era === undefined ? {} : { era: slot.era }),
-            ...(slot.mood === undefined ? {} : { mood: slot.mood }),
+            ...(slot.moods === undefined ? {} : { mood: slot.moods[0]! }),
             broadcast: { mode: slot.mode, slotId },
             // Whatever the station is airing now, so the next show does not open on a record the last
             // one is about to play. What has already aired is the repeat window's business.

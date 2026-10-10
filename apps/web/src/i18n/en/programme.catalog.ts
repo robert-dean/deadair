@@ -45,7 +45,12 @@ export const programme = {
         label: 'Leans toward',
         description:
             'Records a model has judged to be in this mood are a little more likely to be picked. Nothing is ever kept off the air for it, and it does nothing until moods are switched on under Words.',
+        stagesDescription:
+            'The slot leans into each mood in turn, for an equal share of its time: the first while it opens, the last as it closes. Records a model has judged to be in the mood are a little more likely to be picked, and nothing is ever kept off the air for it.',
         none: 'No lean',
+        then: 'Then…',
+        stage: 'Mood stage {{number}}',
+        clearStage: 'Remove mood stage {{number}}',
         options: {
             love: 'Love',
             happiness: 'Happiness',

@@ -29,6 +29,7 @@ import {
     weightOf,
     type RotationCandidate,
 } from '../../../src/modules/director/rotation.rules.js';
+import { SKIP_FLOOR } from '../../../src/modules/director/skip.lean.js';
 import { DEEP_CUT_LEAN, RETURN_LEAN } from '../../../src/modules/director/rediscover.js';
 
 const candidate = (title: string, artists: string[], rating?: number, album?: string): RotationCandidate => ({
@@ -453,6 +454,13 @@ describe('weightOf under smart shuffle', () => {
 
     it('leans half again toward a deep cut', () => {
         expect(weightOf({ ...candidate('A', ['One']), deepCut: true })).toBe(DEEP_CUT_LEAN);
+    });
+
+    it('weighs a record the operator just skipped down to the skip floor, and lets it recover', () => {
+        expect(weightOf({ ...candidate('A', ['One']), skippedFor: 0 })).toBe(SKIP_FLOOR);
+        expect(weightOf({ ...candidate('A', ['One']), skippedFor: 1 })).toBe(1);
+        expect(weightOf({ ...candidate('A', ['One'], 1), skippedFor: 0, freshness: 0 })).toBe(2 * SKIP_FLOOR * FRESH_FLOOR);
+        expect(SKIP_FLOOR).toBeGreaterThan(0);
     });
 });
 

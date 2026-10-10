@@ -19,7 +19,7 @@ import {
     REQUEST_FOLLOW_ON_DEFAULT,
     RequestShowFields,
     requestShowInput,
-    MoodField,
+    MoodStagesField,
     type Mood,
     ShapeFields,
     ShapeNote,
@@ -127,7 +127,7 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             // bound on its own is "this year onwards".
             ...(typeof values.eraFrom === 'number' ? { eraFrom: values.eraFrom } : {}),
             ...(typeof values.eraTo === 'number' ? { eraTo: values.eraTo } : {}),
-            ...(values.mood ? { mood: values.mood } : {}),
+            ...(values.moods.length === 0 ? {} : { moods: values.moods }),
             // Sent only when it is ON. Absent is no calls, as it is for `putOnAir`.
             ...(values.callins ? { callins: true } : {}),
             // The same three-way, and only beside a playlist, the station's own or a provider's:
@@ -289,7 +289,7 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
 
                     <EraNote />
 
-                    <MoodField {...form.getInputProps('mood')} />
+                    <MoodStagesField value={form.values.moods} onChange={moods => form.setFieldValue('moods', moods)} />
 
                     <ShapeFields mode={form.getInputProps('mode')} onEnd={form.getInputProps('onEnd')} />
 
@@ -409,7 +409,7 @@ interface FormValues {
     eraFrom: number | string;
     eraTo: number | string;
     /** Empty string is the Select cleared, which is no lean. */
-    mood: Mood | '';
+    moods: Mood[];
     /** Ticked sends `true`; unticked sends nothing, which is no calls. See `CallinsField`. */
     callins: boolean;
     /** Ticked sends `true`; unticked sends nothing, which leaves `rotation.mixInSimilar` standing. Drawn only for a playlist. */
@@ -459,7 +459,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         brief: slot?.brief ?? '',
         eraFrom: slot?.eraFrom ?? '',
         eraTo: slot?.eraTo ?? '',
-        mood: slot?.mood ?? '',
+        moods: slot?.moods ?? [],
         callins: slot?.callins ?? false,
         mixInSimilar: slot?.mixInSimilar ?? false,
         dates: [slot?.startsOn ?? null, slot?.endsOn ?? null],

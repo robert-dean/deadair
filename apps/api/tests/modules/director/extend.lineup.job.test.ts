@@ -4,6 +4,9 @@
 // asked for, and must decline politely for every lineup that is not a rotation
 // rather than generating into a Christmas setlist.
 
+import type { ScheduleService } from '../../../src/modules/schedule/schedule.service.js';
+import type { ScheduleSlot } from '../../../src/modules/director/schedule.js';
+import type { LyricMood } from '../../../src/modules/lyrics/lyric.moods.js';
 import { describe, expect, it, vi } from 'vitest';
 import { Duration } from 'luxon';
 import type { Logger } from '@maroonedsoftware/logger';
@@ -69,6 +72,11 @@ interface Options {
     missing?: boolean;
     /** The limit pg-boss reports for the run. Absent is a backend that reports none. */
     expiresIn?: Duration;
+    /** The broadcast's mood stages, and the slot it was put on for. */
+    moods?: LyricMood[];
+    slotId?: string;
+    /** The slot the schedule says is in force. */
+    inForce?: ScheduleSlot;
 }
 
 function build(options: Options & { stationRules?: Record<string, string> } = {}) {
@@ -80,7 +88,11 @@ function build(options: Options & { stationRules?: Record<string, string> } = {}
         onEnd: 'extend',
         source: 'director',
         ...(options.brief === undefined ? {} : { brief: options.brief }),
+        ...(options.moods === undefined ? {} : { moods: options.moods }),
+        ...(options.slotId === undefined ? {} : { slotId: options.slotId }),
     });
+
+    const schedule = { inForce: vi.fn(async () => options.inForce) } as unknown as ScheduleService;
 
     const lineups = {
         load: vi.fn(async () => (options.missing ? undefined : lineup)),
@@ -127,6 +139,7 @@ function build(options: Options & { stationRules?: Record<string, string> } = {}
             director,
             activity,
             station.config,
+            schedule,
             contextFor(options.expiresIn),
             container,
             logger,
@@ -173,6 +186,20 @@ describe('ExtendLineupJob', () => {
 
         expect(generate.mock.calls[0]![0]!.brief).toBe('heavy metal hits');
         expect(generate.mock.calls[1]![0]!.brief).toBe('heavy metal hits');
+    });
+
+    it("leans into the slot's mood stage, the first when the slot in force is not the broadcast's", async () => {
+        const single = build({ moods: ['comfort'], slotId: 'evening' });
+        await single.job.run({ count: 5 });
+        expect(single.generate.mock.calls[0]![0]!.mood).toBe('comfort');
+
+        const elsewhere = build({ moods: ['sadness', 'anger'], slotId: 'evening', inForce: undefined });
+        await elsewhere.job.run({ count: 5 });
+        expect(elsewhere.generate.mock.calls[0]![0]!.mood).toBe('sadness');
+
+        const none = build({});
+        await none.job.run({ count: 5 });
+        expect(none.generate.mock.calls[0]![0]).not.toHaveProperty('mood');
     });
 
     it('tells the generator nothing about who is presenting', async () => {

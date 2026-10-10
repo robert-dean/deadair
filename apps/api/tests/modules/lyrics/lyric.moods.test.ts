@@ -3,7 +3,16 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { LYRIC_MOODS, MAX_PROMPT_LYRIC_CHARS, moodsPrompt, MOODS_VERSION, readMoods } from '../../../src/modules/lyrics/lyric.moods.js';
+import {
+    LYRIC_MOODS,
+    MAX_MOOD_STAGES,
+    MAX_PROMPT_LYRIC_CHARS,
+    moodsField,
+    moodStages,
+    moodsPrompt,
+    MOODS_VERSION,
+    readMoods,
+} from '../../../src/modules/lyrics/lyric.moods.js';
 
 const subject = { title: 'Glory Box', artist: 'Portishead', album: 'Dummy', year: 1994 };
 
@@ -64,5 +73,21 @@ describe('moodsPrompt', () => {
 
     it('carries a version that changes with the instructions', () => {
         expect(MOODS_VERSION).toMatch(/^m1-[0-9a-f]{12}$/);
+    });
+});
+
+describe('mood stages', () => {
+    it('keeps the known moods in order, at most four, and spells no lean as absent', () => {
+        expect(moodStages(['comfort', 'sadness'])).toEqual(['comfort', 'sadness']);
+        expect(moodStages(['comfort', 'joy', 'fear'])).toEqual(['comfort', 'fear']);
+        expect(moodStages(['love', 'love', 'anger', 'fear', 'comfort'])).toHaveLength(MAX_MOOD_STAGES);
+        expect(moodStages([])).toBeUndefined();
+        expect(moodStages(null)).toBeUndefined();
+        expect(moodStages(['joy'])).toBeUndefined();
+    });
+
+    it('spreads as a field, or as nothing at all', () => {
+        expect(moodsField(['comfort'])).toEqual({ moods: ['comfort'] });
+        expect(moodsField([])).toEqual({});
     });
 });

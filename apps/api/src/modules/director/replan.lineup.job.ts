@@ -1,4 +1,6 @@
 import { Container, Injectable } from 'injectkit';
+import { ScheduleService } from '#modules/schedule/schedule.service.js';
+import { refillMood } from './mood.stage.js';
 import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
@@ -67,6 +69,8 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
         // operator who asked for it should hear about, and the feed is where they look.
         private readonly activity: ActivityRecorder,
         private readonly config: AppConfig,
+        // Which slot is in force, for the mood stage a batch will air in. See `mood.stage.ts`.
+        private readonly schedule: ScheduleService,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -135,6 +139,16 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
         // same as before this existed.
         const seed = tailTracks.at(-1);
 
+        // The stage of the slot's mood the new tail will mostly air in. It starts behind what the
+        // player holds, which is all of the old order that survives a replan's clock.
+        const mood = await refillMood(
+            lineup,
+            lineup.all().filter(item => item.state === 'handed'),
+            count,
+            this.schedule,
+            this.config,
+        );
+
         const planned = await planRecords(
             this.generator,
             this.resolver,
@@ -148,7 +162,7 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
                 // period holds for the whole broadcast rather than for one batch, and it is the one
                 // part of the instruction the deterministic floor can honour on its own.
                 ...(lineup.era === undefined ? {} : { era: lineup.era }),
-                ...(lineup.mood === undefined ? {} : { mood: lineup.mood }),
+                ...(mood === undefined ? {} : { mood }),
                 // What the broadcast is, for a never-play rule scoped to a mode or a schedule block.
                 broadcast: { mode: lineup.mode, ...(lineup.slotId === undefined ? {} : { slotId: lineup.slotId }) },
                 // **The whole difference between this and a shuffle.** The keys cover the tail that is

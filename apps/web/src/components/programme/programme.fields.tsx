@@ -1,4 +1,4 @@
-import { Group, NumberInput, Select, Text, Textarea, Checkbox } from '@mantine/core';
+import { Group, Input, NumberInput, Select, Stack, Text, Textarea, Checkbox } from '@mantine/core';
 import type { GetInputPropsReturnType } from '@mantine/form';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -302,25 +302,60 @@ export const MOODS = ['love', 'happiness', 'comfort', 'sadness', 'loneliness', '
 
 export type Mood = (typeof MOODS)[number];
 
+/** How many stages a slot's mood may pass through: the API's own limit. */
+export const MAX_MOOD_STAGES = 4;
+
 /**
- * The mood it leans into, or none.
+ * The moods it leans into, as stages in order, or none.
  *
  * Beside the period and for a similar reason: a mood the station's model has already judged every
  * record by is a number the record draw can lean on with nothing reading prose. Only a LEAN: the
  * description says so, because a judgement read off lyrics is wrong often enough that it must never
  * keep a record off the air, and an operator who picks "sadness" should not expect a wall of it.
+ *
+ * One select per stage and a blank one after the last while there is room, so a slot with one mood
+ * looks exactly as it did and a second stage is one choice away. Clearing a stage removes it and
+ * closes the gap, so the list can never hold a hole the API would refuse.
  */
-export function MoodField(input: GetInputPropsReturnType) {
+export function MoodStagesField({ value, onChange }: { value: readonly Mood[]; onChange: (moods: Mood[]) => void }) {
     const { t } = useTranslation('programme');
+    const data = MOODS.map(mood => ({ value: mood, label: t(`mood.options.${mood}`) }));
+    const rows: (Mood | undefined)[] = value.length < MAX_MOOD_STAGES ? [...value, undefined] : [...value];
+
+    const change = (index: number, next: string | null) => {
+        const moods = [...value];
+        if (next === null) moods.splice(index, 1);
+        else moods[index] = next as Mood;
+        onChange(moods);
+    };
+
     return (
-        <Select
-            label={t('mood.label')}
-            description={t('mood.description')}
-            placeholder={t('mood.none')}
-            data={MOODS.map(mood => ({ value: mood, label: t(`mood.options.${mood}`) }))}
-            clearable
-            {...input}
-        />
+        <Input.Wrapper label={t('mood.label')} description={t(value.length > 1 ? 'mood.stagesDescription' : 'mood.description')}>
+            <Stack gap={6} mt={4}>
+                {rows.map((mood, index) => (
+                    <Select
+                        // Positional on purpose: a stage IS its position, and clearing one moves the rest up.
+                        key={index}
+                        aria-label={t('mood.stage', { number: index + 1 })}
+                        placeholder={index === 0 ? t('mood.none') : t('mood.then')}
+                        data={data}
+                        value={mood ?? null}
+                        onChange={next => change(index, next)}
+                        clearable
+                        clearButtonProps={{ 'aria-label': t('mood.clearStage', { number: index + 1 }) }}
+                        {...(rows.length > 1
+                            ? {
+                                  leftSection: (
+                                      <Text size="xs" c="dimmed">
+                                          {index + 1}
+                                      </Text>
+                                  ),
+                              }
+                            : {})}
+                    />
+                ))}
+            </Stack>
+        </Input.Wrapper>
     );
 }
 

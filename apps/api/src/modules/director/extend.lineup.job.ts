@@ -1,4 +1,6 @@
 import { Container, Injectable } from 'injectkit';
+import { ScheduleService } from '#modules/schedule/schedule.service.js';
+import { refillMood } from './mood.stage.js';
 import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
@@ -66,6 +68,8 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
         // station rather than about this run, and the feed is where an operator meets it.
         private readonly activity: ActivityRecorder,
         private readonly config: AppConfig,
+        // Which slot is in force, for the mood stage a batch will air in. See `mood.stage.ts`.
+        private readonly schedule: ScheduleService,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -122,6 +126,9 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
         // same as before this existed.
         const seed = tailTracks.at(-1);
 
+        // The stage of the slot's mood this batch will mostly air in, measured from where it starts.
+        const mood = await refillMood(lineup, lineup.upcoming(), count, this.schedule, this.config);
+
         const planned = await planRecords(
             this.generator,
             this.resolver,
@@ -136,7 +143,7 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
                 // period holds for the whole broadcast rather than for one batch, and it is the one
                 // part of the instruction the deterministic floor can honour on its own.
                 ...(lineup.era === undefined ? {} : { era: lineup.era }),
-                ...(lineup.mood === undefined ? {} : { mood: lineup.mood }),
+                ...(mood === undefined ? {} : { mood }),
                 // What the broadcast is, for a never-play rule scoped to a mode or a schedule block.
                 broadcast: { mode: lineup.mode, ...(lineup.slotId === undefined ? {} : { slotId: lineup.slotId }) },
                 // The songs the lineup ALREADY holds, which history knows nothing about: a

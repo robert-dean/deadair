@@ -317,12 +317,17 @@ describe('ScheduleTickJob', () => {
         );
     });
 
-    it('carries a slot’s mood onto the running order beside its period', async () => {
-        const { tick, console } = build({ inForce: slot('late', { mood: 'comfort' }) });
+    it('carries a slot’s mood stages onto the running order beside its period', async () => {
+        const { tick, console } = build({ inForce: slot('late', { moods: ['comfort', 'loneliness'] }) });
 
         await tick();
 
-        expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ mood: 'comfort' }), expect.anything(), false, expect.anything());
+        expect(console.putOnAir).toHaveBeenCalledWith(
+            expect.objectContaining({ moods: ['comfort', 'loneliness'] }),
+            expect.anything(),
+            false,
+            expect.anything(),
+        );
     });
 
     it('says nothing about a period a slot does not name', async () => {

@@ -95,7 +95,7 @@ public sealed record SlotDraft
             OnEnd = slot.OnEnd,
             Kept = new SlotPassthrough
             {
-                Mood = slot.Mood,
+                Moods = slot.Moods,
                 StartsOn = slot.StartsOn,
                 EndsOn = slot.EndsOn,
                 Yearly = slot.Yearly,
@@ -199,7 +199,7 @@ public sealed record SlotDraft
             EraTo = to,
             Callins = Callins ? true : null,
             MixInSimilar = MixInSimilar && ProgrammeSource.MixesInto(Source) ? true : null,
-            Mood = Kept.Mood,
+            Moods = Kept.Moods,
             StartsOn = Kept.StartsOn,
             EndsOn = Kept.EndsOn,
             Yearly = Kept.Yearly,
@@ -279,7 +279,8 @@ public static class SlotText
 /// <summary>The fields of a slot the desktop editor carries without drawing. See <see cref="SlotDraft.Kept"/>.</summary>
 public sealed record SlotPassthrough
 {
-    public ScheduleSlotMood? Mood { get; init; }
+    /// <summary>The slot's mood stages, in order; null for no lean.</summary>
+    public List<ScheduleSlotMoods>? Moods { get; init; }
 
     /// <summary>A special's first date, <c>YYYY-MM-DD</c>; null on a weekly slot.</summary>
     public string? StartsOn { get; init; }

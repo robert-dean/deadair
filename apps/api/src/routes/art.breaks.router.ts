@@ -12,7 +12,7 @@ export const ArtBreaksRouter = ServerKitRouter();
 
 /**
  * Every kind the station holds a picture for
- * from [art.breaks.ck](../../data/contracts/art/art.breaks.ck#L28)
+ * from [art.breaks.ck](../../data/contracts/art/art.breaks.ck) `GET /art/breaks`
  */
 ArtBreaksRouter.get('/art/breaks', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(BreakArtworkService);
@@ -25,7 +25,7 @@ ArtBreaksRouter.get('/art/breaks', requirePolicy({ policy: 'platform.view' }), a
 
 /**
  * Puts an operator's own picture behind a kind of break. The id does not change, so a URL already on the wire keeps working and the ETag is what says the picture moved
- * from [art.breaks.ck](../../data/contracts/art/art.breaks.ck#L49)
+ * from [art.breaks.ck](../../data/contracts/art/art.breaks.ck) `POST /art/breaks/{kind}`
  */
 ArtBreaksRouter.post('/art/breaks/:kind', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['multipart']), async ctx => {
     const { kind } = await parseAndValidate(
@@ -47,7 +47,7 @@ ArtBreaksRouter.post('/art/breaks/:kind', requirePolicy({ policy: 'platform.mana
 
 /**
  * Puts the picture this repository ships back. The shipped file is read at this moment rather than copied at install, so an upgrade that improved it is what comes back
- * from [art.breaks.ck](../../data/contracts/art/art.breaks.ck#L70)
+ * from [art.breaks.ck](../../data/contracts/art/art.breaks.ck) `DELETE /art/breaks/{kind}`
  */
 ArtBreaksRouter.delete('/art/breaks/:kind', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { kind } = await parseAndValidate(

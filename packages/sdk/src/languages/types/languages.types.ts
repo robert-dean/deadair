@@ -10,7 +10,7 @@ const __dt = (v: unknown, path: string): DateTime => {
 
 /**
  * A language pack: every word the console says, in one language, as the file a translator made. The same document is exported, imported and stored. The console's language only; what the station broadcasts in is the `stream.language` setting
- * generated from [ConsoleLanguagePack](../../../../../apps/api/data/contracts/languages/languages.types.ck#L8)
+ * generated from [ConsoleLanguagePack](../../../../../apps/api/data/contracts/languages/languages.types.ck)
  */
 export interface ConsoleLanguagePack {
     /** Says the file is a console language pack */
@@ -31,7 +31,7 @@ export interface ConsoleLanguagePack {
 
 /**
  * A language the console can be shown in on this station, without its strings
- * generated from [ConsoleLanguage](../../../../../apps/api/data/contracts/languages/languages.types.ck#L19)
+ * generated from [ConsoleLanguage](../../../../../apps/api/data/contracts/languages/languages.types.ck)
  */
 export interface ConsoleLanguage {
     locale: string;
@@ -51,7 +51,7 @@ export function reviveConsoleLanguage(raw: ConsoleLanguage): ConsoleLanguage {
 
 /**
  * The language the signed-in operator chose for the console. Absent means none was chosen, and the console follows the browser's own preference among the languages it has
- * generated from [ConsoleLanguageChoice](../../../../../apps/api/data/contracts/languages/languages.types.ck#L32)
+ * generated from [ConsoleLanguageChoice](../../../../../apps/api/data/contracts/languages/languages.types.ck)
  */
 export interface ConsoleLanguageChoice {
     /** A language this station holds a pack for, or `en` for English whatever the browser prefers */
@@ -59,7 +59,7 @@ export interface ConsoleLanguageChoice {
 }
 
 /**
- * generated from [ConsoleLanguageList](../../../../../apps/api/data/contracts/languages/languages.types.ck#L27)
+ * generated from [ConsoleLanguageList](../../../../../apps/api/data/contracts/languages/languages.types.ck)
  */
 export interface ConsoleLanguageList {
     /** In order of their tags. English is built in and is never listed */

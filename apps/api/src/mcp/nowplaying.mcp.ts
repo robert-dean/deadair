@@ -18,7 +18,7 @@ function requireMcpContainer(context: McpToolContext): Container {
 const GetNowPlayingArgs = z.object({});
 
 /**
- * from [nowplaying.ck](../../data/contracts/nowplaying/nowplaying.ck#L20)
+ * from [nowplaying.ck](../../data/contracts/nowplaying/nowplaying.ck) `GET /nowplaying`
  */
 @Injectable()
 export class GetNowPlayingMcpTool implements McpToolHandler {

@@ -19,7 +19,7 @@ function requireMcpContainer(context: McpToolContext): Container {
 const ReadSessionArgs = z.object({});
 
 /**
- * from [authentication.sessions.ck](../../data/contracts/authentication/authentication.sessions.ck#L32)
+ * from [authentication.sessions.ck](../../data/contracts/authentication/authentication.sessions.ck) `GET /auth/session`
  */
 @Injectable()
 export class ReadSessionMcpTool implements McpToolHandler {

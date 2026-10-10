@@ -9,6 +9,7 @@ using System.Numerics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Xml;
 
 namespace MaroonedSoftware.Deadair.Sdk.Runtime;
@@ -83,9 +84,14 @@ public sealed class BigIntegerConverter : JsonConverter<BigInteger>
 /// A JSON number has already been through a double by the time it reaches this converter, so the
 /// precision the contract asked for is gone. Reading an unquoted number is rejected for that
 /// reason, which matches the Kotlin SDK and the server's own schema.
+///
+/// Only the plain digits the OpenAPI <c>pattern</c> publishes are read: no exponent, no <c>+</c>,
+/// no surrounding whitespace, all of which <c>NumberStyles.Float</c> would otherwise accept.
 /// </remarks>
 public sealed class DecimalStringConverter : JsonConverter<decimal>
 {
+    private static readonly Regex WireForm = new Regex(@"^-?[0-9]+(\.[0-9]+)?$", RegexOptions.CultureInvariant);
+
     public override decimal Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         if (reader.TokenType != JsonTokenType.String)
@@ -94,7 +100,21 @@ public sealed class DecimalStringConverter : JsonConverter<decimal>
         }
 
         var text = reader.GetString() ?? throw new JsonException("Expected a decimal string.");
-        return decimal.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture);
+        // `$` also matches before a final newline in .NET, so the match has to span the whole text.
+        var match = WireForm.Match(text);
+        if (!match.Success || match.Length != text.Length)
+        {
+            throw new JsonException($"'{text}' is not a decimal in plain digits, such as \"1250.00\".");
+        }
+
+        try
+        {
+            return decimal.Parse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture);
+        }
+        catch (OverflowException e)
+        {
+            throw new JsonException($"'{text}' is outside the range of System.Decimal.", e);
+        }
     }
 
     public override void Write(Utf8JsonWriter writer, decimal value, JsonSerializerOptions options)

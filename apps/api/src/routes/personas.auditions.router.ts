@@ -11,7 +11,7 @@ export const PersonasAuditionsRouter = ServerKitRouter();
 
 /**
  * Every audition of this character, newest first, without their breaks
- * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck#L42)
+ * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck) `GET /personas/{id}/auditions`
  */
 PersonasAuditionsRouter.get('/personas/:id/auditions', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -31,7 +31,7 @@ PersonasAuditionsRouter.get('/personas/:id/auditions', requirePolicy({ policy: '
 
 /**
  * Asks the station to put this character through a playlist or a chart. It is queued, not written
- * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck#L55)
+ * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck) `POST /personas/{id}/auditions`
  */
 PersonasAuditionsRouter.post('/personas/:id/auditions', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -53,7 +53,7 @@ PersonasAuditionsRouter.post('/personas/:id/auditions', requirePolicy({ policy: 
 
 /**
  * One audition with every break it has written so far, in order
- * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck#L74)
+ * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck) `GET /personas/{id}/auditions/{auditionId}`
  */
 PersonasAuditionsRouter.get('/personas/:id/auditions/:auditionId', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id, auditionId } = await parseAndValidate(
@@ -74,7 +74,7 @@ PersonasAuditionsRouter.get('/personas/:id/auditions/:auditionId', requirePolicy
 
 /**
  * Stops an audition where it stands, keeping the breaks it has already written
- * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck#L98)
+ * from [personas.auditions.ck](../../data/contracts/personas/personas.auditions.ck) `POST /personas/{id}/auditions/{auditionId}/cancel`
  */
 PersonasAuditionsRouter.post('/personas/:id/auditions/:auditionId/cancel', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id, auditionId } = await parseAndValidate(

@@ -20,7 +20,7 @@ function requireMcpContainer(context: McpToolContext): Container {
 const ReadHistoryArgs = z.object({ query: HistoryQuery.optional() });
 
 /**
- * from [history.ck](../../data/contracts/history/history.ck#L23)
+ * from [history.ck](../../data/contracts/history/history.ck) `GET /history`
  */
 @Injectable()
 export class ReadHistoryMcpTool implements McpToolHandler {

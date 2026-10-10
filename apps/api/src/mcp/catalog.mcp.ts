@@ -63,7 +63,7 @@ const ListTracksArgs = z.object({ query: TrackQueryInput.optional() });
 const RateTrackArgs = z.object({ id: z.uuid(), body: RateInput });
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L30)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/artists`
  */
 @Injectable()
 export class ListArtistsMcpTool implements McpToolHandler {
@@ -86,7 +86,7 @@ export class ListArtistsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L46)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/artists/{id}`
  */
 @Injectable()
 export class GetArtistMcpTool implements McpToolHandler {
@@ -109,7 +109,7 @@ export class GetArtistMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L61)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/artists/{id}/enrichment`
  */
 @Injectable()
 export class GetArtistEnrichmentMcpTool implements McpToolHandler {
@@ -132,7 +132,7 @@ export class GetArtistEnrichmentMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L76)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/artists/{id}/albums`
  */
 @Injectable()
 export class ListArtistAlbumsMcpTool implements McpToolHandler {
@@ -158,7 +158,7 @@ export class ListArtistAlbumsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L92)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `PUT /catalog/artists/{id}/rating`
  */
 @Injectable()
 export class RateArtistMcpTool implements McpToolHandler {
@@ -181,7 +181,7 @@ export class RateArtistMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L113)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/albums`
  */
 @Injectable()
 export class ListAlbumsMcpTool implements McpToolHandler {
@@ -203,7 +203,7 @@ export class ListAlbumsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L129)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/albums/{id}`
  */
 @Injectable()
 export class GetAlbumMcpTool implements McpToolHandler {
@@ -225,7 +225,7 @@ export class GetAlbumMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L144)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/albums/{id}/enrichment`
  */
 @Injectable()
 export class GetAlbumEnrichmentMcpTool implements McpToolHandler {
@@ -248,7 +248,7 @@ export class GetAlbumEnrichmentMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L159)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/albums/{id}/tracks`
  */
 @Injectable()
 export class ListAlbumTracksMcpTool implements McpToolHandler {
@@ -274,7 +274,7 @@ export class ListAlbumTracksMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L175)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `PUT /catalog/albums/{id}/rating`
  */
 @Injectable()
 export class RateAlbumMcpTool implements McpToolHandler {
@@ -297,7 +297,7 @@ export class RateAlbumMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L197)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/tracks/{id}`
  */
 @Injectable()
 export class GetTrackMcpTool implements McpToolHandler {
@@ -320,7 +320,7 @@ export class GetTrackMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L223)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `DELETE /catalog/tracks/{id}/audio`
  */
 @Injectable()
 export class ClearTrackAudioMcpTool implements McpToolHandler {
@@ -343,7 +343,7 @@ export class ClearTrackAudioMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L246)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `DELETE /catalog/tracks/{id}/analysis`
  */
 @Injectable()
 export class ClearTrackAnalysisMcpTool implements McpToolHandler {
@@ -366,7 +366,7 @@ export class ClearTrackAnalysisMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L264)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/tracks/{id}/vocal-markers`
  */
 @Injectable()
 export class GetVocalMarkersMcpTool implements McpToolHandler {
@@ -389,7 +389,7 @@ export class GetVocalMarkersMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L273)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `PUT /catalog/tracks/{id}/vocal-markers`
  */
 @Injectable()
 export class SetVocalMarkersMcpTool implements McpToolHandler {
@@ -412,7 +412,7 @@ export class SetVocalMarkersMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L290)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `DELETE /catalog/tracks/{id}/vocal-markers`
  */
 @Injectable()
 export class ClearVocalMarkersMcpTool implements McpToolHandler {
@@ -435,7 +435,7 @@ export class ClearVocalMarkersMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L308)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `POST /catalog/tracks/{id}/retry`
  */
 @Injectable()
 export class RetryTrackAudioMcpTool implements McpToolHandler {
@@ -458,7 +458,7 @@ export class RetryTrackAudioMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L338)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `POST /catalog/tracks/{id}/offer`
  */
 @Injectable()
 export class OfferTrackCopiesAgainMcpTool implements McpToolHandler {
@@ -481,7 +481,7 @@ export class OfferTrackCopiesAgainMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L356)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/tracks/{id}/enrichment`
  */
 @Injectable()
 export class GetTrackEnrichmentMcpTool implements McpToolHandler {
@@ -504,7 +504,7 @@ export class GetTrackEnrichmentMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L365)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `DELETE /catalog/tracks/{id}/enrichment`
  */
 @Injectable()
 export class ClearTrackEnrichmentMcpTool implements McpToolHandler {
@@ -530,7 +530,7 @@ export class ClearTrackEnrichmentMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L381)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `GET /catalog/tracks`
  */
 @Injectable()
 export class ListTracksMcpTool implements McpToolHandler {
@@ -553,7 +553,7 @@ export class ListTracksMcpTool implements McpToolHandler {
 }
 
 /**
- * from [catalog.ck](../../data/contracts/catalog/catalog.ck#L397)
+ * from [catalog.ck](../../data/contracts/catalog/catalog.ck) `PUT /catalog/tracks/{id}/rating`
  */
 @Injectable()
 export class RateTrackMcpTool implements McpToolHandler {

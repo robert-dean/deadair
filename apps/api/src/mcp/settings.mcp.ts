@@ -19,7 +19,7 @@ function requireMcpContainer(context: McpToolContext): Container {
 const GetSettingsArgs = z.object({});
 
 /**
- * from [settings.ck](../../data/contracts/settings/settings.ck#L27)
+ * from [settings.ck](../../data/contracts/settings/settings.ck) `GET /settings`
  */
 @Injectable()
 export class GetSettingsMcpTool implements McpToolHandler {

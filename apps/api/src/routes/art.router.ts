@@ -10,7 +10,7 @@ export const ArtRouter = ServerKitRouter();
 
 /**
  * The bytes of one cached image, addressed by its id alone
- * from [art.ck](../../data/contracts/art/art.ck#L25)
+ * from [art.ck](../../data/contracts/art/art.ck) `GET /art/{id}`
  * anonymous access, no security required
  */
 ArtRouter.get('/art/:id', async ctx => {
@@ -37,7 +37,7 @@ ArtRouter.get('/art/:id', async ctx => {
 
 /**
  * The bytes of one cached image, under any filename
- * from [art.ck](../../data/contracts/art/art.ck#L69)
+ * from [art.ck](../../data/contracts/art/art.ck) `GET /art/{id}/{filename}`
  * anonymous access, no security required
  */
 ArtRouter.get('/art/:id/:filename', async ctx => {

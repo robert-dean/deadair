@@ -37,7 +37,7 @@ const PreviewPlaylistImportArgs = z.object({ body: PlaylistImportInput });
 const ImportPlaylistArgs = z.object({ body: PlaylistImportInput });
 
 /**
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L17)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck) `GET /station-playlists`
  */
 @Injectable()
 export class ListStationPlaylistsMcpTool implements McpToolHandler {
@@ -59,7 +59,7 @@ export class ListStationPlaylistsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L35)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck) `GET /station-playlists/{id}`
  */
 @Injectable()
 export class GetStationPlaylistMcpTool implements McpToolHandler {
@@ -82,7 +82,7 @@ export class GetStationPlaylistMcpTool implements McpToolHandler {
 }
 
 /**
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L48)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck) `PATCH /station-playlists/{id}`
  */
 @Injectable()
 export class UpdateStationPlaylistMcpTool implements McpToolHandler {
@@ -105,7 +105,7 @@ export class UpdateStationPlaylistMcpTool implements McpToolHandler {
 }
 
 /**
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L61)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck) `DELETE /station-playlists/{id}`
  */
 @Injectable()
 export class DeleteStationPlaylistMcpTool implements McpToolHandler {
@@ -127,7 +127,7 @@ export class DeleteStationPlaylistMcpTool implements McpToolHandler {
 }
 
 /**
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L75)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck) `POST /station-playlists/{id}/fill`
  */
 @Injectable()
 export class FillStationPlaylistMcpTool implements McpToolHandler {
@@ -150,7 +150,7 @@ export class FillStationPlaylistMcpTool implements McpToolHandler {
 }
 
 /**
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L89)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck) `GET /station-playlists/{id}/export`
  */
 @Injectable()
 export class ExportStationPlaylistMcpTool implements McpToolHandler {
@@ -173,7 +173,7 @@ export class ExportStationPlaylistMcpTool implements McpToolHandler {
 }
 
 /**
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L110)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck) `POST /station-playlists/import/preview`
  */
 @Injectable()
 export class PreviewPlaylistImportMcpTool implements McpToolHandler {
@@ -196,7 +196,7 @@ export class PreviewPlaylistImportMcpTool implements McpToolHandler {
 }
 
 /**
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L127)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck) `POST /station-playlists/import`
  */
 @Injectable()
 export class ImportPlaylistMcpTool implements McpToolHandler {

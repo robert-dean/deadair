@@ -9,7 +9,7 @@ export const NowplayingRouter = ServerKitRouter();
 
 /**
  * What is on air right now. Answers 200 with `onAir: false` when the station is quiet, so a device polling this treats silence as an answer rather than an error
- * from [nowplaying.ck](../../data/contracts/nowplaying/nowplaying.ck#L20)
+ * from [nowplaying.ck](../../data/contracts/nowplaying/nowplaying.ck) `GET /nowplaying`
  * anonymous access, no security required
  */
 NowplayingRouter.get('/nowplaying', async ctx => {

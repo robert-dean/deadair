@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * A host who sits in on a slot on some nights, saying whose show it usually is
- * generated from [SlotGuestHost](../../../../data/contracts/schedule/schedule.types.ck#L38)
+ * generated from [SlotGuestHost](../../../../data/contracts/schedule/schedule.types.ck)
  */
 export const SlotGuestHost = z.strictObject({
     personaId: z.string().min(1).max(100).describe('Who sits in. A host; a caller or a guest who drops by can never present a show'),
@@ -25,7 +25,7 @@ export type SlotGuestHost = z.infer<typeof SlotGuestHost>;
 
 /**
  * Somebody who presents beside a slot's host, every night or some of them
- * generated from [SlotCoHost](../../../../data/contracts/schedule/schedule.types.ck#L46)
+ * generated from [SlotCoHost](../../../../data/contracts/schedule/schedule.types.ck)
  */
 export const SlotCoHost = z.strictObject({
     personaId: z.string().min(1).max(100).describe('Who co-presents. A host; a caller or a guest who drops by can never present a show'),
@@ -48,7 +48,7 @@ export type SlotCoHost = z.infer<typeof SlotCoHost>;
 
 /**
  * A window of the station's day to draw
- * generated from [ScheduleTimetableQuery](../../../../data/contracts/schedule/schedule.types.ck#L58)
+ * generated from [ScheduleTimetableQuery](../../../../data/contracts/schedule/schedule.types.ck)
  */
 export const ScheduleTimetableQuery = z.strictObject({
     from: z
@@ -68,7 +68,7 @@ export type ScheduleTimetableQuery = z.infer<typeof ScheduleTimetableQuery>;
 
 /**
  * One block: this slot, on this day, between these two times
- * generated from [ScheduleOccurrence](../../../../data/contracts/schedule/schedule.types.ck#L71)
+ * generated from [ScheduleOccurrence](../../../../data/contracts/schedule/schedule.types.ck)
  */
 export const ScheduleOccurrence = z.strictObject({
     slotId: z.string().min(1).max(100),
@@ -86,7 +86,7 @@ export type ScheduleOccurrence = z.infer<typeof ScheduleOccurrence>;
 
 /**
  * One stretch of the station's day: from this time, on these days, the station plays this
- * generated from [ScheduleSlot](../../../../data/contracts/schedule/schedule.types.ck#L8)
+ * generated from [ScheduleSlot](../../../../data/contracts/schedule/schedule.types.ck)
  */
 export const ScheduleSlot = z.strictObject({
     id: z.string().min(1).max(100),
@@ -335,7 +335,7 @@ export type ScheduleSlotInput = z.infer<typeof ScheduleSlotInput>;
 
 /**
  * The station's day as blocks, ready to draw
- * generated from [ScheduleTimetable](../../../../data/contracts/schedule/schedule.types.ck#L64)
+ * generated from [ScheduleTimetable](../../../../data/contracts/schedule/schedule.types.ck)
  */
 export const ScheduleTimetable = z.strictObject({
     from: z
@@ -352,7 +352,7 @@ export type ScheduleTimetable = z.infer<typeof ScheduleTimetable>;
 
 /**
  * Which slot the clock says should be on right now, and what follows it
- * generated from [ScheduleNow](../../../../data/contracts/schedule/schedule.types.ck#L79)
+ * generated from [ScheduleNow](../../../../data/contracts/schedule/schedule.types.ck)
  */
 export const ScheduleNow = z.strictObject({
     now: z
@@ -408,7 +408,7 @@ export const ScheduleNow = z.strictObject({
 export type ScheduleNow = z.infer<typeof ScheduleNow>;
 
 /**
- * generated from [ScheduleSlotList](../../../../data/contracts/schedule/schedule.types.ck#L53)
+ * generated from [ScheduleSlotList](../../../../data/contracts/schedule/schedule.types.ck)
  */
 export const ScheduleSlotList = z.strictObject({
     slots: z.array(ScheduleSlot),

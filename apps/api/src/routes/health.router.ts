@@ -8,7 +8,7 @@ import { Health } from '../modules/health/types/health.types.js';
 export const HealthRouter = ServerKitRouter();
 
 /**
- * from [health.ck](../../data/contracts/health/health.ck#L28)
+ * from [health.ck](../../data/contracts/health/health.ck) `GET /health`
  * anonymous access, no security required
  * @internal
  */
@@ -22,7 +22,7 @@ HealthRouter.get('/health', async ctx => {
 });
 
 /**
- * from [health.ck](../../data/contracts/health/health.ck#L41)
+ * from [health.ck](../../data/contracts/health/health.ck) `GET /healthcheck`
  * anonymous access, no security required
  * @internal
  */

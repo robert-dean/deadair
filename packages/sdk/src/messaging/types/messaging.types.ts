@@ -10,7 +10,7 @@ const __dt = (v: unknown, path: string): DateTime => {
 
 /**
  * A one-time code that links a chat account to the signed-in station account. Shown once: send it to the station's bot as `/link CODE` in a direct message
- * generated from [MessagingLinkCode](../../../../../apps/api/data/contracts/messaging/messaging.types.ck#L7)
+ * generated from [MessagingLinkCode](../../../../../apps/api/data/contracts/messaging/messaging.types.ck)
  */
 export interface MessagingLinkCode {
     /** The code itself. Case does not matter when it is sent */
@@ -28,7 +28,7 @@ export function reviveMessagingLinkCode(raw: MessagingLinkCode): MessagingLinkCo
 
 /**
  * A chat account linked to the signed-in station account. Operator commands sent from it run with this account's permissions
- * generated from [MessagingLink](../../../../../apps/api/data/contracts/messaging/messaging.types.ck#L12)
+ * generated from [MessagingLink](../../../../../apps/api/data/contracts/messaging/messaging.types.ck)
  */
 export interface MessagingLink {
     /** Which messaging plugin the chat account is on, for example `deadair.telegram` */
@@ -50,7 +50,7 @@ export function reviveMessagingLink(raw: MessagingLink): MessagingLink {
 
 /**
  * Every chat account linked to the signed-in station account, newest first
- * generated from [MessagingLinkList](../../../../../apps/api/data/contracts/messaging/messaging.types.ck#L19)
+ * generated from [MessagingLinkList](../../../../../apps/api/data/contracts/messaging/messaging.types.ck)
  */
 export interface MessagingLinkList {
     links: MessagingLink[];

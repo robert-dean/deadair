@@ -33,7 +33,7 @@ const StartPlayoutArgs = z.object({});
 const StopPlayoutArgs = z.object({});
 
 /**
- * from [playout.ck](../../data/contracts/playout/playout.ck#L17)
+ * from [playout.ck](../../data/contracts/playout/playout.ck) `GET /playout/status`
  */
 @Injectable()
 export class GetPlayoutStatusMcpTool implements McpToolHandler {
@@ -56,7 +56,7 @@ export class GetPlayoutStatusMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playout.ck](../../data/contracts/playout/playout.ck#L35)
+ * from [playout.ck](../../data/contracts/playout/playout.ck) `POST /playout/playlist`
  */
 @Injectable()
 export class PlayAPlaylistMcpTool implements McpToolHandler {
@@ -80,7 +80,7 @@ export class PlayAPlaylistMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playout.ck](../../data/contracts/playout/playout.ck#L53)
+ * from [playout.ck](../../data/contracts/playout/playout.ck) `POST /playout/station-playlist`
  */
 @Injectable()
 export class PlayAStationPlaylistMcpTool implements McpToolHandler {
@@ -104,7 +104,7 @@ export class PlayAStationPlaylistMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playout.ck](../../data/contracts/playout/playout.ck#L71)
+ * from [playout.ck](../../data/contracts/playout/playout.ck) `POST /playout/album`
  */
 @Injectable()
 export class PlayAnAlbumMcpTool implements McpToolHandler {
@@ -128,7 +128,7 @@ export class PlayAnAlbumMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playout.ck](../../data/contracts/playout/playout.ck#L89)
+ * from [playout.ck](../../data/contracts/playout/playout.ck) `POST /playout/chart`
  */
 @Injectable()
 export class PlayAChartMcpTool implements McpToolHandler {
@@ -152,7 +152,7 @@ export class PlayAChartMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playout.ck](../../data/contracts/playout/playout.ck#L107)
+ * from [playout.ck](../../data/contracts/playout/playout.ck) `POST /playout/skip`
  */
 @Injectable()
 export class SkipTheCurrentItemMcpTool implements McpToolHandler {
@@ -175,7 +175,7 @@ export class SkipTheCurrentItemMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playout.ck](../../data/contracts/playout/playout.ck#L125)
+ * from [playout.ck](../../data/contracts/playout/playout.ck) `POST /playout/start`
  */
 @Injectable()
 export class StartPlayoutMcpTool implements McpToolHandler {
@@ -198,7 +198,7 @@ export class StartPlayoutMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playout.ck](../../data/contracts/playout/playout.ck#L140)
+ * from [playout.ck](../../data/contracts/playout/playout.ck) `POST /playout/stop`
  */
 @Injectable()
 export class StopPlayoutMcpTool implements McpToolHandler {

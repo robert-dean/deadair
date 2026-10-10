@@ -25,7 +25,7 @@ const RefreshPlaylistsArgs = z.object({});
 const RefreshPlaylistArgs = z.object({ pluginId: z.string().min(1).max(200), playlistId: z.string().min(1).max(400) });
 
 /**
- * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L19)
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck) `GET /playlists`
  */
 @Injectable()
 export class ListImportablePlaylistsMcpTool implements McpToolHandler {
@@ -48,7 +48,7 @@ export class ListImportablePlaylistsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L40)
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck) `GET /playlists/{pluginId}/{playlistId}/tracks`
  */
 @Injectable()
 export class GetPlaylistTracksMcpTool implements McpToolHandler {
@@ -71,7 +71,7 @@ export class GetPlaylistTracksMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L60)
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck) `PUT /playlists/{pluginId}/{playlistId}/hidden`
  */
 @Injectable()
 export class HidePlaylistMcpTool implements McpToolHandler {
@@ -94,7 +94,7 @@ export class HidePlaylistMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L64)
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck) `DELETE /playlists/{pluginId}/{playlistId}/hidden`
  */
 @Injectable()
 export class ShowPlaylistMcpTool implements McpToolHandler {
@@ -116,7 +116,7 @@ export class ShowPlaylistMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L71)
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck) `POST /playlists/refresh`
  */
 @Injectable()
 export class RefreshPlaylistsMcpTool implements McpToolHandler {
@@ -138,7 +138,7 @@ export class RefreshPlaylistsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L82)
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck) `POST /playlists/{pluginId}/{playlistId}/refresh`
  */
 @Injectable()
 export class RefreshPlaylistMcpTool implements McpToolHandler {

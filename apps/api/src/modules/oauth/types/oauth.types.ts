@@ -8,7 +8,7 @@ const _ZodDatetime = z.preprocess(
 
 /**
  * An app's authorization request, as the consent page received it
- * generated from [OAuthAuthorizationQuery](../../../../data/contracts/oauth/oauth.types.ck#L7)
+ * generated from [OAuthAuthorizationQuery](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthAuthorizationQuery = z.strictObject({
     query: z.string().max(8192).describe('The query string the app sent the browser to the consent page with, as `window.location.search` holds it'),
@@ -17,14 +17,14 @@ export type OAuthAuthorizationQuery = z.infer<typeof OAuthAuthorizationQuery>;
 
 /**
  * How the station knows an app: registered by an operator, registered by itself, or described by a document on its own website
- * generated from [OAuthClientKind](../../../../data/contracts/oauth/oauth.types.ck#L11)
+ * generated from [OAuthClientKind](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthClientKind = z.enum(['preregistered', 'dynamic', 'metadata_document']);
 export type OAuthClientKind = z.infer<typeof OAuthClientKind>;
 
 /**
  * A request with something wrong that the app should be told about: send the browser back to it
- * generated from [OAuthAuthorizationRedirect](../../../../data/contracts/oauth/oauth.types.ck#L27)
+ * generated from [OAuthAuthorizationRedirect](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthAuthorizationRedirect = z.strictObject({
     kind: z.literal('redirect').describe('Discriminator'),
@@ -34,7 +34,7 @@ export type OAuthAuthorizationRedirect = z.infer<typeof OAuthAuthorizationRedire
 
 /**
  * A request that names no app the station knows, or an address the app did not register. Never sent anywhere
- * generated from [OAuthAuthorizationRefusal](../../../../data/contracts/oauth/oauth.types.ck#L32)
+ * generated from [OAuthAuthorizationRefusal](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthAuthorizationRefusal = z.strictObject({
     kind: z.literal('refuse').describe('Discriminator'),
@@ -45,7 +45,7 @@ export type OAuthAuthorizationRefusal = z.infer<typeof OAuthAuthorizationRefusal
 
 /**
  * Denying a stashed request
- * generated from [OAuthAuthorizationDecision](../../../../data/contracts/oauth/oauth.types.ck#L40)
+ * generated from [OAuthAuthorizationDecision](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthAuthorizationDecision = z.strictObject({
     requestId: z.string().max(200).describe('From the context'),
@@ -54,14 +54,14 @@ export type OAuthAuthorizationDecision = z.infer<typeof OAuthAuthorizationDecisi
 
 /**
  * What a connected app may do on the station. `view` reads it; `manage` changes it and includes `view`. Never more than the person approving it may do
- * generated from [OAuthGrantScope](../../../../data/contracts/oauth/oauth.types.ck#L44)
+ * generated from [OAuthGrantScope](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthGrantScope = z.enum(['view', 'manage']);
 export type OAuthGrantScope = z.infer<typeof OAuthGrantScope>;
 
 /**
  * Where to send the browser now
- * generated from [OAuthAuthorizationOutcome](../../../../data/contracts/oauth/oauth.types.ck#L51)
+ * generated from [OAuthAuthorizationOutcome](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthAuthorizationOutcome = z.strictObject({
     redirectUrl: z.string().describe("The app's own address, carrying the code or the refusal"),
@@ -70,14 +70,14 @@ export type OAuthAuthorizationOutcome = z.infer<typeof OAuthAuthorizationOutcome
 
 /**
  * How the app proves itself at the token endpoint. `none` is a public client, which is what apps on somebody's own device are
- * generated from [OAuthClientAuthMethod](../../../../data/contracts/oauth/oauth.types.ck#L55)
+ * generated from [OAuthClientAuthMethod](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthClientAuthMethod = z.enum(['none', 'client_secret_post', 'client_secret_basic']);
 export type OAuthClientAuthMethod = z.infer<typeof OAuthClientAuthMethod>;
 
 /**
  * An app the signed-in person has let act as them
- * generated from [OAuthGrant](../../../../data/contracts/oauth/oauth.types.ck#L83)
+ * generated from [OAuthGrant](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthGrant = z.strictObject({
     id: z.uuid().describe('For disconnecting it'),
@@ -92,7 +92,7 @@ export type OAuthGrant = z.infer<typeof OAuthGrant>;
 
 /**
  * A valid request, stashed for the signed-in person to approve or deny
- * generated from [OAuthAuthorizationContext](../../../../data/contracts/oauth/oauth.types.ck#L13)
+ * generated from [OAuthAuthorizationContext](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthAuthorizationContext = z.strictObject({
     kind: z.literal('context').describe('Discriminator'),
@@ -113,7 +113,7 @@ export type OAuthAuthorizationContext = z.infer<typeof OAuthAuthorizationContext
 
 /**
  * Approving a stashed request, with what the app may do
- * generated from [OAuthAuthorizationApproval](../../../../data/contracts/oauth/oauth.types.ck#L46)
+ * generated from [OAuthAuthorizationApproval](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthAuthorizationApproval = z.strictObject({
     requestId: z.string().max(200).describe('From the context'),
@@ -125,7 +125,7 @@ export type OAuthAuthorizationApproval = z.infer<typeof OAuthAuthorizationApprov
 
 /**
  * An app registered with the station
- * generated from [OAuthClientSummary](../../../../data/contracts/oauth/oauth.types.ck#L57)
+ * generated from [OAuthClientSummary](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthClientSummary = z.strictObject({
     clientId: z.string().describe('Its client id'),
@@ -141,7 +141,7 @@ export type OAuthClientSummary = z.infer<typeof OAuthClientSummary>;
 
 /**
  * An app an operator registers by hand, for a client that cannot register itself
- * generated from [OAuthClientCreate](../../../../data/contracts/oauth/oauth.types.ck#L72)
+ * generated from [OAuthClientCreate](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthClientCreate = z.strictObject({
     name: z.string().min(1).max(100).describe('What to call it'),
@@ -151,7 +151,7 @@ export const OAuthClientCreate = z.strictObject({
 export type OAuthClientCreate = z.infer<typeof OAuthClientCreate>;
 
 /**
- * generated from [OAuthGrantList](../../../../data/contracts/oauth/oauth.types.ck#L93)
+ * generated from [OAuthGrantList](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthGrantList = z.strictObject({
     grants: z.array(OAuthGrant).describe('Most recent first'),
@@ -159,7 +159,7 @@ export const OAuthGrantList = z.strictObject({
 export type OAuthGrantList = z.infer<typeof OAuthGrantList>;
 
 /**
- * generated from [OAuthAuthorizationContextResult](../../../../data/contracts/oauth/oauth.types.ck#L38)
+ * generated from [OAuthAuthorizationContextResult](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthAuthorizationContextResult = z.discriminatedUnion('kind', [
     OAuthAuthorizationContext,
@@ -169,7 +169,7 @@ export const OAuthAuthorizationContextResult = z.discriminatedUnion('kind', [
 export type OAuthAuthorizationContextResult = z.infer<typeof OAuthAuthorizationContextResult>;
 
 /**
- * generated from [OAuthClientList](../../../../data/contracts/oauth/oauth.types.ck#L68)
+ * generated from [OAuthClientList](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthClientList = z.strictObject({
     clients: z.array(OAuthClientSummary).describe('Newest first. Apps that describe themselves are not listed: nothing is stored for them'),
@@ -178,7 +178,7 @@ export type OAuthClientList = z.infer<typeof OAuthClientList>;
 
 /**
  * A registered app, with its secret. The only time the secret is ever returned
- * generated from [OAuthClientIssued](../../../../data/contracts/oauth/oauth.types.ck#L78)
+ * generated from [OAuthClientIssued](../../../../data/contracts/oauth/oauth.types.ck)
  */
 export const OAuthClientIssued = z.strictObject({
     client: OAuthClientSummary.describe('The app as it will appear in the list'),

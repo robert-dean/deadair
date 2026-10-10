@@ -25,7 +25,7 @@ const ImportConsoleLanguageArgs = z.object({ locale: z.string().min(2).max(35), 
 const RemoveConsoleLanguageArgs = z.object({ locale: z.string().min(2).max(35) });
 
 /**
- * from [languages.ck](../../data/contracts/languages/languages.ck#L19)
+ * from [languages.ck](../../data/contracts/languages/languages.ck) `GET /console/language`
  */
 @Injectable()
 export class GetMyConsoleLanguageMcpTool implements McpToolHandler {
@@ -47,7 +47,7 @@ export class GetMyConsoleLanguageMcpTool implements McpToolHandler {
 }
 
 /**
- * from [languages.ck](../../data/contracts/languages/languages.ck#L35)
+ * from [languages.ck](../../data/contracts/languages/languages.ck) `PUT /console/language`
  */
 @Injectable()
 export class ChooseMyConsoleLanguageMcpTool implements McpToolHandler {
@@ -70,7 +70,7 @@ export class ChooseMyConsoleLanguageMcpTool implements McpToolHandler {
 }
 
 /**
- * from [languages.ck](../../data/contracts/languages/languages.ck#L57)
+ * from [languages.ck](../../data/contracts/languages/languages.ck) `GET /console/languages`
  */
 @Injectable()
 export class ListConsoleLanguagesMcpTool implements McpToolHandler {
@@ -91,7 +91,7 @@ export class ListConsoleLanguagesMcpTool implements McpToolHandler {
 }
 
 /**
- * from [languages.ck](../../data/contracts/languages/languages.ck#L75)
+ * from [languages.ck](../../data/contracts/languages/languages.ck) `GET /console/languages/{locale}`
  */
 @Injectable()
 export class GetConsoleLanguageMcpTool implements McpToolHandler {
@@ -113,7 +113,7 @@ export class GetConsoleLanguageMcpTool implements McpToolHandler {
 }
 
 /**
- * from [languages.ck](../../data/contracts/languages/languages.ck#L86)
+ * from [languages.ck](../../data/contracts/languages/languages.ck) `PUT /console/languages/{locale}`
  */
 @Injectable()
 export class ImportConsoleLanguageMcpTool implements McpToolHandler {
@@ -136,7 +136,7 @@ export class ImportConsoleLanguageMcpTool implements McpToolHandler {
 }
 
 /**
- * from [languages.ck](../../data/contracts/languages/languages.ck#L98)
+ * from [languages.ck](../../data/contracts/languages/languages.ck) `DELETE /console/languages/{locale}`
  */
 @Injectable()
 export class RemoveConsoleLanguageMcpTool implements McpToolHandler {

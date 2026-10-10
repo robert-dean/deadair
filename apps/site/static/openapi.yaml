@@ -13,11 +13,34 @@ paths:
             summary: 'Read activity'
             description: 'The feed, newest first, one page at a time'
             parameters:
-                - name: ActivityQuery
+                - name: limit
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/ActivityQuery'
+                      type: integer
+                      minimum: 1
+                      maximum: 200
+                - name: before
+                  in: query
+                  required: false
+                  description: 'Where the previous page ended. Opaque, and a keyset rather than an offset because rows arrive at the head continuously: an offset would re-show a row on every page as the feed grew under it. Pass back whatever `nextBefore` said and nothing else'
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                      description: 'Where the previous page ended. Opaque, and a keyset rather than an offset because rows arrive at the head continuously: an offset would re-show a row on every page as the feed grew under it. Pass back whatever `nextBefore` said and nothing else'
+                - name: module
+                  in: query
+                  required: false
+                  schema:
+                      '$ref': '#/components/schemas/ActivityModule'
+                - name: minSeverity
+                  in: query
+                  required: false
+                  description: 'The floor, not the exact match: `warn` answers with warnings and faults. Absent is everything'
+                  schema:
+                      '$ref': '#/components/schemas/ActivitySeverity'
+                      description: 'The floor, not the exact match: `warn` answers with warnings and faults. Absent is everything'
             responses:
                 '200':
                     description: 'Successful response'
@@ -533,11 +556,55 @@ paths:
             summary: 'List artists'
             description: 'Every artist the station has ingested, ordered by name'
             parameters:
-                - name: CatalogQuery
+                - name: page
+                  in: query
+                  required: true
+                  description: 'The page number'
+                  schema:
+                      type: integer
+                      minimum: 0
+                      default: 0
+                      description: 'The page number'
+                - name: pageSize
+                  in: query
+                  required: true
+                  description: 'The page size'
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                      default: 25
+                      description: 'The page size'
+                - name: sort
+                  in: query
+                  required: true
+                  description: 'The sort order'
+                  schema:
+                      type: string
+                      enum: [asc, desc]
+                      default: desc
+                      description: 'The sort order'
+                - name: total
+                  in: query
+                  required: true
+                  description: 'The total number of items'
+                  schema:
+                      type: integer
+                      minimum: 0
+                      readOnly: true
+                      description: 'The total number of items'
+                - name: search
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/CatalogQuery'
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                - name: sortBy
+                  in: query
+                  required: false
+                  schema:
+                      '$ref': '#/components/schemas/CatalogSort'
             responses:
                 '200':
                     description: 'Successful response'
@@ -595,11 +662,55 @@ paths:
                   schema:
                       type: string
                       format: uuid
-                - name: CatalogQuery
+                - name: page
+                  in: query
+                  required: true
+                  description: 'The page number'
+                  schema:
+                      type: integer
+                      minimum: 0
+                      default: 0
+                      description: 'The page number'
+                - name: pageSize
+                  in: query
+                  required: true
+                  description: 'The page size'
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                      default: 25
+                      description: 'The page size'
+                - name: sort
+                  in: query
+                  required: true
+                  description: 'The sort order'
+                  schema:
+                      type: string
+                      enum: [asc, desc]
+                      default: desc
+                      description: 'The sort order'
+                - name: total
+                  in: query
+                  required: true
+                  description: 'The total number of items'
+                  schema:
+                      type: integer
+                      minimum: 0
+                      readOnly: true
+                      description: 'The total number of items'
+                - name: search
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/CatalogQuery'
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                - name: sortBy
+                  in: query
+                  required: false
+                  schema:
+                      '$ref': '#/components/schemas/CatalogSort'
             responses:
                 '200':
                     description: 'Successful response'
@@ -637,11 +748,55 @@ paths:
             operationId: listAlbums
             summary: 'List albums'
             parameters:
-                - name: CatalogQuery
+                - name: page
+                  in: query
+                  required: true
+                  description: 'The page number'
+                  schema:
+                      type: integer
+                      minimum: 0
+                      default: 0
+                      description: 'The page number'
+                - name: pageSize
+                  in: query
+                  required: true
+                  description: 'The page size'
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                      default: 25
+                      description: 'The page size'
+                - name: sort
+                  in: query
+                  required: true
+                  description: 'The sort order'
+                  schema:
+                      type: string
+                      enum: [asc, desc]
+                      default: desc
+                      description: 'The sort order'
+                - name: total
+                  in: query
+                  required: true
+                  description: 'The total number of items'
+                  schema:
+                      type: integer
+                      minimum: 0
+                      readOnly: true
+                      description: 'The total number of items'
+                - name: search
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/CatalogQuery'
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                - name: sortBy
+                  in: query
+                  required: false
+                  schema:
+                      '$ref': '#/components/schemas/CatalogSort'
             responses:
                 '200':
                     description: 'Successful response'
@@ -698,11 +853,60 @@ paths:
                   schema:
                       type: string
                       format: uuid
-                - name: TrackQuery
+                - name: page
+                  in: query
+                  required: true
+                  description: 'The page number'
+                  schema:
+                      type: integer
+                      minimum: 0
+                      default: 0
+                      description: 'The page number'
+                - name: pageSize
+                  in: query
+                  required: true
+                  description: 'The page size'
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                      default: 25
+                      description: 'The page size'
+                - name: sort
+                  in: query
+                  required: true
+                  description: 'The sort order'
+                  schema:
+                      type: string
+                      enum: [asc, desc]
+                      default: desc
+                      description: 'The sort order'
+                - name: total
+                  in: query
+                  required: true
+                  description: 'The total number of items'
+                  schema:
+                      type: integer
+                      minimum: 0
+                      readOnly: true
+                      description: 'The total number of items'
+                - name: search
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/TrackQuery'
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                - name: sortBy
+                  in: query
+                  required: false
+                  schema:
+                      '$ref': '#/components/schemas/TrackSort'
+                - name: state
+                  in: query
+                  required: false
+                  schema:
+                      '$ref': '#/components/schemas/TrackState'
             responses:
                 '200':
                     description: 'Successful response'
@@ -923,11 +1127,13 @@ paths:
                   schema:
                       type: string
                       format: uuid
-                - name: ClearEnrichmentQuery
+                - name: provider
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/ClearEnrichmentQuery'
+                      type: string
+                      minLength: 1
+                      maxLength: 200
             responses:
                 '200':
                     description: 'Successful response'
@@ -941,11 +1147,60 @@ paths:
             summary: 'List tracks'
             description: 'Every track, flat. The only way to answer "do we have this song?" without knowing its artist'
             parameters:
-                - name: TrackQuery
+                - name: page
+                  in: query
+                  required: true
+                  description: 'The page number'
+                  schema:
+                      type: integer
+                      minimum: 0
+                      default: 0
+                      description: 'The page number'
+                - name: pageSize
+                  in: query
+                  required: true
+                  description: 'The page size'
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                      default: 25
+                      description: 'The page size'
+                - name: sort
+                  in: query
+                  required: true
+                  description: 'The sort order'
+                  schema:
+                      type: string
+                      enum: [asc, desc]
+                      default: desc
+                      description: 'The sort order'
+                - name: total
+                  in: query
+                  required: true
+                  description: 'The total number of items'
+                  schema:
+                      type: integer
+                      minimum: 0
+                      readOnly: true
+                      description: 'The total number of items'
+                - name: search
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/TrackQuery'
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                - name: sortBy
+                  in: query
+                  required: false
+                  schema:
+                      '$ref': '#/components/schemas/TrackSort'
+                - name: state
+                  in: query
+                  required: false
+                  schema:
+                      '$ref': '#/components/schemas/TrackState'
             responses:
                 '200':
                     description: 'Successful response'
@@ -1003,11 +1258,21 @@ paths:
                       type: string
                       minLength: 1
                       maxLength: 400
-                - name: ChartQuery
+                - name: limit
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/ChartQuery'
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                - name: date
+                  in: query
+                  required: false
+                  description: 'Which edition, as `YYYY-MM-DD`. Absent means the current one, and a service that keeps no history answers with the current one either way'
+                  schema:
+                      type: string
+                      maxLength: 10
+                      description: 'Which edition, as `YYYY-MM-DD`. Absent means the current one, and a service that keeps no history answers with the current one either way'
             responses:
                 '200':
                     description: 'Successful response'
@@ -1017,7 +1282,7 @@ paths:
                                 '$ref': '#/components/schemas/ChartPage'
     '/clock/bands':
         get:
-            operationId: list
+            operationId: listClockBands
             summary: 'List clock bands'
             description: "Every band on this station's clock, including the ones switched off, in the operator's own order"
             responses:
@@ -1028,7 +1293,7 @@ paths:
                             schema:
                                 '$ref': '#/components/schemas/ClockBandList'
         post:
-            operationId: create
+            operationId: createClockBand
             summary: 'Create clock band'
             description: 'Adds a band. It claims its first boundary on the next commit pass'
             requestBody:
@@ -1337,7 +1602,7 @@ paths:
                                 '$ref': '#/components/schemas/StationOrder'
     '/rules':
         get:
-            operationId: list
+            operationId: listNeverPlayRules
             summary: 'List never-play rules'
             description: 'Every never-play rule on this station, newest first, each saying whether it holds right now'
             responses:
@@ -1432,7 +1697,7 @@ paths:
                 '404':
                     description: 'Not found'
         delete:
-            operationId: remove
+            operationId: removeANeverPlayRule
             summary: 'Remove a never-play rule'
             description: 'Removes a rule'
             parameters:
@@ -1457,11 +1722,22 @@ paths:
             summary: 'Read history'
             description: 'What the station played, newest first, one page at a time'
             parameters:
-                - name: HistoryQuery
+                - name: limit
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/HistoryQuery'
+                      type: integer
+                      minimum: 1
+                      maximum: 200
+                - name: before
+                  in: query
+                  required: false
+                  description: 'Where the previous page ended. Opaque, and a keyset rather than an offset because rows arrive at the head continuously: an offset would re-show a row on every page as the station kept playing under it. Pass back whatever `nextBefore` said and nothing else'
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                      description: 'Where the previous page ended. Opaque, and a keyset rather than an offset because rows arrive at the head continuously: an offset would re-show a row on every page as the station kept playing under it. Pass back whatever `nextBefore` said and nothing else'
             responses:
                 '200':
                     description: 'Successful response'
@@ -1500,7 +1776,7 @@ paths:
                                 '$ref': '#/components/schemas/ConsoleLanguageChoice'
     '/console/languages':
         get:
-            operationId: list
+            operationId: listConsoleLanguages
             summary: 'List console languages'
             description: 'Every language this station holds a pack for, without the strings'
             security: []
@@ -1558,7 +1834,7 @@ paths:
                             schema:
                                 '$ref': '#/components/schemas/ConsoleLanguageList'
         delete:
-            operationId: remove
+            operationId: removeConsoleLanguage
             summary: 'Remove console language'
             description: 'Removes a language. Anybody who had chosen it sees English'
             parameters:
@@ -1578,7 +1854,7 @@ paths:
                                 '$ref': '#/components/schemas/ConsoleLanguageList'
     '/messaging/links':
         get:
-            operationId: list
+            operationId: listMessagingLinks
             summary: 'List messaging links'
             description: 'The chat accounts linked to the signed-in account'
             responses:
@@ -1602,7 +1878,7 @@ paths:
                                 '$ref': '#/components/schemas/MessagingLinkCode'
     '/messaging/links/{pluginId}/{platformUserId}':
         delete:
-            operationId: remove
+            operationId: removeMessagingLink
             summary: 'Remove messaging link'
             description: 'Unlink a chat account. Its operator commands are refused from the next one on'
             parameters:
@@ -1639,11 +1915,21 @@ paths:
             summary: 'List pieces'
             description: "The pieces the station knows about, in their series' own order, with what it has done with each"
             parameters:
-                - name: StationPieceQuery
+                - name: seriesId
+                  in: query
+                  required: false
+                  description: "One series' pieces in its own order, or absent for every series' newest first"
+                  schema:
+                      type: string
+                      maxLength: 400
+                      description: "One series' pieces in its own order, or absent for every series' newest first"
+                - name: limit
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/StationPieceQuery'
+                      type: integer
+                      minimum: 1
+                      maximum: 500
             responses:
                 '200':
                     description: 'Successful response'
@@ -1694,11 +1980,36 @@ paths:
             summary: 'Read news'
             description: 'Published entries, newest first'
             parameters:
-                - name: NewsQuery
+                - name: feedId
+                  in: query
+                  required: false
+                  description: 'One feed, or absent for every feed the station can see, merged newest first'
+                  schema:
+                      type: string
+                      maxLength: 400
+                      description: 'One feed, or absent for every feed the station can see, merged newest first'
+                - name: limit
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/NewsQuery'
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                - name: since
+                  in: query
+                  required: false
+                  description: 'Only entries published after this ISO-8601 instant'
+                  schema:
+                      type: string
+                      maxLength: 40
+                      description: 'Only entries published after this ISO-8601 instant'
+                - name: headlinesOnly
+                  in: query
+                  required: false
+                  description: "Answer with headlines and teasers alone, skipping the story behind each one. A story is read from the publisher's own page, which is by far the slowest thing this route does, so a caller that will not use `content` should say so"
+                  schema:
+                      type: boolean
+                      description: "Answer with headlines and teasers alone, skipping the story behind each one. A story is read from the publisher's own page, which is by far the slowest thing this route does, so a caller that will not use `content` should say so"
             responses:
                 '200':
                     description: 'Successful response'
@@ -1775,7 +2086,7 @@ paths:
                                 '$ref': '#/components/schemas/OAuthAuthorizationOutcome'
     '/auth/oauth/clients':
         get:
-            operationId: list
+            operationId: listOAuthClients
             summary: 'List OAuth clients'
             description: 'Every app registered with the station, by an operator or by itself'
             responses:
@@ -1786,7 +2097,7 @@ paths:
                             schema:
                                 '$ref': '#/components/schemas/OAuthClientList'
         post:
-            operationId: create
+            operationId: createOAuthClient
             summary: 'Create OAuth client'
             description: 'Register an app by hand. The secret, for an app that keeps one, is in this response and nowhere else'
             requestBody:
@@ -1804,7 +2115,7 @@ paths:
                                 '$ref': '#/components/schemas/OAuthClientIssued'
     '/auth/oauth/clients/{clientId}':
         delete:
-            operationId: revoke
+            operationId: revokeOAuthClient
             summary: 'Revoke OAuth client'
             description: "Withdraw an app. Every person's approval of it ends, and so does every token it holds"
             parameters:
@@ -1819,7 +2130,7 @@ paths:
                     description: 'No content'
     '/auth/oauth/grants':
         get:
-            operationId: list
+            operationId: listOAuthGrants
             summary: 'List OAuth grants'
             description: 'The apps the signed-in person has let act as them'
             responses:
@@ -1831,7 +2142,7 @@ paths:
                                 '$ref': '#/components/schemas/OAuthGrantList'
     '/auth/oauth/grants/{id}':
         delete:
-            operationId: revoke
+            operationId: revokeOAuthGrant
             summary: 'Revoke OAuth grant'
             description: 'Disconnect an app. Every token it holds for this person stops working at once'
             parameters:
@@ -1943,7 +2254,7 @@ paths:
                     description: 'No content'
     '/personas/{id}/auditions':
         get:
-            operationId: list
+            operationId: listPersonaAuditions
             summary: 'List persona auditions'
             description: 'Every audition of this character, newest first, without their breaks'
             parameters:
@@ -1988,7 +2299,7 @@ paths:
                                 '$ref': '#/components/schemas/PersonaAudition'
     '/personas/{id}/auditions/{auditionId}':
         get:
-            operationId: get
+            operationId: getPersonaAudition
             summary: 'Get persona audition'
             description: 'One audition with every break it has written so far, in order'
             parameters:
@@ -2042,7 +2353,7 @@ paths:
                                 '$ref': '#/components/schemas/PersonaAuditionSummary'
     '/personas':
         get:
-            operationId: list
+            operationId: listPersonas
             summary: 'List personas'
             description: 'Every persona this station has, oldest first'
             responses:
@@ -2053,7 +2364,7 @@ paths:
                             schema:
                                 '$ref': '#/components/schemas/PersonaList'
         post:
-            operationId: create
+            operationId: createPersona
             summary: 'Create persona'
             description: 'Writes a new persona. It is not put on air by creating it'
             requestBody:
@@ -2161,7 +2472,7 @@ paths:
                                 '$ref': '#/components/schemas/PersonaImportPlan'
     '/personas/import':
         post:
-            operationId: import
+            operationId: importPersonas
             summary: 'Import personas'
             description: 'Writes a file into this station, merging by key, and answers with what it did'
             requestBody:
@@ -2179,7 +2490,7 @@ paths:
                                 '$ref': '#/components/schemas/PersonaImportResult'
     '/personas/{id}':
         put:
-            operationId: update
+            operationId: updatePersona
             summary: 'Update persona'
             description: 'Rewrites one persona. An edit to the one on air is heard on the next break'
             parameters:
@@ -2204,7 +2515,7 @@ paths:
                             schema:
                                 '$ref': '#/components/schemas/PersonaList'
         delete:
-            operationId: remove
+            operationId: deletePersona
             summary: 'Delete persona'
             description: 'Removes a persona, including the one on air, which leaves the station with none'
             parameters:
@@ -2244,7 +2555,7 @@ paths:
                                 '$ref': '#/components/schemas/PersonaList'
     '/personas/{id}/notes':
         get:
-            operationId: list
+            operationId: listPersonaNotes
             summary: 'List persona notes'
             description: 'Everything this character has accumulated, oldest first, in every state'
             parameters:
@@ -2263,7 +2574,7 @@ paths:
                             schema:
                                 '$ref': '#/components/schemas/PersonaNoteList'
         post:
-            operationId: create
+            operationId: writePersonaNote
             summary: 'Write persona note'
             description: "Writes a note by hand. An operator's own note is active from the moment it exists; only the distil pass proposes"
             parameters:
@@ -2289,7 +2600,7 @@ paths:
                                 '$ref': '#/components/schemas/PersonaNoteList'
     '/personas/{id}/notes/{noteId}':
         put:
-            operationId: update
+            operationId: updatePersonaNote
             summary: 'Update persona note'
             description: "Rewrites one note's words, whoever wrote it. Editing what the station proposed is most of the point of the panel"
             parameters:
@@ -2321,7 +2632,7 @@ paths:
                             schema:
                                 '$ref': '#/components/schemas/PersonaNoteList'
         delete:
-            operationId: remove
+            operationId: deletePersonaNote
             summary: 'Delete persona note'
             description: 'Removes a note outright. Turning down a PROPOSAL is a state rather than this, or the next pass writes it again'
             parameters:
@@ -2381,7 +2692,7 @@ paths:
                                 '$ref': '#/components/schemas/PersonaNoteList'
     '/personas/{id}/stories':
         get:
-            operationId: list
+            operationId: listPersonaStories
             summary: 'List persona stories'
             description: 'Every story this character holds, oldest first, in every state'
             parameters:
@@ -2400,7 +2711,7 @@ paths:
                             schema:
                                 '$ref': '#/components/schemas/PersonaStoryList'
         post:
-            operationId: create
+            operationId: writePersonaStory
             summary: 'Write persona story'
             description: "Writes a story by hand. An operator's own is tellable from the moment it exists; only the enrichment pass proposes"
             parameters:
@@ -2426,7 +2737,7 @@ paths:
                                 '$ref': '#/components/schemas/PersonaStoryList'
     '/personas/{id}/stories/{storyId}':
         put:
-            operationId: update
+            operationId: updatePersonaStory
             summary: 'Update persona story'
             description: "Rewrites one story's handle and telling, whoever wrote it"
             parameters:
@@ -2458,7 +2769,7 @@ paths:
                             schema:
                                 '$ref': '#/components/schemas/PersonaStoryList'
         delete:
-            operationId: remove
+            operationId: deletePersonaStory
             summary: 'Delete persona story'
             description: 'Removes a story outright, details and all. Turning down a PROPOSAL is a state rather than this, or the next pass writes it again'
             parameters:
@@ -2485,7 +2796,7 @@ paths:
                                 '$ref': '#/components/schemas/PersonaStoryList'
     '/personas/{id}/stories/{storyId}/state':
         put:
-            operationId: setState
+            operationId: setPersonaStoryState
             summary: 'Set persona story state'
             description: 'Accepts a proposal, turns one down, or takes a story out of the rotation without losing it'
             parameters:
@@ -2850,7 +3161,7 @@ paths:
                                 '$ref': '#/components/schemas/PersonaMemoryTimeline'
     '/personas/{id}/memory/preview':
         get:
-            operationId: preview
+            operationId: previewPersonaMemoryRollback
             summary: 'Preview persona memory rollback'
             description: 'What rolling back to a moment would undo, without undoing it'
             parameters:
@@ -2980,7 +3291,7 @@ paths:
                       maxLength: 400
     '/playlists/refresh':
         post:
-            operationId: requestRefresh
+            operationId: refreshPlaylists
             summary: 'Refresh playlists'
             description: 'Reads every playlist on every music source again, in the background, rather than waiting for the next scheduled read. New records reach the library; records gone from every playlist are retired'
     '/playlists/{pluginId}/{playlistId}/refresh':
@@ -3005,7 +3316,7 @@ paths:
                       maxLength: 400
     '/station-playlists':
         get:
-            operationId: list
+            operationId: listStationPlaylists
             summary: 'List station playlists'
             description: 'Every playlist the station owns, newest first'
             responses:
@@ -3017,7 +3328,7 @@ paths:
                                 '$ref': '#/components/schemas/StationPlaylistList'
     '/station-playlists/{id}':
         get:
-            operationId: get
+            operationId: getStationPlaylist
             summary: 'Get station playlist'
             description: 'One station playlist with its records in order, placeholders included'
             parameters:
@@ -3037,7 +3348,7 @@ paths:
                 '404':
                     description: 'Not found'
         patch:
-            operationId: update
+            operationId: updateStationPlaylist
             summary: 'Update station playlist'
             description: 'Renames a station playlist, or rewrites what it is for'
             parameters:
@@ -3122,7 +3433,7 @@ paths:
                     description: 'Not found'
     '/station-playlists/import/preview':
         post:
-            operationId: preview
+            operationId: previewPlaylistImport
             summary: 'Preview playlist import'
             description: 'Reads a source and reports which of its records the library holds and which it would have to find. Writes nothing'
             requestBody:
@@ -3140,7 +3451,7 @@ paths:
                                 '$ref': '#/components/schemas/PlaylistImportPlan'
     '/station-playlists/import':
         post:
-            operationId: import
+            operationId: importPlaylist
             summary: 'Import playlist'
             description: 'Makes a new station playlist from a source and answers with what it did'
             requestBody:
@@ -3254,7 +3565,7 @@ paths:
                                 '$ref': '#/components/schemas/PlayoutStatus'
     '/playout/start':
         post:
-            operationId: start
+            operationId: startPlayout
             summary: 'Start playout'
             description: 'Puts the station back on air with the running order it already has, picking it up where Stop left it. Distinct from putting a playlist on air, which builds a new broadcast and throws away what was there. Refused when there is nothing left to resume'
             responses:
@@ -3566,11 +3877,18 @@ paths:
                       type: string
                       minLength: 1
                       maxLength: 200
-                - name: PluginLogQuery
+                - name: limit
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/PluginLogQuery'
+                      type: integer
+                      minimum: 1
+                      maximum: 2000
+                - name: level
+                  in: query
+                  required: false
+                  schema:
+                      '$ref': '#/components/schemas/PluginLogLevel'
             responses:
                 '200':
                     description: 'Successful response'
@@ -3681,11 +3999,38 @@ paths:
                       type: string
                       minLength: 1
                       maxLength: 200
-                - name: PluginOAuthCallbackQuery
+                - name: code
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/PluginOAuthCallbackQuery'
+                      type: string
+                      maxLength: 2048
+                - name: state
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                      maxLength: 400
+                - name: error
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                      maxLength: 400
+                - name: ubi
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                      maxLength: 400
+                - name: token
+                  in: query
+                  required: false
+                  description: "What a desktop-style flow returns instead of `code`: the provider mints a token before the\nconsent screen and hands the same one back, which the plugin exchanges for a session. Last.fm's\nauth works this way. Listed here because the route parses this query strictly, so an\nundeclared parameter is a 400 before any plugin code runs"
+                  schema:
+                      type: string
+                      maxLength: 2048
+                      description: "What a desktop-style flow returns instead of `code`: the provider mints a token before the\nconsent screen and hands the same one back, which the plugin exchanges for a session. Last.fm's\nauth works this way. Listed here because the route parses this query strictly, so an\nundeclared parameter is a 400 before any plugin code runs"
             security: []
             responses:
                 '200':
@@ -3712,11 +4057,22 @@ paths:
             summary: 'Search podcast directory'
             description: 'Looks a show up in the directories the installed podcast plugins can search'
             parameters:
-                - name: StationDirectoryQuery
+                - name: query
+                  in: query
+                  required: true
+                  description: 'Words to look a show up by: its name, its publisher, its subject'
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                      description: 'Words to look a show up by: its name, its publisher, its subject'
+                - name: limit
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/StationDirectoryQuery'
+                      type: integer
+                      minimum: 1
+                      maximum: 50
             responses:
                 '200':
                     description: 'Successful response'
@@ -3730,11 +4086,21 @@ paths:
             summary: 'List episodes'
             description: 'The episodes the station knows about, newest first, with what it has done with each'
             parameters:
-                - name: StationEpisodeQuery
+                - name: showId
+                  in: query
+                  required: false
+                  description: "One show's episodes, or absent for every show's, newest first"
+                  schema:
+                      type: string
+                      maxLength: 400
+                      description: "One show's episodes, or absent for every show's, newest first"
+                - name: limit
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/StationEpisodeQuery'
+                      type: integer
+                      minimum: 1
+                      maximum: 200
             responses:
                 '200':
                     description: 'Successful response'
@@ -3764,12 +4130,12 @@ paths:
                                 '$ref': '#/components/schemas/StationEpisode'
     '/podcasts/refresh':
         post:
-            operationId: requestRefresh
+            operationId: refreshPodcasts
             summary: 'Refresh podcasts'
             description: "Reads every show's feed again, in the background, rather than waiting for the next scheduled refresh"
     '/productions':
         get:
-            operationId: list
+            operationId: listProductions
             summary: 'List productions'
             description: 'Everything the station has made or is making, newest first'
             responses:
@@ -3798,7 +4164,7 @@ paths:
                                 '$ref': '#/components/schemas/Production'
     '/productions/{id}/cancel':
         post:
-            operationId: cancel
+            operationId: cancelProduction
             summary: 'Cancel production'
             description: 'Stops a production being made, for good'
             parameters:
@@ -3887,11 +4253,59 @@ paths:
             summary: 'Read script history'
             description: 'What the station has written lately, newest first, one page at a time'
             parameters:
-                - name: ScriptHistoryQuery
+                - name: limit
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/ScriptHistoryQuery'
+                      type: integer
+                      minimum: 1
+                      maximum: 200
+                - name: before
+                  in: query
+                  required: false
+                  description: 'Where the previous page ended. Opaque, and a keyset rather than an offset because rows arrive at the head continuously. Pass back whatever `nextBefore` said and nothing else'
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                      description: 'Where the previous page ended. Opaque, and a keyset rather than an offset because rows arrive at the head continuously. Pass back whatever `nextBefore` said and nothing else'
+                - name: kind
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 50
+                - name: writer
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: outcome
+                  in: query
+                  required: false
+                  schema:
+                      '$ref': '#/components/schemas/ScriptOutcome'
+                - name: personaKey
+                  in: query
+                  required: false
+                  description: 'Everything ONE character has said. Absent is every character and none'
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                      description: 'Everything ONE character has said. Absent is every character and none'
+                - name: segmentId
+                  in: query
+                  required: false
+                  description: 'Every attempt made for ONE break, which is how a console reaches the words behind an item of the running order. Absent is the whole history'
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                      description: 'Every attempt made for ONE break, which is how a console reaches the words behind an item of the running order. Absent is the whole history'
             responses:
                 '200':
                     description: 'Successful response'
@@ -3930,11 +4344,15 @@ paths:
             summary: 'Read script summary'
             description: 'Write attempts by outcome, per presenter, over a recent window'
             parameters:
-                - name: ScriptHistorySummaryQuery
+                - name: hours
                   in: query
                   required: false
+                  description: 'How far back to count. Defaults to 24, and a week at most, because past that the nightly sweep may already have taken the rows and the count would quietly be of what survived rather than of what happened'
                   schema:
-                      '$ref': '#/components/schemas/ScriptHistorySummaryQuery'
+                      type: integer
+                      minimum: 1
+                      maximum: 168
+                      description: 'How far back to count. Defaults to 24, and a week at most, because past that the nightly sweep may already have taken the rows and the count would quietly be of what survived rather than of what happened'
             responses:
                 '200':
                     description: 'Successful response'
@@ -4106,11 +4524,14 @@ paths:
                   schema:
                       type: string
                       format: uuid
-                - name: SegmentAudioQuery
+                - name: rendition
                   in: query
-                  required: false
+                  required: true
+                  description: 'A purpose the station interprets rather than a format the caller picks, so what `share` means can change without any caller changing'
                   schema:
-                      '$ref': '#/components/schemas/SegmentAudioQuery'
+                      '$ref': '#/components/schemas/SegmentAudioRendition'
+                      default: original
+                      description: 'A purpose the station interprets rather than a format the caller picks, so what `share` means can change without any caller changing'
             security: []
             responses:
                 '200':
@@ -4211,11 +4632,14 @@ paths:
             summary: 'List pronunciations'
             description: "The station's lexicon: what it says, what has been proposed to it, and what it has turned down"
             parameters:
-                - name: PronunciationQuery
+                - name: state
                   in: query
                   required: false
+                  description: 'Absent is all of it'
                   schema:
-                      '$ref': '#/components/schemas/PronunciationQuery'
+                      type: string
+                      enum: [active, suggested, rejected]
+                      description: 'Absent is all of it'
             responses:
                 '200':
                     description: 'Successful response'
@@ -4618,7 +5042,7 @@ paths:
                                 '$ref': '#/components/schemas/RequestableTrackList'
     '/requests':
         get:
-            operationId: list
+            operationId: listRequests
             summary: 'List requests'
             description: 'Every recent request, for the operator deciding on them'
             parameters:
@@ -4635,7 +5059,7 @@ paths:
                             schema:
                                 '$ref': '#/components/schemas/ListenerRequestList'
         post:
-            operationId: create
+            operationId: createRequest
             summary: 'Create request'
             description: 'Ask the station to play a record. Answers with the request whatever became of it, so a refusal says why in `reason`'
             requestBody:
@@ -4709,7 +5133,7 @@ paths:
                                 '$ref': '#/components/schemas/ListenerRequest'
     '/schedule':
         get:
-            operationId: list
+            operationId: listSchedule
             summary: 'List schedule'
             description: "Every slot in this station's schedule, earliest in the day first"
             responses:
@@ -4720,7 +5144,7 @@ paths:
                             schema:
                                 '$ref': '#/components/schemas/ScheduleSlotList'
         post:
-            operationId: create
+            operationId: createScheduleSlot
             summary: 'Create schedule slot'
             description: 'Adds a slot. The station does not change over until its start time comes round'
             requestBody:
@@ -4754,11 +5178,24 @@ paths:
             summary: 'Read timetable'
             description: "The station's day as blocks, contiguous and gapless, for drawing"
             parameters:
-                - name: ScheduleTimetableQuery
+                - name: from
                   in: query
                   required: false
+                  description: "The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor"
                   schema:
-                      '$ref': '#/components/schemas/ScheduleTimetableQuery'
+                      type: string
+                      minLength: 10
+                      maxLength: 10
+                      description: "The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor"
+                - name: days
+                  in: query
+                  required: false
+                  description: 'How many days from `from`. Defaults to a week'
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 31
+                      description: 'How many days from `from`. Defaults to a week'
             responses:
                 '200':
                     description: 'Successful response'
@@ -4768,7 +5205,7 @@ paths:
                                 '$ref': '#/components/schemas/ScheduleTimetable'
     '/schedule/{id}':
         put:
-            operationId: update
+            operationId: updateScheduleSlot
             summary: 'Update schedule slot'
             description: 'Rewrites a slot. Takes effect at its next boundary rather than immediately'
             parameters:
@@ -4793,7 +5230,7 @@ paths:
                             schema:
                                 '$ref': '#/components/schemas/ScheduleSlotList'
         delete:
-            operationId: remove
+            operationId: deleteScheduleSlot
             summary: 'Delete schedule slot'
             description: 'Removes a slot. Whatever is on air stays on until the next slot begins'
             parameters:
@@ -4877,11 +5314,20 @@ paths:
                       type: string
                       minLength: 1
                       maxLength: 40
-                - name: LogQuery
+                - name: limit
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/LogQuery'
+                      type: integer
+                      minimum: 1
+                      maximum: 2000
+                - name: level
+                  in: query
+                  required: false
+                  description: 'Ignored by a source whose lines carry no level'
+                  schema:
+                      '$ref': '#/components/schemas/LogLevel'
+                      description: 'Ignored by a source whose lines carry no level'
             responses:
                 '200':
                     description: 'Successful response'
@@ -4919,7 +5365,7 @@ paths:
                     description: 'Not found'
     '/station/attention':
         get:
-            operationId: read
+            operationId: readStationAttention
             summary: 'Read station attention'
             description: 'Everything wrong or waiting, worst first, each with the console page that can act on it'
             responses:
@@ -4947,7 +5393,7 @@ paths:
                     description: 'No content'
     '/station/checkup':
         get:
-            operationId: read
+            operationId: readStationCheckup
             summary: 'Read station checkup'
             description: 'The loops the station runs and how much of the library it has looked at'
             responses:
@@ -4959,7 +5405,7 @@ paths:
                                 '$ref': '#/components/schemas/StationCheckup'
     '/station/releases':
         get:
-            operationId: read
+            operationId: readStationReleases
             summary: 'Read station releases'
             description: 'The releases this build contains and what each one changed, newest first'
             responses:
@@ -4971,7 +5417,7 @@ paths:
                                 '$ref': '#/components/schemas/StationReleases'
     '/station/releases/check':
         post:
-            operationId: check
+            operationId: checkStationReleases
             summary: 'Check station releases'
             description: 'Asks GitHub for newer releases now, and answers with what the station then knows'
             responses:
@@ -4987,11 +5433,28 @@ paths:
             summary: 'Read traces'
             description: 'Recent decisions, newest first, folded to one row each'
             parameters:
-                - name: TracesQuery
+                - name: limit
                   in: query
                   required: false
                   schema:
-                      '$ref': '#/components/schemas/TracesQuery'
+                      type: integer
+                      minimum: 1
+                      maximum: 200
+                - name: kind
+                  in: query
+                  required: false
+                  description: 'An exact queue name or route, for reading one kind of decision on its own'
+                  schema:
+                      type: string
+                      maxLength: 200
+                      description: 'An exact queue name or route, for reading one kind of decision on its own'
+                - name: failedOnly
+                  in: query
+                  required: false
+                  description: 'Only decisions carrying at least one failed call'
+                  schema:
+                      type: boolean
+                      description: 'Only decisions carrying at least one failed call'
             responses:
                 '200':
                     description: 'Successful response'
@@ -5134,15 +5597,18 @@ paths:
                                 '$ref': '#/components/schemas/FetcherAuthorizationFinished'
     '/topics':
         get:
-            operationId: list
+            operationId: listTopics
             summary: 'List topics'
             description: 'Every subject this station has named, for one sort of break or for all of them'
             parameters:
-                - name: TopicQuery
+                - name: kind
                   in: query
                   required: false
+                  description: 'One sort of break, or absent for every subject this station has named'
                   schema:
-                      '$ref': '#/components/schemas/TopicQuery'
+                      type: string
+                      maxLength: 100
+                      description: 'One sort of break, or absent for every subject this station has named'
             responses:
                 '200':
                     description: 'Successful response'
@@ -5151,7 +5617,7 @@ paths:
                             schema:
                                 '$ref': '#/components/schemas/TopicList'
         post:
-            operationId: create
+            operationId: createTopic
             summary: 'Create topic'
             description: 'Names a new subject. Nothing uses it until something points at it'
             requestBody:
@@ -5181,7 +5647,7 @@ paths:
                                 '$ref': '#/components/schemas/TopicKindList'
     '/topics/{id}':
         put:
-            operationId: update
+            operationId: updateTopic
             summary: 'Update topic'
             description: 'Rewrites one subject. A break already written keeps the words it was given'
             parameters:
@@ -5206,7 +5672,7 @@ paths:
                             schema:
                                 '$ref': '#/components/schemas/TopicList'
         delete:
-            operationId: remove
+            operationId: deleteTopic
             summary: 'Delete topic'
             description: 'Removes a subject, and any band on the format clock that asked for it'
             parameters:

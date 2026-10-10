@@ -10,7 +10,7 @@ export const HistoryRouter = ServerKitRouter();
 
 /**
  * What the station played, newest first, one page at a time
- * from [history.ck](../../data/contracts/history/history.ck#L23)
+ * from [history.ck](../../data/contracts/history/history.ck) `GET /history`
  */
 HistoryRouter.get('/history', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, HistoryQuery.strict());

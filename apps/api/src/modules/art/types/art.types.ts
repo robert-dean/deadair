@@ -9,7 +9,7 @@ const _ZodBinary = z.custom<Buffer>(val => Buffer.isBuffer(val), { error: 'Must 
  * Only kinds the station actually holds bytes for are listed. A kind with no picture is a break
  * wearing the station's logo on the mount and nothing in a listener's app, which is what every break
  * did before this existed and is not a row worth drawing
- * generated from [BreakArtwork](../../../../data/contracts/art/art.types.ck#L13)
+ * generated from [BreakArtwork](../../../../data/contracts/art/art.types.ck)
  */
 export const BreakArtwork = z.strictObject({
     kind: z
@@ -36,7 +36,7 @@ export type BreakArtwork = z.infer<typeof BreakArtwork>;
  * Documentation rather than validation: a multipart body reaches the service as the raw parser and
  * the generated client types the body as `FormData`, so nothing checks this shape. It says what to
  * send
- * generated from [BreakArtworkUpload](../../../../data/contracts/art/art.types.ck#L30)
+ * generated from [BreakArtworkUpload](../../../../data/contracts/art/art.types.ck)
  */
 export const BreakArtworkUpload = z.strictObject({
     file: _ZodBinary.describe(
@@ -47,7 +47,7 @@ export type BreakArtworkUpload = z.infer<typeof BreakArtworkUpload>;
 
 /**
  * A presenter's picture, which a listener's player shows while that persona is on air
- * generated from [PersonaPortrait](../../../../data/contracts/art/art.types.ck#L35)
+ * generated from [PersonaPortrait](../../../../data/contracts/art/art.types.ck)
  */
 export const PersonaPortrait = z.strictObject({
     personaId: z.uuid().describe('The persona it belongs to'),
@@ -60,7 +60,7 @@ export type PersonaPortrait = z.infer<typeof PersonaPortrait>;
 
 /**
  * A portrait arriving from the browser, as multipart form parts. Documentation rather than validation, as for a break's picture
- * generated from [PersonaPortraitUpload](../../../../data/contracts/art/art.types.ck#L46)
+ * generated from [PersonaPortraitUpload](../../../../data/contracts/art/art.types.ck)
  */
 export const PersonaPortraitUpload = z.strictObject({
     file: _ZodBinary.describe('The image itself. jpeg, png, webp or gif, decided by its BYTES, and at most 4 MB'),
@@ -69,7 +69,7 @@ export type PersonaPortraitUpload = z.infer<typeof PersonaPortraitUpload>;
 
 /**
  * Every kind the station holds a picture for, kind by kind
- * generated from [BreakArtworkList](../../../../data/contracts/art/art.types.ck#L21)
+ * generated from [BreakArtworkList](../../../../data/contracts/art/art.types.ck)
  */
 export const BreakArtworkList = z.strictObject({
     breaks: z.array(BreakArtwork),
@@ -78,7 +78,7 @@ export type BreakArtworkList = z.infer<typeof BreakArtworkList>;
 
 /**
  * Every persona that has a portrait
- * generated from [PersonaPortraitList](../../../../data/contracts/art/art.types.ck#L41)
+ * generated from [PersonaPortraitList](../../../../data/contracts/art/art.types.ck)
  */
 export const PersonaPortraitList = z.strictObject({
     portraits: z.array(PersonaPortrait),

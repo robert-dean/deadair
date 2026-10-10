@@ -5,7 +5,7 @@
  * Only kinds the station actually holds bytes for are listed. A kind with no picture is a break
  * wearing the station's logo on the mount and nothing in a listener's app, which is what every break
  * did before this existed and is not a row worth drawing
- * generated from [BreakArtwork](../../../../../apps/api/data/contracts/art/art.types.ck#L13)
+ * generated from [BreakArtwork](../../../../../apps/api/data/contracts/art/art.types.ck)
  */
 export interface BreakArtwork {
     /** `segments.kind`, which is what decides which break wears this: `weather`, `news`, or whatever an operator wrote on a format-clock band */
@@ -24,7 +24,7 @@ export interface BreakArtwork {
  * Documentation rather than validation: a multipart body reaches the service as the raw parser and
  * the generated client types the body as `FormData`, so nothing checks this shape. It says what to
  * send
- * generated from [BreakArtworkUpload](../../../../../apps/api/data/contracts/art/art.types.ck#L30)
+ * generated from [BreakArtworkUpload](../../../../../apps/api/data/contracts/art/art.types.ck)
  */
 export interface BreakArtworkUpload {
     /** The image itself. jpeg, png, webp or gif, decided by its BYTES rather than by its name or its declared type, and at most 4 MB */
@@ -33,7 +33,7 @@ export interface BreakArtworkUpload {
 
 /**
  * A presenter's picture, which a listener's player shows while that persona is on air
- * generated from [PersonaPortrait](../../../../../apps/api/data/contracts/art/art.types.ck#L35)
+ * generated from [PersonaPortrait](../../../../../apps/api/data/contracts/art/art.types.ck)
  */
 export interface PersonaPortrait {
     /** The persona it belongs to */
@@ -44,7 +44,7 @@ export interface PersonaPortrait {
 
 /**
  * A portrait arriving from the browser, as multipart form parts. Documentation rather than validation, as for a break's picture
- * generated from [PersonaPortraitUpload](../../../../../apps/api/data/contracts/art/art.types.ck#L46)
+ * generated from [PersonaPortraitUpload](../../../../../apps/api/data/contracts/art/art.types.ck)
  */
 export interface PersonaPortraitUpload {
     /** The image itself. jpeg, png, webp or gif, decided by its BYTES, and at most 4 MB */
@@ -53,7 +53,7 @@ export interface PersonaPortraitUpload {
 
 /**
  * Every kind the station holds a picture for, kind by kind
- * generated from [BreakArtworkList](../../../../../apps/api/data/contracts/art/art.types.ck#L21)
+ * generated from [BreakArtworkList](../../../../../apps/api/data/contracts/art/art.types.ck)
  */
 export interface BreakArtworkList {
     breaks: BreakArtwork[];
@@ -61,7 +61,7 @@ export interface BreakArtworkList {
 
 /**
  * Every persona that has a portrait
- * generated from [PersonaPortraitList](../../../../../apps/api/data/contracts/art/art.types.ck#L41)
+ * generated from [PersonaPortraitList](../../../../../apps/api/data/contracts/art/art.types.ck)
  */
 export interface PersonaPortraitList {
     portraits: PersonaPortrait[];

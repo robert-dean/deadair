@@ -21,7 +21,7 @@ const ListBreakArtworkArgs = z.object({});
 const RevertBreakArtworkArgs = z.object({ kind: z.string().min(1).max(64) });
 
 /**
- * from [art.breaks.ck](../../data/contracts/art/art.breaks.ck#L28)
+ * from [art.breaks.ck](../../data/contracts/art/art.breaks.ck) `GET /art/breaks`
  */
 @Injectable()
 export class ListBreakArtworkMcpTool implements McpToolHandler {
@@ -43,7 +43,7 @@ export class ListBreakArtworkMcpTool implements McpToolHandler {
 }
 
 /**
- * from [art.breaks.ck](../../data/contracts/art/art.breaks.ck#L70)
+ * from [art.breaks.ck](../../data/contracts/art/art.breaks.ck) `DELETE /art/breaks/{kind}`
  */
 @Injectable()
 export class RevertBreakArtworkMcpTool implements McpToolHandler {

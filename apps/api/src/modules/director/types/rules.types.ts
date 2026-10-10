@@ -10,7 +10,7 @@ const _ZodDatetime = z.preprocess(
  * A never-play rule: a KIND of record the station must not play. Absolute, like a dislike, and
  * exclude-only: there is no "only these" rule, because one could leave the station nothing to play.
  * Every scope is optional and an absent one means "always"
- * generated from [BlockRule](../../../../data/contracts/director/rules.types.ck#L10)
+ * generated from [BlockRule](../../../../data/contracts/director/rules.types.ck)
  */
 export const BlockRule = z.strictObject({
     id: z.uuid(),
@@ -81,7 +81,7 @@ export type BlockRuleInput = z.infer<typeof BlockRuleInput>;
 /**
  * A lean toward some genres for a while. The opposite of a rule: the station favours them when it
  * chooses records, and still plays anything else rather than run dry
- * generated from [GenreSteer](../../../../data/contracts/director/rules.types.ck#L31)
+ * generated from [GenreSteer](../../../../data/contracts/director/rules.types.ck)
  */
 export const GenreSteer = z.strictObject({
     genres: z
@@ -95,7 +95,7 @@ export type GenreSteer = z.infer<typeof GenreSteer>;
 
 /**
  * Lean the station toward some genres for a number of hours
- * generated from [GenreSteerInput](../../../../data/contracts/director/rules.types.ck#L42)
+ * generated from [GenreSteerInput](../../../../data/contracts/director/rules.types.ck)
  */
 export const GenreSteerInput = z.strictObject({
     genres: z.array(z.string().min(1).max(100)).min(1).max(20),
@@ -107,7 +107,7 @@ export type GenreSteerInput = z.infer<typeof GenreSteerInput>;
 
 /**
  * Every rule on the station, newest first
- * generated from [BlockRuleList](../../../../data/contracts/director/rules.types.ck#L25)
+ * generated from [BlockRuleList](../../../../data/contracts/director/rules.types.ck)
  */
 export const BlockRuleList = z.strictObject({
     rules: z.array(BlockRule),
@@ -121,7 +121,7 @@ export type BlockRuleListInput = z.infer<typeof BlockRuleListInput>;
 
 /**
  * The lean in force, or none
- * generated from [GenreSteerReading](../../../../data/contracts/director/rules.types.ck#L37)
+ * generated from [GenreSteerReading](../../../../data/contracts/director/rules.types.ck)
  */
 export const GenreSteerReading = z.strictObject({
     steer: GenreSteer.optional().describe('Absent when nothing is leaning the station, including once one has run out'),

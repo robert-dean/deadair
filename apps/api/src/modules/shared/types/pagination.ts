@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * Represents a pagination object
- * generated from [Pagination](../../../../data/contracts/shared/pagination.ck#L7)
+ * generated from [Pagination](../../../../data/contracts/shared/pagination.ck)
  */
 export const Pagination = z.strictObject({
     page: z
@@ -34,7 +34,7 @@ export const PaginationInput = z.strictObject({
 export type PaginationInput = z.infer<typeof PaginationInput>;
 
 /**
- * generated from [PaginationWithActive](../../../../data/contracts/shared/pagination.ck#L14)
+ * generated from [PaginationWithActive](../../../../data/contracts/shared/pagination.ck)
  */
 export const PaginationWithActive = Pagination.extend({
     active: z

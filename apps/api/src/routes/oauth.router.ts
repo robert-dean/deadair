@@ -23,7 +23,7 @@ export const OauthRouter = ServerKitRouter();
 
 /**
  * Validate an app's authorization request for the consent page, and stash it for the signed-in person. A POST because it stashes: what is approved is exactly what was validated here
- * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L21)
+ * from [oauth.ck](../../data/contracts/oauth/oauth.ck) `POST /auth/oauth/authorize/context`
  */
 OauthRouter.post('/auth/oauth/authorize/context', requirePolicy({ policy: 'platform.view' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, OAuthAuthorizationQuery);
@@ -38,7 +38,7 @@ OauthRouter.post('/auth/oauth/authorize/context', requirePolicy({ policy: 'platf
 
 /**
  * Let the app act as the signed-in person, as far as the chosen scopes allow. Once the account has a strong second factor, this needs one verified in the last five minutes
- * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L37)
+ * from [oauth.ck](../../data/contracts/oauth/oauth.ck) `POST /auth/oauth/authorize/approve`
  */
 OauthRouter.post('/auth/oauth/authorize/approve', requirePolicy({ policy: 'platform.view' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, OAuthAuthorizationApproval);
@@ -53,7 +53,7 @@ OauthRouter.post('/auth/oauth/authorize/approve', requirePolicy({ policy: 'platf
 
 /**
  * Turn the app away. It is told the person said no
- * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L53)
+ * from [oauth.ck](../../data/contracts/oauth/oauth.ck) `POST /auth/oauth/authorize/deny`
  */
 OauthRouter.post('/auth/oauth/authorize/deny', requirePolicy({ policy: 'platform.view' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, OAuthAuthorizationDecision);
@@ -68,7 +68,7 @@ OauthRouter.post('/auth/oauth/authorize/deny', requirePolicy({ policy: 'platform
 
 /**
  * Every app registered with the station, by an operator or by itself
- * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L69)
+ * from [oauth.ck](../../data/contracts/oauth/oauth.ck) `GET /auth/oauth/clients`
  */
 OauthRouter.get('/auth/oauth/clients', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(OAuthClientsService);
@@ -81,7 +81,7 @@ OauthRouter.get('/auth/oauth/clients', requirePolicy({ policy: 'platform.manage'
 
 /**
  * Register an app by hand. The secret, for an app that keeps one, is in this response and nowhere else
- * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L82)
+ * from [oauth.ck](../../data/contracts/oauth/oauth.ck) `POST /auth/oauth/clients`
  */
 OauthRouter.post('/auth/oauth/clients', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, OAuthClientCreate);
@@ -96,7 +96,7 @@ OauthRouter.post('/auth/oauth/clients', requirePolicy({ policy: 'platform.manage
 
 /**
  * Withdraw an app. Every person's approval of it ends, and so does every token it holds
- * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L104)
+ * from [oauth.ck](../../data/contracts/oauth/oauth.ck) `DELETE /auth/oauth/clients/{clientId}`
  */
 OauthRouter.delete('/auth/oauth/clients/:clientId', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { clientId } = await parseAndValidate(
@@ -114,7 +114,7 @@ OauthRouter.delete('/auth/oauth/clients/:clientId', requirePolicy({ policy: 'pla
 
 /**
  * The apps the signed-in person has let act as them
- * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L118)
+ * from [oauth.ck](../../data/contracts/oauth/oauth.ck) `GET /auth/oauth/grants`
  */
 OauthRouter.get('/auth/oauth/grants', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(OAuthGrantsService);
@@ -127,7 +127,7 @@ OauthRouter.get('/auth/oauth/grants', requirePolicy({ policy: 'platform.view' })
 
 /**
  * Disconnect an app. Every token it holds for this person stops working at once
- * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L134)
+ * from [oauth.ck](../../data/contracts/oauth/oauth.ck) `DELETE /auth/oauth/grants/{id}`
  */
 OauthRouter.delete('/auth/oauth/grants/:id', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(

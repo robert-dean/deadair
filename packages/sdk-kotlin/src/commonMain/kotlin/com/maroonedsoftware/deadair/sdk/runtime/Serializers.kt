@@ -25,11 +25,40 @@ import kotlinx.serialization.json.encodeToJsonElement
  *
  * The value is kept as its source text. Arithmetic is left to the caller, who can hand it to
  * whatever big-decimal library the target platform provides.
+ *
+ * The text must be plain digits, the form the OpenAPI `pattern` publishes and the server accepts:
+ * no exponent, no `+`, no whitespace, no `NaN`. Constructing one from anything else throws
+ * [IllegalArgumentException], and decoding one throws [SerializationException].
  */
-@Serializable
+@Serializable(with = DecimalSerializer::class)
 @JvmInline
 value class Decimal(val value: String) {
+    init {
+        require(WIRE_FORM.matches(value)) { "'$value' is not a decimal in plain digits, such as \"1250.00\"" }
+    }
+
     override fun toString(): String = value
+
+    private companion object {
+        val WIRE_FORM = Regex("""^-?[0-9]+(\.[0-9]+)?$""")
+    }
+}
+
+object DecimalSerializer : KSerializer<Decimal> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("Decimal", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: Decimal) {
+        encoder.encodeString(value.value)
+    }
+
+    override fun deserialize(decoder: Decoder): Decimal {
+        val text = decoder.decodeString()
+        return try {
+            Decimal(text)
+        } catch (e: IllegalArgumentException) {
+            throw SerializationException(e.message, e)
+        }
+    }
 }
 
 /**

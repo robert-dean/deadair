@@ -31,7 +31,7 @@ const FetchEpisodeArgs = z.object({ id: z.string().min(1).max(100) });
 const RefreshPodcastsArgs = z.object({});
 
 /**
- * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck#L20)
+ * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck) `GET /podcasts/shows`
  */
 @Injectable()
 export class ListShowsMcpTool implements McpToolHandler {
@@ -53,7 +53,7 @@ export class ListShowsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck#L32)
+ * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck) `GET /podcasts/search`
  */
 @Injectable()
 export class SearchPodcastDirectoryMcpTool implements McpToolHandler {
@@ -79,7 +79,7 @@ export class SearchPodcastDirectoryMcpTool implements McpToolHandler {
 }
 
 /**
- * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck#L49)
+ * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck) `GET /podcasts/episodes`
  */
 @Injectable()
 export class ListEpisodesMcpTool implements McpToolHandler {
@@ -102,7 +102,7 @@ export class ListEpisodesMcpTool implements McpToolHandler {
 }
 
 /**
- * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck#L65)
+ * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck) `POST /podcasts/episodes/{id}/fetch`
  */
 @Injectable()
 export class FetchEpisodeMcpTool implements McpToolHandler {
@@ -125,7 +125,7 @@ export class FetchEpisodeMcpTool implements McpToolHandler {
 }
 
 /**
- * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck#L81)
+ * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck) `POST /podcasts/refresh`
  */
 @Injectable()
 export class RefreshPodcastsMcpTool implements McpToolHandler {

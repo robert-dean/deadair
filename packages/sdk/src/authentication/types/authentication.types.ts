@@ -10,37 +10,37 @@ const __dt = (v: unknown, path: string): DateTime => {
 
 /**
  * Denotes the authorization flow to use
- * generated from [AuthenticationGrantType](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L7)
+ * generated from [AuthenticationGrantType](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export type AuthenticationGrantType = 'client_credentials' | 'password' | 'refresh_token' | 'link' | 'code' | 'fido' | 'authenticator' | 'oidc';
 
 /**
  * Denotes the authorization flow to use
- * generated from [PasswordlessAuthenticationGrantType](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L18)
+ * generated from [PasswordlessAuthenticationGrantType](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export type PasswordlessAuthenticationGrantType = 'link' | 'code' | 'fido' | 'oidc';
 
 /**
  * The type of the factor
- * generated from [AuthenticationFactorMethod](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L20)
+ * generated from [AuthenticationFactorMethod](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export type AuthenticationFactorMethod = 'phone' | 'password' | 'email' | 'authenticator' | 'fido' | 'oidc';
 
 /**
  * The kind of the factor
- * generated from [AuthenticationFactorKind](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L22)
+ * generated from [AuthenticationFactorKind](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export type AuthenticationFactorKind = 'knowledge' | 'possession' | 'biometric';
 
 /**
  * The name of an identity provider the station offers, as the operator set it under Settings, Sign-in and security. `GET /auth/login/oidc/providers` lists them
- * generated from [OidcProvider](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L24)
+ * generated from [OidcProvider](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export type OidcProvider = string;
 
 /**
  * Represents an authentication token
- * generated from [AuthenticationToken](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L84)
+ * generated from [AuthenticationToken](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface AuthenticationToken {
     /** The access token string as issued by the authorization server */
@@ -70,7 +70,7 @@ export interface AuthenticationTokenOutput {
 
 /**
  * Issued-token arm of /auth/token response
- * generated from [AuthenticationTokenIssued](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L92)
+ * generated from [AuthenticationTokenIssued](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface AuthenticationTokenIssued {
     /** Discriminator */
@@ -104,7 +104,7 @@ export interface AuthenticationTokenIssuedOutput {
 
 /**
  * Returned by /auth/step-up/start when no enrolled factor satisfies the requirement. The SPA should drive the user through enrollment and retry the gated action afterwards.
- * generated from [EnrollmentRequiredResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L115)
+ * generated from [EnrollmentRequiredResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface EnrollmentRequiredResponse {
     /** Discriminator */
@@ -118,7 +118,7 @@ export interface EnrollmentRequiredResponseOutput {
 
 /**
  * Represents a common shape of a `PublicKeyCredential` after the client serializes the `id` and `rawId` fields to base64 strings for transport
- * generated from [PublicKeyCredential](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L123)
+ * generated from [PublicKeyCredential](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface PublicKeyCredential {
     /** The base64url encoding of `rawId` */
@@ -133,7 +133,7 @@ export interface PublicKeyCredential {
 
 /**
  * Subset of the WebAuthn client extension results the service round-trips
- * generated from [SimpleClientExtensionResults](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L130)
+ * generated from [SimpleClientExtensionResults](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface SimpleClientExtensionResults {
     /** Whether the client is an application */
@@ -144,7 +144,7 @@ export interface SimpleClientExtensionResults {
 }
 
 /**
- * generated from [FidoAuthenticatorAssertionResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L138)
+ * generated from [FidoAuthenticatorAssertionResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface FidoAuthenticatorAssertionResponse {
     /** The client data JSON */
@@ -158,7 +158,7 @@ export interface FidoAuthenticatorAssertionResponse {
 }
 
 /**
- * generated from [AuthenticationRegistration](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L150)
+ * generated from [AuthenticationRegistration](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface AuthenticationRegistration {
     /** The registration identifier */
@@ -182,7 +182,7 @@ export function reviveAuthenticationRegistration(raw: AuthenticationRegistration
 }
 
 /**
- * generated from [AuthenticationRegistrationVerification](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L157)
+ * generated from [AuthenticationRegistrationVerification](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface AuthenticationRegistrationVerification {
     /** The registration identifier */
@@ -193,7 +193,7 @@ export interface AuthenticationRegistrationVerification {
 
 /**
  * A credential the relying party expects the user to be able to present
- * generated from [PublicKeyCredentialDescriptor](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L192)
+ * generated from [PublicKeyCredentialDescriptor](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface PublicKeyCredentialDescriptor {
     /** The credential type — currently always `public-key` */
@@ -206,13 +206,13 @@ export interface PublicKeyCredentialDescriptor {
 
 /**
  * The transport used by the authenticator
- * generated from [FidoAuthenticatorTransport](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L236)
+ * generated from [FidoAuthenticatorTransport](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export type FidoAuthenticatorTransport = 'hybrid' | 'ble' | 'internal' | 'nfc' | 'usb';
 
 /**
  * Request to complete an OIDC sign-in flow
- * generated from [OidcLoginCallback](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L261)
+ * generated from [OidcLoginCallback](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface OidcLoginCallback {
     /** The issuer of the token */
@@ -239,7 +239,7 @@ export interface OidcLoginCallback {
 
 /**
  * Issue a phone SMS challenge during a pending MFA round
- * generated from [FactorChallengePhoneStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L274)
+ * generated from [FactorChallengePhoneStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface FactorChallengePhoneStart {
     /** Discriminator */
@@ -252,7 +252,7 @@ export interface FactorChallengePhoneStart {
 
 /**
  * Issue a WebAuthn assertion challenge during a pending MFA round
- * generated from [FactorChallengeFidoStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L280)
+ * generated from [FactorChallengeFidoStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface FactorChallengeFidoStart {
     /** Discriminator */
@@ -263,7 +263,7 @@ export interface FactorChallengeFidoStart {
 
 /**
  * Issue an email one-time-code challenge during a pending MFA round. Always a code: a magic link cannot complete an MFA round, since the `code` grant that redeems one takes `code(min=6, max=10)` and a link token is 43 characters
- * generated from [FactorChallengeEmailStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L285)
+ * generated from [FactorChallengeEmailStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface FactorChallengeEmailStart {
     /** Discriminator */
@@ -274,7 +274,7 @@ export interface FactorChallengeEmailStart {
 
 /**
  * Response for a phone SMS challenge
- * generated from [FactorChallengePhoneStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L292)
+ * generated from [FactorChallengePhoneStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface FactorChallengePhoneStartResponse {
     /** Discriminator */
@@ -314,7 +314,7 @@ export function reviveFactorChallengePhoneStartResponseOutput(raw: FactorChallen
 
 /**
  * Response for an email one-time-code challenge
- * generated from [FactorChallengeEmailStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L306)
+ * generated from [FactorChallengeEmailStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface FactorChallengeEmailStartResponse {
     /** Discriminator */
@@ -350,7 +350,7 @@ export function reviveFactorChallengeEmailStartResponseOutput(raw: FactorChallen
 
 /**
  * A factor satisfied by the session
- * generated from [SessionFactor](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L320)
+ * generated from [SessionFactor](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface SessionFactor {
     /** The verification method */
@@ -384,7 +384,7 @@ export function reviveSessionFactor(raw: SessionFactor): SessionFactor {
 
 /**
  * Optional metadata supplied to a revoke action
- * generated from [SessionRevoke](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L340)
+ * generated from [SessionRevoke](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface SessionRevoke {
     /** Free-form reason recorded with the revoke */
@@ -393,13 +393,13 @@ export interface SessionRevoke {
 
 /**
  * A platform-wide role held on `platform:main`. `admin` grants every operation; `listener` grants the reads
- * generated from [PlatformRole](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L345)
+ * generated from [PlatformRole](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export type PlatformRole = 'admin' | 'listener';
 
 /**
  * A successful authentication record
- * generated from [Login](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L352)
+ * generated from [Login](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface Login {
     /** The login event identifier */
@@ -433,7 +433,7 @@ export function reviveLogin(raw: Login): Login {
 
 /**
  * The current user's display preferences, auto-detected by the SPA from the browser (Intl timezone + navigator.language). Omitted fields are left unchanged (absent = never set).
- * generated from [ActorPreferences](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L372)
+ * generated from [ActorPreferences](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface ActorPreferences {
     /** RFC 5646 locale, e.g. "en-US" */
@@ -444,12 +444,12 @@ export interface ActorPreferences {
 
 /**
  * What an API key may be granted. `view` covers every route a listener may read; `manage` covers the rest, and includes `view`
- * generated from [ApiKeyScope](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L378)
+ * generated from [ApiKeyScope](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export type ApiKeyScope = 'view' | 'manage';
 
 /**
- * generated from [BaseAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L26)
+ * generated from [BaseAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface BaseAuthenticationRequest {
     /** The grant type for the request */
@@ -461,7 +461,7 @@ export interface BaseAuthenticationRequest {
 }
 
 /**
- * generated from [BaseAuthenticationLoginStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L162)
+ * generated from [BaseAuthenticationLoginStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface BaseAuthenticationLoginStart {
     /** The grant type for the request */
@@ -471,7 +471,7 @@ export interface BaseAuthenticationLoginStart {
 }
 
 /**
- * generated from [BaseAuthenticationLoginStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L198)
+ * generated from [BaseAuthenticationLoginStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface BaseAuthenticationLoginStartResponse {
     /** The grant type for the response */
@@ -491,7 +491,7 @@ export function reviveBaseAuthenticationLoginStartResponse(raw: BaseAuthenticati
 
 /**
  * A factor the SPA may use to satisfy the MFA challenge
- * generated from [MfaChallengeFactor](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L101)
+ * generated from [MfaChallengeFactor](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface MfaChallengeFactor {
     /** The factor method */
@@ -516,7 +516,7 @@ export interface MfaChallengeFactorOutput {
 }
 
 /**
- * generated from [AuthenticationFactor](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L249)
+ * generated from [AuthenticationFactor](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface AuthenticationFactor {
     /** The method of the factor */
@@ -531,7 +531,7 @@ export interface AuthenticationFactor {
 
 /**
  * Mint a fresh MFA challenge for the current session so the SPA can satisfy a `step_up_required` denial. Filters mirror `StepUpRequirement` from `@maroonedsoftware/policies`.
- * generated from [StepUpStartRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L314)
+ * generated from [StepUpStartRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface StepUpStartRequest {
     /** If set, only these factor methods are listed as eligible */
@@ -544,7 +544,7 @@ export interface StepUpStartRequest {
 
 /**
  * An identity provider the sign-in page can offer
- * generated from [OidcProviderSummary](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L256)
+ * generated from [OidcProviderSummary](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface OidcProviderSummary {
     /** What to start a sign-in with */
@@ -554,7 +554,7 @@ export interface OidcProviderSummary {
 }
 
 /**
- * generated from [PublicKeyCredentialWithAssertion](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L145)
+ * generated from [PublicKeyCredentialWithAssertion](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface PublicKeyCredentialWithAssertion extends PublicKeyCredential {
     /** The client extension results */
@@ -564,7 +564,7 @@ export interface PublicKeyCredentialWithAssertion extends PublicKeyCredential {
 }
 
 /**
- * generated from [FidoPublicKeyCredentialRequestOptions](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L212)
+ * generated from [FidoPublicKeyCredentialRequestOptions](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface FidoPublicKeyCredentialRequestOptions {
     challenge: string;
@@ -583,7 +583,7 @@ export interface FidoPublicKeyCredentialRequestOptions {
 
 /**
  * Serialized form of `AuthenticatorAttestationResponse` — produced by the browser at registration; all binary fields are base64-encoded for transport
- * generated from [FidoAuthenticatorAttestationResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L238)
+ * generated from [FidoAuthenticatorAttestationResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface FidoAuthenticatorAttestationResponse {
     /** The client data JSON */
@@ -595,13 +595,13 @@ export interface FidoAuthenticatorAttestationResponse {
 }
 
 /**
- * generated from [FactorChallengeStartRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L290)
+ * generated from [FactorChallengeStartRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export type FactorChallengeStartRequest = FactorChallengePhoneStart | FactorChallengeFidoStart | FactorChallengeEmailStart;
 
 /**
  * An active authentication session
- * generated from [Session](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L328)
+ * generated from [Session](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface Session {
     /** Opaque session token used as the cache key and embedded in JWTs */
@@ -643,7 +643,7 @@ export function reviveSession(raw: Session): Session {
 
 /**
  * Who the caller is, as the station sees them
- * generated from [AuthSession](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L347)
+ * generated from [AuthSession](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface AuthSession {
     /** The actor the session belongs to */
@@ -654,7 +654,7 @@ export interface AuthSession {
 
 /**
  * A personal API key, as its owner sees it in a list. The token itself is never returned after it is issued
- * generated from [ApiKey](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L380)
+ * generated from [ApiKey](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface ApiKey {
     /** The key's identifier, for rotating or revoking it */
@@ -693,7 +693,7 @@ export function reviveApiKey(raw: ApiKey): ApiKey {
 
 /**
  * A new API key
- * generated from [ApiKeyCreate](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L395)
+ * generated from [ApiKeyCreate](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface ApiKeyCreate {
     /** What to call the key, so a list of several says which is which */
@@ -715,7 +715,7 @@ export function reviveApiKeyCreate(raw: ApiKeyCreate): ApiKeyCreate {
 
 /**
  * Represents an application authentication request
- * generated from [ClientCredentialsAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L32)
+ * generated from [ClientCredentialsAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface ClientCredentialsAuthenticationRequest extends Omit<BaseAuthenticationRequest, 'grant_type' | 'client_id'> {
     /** The grant type for the request */
@@ -728,7 +728,7 @@ export interface ClientCredentialsAuthenticationRequest extends Omit<BaseAuthent
 
 /**
  * Represents an authentication password request
- * generated from [PasswordAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L38)
+ * generated from [PasswordAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface PasswordAuthenticationRequest extends Omit<BaseAuthenticationRequest, 'grant_type'> {
     /** The grant type for the request */
@@ -741,7 +741,7 @@ export interface PasswordAuthenticationRequest extends Omit<BaseAuthenticationRe
 
 /**
  * Represents an authentication refresh request
- * generated from [RefreshTokenAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L44)
+ * generated from [RefreshTokenAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface RefreshTokenAuthenticationRequest extends Omit<BaseAuthenticationRequest, 'grant_type'> {
     /** The grant type for the request */
@@ -752,7 +752,7 @@ export interface RefreshTokenAuthenticationRequest extends Omit<BaseAuthenticati
 
 /**
  * Represents an authentication magic link request
- * generated from [LinkAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L49)
+ * generated from [LinkAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface LinkAuthenticationRequest extends Omit<BaseAuthenticationRequest, 'grant_type'> {
     /** The grant type for the request */
@@ -765,7 +765,7 @@ export interface LinkAuthenticationRequest extends Omit<BaseAuthenticationReques
 
 /**
  * Represents an authentication one-time-code request
- * generated from [CodeAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L55)
+ * generated from [CodeAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface CodeAuthenticationRequest extends Omit<BaseAuthenticationRequest, 'grant_type'> {
     /** The grant type for the request */
@@ -782,7 +782,7 @@ export interface CodeAuthenticationRequest extends Omit<BaseAuthenticationReques
 
 /**
  * Submit a TOTP code as a second factor against a pending MFA challenge
- * generated from [AuthenticatorAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L70)
+ * generated from [AuthenticatorAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface AuthenticatorAuthenticationRequest extends Omit<BaseAuthenticationRequest, 'grant_type'> {
     /** The grant type for the request */
@@ -797,7 +797,7 @@ export interface AuthenticatorAuthenticationRequest extends Omit<BaseAuthenticat
 
 /**
  * Redeem a completed OIDC authorization that the callback stashed under a one-time id
- * generated from [OidcAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L77)
+ * generated from [OidcAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface OidcAuthenticationRequest extends Omit<BaseAuthenticationRequest, 'grant_type'> {
     /** The grant type for the request */
@@ -807,7 +807,7 @@ export interface OidcAuthenticationRequest extends Omit<BaseAuthenticationReques
 }
 
 /**
- * generated from [BaseAuthenticationLoginStartWithEmail](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L167)
+ * generated from [BaseAuthenticationLoginStartWithEmail](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface BaseAuthenticationLoginStartWithEmail extends BaseAuthenticationLoginStart {
     /** User's email address */
@@ -816,7 +816,7 @@ export interface BaseAuthenticationLoginStartWithEmail extends BaseAuthenticatio
 
 /**
  * Request to begin an OIDC sign-in flow
- * generated from [OidcAuthenticationLoginStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L184)
+ * generated from [OidcAuthenticationLoginStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface OidcAuthenticationLoginStart extends Omit<BaseAuthenticationLoginStart, 'grant_type'> {
     /** The grant type for the request */
@@ -828,7 +828,7 @@ export interface OidcAuthenticationLoginStart extends Omit<BaseAuthenticationLog
 }
 
 /**
- * generated from [CodeAuthenticationLoginStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L204)
+ * generated from [CodeAuthenticationLoginStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface CodeAuthenticationLoginStartResponse extends Omit<BaseAuthenticationLoginStartResponse, 'grant_type'> {
     /** The grant type for the response */
@@ -842,7 +842,7 @@ export function reviveCodeAuthenticationLoginStartResponse(raw: CodeAuthenticati
 }
 
 /**
- * generated from [LinkAuthenticationLoginStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L208)
+ * generated from [LinkAuthenticationLoginStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface LinkAuthenticationLoginStartResponse extends Omit<BaseAuthenticationLoginStartResponse, 'grant_type'> {
     /** The grant type for the response */
@@ -857,7 +857,7 @@ export function reviveLinkAuthenticationLoginStartResponse(raw: LinkAuthenticati
 
 /**
  * Response from `/auth/login/oidc/start` instructing the client to navigate to `authorize_url`
- * generated from [OidcAuthenticationLoginStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L228)
+ * generated from [OidcAuthenticationLoginStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface OidcAuthenticationLoginStartResponse extends Omit<BaseAuthenticationLoginStartResponse, 'grant_type'> {
     /** The grant type for the response */
@@ -876,7 +876,7 @@ export function reviveOidcAuthenticationLoginStartResponse(raw: OidcAuthenticati
 
 /**
  * MFA-required arm of /auth/token response
- * generated from [MfaRequiredResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L108)
+ * generated from [MfaRequiredResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface MfaRequiredResponse {
     /** Discriminator */
@@ -916,7 +916,7 @@ export function reviveMfaRequiredResponseOutput(raw: MfaRequiredResponseOutput):
 
 /**
  * Represents an authentication passkey request
- * generated from [FidoAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L63)
+ * generated from [FidoAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface FidoAuthenticationRequest extends Omit<BaseAuthenticationRequest, 'grant_type'> {
     /** The grant type for the request */
@@ -931,7 +931,7 @@ export interface FidoAuthenticationRequest extends Omit<BaseAuthenticationReques
 
 /**
  * WebAuthn assertion options for `navigator.credentials.get`
- * generated from [FidoAuthenticationLoginStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L223)
+ * generated from [FidoAuthenticationLoginStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface FidoAuthenticationLoginStartResponse extends Omit<BaseAuthenticationLoginStartResponse, 'grant_type'> {
     /** The grant type for the response */
@@ -948,7 +948,7 @@ export function reviveFidoAuthenticationLoginStartResponse(raw: FidoAuthenticati
 
 /**
  * Response for a FIDO assertion challenge
- * generated from [FactorChallengeFidoStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L299)
+ * generated from [FactorChallengeFidoStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface FactorChallengeFidoStartResponse {
     /** Discriminator */
@@ -988,7 +988,7 @@ export function reviveFactorChallengeFidoStartResponseOutput(raw: FactorChalleng
 
 /**
  * The credential the client posts back to complete registration
- * generated from [PublicKeyCredentialWithAttestation](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L244)
+ * generated from [PublicKeyCredentialWithAttestation](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface PublicKeyCredentialWithAttestation extends PublicKeyCredential {
     /** The client extension results */
@@ -999,7 +999,7 @@ export interface PublicKeyCredentialWithAttestation extends PublicKeyCredential 
 
 /**
  * Every API key the account holds, newest first, revoked and expired keys included
- * generated from [ApiKeyList](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L391)
+ * generated from [ApiKeyList](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface ApiKeyList {
     keys: ApiKey[];
@@ -1019,7 +1019,7 @@ export function reviveApiKeyList(raw: ApiKeyList): ApiKeyList {
 
 /**
  * A key and its token. The only time the token is ever returned: store it now, because nothing can show it again
- * generated from [ApiKeyIssued](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L401)
+ * generated from [ApiKeyIssued](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface ApiKeyIssued {
     /** The key as it will appear in the list */
@@ -1036,7 +1036,7 @@ export function reviveApiKeyIssued(raw: ApiKeyIssued): ApiKeyIssued {
 }
 
 /**
- * generated from [LinkAuthenticationLoginStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L171)
+ * generated from [LinkAuthenticationLoginStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface LinkAuthenticationLoginStart extends Omit<BaseAuthenticationLoginStartWithEmail, 'grant_type'> {
     /** The grant type for the request */
@@ -1044,7 +1044,7 @@ export interface LinkAuthenticationLoginStart extends Omit<BaseAuthenticationLog
 }
 
 /**
- * generated from [CodeAuthenticationLoginStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L175)
+ * generated from [CodeAuthenticationLoginStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface CodeAuthenticationLoginStart extends Omit<BaseAuthenticationLoginStartWithEmail, 'grant_type'> {
     /** The grant type for the request */
@@ -1054,7 +1054,7 @@ export interface CodeAuthenticationLoginStart extends Omit<BaseAuthenticationLog
 }
 
 /**
- * generated from [FidoAuthenticationLoginStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L180)
+ * generated from [FidoAuthenticationLoginStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export interface FidoAuthenticationLoginStart extends Omit<BaseAuthenticationLoginStartWithEmail, 'grant_type'> {
     /** The grant type for the request */
@@ -1062,7 +1062,7 @@ export interface FidoAuthenticationLoginStart extends Omit<BaseAuthenticationLog
 }
 
 /**
- * generated from [StepUpStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L119)
+ * generated from [StepUpStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export type StepUpStartResponse = MfaRequiredResponse | EnrollmentRequiredResponse;
 export type StepUpStartResponseOutput = MfaRequiredResponseOutput | EnrollmentRequiredResponseOutput;
@@ -1092,7 +1092,7 @@ export function reviveStepUpStartResponseOutput(raw: StepUpStartResponseOutput):
 }
 
 /**
- * generated from [AuthenticationTokenResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L121)
+ * generated from [AuthenticationTokenResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export type AuthenticationTokenResponse = AuthenticationTokenIssued | MfaRequiredResponse;
 export type AuthenticationTokenResponseOutput = AuthenticationTokenIssuedOutput | MfaRequiredResponseOutput;
@@ -1122,7 +1122,7 @@ export function reviveAuthenticationTokenResponseOutput(raw: AuthenticationToken
 }
 
 /**
- * generated from [AuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L82)
+ * generated from [AuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export type AuthenticationRequest =
     | PasswordAuthenticationRequest
@@ -1135,7 +1135,7 @@ export type AuthenticationRequest =
     | OidcAuthenticationRequest;
 
 /**
- * generated from [AuthenticationLoginStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L234)
+ * generated from [AuthenticationLoginStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export type AuthenticationLoginStartResponse =
     | CodeAuthenticationLoginStartResponse
@@ -1165,7 +1165,7 @@ export function reviveAuthenticationLoginStartResponse(raw: AuthenticationLoginS
 }
 
 /**
- * generated from [FactorChallengeStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L312)
+ * generated from [FactorChallengeStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export type FactorChallengeStartResponse = FactorChallengePhoneStartResponse | FactorChallengeFidoStartResponse | FactorChallengeEmailStartResponse;
 export type FactorChallengeStartResponseOutput =
@@ -1208,7 +1208,7 @@ export function reviveFactorChallengeStartResponseOutput(raw: FactorChallengeSta
 }
 
 /**
- * generated from [AuthenticationLoginStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L190)
+ * generated from [AuthenticationLoginStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck)
  */
 export type AuthenticationLoginStart =
     LinkAuthenticationLoginStart | CodeAuthenticationLoginStart | FidoAuthenticationLoginStart | OidcAuthenticationLoginStart;

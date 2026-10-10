@@ -10,7 +10,7 @@ const __dt = (v: unknown, path: string): DateTime => {
 
 /**
  * One of the station's mounts a speaker can play
- * generated from [OutputMount](../../../../../apps/api/data/contracts/outputs/outputs.types.ck#L7)
+ * generated from [OutputMount](../../../../../apps/api/data/contracts/outputs/outputs.types.ck)
  */
 export interface OutputMount {
     format: 'mp3' | 'opus' | 'aac' | 'flac' | 'hls';
@@ -20,7 +20,7 @@ export interface OutputMount {
 
 /**
  * A plugin that could not list its speakers
- * generated from [OutputProblem](../../../../../apps/api/data/contracts/outputs/outputs.types.ck#L23)
+ * generated from [OutputProblem](../../../../../apps/api/data/contracts/outputs/outputs.types.ck)
  */
 export interface OutputProblem {
     pluginId: string;
@@ -29,7 +29,7 @@ export interface OutputProblem {
 
 /**
  * A speaker the station is meant to be playing on, and how it is doing
- * generated from [OutputCast](../../../../../apps/api/data/contracts/outputs/outputs.types.ck#L34)
+ * generated from [OutputCast](../../../../../apps/api/data/contracts/outputs/outputs.types.ck)
  */
 export interface OutputCast {
     pluginId: string;
@@ -54,7 +54,7 @@ export function reviveOutputCast(raw: OutputCast): OutputCast {
 
 /**
  * Play the station on a speaker
- * generated from [OutputCastRequest](../../../../../apps/api/data/contracts/outputs/outputs.types.ck#L48)
+ * generated from [OutputCastRequest](../../../../../apps/api/data/contracts/outputs/outputs.types.ck)
  */
 export interface OutputCastRequest {
     pluginId: string;
@@ -65,7 +65,7 @@ export interface OutputCastRequest {
 
 /**
  * A speaker the station can play on, as an `output` plugin listed it
- * generated from [OutputDevice](../../../../../apps/api/data/contracts/outputs/outputs.types.ck#L12)
+ * generated from [OutputDevice](../../../../../apps/api/data/contracts/outputs/outputs.types.ck)
  */
 export interface OutputDevice {
     /** The plugin that drives it, for example `deadair.cast` */
@@ -88,7 +88,7 @@ export interface OutputDevice {
 
 /**
  * Every speaker the station is meant to be playing on
- * generated from [OutputCastList](../../../../../apps/api/data/contracts/outputs/outputs.types.ck#L44)
+ * generated from [OutputCastList](../../../../../apps/api/data/contracts/outputs/outputs.types.ck)
  */
 export interface OutputCastList {
     casts: OutputCast[];
@@ -108,7 +108,7 @@ export function reviveOutputCastList(raw: OutputCastList): OutputCastList {
 
 /**
  * Every speaker every `output` plugin can play the station on
- * generated from [OutputDeviceList](../../../../../apps/api/data/contracts/outputs/outputs.types.ck#L28)
+ * generated from [OutputDeviceList](../../../../../apps/api/data/contracts/outputs/outputs.types.ck)
  */
 export interface OutputDeviceList {
     devices: OutputDevice[];

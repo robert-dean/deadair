@@ -23,7 +23,7 @@ const RenderPieceArgs = z.object({ id: z.string().min(1).max(100) });
 const RefreshNarrationsArgs = z.object({});
 
 /**
- * from [narrations.ck](../../data/contracts/narrations/narrations.ck#L20)
+ * from [narrations.ck](../../data/contracts/narrations/narrations.ck) `GET /narrations/series`
  */
 @Injectable()
 export class ListSeriesMcpTool implements McpToolHandler {
@@ -45,7 +45,7 @@ export class ListSeriesMcpTool implements McpToolHandler {
 }
 
 /**
- * from [narrations.ck](../../data/contracts/narrations/narrations.ck#L32)
+ * from [narrations.ck](../../data/contracts/narrations/narrations.ck) `GET /narrations/pieces`
  */
 @Injectable()
 export class ListPiecesMcpTool implements McpToolHandler {
@@ -68,7 +68,7 @@ export class ListPiecesMcpTool implements McpToolHandler {
 }
 
 /**
- * from [narrations.ck](../../data/contracts/narrations/narrations.ck#L48)
+ * from [narrations.ck](../../data/contracts/narrations/narrations.ck) `POST /narrations/pieces/{id}/render`
  */
 @Injectable()
 export class RenderPieceMcpTool implements McpToolHandler {
@@ -91,7 +91,7 @@ export class RenderPieceMcpTool implements McpToolHandler {
 }
 
 /**
- * from [narrations.ck](../../data/contracts/narrations/narrations.ck#L65)
+ * from [narrations.ck](../../data/contracts/narrations/narrations.ck) `POST /narrations/refresh`
  */
 @Injectable()
 export class RefreshNarrationsMcpTool implements McpToolHandler {

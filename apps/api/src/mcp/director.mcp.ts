@@ -46,7 +46,7 @@ const RemoveARunningOrderItemArgs = z.object({ itemId: z.string().min(1).max(100
 const SkipToARunningOrderItemArgs = z.object({ itemId: z.string().min(1).max(100) });
 
 /**
- * from [director.ck](../../data/contracts/director/director.ck#L21)
+ * from [director.ck](../../data/contracts/director/director.ck) `GET /director/air`
  */
 @Injectable()
 export class GetStationAirMcpTool implements McpToolHandler {
@@ -68,7 +68,7 @@ export class GetStationAirMcpTool implements McpToolHandler {
 }
 
 /**
- * from [director.ck](../../data/contracts/director/director.ck#L33)
+ * from [director.ck](../../data/contracts/director/director.ck) `POST /director/air`
  */
 @Injectable()
 export class PutTheStationOnAirMcpTool implements McpToolHandler {
@@ -92,7 +92,7 @@ export class PutTheStationOnAirMcpTool implements McpToolHandler {
 }
 
 /**
- * from [director.ck](../../data/contracts/director/director.ck#L48)
+ * from [director.ck](../../data/contracts/director/director.ck) `PATCH /director/air`
  */
 @Injectable()
 export class SetTheAirModeMcpTool implements McpToolHandler {
@@ -116,7 +116,7 @@ export class SetTheAirModeMcpTool implements McpToolHandler {
 }
 
 /**
- * from [director.ck](../../data/contracts/director/director.ck#L73)
+ * from [director.ck](../../data/contracts/director/director.ck) `GET /director/air/order`
  */
 @Injectable()
 export class GetTheRunningOrderMcpTool implements McpToolHandler {
@@ -138,7 +138,7 @@ export class GetTheRunningOrderMcpTool implements McpToolHandler {
 }
 
 /**
- * from [director.ck](../../data/contracts/director/director.ck#L88)
+ * from [director.ck](../../data/contracts/director/director.ck) `PUT /director/air/persona`
  */
 @Injectable()
 export class RecastTheBroadcastMcpTool implements McpToolHandler {
@@ -162,7 +162,7 @@ export class RecastTheBroadcastMcpTool implements McpToolHandler {
 }
 
 /**
- * from [director.ck](../../data/contracts/director/director.ck#L106)
+ * from [director.ck](../../data/contracts/director/director.ck) `POST /director/air/extend`
  */
 @Injectable()
 export class ExtendTheRunningOrderMcpTool implements McpToolHandler {
@@ -185,7 +185,7 @@ export class ExtendTheRunningOrderMcpTool implements McpToolHandler {
 }
 
 /**
- * from [director.ck](../../data/contracts/director/director.ck#L122)
+ * from [director.ck](../../data/contracts/director/director.ck) `POST /director/air/replan`
  */
 @Injectable()
 export class ReplanTheRunningOrderMcpTool implements McpToolHandler {
@@ -208,7 +208,7 @@ export class ReplanTheRunningOrderMcpTool implements McpToolHandler {
 }
 
 /**
- * from [director.ck](../../data/contracts/director/director.ck#L138)
+ * from [director.ck](../../data/contracts/director/director.ck) `PATCH /director/air/hold`
  */
 @Injectable()
 export class HoldTheStationAgainstTheScheduleMcpTool implements McpToolHandler {
@@ -232,7 +232,7 @@ export class HoldTheStationAgainstTheScheduleMcpTool implements McpToolHandler {
 }
 
 /**
- * from [director.ck](../../data/contracts/director/director.ck#L153)
+ * from [director.ck](../../data/contracts/director/director.ck) `DELETE /director/air/hold`
  */
 @Injectable()
 export class ReleaseTheStationToTheScheduleMcpTool implements McpToolHandler {
@@ -255,7 +255,7 @@ export class ReleaseTheStationToTheScheduleMcpTool implements McpToolHandler {
 }
 
 /**
- * from [director.ck](../../data/contracts/director/director.ck#L168)
+ * from [director.ck](../../data/contracts/director/director.ck) `POST /director/air/shuffle`
  */
 @Injectable()
 export class ShuffleTheRunningOrderMcpTool implements McpToolHandler {
@@ -278,7 +278,7 @@ export class ShuffleTheRunningOrderMcpTool implements McpToolHandler {
 }
 
 /**
- * from [director.ck](../../data/contracts/director/director.ck#L183)
+ * from [director.ck](../../data/contracts/director/director.ck) `POST /director/air/segments`
  */
 @Injectable()
 export class AddASegmentToTheRunningOrderMcpTool implements McpToolHandler {
@@ -302,7 +302,7 @@ export class AddASegmentToTheRunningOrderMcpTool implements McpToolHandler {
 }
 
 /**
- * from [director.ck](../../data/contracts/director/director.ck#L201)
+ * from [director.ck](../../data/contracts/director/director.ck) `POST /director/air/tracks`
  */
 @Injectable()
 export class AddARecordToTheRunningOrderMcpTool implements McpToolHandler {
@@ -326,7 +326,7 @@ export class AddARecordToTheRunningOrderMcpTool implements McpToolHandler {
 }
 
 /**
- * from [director.ck](../../data/contracts/director/director.ck#L222)
+ * from [director.ck](../../data/contracts/director/director.ck) `PATCH /director/air/items/{itemId}`
  */
 @Injectable()
 export class MoveARunningOrderItemMcpTool implements McpToolHandler {
@@ -349,7 +349,7 @@ export class MoveARunningOrderItemMcpTool implements McpToolHandler {
 }
 
 /**
- * from [director.ck](../../data/contracts/director/director.ck#L237)
+ * from [director.ck](../../data/contracts/director/director.ck) `DELETE /director/air/items/{itemId}`
  */
 @Injectable()
 export class RemoveARunningOrderItemMcpTool implements McpToolHandler {
@@ -372,7 +372,7 @@ export class RemoveARunningOrderItemMcpTool implements McpToolHandler {
 }
 
 /**
- * from [director.ck](../../data/contracts/director/director.ck#L255)
+ * from [director.ck](../../data/contracts/director/director.ck) `POST /director/air/items/{itemId}/skip-to`
  */
 @Injectable()
 export class SkipToARunningOrderItemMcpTool implements McpToolHandler {

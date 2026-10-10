@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * A programme the station carries, as one installed plugin describes it
- * generated from [StationShow](../../../../data/contracts/podcasts/podcasts.types.ck#L7)
+ * generated from [StationShow](../../../../data/contracts/podcasts/podcasts.types.ck)
  */
 export const StationShow = z.strictObject({
     id: z.string().min(1).max(400).describe("Unique across the station: the plugin's own id for the show, qualified with the plugin that offered it"),
@@ -24,7 +24,7 @@ export type StationShow = z.infer<typeof StationShow>;
 
 /**
  * One episode of a programme the station carries, and what the station has done with it
- * generated from [StationEpisode](../../../../data/contracts/podcasts/podcasts.types.ck#L25)
+ * generated from [StationEpisode](../../../../data/contracts/podcasts/podcasts.types.ck)
  */
 export const StationEpisode = z.strictObject({
     id: z.string().min(1).max(100).describe("The station's own id for this episode"),
@@ -54,7 +54,7 @@ export type StationEpisode = z.infer<typeof StationEpisode>;
 
 /**
  * A show a podcast plugin's directory knows about, which the station may or may not carry
- * generated from [StationDirectoryEntry](../../../../data/contracts/podcasts/podcasts.types.ck#L45)
+ * generated from [StationDirectoryEntry](../../../../data/contracts/podcasts/podcasts.types.ck)
  */
 export const StationDirectoryEntry = z.strictObject({
     id: z.string().min(1).max(400).describe("The directory's own id for the show. A key in a list, and nothing more"),
@@ -71,7 +71,7 @@ export const StationDirectoryEntry = z.strictObject({
 export type StationDirectoryEntry = z.infer<typeof StationDirectoryEntry>;
 
 /**
- * generated from [StationDirectoryQuery](../../../../data/contracts/podcasts/podcasts.types.ck#L58)
+ * generated from [StationDirectoryQuery](../../../../data/contracts/podcasts/podcasts.types.ck)
  */
 export const StationDirectoryQuery = z.strictObject({
     query: z.string().min(1).max(200).describe('Words to look a show up by: its name, its publisher, its subject'),
@@ -80,7 +80,7 @@ export const StationDirectoryQuery = z.strictObject({
 export type StationDirectoryQuery = z.infer<typeof StationDirectoryQuery>;
 
 /**
- * generated from [StationEpisodeQuery](../../../../data/contracts/podcasts/podcasts.types.ck#L67)
+ * generated from [StationEpisodeQuery](../../../../data/contracts/podcasts/podcasts.types.ck)
  */
 export const StationEpisodeQuery = z.strictObject({
     showId: z.string().max(400).optional().describe("One show's episodes, or absent for every show's, newest first"),
@@ -89,7 +89,7 @@ export const StationEpisodeQuery = z.strictObject({
 export type StationEpisodeQuery = z.infer<typeof StationEpisodeQuery>;
 
 /**
- * generated from [StationShowList](../../../../data/contracts/podcasts/podcasts.types.ck#L21)
+ * generated from [StationShowList](../../../../data/contracts/podcasts/podcasts.types.ck)
  */
 export const StationShowList = z.strictObject({
     shows: z.array(StationShow),
@@ -97,7 +97,7 @@ export const StationShowList = z.strictObject({
 export type StationShowList = z.infer<typeof StationShowList>;
 
 /**
- * generated from [StationEpisodePage](../../../../data/contracts/podcasts/podcasts.types.ck#L72)
+ * generated from [StationEpisodePage](../../../../data/contracts/podcasts/podcasts.types.ck)
  */
 export const StationEpisodePage = z.strictObject({
     episodes: z.array(StationEpisode).describe('Newest first. Empty when the station knows of none, which is not an error'),
@@ -105,7 +105,7 @@ export const StationEpisodePage = z.strictObject({
 export type StationEpisodePage = z.infer<typeof StationEpisodePage>;
 
 /**
- * generated from [StationDirectoryPage](../../../../data/contracts/podcasts/podcasts.types.ck#L63)
+ * generated from [StationDirectoryPage](../../../../data/contracts/podcasts/podcasts.types.ck)
  */
 export const StationDirectoryPage = z.strictObject({
     results: z.array(StationDirectoryEntry).describe('Empty when nothing matched or no directory could be asked, which is not an error'),

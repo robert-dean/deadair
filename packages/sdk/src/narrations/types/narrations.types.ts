@@ -1,6 +1,6 @@
 /**
  * Something the station can read out, as one installed plugin describes it
- * generated from [StationSeries](../../../../../apps/api/data/contracts/narrations/narrations.types.ck#L7)
+ * generated from [StationSeries](../../../../../apps/api/data/contracts/narrations/narrations.types.ck)
  */
 export interface StationSeries {
     /** Unique across the station: the plugin's own id for the series, qualified with the plugin that offered it */
@@ -21,7 +21,7 @@ export interface StationSeries {
 
 /**
  * One instalment, and what the station has done with it
- * generated from [StationPiece](../../../../../apps/api/data/contracts/narrations/narrations.types.ck#L23)
+ * generated from [StationPiece](../../../../../apps/api/data/contracts/narrations/narrations.types.ck)
  */
 export interface StationPiece {
     /** The station's own id for this piece */
@@ -65,7 +65,7 @@ export interface StationPiece {
 }
 
 /**
- * generated from [StationPieceQuery](../../../../../apps/api/data/contracts/narrations/narrations.types.ck#L47)
+ * generated from [StationPieceQuery](../../../../../apps/api/data/contracts/narrations/narrations.types.ck)
  */
 export interface StationPieceQuery {
     /** One series' pieces in its own order, or absent for every series' newest first */
@@ -74,14 +74,14 @@ export interface StationPieceQuery {
 }
 
 /**
- * generated from [StationSeriesList](../../../../../apps/api/data/contracts/narrations/narrations.types.ck#L19)
+ * generated from [StationSeriesList](../../../../../apps/api/data/contracts/narrations/narrations.types.ck)
  */
 export interface StationSeriesList {
     series: StationSeries[];
 }
 
 /**
- * generated from [StationPiecePage](../../../../../apps/api/data/contracts/narrations/narrations.types.ck#L52)
+ * generated from [StationPiecePage](../../../../../apps/api/data/contracts/narrations/narrations.types.ck)
  */
 export interface StationPiecePage {
     /** Empty when the station knows of none, which is not an error */

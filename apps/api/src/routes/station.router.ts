@@ -13,7 +13,7 @@ export const StationRouter = ServerKitRouter();
 
 /**
  * Everything wrong or waiting, worst first, each with the console page that can act on it
- * from [station.ck](../../data/contracts/station/station.ck#L27)
+ * from [station.ck](../../data/contracts/station/station.ck) `GET /station/attention`
  */
 StationRouter.get('/station/attention', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(StationAttentionService);
@@ -26,7 +26,7 @@ StationRouter.get('/station/attention', requirePolicy({ policy: 'platform.view' 
 
 /**
  * Accept an attention row as it stands, until something new joins it
- * from [station.ck](../../data/contracts/station/station.ck#L46)
+ * from [station.ck](../../data/contracts/station/station.ck) `POST /station/attention/{code}/dismiss`
  */
 StationRouter.post('/station/attention/:code/dismiss', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { code } = await parseAndValidate(
@@ -44,7 +44,7 @@ StationRouter.post('/station/attention/:code/dismiss', requirePolicy({ policy: '
 
 /**
  * The loops the station runs and how much of the library it has looked at
- * from [station.ck](../../data/contracts/station/station.ck#L71)
+ * from [station.ck](../../data/contracts/station/station.ck) `GET /station/checkup`
  */
 StationRouter.get('/station/checkup', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(StationCheckupService);
@@ -57,7 +57,7 @@ StationRouter.get('/station/checkup', requirePolicy({ policy: 'platform.view' })
 
 /**
  * The releases this build contains and what each one changed, newest first
- * from [station.ck](../../data/contracts/station/station.ck#L86)
+ * from [station.ck](../../data/contracts/station/station.ck) `GET /station/releases`
  */
 StationRouter.get('/station/releases', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(StationReleasesService);
@@ -70,7 +70,7 @@ StationRouter.get('/station/releases', requirePolicy({ policy: 'platform.view' }
 
 /**
  * Asks GitHub for newer releases now, and answers with what the station then knows
- * from [station.ck](../../data/contracts/station/station.ck#L101)
+ * from [station.ck](../../data/contracts/station/station.ck) `POST /station/releases/check`
  */
 StationRouter.post('/station/releases/check', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(StationReleasesService);

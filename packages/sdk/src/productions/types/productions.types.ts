@@ -12,7 +12,7 @@ const __dt = (v: unknown, path: string): DateTime => {
  * One person in a production: the presenter, or somebody cast to phone in. A snapshot rather than a
  * reference, because the persona it names may be edited or deleted while the programme is still being
  * made and what the turns were written as has to be what an operator reads back
- * generated from [ProductionCastMember](../../../../../apps/api/data/contracts/productions/productions.types.ck#L10)
+ * generated from [ProductionCastMember](../../../../../apps/api/data/contracts/productions/productions.types.ck)
  */
 export interface ProductionCastMember {
     role: 'host' | 'caller' | 'guest' | 'cohost';
@@ -24,7 +24,7 @@ export interface ProductionCastMember {
 
 /**
  * What an operator asks for. Everything else about a production is decided by the passes that make it
- * generated from [ProductionRequest](../../../../../apps/api/data/contracts/productions/productions.types.ck#L39)
+ * generated from [ProductionRequest](../../../../../apps/api/data/contracts/productions/productions.types.ck)
  */
 export interface ProductionRequest {
     kind?: string;
@@ -49,7 +49,7 @@ export function reviveProductionRequest(raw: ProductionRequest): ProductionReque
 
 /**
  * Something the station makes rather than something it says: several beats of speech, written in several passes, that airs as one block
- * generated from [Production](../../../../../apps/api/data/contracts/productions/productions.types.ck#L17)
+ * generated from [Production](../../../../../apps/api/data/contracts/productions/productions.types.ck)
  */
 export interface Production {
     id: string;
@@ -108,7 +108,7 @@ export function reviveProduction(raw: Production): Production {
 }
 
 /**
- * generated from [ProductionList](../../../../../apps/api/data/contracts/productions/productions.types.ck#L34)
+ * generated from [ProductionList](../../../../../apps/api/data/contracts/productions/productions.types.ck)
  */
 export interface ProductionList {
     productions: Production[];

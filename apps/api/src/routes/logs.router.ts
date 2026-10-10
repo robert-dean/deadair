@@ -11,7 +11,7 @@ export const LogsRouter = ServerKitRouter();
 
 /**
  * Every log this install has, present or not, with its size and when it was last written
- * from [logs.ck](../../data/contracts/station/logs.ck#L42)
+ * from [logs.ck](../../data/contracts/station/logs.ck) `GET /logs`
  */
 LogsRouter.get('/logs', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(LogsService);
@@ -24,7 +24,7 @@ LogsRouter.get('/logs', requirePolicy({ policy: 'platform.manage' }), async ctx 
 
 /**
  * A tail of one log, newest first
- * from [logs.ck](../../data/contracts/station/logs.ck#L58)
+ * from [logs.ck](../../data/contracts/station/logs.ck) `GET /logs/{id}`
  */
 LogsRouter.get('/logs/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -46,7 +46,7 @@ LogsRouter.get('/logs/:id', requirePolicy({ policy: 'platform.manage' }), async 
 
 /**
  * The retained log as a plain-text attachment, oldest first, as the file is written
- * from [logs.ck](../../data/contracts/station/logs.ck#L76)
+ * from [logs.ck](../../data/contracts/station/logs.ck) `GET /logs/{id}/download`
  */
 LogsRouter.get('/logs/:id/download', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(

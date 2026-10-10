@@ -129,10 +129,20 @@ export class ToolRegistry {
     /**
      * Run one call and answer with the text to hand back.
      *
-     * Always a string, and never a throw. The four things that can go wrong are all answers:
-     * a name nothing offers, arguments that are not an object, a tool that failed, and a result too
-     * big to show. A model told plainly which one happened can try something else; a model handed an
-     * exception is a generation that ended.
+     * Always a string, and never a throw. The five things that can go wrong are all answers:
+     * a name nothing offers, arguments that are not an object, a tool that failed, a result too big
+     * to show, and a conversation stopped while the tool was still working. A model told plainly
+     * which one happened can try something else; a model handed an exception is a generation that
+     * ended.
+     *
+     * ## A stopped conversation stops waiting
+     *
+     * `signal` is the gate's, and it fires when a break takes the slot back or the caller's budget
+     * runs out. Handing it to the tool is a request, not a guarantee: a source that never looks at it
+     * (or a plugin call that does not carry it) keeps the registry waiting for as long as the
+     * upstream takes, and the conversation holds the one model slot for all of it. So the wait itself
+     * is raced against the abort and answers `was stopped` the moment it fires, whatever the tool is
+     * still doing. The tool's own promise is left to settle on its own, its outcome unread.
      */
     async run(call: LlmToolCall, tools: Map<string, StationTool>, signal?: AbortSignal): Promise<string> {
         const tool = tools.get(call.name);
@@ -141,9 +151,17 @@ export class ToolRegistry {
             return `There is no tool called "${call.name}". Available: ${known.length > 0 ? known : 'none'}.`;
         }
 
+        // Already stopped: nothing is started that nobody will wait for.
+        if (signal?.aborted === true) return stoppedAnswer(call.name);
+
         let result: unknown;
         try {
-            result = await tool.run(call.arguments, signal);
+            const outcome = await untilAborted(tool.run(call.arguments, signal), signal);
+            if (outcome === STOPPED) {
+                this.logger.info(`llm: a tool call was stopped before it answered (${call.name})`);
+                return stoppedAnswer(call.name);
+            }
+            result = outcome;
         } catch (error) {
             this.logger.info(`llm: a tool call failed (${call.name}: ${errorText(error)})`);
             return `The tool "${call.name}" failed: ${errorText(error)}`;
@@ -151,6 +169,37 @@ export class ToolRegistry {
 
         return serialize(result, call.name);
     }
+}
+
+/** What {@link untilAborted} settles with when the signal won the race. */
+const STOPPED: unique symbol = Symbol('stopped');
+
+const stoppedAnswer = (name: string): string => `The tool "${name}" was stopped.`;
+
+/**
+ * `work`, or {@link STOPPED} as soon as `signal` aborts, whichever comes first.
+ *
+ * The listener is removed the moment `work` settles, so a conversation making forty calls on one
+ * signal does not leave forty listeners on it. When the abort wins, `work` keeps its handlers, so
+ * its eventual rejection lands on a promise that has already settled rather than going unhandled.
+ */
+function untilAborted<T>(work: Promise<T>, signal: AbortSignal | undefined): Promise<T | typeof STOPPED> {
+    if (signal === undefined) return work;
+
+    return new Promise<T | typeof STOPPED>((resolve, reject) => {
+        const onAbort = () => resolve(STOPPED);
+        signal.addEventListener('abort', onAbort, { once: true });
+        work.then(
+            value => {
+                signal.removeEventListener('abort', onAbort);
+                resolve(value);
+            },
+            (error: unknown) => {
+                signal.removeEventListener('abort', onAbort);
+                reject(error);
+            },
+        );
+    });
 }
 
 /** A tool's answer as text the model can read, bounded. */

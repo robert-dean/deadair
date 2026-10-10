@@ -710,10 +710,30 @@ export class LlmService {
                 ...(stray !== undefined || result.providerState === undefined ? {} : { providerState: result.providerState }),
             });
 
+            // Checked between calls as well as raced inside each one (see `ToolRegistry.run`): a
+            // break that takes the slot while the first of four searches is running should not
+            // wait for the other three to be started and stopped in turn.
             for (const call of asked) {
+                if (signal.aborted) break;
                 const answer = await this.tools.run(call, tools, signal);
                 messages.push({ role: 'tool', toolCallId: call.id, content: answer });
-                toolCallsMade += 1;
+                // A call the abort cut short is not a search the model got an answer from.
+                if (!signal.aborted) toolCallsMade += 1;
+            }
+
+            if (signal.aborted) {
+                // Stopped while the station's own tools were running. Going round again would start
+                // a generation on a slot that has already been taken back, so this ends here, the
+                // same way the check before the tools ends it. The transcript may hold calls with no
+                // answer after them; it is a record of what happened, never replayed.
+                const stopped = stoppedBy(signal);
+                this.logger.info(
+                    stopped === 'budget'
+                        ? 'llm: a conversation ran out of budget while its tools ran'
+                        : 'llm: a conversation was preempted while its tools ran',
+                    { plugin: plugin.record.id, step, wanted: asked.length, searches: toolCallsMade },
+                );
+                return { ...result, usage, model, toolCallsMade, transcript: messages, finishReason: stopped };
             }
 
             this.logger.debug('llm: ran tools for a conversation', { plugin: plugin.record.id, step, calls: asked.length });

@@ -81,6 +81,7 @@ const config: Config = {
             // install guide, the front page and the footer.
             items: [
                 { type: 'docSidebar', sidebarId: 'run', label: 'Run it', position: 'left' },
+                { type: 'docSidebar', sidebarId: 'tutorials', label: 'Tutorials', position: 'left' },
                 { type: 'docSidebar', sidebarId: 'build', label: 'Develop', position: 'left' },
                 { type: 'docSidebar', sidebarId: 'api', label: 'API', position: 'left' },
                 { to: '/community', label: 'Community', position: 'left' },
@@ -95,6 +96,7 @@ const config: Config = {
                     items: [
                         { label: 'Features', to: '/docs/features' },
                         { label: 'Install', to: '/docs/install' },
+                        { label: 'Tutorials', to: '/docs/tutorials' },
                         { label: 'Music licensing', to: '/docs/licensing' },
                         { label: 'Help', to: '/docs/help' },
                     ],

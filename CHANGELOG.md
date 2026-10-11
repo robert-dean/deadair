@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.56.0] — 2026-10-11
+
+- Importing a persona file no longer replaces a character you already have. A character in the file whose key matches one on this station is now skipped by default, and the import dialog in the console and the desktop app says so and offers Replace on that row. In the API, `POST /personas/import` and `/personas/import/preview` take an optional `replace` list of keys to rewrite, a plan entry's `outcome` can be `skip`, and the result counts `skipped`. A caller that relied on an import overwriting a matching character now has to name it in `replace`.
+- A news story read from a publisher's page no longer carries the publisher's own pitches into a bulletin: a broadcaster's membership ask, a "Read more:" link to another story, a writer plugging their own book or newsletter, and an editor's note set entirely in italics are all left out, the way a sponsor's message already was.
+
 ## [0.55.0] — 2026-10-11
 
 - A persona's quirks are rows now, each with how often it applies: Always, Often, Occasionally or Rarely. Every existing quirk is Always, so nothing a station says changes yet. In the API a quirk is `{ text, cadence }` rather than a string, and persona files are `deadair.persona/2`; the console still imports a `/1` file, upgrading its quirks as it reads it.
@@ -1339,7 +1344,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.55.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.56.0...HEAD
+[0.56.0]: https://github.com/robert-dean/deadair/compare/v0.55.0...v0.56.0
 [0.55.0]: https://github.com/robert-dean/deadair/compare/v0.54.0...v0.55.0
 [0.54.0]: https://github.com/robert-dean/deadair/compare/v0.53.0...v0.54.0
 [0.53.0]: https://github.com/robert-dean/deadair/compare/v0.52.2...v0.53.0

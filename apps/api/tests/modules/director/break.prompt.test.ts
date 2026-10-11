@@ -1072,6 +1072,12 @@ describe('breakPrompt', () => {
             expect(said.indexOf('Bridge reopens')).toBeLessThan(said.indexOf('Council votes'));
         });
 
+        // The second line of defence behind the seeded off-air category: whatever a station's words
+        // miss, a show listing is still not something that happened.
+        it('asks for a listing for a show, a puzzle or an episode to be left out', () => {
+            expect(user(prompt({ kind: 'news', stories }))).toMatch(/a listing for a show, a puzzle or an episode rather than something that happened, leave it out/i);
+        });
+
         it("offers the publisher's words as the story rather than as a line to read out", () => {
             const said = user(prompt({ kind: 'news', stories }));
 

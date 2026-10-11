@@ -1243,7 +1243,9 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
                 'When a story says who claims something, keep it theirs: say that they said it, rather than reporting it as a fact. ' +
                 "The text is the publisher's own wording — use it to know what happened, not as lines to read out. " +
                 'Where a story has no text under it, say what its headline says in one spoken sentence and move on rather than filling the gap. ' +
-                'If a story is unclear, leave it out rather than guessing at it. Do not say how you feel about any of it.',
+                'If a story is unclear, leave it out rather than guessing at it. ' +
+                'If an item is a listing for a show, a puzzle or an episode rather than something that happened, leave it out. ' +
+                'Do not say how you feel about any of it.',
         );
     }
 

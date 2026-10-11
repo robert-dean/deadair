@@ -35,6 +35,14 @@ import { NEWS_KIND } from '#modules/director/news.break.writer.js';
  * only the operator knows which feeds they have, which is the same rule that keeps a feed out of
  * every other seed here.
  *
+ * `programmes` is the second, for the second thing a general feed mixes in: a publisher's own listings
+ * for its shows. On 2026-10-10 this station read out "the Wait Wait guest for October 10 is Margo
+ * Price" as a headline, from a feed that files its programmes beside its reporting. Its words are a
+ * listing's sentences rather than a reporter's ("guest host", "this episode", "puzzlemaster"), and the
+ * names of a publisher's own shows are deliberately not among them, for the shopping desk's reason:
+ * only the operator knows which shows their feeds carry, and adding those names is how a station
+ * finishes this category.
+ *
  * ## The word lists are short on purpose
  *
  * A word is the weakest of the three signals (`news.classify.ts`), and a long list is how a category
@@ -118,6 +126,13 @@ export const NEWS_TOPIC_SEEDS: readonly TopicDraft[] = ordered([
             'percent off',
             'save big on',
         ],
+    }),
+    // The second seed that keeps stories off the air. See the note above.
+    seed('programmes', 'Programmes and promos', {
+        offAir: true,
+        labels: ['Podcast', 'Podcasts', 'Programs', 'Programmes', 'Episodes', 'Puzzle', 'Puzzles', 'Quiz'],
+        // A listing's phrasing, each one about a show rather than about something that happened.
+        words: ['guest host', 'special guest', 'this episode', 'full episode', 'new episode', 'podcast episode', 'puzzlemaster'],
     }),
     seed('sport', 'Sport', {
         labels: ['Sport', 'Sports', 'Football', 'Soccer', 'Basketball', 'Baseball'],

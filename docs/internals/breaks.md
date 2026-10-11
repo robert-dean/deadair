@@ -933,6 +933,15 @@ nothing — a band written before the switch was turned on would otherwise claim
 it forever. A station whose topics table cannot be read withholds nothing, on `categories()`' rule:
 the news is read exactly as it was before any of this existed.
 
+**A publisher's show listings are the second thing a general feed mixes in**, and `programmes` is seeded
+off air beside `shopping` for it: on 2026-10-10 a bulletin read "the Wait Wait guest for October 10 is
+Margo Price" as news. Its words are a listing's sentences ("guest host", "this episode", "puzzlemaster")
+and never a show's name, because only the operator knows which shows their feeds carry. Like every seed,
+it reaches only a station that holds no news categories yet, so an existing station adds it by hand. The
+news prompt also asks for a listing to be left out, as a second line behind whatever the words miss. It
+cannot protect the deterministic floor, which reads every headline it is given, so the filter upstream is
+the fix and the sentence is the backstop.
+
 **The strongest signal is stated on the FEED**, as a row on the plugin that reads it, and a category holds
 only the two fields that are about the WORDS. It was a box on the category naming `pluginId:feedId` by hand:
 an id derived from a name written in another form, for a feed the operator was not looking at.

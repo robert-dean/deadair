@@ -127,6 +127,8 @@ fun NowPlayingScreen(
     bottomReserve: Dp = 0.dp,
     /** Opens the words of the record being heard. `null` draws no button: signed out, or nothing to show. */
     onLyrics: (() -> Unit)? = null,
+    /** The output button under the controls, and where the sound is going. `null` draws neither (the previews). */
+    output: OutputControl? = null,
     /** When the screen stays on while this phone is playing and this is in front. */
     keepAwake: KeepAwake = KeepAwake.NEVER,
 ) {
@@ -159,11 +161,11 @@ fun NowPlayingScreen(
                         verticalArrangement = Arrangement.Center,
                     ) {
                         Words(state, centred = false, hostPortraitUrl = hostPortraitUrl)
-                        Controls(state, playhead, onPlay, onStop, operator, onRequest, onLyrics)
+                        Controls(state, playhead, onPlay, onStop, operator, onRequest, onLyrics, output)
                     }
                 }
             } else {
-                FullBleed(state, artworkUrl, hostPortraitUrl, palette?.mesh.orEmpty(), playhead, onPlay, onStop, operator, onArtwork, onRequest, rest, bottomReserve, onLyrics)
+                FullBleed(state, artworkUrl, hostPortraitUrl, palette?.mesh.orEmpty(), playhead, onPlay, onStop, operator, onArtwork, onRequest, rest, bottomReserve, onLyrics, output)
             }
         }
     }
@@ -193,6 +195,7 @@ private fun FullBleed(
     rest: RestState?,
     bottomReserve: Dp,
     onLyrics: (() -> Unit)?,
+    output: OutputControl?,
 ) {
     val background = MaterialTheme.colorScheme.background
 
@@ -219,7 +222,7 @@ private fun FullBleed(
         val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + bottomReserve
         // As wide as the screen allows, and no taller than leaves the words and the controls their
         // room: on a short phone the cover gives way, never the controls.
-        val below = BelowCover + if (onLyrics != null) LyricsRoom else 0.dp
+        val below = BelowCover + (if (onLyrics != null || output != null) UnderRowRoom else 0.dp) + (if (output?.playingOn != null) PlayingOnRoom else 0.dp)
         val side = minOf(maxWidth, ArtworkMaxWidth * 2, (maxHeight - top - bottom - below).coerceAtLeast(MinCover))
 
         // The cover's colours as a slow mesh over the whole page, behind everything: into the status
@@ -278,7 +281,7 @@ private fun FullBleed(
             Column(modifier = Modifier.fillMaxWidth().alpha(shown).padding(horizontal = Gutter)) {
                 Spacer(Modifier.height(CoverGap))
                 Words(state, centred = true, hostPortraitUrl = hostPortraitUrl)
-                Controls(state, playhead, onPlay, onStop, operator, onRequest, onLyrics)
+                Controls(state, playhead, onPlay, onStop, operator, onRequest, onLyrics, output)
             }
         }
     }
@@ -374,7 +377,16 @@ data class OperatorControls(val skip: SkipControl?, val shuffle: ShuffleControl?
 }
 
 @Composable
-private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -> Unit, onStop: () -> Unit, operator: OperatorControls, onRequest: (() -> Unit)?, onLyrics: (() -> Unit)?) {
+private fun Controls(
+    state: NowPlayingUiState,
+    playhead: Playhead?,
+    onPlay: () -> Unit,
+    onStop: () -> Unit,
+    operator: OperatorControls,
+    onRequest: (() -> Unit)?,
+    onLyrics: (() -> Unit)?,
+    output: OutputControl?,
+) {
     // Only when the decoder could say how long is left. A line that appeared with a guessed
     // position would be worse than no line.
     if (playhead != null) PlayheadLine(playhead, modifier = Modifier.padding(top = 20.dp))
@@ -408,20 +420,48 @@ private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -
     }
 
     // Under the row rather than in it: the row's five places are spoken for, each paired with one on
-    // the other side so the play button stays centred, and a sixth would crowd a narrow phone.
-    if (onLyrics != null) {
-        Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) {
-            TextButton(onClick = onLyrics) {
-                Icon(painterResource(R.drawable.ic_mic), contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.lyrics))
+    // the other side so the play button stays centred, and a sixth would crowd a narrow phone. The
+    // output button is here for the same reason, and is drawn whether or not this phone is playing:
+    // where the sound goes is worth choosing before play as well as during it.
+    if (onLyrics != null || output != null) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (onLyrics != null) {
+                TextButton(onClick = onLyrics) {
+                    Icon(painterResource(R.drawable.ic_mic), contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.lyrics))
+                }
+            }
+            if (output != null) {
+                SmallControl(R.drawable.ic_speaker, stringResource(R.string.choose_output), enabled = true, onClick = output.onChoose, iconSize = 22.dp)
             }
         }
     }
+
+    // Where the sound went, when it went somewhere the listener might not see: a Bluetooth device or a
+    // speaker across the house. Nothing for the phone itself or a lead plugged into it.
+    output?.playingOn?.let { name ->
+        Text(
+            text = stringResource(R.string.playing_on, name),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+        )
+    }
 }
 
-/** What the Lyrics button takes under the controls, given back by the cover when there is one. */
-private val LyricsRoom = 48.dp
+/** What the row under the controls takes (Lyrics, the output button), given back by the cover when it is drawn. */
+private val UnderRowRoom = 48.dp
+
+/** What the "Playing on" line takes, given back by the cover while it shows. */
+private val PlayingOnRoom = 20.dp
 
 /** How far the controls either side of the play button stand from it. */
 private val PlayNeighbourGap = 48.dp
@@ -457,9 +497,9 @@ private fun Slot(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun SmallControl(@DrawableRes icon: Int, label: String, enabled: Boolean, onClick: () -> Unit) {
+private fun SmallControl(@DrawableRes icon: Int, label: String, enabled: Boolean, onClick: () -> Unit, iconSize: Dp = 28.dp) {
     IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(48.dp).semantics { contentDescription = label }) {
-        Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(28.dp))
+        Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(iconSize))
     }
 }
 

@@ -199,7 +199,8 @@
                          is already full at its minimum width, and a caption pushed the expand button
                          off the end of it. The icon takes the accent when the station is playing
                          somewhere else, which is the fact somebody sitting at this machine cannot get
-                         by listening; which speaker is a tooltip away and a click away. -->
+                         by listening; which speaker is a tooltip away and a click away, and the
+                         window's Playing on strip (ShellView) says it in words. -->
                     <Button x:Name="OutputButton" Classes="icon"
                             Classes.active="{Binding OnDevice}"
                             ToolTip.Tip="{Binding OutputName}"

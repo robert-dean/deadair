@@ -26,7 +26,7 @@
     },
     "devDependencies": {
         "@deadair/plugin-sdk": "workspace:*",
-        "@maroonedsoftware/rhapsode-sdk": "^0.1.23",
+        "@maroonedsoftware/rhapsode-sdk": "^0.1.26",
         "@repo/config-eslint": "workspace:*",
         "@repo/config-typescript": "workspace:*",
         "vitest": "^5.0.3",

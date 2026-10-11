@@ -138,8 +138,9 @@ export class PersonasClient {
      * @name Preview persona import
      * @description Reads a file and reports what importing it would create, rewrite and skip. Writes nothing
      */
-    async previewPersonaImport(body: PersonaFile): Promise<PersonaImportPlan> {
-        const result = await this.fetch(`/personas/import/preview`, {
+    async previewPersonaImport(body: PersonaFile, query?: { replace?: string[] }): Promise<PersonaImportPlan> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/personas/import/preview${qs}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
@@ -149,10 +150,11 @@ export class PersonasClient {
 
     /**
      * @name Import personas
-     * @description Writes a file into this station, merging by key, and answers with what it did
+     * @description Writes a file into this station: creates what is new, rewrites only the characters named in `replace`, and answers with what it did
      */
-    async importPersonas(body: PersonaFile): Promise<PersonaImportResult> {
-        const result = await this.fetch(`/personas/import`, {
+    async importPersonas(body: PersonaFile, query?: { replace?: string[] }): Promise<PersonaImportResult> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/personas/import${qs}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),

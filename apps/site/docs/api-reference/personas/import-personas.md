@@ -6,7 +6,7 @@ mdx:
     format: 'md'
 ---
 
-Writes a file into this station, merging by key, and answers with what it did
+Writes a file into this station: creates what is new, rewrites only the characters named in `replace`, and answers with what it did
 
 **`POST`** `/personas/import`
 
@@ -14,6 +14,17 @@ Writes a file into this station, merging by key, and answers with what it did
 SDK method: `importPersonas`
 Security: authenticated (policy: platform.manage)
 :::
+
+## Attributes
+
+<details>
+<summary>Attributes (1)</summary>
+
+| Attribute | Type       | Required | Description |
+| --------- | ---------- | -------- | ----------- |
+| `replace` | `string[]` | No       |             |
+
+</details>
 
 ## Request body (`application/json`)
 

@@ -98,6 +98,13 @@ public class PersonaRosterTests
         Assert.Equal("Import 1, rewrite 1", PersonaRoster.ImportLabel(Plan(PersonaImportEntryOutcome.Create, PersonaImportEntryOutcome.Update)));
     }
 
+    [Fact]
+    public void ASkippedCharacterIsNotCountedAsSomethingTheImportWillDo()
+    {
+        Assert.Equal("Import 1 character", PersonaRoster.ImportLabel(Plan(PersonaImportEntryOutcome.Create, PersonaImportEntryOutcome.Skip)));
+        Assert.Equal("Nothing to import", PersonaRoster.ImportLabel(Plan(PersonaImportEntryOutcome.Skip)));
+    }
+
     private static PersonaImportPlan Plan(params PersonaImportEntryOutcome[] outcomes) => new()
     {
         Format = "deadair.personas/1",

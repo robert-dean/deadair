@@ -2618,6 +2618,16 @@ paths:
             operationId: previewPersonaImport
             summary: 'Preview persona import'
             description: 'Reads a file and reports what importing it would create, rewrite and skip. Writes nothing'
+            parameters:
+                - name: replace
+                  in: query
+                  required: false
+                  schema:
+                      type: array
+                      items:
+                          type: string
+                          minLength: 1
+                          maxLength: 100
             requestBody:
                 required: true
                 content:
@@ -2635,7 +2645,17 @@ paths:
         post:
             operationId: importPersonas
             summary: 'Import personas'
-            description: 'Writes a file into this station, merging by key, and answers with what it did'
+            description: 'Writes a file into this station: creates what is new, rewrites only the characters named in `replace`, and answers with what it did'
+            parameters:
+                - name: replace
+                  in: query
+                  required: false
+                  schema:
+                      type: array
+                      items:
+                          type: string
+                          minLength: 1
+                          maxLength: 100
             requestBody:
                 required: true
                 content:
@@ -10773,9 +10793,9 @@ components:
                     readOnly: true
                 outcome:
                     type: string
-                    enum: [create, update]
+                    enum: [create, update, skip]
                     readOnly: true
-                    description: 'Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote'
+                    description: 'Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again'
                 storiesNew:
                     type: integer
                     minimum: 0
@@ -10824,6 +10844,11 @@ components:
                     minimum: 0
                     readOnly: true
                     description: 'Characters whose sheet was rewritten. An update replaces the sheet and ADDS stories; it never deletes one the operator here wrote'
+                skipped:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'Characters this station already held and was not asked to replace, left exactly as they were'
                 storiesWritten:
                     type: integer
                     minimum: 0
@@ -10836,7 +10861,7 @@ components:
                     '$ref': '#/components/schemas/PersonaList'
                     readOnly: true
                     description: "The roster as it now stands, on this file's own rule: every mutation answers the whole list, because more than the named row can change"
-            required: [plan, created, updated, storiesWritten, detailsWritten, personas]
+            required: [plan, created, updated, skipped, storiesWritten, detailsWritten, personas]
             description: "What importing actually did, with the plan it did it from.\n\nAll or nothing: a file whose import failed part-way leaves the station exactly as it was, on\n`PUT /settings`' own rule. The preview is what stands between an operator and a surprise, so a\npartial landing would be the one outcome nothing had described"
         PersonaImportNotice:
             type: object

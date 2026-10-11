@@ -106,9 +106,10 @@ class PersonasClient(private val http: SdkHttp) {
      * Preview persona import
      * Reads a file and reports what importing it would create, rewrite and skip. Writes nothing
      */
-    suspend fun previewPersonaImport(body: PersonaFile): PersonaImportPlan {
+    suspend fun previewPersonaImport(body: PersonaFile, query: PreviewPersonaImportQuery? = null): PersonaImportPlan {
         val response = http.execute(HttpMethod.Post) {
             path("personas", "import", "preview")
+            params(query)
             jsonBody(body, "application/json")
         }
         return http.decodeJson(response)
@@ -116,11 +117,12 @@ class PersonasClient(private val http: SdkHttp) {
 
     /**
      * Import personas
-     * Writes a file into this station, merging by key, and answers with what it did
+     * Writes a file into this station: creates what is new, rewrites only the characters named in `replace`, and answers with what it did
      */
-    suspend fun importPersonas(body: PersonaFile): PersonaImportResult {
+    suspend fun importPersonas(body: PersonaFile, query: ImportPersonasQuery? = null): PersonaImportResult {
         val response = http.execute(HttpMethod.Post) {
             path("personas", "import")
+            params(query)
             jsonBody(body, "application/json")
         }
         return http.decodeJson(response)
@@ -437,6 +439,16 @@ data class ExportPersonaHeaders(
 data class ExportPersonaResult(
     val data: PersonaFile,
     val headers: ExportPersonaHeaders,
+)
+
+@Serializable
+data class PreviewPersonaImportQuery(
+    val replace: List<String>? = null,
+)
+
+@Serializable
+data class ImportPersonasQuery(
+    val replace: List<String>? = null,
 )
 
 @Serializable

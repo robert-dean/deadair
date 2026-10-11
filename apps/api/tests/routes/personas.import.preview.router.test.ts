@@ -53,13 +53,21 @@ const post = (url: string, body: unknown): Promise<{ status: number; body: strin
     });
 
 /**
- * The real import service over a station that holds nothing: no characters, no speech engine, no
- * soundboards. Every notice a preview can raise then comes from the file alone.
+ * The real import service over a station that holds nothing but `held`: no speech engine and no
+ * soundboards. Every notice a preview can raise then comes from the file alone. `personas` is the
+ * repository double, so a test can see which characters an import actually wrote.
  */
-const serve = async (): Promise<string> => {
+const serve = async (
+    held: { id: string; key: string; label: string }[] = [],
+    personas = {
+        list: async () => held.map(persona => ({ ...persona, style: 'already here', defaultHost: false })),
+        create: vi.fn(async () => ({ id: 'created' })),
+        update: vi.fn(async (id: string) => ({ id })),
+    },
+): Promise<string> => {
     const service = new PersonaImportService(
-        { list: async () => [] } as unknown as PersonaRepository,
-        {} as PersonasService,
+        personas as unknown as PersonaRepository,
+        { list: async () => ({ personas: [] }) } as unknown as PersonasService,
         { list: async () => [] } as unknown as PersonaStoriesRepository,
         { speaker: () => undefined } as unknown as SpeechService,
         { list: async () => [] } as unknown as PadSetRepository,
@@ -121,5 +129,53 @@ describe('POST /personas/import/preview', () => {
 
         expect(response.status).toBe(200);
         expect(phrasingNotices(JSON.parse(response.body) as PersonaImportPlan)).toEqual([]);
+    });
+});
+
+// A key match is not consent, so a character this station already holds is only rewritten when the
+// request names it. Through the router, because `replace` arrives as a query string and a single
+// key is a bare string there rather than a list.
+describe('replacing a character this station already holds', () => {
+    const overnight = { id: 'held-1', key: 'overnight', label: 'Our own overnight host' };
+
+    it('previews it as a skip unless it is named', async () => {
+        const base = await serve([overnight]);
+
+        const skipped = JSON.parse((await post(`${base}/personas/import/preview`, file(''))).body) as PersonaImportPlan;
+        const replaced = JSON.parse((await post(`${base}/personas/import/preview?replace=overnight`, file(''))).body) as PersonaImportPlan;
+
+        expect(skipped.personas[0]?.outcome).toBe('skip');
+        expect(replaced.personas[0]?.outcome).toBe('update');
+    });
+
+    it('leaves it exactly as it is on import unless it is named', async () => {
+        const personas = {
+            list: async () => [{ ...overnight, style: 'already here', defaultHost: false }],
+            create: vi.fn(async () => ({ id: 'created' })),
+            update: vi.fn(async (id: string) => ({ id })),
+        };
+        const base = await serve([overnight], personas);
+
+        const response = await post(`${base}/personas/import`, file(''));
+
+        expect(response.status).toBe(200);
+        expect(JSON.parse(response.body)).toMatchObject({ created: 0, updated: 0, skipped: 1 });
+        expect(personas.update).not.toHaveBeenCalled();
+        expect(personas.create).not.toHaveBeenCalled();
+    });
+
+    it('rewrites it when it is named', async () => {
+        const personas = {
+            list: async () => [{ ...overnight, style: 'already here', defaultHost: false }],
+            create: vi.fn(async () => ({ id: 'created' })),
+            update: vi.fn(async (id: string) => ({ id })),
+        };
+        const base = await serve([overnight], personas);
+
+        const response = await post(`${base}/personas/import?replace=overnight,somebody-else`, file(''));
+
+        expect(response.status).toBe(200);
+        expect(JSON.parse(response.body)).toMatchObject({ created: 0, updated: 1, skipped: 0 });
+        expect(personas.update).toHaveBeenCalledWith('held-1', expect.objectContaining({ key: 'overnight' }));
     });
 });

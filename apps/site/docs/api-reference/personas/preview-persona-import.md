@@ -15,6 +15,17 @@ SDK method: `previewPersonaImport`
 Security: authenticated (policy: platform.manage)
 :::
 
+## Attributes
+
+<details>
+<summary>Attributes (1)</summary>
+
+| Attribute | Type       | Required | Description |
+| --------- | ---------- | -------- | ----------- |
+| `replace` | `string[]` | No       |             |
+
+</details>
+
 ## Request body (`application/json`)
 
 Accepts a [PersonaFile](../models/personas/persona-file.md) object.

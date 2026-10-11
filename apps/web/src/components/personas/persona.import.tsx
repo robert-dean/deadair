@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Alert, Badge, Button, Divider, FileButton, Group, List, Modal, Stack, Table, Text } from '@mantine/core';
-import type { PersonaFile, PersonaImportNotice, PersonaImportPlan, PersonaImportResult } from '@deadair/sdk';
+import { Alert, Badge, Button, Divider, FileButton, Group, List, Modal, SegmentedControl, Stack, Table, Text } from '@mantine/core';
+import type { PersonaFile, PersonaImportEntry, PersonaImportNotice, PersonaImportPlan, PersonaImportResult } from '@deadair/sdk';
 import type { TFunction } from 'i18next';
 import { Trans, useTranslation } from 'react-i18next';
 
@@ -36,6 +36,15 @@ export interface PersonaImportModalProps {
  * engine does not map, a rack this station does not hold, a phrasing it can never fill, and markers
  * the character's own sample lines never use. Every one of those is otherwise found out by putting
  * the character on air.
+ *
+ * ## A character already here is skipped until somebody says otherwise
+ *
+ * Matching by key is how a file finds the character it means, and it is also how a file from another
+ * station finds a DIFFERENT character that happens to share a key with one of yours. So the preview
+ * answers `skip` for every one this station holds, with the counts and notices a replace would get,
+ * and the row offers Skip or Replace. Flipping it is decided here rather than asked of the API again,
+ * which is what those counts are for; the import then names the replaced keys and plans with the same
+ * function, so what lands is what the rows said.
  */
 export function PersonaImportModal({ opened, onClose }: PersonaImportModalProps) {
     const phone = usePhone();
@@ -49,11 +58,15 @@ export function PersonaImportModal({ opened, onClose }: PersonaImportModalProps)
     const [name, setName] = useState<string | undefined>(undefined);
     // A file that is not JSON never reaches the API, so this failure has nowhere else to live.
     const [unreadable, setUnreadable] = useState<string | undefined>(undefined);
+    // Keys of characters already here that the operator chose to replace. Empty is the safe answer,
+    // and the one every new file starts from.
+    const [replacing, setReplacing] = useState<ReadonlySet<string>>(new Set());
 
     const close = () => {
         setFile(undefined);
         setName(undefined);
         setUnreadable(undefined);
+        setReplacing(new Set());
         preview.reset();
         write.reset();
         onClose();
@@ -63,6 +76,7 @@ export function PersonaImportModal({ opened, onClose }: PersonaImportModalProps)
         if (chosen === null) return;
 
         setUnreadable(undefined);
+        setReplacing(new Set());
         preview.reset();
         write.reset();
         setName(chosen.name);
@@ -81,7 +95,17 @@ export function PersonaImportModal({ opened, onClose }: PersonaImportModalProps)
     };
 
     const result = write.data;
-    const plan = result?.plan ?? preview.data;
+    // Once written, the rows are what the station DID, so they come from its answer and stop offering
+    // a choice. Until then they are the preview with the operator's choices laid over it.
+    const plan = result?.plan ?? (preview.data === undefined ? undefined : chosen(preview.data, replacing));
+
+    const decide = (key: string, replace: boolean) =>
+        setReplacing(current => {
+            const next = new Set(current);
+            if (replace) next.add(key);
+            else next.delete(key);
+            return next;
+        });
 
     return (
         <Modal opened={opened} onClose={close} title={t('import.title')} size="lg" fullScreen={phone}>
@@ -117,14 +141,18 @@ export function PersonaImportModal({ opened, onClose }: PersonaImportModalProps)
 
                 {result ? <ImportResult result={result} /> : undefined}
 
-                {plan ? <ImportPlan plan={plan} /> : undefined}
+                {plan ? <ImportPlan plan={plan} onChoose={result === undefined ? decide : undefined} /> : undefined}
 
                 {plan && result === undefined ? (
                     <Group justify="flex-end">
                         <Button variant="subtle" onClick={close}>
                             {t('action.cancel', { ns: 'common' })}
                         </Button>
-                        <Button loading={write.isPending} disabled={plan.personas.length === 0} onClick={() => file && write.mutate(file)}>
+                        <Button
+                            loading={write.isPending}
+                            disabled={!plan.personas.some(entry => entry.outcome !== 'skip')}
+                            onClick={() => file && write.mutate({ file, replace: [...replacing] })}
+                        >
                             {importLabel(plan, t)}
                         </Button>
                     </Group>
@@ -153,6 +181,11 @@ function ImportResult({ result }: { result: PersonaImportResult }) {
                     details: t('import.details', { count: result.detailsWritten }),
                 })}
             </Text>
+            {result.skipped > 0 ? (
+                <Text size="sm" mt="xs">
+                    {t('import.result.skipped', { count: result.skipped })}
+                </Text>
+            ) : undefined}
             <Text size="sm" mt="xs">
                 <Trans t={t} i18nKey="import.result.onAir" components={{ strong: <strong /> }} />
             </Text>
@@ -160,12 +193,41 @@ function ImportResult({ result }: { result: PersonaImportResult }) {
     );
 }
 
-/** Every character in the file, what would become of it, and what this station cannot honour. */
-function ImportPlan({ plan }: { plan: PersonaImportPlan }) {
+/**
+ * The preview with the operator's Replace choices laid over it.
+ *
+ * Only a character this station already holds can change, and only between `skip` and `update`; the
+ * preview gave each one the counts and notices a replace would get, so nothing else needs asking.
+ */
+function chosen(plan: PersonaImportPlan, replacing: ReadonlySet<string>): PersonaImportPlan {
+    return {
+        ...plan,
+        personas: plan.personas.map(entry =>
+            entry.outcome === 'create' ? entry : { ...entry, outcome: replacing.has(entry.key) ? 'update' : 'skip' },
+        ),
+    };
+}
+
+/** A character this station already holds, whichever way the operator has chosen. */
+const isHeld = (entry: PersonaImportEntry): boolean => entry.outcome !== 'create';
+
+/**
+ * Every character in the file, what would become of it, and what this station cannot honour.
+ *
+ * `onChoose` is present while the operator can still decide, and absent once the import has run.
+ */
+function ImportPlan({ plan, onChoose }: { plan: PersonaImportPlan; onChoose?: (key: string, replace: boolean) => void }) {
     const { t } = useTranslation('personas');
+    const held = plan.personas.filter(isHeld).length;
     return (
         <Stack gap="sm">
             {plan.notices.length > 0 ? <Notices notices={plan.notices} /> : undefined}
+
+            {onChoose !== undefined && held > 0 ? (
+                <Alert color="yellow" title={t('import.held.title', { count: held })}>
+                    <Text size="sm">{t('import.held.body')}</Text>
+                </Alert>
+            ) : undefined}
 
             <Divider />
 
@@ -174,7 +236,7 @@ function ImportPlan({ plan }: { plan: PersonaImportPlan }) {
                     <Table.Thead>
                         <Table.Tr>
                             <Table.Th>{t('import.column.character')}</Table.Th>
-                            <Table.Th w={90}>{t('import.column.landsAs')}</Table.Th>
+                            <Table.Th w={onChoose !== undefined && held > 0 ? 170 : 90}>{t('import.column.landsAs')}</Table.Th>
                             <Table.Th w={140}>{t('import.column.stories')}</Table.Th>
                         </Table.Tr>
                     </Table.Thead>
@@ -195,17 +257,32 @@ function ImportPlan({ plan }: { plan: PersonaImportPlan }) {
                                                 </Badge>
                                             ) : undefined}
                                         </Group>
-                                        {entry.notices.length > 0 ? <Notices notices={entry.notices} /> : undefined}
+                                        {/* What a skipped character's notices describe is a replace that is not
+                                            going to happen, so they wait until somebody chooses it. */}
+                                        {entry.outcome !== 'skip' && entry.notices.length > 0 ? <Notices notices={entry.notices} /> : undefined}
                                     </Stack>
                                 </Table.Td>
                                 <Table.Td>
-                                    <Badge size="sm" variant="light" color={entry.outcome === 'create' ? 'teal' : 'blue'}>
-                                        {entry.outcome === 'create' ? t('import.outcome.create') : t('import.outcome.update')}
-                                    </Badge>
+                                    {onChoose !== undefined && isHeld(entry) ? (
+                                        <SegmentedControl
+                                            size="xs"
+                                            aria-label={t('import.choice.label', { label: entry.label })}
+                                            value={entry.outcome === 'update' ? 'replace' : 'skip'}
+                                            onChange={value => onChoose(entry.key, value === 'replace')}
+                                            data={[
+                                                { value: 'skip', label: t('import.choice.skip') },
+                                                { value: 'replace', label: t('import.choice.replace') },
+                                            ]}
+                                        />
+                                    ) : (
+                                        <Badge size="sm" variant="light" color={outcomeColor[entry.outcome]}>
+                                            {t(`import.outcome.${entry.outcome}`)}
+                                        </Badge>
+                                    )}
                                 </Table.Td>
                                 <Table.Td>
                                     <Text size="xs" c="dimmed" className="da-num">
-                                        {storyLine(entry.storiesNew, entry.storiesHeld, t)}
+                                        {entry.outcome === 'skip' ? '—' : storyLine(entry.storiesNew, entry.storiesHeld, t)}
                                     </Text>
                                 </Table.Td>
                             </Table.Tr>
@@ -239,11 +316,14 @@ function Notices({ notices }: { notices: readonly PersonaImportNotice[] }) {
     );
 }
 
-/** What the button is about to do, so it is not the same word as the dialog's title. */
+const outcomeColor: Record<PersonaImportEntry['outcome'], string> = { create: 'teal', update: 'blue', skip: 'gray' };
+
+/** What the button is about to do, so it is not the same word as the dialog's title. Skips are not counted: they do nothing. */
 function importLabel(plan: PersonaImportPlan, t: TFunction<'personas'>): string {
     const creates = plan.personas.filter(entry => entry.outcome === 'create').length;
-    const updates = plan.personas.length - creates;
+    const updates = plan.personas.filter(entry => entry.outcome === 'update').length;
 
+    if (creates === 0 && updates === 0) return t('import.button.nothing');
     if (updates === 0) return t('import.button.create', { characters: t('import.characters', { count: creates }) });
     if (creates === 0) return t('import.button.update', { characters: t('import.characters', { count: updates }) });
 

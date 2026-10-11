@@ -132,10 +132,20 @@ PersonasRouter.get('/personas/:id/export', requirePolicy({ policy: 'platform.vie
  * from [personas.ck](../../data/contracts/personas/personas.ck) `POST /personas/import/preview`
  */
 PersonasRouter.post('/personas/import/preview', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const query = await parseAndValidate(
+        ctx.query,
+        z.strictObject({
+            replace: z
+                .preprocess(v => (typeof v === 'string' ? v.split(',') : v), z.array(z.string().min(1).max(100)))
+                .optional()
+                .describe('Keys of characters this station already holds that the import should rewrite. Every other one it holds is skipped'),
+        }),
+    );
+
     const body = await parseAndValidate(ctx.parsedBody, PersonaFile);
 
     const service = ctx.container.get(PersonaImportService);
-    const result: PersonaImportPlan = await service.preview(body);
+    const result: PersonaImportPlan = await service.preview(body, query);
 
     ctx.status = 200;
     ctx.type = 'application/json';
@@ -143,14 +153,26 @@ PersonasRouter.post('/personas/import/preview', requirePolicy({ policy: 'platfor
 });
 
 /**
- * Writes a file into this station, merging by key, and answers with what it did
+ * Writes a file into this station: creates what is new, rewrites only the characters named in `replace`, and answers with what it did
  * from [personas.ck](../../data/contracts/personas/personas.ck) `POST /personas/import`
  */
 PersonasRouter.post('/personas/import', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const query = await parseAndValidate(
+        ctx.query,
+        z.strictObject({
+            replace: z
+                .preprocess(v => (typeof v === 'string' ? v.split(',') : v), z.array(z.string().min(1).max(100)))
+                .optional()
+                .describe(
+                    'Keys of characters this station already holds that the file should rewrite. Every other one it holds is left exactly as it is',
+                ),
+        }),
+    );
+
     const body = await parseAndValidate(ctx.parsedBody, PersonaFile);
 
     const service = ctx.container.get(PersonaImportService);
-    const result: PersonaImportResult = await service.import(body);
+    const result: PersonaImportResult = await service.import(body, query);
 
     ctx.status = 200;
     ctx.type = 'application/json';

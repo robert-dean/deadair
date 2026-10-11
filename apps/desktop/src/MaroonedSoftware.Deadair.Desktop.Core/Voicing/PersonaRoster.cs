@@ -163,10 +163,19 @@ public static class PersonaRoster
     {
         ArgumentNullException.ThrowIfNull(plan);
 
-        var creates = plan.Personas.Count(entry => entry.Outcome == PersonaImportEntryOutcome.Create);
-        var updates = plan.Personas.Count - creates;
+        return ImportLabel(
+            plan.Personas.Count(entry => entry.Outcome == PersonaImportEntryOutcome.Create),
+            plan.Personas.Count(entry => entry.Outcome == PersonaImportEntryOutcome.Update));
+    }
 
-        return updates == 0 ? $"Import {Characters(creates)}"
+    /// <summary>
+    /// The same words from counts, for a dialog whose rows the operator is still choosing. A skipped
+    /// character is not counted: it does nothing.
+    /// </summary>
+    public static string ImportLabel(long creates, long updates)
+    {
+        return creates == 0 && updates == 0 ? "Nothing to import"
+            : updates == 0 ? $"Import {Characters(creates)}"
             : creates == 0 ? $"Rewrite {Characters(updates)}"
             : $"Import {creates}, rewrite {updates}";
     }
@@ -187,7 +196,9 @@ public static class PersonaRoster
         ArgumentNullException.ThrowIfNull(result);
 
         return $"Imported: {Characters(result.Created)} written, {Count(result.Updated, "sheet")} rewritten, "
-            + $"{Count(result.StoriesWritten, "story", "stories")} and {Count(result.DetailsWritten, "detail")} added. Nobody was put on air.";
+            + $"{Count(result.StoriesWritten, "story", "stories")} and {Count(result.DetailsWritten, "detail")} added."
+            + (result.Skipped == 0 ? "" : $" {Characters(result.Skipped)} already here {(result.Skipped == 1 ? "was" : "were")} left as {(result.Skipped == 1 ? "it was" : "they were")}.")
+            + " Nobody was put on air.";
     }
 
     private static string Characters(long count) => Count(count, "character");

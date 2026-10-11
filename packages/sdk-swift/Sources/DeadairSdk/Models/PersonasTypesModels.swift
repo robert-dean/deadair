@@ -1673,7 +1673,7 @@ public struct PersonaImportEntry: Codable, Equatable, Sendable {
     public var key: String
     public var label: String
     public var kind: PersonaImportEntryKind?
-    /// Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote
+    /// Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again
     public var outcome: PersonaImportEntryOutcome
     public var storiesNew: Int
     /// Already here under the same handle, so importing would skip them
@@ -2581,15 +2581,18 @@ public struct PersonaImportResult: Codable, Equatable, Sendable {
     public var created: Int
     /// Characters whose sheet was rewritten. An update replaces the sheet and ADDS stories; it never deletes one the operator here wrote
     public var updated: Int
+    /// Characters this station already held and was not asked to replace, left exactly as they were
+    public var skipped: Int
     public var storiesWritten: Int
     public var detailsWritten: Int
     /// The roster as it now stands, on this file's own rule: every mutation answers the whole list, because more than the named row can change
     public var personas: PersonaList
 
-    public init(plan: PersonaImportPlan, created: Int, updated: Int, storiesWritten: Int, detailsWritten: Int, personas: PersonaList) {
+    public init(plan: PersonaImportPlan, created: Int, updated: Int, skipped: Int, storiesWritten: Int, detailsWritten: Int, personas: PersonaList) {
         self.plan = plan
         self.created = created
         self.updated = updated
+        self.skipped = skipped
         self.storiesWritten = storiesWritten
         self.detailsWritten = detailsWritten
         self.personas = personas
@@ -2599,6 +2602,7 @@ public struct PersonaImportResult: Codable, Equatable, Sendable {
         case plan = "plan"
         case created = "created"
         case updated = "updated"
+        case skipped = "skipped"
         case storiesWritten = "storiesWritten"
         case detailsWritten = "detailsWritten"
         case personas = "personas"
@@ -2609,6 +2613,7 @@ public struct PersonaImportResult: Codable, Equatable, Sendable {
         self.plan = try container.decode(PersonaImportPlan.self, forKey: .plan)
         self.created = try container.decode(Int.self, forKey: .created)
         self.updated = try container.decode(Int.self, forKey: .updated)
+        self.skipped = try container.decode(Int.self, forKey: .skipped)
         self.storiesWritten = try container.decode(Int.self, forKey: .storiesWritten)
         self.detailsWritten = try container.decode(Int.self, forKey: .detailsWritten)
         self.personas = try container.decode(PersonaList.self, forKey: .personas)
@@ -2619,6 +2624,7 @@ public struct PersonaImportResult: Codable, Equatable, Sendable {
         try container.encode(self.plan, forKey: .plan)
         try container.encode(self.created, forKey: .created)
         try container.encode(self.updated, forKey: .updated)
+        try container.encode(self.skipped, forKey: .skipped)
         try container.encode(self.storiesWritten, forKey: .storiesWritten)
         try container.encode(self.detailsWritten, forKey: .detailsWritten)
         try container.encode(self.personas, forKey: .personas)
@@ -2849,10 +2855,11 @@ public enum PersonaImportEntryKind: String, Codable, CaseIterable, Sendable {
     case guest = "guest"
 }
 
-/// Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote
+/// Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again
 public enum PersonaImportEntryOutcome: String, Codable, CaseIterable, Sendable {
     case create = "create"
     case update = "update"
+    case skip = "skip"
 }
 
 /// Which sort, so a console can group or ignore by it rather than parsing the sentence

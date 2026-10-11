@@ -716,9 +716,9 @@ export const PersonaImportEntry = z.strictObject({
     label: z.string().min(1).max(200),
     kind: z.enum(['host', 'caller', 'newsreader', 'guest']).optional(),
     outcome: z
-        .enum(['create', 'update'])
+        .enum(['create', 'update', 'skip'])
         .describe(
-            'Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote',
+            'Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again',
         ),
     storiesNew: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
     storiesHeld: z
@@ -990,6 +990,9 @@ export const PersonaImportResult = z.strictObject({
         .describe(
             'Characters whose sheet was rewritten. An update replaces the sheet and ADDS stories; it never deletes one the operator here wrote',
         ),
+    skipped: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Characters this station already held and was not asked to replace, left exactly as they were'),
     storiesWritten: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
     detailsWritten: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
     personas: PersonaList.describe(

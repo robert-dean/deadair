@@ -239,7 +239,7 @@ contract PersonaImportEntry: {
     key: readonly string(min=1, max=100) # What identifies this character across two installs
     label: readonly string(min=1, max=200)
     kind?: readonly enum(host, caller, newsreader, guest)
-    outcome: readonly enum(create, update) # Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote
+    outcome: readonly enum(create, update, skip) # Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again
     storiesNew: readonly int(min=0)
     storiesHeld: readonly int(min=0) # Already here under the same handle, so importing would skip them
     detailsNew: readonly int(min=0)
@@ -256,6 +256,7 @@ contract PersonaImportResult: {
     plan: readonly PersonaImportPlan # What it decided to do, notices and all, so the answer carries its own explanation
     created: readonly int(min=0)
     updated: readonly int(min=0) # Characters whose sheet was rewritten. An update replaces the sheet and ADDS stories; it never deletes one the operator here wrote
+    skipped: readonly int(min=0) # Characters this station already held and was not asked to replace, left exactly as they were
     storiesWritten: readonly int(min=0)
     detailsWritten: readonly int(min=0)
     personas: readonly PersonaList # The roster as it now stands, on this file's own rule: every mutation answers the whole list, because more than the named row can change

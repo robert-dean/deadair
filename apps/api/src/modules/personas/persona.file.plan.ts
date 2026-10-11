@@ -120,12 +120,19 @@ export const storyHandle = (title: string): string => title.trim().toLowerCase()
 /** Match a detail the way `PersonaStoriesRepository.holdsDetail` does. */
 export const detailHandle = (detail: string): string => detail.trim().toLowerCase();
 
-/** What importing this file would do here. */
-export function planImport(file: PersonaFile, station: StationSnapshot): PersonaImportPlan {
+/**
+ * What importing this file would do here.
+ *
+ * `replace` names the characters this station already holds that the operator has agreed to rewrite.
+ * Every other one it holds is a `skip`, because a key match is not consent: two stations can each have
+ * written their own `newsreader`, and a shared file must not quietly swap one for the other. A key in
+ * `replace` that this station does not hold changes nothing, since that character is created anyway.
+ */
+export function planImport(file: PersonaFile, station: StationSnapshot, replace: ReadonlySet<string> = new Set()): PersonaImportPlan {
     return {
         format: file.format,
         notices: fileNotices(file),
-        personas: file.personas.map(persona => entryFor(persona, station)),
+        personas: file.personas.map(persona => entryFor(persona, station, replace)),
         ...(file.station === undefined ? {} : { station: file.station }),
         ...(file.takenAt === undefined ? {} : { takenAt: file.takenAt }),
     };
@@ -169,7 +176,7 @@ function fileNotices(file: PersonaFile): PersonaImportNotice[] {
     return notices;
 }
 
-function entryFor(persona: PersonaFilePersona, station: StationSnapshot): PersonaImportEntry {
+function entryFor(persona: PersonaFilePersona, station: StationSnapshot, replace: ReadonlySet<string>): PersonaImportEntry {
     const held = station.personas.get(persona.key);
     const heldStories = station.stories.get(persona.key) ?? new Map<string, ReadonlySet<string>>();
 
@@ -199,7 +206,10 @@ function entryFor(persona: PersonaFilePersona, station: StationSnapshot): Person
     return {
         key: persona.key,
         label: persona.label,
-        outcome: held === undefined ? 'create' : 'update',
+        // A skip keeps the counts and notices an update would have, so they say what replacing it
+        // WOULD do. That is what lets a console offer the choice from this one answer rather than
+        // asking again every time the operator changes their mind about a row.
+        outcome: held === undefined ? 'create' : replace.has(persona.key) ? 'update' : 'skip',
         storiesNew,
         storiesHeld,
         detailsNew,

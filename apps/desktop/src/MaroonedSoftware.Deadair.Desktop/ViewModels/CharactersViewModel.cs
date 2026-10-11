@@ -532,7 +532,7 @@ public sealed partial class CharactersViewModel(
         }
 
         var plan = await RunAsync(
-            (sdk, token) => sdk.Personas.PreviewPersonaImportAsync(file, token),
+            (sdk, token) => sdk.Personas.PreviewPersonaImportAsync(file, null, token),
             new Dictionary<int, string> { [422] = $"\"{picked.Name}\" is JSON, but not a persona file this station recognises." })
             .ConfigureAwait(true);
 

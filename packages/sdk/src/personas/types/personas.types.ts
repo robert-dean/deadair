@@ -529,8 +529,8 @@ export interface PersonaImportEntry {
     key: string;
     label: string;
     kind?: 'host' | 'caller' | 'newsreader' | 'guest';
-    /** Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote */
-    outcome: 'create' | 'update';
+    /** Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again */
+    outcome: 'create' | 'update' | 'skip';
     storiesNew: number;
     /** Already here under the same handle, so importing would skip them */
     storiesHeld: number;
@@ -759,6 +759,8 @@ export interface PersonaImportResult {
     created: number;
     /** Characters whose sheet was rewritten. An update replaces the sheet and ADDS stories; it never deletes one the operator here wrote */
     updated: number;
+    /** Characters this station already held and was not asked to replace, left exactly as they were */
+    skipped: number;
     storiesWritten: number;
     detailsWritten: number;
     /** The roster as it now stands, on this file's own rule: every mutation answers the whole list, because more than the named row can change */

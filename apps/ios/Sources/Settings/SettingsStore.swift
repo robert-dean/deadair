@@ -25,7 +25,8 @@ final class SettingsStore {
             stationText: defaults.string(forKey: Keys.station),
             nameText: defaults.string(forKey: Keys.name),
             formatText: defaults.string(forKey: Keys.format),
-            playOnOpenText: defaults.string(forKey: Keys.playOnOpen)
+            playOnOpenText: defaults.string(forKey: Keys.playOnOpen),
+            keepAwakeText: defaults.string(forKey: Keys.keepAwake)
         )
     }
 
@@ -54,11 +55,17 @@ final class SettingsStore {
         write()
     }
 
+    func setKeepAwake(_ keepAwake: KeepAwake) {
+        settings.keepAwake = keepAwake
+        write()
+    }
+
     private func write() {
         defaults.set(settings.stationText, forKey: Keys.station)
         defaults.set(settings.stationName, forKey: Keys.name)
         defaults.set(settings.formatText, forKey: Keys.format)
         defaults.set(settings.playOnOpenText, forKey: Keys.playOnOpen)
+        defaults.set(settings.keepAwakeText, forKey: Keys.keepAwake)
     }
 
     private enum Keys {
@@ -66,6 +73,7 @@ final class SettingsStore {
         static let name = "station_name"
         static let format = "stream_format"
         static let playOnOpen = "play_on_open"
+        static let keepAwake = "keep_awake"
         /// Set once the stored format has been read for Automatic; see `formatTextFromBeforeAutomatic`.
         static let automaticFormat = "format_automatic_read"
     }

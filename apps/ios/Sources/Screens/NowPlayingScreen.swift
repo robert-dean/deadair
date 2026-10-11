@@ -38,6 +38,11 @@ struct NowPlayingScreen: View {
     /// The lyrics of the record this listener is hearing, read once per airing. See `readLyrics`.
     @State private var lyrics: NowPlayingLyrics?
     @State private var lyricsOpen = false
+    /// Whether the phone is on power, watched only while `KeepAwake.whileCharging` needs to know.
+    @State private var charging = false
+    /// Whether this screen is on display: a tab that is not chosen, or a page pushed over it, is not.
+    @State private var shown = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         let ui = model.nowPlayingUi
@@ -145,6 +150,30 @@ struct NowPlayingScreen: View {
         .sheet(isPresented: $lyricsOpen) {
             LyricsSheet(answer: lyrics)
         }
+        .onAppear { shown = true }
+        .onDisappear {
+            shown = false
+            Platform.keepScreenOn(false)
+        }
+        // Charging is watched only for the one answer that asks, and only while the screen is in
+        // front, so the battery is not monitored for a screen nobody is looking at.
+        .task(id: keepAwake == .whileCharging && inFront) {
+            guard keepAwake == .whileCharging, inFront else { return }
+            await Platform.watchCharging { charging = $0 }
+        }
+        .onChange(of: holdsScreen, initial: true) { _, hold in
+            Platform.keepScreenOn(hold)
+        }
+    }
+
+    private var keepAwake: KeepAwake { model.settings.settings.keepAwake }
+
+    /// On display, chosen and active: resting does not change it, since a resting screen is still
+    /// the one somebody has propped up to look at.
+    private var inFront: Bool { shown && model.tab == .nowPlaying && scenePhase == .active }
+
+    private var holdsScreen: Bool {
+        keepAwake.holdsScreen(charging: charging, playing: model.listening.wantsToPlay, inFront: inFront)
     }
 
     /// Whether there are words to offer for what this listener is hearing. The sheet works out which

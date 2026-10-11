@@ -243,6 +243,37 @@ describe('extractArticle: sponsors', () => {
     });
 });
 
+/**
+ * The publisher's note about the story, typeset the way publishers typeset one: every word in italics.
+ *
+ * Measured on The Markup, whose about-us blurb and newsletter pitch opened the article text.
+ */
+describe("extractArticle: editor's notes", () => {
+    const REPORTING = 'The business of military contracting is booming, and the total value of contracts has more than doubled.';
+
+    it('drops a paragraph set entirely in italics, links inside it included', () => {
+        const note =
+            '<em>The Markup, now a part of CalMatters, uses investigative reporting to challenge technology. Sign up for </em>' +
+            '<a href="https://example.org/k"><em>Klaxon</em></a><em>, a newsletter that delivers our stories to your inbox.</em>';
+
+        expect(extractArticle(`<article><p>${note}</p><p>${REPORTING}</p></article>`)).toBe(REPORTING);
+    });
+
+    it('drops one set in <i> as well, with a full stop left outside the emphasis', () => {
+        const note = '<i>This story was originally published by a partner newsroom and is republished here with permission</i>.';
+
+        expect(extractArticle(`<article><p>${note}</p><p>${REPORTING}</p></article>`)).toBe(REPORTING);
+    });
+
+    it('keeps a sentence with an italic title in it, since the rest of the sentence is the story', () => {
+        const story = 'Her new book, <em>First Contact</em>, traces a century of people listening to the sky for a signal.';
+
+        expect(extractArticle(`<article><p>${story}</p></article>`)).toBe(
+            'Her new book, First Contact, traces a century of people listening to the sky for a signal.',
+        );
+    });
+});
+
 /** A host whose only job here is to answer one fetch. */
 const hostAnswering = (response: Response): PluginHost => ({ fetch: vi.fn(async () => response) }) as unknown as PluginHost;
 

@@ -24,9 +24,11 @@ import type { HostFetchInit, PluginHost } from './plugin.host.js';
  * host can check a claim against the text it came from, and prose that has been
  * through a plugin's own paraphrase is prose nothing can check.
  *
- * The one thing removed that is not furniture is a paragraph announcing itself as an advertisement
- * — see {@link SPONSOR_OPENERS}. It is still a cut rather than a rewrite: what is left is the
- * publisher's own prose, and what went is prose the publisher was paid for.
+ * Two things removed are not furniture. One is a paragraph announcing itself as an advertisement
+ * (see {@link SPONSOR_OPENERS}); the other is a paragraph set entirely in italics (see
+ * {@link setEntirelyInEmphasis}), which is the publisher's note about the story rather than the
+ * story. Both are still cuts rather than rewrites: what is left is the publisher's own prose, and
+ * what went is prose the publisher was paid for or wrote about itself.
  *
  * ## Wrong in one direction on purpose
  *
@@ -188,6 +190,34 @@ function opensWithASponsor(text: string): boolean {
     });
 }
 
+/**
+ * Whether a paragraph is set entirely in italics, which is how a publisher typesets an editor's note.
+ *
+ * The note that says who the publisher is, where a story first ran, which series it belongs to, or
+ * which newsletter to sign up for is an ordinary `<p>` with nothing structural about it except that
+ * every word of it is inside `<em>` or `<i>`. Measured on The Markup: "The Markup, now a part of
+ * CalMatters, uses investigative reporting… Sign up for Klaxon, a newsletter that delivers our
+ * stories" opened the article text a bulletin was handed, ahead of the reporting.
+ *
+ * Read off the MARKUP, before `plainText` throws the emphasis away. An italic title or a stressed
+ * word inside a sentence leaves the rest of the sentence outside the emphasis and is kept; only a
+ * paragraph with nothing but punctuation and links outside it is dropped. Links count as nothing
+ * because a note's newsletter name is a link with its own `<em>` inside it. A false positive is a
+ * paragraph the publisher chose to set apart from the story, which costs one paragraph of a story
+ * that has others.
+ */
+function setEntirelyInEmphasis(markup: string): boolean {
+    if (!/<(em|i)\b/i.test(markup)) return false;
+
+    const outside = markup
+        .replace(/<(em|i)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;|&#160;/gi, '')
+        .replace(/[\s\p{P}]/gu, '');
+
+    return outside.length === 0;
+}
+
 /** The containers a publisher marks the story with, in the order they are worth trusting. */
 const CONTAINERS = [/<article\b[^>]*>([\s\S]*?)<\/article>/i, /<main\b[^>]*>([\s\S]*?)<\/main>/i];
 
@@ -226,7 +256,7 @@ export function extractArticle(html: string, maxChars: number = ARTICLE_MAX_CHAR
 
         // After the length test rather than before it, because this is the more expensive check and
         // most of what it would run over has already been dropped for being too short to be prose.
-        if (opensWithASponsor(text)) continue;
+        if (opensWithASponsor(text) || setEntirelyInEmphasis(match[1] ?? '')) continue;
 
         // A page that repeats its own standfirst inside the body is ordinary,
         // and reading it twice is not.

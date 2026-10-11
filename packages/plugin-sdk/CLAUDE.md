@@ -117,7 +117,7 @@ field, or on its list for a cell (`movedSecretFields` and `splitRowSecrets` in
 address cell that does not apply to its row (`dependsOn`) counts as no address, so a stale cell cannot be
 switched on underneath a kept key. The manifest schema refuses a `sentTo` naming nothing (`sentToProblems`),
 because one that did would compare an empty address with itself forever. Bundled pairs: llm `providers`
-(`apiKey` and `headers`), jellyfin, plex, navidrome, kokoro and chatterbox. NOT websearch's key, which goes
+(`apiKey` and `headers`), jellyfin, emby, plex, navidrome, kokoro and chatterbox. NOT websearch's key, which goes
 to Brave or Tavily and never to the SearXNG address beside it, nor musicbrainz's ListenBrainz token or
 ytmusic's cookie, which go to fixed hosts too. The station's own settings use the same declaration:
 `mail.password` names `mail.host`, and a sign-in provider's client secret names its issuer.

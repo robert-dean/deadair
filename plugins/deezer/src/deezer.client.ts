@@ -19,16 +19,15 @@ import { DEEZER_CODE_NO_DATA, type DeezerErrorResponse } from './deezer.types.js
  */
 export class DeezerRequestError extends PluginError {
     readonly status: number;
-    /** Deezer's own error code, where the failure came back inside a 200. */
-    readonly upstreamCode?: number;
 
     constructor(status: number, message: string, options: { upstreamCode?: number; retryMs?: number } = {}) {
         super(message);
         this.name = 'DeezerRequestError';
         this.status = status;
-        if (options.upstreamCode !== undefined) this.upstreamCode = options.upstreamCode;
 
         this.withCode(pluginCodeForStatus(status)).withUpstreamStatus(status);
+        // Deezer's own error code, where the failure came back inside a 200.
+        if (options.upstreamCode !== undefined) this.withUpstreamCode(options.upstreamCode);
         if (options.retryMs !== undefined) this.withRetry(options.retryMs);
     }
 

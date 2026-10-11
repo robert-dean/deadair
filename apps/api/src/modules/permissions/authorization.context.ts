@@ -5,7 +5,7 @@ import type { PlatformRoleName } from '#modules/permissions/platform.roles.js';
 import type { ApiKeyGrant } from '#modules/authentication/api.key.scopes.js';
 
 // Discriminated union — every actor kind has its own shape and lifecycle.
-export type Actor = UserActor | SystemActor | VendorActor;
+export type Actor = UserActor | GuestActor | SystemActor | VendorActor;
 
 interface HumanActor {
     kind: 'user';
@@ -55,6 +55,30 @@ export interface OAuthGrantActor {
  */
 export const delegatedGrants = (actor: UserActor): ReadonlySet<ApiKeyGrant> | undefined => actor.apiKey?.grants ?? actor.grant?.grants;
 
+/**
+ * A guest at a party: somebody who scanned the party pass's QR code and joined with it. A real actor
+ * with a row of its own, so the request arbiter's "one at a time" holds for each guest, and nothing
+ * more. It holds no platform role, so no `platform.*` gate admits it; `requests.ask` is the one policy
+ * that does, and `requireUser` and `requireAuthentication` both refuse it. Its session lives exactly as
+ * long as the pass, and the middleware turns it away the moment the pass is ended or runs out.
+ */
+export interface GuestActor {
+    kind: 'guest';
+    sessionToken: string;
+    actorId: string;
+    /** The pass this guest joined with, checked for liveness on every request. */
+    partyPassId: string;
+}
+
+/**
+ * Who is asking for a record, as the request desk counts them: the key its one-at-a-time rule and
+ * cooldown are keyed on, and the actor behind it.
+ */
+export interface RequesterIdentity {
+    key: string;
+    actorId: string;
+}
+
 export interface SystemActor {
     kind: 'system';
     sessionToken: string;
@@ -97,6 +121,16 @@ export class AuthorizationContext {
             throw httpError(403).withDetails({ message: `user actor required (got ${this.actor.kind})` });
         }
         return this.actor;
+    }
+
+    // The person asking for a record: a signed-in user, keyed `user:<actor id>`, or a party guest,
+    // keyed `guest:<actor id>`. The key is what the request arbiter counts by, so a guest's one open
+    // request and cooldown are theirs alone and never a person's who signed in. Anything else is
+    // refused, as `requireUser` refuses it.
+    requireRequester(): RequesterIdentity {
+        if (this.actor.kind === 'user') return { key: `user:${this.actor.actorId}`, actorId: this.actor.actorId };
+        if (this.actor.kind === 'guest') return { key: `guest:${this.actor.actorId}`, actorId: this.actor.actorId };
+        throw httpError(403).withDetails({ message: `a person or a party guest is required (got ${this.actor.kind})` });
     }
 
     // Returns the authentication (login) identity for any human-backed actor.

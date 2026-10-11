@@ -179,6 +179,7 @@ describe('AnalyzerPlugin.analyzeTrack', () => {
 
         const error = await plugin.analyzeTrack(REF).catch((thrown: unknown) => thrown);
         expect((error as PluginError).code).toBe('upstream');
+        expect((error as PluginError).upstreamCode).toBe('undecodable');
         expect((error as Error).message).toContain('undecodable');
         expect((error as Error).message).toContain('moov atom not found');
     });

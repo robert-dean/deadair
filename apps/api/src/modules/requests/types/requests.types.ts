@@ -38,6 +38,58 @@ export const ListenerRequestDecline = z.strictObject({
 export type ListenerRequestDecline = z.infer<typeof ListenerRequestDecline>;
 
 /**
+ * A party: the pass guests join with by scanning its QR code, for as long as it lasts
+ * generated from [PartyPass](../../../../data/contracts/requests/requests.types.ck)
+ */
+export const PartyPass = z.strictObject({
+    token: z
+        .string()
+        .max(200)
+        .describe(
+            "The pass itself. Put it after `#` on the station's `/party` page, as `/party#<token>`, and that address is what the QR code holds. Anyone holding it can join until the party ends, so show it only to the room",
+        ),
+    createdAt: _ZodDatetime.describe('When the party started'),
+    expiresAt: _ZodDatetime.describe('When the pass stops letting guests in, and turns away every guest who joined with it'),
+    guests: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('How many guests have joined with it'),
+});
+export type PartyPass = z.infer<typeof PartyPass>;
+
+/**
+ * Start a party
+ * generated from [PartyStart](../../../../data/contracts/requests/requests.types.ck)
+ */
+export const PartyStart = z.strictObject({
+    hours: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(24))
+        .optional()
+        .describe('How long the pass lasts. Six when omitted'),
+});
+export type PartyStart = z.infer<typeof PartyStart>;
+
+/**
+ * Join a party as a guest, with the pass from its QR code
+ * generated from [PartyJoin](../../../../data/contracts/requests/requests.types.ck)
+ */
+export const PartyJoin = z.strictObject({
+    token: z.string().min(1).max(200).describe("The pass, as it appears after `#` in the party page's address"),
+});
+export type PartyJoin = z.infer<typeof PartyJoin>;
+
+/**
+ * A guest's way in: send it as a bearer token on the request routes
+ * generated from [PartyGuestSession](../../../../data/contracts/requests/requests.types.ck)
+ */
+export const PartyGuestSession = z.strictObject({
+    accessToken: z
+        .string()
+        .describe('The bearer token. It lets a guest search for records, ask for one and see their own requests, and nothing else'),
+    expiresAt: _ZodDatetime.describe("When it stops working, which is when the party's pass does"),
+});
+export type PartyGuestSession = z.infer<typeof PartyGuestSession>;
+
+/**
  * A record the station could be asked for: one it holds, or one a music provider carries
  * generated from [RequestableTrack](../../../../data/contracts/requests/requests.types.ck)
  */
@@ -100,8 +152,21 @@ export const ListenerRequest = z.strictObject({
     airedAt: _ZodDatetime.optional().describe('When it aired'),
     dedicateTo: z.string().max(60).optional().describe('Who the listener dedicated it to'),
     message: z.string().max(200).optional().describe('What the listener asked to have said with it, in their own words'),
+    fromParty: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe('True when a guest at a party asked for it, through the party pass. Absent otherwise'),
 });
 export type ListenerRequest = z.infer<typeof ListenerRequest>;
+
+/**
+ * The party, if one is on
+ * generated from [PartyState](../../../../data/contracts/requests/requests.types.ck)
+ */
+export const PartyState = z.strictObject({
+    party: PartyPass.optional().describe('Absent when no party is on'),
+});
+export type PartyState = z.infer<typeof PartyState>;
 
 /**
  * Records matching a search, best matches first, the station's own before any a provider carries

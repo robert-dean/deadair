@@ -20,6 +20,10 @@ export const queryKeys = {
         providers: () => ['auth', 'providers'] as const,
     },
     /** Listener requests, for the operator deciding on them. Granting or declining one answers in terms of the whole list again. */
+    /** The party that is on, with its pass. Starting or ending one answers in terms of it. */
+    party: {
+        state: () => ['party', 'state'] as const,
+    },
     requests: {
         list: () => ['requests', 'list'] as const,
     },

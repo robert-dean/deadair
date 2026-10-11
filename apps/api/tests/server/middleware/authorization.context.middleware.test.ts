@@ -4,6 +4,9 @@
 // who is gone. Everything else the middleware does (shaping the Actor union) is exercised through
 // the services that consume it.
 
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 import { AuthenticationSessionService, invalidAuthenticationSession } from '@maroonedsoftware/authentication';
 import { IsHttpError } from '@maroonedsoftware/errors';
@@ -17,6 +20,7 @@ import { ActorsRepository } from '../../../src/modules/authentication/repositori
 import { LoginActivityRepository } from '../../../src/modules/authentication/repositories/login.activity.repository.js';
 import { AuthorizationContext } from '../../../src/modules/permissions/authorization.context.js';
 import { DeadairPermissionsTupleRepository } from '../../../src/modules/permissions/permissions.repository.js';
+import { PartyPassRepository } from '../../../src/modules/requests/party.passes.repository.js';
 import { PermissionsService } from '../../../src/modules/permissions/permissions.service.js';
 import { REFRESH_COOKIE_NAME } from '../../../src/modules/authentication/refresh.cookie.js';
 import { authorizationContextMiddleware } from '../../../src/server/middleware/authorization.context.middleware.js';
@@ -46,9 +50,13 @@ interface HarnessOptions {
     trustProxy?: string;
     /** The forwarded address the edge set, when a test needs one. */
     realIp?: string;
+    /** Whether the party pass a guest session names is still live. */
+    passLive?: boolean;
 }
 
-const harness = (options: HarnessOptions = {}): Harness & { checkSubject: ReturnType<typeof vi.fn>; insertLogin: ReturnType<typeof vi.fn> } => {
+const harness = (
+    options: HarnessOptions = {},
+): Harness & { checkSubject: ReturnType<typeof vi.fn>; insertLogin: ReturnType<typeof vi.fn>; isLive: ReturnType<typeof vi.fn> } => {
     const existsActive = vi.fn().mockResolvedValue(options.actorExists ?? true);
     const deleteSession = vi.fn().mockResolvedValue(undefined);
     const cookieSet = vi.fn();
@@ -56,6 +64,7 @@ const harness = (options: HarnessOptions = {}): Harness & { checkSubject: Return
     const overrides = new Map<unknown, unknown>();
     const checkSubject = vi.fn(async (_object: unknown, permission: string) => (options.keyGrants ?? []).includes(permission));
     const insertLogin = vi.fn().mockResolvedValue(undefined);
+    const isLive = vi.fn().mockResolvedValue(options.passLive ?? true);
 
     const registry = new Map<unknown, unknown>([
         [ActorsRepository, { existsActive }],
@@ -63,6 +72,7 @@ const harness = (options: HarnessOptions = {}): Harness & { checkSubject: Return
         [PermissionsService, { checkSubject }],
         [CacheProvider, { add: vi.fn().mockResolvedValue(options.firstInWindow ?? true) }],
         [LoginActivityRepository, { insertLogin }],
+        [PartyPassRepository, { isLive }],
         [Logger, { warn: vi.fn() }],
         [DeadairPermissionsTupleRepository, { listRelationsForSubjectOnObject: vi.fn().mockResolvedValue(options.relations ?? []) }],
         // Clearing the dead cookie reads TRUST_PROXY to decide whether this request's scheme can
@@ -95,7 +105,7 @@ const harness = (options: HarnessOptions = {}): Harness & { checkSubject: Return
         },
     };
 
-    return { ctx, next, existsActive, deleteSession, cookieSet, overrides, checkSubject, insertLogin };
+    return { ctx, next, existsActive, deleteSession, cookieSet, overrides, checkSubject, insertLogin, isLive };
 };
 
 /** The session ServerKit's `ApiKeyService.authenticate` mints: unpersisted, no `actorType`, one claim. */
@@ -158,6 +168,66 @@ describe('authorizationContextMiddleware', () => {
         expect(h.next).toHaveBeenCalledOnce();
         expect(h.existsActive).not.toHaveBeenCalled();
         expect((h.overrides.get(AuthorizationContext) as AuthorizationContext).actor.kind).toBe('system');
+    });
+
+    it('does not make an unauthenticated /webhooks/ request a vendor, since a path prefix is not a credential', async () => {
+        const h = harness({ path: '/webhooks/stripe' });
+        h.ctx.authenticationSession = invalidAuthenticationSession;
+
+        await authorizationContextMiddleware()(h.ctx, h.next);
+
+        const actor = (h.overrides.get(AuthorizationContext) as AuthorizationContext).actor;
+        expect(actor).toEqual(expect.objectContaining({ kind: 'system', source: 'http' }));
+    });
+
+    describe('a party guest', () => {
+        const PASS_ID = '22222222-2222-4222-8222-222222222222';
+        const guestSession = (claims: Record<string, unknown> = { actorType: 'guest', partyPassId: PASS_ID }) => ({
+            sessionToken: 'guest-session',
+            subject: ACTOR_ID,
+            claims,
+            factors: [{ method: 'apikey', kind: 'possession' }],
+        });
+
+        it('builds a guest actor, with no roles to load, while its pass is live', async () => {
+            const h = harness({ relations: ['admin'] });
+            h.ctx.authenticationSession = guestSession();
+
+            await authorizationContextMiddleware()(h.ctx, h.next);
+
+            expect(h.isLive).toHaveBeenCalledWith(PASS_ID);
+            expect(h.next).toHaveBeenCalledOnce();
+            expect((h.overrides.get(AuthorizationContext) as AuthorizationContext).actor).toEqual({
+                kind: 'guest',
+                sessionToken: 'guest-session',
+                actorId: ACTOR_ID,
+                partyPassId: PASS_ID,
+            });
+        });
+
+        it.each([
+            ['the pass was ended or ran out', { passLive: false }, guestSession()],
+            ['the guest was switched off', { actorExists: false }, guestSession()],
+            ['the session names no pass', {}, guestSession({ actorType: 'guest' })],
+        ])('turns the guest away with 401 and revokes the session when %s', async (_case, options, session) => {
+            const h = harness(options);
+            h.ctx.authenticationSession = session;
+
+            const error = await authorizationContextMiddleware()(h.ctx, h.next).catch((e: unknown) => e);
+
+            expect(IsHttpError(error) && error.statusCode).toBe(401);
+            expect(h.deleteSession).toHaveBeenCalledWith('guest-session', 'expiry');
+            expect(h.next).not.toHaveBeenCalled();
+        });
+
+        it('checks the pass on a bootstrap route too, since a guest has no sign-in to come back through', async () => {
+            const h = harness({ path: '/auth/token', passLive: false });
+            h.ctx.authenticationSession = guestSession();
+
+            const error = await authorizationContextMiddleware()(h.ctx, h.next).catch((e: unknown) => e);
+
+            expect(IsHttpError(error) && error.statusCode).toBe(401);
+        });
     });
 
     describe('a request made by a connected app', () => {
@@ -351,5 +421,32 @@ describe('authorizationContextMiddleware', () => {
             expect(h.next).not.toHaveBeenCalled();
             expect(currentTrace()).toBeUndefined();
         });
+    });
+});
+
+/**
+ * A guard on the route table rather than on the middleware. Nothing verifies a vendor's signature
+ * yet, so the first `/webhooks/*` route has to arrive with that mechanism, not before it. When one
+ * is written, this test is the reminder: build the verifying middleware, mint the vendor actor
+ * there, and only then delete this.
+ */
+describe('the webhook routes', () => {
+    const api = join(import.meta.dirname, '../../..');
+
+    const filesUnder = (dir: string, extension: string): string[] =>
+        readdirSync(dir, { recursive: true, encoding: 'utf8' })
+            .filter(file => file.endsWith(extension))
+            .map(file => join(dir, file));
+
+    it('do not exist until something verifies a vendor signature', () => {
+        const sources = [
+            ...filesUnder(join(api, 'data/contracts'), '.ck'),
+            ...filesUnder(join(api, 'src/routes'), '.ts'),
+            ...filesUnder(join(api, 'src/mcp'), '.ts'),
+        ];
+        const declaring = sources.filter(file => /['"`\s]\/webhooks\//.test(readFileSync(file, 'utf8')));
+
+        expect(sources.length).toBeGreaterThan(0);
+        expect(declaring).toEqual([]);
     });
 });

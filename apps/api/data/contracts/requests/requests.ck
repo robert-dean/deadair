@@ -6,10 +6,12 @@ options {
         RequestsService: "#src/modules/requests/requests.service.js"
     }
     security: {
-        # The floor: anybody signed in with a platform role, which a listener account holds. Asking
-        # for a record and following your own requests is exactly what a listener app is for, so it
-        # is not an operator's action. Deciding on somebody else's request is, and overrides below.
-        policy: platform.view
+        # The floor: anybody signed in with a platform role, which a listener account holds, and a
+        # guest who joined a party with its pass. Asking for a record and following your own requests
+        # is exactly what a listener app and the party page are for, so it is not an operator's
+        # action. Deciding on somebody else's request is, and overrides below with platform.manage,
+        # which a guest never passes. `requests.ask` is named by these three routes and no others.
+        policy: requests.ask
     }
 }
 

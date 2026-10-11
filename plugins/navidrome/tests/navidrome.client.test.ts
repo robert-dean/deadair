@@ -81,7 +81,7 @@ describe('SubsonicClient.get', () => {
         const error = await client.get('getSong.view', { id: 'gone' }).catch((thrown: unknown) => thrown);
 
         expect(isNotFound(error)).toBe(true);
-        expect((error as SubsonicRequestError).subsonicCode).toBe(70);
+        expect((error as SubsonicRequestError).upstreamCode).toBe(70);
         // The host's own vocabulary is separate and still set, which is why the
         // numeric code does not live on `code`.
         expect((error as SubsonicRequestError).code).toBe('not_found');

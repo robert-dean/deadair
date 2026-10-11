@@ -64,8 +64,13 @@ export function pluginHttpError(pluginId: string, error: unknown): HttpError {
         retryable: pluginError.retryable,
     });
 
-    if (pluginError.upstreamStatus !== undefined) {
-        failure.withInternalDetails({ plugin: pluginId, pluginErrorCode: pluginError.code, upstreamStatus: pluginError.upstreamStatus });
+    if (pluginError.upstreamStatus !== undefined || pluginError.upstreamCode !== undefined) {
+        failure.withInternalDetails({
+            plugin: pluginId,
+            pluginErrorCode: pluginError.code,
+            ...(pluginError.upstreamStatus === undefined ? {} : { upstreamStatus: pluginError.upstreamStatus }),
+            ...(pluginError.upstreamCode === undefined ? {} : { upstreamCode: pluginError.upstreamCode }),
+        });
     }
 
     // Only on the code that means it: a `Retry-After` on anything else tells a

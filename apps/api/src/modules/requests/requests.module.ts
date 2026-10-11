@@ -8,6 +8,9 @@ import { RequestsRepository } from './requests.repository.js';
 import { RequestProviderSearch } from './request.provider.search.js';
 import { RequestSearchLimiter } from './request.search.limiter.js';
 import { RequestsService } from './requests.service.js';
+import { PartyJoinLimiter } from './party.join.limiter.js';
+import { PartyPassRepository } from './party.passes.repository.js';
+import { PartyService } from './party.service.js';
 
 /**
  * Listener requests: a record somebody asked for, from a listener app or a chat platform.
@@ -33,6 +36,14 @@ export const RequestsModule: ServerKitModule = {
         registry.register(RequestProviderSearch).useClass(RequestProviderSearch).asScoped();
         registry.register(RequestsService).useClass(RequestsService).asScoped();
         registry.register(RequestAiredWatch).useClass(RequestAiredWatch).asSingleton();
+        // A party: the pass guests join with, and the limiter on joining, a singleton over the one
+        // Redis client for the reason the search limiter is one.
+        registry.register(PartyPassRepository).useClass(PartyPassRepository).asScoped();
+        registry
+            .register(PartyJoinLimiter)
+            .useFactory(container => new PartyJoinLimiter(container.get(Redis)))
+            .asSingleton();
+        registry.register(PartyService).useClass(PartyService).asScoped();
         // `RequestsTickJob` is registered by `JobsModule`, which walks `JobMappings`, like every job.
     },
 

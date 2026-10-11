@@ -69,7 +69,10 @@ export class AccessControlService {
             case 'system':
                 return isTrustedSystemActor(actor);
             case 'vendor':
-                return true;
+                return false;
+            case 'guest':
+                // A party guest reaches the request routes through `requests.ask` and no object at all.
+                return false;
             case 'user':
                 if (!keyAllows(actor, permission)) return false;
                 if (
@@ -89,7 +92,7 @@ export class AccessControlService {
     // Reverse expand: which objects in `namespace` does the current actor
     // reach via `permission`? Powers permission-aware list endpoints. Returns
     // either:
-    //   - `{ all: true }` for system / vendor actors and for users whose
+    //   - `{ all: true }` for trusted system actors and for users whose
     //     platform role grants the permission system-wide; callers should run
     //     the unfiltered list.
     //   - `{ ids, truncated }` for users restricted to specific tuples.
@@ -99,7 +102,8 @@ export class AccessControlService {
             case 'system':
                 return isTrustedSystemActor(actor) ? { all: true } : { ids: [], truncated: false };
             case 'vendor':
-                return { all: true };
+            case 'guest':
+                return { ids: [], truncated: false };
             case 'user': {
                 if (!actor.actorId || !keyAllows(actor, permission)) return { ids: [], truncated: false };
                 // If a platform role would grant this permission across the
@@ -133,9 +137,18 @@ export class AccessControlService {
                 return;
 
             case 'vendor':
-                // Inbound webhooks carry their own signed authorization
-                // (validated by the route's signature middleware). Permission
-                // checks aren't meaningful here.
+                // Denied until a vendor actor can only come from middleware
+                // that verified the vendor's signature. None exists, and
+                // nothing mints one (see authorization.context.middleware),
+                // so a vendor reaching here is a bug, and a bug fails closed.
+                denied(object, permission);
+                return;
+
+            case 'guest':
+                // A party guest holds no tuples and no role. It is denied here explicitly because
+                // falling out of this switch ALLOWS, which is the wrong default for a caller anyone
+                // in the room can become by scanning a code.
+                denied(object, permission);
                 return;
 
             case 'user': {
@@ -182,10 +195,10 @@ export class AccessControlService {
 
         const actor = this.authz.actor;
 
-        if (actor.kind === 'vendor' || (actor.kind === 'system' && isTrustedSystemActor(actor))) {
+        if (actor.kind === 'system' && isTrustedSystemActor(actor)) {
             return candidates;
         }
-        if (actor.kind === 'system') {
+        if (actor.kind !== 'user') {
             return [];
         }
 

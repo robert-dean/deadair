@@ -9,9 +9,14 @@ import type {
     RequestableTrackList,
 } from './types/requests.types.js';
 import { reviveListenerRequest, reviveListenerRequestList } from './types/requests.types.js';
+import { RequestsPartyClient } from './requests.party.client.js';
 
 export class RequestsClient {
-    constructor(private fetch: SdkFetch) {}
+    readonly party: RequestsPartyClient;
+
+    constructor(private fetch: SdkFetch) {
+        this.party = new RequestsPartyClient(fetch);
+    }
 
     /**
      * @name Search requestable records

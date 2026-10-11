@@ -20,7 +20,7 @@ export const RequestsRouter = ServerKitRouter();
  * Records the station could be asked to play, matching a title or an artist, then what the music providers carry in the room left
  * from [requests.ck](../../data/contracts/requests/requests.ck) `GET /requests/search`
  */
-RequestsRouter.get('/requests/search', requirePolicy({ policy: 'platform.view' }), async ctx => {
+RequestsRouter.get('/requests/search', requirePolicy({ policy: 'requests.ask' }), async ctx => {
     const query = await parseAndValidate(
         ctx.query,
         z.strictObject({
@@ -64,7 +64,7 @@ RequestsRouter.get('/requests', requirePolicy({ policy: 'platform.manage' }), as
  * Ask the station to play a record. Answers with the request whatever became of it, so a refusal says why in `reason`
  * from [requests.ck](../../data/contracts/requests/requests.ck) `POST /requests`
  */
-RequestsRouter.post('/requests', requirePolicy({ policy: 'platform.view' }), bodyParserMiddleware(['json']), async ctx => {
+RequestsRouter.post('/requests', requirePolicy({ policy: 'requests.ask' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, ListenerRequestCreate);
 
     const service = ctx.container.get(RequestsService);
@@ -79,7 +79,7 @@ RequestsRouter.post('/requests', requirePolicy({ policy: 'platform.view' }), bod
  * The signed-in account's own recent requests
  * from [requests.ck](../../data/contracts/requests/requests.ck) `GET /requests/mine`
  */
-RequestsRouter.get('/requests/mine', requirePolicy({ policy: 'platform.view' }), async ctx => {
+RequestsRouter.get('/requests/mine', requirePolicy({ policy: 'requests.ask' }), async ctx => {
     const service = ctx.container.get(RequestsService);
     const result: ListenerRequestList = await service.mine();
 

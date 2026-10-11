@@ -141,7 +141,7 @@ export class StreamService {
     private tuneInOrigin(): string {
         const origin = resolvePublicUrl(this.config);
         if (origin.length === 0) {
-            throw httpError(404).withDetails({ message: 'the station has no public address to name; set stream.publicUrl' });
+            throw httpError(404).withDetails({ message: 'the station has no public address to name; set "Public URL" under Stream in Settings' });
         }
         return origin;
     }

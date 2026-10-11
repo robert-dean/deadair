@@ -17,8 +17,9 @@ import { APIKEY_NAMESPACE } from '#modules/authentication/repositories/apikey.fa
 import { API_KEY_GRANTS, type ApiKeyGrant } from '#modules/authentication/api.key.scopes.js';
 import { API_KEY_USE_WINDOW } from '#modules/authentication/api.key.options.js';
 import { clearRefreshCookie } from '#modules/authentication/refresh.cookie.js';
-import { AuthorizationContext, type Actor, type OAuthGrantActor, type UserActor } from '#modules/permissions/authorization.context.js';
+import { AuthorizationContext, type Actor, type GuestActor, type OAuthGrantActor, type UserActor } from '#modules/permissions/authorization.context.js';
 import { OAUTHGRANT_NAMESPACE } from '#modules/oauth/oauth.grant.tuples.js';
+import { PartyPassRepository } from '#modules/requests/party.passes.repository.js';
 import { DeadairPermissionsTupleRepository } from '#modules/permissions/permissions.repository.js';
 import { PermissionsService } from '#modules/permissions/permissions.service.js';
 import { PLATFORM_NAMESPACE, PLATFORM_OBJECT_ID, isPlatformRoleName, type PlatformRoleName } from '#modules/permissions/platform.roles.js';
@@ -32,10 +33,16 @@ import type { ServerKitContext } from '@maroonedsoftware/koa';
 // `@maroonedsoftware/authentication` exposes a flat `AuthenticationContext`:
 // `{ actorId, actorType, claims, roles, factors, ... }`. We collapse it into
 // our Actor union here. The JWT issuer emits `actorType: 'user'` for human
-// logins; everything else (jobs, CLI, webhooks) goes through the
-// unauthenticated branch and is classified as system or vendor.
-
-const isWebhookPath = (p: string) => p.startsWith('/webhooks/');
+// logins; an unauthenticated request is an `http` system actor, which
+// `isTrustedSystemActor` refuses, so it reaches only routes whose policy is
+// `security: none`.
+//
+// Nothing here mints a `vendor` actor. A path prefix is not a credential: when
+// this classified every `/webhooks/*` request as one, and access control
+// granted vendors everything, the first webhook route written with the natural
+// `security: none` would have handed a full-access actor to anybody who could
+// reach it. A vendor actor belongs to the middleware that verifies the
+// vendor's signature, and that middleware does not exist yet.
 
 // Routes whose whole job is to establish or tear down a session. A stale token presented to one of
 // them must not be fatal: the browser attaches whatever it still holds to every request, so failing
@@ -153,6 +160,29 @@ const apiKeyActor = async (
     };
 };
 
+/**
+ * A guest who joined a party with its pass, for as long as that pass is live.
+ *
+ * Checked on every request, bootstrap routes included, for the reason a key's owner is: a guest has
+ * no sign-in to come back through, so there is nothing for the exemption to protect. A pass that was
+ * ended or ran out, or a guest actor that was switched off, revokes the session rather than merely
+ * refusing it, so the dead token stops coming back. No platform roles are loaded: a guest holds none,
+ * and `requests.ask` is the only gate that admits one.
+ */
+const guestActor = async (container: ScopedContainer, sessionToken: string, actorId: string | undefined, partyPassId: unknown): Promise<GuestActor> => {
+    const passId = typeof partyPassId === 'string' && partyPassId.length > 0 ? partyPassId : undefined;
+    if (actorId && passId && (await container.get(ActorsRepository).existsActive(actorId)) && (await container.get(PartyPassRepository).isLive(passId))) {
+        return { kind: 'guest', sessionToken, actorId, partyPassId: passId };
+    }
+    await container
+        .get(AuthenticationSessionService)
+        .deleteSession(sessionToken, 'expiry')
+        .catch(() => undefined);
+    throw httpError(401)
+        .withDetails({ code: ErrorCodes.SESSION_ACTOR_MISSING, message: 'the party this guest joined has ended' })
+        .withInternalDetails({ message: `guest session ${sessionToken} for actor ${actorId ?? '(none)'} names a pass that is not live (${passId ?? '(none)'})` });
+};
+
 export const authorizationContextMiddleware: () => ServerKitMiddleware = () => {
     return async (ctx, next) => {
         const container = ctx.container as ScopedContainer;
@@ -168,14 +198,7 @@ export const authorizationContextMiddleware: () => ServerKitMiddleware = () => {
         // is the canonical way to detect "unauthenticated"; a truthiness check
         // would never fire because the sentinel is a populated object.
         if (auth === invalidAuthenticationSession) {
-            actor = isWebhookPath(ctx.path)
-                ? {
-                      kind: 'vendor',
-                      sessionToken,
-                      vendor: ctx.path.split('/')[2] ?? 'unknown',
-                      eventId: ctx.requestId ?? '',
-                  }
-                : { kind: 'system', sessionToken, source: 'http' };
+            actor = { kind: 'system', sessionToken, source: 'http' };
         } else if (apiKeyClaim && apiKeyClaim.owner.kind === 'user') {
             actor = await apiKeyActor(container, ctx, apiKeyClaim, sessionToken);
         } else if (auth.claims.actorType === 'user') {
@@ -213,6 +236,8 @@ export const authorizationContextMiddleware: () => ServerKitMiddleware = () => {
                 factors: auth.factors,
                 ...(grant ? { grant } : {}),
             };
+        } else if (auth.claims.actorType === 'guest') {
+            actor = await guestActor(container, sessionToken, auth.subject, auth.claims.partyPassId);
         } else {
             // Unknown actorType. Classified as an `http`-sourced system actor,
             // which `AccessControlService` denies object-level access rather

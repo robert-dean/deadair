@@ -72,3 +72,24 @@ describe('AuthorizationContext.hasPlatformRole for a connected app', () => {
         expect(new AuthorizationContext(connected(['view'])).hasPlatformRole('admin')).toBe(false);
     });
 });
+
+describe('a party guest', () => {
+    const guest = new AuthorizationContext({ kind: 'guest', sessionToken: 's-2', actorId: 'g-1', partyPassId: 'p-1' });
+
+    it('is a requester keyed apart from any account, so its one-at-a-time is its own', () => {
+        expect(guest.requireRequester()).toEqual({ key: 'guest:g-1', actorId: 'g-1' });
+        expect(new AuthorizationContext(admin()).requireRequester()).toEqual({ key: 'user:u-1', actorId: 'u-1' });
+    });
+
+    it('is not a user, holds no credentials to manage, and passes no role check', () => {
+        expect(() => guest.requireUser()).toThrow(expect.objectContaining({ statusCode: 403 }));
+        expect(() => guest.requireAuthentication()).toThrow(expect.objectContaining({ statusCode: 403 }));
+        expect(guest.hasPlatformRole('listener', 'admin')).toBe(false);
+    });
+
+    it('leaves a caller that is nobody without a requester', () => {
+        expect(() => new AuthorizationContext({ kind: 'system', sessionToken: '', source: 'http' }).requireRequester()).toThrow(
+            expect.objectContaining({ statusCode: 403 }),
+        );
+    });
+});

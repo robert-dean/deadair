@@ -49,6 +49,42 @@ data class ListenerRequestDecline(
     val reason: String? = null,
 )
 
+/** A party: the pass guests join with by scanning its QR code, for as long as it lasts */
+@Serializable
+data class PartyPass(
+    /** The pass itself. Put it after `#` on the station's `/party` page, as `/party#<token>`, and that address is what the QR code holds. Anyone holding it can join until the party ends, so show it only to the room */
+    val token: String,
+    /** When the party started */
+    val createdAt: Instant,
+    /** When the pass stops letting guests in, and turns away every guest who joined with it */
+    val expiresAt: Instant,
+    /** How many guests have joined with it */
+    val guests: Long,
+)
+
+/** Start a party */
+@Serializable
+data class PartyStart(
+    /** How long the pass lasts. Six when omitted */
+    val hours: Long? = null,
+)
+
+/** Join a party as a guest, with the pass from its QR code */
+@Serializable
+data class PartyJoin(
+    /** The pass, as it appears after `#` in the party page's address */
+    val token: String,
+)
+
+/** A guest's way in: send it as a bearer token on the request routes */
+@Serializable
+data class PartyGuestSession(
+    /** The bearer token. It lets a guest search for records, ask for one and see their own requests, and nothing else */
+    val accessToken: String,
+    /** When it stops working, which is when the party's pass does */
+    val expiresAt: Instant,
+)
+
 /** A record the station could be asked for: one it holds, or one a music provider carries */
 @Serializable
 data class RequestableTrack(
@@ -103,6 +139,15 @@ data class ListenerRequest(
     val dedicateTo: String? = null,
     /** What the listener asked to have said with it, in their own words */
     val message: String? = null,
+    /** True when a guest at a party asked for it, through the party pass. Absent otherwise */
+    val fromParty: Boolean? = null,
+)
+
+/** The party, if one is on */
+@Serializable
+data class PartyState(
+    /** Absent when no party is on */
+    val party: PartyPass? = null,
 )
 
 /** Records matching a search, best matches first, the station's own before any a provider carries */

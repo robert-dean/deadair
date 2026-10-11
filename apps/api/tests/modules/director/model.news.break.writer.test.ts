@@ -174,6 +174,28 @@ describe('the two ways a bulletin runs on', () => {
         expect(systemTurn(converse)).toMatch(/stop when the stories stop/i);
         expect(systemTurn(converse)).toMatch(/nothing about the sound of the station/i);
     });
+
+    it('lets the reader give their own sign-off, in a line, before the handover', async () => {
+        // A newsreader whose sheet closes on "And that's the way it is" was told in the same prompt
+        // that the handover was the last thing it said, and the rule won.
+        const { writer, converse } = build('Here is the news. A bridge reopened.');
+        await writer.write(request());
+
+        expect(systemTurn(converse)).toMatch(/after the last story you may give your own sign-off, if your character has one, in one short line/i);
+    });
+
+    it('airs a sign-off the sheet describes in its quirks, every time it is said', async () => {
+        // In the quirks and not the samples, because a script sharing six words with a sample is
+        // refused, and a sign-off is a line the reader is meant to repeat.
+        const persona = {
+            key: 'newsreader',
+            quirks: ["Closes with 'And that's the way it is' before handing back to the music"],
+        } as unknown as NonNullable<BreakWriteRequest['persona']>;
+        const said = 'Good evening. A bridge has reopened after four years. And that is the way it is. Now, back to the music.';
+        const { writer } = build(said);
+
+        expect(await writer.write(request({ persona, recent: [said] }))).toBeDefined();
+    });
 });
 
 // A bulletin holds the character to three of the four checks. Only the DIALECT is excused, because

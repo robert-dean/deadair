@@ -269,8 +269,8 @@ describe('every phrasing the station ships', () => {
             it('hears none of the refrains in a script from one of the others', () => {
                 // Refrains only, and the exemption is the older half of the rule rather than a gap:
                 // an opening is matched as a PREFIX precisely so that two phrasings differing only
-                // in their middle count as the same one, and the news pool has a live pair that does
-                // — "Now the news." and "Now the {{news.topic}} news." share "Now the". That is
+                // in their middle count as the same one, and the news pool had a live pair that did
+                // — "Now the news." and "Now the {{news.topic}} news." shared "Now the". That is
                 // over-exclusion, which `choose`'s second round absorbs. A refrain is matched
                 // ANYWHERE in the line, which is the looser test, so it is the one worth holding to
                 // finding only its own.

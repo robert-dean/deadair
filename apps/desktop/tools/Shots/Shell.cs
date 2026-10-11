@@ -31,10 +31,11 @@ namespace Shots;
 /// </remarks>
 internal static class Fakes
 {
-    public static ShellViewModel Shell(bool operatorSignedIn)
+    /// <param name="start">What the settings file says, for a frame that poses a choice made there.</param>
+    public static ShellViewModel Shell(bool operatorSignedIn, DesktopSettings? start = null)
     {
         var http = Http();
-        var settings = new MemorySettings();
+        var settings = new MemorySettings(start ?? new());
         var session = new SessionManager(new InMemorySecretStore(), http);
         var actions = new OperatorActions(session);
         var dispatcher = ImmediateUiDispatcher.Instance;
@@ -1613,9 +1614,14 @@ internal static class Fakes
     }
 
     /// <summary>Settings in a variable. A shot must not read or write somebody's real preferences.</summary>
-    private sealed class MemorySettings : ISettingsStore
+    private sealed class MemorySettings(DesktopSettings start) : ISettingsStore
     {
-        public DesktopSettings Current { get; private set; } = new();
+        public MemorySettings()
+            : this(new DesktopSettings())
+        {
+        }
+
+        public DesktopSettings Current { get; private set; } = start;
 
         public SettingsFileProblem? Problem => null;
 

@@ -98,11 +98,17 @@
         <SolidColorBrush x:Key="DaToneOffBrush" Color="{DynamicResource DaToneOff}" />
     </ThemeVariantScope.Resources>
     <Panel Container.Name="Studio" Container.Sizing="WidthAndHeight">
-        <!-- Its own visibility bound, because the backdrop's clock only hears about its own. -->
+        <!-- Its own visibility bound, because the backdrop's clock only hears about its own. One of
+             the two, by DesktopSettings.StudioBackdrop; the other is never visible and never runs. -->
         <controls:StudioBackdrop x:Name="Backdrop"
-                                 IsVisible="{Binding IsStudio}"
+                                 IsVisible="{Binding ShowsGradientBackdrop}"
                                  Palette="{Binding Listener.CoverPalette}"
                                  Moving="{Binding Listener.Playing}" />
+        <controls:StudioCoverBackdrop x:Name="CoverBackdrop"
+                                      IsVisible="{Binding ShowsCoverBackdrop}"
+                                      Cover="{Binding Listener.Artwork}"
+                                      Palette="{Binding Listener.CoverPalette}"
+                                      Moving="{Binding Listener.Playing}" />
 
         <!-- Below the title row's 38, so it never sits under the window's own buttons. -->
         <Button Classes="icon ghost fades" HorizontalAlignment="Right" VerticalAlignment="Top"

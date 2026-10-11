@@ -114,6 +114,17 @@ public sealed record DesktopSettings
     [JsonPropertyName("nowPlayingPanel")]
     public bool NowPlayingPanel { get; init; } = true;
 
+    /// <summary>
+    /// What Studio draws behind the record: <see cref="StudioBackdrops.Gradients"/> (the default) or
+    /// <see cref="StudioBackdrops.Cover"/>.
+    /// </summary>
+    /// <remarks>
+    /// A string with no settings UI, set by hand in the file while the cover backdrop is a prototype.
+    /// Anything it does not recognise reads as the gradients, so a typo leaves Studio as it was.
+    /// </remarks>
+    [JsonPropertyName("studioBackdrop")]
+    public string StudioBackdrop { get; init; } = StudioBackdrops.Gradients;
+
     /// <summary>Where the window was left. Absent means the default frame, centred.</summary>
     /// <remarks>
     /// Written by the app as the window moves, not chosen by anybody, so it is the one key here
@@ -139,4 +150,18 @@ public sealed record DesktopSettings
 
         return this with { Plugins = plugins };
     }
+}
+
+/// <summary>The values <see cref="DesktopSettings.StudioBackdrop"/> takes.</summary>
+public static class StudioBackdrops
+{
+    /// <summary>A few of the cover's colours as soft drifting patches.</summary>
+    public const string Gradients = "gradients";
+
+    /// <summary>The cover itself, blurred and turning, drawn by a shader.</summary>
+    public const string Cover = "cover";
+
+    /// <summary>Whether <paramref name="value"/> asks for the cover backdrop. Anything else is the gradients.</summary>
+    public static bool FromCover(string? value) =>
+        string.Equals(value?.Trim(), Cover, StringComparison.OrdinalIgnoreCase);
 }

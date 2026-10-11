@@ -53,6 +53,12 @@ internal static class Pages
         yield return ("studio-screen", Studio(), 1728, 1117);
         yield return ("studio-backdrop", Backdrop(), 1180, 720);
         yield return ("studio-backdrop-no-cover", new StudioBackdrop { Phase = 0.3 }, 1180, 720);
+
+        // The cover backdrop, behind DesktopSettings.StudioBackdrop: the cover itself, blurred and
+        // turning, in place of a few of its colours.
+        yield return ("studio-cover", Studio(Portrait.AsTheCover, fromCover: true), 1180, 720);
+        yield return ("studio-cover-backdrop", CoverBackdrop(), 1180, 720);
+        yield return ("studio-cover-backdrop-no-cover", new StudioCoverBackdrop { Phase = 0.3 }, 1180, 720);
         yield return ("shell-desk-break", Shell(operatorSignedIn: false, Fakes.OnTheMic), 1180, 720);
 
         // The presenter's picture: beside "with Cass" under a record, and as the cover in a break.
@@ -863,9 +869,11 @@ internal static class Pages
     }
 
     /// <summary>Studio up over the shell, as a listener sees it. The shell is under it, as it is in the app.</summary>
-    private static MainWindowContent Studio(Action<ListenerViewModel>? pose = null)
+    private static MainWindowContent Studio(Action<ListenerViewModel>? pose = null, bool fromCover = false)
     {
-        var shell = Fakes.Shell(operatorSignedIn: false);
+        // Through the settings file, as the app is told: the shell reads it again whenever it changes.
+        var shell = Fakes.Shell(operatorSignedIn: false,
+            new DesktopSettings { StudioBackdrop = fromCover ? StudioBackdrops.Cover : StudioBackdrops.Gradients });
         Fakes.PutOnAir(shell.Listener);
         pose?.Invoke(shell.Listener);
         shell.IsStudio = true;
@@ -877,6 +885,14 @@ internal static class Pages
     private static StudioBackdrop Backdrop() => new()
     {
         Palette = [0xFF1C2A3A, 0xFFB8452B, 0xFFE9D8B8],
+        Phase = 0.3,
+    };
+
+    /// <summary>Studio's cover backdrop alone, over the presenter's portrait, part-way round its loop.</summary>
+    private static StudioCoverBackdrop CoverBackdrop() => new()
+    {
+        Cover = Portrait.Bitmap(),
+        Palette = Portrait.Palette,
         Phase = 0.3,
     };
 

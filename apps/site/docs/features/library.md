@@ -11,7 +11,7 @@ deadair holds no catalogue of its own. It programmes the music your provider alr
 
 ## Where the records come from
 
-A music provider is a [plugin](./plugins.md). Three are bundled: **Spotify**, **YouTube Music**, and **Navidrome** or any other server that speaks the Subsonic API. The library fills from their playlists, because a playlist is the only list of records a provider will hand over, and the station walks them whenever a provider's settings are saved and again every hour. **Refresh now** on the Playlists page walks them at once, and **Refresh this playlist** in a card's menu reads just that one; the activity feed says when either is done. Under Settings, Housekeeping, you can make the automatic walk rarer or turn it off, which is worth doing on an account where reading every playlist is slow. A record taken out of a playlist is only retired by a walk of everything, never by refreshing one playlist. A Navidrome library with no playlists is still a complete setup: the plugin offers one extra playlist, Everything, which is the whole library.
+A music provider is a [plugin](./plugins.md). Four are bundled: **Spotify**, **YouTube Music**, **Pandora** (whose audio needs Pandora Premium), and **Navidrome** or any other server that speaks the Subsonic API. The library fills from their playlists, because a playlist is the only list of records a provider will hand over, and the station walks them whenever a provider's settings are saved and again every hour. **Refresh now** on the Playlists page walks them at once, and **Refresh this playlist** in a card's menu reads just that one; the activity feed says when either is done. Under Settings, Housekeeping, you can make the automatic walk rarer or turn it off, which is worth doing on an account where reading every playlist is slow. A record taken out of a playlist is only retired by a walk of everything, never by refreshing one playlist. A Navidrome library with no playlists is still a complete setup: the plugin offers one extra playlist, Everything, which is the whole library.
 
 When a model chooses a record no playlist carries, the station looks it up at your providers, and a strict match on title and lead artist becomes a real entry, marked "found". A near match is refused: it would air the wrong record under the right name.
 
@@ -65,7 +65,7 @@ A playlist from a provider is read live every time it airs, and it changes whene
 
 - **A file**: a playlist another deadair station exported, an M3U from a media player, or a CSV from a playlist exporter such as Exportify. A CSV's columns are found by name, so their order does not matter.
 - **A pasted list**, one `Artist - Title` per line. Numbered lines are fine.
-- **A link** to a Spotify, YouTube Music or Navidrome playlist, including one your account does not list, such as a playlist a friend shared.
+- **A link** to a Spotify, YouTube Music, Pandora or Navidrome playlist, including one your account does not list, such as a playlist a friend shared.
 
 **Save as a station playlist** on any provider playlist's page makes one the same way. Every import is previewed first: which records the library already holds, which it will look up, and any line that named no record. Nothing is written until you press Import. Importing the same thing twice makes two playlists, and neither is tied to where it came from.
 

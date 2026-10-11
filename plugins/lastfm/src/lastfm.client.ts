@@ -96,17 +96,16 @@ function codeForApiError(error: number): PluginErrorCode {
  * a failure — while the `PluginError` half says what the host should make of it.
  */
 export class LastfmRequestError extends PluginError {
-    /** The service's own error number, or `undefined` when the failure was HTTP-level. */
-    readonly apiError?: number;
     readonly status: number;
 
     constructor(status: number, message: string, options: { apiError?: number; retryMs?: number } = {}) {
         super(message);
         this.name = 'LastfmRequestError';
         this.status = status;
-        if (options.apiError !== undefined) this.apiError = options.apiError;
 
         this.withCode(options.apiError === undefined ? pluginCodeForStatus(status) : codeForApiError(options.apiError));
+        // The service's own error number, absent when the failure was HTTP-level.
+        if (options.apiError !== undefined) this.withUpstreamCode(options.apiError);
         if (status !== 200) this.withUpstreamStatus(status);
         if (options.retryMs !== undefined) this.withRetry(options.retryMs);
     }

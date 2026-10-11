@@ -280,7 +280,7 @@ describe('SpotifyResponseValidator', () => {
 
         await expect(validator.validateResponse(response)).rejects.toMatchObject({
             code: 'rate_limited',
-            reason: QUOTA_EXCEEDED_REASON,
+            upstreamCode: QUOTA_EXCEEDED_REASON,
             quotaExhausted: true,
             retryAfterMs: QUOTA_BACKOFF_MS,
         });
@@ -312,7 +312,7 @@ describe('SpotifyResponseValidator', () => {
         const response = new Response(body, { status: 429, headers: { 'retry-after': '30' } });
 
         await expect(validator.validateResponse(response)).rejects.toMatchObject({
-            reason: undefined,
+            upstreamCode: undefined,
             quotaExhausted: false,
             retryAfterMs: 30_000,
             message: 'Spotify API request failed: HTTP 429 API rate limit exceeded',
@@ -326,7 +326,7 @@ describe('SpotifyResponseValidator', () => {
         const body = JSON.stringify({ error: { status: 403, message: 'Player command failed', reason: 'PREMIUM_REQUIRED' } });
 
         await expect(validator.validateResponse(new Response(body, { status: 403 }))).rejects.toMatchObject({
-            reason: 'PREMIUM_REQUIRED',
+            upstreamCode: 'PREMIUM_REQUIRED',
             quotaExhausted: false,
             retryAfterMs: undefined,
         });
@@ -336,7 +336,7 @@ describe('SpotifyResponseValidator', () => {
         const validator = new SpotifyResponseValidator();
 
         await expect(validator.validateResponse(new Response('<html>gateway</html>', { status: 429 }))).rejects.toMatchObject({
-            reason: undefined,
+            upstreamCode: undefined,
             quotaExhausted: false,
         });
     });

@@ -287,6 +287,20 @@ Let these propagate unless you can do something better with them. The host
 maps each one to a status and error code for the operator console, and
 swallowing them turns a precise answer into a silent empty result.
 
+When the upstream answers with a failure of its own, describe it on the error
+rather than in a field you invent. `withUpstreamStatus` takes the HTTP status
+and `withUpstreamCode` takes the service's own code, as it sent it, a number or
+a string (Last.fm's `6`, Spotify's `reason`). Both reach the host's logs through
+the invoker's wrapping, and neither is ever sent to a client. A subclass that
+branches on the code reads `this.upstreamCode`; it must not declare a field of
+that name, because the base class already owns it:
+
+```ts
+if (body.error !== undefined) {
+    throw new PluginError(body.message).withCode('not_found').withUpstreamStatus(response.status).withUpstreamCode(body.error);
+}
+```
+
 ## When the body should not arrive whole
 
 Nothing special. `response.body` is a `ReadableStream<Uint8Array>` and you read

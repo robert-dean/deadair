@@ -30,6 +30,9 @@ import type { StationTool, ToolSource } from './llm.tools.js';
  * model can copy a real title rather than produce one that sounds right.
  */
 
+/** The name this tool is offered under, so a caller narrowing a conversation with `onlyTools` names it from here. */
+export const SIMILAR_ARTISTS_TOOL = 'similar_artists';
+
 /** How many artists come back, whatever was asked for. */
 const MAX_ARTISTS = 12;
 
@@ -62,7 +65,7 @@ export class SimilarArtistsTool implements ToolSource {
                 // Who sounds like whom. As slow-moving as the catalog it is about.
                 freshness: 'timeless',
                 declaration: {
-                    name: 'similar_artists',
+                    name: SIMILAR_ARTISTS_TOOL,
                     // Written for the model, and it says what the answer is FOR: both programming
                     // and saying something true on air, because a model told only the first uses it
                     // only for the first.

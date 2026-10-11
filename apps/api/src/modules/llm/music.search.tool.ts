@@ -157,6 +157,9 @@ interface MusicTrack {
     popularity?: number;
 }
 
+/** The name this tool is offered under, so a caller narrowing a conversation with `onlyTools` names it from here. */
+export const SEARCH_MUSIC_TOOL = 'search_music';
+
 /** Below this share of the library with a subject, `about` says its matches are a sample. */
 const THIN_SUBJECT_SHARE = 0.5;
 
@@ -212,7 +215,7 @@ export class MusicSearchTool implements ToolSource {
                 // existed when the break was written still exists when it airs.
                 freshness: 'timeless',
                 declaration: {
-                    name: 'search_music',
+                    name: SEARCH_MUSIC_TOOL,
                     // Written for the model, not for a developer. It says what the answer MEANS
                     // rather than which store was read, because there is no longer a choice to
                     // steer — what is left to explain is the one field that carries the old split.

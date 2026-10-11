@@ -29,6 +29,9 @@ import type { StationTool, ToolSource } from './llm.tools.js';
  * a list is advisory spends picks testing it.
  */
 
+/** The name this tool is offered under, so a caller narrowing a conversation with `onlyTools` names it from here. */
+export const STATION_TASTE_TOOL = 'station_taste';
+
 /** How many of each kind come back, whatever was asked for. */
 const MAX_RESULTS = 60;
 
@@ -46,7 +49,7 @@ export class StationTasteTool implements ToolSource {
                 // and one more break does not move it.
                 freshness: 'timeless',
                 declaration: {
-                    name: 'station_taste',
+                    name: STATION_TASTE_TOOL,
                     // Written for the model. It says what the answer IS (somebody's opinion) and
                     // what it is not (the filter), because a model that believes this is the
                     // enforcement will treat an empty answer as permission.

@@ -63,6 +63,14 @@ describe('parseReading', () => {
         expect(parseReading({ queued: 0, ready: true })!.driving).toBeUndefined();
     });
 
+    it('reads whether a fresh lease is waiting on silence for its first record', () => {
+        // `driving` is true through the warm-up, so this is the only field that says nothing is
+        // going out. An older script never warms, and absent says so rather than claiming false.
+        expect(parseReading({ queued: 0, resolving: 1, ready: false, driving: true, warming: true })!.warming).toBe(true);
+        expect(parseReading({ queued: 0, ready: true, driving: true, warming: false })!.warming).toBe(false);
+        expect(parseReading({ queued: 0, ready: true, driving: true })!.warming).toBeUndefined();
+    });
+
     it('reads what an armed talk-over cue is doing', () => {
         expect(parseReading({ queued: 0, ready: true, voice: 'idle' })!.voice).toBe('idle');
         expect(parseReading({ queued: 0, ready: true, voice: 'armed' })!.voice).toBe('armed');

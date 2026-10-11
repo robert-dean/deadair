@@ -384,6 +384,21 @@ describe('diagnose', () => {
             expect(answer.cause).toBe('noAudience');
         });
 
+        // The stream's half of a warm-up. A listener arriving takes the lease and hands over the first
+        // record in one pass, and `radio.liq` holds the lease on silence until that record is ready
+        // rather than airing the ident in front of it. `driving` and `hasProgramme` are both true
+        // through it, so without the reading's own word the chain would say `airing` about a mount
+        // carrying nothing.
+        it('calls a lease waiting on its first record a station warming up, not one on air', () => {
+            const answer = diagnose(airing({ playerWarming: true }));
+
+            expect(answer.cause).toBe('warmingUp');
+            expect(answer.audible).toBe(false);
+            expect(answer.checks.find(check => check.code === 'warmingUp')?.state).toBe('waiting');
+            // A stream that is not driving is not warming anything, whatever its last reading said.
+            expect(diagnose(airing({ playerWarming: true, driving: false })).cause).not.toBe('warmingUp');
+        });
+
         it('says nothing at all while the station is airing, whatever the next record is doing', () => {
             // The transport holding one record and the one behind it still downloading is an
             // ordinary moment on every station, and not a silence.

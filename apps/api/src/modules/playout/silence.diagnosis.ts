@@ -146,6 +146,13 @@ export interface StationFacts {
     sourceMissingForMs?: number;
     /** Whether the last reading said deadair is holding the mount. */
     driving: boolean;
+    /**
+     * Whether the last reading said the lease is held on silence while the first record downloads.
+     *
+     * {@link driving} is true through it, so without this the chain answers `airing` about a mount
+     * carrying nothing. Absent is an older script, which never warms.
+     */
+    playerWarming?: boolean;
     staleConfig: readonly StreamConfigWarning[];
     /** Whether the station has been stood down, from `station_air`. */
     active: boolean;
@@ -536,6 +543,18 @@ function noProgramme(facts: StationFacts): SilenceCheck {
  * room is empty.
  */
 function warmingUp(facts: StationFacts): SilenceCheck {
+    // The other way in: the record is committed and handed over, and the player is still fetching it
+    // from this app with the lease held. The same state as the one below seen from the stream's side,
+    // and as short-lived, since `radio.liq` lets the programme through after `PLAYOUT_WARMUP_S`
+    // whatever the queue says, and `starved` takes over from there.
+    if (facts.driving && facts.playerWarming === true) {
+        return {
+            code: 'warmingUp',
+            state: 'waiting',
+            detail: 'The first record has been handed to the stream and is on its way. It goes to air the moment it is ready.',
+        };
+    }
+
     const waitingFor = facts.audioWaitForMs;
     const warming = facts.warmingRecords ?? 0;
     // A holding message queued does not count as programme here, which is the one place the two

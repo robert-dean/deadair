@@ -17,7 +17,8 @@ import SwiftUI
 /// seconds and, after six, everything but the cover fades and the cover moves to the middle of the
 /// screen. The first touch only wakes it, so a thumb landing where Stop was cannot stop the station on
 /// its way to bringing Stop back. Never while VoiceOver is on: a faded control is still where it was,
-/// with nothing on screen for a finger to find.
+/// with nothing on screen for a finger to find. Upright only (`NowPlayingLayout.rests`): on its side
+/// the tabs still go, but the words and the controls stay, and turning the phone wakes the page.
 struct NowPlayingScreen: View {
     @Environment(AppModel.self) private var model
     /// One operator command at a time: two skips in flight would take two records off air.
@@ -33,6 +34,9 @@ struct NowPlayingScreen: View {
     @State private var touching = false
     /// The page's height with the tabs showing, measured while they are.
     @State private var laidOutHeight: CGFloat = 0
+    /// Which way round the page is, from the size it is laid out in. Held here rather than worked
+    /// out only inside the reader, because whether the page may rest depends on it.
+    @State private var layout = NowPlayingLayout.fullBleed
     /// Where the cover's middle sits in the stack, measured before the resting move is applied.
     @State private var coverMiddle: CGFloat = 0
     /// The lyrics of the record this listener is hearing, read once per airing. See `readLyrics`.
@@ -52,7 +56,7 @@ struct NowPlayingScreen: View {
         let mesh = cover.palette?.mesh ?? []
 
         GeometryReader { geometry in
-            let wide = geometry.size.width > geometry.size.height || geometry.size.width >= 600
+            let wide = NowPlayingLayout(width: geometry.size.width, height: geometry.size.height) == .sideBySide
             // The height the tabs leave, kept while they are away so the stack does not drop into
             // the room they give back.
             let height = tabsAway && laidOutHeight > 0 ? min(laidOutHeight, geometry.size.height) : geometry.size.height
@@ -76,7 +80,14 @@ struct NowPlayingScreen: View {
             .onChange(of: geometry.size.height, initial: true) { _, measured in
                 if !tabsAway { laidOutHeight = measured }
             }
+            .onChange(of: geometry.size, initial: true) { _, size in
+                layout = NowPlayingLayout(width: size.width, height: size.height)
+            }
         }
+        // Turning the phone wakes the page, as a touch would: the tabs come back, so the height kept
+        // for them is measured again the new way round (the old one would hold an upright page to
+        // the height it had on its side), and a page resting upright does not stay resting sideways.
+        .onChange(of: layout) { touched() }
         .background {
             ZStack {
                 Color(uiColor: .systemBackground)
@@ -123,8 +134,8 @@ struct NowPlayingScreen: View {
         .task(id: "\(artwork?.absoluteString ?? "")|\(colorScheme == .dark)") {
             await cover.read(artwork, darkPage: colorScheme == .dark, loader: model.artwork)
         }
-        .task(id: RestKey(touches: touches, tabs: model.tab == .nowPlaying && !voiceOver, rest: ui.canRest)) {
-            await rest(canRest: ui.canRest)
+        .task(id: RestKey(touches: touches, tabs: model.tab == .nowPlaying && !voiceOver, rest: layout.rests(canRest: ui.canRest))) {
+            await rest(canRest: layout.rests(canRest: ui.canRest))
         }
         .onDisappear {
             resting = false
@@ -255,15 +266,29 @@ struct NowPlayingScreen: View {
                 .frame(maxWidth: min(Self.artworkMaxWidth, max(height, Self.minCover)))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .frame(maxWidth: .infinity)
-            VStack(spacing: 0) {
-                words(ui: ui, centred: false, transport: transport)
-                controls(reading: reading, transport: transport)
+            // A phone on its side is about 330 points tall under the tabs, and a two-line title, the
+            // credit, the host, the album, the line, the row and the Lyrics button come to more than
+            // that at the larger text sizes. The column scrolls then rather than pushing the row off
+            // the bottom; when it fits it sits still, centred beside the cover.
+            ViewThatFits(in: .vertical) {
+                sideColumn(ui: ui, reading: reading, transport: transport)
+                ScrollView {
+                    sideColumn(ui: ui, reading: reading, transport: transport)
+                }
+                .scrollBounceBehavior(.basedOnSize)
             }
             .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, Self.gutter)
         .padding(.vertical, 16)
         .frame(width: size.width, height: size.height)
+    }
+
+    private func sideColumn(ui: NowPlayingUiState, reading: Reading<NowPlaying>?, transport: TransportUiState?) -> some View {
+        VStack(spacing: 0) {
+            words(ui: ui, centred: false, transport: transport)
+            controls(reading: reading, transport: transport)
+        }
     }
 
     // MARK: The pieces

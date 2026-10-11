@@ -172,6 +172,17 @@ them, so it does not drop into the room they leave. Resting needs a record comin
 while resting. No sleep timer, listener count or fallback note on the screen: the timer is a row in
 Settings' Listening section and the fallback is said under the format it is about.
 
+**The iPhone turns on its side, but not upside down** (2026-10-11), and Now playing is the screen that
+changes: `NowPlayingLayout` puts the cover beside the words whenever the page is wider than it is tall
+(or 600 points wide, an iPad either way up). Under the tabs a phone on its side leaves about 330
+points, so the column beside the cover scrolls when a long title and the larger text sizes do not fit,
+rather than pushing the row off the bottom. It never rests sideways (`rests` is upright only): the
+words and the controls do not fade there, so a resting page sideways swallowed the first touch with
+every control still showing. Turning the phone wakes the page as a touch would, which also brings the
+tabs back so the height kept for them is measured again: kept across a turn, it held an upright page
+to the height it had had on its side. The other screens are lists and forms that already scroll; the
+welcome's mark shrinks in a compact height so the name and the button keep their room.
+
 **A closure handed to an Objective-C callback from a main-actor type must be written `@Sendable`.**
 Swift 6 gives a closure written inside a `@MainActor` type the main actor, and when the API it is
 handed to is not marked `Sendable` it checks at RUN time that the closure runs there. AVFoundation

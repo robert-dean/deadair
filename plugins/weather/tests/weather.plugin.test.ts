@@ -4,16 +4,19 @@
 // under test here is the dispatch, the request each service actually receives,
 // and the two caches.
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 import { WeatherPlugin } from '../src/weather.plugin.js';
 import {
+    FAILURE_HOLD_MS,
+    MAX_FAILURE_HOLD_MS,
     MAX_FORECAST_DAYS,
     NWS_HOST,
     OPENWEATHERMAP_HOST,
     OPEN_METEO_GEOCODING_HOST,
     OPEN_METEO_HOST,
+    PLACE_MISS_HOLD_MS,
     READ_BUDGET_MS,
     REQUEST_TIMEOUT_MS,
     weatherManifest,
@@ -407,6 +410,161 @@ describe('the two caches', () => {
         await plugin.getWeather({ place: 'Atlanta' });
 
         expect(host.calls).toHaveLength(2);
+    });
+});
+
+describe('asking once, and remembering what failed', () => {
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    const later = (ms: number): void => {
+        vi.setSystemTime(Date.now() + ms);
+    };
+
+    it('makes one request for callers asking the same thing at once', async () => {
+        await initialize();
+        queueJson(GEOCODED);
+        queueJson(OPEN_METEO_ANSWER);
+
+        const [first, second] = await Promise.all([plugin.getWeather({ place: 'Atlanta' }), plugin.getWeather({ place: 'Atlanta' })]);
+
+        expect(host.calls).toHaveLength(2);
+        expect(second).toEqual(first);
+        expect(first).toMatchObject({ place: 'Atlanta, Georgia' });
+    });
+
+    it('throws to the caller that asked, and answers nothing to one that joined it', async () => {
+        // One refusal upstream is one failed invocation, not one per caller: three
+        // of those quarantine the plugin.
+        await initialize();
+        host.queueResponse({ status: 500, body: '{}' });
+
+        const [asked, joined] = await Promise.allSettled([plugin.getWeather({ place: 'Atlanta' }), plugin.getWeather({ place: 'Atlanta' })]);
+
+        expect(asked.status).toBe('rejected');
+        expect(joined).toEqual({ status: 'fulfilled', value: undefined });
+        expect(host.calls).toHaveLength(1);
+    });
+
+    it('does not ask a service that just failed again until the hold is over', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        await initialize();
+        host.queueResponse({ status: 500, body: '{}' });
+
+        await expect(plugin.getWeather({ place: 'Atlanta' })).rejects.toThrow(/500/);
+
+        later(FAILURE_HOLD_MS - 1_000);
+        expect(await plugin.getWeather({ place: 'Atlanta' })).toBeUndefined();
+        expect(host.calls).toHaveLength(1);
+
+        later(1_001);
+        queueJson(GEOCODED);
+        queueJson(OPEN_METEO_ANSWER);
+        expect(await plugin.getWeather({ place: 'Atlanta' })).toMatchObject({ place: 'Atlanta, Georgia' });
+        expect(host.calls).toHaveLength(3);
+    });
+
+    it('holds only the question that failed', async () => {
+        await initialize();
+        host.queueResponse({ status: 500, body: '{}' });
+        await expect(plugin.getWeather({ place: 'Atlanta' })).rejects.toThrow(/500/);
+
+        queueJson(GEOCODED);
+        queueJson(OPEN_METEO_ANSWER);
+
+        expect(await plugin.getWeather({ place: 'Atlanta', days: 1 })).toBeDefined();
+    });
+
+    it("waits as long as the service's Retry-After asks, when that is longer than the hold", async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        await initialize();
+        host.queueResponse({ status: 429, body: '{}', headers: { 'retry-after': '300' } });
+        await expect(plugin.getWeather({ place: 'Atlanta' })).rejects.toThrow(/429/);
+
+        later(FAILURE_HOLD_MS + 1_000);
+        expect(await plugin.getWeather({ place: 'Atlanta' })).toBeUndefined();
+        expect(host.calls).toHaveLength(1);
+
+        later(300_000);
+        queueJson(GEOCODED);
+        queueJson(OPEN_METEO_ANSWER);
+        expect(await plugin.getWeather({ place: 'Atlanta' })).toBeDefined();
+    });
+
+    it('believes a Retry-After only so far', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        await initialize();
+        host.queueResponse({ status: 429, body: '{}', headers: { 'retry-after': '86400' } });
+        await expect(plugin.getWeather({ place: 'Atlanta' })).rejects.toThrow(/429/);
+
+        later(MAX_FAILURE_HOLD_MS + 1);
+        queueJson(GEOCODED);
+        queueJson(OPEN_METEO_ANSWER);
+        expect(await plugin.getWeather({ place: 'Atlanta' })).toBeDefined();
+    });
+
+    it('lets the connection test ask anyway, since the operator wants to know about now', async () => {
+        await initialize();
+        host.queueResponse({ status: 500, body: '{}' });
+        await expect(plugin.getWeather({ place: 'Atlanta', days: 1 })).rejects.toThrow(/500/);
+
+        queueJson(GEOCODED);
+        queueJson({ ...OPEN_METEO_ANSWER, daily: { time: ['2026-08-29'], weather_code: [0] } });
+
+        expect((await plugin.testConnection()).ok).toBe(true);
+    });
+
+    it('asks again about everything it held once the service answers anything', async () => {
+        // After a connection test that passed, the host asks about the station's
+        // own place, and a held failure would answer that as "could not find".
+        await initialize();
+        host.queueResponse({ status: 500, body: '{}' });
+        await expect(plugin.getWeather({ place: 'Leeds' })).rejects.toThrow(/500/);
+
+        queueJson(GEOCODED);
+        queueJson({ ...OPEN_METEO_ANSWER, daily: { time: ['2026-08-29'], weather_code: [0] } });
+        expect((await plugin.testConnection()).ok).toBe(true);
+
+        queueJson({ results: [{ name: 'Leeds', latitude: 53.8, longitude: -1.55, admin1: 'England' }] });
+        queueJson(OPEN_METEO_ANSWER);
+        expect(await plugin.getWeather({ place: 'Leeds' })).toMatchObject({ place: 'Leeds, England' });
+    });
+
+    it('remembers a place nothing could find, for an hour', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        await initialize();
+        queueJson({});
+
+        expect(await plugin.getWeather({ place: 'Nowheresville' })).toBeUndefined();
+        // Another horizon is another reading but the same place, so the miss still answers.
+        expect(await plugin.getWeather({ place: 'Nowheresville', days: 3 })).toBeUndefined();
+        expect(host.calls).toHaveLength(1);
+
+        later(PLACE_MISS_HOLD_MS + 1);
+        queueJson({});
+        expect(await plugin.getWeather({ place: 'Nowheresville' })).toBeUndefined();
+        expect(host.calls).toHaveLength(2);
+    });
+
+    it('forgets failures and misses when it is unloaded', async () => {
+        await initialize();
+        host.queueResponse({ status: 500, body: '{}' });
+        await expect(plugin.getWeather({ place: 'Atlanta' })).rejects.toThrow(/500/);
+        queueJson({});
+        expect(await plugin.getWeather({ place: 'Nowheresville' })).toBeUndefined();
+
+        // The same instance, reloaded: an operator saving the form is usually
+        // changing which service answers, and the old one's failures are not the new one's.
+        await plugin.dispose();
+        await initialize();
+        queueJson(GEOCODED);
+        queueJson(OPEN_METEO_ANSWER);
+        queueJson({});
+
+        expect(await plugin.getWeather({ place: 'Atlanta' })).toBeDefined();
+        expect(await plugin.getWeather({ place: 'Nowheresville' })).toBeUndefined();
+        expect(host.calls).toHaveLength(5);
     });
 });
 

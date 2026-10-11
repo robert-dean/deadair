@@ -18,8 +18,16 @@ import { errorText } from '#modules/shared/error.text.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { UNNAMED_REQUESTER, screenName } from './listener.text.js';
-import { arbitrate } from './request.arbiter.js';
-import { RequestsRepository, type ChatReplyTarget, type Dedication, type RequestRow, type RequestStatus } from './requests.repository.js';
+import { TRACK_ALREADY_OPEN, arbitrate, oneAtATime } from './request.arbiter.js';
+import {
+    OpenRequestTaken,
+    RequestsRepository,
+    type ChatReplyTarget,
+    type Dedication,
+    type NewRequest,
+    type RequestRow,
+    type RequestStatus,
+} from './requests.repository.js';
 import { requestSettings, requestSettingsFor } from './requests.settings.js';
 
 /** Who is asking, however they reached the station. */
@@ -64,6 +72,15 @@ export type PlaceOutcome = 'queued' | 'waiting' | 'declined';
  * never holds the commit pass behind a download. A record that is not here yet is fetched and the
  * request waits as `pending`; `RequestsTickJob` offers it again, as it does one that found no quiet
  * place near the head of the order.
+ *
+ * ## Two at once
+ *
+ * The arbitration decides from the open rows it has just read, and nothing is locked between that
+ * read and the insert, so two submits that overlap both pass it. The database holds the two rules
+ * that matter most (one open request per person, one per record) as unique indexes, and the loser of
+ * that race is written down as `declined` with the same words the arbitration would have used had the
+ * two arrived one after the other. The cap on how many are open is a count, which no index can hold,
+ * so a true race can take the line one over.
  *
  * ## The station's rules still hold
  *
@@ -126,7 +143,7 @@ export class RequestDesk {
             now: Date.now(),
         });
 
-        const created = await this.repository.create({
+        const request: NewRequest = {
             stationKey,
             requesterKey: requester.key,
             requesterName: requester.name,
@@ -138,13 +155,37 @@ export class RequestDesk {
             status: decision.ok ? (settings.approval === 'operator' ? 'waiting' : 'pending') : 'declined',
             ...(decision.ok ? {} : { reason: decision.reason }),
             ...(dedication === undefined ? {} : { dedication }),
-        });
+        };
+        const created = await this.write(request);
         if (created.status !== 'pending') return created;
 
         // Quietly: whoever asked is answered with the row this returns, so a notice as well would say
         // everything twice.
         await this.place(created, { quiet: true });
         return (await this.repository.find(stationKey, created.id)) ?? created;
+    }
+
+    /**
+     * Write a request, and when the database refuses it as a second open one (see the class), write
+     * it as the refusal the arbitration would have given. A refusal is outside both indexes, so that
+     * second write cannot be refused the same way.
+     */
+    private async write(request: NewRequest): Promise<RequestRow> {
+        try {
+            return await this.repository.create(request);
+        } catch (error) {
+            if (!(error instanceof OpenRequestTaken)) throw error;
+            const reason =
+                error.which === 'track' ? TRACK_ALREADY_OPEN : oneAtATime(await this.openTitleFor(request.stationKey, request.requesterKey));
+            this.logger.info(`requests: two requests arrived together and the database kept the first (${error.which})`);
+            return this.repository.create({ ...request, status: 'declined', reason });
+        }
+    }
+
+    /** The open request this person won with, as the one-at-a-time refusal names it, or nothing once it has moved on. */
+    private async openTitleFor(stationKey: string, requesterKey: string): Promise<string | undefined> {
+        const mine = (await this.repository.open(stationKey)).find(request => request.requesterKey === requesterKey);
+        return mine === undefined ? undefined : `${mine.title} by ${mine.artist}`;
     }
 
     /** An operator letting a waiting request through. Answers the row as it now stands, or nothing when it was not waiting. */

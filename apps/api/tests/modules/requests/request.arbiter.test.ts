@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { arbitrate, type RequestFacts } from '../../../src/modules/requests/request.arbiter.js';
+import { arbitrate, oneAtATime, type RequestFacts } from '../../../src/modules/requests/request.arbiter.js';
 
 const facts = (overrides: Partial<RequestFacts> = {}): RequestFacts => ({
     enabled: true,
@@ -58,5 +58,9 @@ describe('arbitrate', () => {
     it('closes the line when the cap is reached', () => {
         expect(arbitrate(facts({ openCount: 3 }))).toMatchObject({ ok: false, reason: expect.stringContaining('request line is full') });
         expect(arbitrate(facts({ openCount: 2 }))).toEqual({ ok: true });
+    });
+
+    it('still refuses a second request when the first can no longer be named', () => {
+        expect(oneAtATime()).toBe('You already have a request in. One at a time.');
     });
 });

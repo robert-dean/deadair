@@ -9,7 +9,13 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 
 import { REQUEST_AIR_WINDOW_MS, REQUEST_PLACE_WINDOW_MS, RequestDesk, type Requester } from '../../../src/modules/requests/request.desk.js';
-import type { NewRequest, RequestRow, RequestStatus, RequestsRepository } from '../../../src/modules/requests/requests.repository.js';
+import {
+    OpenRequestTaken,
+    type NewRequest,
+    type RequestRow,
+    type RequestStatus,
+    type RequestsRepository,
+} from '../../../src/modules/requests/requests.repository.js';
 
 const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), trace: vi.fn() } as unknown as Logger;
 
@@ -30,13 +36,20 @@ const chat = (id = '7'): Requester => ({
     chat: { pluginId: 'deadair.telegram', chatId: '42', chatKind: 'direct', messageId: 'm-1' },
 });
 
-/** An in-memory `listener_requests`, enough of it for the desk. */
+const OPEN: readonly RequestStatus[] = ['waiting', 'pending', 'queued'];
+
+/** An in-memory `listener_requests`, enough of it for the desk, holding the two one-open indexes as the database does. */
 function memoryTable() {
     const rows: RequestRow[] = [];
     let next = 1;
     const repository = {
         rows,
         create: vi.fn(async (request: NewRequest) => {
+            if (OPEN.includes(request.status)) {
+                const open = rows.filter(row => OPEN.includes(row.status));
+                if (open.some(row => row.requesterKey === request.requesterKey)) throw new OpenRequestTaken('requester');
+                if (open.some(row => row.trackId === request.trackId)) throw new OpenRequestTaken('track');
+            }
             const row: RequestRow = {
                 ...(request.dedication === undefined ? {} : { dedication: request.dedication }),
                 id: `r-${next++}`,
@@ -55,7 +68,7 @@ function memoryTable() {
             return row;
         }),
         find: vi.fn(async (_: string, id: string) => rows.find(row => row.id === id)),
-        open: vi.fn(async () => rows.filter(row => ['waiting', 'pending', 'queued'].includes(row.status))),
+        open: vi.fn(async () => rows.filter(row => OPEN.includes(row.status))),
         lastGrantedAt: vi.fn(async (_: string, key: string) =>
             rows
                 .filter(row => row.requesterKey === key && ['pending', 'queued', 'aired'].includes(row.status))
@@ -213,6 +226,39 @@ describe('submitting', () => {
         const second = await desk.submit(app('a-1'), { trackId: 't-2', title: 'Angel', artist: 'Massive Attack' });
 
         expect(second).toMatchObject({ status: 'declined', reason: expect.stringContaining('One at a time') });
+    });
+
+    it('refuses the second of two requests from one person that arrive together, naming the first', async () => {
+        const { desk, table } = build({ audio: 'remote' });
+        // Both read the table before either writes, as two overlapping submits do.
+        table.open.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+        const [first, second] = await Promise.all([
+            desk.submit(app('a-1'), TEARDROP),
+            desk.submit(app('a-1'), { trackId: 't-2', title: 'Angel', artist: 'Massive Attack' }),
+        ]);
+
+        expect(first.status).toBe('pending');
+        expect(second).toMatchObject({ status: 'declined', reason: 'You already have a request in: Teardrop by Massive Attack. One at a time.' });
+        expect(table.rows.filter(row => OPEN.includes(row.status))).toHaveLength(1);
+    });
+
+    it('refuses the second of two people asking for one record at once, as the arbitration would', async () => {
+        const { desk, table } = build({ audio: 'remote' });
+        table.open.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+        const [first, second] = await Promise.all([desk.submit(app('a-1'), TEARDROP), desk.submit(chat('7'), TEARDROP)]);
+
+        expect(first.status).toBe('pending');
+        expect(second).toMatchObject({ status: 'declined', reason: 'Somebody has already asked for that one, so it is on its way.' });
+    });
+
+    it('lets any other failure to write a request through', async () => {
+        const { desk, table } = build();
+        table.create.mockRejectedValueOnce(new Error('database gone'));
+
+        await expect(desk.submit(app(), TEARDROP)).rejects.toThrow('database gone');
+        expect(table.create).toHaveBeenCalledTimes(1);
     });
 
     it('waits for an operator when the station asks for one', async () => {

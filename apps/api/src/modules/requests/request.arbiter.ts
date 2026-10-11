@@ -32,17 +32,28 @@ const minutesLeft = (ms: number): string => {
     return minutes === 1 ? 'a minute' : `${minutes} minutes`;
 };
 
+/**
+ * The refusal for somebody who already has a request open, naming it when it is known. Exported
+ * because the database gives the same answer when two of one person's requests arrive together: see
+ * `OpenRequestTaken`.
+ */
+export const oneAtATime = (open?: string): string =>
+    open === undefined ? 'You already have a request in. One at a time.' : `You already have a request in: ${open}. One at a time.`;
+
+/** The refusal for a record somebody already has open. Exported for the same reason as {@link oneAtATime}. */
+export const TRACK_ALREADY_OPEN = 'Somebody has already asked for that one, so it is on its way.';
+
 export function arbitrate(facts: RequestFacts): RequestDecision {
     if (!facts.enabled) return { ok: false, reason: 'The station is not taking requests right now.' };
     if (!facts.onAir) return { ok: false, reason: 'The station is off the air, so it is not taking requests.' };
     if (facts.openForRequester !== undefined) {
-        return { ok: false, reason: `You already have a request in: ${facts.openForRequester}. One at a time.` };
+        return { ok: false, reason: oneAtATime(facts.openForRequester) };
     }
     if (facts.lastGrantedAt !== undefined && facts.cooldownMs > 0) {
         const wait = facts.lastGrantedAt + facts.cooldownMs - facts.now;
         if (wait > 0) return { ok: false, reason: `One request every ${minutesLeft(facts.cooldownMs)}, so try again in ${minutesLeft(wait)}.` };
     }
-    if (facts.trackAlreadyOpen) return { ok: false, reason: 'Somebody has already asked for that one, so it is on its way.' };
+    if (facts.trackAlreadyOpen) return { ok: false, reason: TRACK_ALREADY_OPEN };
     if (facts.openCount >= facts.maxOpen) return { ok: false, reason: 'The request line is full. Try again after the next few records.' };
     return { ok: true };
 }

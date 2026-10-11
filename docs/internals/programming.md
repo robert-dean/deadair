@@ -196,7 +196,7 @@ because it talks to providers between writes. What it misses stays a placeholder
 
 **A link is claimed by the provider it belongs to.** `MusicProviderCatalog.playlistIdFromUrl` is an
 optional PURE parse; the import asks every catalog provider in id order and the first to claim a link wins,
-which is why a provider claims only what it is sure of (Navidrome only a link into its own configured server).
+which is why a provider claims only what it is sure of (Navidrome and Jellyfin only a link into their own configured server, Plex only a Plex Web link naming its own server's machine id, which it learns on its first playlist walk).
 It is called directly rather than through the invoker, since a throw there is a bug in a string function
 and must not count toward quarantine the way a failed upstream call does. The tracks are then read through
 `PlaylistsService.getPlaylistTracks`, so the access narrowing and Spotify's refused-playlist fallback both

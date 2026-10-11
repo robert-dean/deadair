@@ -9,6 +9,11 @@ import { sdk } from '../../api/client';
 import { partyLink, useParty } from '../../api/party.queries';
 import { formatClock } from '../../i18n/format.locale';
 
+/** The code's own units, against which the mark in its middle is measured. */
+const POSTER_CODE_SIZE = 512;
+/** The mark, a little over a fifth of the code's width. */
+const POSTER_MARK_SIZE = 112;
+
 /**
  * The party's code, as big as the screen allows, for a TV across the room.
  *
@@ -81,6 +86,14 @@ export function PartyPoster() {
                         </Title>
                         <QRCodeSVG
                             value={partyLink(live.token)}
+                            // The station's mark in the middle, on the modules it clears. Level H is
+                            // what pays for that: it recovers up to 30% of the code, and the mark
+                            // covers about 4% of it, so a phone at an angle across the room still
+                            // reads it. `size` is the unit the mark is measured against; the style
+                            // below decides how big it is drawn.
+                            size={POSTER_CODE_SIZE}
+                            level="H"
+                            imageSettings={{ src: '/logo-mark.png', width: POSTER_MARK_SIZE, height: POSTER_MARK_SIZE, excavate: true }}
                             marginSize={2}
                             bgColor="#ffffff"
                             fgColor="#000000"

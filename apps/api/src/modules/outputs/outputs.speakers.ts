@@ -73,7 +73,7 @@ export class OutputSpeakers {
         const url = mountUrl(this.config, mount.path);
         if (url === undefined) {
             throw new OutputUnplayableError(
-                'the station has no address a speaker could reach; set stream.speakerUrl (or stream.publicUrl) to one that is not localhost',
+                'the station has no address a speaker could reach; set "Address for speakers" (or "Public URL") under Stream in Settings to one that is not localhost',
             );
         }
 

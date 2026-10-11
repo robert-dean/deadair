@@ -17,6 +17,7 @@ import {
     asPodcastPlugin,
     asSpeechPlugin,
     asStreamPlugin,
+    streamCapableIds,
     implementsStream,
 } from '../../../src/modules/plugins/plugin.capabilities.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
@@ -319,5 +320,40 @@ describe('asOutputPlugin', () => {
         for (const status of ['discovered', 'disabled', 'misconfigured', 'failed'] as const) {
             expect(asOutputPlugin(record(['output'], outputMethods, status))).toBeUndefined();
         }
+    });
+});
+
+// Which providers the director may choose to DELIVER a record. The set exists because a provider can
+// legitimately be browsable and unable to hand over audio, and the delivery choice used to assume that
+// could not happen.
+describe('streamCapableIds', () => {
+    /** A record whose manifest carries an id, which is what the set is built from. */
+    const named = (id: string, capabilities: string[], instance: Record<string, unknown>): PluginRecord => ({
+        ...record(capabilities, instance),
+        manifest: { id, capabilities } as unknown as PluginManifest,
+    });
+
+    it('names the plugins that can be asked for audio', () => {
+        const ids = streamCapableIds([
+            named('deadair.navidrome', ['catalog', 'stream'], { resolveStreamUrl }),
+            named('deadair.apple', ['catalog'], catalogMethods),
+        ]);
+
+        expect(ids).toEqual(new Set(['deadair.navidrome']));
+    });
+
+    it('leaves out a plugin that declares stream and did not implement it', () => {
+        // Same rule as `asStreamPlugin`: a claim without the method is an honest "no", not a TypeError
+        // in the middle of a fetch.
+        expect(streamCapableIds([named('deadair.half', ['catalog', 'stream'], catalogMethods)])).toBeUndefined();
+    });
+
+    it('answers undefined rather than an empty set when nothing can deliver', () => {
+        // THE important case, and the reason this function exists rather than an inline `.filter`. The
+        // caller filters bindings against this set, so an empty one would read as "no provider can play
+        // anything" and take every record on the station off the air. A registry that has not finished
+        // loading looks exactly like that, and it is not that.
+        expect(streamCapableIds([])).toBeUndefined();
+        expect(streamCapableIds([named('deadair.apple', ['catalog'], catalogMethods)])).toBeUndefined();
     });
 });

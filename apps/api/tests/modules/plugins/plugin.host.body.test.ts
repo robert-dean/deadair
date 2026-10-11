@@ -9,7 +9,7 @@ import {
     PluginHostFactoryOptions,
 } from '../../../src/modules/plugins/plugin.host.factory.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
-import { stubShimClient } from '../../utils/spotify.shim.fixture.js';
+import { stubApplePlayerClient, stubShimClient } from '../../utils/spotify.shim.fixture.js';
 import type { PluginGrantsService } from '../../../src/modules/plugins/plugin.grants.service.js';
 import { stubContainer } from '../../utils/stub.container.js';
 
@@ -49,6 +49,7 @@ function factory(): PluginHostFactory {
         container,
         stubPluginLog().log,
         stubShimClient(),
+        stubApplePlayerClient(),
         restrictedNetwork(),
     );
 }

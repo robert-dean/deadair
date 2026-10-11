@@ -13,7 +13,7 @@ import { PluginHostFactory, PluginHostFactoryOptions, type HostTlsOpener } from 
 import type { AddressResolver } from '../../../src/modules/plugins/plugin.grants.js';
 import type { PluginGrantsService } from '../../../src/modules/plugins/plugin.grants.service.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
-import { stubShimClient } from '../../utils/spotify.shim.fixture.js';
+import { stubApplePlayerClient, stubShimClient } from '../../utils/spotify.shim.fixture.js';
 import { stubContainer } from '../../utils/stub.container.js';
 
 /**
@@ -48,6 +48,7 @@ function setup(found: DiscoveredService[] = [kitchen]) {
         stubContainer([]).container,
         stubPluginLog().log,
         stubShimClient(),
+        stubApplePlayerClient(),
         { holds: () => false } as unknown as PluginGrantsService,
     );
     return { factory, discoverer, openTls };

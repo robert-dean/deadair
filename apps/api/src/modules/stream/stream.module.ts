@@ -7,6 +7,7 @@ import { IcecastEventFeed } from './icecast.eventfeed.client.js';
 import { HlsAudience } from './hls.audience.js';
 import { IcecastStatsClient } from './icecast.stats.client.js';
 import { SpotifyShimClient } from './spotify.shim.client.js';
+import { ApplePlayerClient } from './apple.player.client.js';
 import { AudioChainRestart } from './stream.restart.js';
 import { StreamService } from './stream.service.js';
 import { MOUNT_PATHS, streamMounts } from './stream.settings.js';
@@ -38,6 +39,7 @@ export const StreamModule: ServerKitModule = {
         // it is reached from `PluginHostFactory`, which is itself a singleton
         // built long before any request scope exists.
         registry.register(SpotifyShimClient).useClass(SpotifyShimClient).asSingleton();
+        registry.register(ApplePlayerClient).useClass(ApplePlayerClient).asSingleton();
 
         // Singleton for the same reason, and holding the same kind of state: the mount
         // and its address are pushed in at `ready`, and the poll loop that reads them
@@ -94,6 +96,9 @@ export const StreamModule: ServerKitModule = {
             const settings = stream.settings();
             const { playoutBridgeSecret, spotifyShimSecret } = settings;
             container.get(SpotifyShimClient).useSecrets(playoutBridgeSecret ?? '', spotifyShimSecret ?? '');
+            // The same bridge secret, for the same reason: the Apple player verifies exactly the token the
+            // Spotify shim does, because it is the same signing scheme serving the same kind of URL.
+            container.get(ApplePlayerClient).useSecrets(playoutBridgeSecret ?? '');
 
             // The mounts whose listeners are the station's audience, from the same settings
             // the rendered icecast.xml was built from a moment ago — including the admin

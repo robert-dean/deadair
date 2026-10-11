@@ -489,9 +489,28 @@ export class CandidatesRepository extends DataRepository {
      * the explicit one from the first, and nothing anywhere says why a station that
      * was told to keep it clean is not.
      *
+     * ## A provider that cannot deliver is excluded, not ranked last
+     *
+     * `deliverable` names the plugins that can actually be asked for audio. A binding whose plugin
+     * cannot is dropped outright, for exactly the reason a row carrying `missing_at` is: handing it to
+     * the player is a gap. Excluding it lets the work fall back to another provider's copy if it has
+     * one, and otherwise leaves it with no binding — which every caller already treats as "nothing can
+     * play this" and acts on BEFORE air, rather than as an item that is skipped during it.
+     *
+     * This began to matter when the first browsable-but-not-playable provider arrived. The SDK has
+     * always blessed one ("a provider that can be searched but whose audio deadair cannot get at is a
+     * legitimate thing to be"), but until one existed every binding belonged to a plugin that could be
+     * asked for a URL, and this ranked on advisory and preference alone. With one in the catalog and
+     * the operator's preference naming it first, it won the tie and the record was skipped at air time
+     * with a fetch failure for a reason — by design, no audio — that nothing reported as such.
+     *
      * @param preference - Plugin ids in the operator's order. Anything unlisted
      *   sorts after everything listed, so an unconfigured station still gets a
      *   deterministic answer rather than a random one.
+     * @param deliverable - Plugin ids that can produce audio, or `undefined` to
+     *   ask nothing of the question. `undefined` and not an empty set: see
+     *   `streamCapableIds`, whose whole job is to keep a registry that has not
+     *   loaded from reading as a station where nothing can play.
      * @param policy - The station's advisory policy. Defaults to `prefer-explicit`,
      *   which is the closest this type has to "no opinion" — that is what a caller
      *   asking whether a record is still AVAILABLE rather than which copy to
@@ -501,6 +520,7 @@ export class CandidatesRepository extends DataRepository {
         trackIds: readonly string[],
         preference: readonly string[] = [],
         policy: AdvisoryPolicy = ADVISORY_DEFAULT,
+        deliverable?: ReadonlySet<string>,
     ): Promise<Map<string, TrackBinding>> {
         const best = new Map<string, TrackBinding>();
         if (trackIds.length === 0) return best;
@@ -531,6 +551,10 @@ export class CandidatesRepository extends DataRepository {
         // list this short.
         const chosen = new Map<string, (typeof rows)[number]>();
         for (const row of rows) {
+            // Before any ranking: a provider that cannot be asked for audio is not a candidate to
+            // deliver it, whatever the operator's preference says.
+            if (deliverable !== undefined && !deliverable.has(row.pluginId)) continue;
+
             const current = chosen.get(row.trackId);
             if (current && !better(row, current)) continue;
             chosen.set(row.trackId, row);

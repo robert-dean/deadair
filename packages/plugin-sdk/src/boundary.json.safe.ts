@@ -104,6 +104,7 @@ import type {
     DiscoveredService,
     DiscoveryOptions,
     DiscoveryQuery,
+    PlayerFetchRequest,
     PlaylistTracksRequest,
     PluginSocketOptions,
     PluginTlsOptions,
@@ -195,6 +196,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     ProviderStream: IsJsonSafe<ProviderStream>;
     TrackFetchSession: IsJsonSafe<TrackFetchSession>;
     TrackFetchRequest: IsJsonSafe<TrackFetchRequest>;
+    PlayerFetchRequest: IsJsonSafe<PlayerFetchRequest>;
     PlaylistTracksRequest: IsJsonSafe<PlaylistTracksRequest>;
     PluginSocketOptions: IsJsonSafe<PluginSocketOptions>;
     PluginTlsOptions: IsJsonSafe<PluginTlsOptions>;
@@ -308,6 +310,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'ProviderStream',
     'TrackFetchSession',
     'TrackFetchRequest',
+    'PlayerFetchRequest',
     'PlaylistTracksRequest',
     'PluginSocketOptions',
     'PluginTlsOptions',

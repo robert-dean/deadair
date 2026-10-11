@@ -69,7 +69,7 @@ ever asks.
 This page is about the rights to PLAY a record. There is a second question about the software that
 fetches one, and it is worth keeping separate because it is answered differently for each provider.
 
-**Spotify and Navidrome** talk to a published API, on terms their operators publish.
+**Spotify, Navidrome and Jellyfin** talk to a published API, on terms their operators publish.
 
 **Deezer** is read for suggestions and never for audio: the plugin asks which artists resemble one
 another and what to play by them, and every record it names is then fetched from whichever provider

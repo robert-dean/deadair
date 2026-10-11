@@ -11,6 +11,8 @@ import {
 } from '../../../src/modules/director/prompt.settings.js';
 import type { Persona } from '../../../src/modules/personas/persona.js';
 import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
+import { WEATHER_KEYS } from '../../../src/modules/weather/weather.keys.js';
+import { LOCATION_MAX } from '../../../src/modules/shared/station.home.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
 describe('stationPromptSettings', () => {
@@ -55,6 +57,25 @@ describe('the station in its own words', () => {
         const { config } = settingsConfig({ [STATION_IDENTITY_KEY]: 'x'.repeat(5000) });
 
         expect(stationPromptSettings(config, {}).stationIdentity).toHaveLength(STATION_TEXT_MAX);
+    });
+});
+
+describe('where the station is', () => {
+    it('carries the station location, trimmed', () => {
+        const { config } = settingsConfig({ [WEATHER_KEYS.location]: '  Atlanta,   GA ' });
+
+        expect(stationPromptSettings(config, {}).location).toBe('Atlanta, GA');
+    });
+
+    it('carries nothing for a station with no location', () => {
+        expect(stationPromptSettings(settingsConfig().config, {})).not.toHaveProperty('location');
+        expect(stationPromptSettings(settingsConfig({ [WEATHER_KEYS.location]: '   ' }).config, {})).not.toHaveProperty('location');
+    });
+
+    it('bounds a pasted paragraph', () => {
+        const { config } = settingsConfig({ [WEATHER_KEYS.location]: 'x'.repeat(500) });
+
+        expect(stationPromptSettings(config, {}).location).toHaveLength(LOCATION_MAX);
     });
 });
 

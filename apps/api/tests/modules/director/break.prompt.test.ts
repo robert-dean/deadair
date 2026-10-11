@@ -30,6 +30,10 @@ import { dayPart } from '../../../src/modules/director/clock.words.js';
 import { NEWS_SHAPE } from '../../../src/modules/director/model.news.break.writer.js';
 import { WELCOME_SHAPE } from '../../../src/modules/director/model.welcome.writer.js';
 import { WEATHER_SHAPE } from '../../../src/modules/director/model.weather.break.writer.js';
+import { ALMANAC_SHAPE } from '../../../src/modules/director/model.almanac.break.writer.js';
+import { CHANGEOVER_SHAPE } from '../../../src/modules/director/model.changeover.writer.js';
+import { DEDICATION_SHAPE } from '../../../src/modules/director/model.dedication.writer.js';
+import { STORY_SHAPE } from '../../../src/modules/director/story.break.writer.js';
 import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
 import { languageRule } from '../../../src/modules/shared/language.name.js';
 import {
@@ -2907,5 +2911,57 @@ describe('weather from a break that was given no reading', () => {
 
     it('asks nothing of a station that does not broadcast in English', () => {
         expect(readAnswer('Draußen ist es sonnig und warm.', { language: 'de' })).toBeDefined();
+    });
+});
+
+describe('where here is', () => {
+    const talk = { kind: 'talkbreak' as const, previous: { title: 'Move On Up', artist: 'Curtis Mayfield' } };
+    const glaswegian = { style: 'a Glaswegian night owl who never left the Barras' } as PromptSettings['persona'];
+
+    it('names the station location as the only here, whatever the persona says about home', () => {
+        const rules = system(prompt(talk, { station: 'Night Owl', location: 'Atlanta, GA', persona: glaswegian }));
+
+        expect(rules).toContain('You are a Glaswegian night owl');
+        expect(rules).toContain('The station broadcasts from Atlanta, GA, and that is the only place you may call here');
+        expect(rules).toMatch(/Where your character is from, and anything said about the station, never moves it/);
+        // After the character, so the sheet's home town is not the last word on where the station is.
+        expect(rules.indexOf('broadcasts from Atlanta')).toBeGreaterThan(rules.indexOf('Glaswegian'));
+    });
+
+    it('keeps a place the break was handed sayable as that place', () => {
+        const rules = system(prompt(talk, { location: 'Atlanta, GA' }));
+
+        expect(rules).toMatch(/a record's notes, the news, a weather reading or a listener's message is that place/);
+    });
+
+    it('claims no here at all when the station has no location', () => {
+        const rules = system(prompt(talk, { persona: glaswegian, stationIdentity: 'Broadcasting from a shed in Govan.' }));
+
+        expect(rules).toContain('You have not been told where the station is, so never say where "here" is');
+        expect(rules).not.toContain('broadcasts from');
+    });
+
+    it('is said on every kind that writes the presenter speech', () => {
+        for (const shape of [
+            TALK_BREAK_SHAPE,
+            WELCOME_SHAPE,
+            NEWS_SHAPE,
+            WEATHER_SHAPE,
+            ALMANAC_SHAPE,
+            CHANGEOVER_SHAPE,
+            DEDICATION_SHAPE,
+            STORY_SHAPE,
+        ]) {
+            const rules = system(breakPrompt(talk, { location: 'Atlanta, GA' }, shape));
+            expect(rules, shape.job).toContain('The station broadcasts from Atlanta, GA');
+        }
+    });
+
+    it('stays in English on a station that is not, with the place as the operator wrote it', () => {
+        const rules = system(prompt(talk, { location: 'München', language: 'de' }));
+
+        expect(rules).toContain('The station broadcasts from München');
+        // The language rule is still the last word.
+        expect(rules.trimEnd().endsWith(languageRule('de'))).toBe(true);
     });
 });

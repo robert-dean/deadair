@@ -377,6 +377,21 @@ failure a brief already has when it is phrased as an instruction. Both absent le
 what it was. They are not on `BreakWriteRequest`, so they carry no freshness decision: they are read when the
 break is written, like the station's name.
 
+**Where "here" is, is said on every kind, and only `station.location` answers it.** Nothing used to: the
+location reached a talk break only as the place a weather reading was taken, with `rotation.weatherInTalk`
+on, which it is not by default. What did reach every prompt was text that can plant a place, since a
+persona's `style` completes "You are …" ("a Glaswegian night owl") and the two station sentences above are
+free text. With nothing saying which place the station IS, a model reads the nearest home town as the
+answer and says "here in Glasgow tonight" on a station in Atlanta. So `homeRule` (`shared/station.home.ts`)
+is one line of every break's rules and of every production beat spoken from the studio: the location is
+the only place that may be called here, home or our city, and where the character is from or what the
+station says about itself never moves it. With no location set, the same line says there is no here at
+all. A place a break was HANDED (a record's notes, a headline, a weather reading, a listener's message) is
+named as not being affected, or the rule would silence the news. A caller's beat is not given it: they rang
+in from somewhere else, and their "here" is fiction about them rather than the station's dateline. The line
+is English with the place as the operator wrote it, on `languageRule`'s argument, and it changes every
+prompt, which the identity sentences above deliberately did not: the absence of a location is a rule too.
+
 **What buys a character room is what the break does not have to say, never the word ceiling.** Measured before
 changing anything: 2 of 137 captured answers reached `DEFAULT_MAX_WORDS` and the median break came in at 28
 words, so the ceiling was never what bounded one — the model stops on its own, and the question is what it

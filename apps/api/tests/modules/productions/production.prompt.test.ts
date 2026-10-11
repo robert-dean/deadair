@@ -606,3 +606,30 @@ describe('the outline of a call', () => {
         expect(system).toContain("The host's LAST beat is where the call ends");
     });
 });
+
+describe('where here is, in a production', () => {
+    it('tells the host the station location is the only here', () => {
+        const rules = systemOf(turn({ ...base, speaker: host, location: 'Atlanta, GA' }));
+
+        expect(rules).toContain('The station broadcasts from Atlanta, GA, and that is the only place you may call here');
+    });
+
+    it('tells a guest in the studio too, since they are at the station', () => {
+        expect(systemOf(turn({ ...visit, speaker: mira, location: 'Atlanta, GA' }))).toContain('The station broadcasts from Atlanta, GA');
+    });
+
+    it('tells a co-host too', () => {
+        expect(systemOf(turn({ ...banter, speaker: lemmy, location: 'Atlanta, GA' }))).toContain('The station broadcasts from Atlanta, GA');
+    });
+
+    it('says no here at all for a station with no location', () => {
+        expect(systemOf(turn({ ...base, speaker: host }))).toContain('You have not been told where the station is');
+    });
+
+    it('leaves a caller their own here, since they rang in from somewhere else', () => {
+        const rules = systemOf(turn({ ...base, speaker: dale, location: 'Atlanta, GA' }));
+
+        expect(rules).not.toContain('broadcasts from');
+        expect(rules).not.toContain('You have not been told where the station is');
+    });
+});

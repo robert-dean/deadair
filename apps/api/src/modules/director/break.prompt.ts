@@ -72,6 +72,7 @@ import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
 import type { AlmanacEntry } from '@deadair/plugin-sdk';
 import { languageName, languageRule } from '#modules/shared/language.name.js';
+import { homeRule } from '#modules/shared/station.home.js';
 import { inventedFigure, unofferedWeather } from './weather.figures.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest, SittingIn } from './break.writer.js';
 import type { ChartPlacing } from '#modules/playout/rundown.js';
@@ -508,6 +509,13 @@ export interface PromptSettings {
     stationIdentity?: string;
     /** What is true at the station now, from `station.context`. Background, never a topic. See `STATION_CONTEXT_KEY`. */
     stationContext?: string;
+    /**
+     * Where the station broadcasts from, from `station.location`, or absent when none is set.
+     *
+     * The only answer to "where is here". Absent is a statement too, and the prompt makes it: no place
+     * may be called here. See `homeRule`.
+     */
+    location?: string;
     /**
      * Who the station is right now, from `deadair.personas`.
      *
@@ -986,6 +994,11 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
         // performs the reactions, so a station sees one rule or the other and rarely both.
         ...deliveryRules(settings, shape),
         '- Do not greet the listener by name, promise anything you have not been told, or mention the time unless you are given it.',
+        // Where "here" is, on every kind. The role sentence above may carry a home town of the
+        // character's own ("a Glaswegian night owl") and the station's own text may name somewhere,
+        // and with nothing saying which place the station IS, a model reads either as the answer.
+        // Stated whether or not a location is set, because the absence is a rule too: no here at all.
+        `- ${homeRule(settings.location)}`,
         // Conditional and near the end, because it is the one rule here that is about the station's
         // own policy rather than about what a break IS. Both halves are needed: a model told only
         // not to swear will still quote an explicit title or lyric back, which is the same words

@@ -1,4 +1,6 @@
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { stationLocation } from '#modules/shared/station.home.js';
+import { WEATHER_KEYS } from '#modules/weather/weather.keys.js';
 import { STREAM_DEFAULTS, STREAM_KEYS, stationLanguage } from '#modules/stream/stream.settings.js';
 import { advisoryPolicy, speaksClean } from './advisory.policy.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
@@ -7,7 +9,7 @@ import type { BreakWriteRequest } from './break.writer.js';
 
 /** The part of a break prompt's settings that is the station's rather than the break's. */
 export type StationPromptSettings = Required<Pick<PromptSettings, 'station' | 'dj' | 'cleanLanguage'>> &
-    Pick<PromptSettings, 'language' | 'stationIdentity' | 'stationContext' | 'sittingInFor' | 'coPresenters'>;
+    Pick<PromptSettings, 'language' | 'stationIdentity' | 'stationContext' | 'location' | 'sittingInFor' | 'coPresenters'>;
 
 /**
  * Who the station is, in the operator's words: what it plays, who it is for, what it stands for.
@@ -58,6 +60,9 @@ export function stationPromptSettings(
         cleanLanguage: speaksClean(advisoryPolicy(config)),
         ...optional('stationIdentity', stationText(config, STATION_IDENTITY_KEY)),
         ...optional('stationContext', stationText(config, STATION_CONTEXT_KEY)),
+        // Where the station is, which the weather was the only reader of. Every kind is told it,
+        // because a persona's home town is otherwise the nearest answer to "where is here".
+        ...optional('location', stationLocation(String(config.get(WEATHER_KEYS.location, '') ?? ''))),
         // Absent for English rather than `'en'`, so an English station's prompt is byte for byte what
         // it was before a station could broadcast in anything else.
         ...(language === undefined ? {} : { language }),

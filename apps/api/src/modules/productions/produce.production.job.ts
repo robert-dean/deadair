@@ -34,7 +34,7 @@ import { callSubjectOf, isDialogue, isVisitor, speakerOrder, turnWeights, type C
 import { ProductionCaster } from './production.caster.js';
 import { cuesFor } from './production.cues.js';
 import { planProduction, turnsFor } from './production.plan.js';
-import { askForBeat } from './beat.answer.js';
+import { askForBeat, attemptsBefore } from './beat.answer.js';
 import { beatPrompt, outlinePrompt, runInFrom } from './production.prompt.js';
 import { coerceOutline, priorityForSlot, type Production, type ProductionPass, type ProductionPlan } from './production.js';
 import { firstPass, nextPass, runsPass } from './production.passes.js';
@@ -453,7 +453,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             // Failing here throws away every beat already written, since a production cannot air
             // with a hole in it, which is why neither is given up on at the first refusal.
             const outcome = await this.askRecordingFailure(
-                { production: claimed, speaker, messages: prompt },
+                { production: claimed, label, speaker, messages: prompt },
                 async () =>
                     await askForBeat(
                         ask,
@@ -759,16 +759,31 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
      * behind it. The row is `failed`, worded the way a break's thrown writer is, and carries what the
      * finished steps spent when the conversation knew (`usageSpentBefore`, a floor: the failing
      * generation's own tokens are never known).
+     *
+     * The asks that came BEFORE the throw are written down first, exactly as a normal return writes
+     * `outcome.asked`: an empty answer that was nudged and whose retry then threw is still an attempt
+     * that happened and was paid for. Each was its own conversation, so its usage and the failed
+     * row's never overlap. See `attemptsBefore`.
      */
     private async askRecordingFailure<T>(
-        beat: { production: Production; speaker?: CastMember; messages: LlmMessage[] },
+        beat: { production: Production; label: string; speaker?: CastMember; messages: LlmMessage[] },
         work: () => Promise<T>,
     ): Promise<T> {
         try {
             return await work();
         } catch (error) {
             const spent = usageSpentBefore(error);
+            const earlier = attemptsBefore<LlmConversation>(error).map(({ answer, script }) =>
+                this.attemptOf(beat.production, {
+                    label: beat.label,
+                    script,
+                    answer,
+                    messages: beat.messages,
+                    ...(beat.speaker === undefined ? {} : { speaker: beat.speaker }),
+                }),
+            );
             await this.remember([
+                ...earlier,
                 {
                     kind: beat.production.kind,
                     writer: 'model',

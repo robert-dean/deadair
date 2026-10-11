@@ -55,6 +55,9 @@ import type { StationTool, ToolSource } from './llm.tools.js';
  */
 const MAX_RESULTS = 10;
 
+/** The name this tool is offered under, so a caller narrowing a conversation with `onlyTools` names it from here. */
+export const SEARCH_WEB_TOOL = 'search_web';
+
 /** The windows the capability offers, as the model may name them. */
 const RECENCIES: readonly SearchRecency[] = ['day', 'week', 'month', 'year'];
 
@@ -80,7 +83,7 @@ export class WebSearchTool implements ToolSource {
                 // that was ever true. Nothing records when any of it stops holding.
                 freshness: 'perishable',
                 declaration: {
-                    name: 'search_web',
+                    name: SEARCH_WEB_TOOL,
                     // Written for the model, and it says three things
                     // deliberately: what comes back is somebody else's page
                     // rather than the station's own library, that it is worth

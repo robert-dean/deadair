@@ -210,7 +210,8 @@ export class ModelWeatherBreakWriter extends BreakWriter {
             this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, place: weather.place });
         }
 
-        const claimsTime = timeClaimFor(script, guard.language, request.clock, request.dayPart);
+        // The greeting too, for the bulletin's reason. See `ModelNewsBreakWriter`.
+        const claimsTime = timeClaimFor(script, guard.language, request.clock, request.dayPart, request.greeting);
 
         return {
             script,

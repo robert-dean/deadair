@@ -137,6 +137,18 @@ describe('what it will air', () => {
         const paraphrased = build('It is nearly ten past nine. A bridge reopened.');
         expect((await paraphrased.writer.write(request({ clock })))?.claimsTime).toBeUndefined();
     });
+
+    it('stamps a greeting it opened with although it was never offered one', async () => {
+        // The bulletin that aired "Good morning" at five past twelve: written for a slot before noon,
+        // re-projected past it, and claiming nothing that could go stale.
+        const greeting = { words: 'Good morning', validFrom: 1_000, validUntil: 5_000 };
+
+        const greets = build('Good morning. Here is the news. A bridge reopened.');
+        expect(await greets.writer.write(request({ greeting }))).toMatchObject({ claimsTime: { from: 1_000, until: 5_000 } });
+
+        const plain = build('Here is the news. A bridge reopened.');
+        expect((await plain.writer.write(request({ greeting })))?.claimsTime).toBeUndefined();
+    });
 });
 
 // Two things a bulletin owes that a talk break does not, both of them measured on air rather than

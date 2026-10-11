@@ -3,6 +3,10 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { LlmService } from '#modules/llm/llm.service.js';
+import { BROWSE_CHARTS_TOOL } from '#modules/llm/charts.tool.js';
+import { SEARCH_MUSIC_TOOL } from '#modules/llm/music.search.tool.js';
+import { SIMILAR_ARTISTS_TOOL } from '#modules/llm/similar.artists.tool.js';
+import { STATION_TASTE_TOOL } from '#modules/llm/station.taste.tool.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { MODEL_PRIORITY, MODEL_WAIT_MS } from './persona.distil.service.js';
@@ -49,6 +53,14 @@ export const MAX_STORIES_PER_CHARACTER = 12;
  */
 const CORPUS_WINDOW = 40;
 
+/**
+ * The tools the proposal turn is offered: what this station holds and plays, and who sounds like
+ * whom among it. Nothing that reads the world (the web, the news, the weather, the almanac), because
+ * a story is fiction about a presenter and what those return is fact about somebody else, and under
+ * `self-directed` growth nobody reads the result before it can be told. See the class note.
+ */
+export const STORY_PASS_TOOLS: readonly string[] = [SEARCH_MUSIC_TOOL, STATION_TASTE_TOOL, SIMILAR_ARTISTS_TOOL, BROWSE_CHARTS_TOOL];
+
 /** One pass, for the job's log line and the activity row. */
 export interface StoryPassSummary {
     /** Characters looked at. */
@@ -81,10 +93,13 @@ const empty = (): StoryPassSummary => ({ considered: 0, read: 0, stories: 0, det
  * this station actually plays before deciding what its presenter remembers. That is the difference
  * between a character who has a past and one who has a past about records nobody here owns.
  *
- * **The seam a web search would drop into is `ToolRegistry`, not this file.** A `search` capability
- * becomes one more source there and this pass gets it with no change; see
- * [tool-plugins](https://github.com/robert-dean/deadair/discussions/44). What would need re-reading on that day is the fence in
- * `persona.story.model.ts`, because a pass that can look things up can also state them.
+ * **Only the tools about the station's own music, named in {@link STORY_PASS_TOOLS}.** The registry
+ * offers every source to every caller, so when the web, the news, the weather and today's date in
+ * history arrived there this pass was handed them with no change here. Text off the open web could
+ * then become a story, and under `self-directed` growth be stored `active` with nobody reading it:
+ * the one route on the station by which an unreviewed web page could reach a listener in a
+ * presenter's own voice. The fence in `persona.story.model.ts` asks the model not to do that, and a
+ * prompt is an instruction rather than an enforcement, so the list is narrowed here instead.
  *
  * ## Everything about it declines quietly
  *
@@ -217,10 +232,11 @@ export class PersonaStoryPassService {
                 ...(model.length === 0 ? {} : { model }),
                 reasoningEffort: 'low',
             },
-            // Tools ON, which is the one place this differs from every other pass on the station.
-            // See the class note: a character's past is worth having only where it is about records
-            // this station actually holds, and that is a question the model has to go and ask.
-            { budgetMs: MODEL_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, priority: MODEL_PRIORITY },
+            // Tools ON, which is the one place this differs from every other pass on the station, and
+            // only the station's own. See the class note: a character's past is worth having only
+            // where it is about records this station actually holds, and that is a question the model
+            // has to go and ask of the library rather than of the world.
+            { budgetMs: MODEL_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, priority: MODEL_PRIORITY, onlyTools: STORY_PASS_TOOLS },
         );
 
         const proposals = readProposals(answer.text, existing, MAX_PROPOSALS, corpus);
@@ -275,6 +291,10 @@ export class PersonaStoryPassService {
             details.flatMap(proposal => {
                 const storyId = byTitle.get(proposal.title.trim().toLowerCase());
                 if (storyId === undefined || proposal.kind !== 'detail') return [];
+                // A detail is shown beside its story in every break that carries it, so stored
+                // `active` it reaches a listener exactly as an unread story would, and gets the same
+                // check. It used to get none.
+                if (!this.guarded(personaKey, persona, proposal.detail, state)) return [];
 
                 return [
                     {

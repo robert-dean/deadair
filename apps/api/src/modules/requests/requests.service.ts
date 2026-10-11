@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from 'injectkit';
+import { DateTime } from 'luxon';
 import { httpError } from '@maroonedsoftware/errors';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ProviderCopyResolver } from '#modules/catalog/ingest/provider.copy.resolver.js';
@@ -17,6 +19,7 @@ import type {
     ListenerRequestDecline,
     ListenerRequestList,
     RequestStatus,
+    RequestableSource,
     RequestableTrack,
     RequestableTrackList,
 } from './types/requests.types.js';
@@ -43,6 +46,35 @@ export function toListenerRequest(row: RequestRow): ListenerRequest {
         ...(row.airedAt === undefined ? {} : { airedAt: row.airedAt }),
         ...(row.dedication?.to === undefined ? {} : { dedicateTo: row.dedication.to }),
         ...(row.dedication?.message === undefined ? {} : { message: row.dedication.message }),
+    };
+}
+
+/**
+ * A refusal for a record from a provider, answered before it was taken in. There is no row behind it:
+ * a row names a library record (`listener_requests.track_id` is not null), and taking the record in
+ * just to write the refusal down is what this avoids. So it answers the request's shape, declined with
+ * its reason, as a refusal of a library record does, but it is not kept, and it is not in the
+ * person's list afterwards. It is named from the search that offered it while that is still cached.
+ */
+function refusedBeforeIntake(
+    requester: { key: string; name: string },
+    source: RequestableSource,
+    reason: string,
+    dedication: { to?: string; message?: string } | undefined,
+): ListenerRequest {
+    const named = RequestProviderSearch.named(source.pluginId, source.externalId);
+    return {
+        id: randomUUID(),
+        status: 'declined',
+        title: named?.title ?? '',
+        artist: named?.artist ?? '',
+        requesterName: requester.name,
+        source: 'app',
+        ...(requester.key.startsWith('guest:') ? { fromParty: true } : {}),
+        createdAt: DateTime.now(),
+        reason,
+        ...(dedication?.to === undefined ? {} : { dedicateTo: dedication.to }),
+        ...(dedication?.message === undefined ? {} : { message: dedication.message }),
     };
 }
 
@@ -82,32 +114,38 @@ export class RequestsService {
 
     async create(body: ListenerRequestCreate): Promise<ListenerRequest> {
         const { key, actorId } = this.authz.requireRequester();
-        const trackId = await this.trackFor(body);
+        if ((body.trackId === undefined) === (body.source === undefined)) {
+            throw httpError(400).withDetails({ message: 'name the record by trackId or by source, not both and not neither' });
+        }
+        const name = tidyListenerText(body.name, MAX_REQUESTER_NAME) ?? UNNAMED_REQUESTER;
+        const dedication = dedicationOf(body.dedicateTo, body.message);
+        const requester = { key, name, actorId };
+
+        // Somebody the desk would refuse whatever they asked for is refused before a provider's record
+        // is taken in, so a refusal never grows the library. A record the station already holds needs
+        // no such care: the desk refuses it with a row, as it always has.
+        if (body.source !== undefined) {
+            const reason = await this.desk.refusal(requester);
+            if (reason !== undefined) return refusedBeforeIntake(requester, body.source, reason, dedication);
+        }
+
+        const trackId = body.trackId ?? (await this.takeIn(body.source!));
         const record = await this.repository.findRequestable(trackId);
         if (record === undefined) throw httpError(404).withDetails({ message: 'the station has no record it could play by that id' });
 
-        const name = tidyListenerText(body.name, MAX_REQUESTER_NAME) ?? UNNAMED_REQUESTER;
-        const dedication = dedicationOf(body.dedicateTo, body.message);
-        const row = await this.desk.submit({ key, name, actorId }, record, dedication);
+        const row = await this.desk.submit(requester, record, dedication);
         return toListenerRequest(row);
     }
 
     /**
-     * The library record a request names: its `trackId`, or the provider copy its `source` names,
-     * taken in first. A record taken in stays in the library whatever becomes of the request, as one
-     * a playlist fill finds does.
+     * The library record a provider copy becomes, taken in first. A record taken in stays in the
+     * library whatever becomes of the request, as one a playlist fill finds does.
      */
-    private async trackFor(body: ListenerRequestCreate): Promise<string> {
-        if ((body.trackId === undefined) === (body.source === undefined)) {
-            throw httpError(400).withDetails({ message: 'name the record by trackId or by source, not both and not neither' });
-        }
-        if (body.trackId !== undefined) return body.trackId;
-
-        const { pluginId, externalId } = body.source!;
+    private async takeIn(source: RequestableSource): Promise<string> {
         if (!settingIsOn(this.config, DISCOVER_KEY, DISCOVER_DEFAULT)) {
             throw httpError(404).withDetails({ message: 'the station is not taking records in from its providers' });
         }
-        const trackId = await this.copies.resolve(pluginId, externalId, 'requests.create.getTrack');
+        const trackId = await this.copies.resolve(source.pluginId, source.externalId, 'requests.create.getTrack');
         if (trackId === undefined) throw httpError(404).withDetails({ message: 'that provider has no record by that id the station could take in' });
         return trackId;
     }

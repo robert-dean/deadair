@@ -136,7 +136,11 @@ tie-break on duplicate names, which these do not have.
 filters what the registry offers by name, and a name nothing offers right now is simply absent. The mood walk
 (`lyrics/lyric.moods.service.ts`) is the case it exists for: judging one record's mood may search the web
 about that record and has no business with the catalog, the charts or the news, and a model offered all
-seven spends its few steps wandering. It still holds the slot only at `background` priority.
+seven spends its few steps wandering. It still holds the slot only at `background` priority. The persona
+story pass is the other case, narrowed the other way for a different reason: it may look at the station's own
+music and nothing that reads the world, because what it writes can be stored unreviewed (see `personas.md`,
+"The stories"). Both name their tools through the constants exported beside each source (`SEARCH_MUSIC_TOOL`
+and its neighbours) rather than as literals, so a renamed tool breaks the build rather than the list.
 
 **`search_music` can match what a record is ABOUT, and is honest about how much of the library that covers.**
 With `lyrics.subjects` on and at least one subject written, the tool gains an `about` parameter matched as

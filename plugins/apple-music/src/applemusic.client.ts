@@ -1,4 +1,4 @@
-import { jsonBody, type PluginHost, type ProviderPlaylist, type ProviderTrack } from '@deadair/plugin-sdk';
+import { jsonBody, PluginError, type PluginHost, type ProviderPlaylist, type ProviderTrack } from '@deadair/plugin-sdk';
 import { APPLE_API_ORIGIN, APPLE_PAGE_SIZE, ITUNES_ORIGIN, ITUNES_PAGE_SIZE, REQUEST_TIMEOUT_MS } from './applemusic.manifest.js';
 import { matchesFilters, playlistFromApple, trackFromApple, trackFromItunes, type AppleSong, type ItunesSong } from './applemusic.mapping.js';
 import type { DeveloperTokenSource } from './applemusic.token.js';
@@ -52,6 +52,11 @@ export class AppleApiCatalog implements AppleCatalog {
             headers: { authorization: `Bearer ${this.tokens.get()}` },
             timeoutMs: REQUEST_TIMEOUT_MS,
         });
+        if (response.status === 404) {
+            // A playlist pasted from another country's store, or a record Apple has withdrawn. That is about
+            // the thing asked for rather than the plugin, so it must not count towards setting it aside.
+            throw new PluginError(`Apple Music has no ${path} in the ${this.storefront} storefront`).withCode('not_found').withUpstreamStatus(404);
+        }
         if (!response.ok) {
             // 401 and 403 are the operator's to fix (a wrong team id, an expired key, a key that was
             // revoked) and everything else is Apple's; both read the same way to a caller, which is why
@@ -147,7 +152,7 @@ export class AppleApiCatalog implements AppleCatalog {
  * station can search, import and air Apple Music with nothing but a subscription.
  *
  * What it cannot do is carried honestly rather than faked: no ISRC, so its rows do not join to the same
- * recording from another provider; and no playlists at all, so `listPlaylists` answers an empty list.
+ * recording from another provider; and no playlists at all, so `listPlaylists` answers an empty list and `getPlaylistTracks` refuses.
  */
 export class ItunesSearchCatalog implements AppleCatalog {
     readonly label = 'iTunes Search API (no developer key)';
@@ -192,9 +197,18 @@ export class ItunesSearchCatalog implements AppleCatalog {
         return [];
     }
 
-    /** And therefore nothing to read out of one. */
+    /**
+     * And therefore nothing to read out of one, which is a refusal rather than an empty playlist.
+     *
+     * The library walk never gets here, because `listPlaylists` offers nothing to walk. What does is a
+     * pasted link, and an empty answer would show the operator an empty playlist with no reason given.
+     * `unsupported` is about the request rather than the plugin, so it never counts towards setting the
+     * plugin aside.
+     */
     async getPlaylistTracks(): Promise<ProviderTrack[]> {
-        return [];
+        throw new PluginError("Importing an Apple Music playlist needs a MusicKit key. Add one in the Apple Music plugin's settings.").withCode(
+            'unsupported',
+        );
     }
 }
 

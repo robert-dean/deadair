@@ -285,6 +285,8 @@ data class ConfigFieldColumn(
     val dependsOn: String? = null,
     /** The values of the `dependsOn` cell this one applies to. Omitted means any non-empty value; ignored without a target */
     val dependsOnValues: List<String>? = null,
+    /** `secret` only: key of the address column in the same list this credential is sent to. A save that keeps the stored credential while that row's address moves to another origin is refused */
+    val sentTo: String? = null,
 )
 
 @Serializable
@@ -380,6 +382,8 @@ data class ConfigFieldDescriptor(
     val dependsOn: String? = null,
     /** Key of the `number` field that is the upper end of the range this one opens, declared on the lower end only. Still two settings, each validated by name; the console draws them as one control whose handles cannot cross */
     val rangeWith: String? = null,
+    /** `secret` only: key of the address field this credential is sent to. A save that keeps the stored credential while that address moves to another origin is refused */
+    val sentTo: String? = null,
 )
 
 @Serializable

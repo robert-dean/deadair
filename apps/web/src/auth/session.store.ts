@@ -95,3 +95,14 @@ export function getSnapshot(): SessionSnapshot {
 export function useSession(): SessionSnapshot {
     return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
+
+/**
+ * Whether there is a session to poll with, for a page's live queries.
+ *
+ * A page that passed `true` instead kept a shared query polling after the shell's own gated reader
+ * had stopped: one desk left open after its session died answered 401 every two seconds for 43
+ * minutes, 2,680 refusals in the station's log.
+ */
+export function useSignedIn(): boolean {
+    return isSessionActive(useSession());
+}

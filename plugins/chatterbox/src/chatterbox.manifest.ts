@@ -231,6 +231,8 @@ export const chatterboxManifest: PluginManifest = {
             key: 'apiKey',
             label: 'API key',
             type: 'secret',
+            // Sent to that server, so moving the address means typing this again. See the SDK's `sentTo`.
+            sentTo: 'baseUrl',
             help: 'Leave empty unless the server is behind something that wants one.',
         },
         {

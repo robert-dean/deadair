@@ -57,8 +57,9 @@ export const stationOrderOptions = queryOptions({
     refetchInterval: AIR_POLL_MS,
 });
 
-export function useStationOrder() {
-    return useQuery(stationOrderOptions);
+/** The running order, polled only while there is a session to poll with, for `useStationAir`'s reason. */
+export function useStationOrder(enabled = true) {
+    return useQuery({ ...stationOrderOptions, enabled });
 }
 
 /**

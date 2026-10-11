@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { arbitrate, type RequestFacts } from '../../../src/modules/requests/request.arbiter.js';
+import { arbitrate, arbitrateRequester, oneAtATime, type RequestFacts } from '../../../src/modules/requests/request.arbiter.js';
 
 const facts = (overrides: Partial<RequestFacts> = {}): RequestFacts => ({
     enabled: true,
@@ -58,5 +58,28 @@ describe('arbitrate', () => {
     it('closes the line when the cap is reached', () => {
         expect(arbitrate(facts({ openCount: 3 }))).toMatchObject({ ok: false, reason: expect.stringContaining('request line is full') });
         expect(arbitrate(facts({ openCount: 2 }))).toEqual({ ok: true });
+    });
+
+    it('still refuses a second request when the first can no longer be named', () => {
+        expect(oneAtATime()).toBe('You already have a request in. One at a time.');
+    });
+});
+
+describe('arbitrateRequester', () => {
+    it('decides everything about the person and the line, and nothing about the record', () => {
+        const { trackAlreadyOpen: _, ...requester } = facts();
+        expect(arbitrateRequester(requester)).toEqual({ ok: true });
+        expect(arbitrateRequester({ ...requester, onAir: false })).toMatchObject({ ok: false, reason: expect.stringContaining('off the air') });
+        expect(arbitrateRequester({ ...requester, openForRequester: 'Angel by Massive Attack' })).toMatchObject({ ok: false });
+        expect(arbitrateRequester({ ...requester, lastGrantedAt: requester.now - 60_000 })).toMatchObject({ ok: false });
+        expect(arbitrateRequester({ ...requester, openCount: 3 })).toMatchObject({ ok: false, reason: expect.stringContaining('line is full') });
+    });
+
+    it('gives the same answer the whole arbitration gives, whenever it refuses', () => {
+        const cases: Partial<RequestFacts>[] = [{ enabled: false }, { openForRequester: 'Angel by Massive Attack' }, { openCount: 3 }];
+        for (const overrides of cases) {
+            const whole = facts({ ...overrides, trackAlreadyOpen: true });
+            expect(arbitrate(whole)).toEqual(arbitrateRequester(whole));
+        }
     });
 });

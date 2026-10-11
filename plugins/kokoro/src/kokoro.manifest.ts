@@ -199,6 +199,8 @@ export const kokoroManifest: PluginManifest = {
             key: 'apiKey',
             label: 'API key',
             type: 'secret',
+            // Sent to that server, so moving the address means typing this again. See the SDK's `sentTo`.
+            sentTo: 'baseUrl',
             help: 'Leave empty for a local Kokoro. Required if you point this at OpenAI instead.',
         },
         {

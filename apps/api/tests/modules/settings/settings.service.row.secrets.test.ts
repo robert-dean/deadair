@@ -30,7 +30,8 @@ vi.mock('../../../src/modules/settings/settings.registry.js', async importOrigin
         type: 'list',
         columns: [
             { key: 'name', label: 'Name', type: 'string', required: true },
-            { key: 'secret', label: 'Secret', type: 'secret' },
+            { key: 'issuer', label: 'Issuer', type: 'url' },
+            { key: 'secret', label: 'Secret', type: 'secret', sentTo: 'issuer' },
         ],
     };
     const descriptors = [...original.SETTING_DESCRIPTORS, providers];
@@ -113,6 +114,33 @@ describe('SettingsService with credentials inside list rows', () => {
 
         expect(table.has(FIELD)).toBe(false);
         expect(table.has(cell('r1'))).toBe(false);
+    });
+
+    it('refuses to keep a cell whose row now names another issuer, and writes nothing', async () => {
+        // A client secret is sent to the issuer's token endpoint, so repointing the issuer at a server
+        // of one's own would otherwise collect it.
+        const ciphertext = encryption.encrypt('hunter2');
+        const before = rows([{ [ROW_ID_KEY]: 'r1', name: 'authelia', issuer: 'https://auth.home.example' }]);
+        const { service, table } = build({ [FIELD]: before, [cell('r1')]: ciphertext });
+
+        await expect(
+            service.write({ [FIELD]: rows([{ [ROW_ID_KEY]: 'r1', name: 'authelia', issuer: 'https://auth.attacker.example' }]) }),
+        ).rejects.toMatchObject({ statusCode: 422 });
+
+        expect(table.get(FIELD)).toBe(before);
+        expect(table.get(cell('r1'))).toBe(ciphertext);
+    });
+
+    it('keeps the cell when the issuer only changes its path, as a realm does', async () => {
+        const ciphertext = encryption.encrypt('hunter2');
+        const { service, table } = build({
+            [FIELD]: rows([{ [ROW_ID_KEY]: 'r1', name: 'keycloak', issuer: 'https://auth.home.example/realms/a' }]),
+            [cell('r1')]: ciphertext,
+        });
+
+        await service.write({ [FIELD]: rows([{ [ROW_ID_KEY]: 'r1', name: 'keycloak', issuer: 'https://auth.home.example/realms/b' }]) });
+
+        expect(table.get(cell('r1'))).toBe(ciphertext);
     });
 
     it('refuses rows that are not JSON text, and deletes nothing', async () => {

@@ -81,4 +81,52 @@ describe('pluginManifestSchema', () => {
 
         expect(result.success).toBe(true);
     });
+
+    it('keeps the address a secret is sent to, for a field and for a column', () => {
+        const configFields: ConfigField[] = [
+            { key: 'baseUrl', label: 'Address', type: 'url' },
+            { key: 'apiKey', label: 'API key', type: 'secret', sentTo: 'baseUrl' },
+            {
+                key: 'providers',
+                label: 'Providers',
+                type: 'list',
+                columns: [
+                    { key: 'baseUrl', label: 'Address', type: 'url' },
+                    { key: 'apiKey', label: 'API key', type: 'secret', sentTo: 'baseUrl' },
+                ],
+            },
+        ];
+
+        const result = pluginManifestSchema.safeParse({ ...validManifest(), configFields });
+
+        // The loader stores the OUTPUT, so a declaration stripped here would be a protection that is
+        // silently not there by the time a save is checked.
+        expect(result.success).toBe(true);
+        expect(result.data?.configFields[1]?.sentTo).toBe('baseUrl');
+        expect(result.data?.configFields[2]?.columns?.[1]?.sentTo).toBe('baseUrl');
+    });
+
+    it('refuses a secret sent to an address the form does not have', () => {
+        const field = pluginManifestSchema.safeParse({
+            ...validManifest(),
+            configFields: [{ key: 'apiKey', label: 'API key', type: 'secret', sentTo: 'baseUrl' }],
+        });
+        const column = pluginManifestSchema.safeParse({
+            ...validManifest(),
+            configFields: [
+                {
+                    key: 'providers',
+                    label: 'Providers',
+                    type: 'list',
+                    columns: [
+                        { key: 'kind', label: 'Kind', type: 'select' },
+                        { key: 'apiKey', label: 'API key', type: 'secret', sentTo: 'kind' },
+                    ],
+                },
+            ],
+        });
+
+        expect(field.success).toBe(false);
+        expect(column.success).toBe(false);
+    });
 });

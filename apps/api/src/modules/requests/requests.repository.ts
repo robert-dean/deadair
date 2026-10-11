@@ -57,6 +57,35 @@ export interface NewRequest {
     dedication?: Dedication;
 }
 
+/** The two partial unique indexes that hold the one-at-a-time rules (migration 0087), by what each one holds. */
+const ONE_OPEN_INDEXES: Record<string, OpenRequestTaken['which']> = {
+    listener_requests_one_open_per_requester_idx: 'requester',
+    listener_requests_one_open_per_track_idx: 'track',
+};
+
+/**
+ * An open request lost a race the database decided: somebody's second request arrived while their
+ * first was still being written, or two people asked for one record at once. `which` says which
+ * rule it broke, so the desk can refuse it in the words the arbitration uses for the same thing.
+ */
+export class OpenRequestTaken extends Error {
+    constructor(readonly which: 'requester' | 'track') {
+        super(which === 'requester' ? 'this person already has a request open' : 'this record already has a request open');
+        this.name = 'OpenRequestTaken';
+    }
+}
+
+/**
+ * Which one-at-a-time index a failed insert broke, if it was one of them. Narrowed by Postgres's
+ * `unique_violation` code and the index's name, never the message, which is localised.
+ */
+function brokenRule(error: unknown): OpenRequestTaken['which'] | undefined {
+    if (typeof error !== 'object' || error === null) return undefined;
+    const { code, constraint } = error as { code?: unknown; constraint?: unknown };
+    if (code !== '23505' || typeof constraint !== 'string') return undefined;
+    return ONE_OPEN_INDEXES[constraint];
+}
+
 /** A record the request search found. */
 export interface RequestableRow {
     trackId: string;
@@ -140,7 +169,22 @@ function toRow(row: {
  */
 @Injectable()
 export class RequestsRepository extends DataRepository {
+    /**
+     * Write a request. An open one that breaks a one-at-a-time rule the database holds throws
+     * {@link OpenRequestTaken} rather than the driver's error: the arbitration read the open rows a
+     * moment earlier, and another request was written in between.
+     */
     async create(request: NewRequest): Promise<RequestRow> {
+        try {
+            return await this.insert(request);
+        } catch (error) {
+            const which = brokenRule(error);
+            if (which === undefined) throw error;
+            throw new OpenRequestTaken(which);
+        }
+    }
+
+    private async insert(request: NewRequest): Promise<RequestRow> {
         const row = await this.db
             .insertInto('deadair.listenerRequests')
             .values({

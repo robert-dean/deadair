@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { LlmService } from '#modules/llm/llm.service.js';
+import { SEARCH_WEB_TOOL } from '#modules/llm/websearch.tool.js';
 import { SearchService } from '#modules/search/search.service.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { LYRIC_MOODS_KEYS } from './lyrics.keys.js';
@@ -25,7 +26,7 @@ export const MOODS_FAILURE_RETRY_MS = 60 * 60 * 1000;
 export const MOODS_FAILURE_MAX_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** The one tool a mood judgement may call. Everything else the model can reach is about the station, not this record. */
-const SEARCH_TOOL = 'search_web';
+const SEARCH_TOOL = SEARCH_WEB_TOOL;
 
 export interface MoodsPassSummary {
     /** Records given a distribution. */

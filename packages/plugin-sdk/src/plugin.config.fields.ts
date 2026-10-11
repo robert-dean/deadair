@@ -229,8 +229,8 @@ export interface ConfigFieldColumn {
      * rule that hid a cell there would hide it on the one row that most needs filling in.
      *
      * A `secret` cell that does not apply keeps whatever is stored rather than being cleared.
-     * Absent already means "keep it" in `plugin.config.rows.ts`, and reading a visibility rule as
-     * an instruction to destroy a credential would be a surprise nobody asked for.
+     * Absent already means "keep it" in the host's `shared/config.rows.ts`, and reading a visibility
+     * rule as an instruction to destroy a credential would be a surprise nobody asked for.
      */
     dependsOn?: string;
 
@@ -241,6 +241,13 @@ export interface ConfigFieldColumn {
      * an author who knows that one knows this.
      */
     dependsOnValues?: string[];
+
+    /**
+     * Key of the `url` (or `string`) column in the same list that this `secret` cell is SENT to.
+     * Ignored on every other type. See {@link ConfigField.sentTo}, which is the same declaration for
+     * a field: a row whose address moves to another origin has to have its credential typed again.
+     */
+    sentTo?: string;
 }
 
 /**
@@ -500,6 +507,54 @@ export interface ConfigField {
      * for that.
      */
     rangeWith?: string;
+
+    /**
+     * Key of the `url` (or `string`) field in the same form that this `secret` is SENT to. Ignored
+     * on every other type.
+     *
+     * A secret is write-only and an omitted one is kept, which is what lets an operator save the
+     * rest of a form without retyping a key. Without this, the same rule lets anybody allowed to
+     * save the form point the address at a server of their own and have the station send it a
+     * credential the console never shows them. Declared, the host refuses a save that KEEPS this
+     * secret while moving the field it names to another origin (scheme, host and port), and asks
+     * for the secret again. A changed path on the same server is not a move, and a secret typed
+     * fresh or cleared in the same save is never refused.
+     *
+     * Declare it on every secret that goes to an address the operator types. Leave it off one that
+     * goes to a fixed vendor whatever the form says: there is no address to move.
+     *
+     * A field that is empty counts as wherever the field's `default` points, or as "no address" if
+     * there is none, so filling in an address that was empty is a move too.
+     */
+    sentTo?: string;
+}
+
+/**
+ * What is wrong with the `sentTo` declarations in one form, as sentences. Empty when nothing is.
+ *
+ * A `sentTo` naming nothing would be worse than none at all: the host would compare an address that
+ * is never there with itself, find nothing moved, and the protection the author meant to declare
+ * would be silently off. So the manifest schema refuses one, at load, and a station setting's
+ * registry test asks the same question of the station's own form.
+ */
+export function sentToProblems(fields: readonly ConfigField[]): string[] {
+    const isAddress = (type: string | undefined): boolean => type === 'url' || type === 'string';
+    const problems: string[] = [];
+
+    for (const field of fields) {
+        if (field.sentTo !== undefined && !isAddress(fields.find(candidate => candidate.key === field.sentTo)?.type)) {
+            problems.push(`"${field.key}" is sent to "${field.sentTo}", which is not a url or string field in this form`);
+        }
+
+        const columns = field.columns ?? [];
+        for (const column of columns) {
+            if (column.sentTo !== undefined && !isAddress(columns.find(candidate => candidate.key === column.sentTo)?.type)) {
+                problems.push(`"${field.key}.${column.key}" is sent to "${column.sentTo}", which is not a url or string column in this list`);
+            }
+        }
+    }
+
+    return problems;
 }
 
 export const configFieldOptionSchema = z.object({
@@ -569,6 +624,7 @@ export const configFieldColumnSchema = z.object({
     // rule exists to prevent; values without a target are documented as ignored instead.
     dependsOn: z.string().min(1).optional(),
     dependsOnValues: z.array(z.string().min(1)).optional(),
+    sentTo: z.string().min(1).optional(),
 });
 
 export const configFieldPresetSchema = z.object({
@@ -595,4 +651,7 @@ export const configFieldSchema = z.object({
     presets: z.array(configFieldPresetSchema).optional(),
     dependsOn: z.string().optional(),
     rangeWith: z.string().optional(),
+    // Named here for the reason `dependsOn` is named on a column: the loader keeps the zod OUTPUT,
+    // and a declaration stripped at load is a protection that is silently not there.
+    sentTo: z.string().min(1).optional(),
 });

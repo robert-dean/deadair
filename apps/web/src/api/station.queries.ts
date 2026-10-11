@@ -53,9 +53,9 @@ export const stationCheckupOptions = queryOptions({
     staleTime: CHECKUP_POLL_MS,
 });
 
-/** The loops the station runs, and how much of the library it has looked at. */
-export function useStationCheckup() {
-    return useQuery(stationCheckupOptions);
+/** The loops the station runs, and how much of the library it has looked at. Polled only while there is a session. */
+export function useStationCheckup(enabled = true) {
+    return useQuery({ ...stationCheckupOptions, enabled });
 }
 
 /**

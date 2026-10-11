@@ -74,12 +74,17 @@ const track = (outstanding: string[] = [LRCLIB]): PendingLyricsTrack => ({
 
 let repository: ReturnType<typeof fakeRepository>;
 
+let logger: Logger;
+let pluginLog: ReturnType<typeof stubPluginLog>;
+
 const build = (records: PluginRecord[], tracks: PendingLyricsTrack[] = [track()], rows: Record<string, string> = {}): LyricsService => {
     const registry = new PluginRegistry();
     registry.setAll(records);
     repository = fakeRepository(tracks);
-    const invoker = new PluginInvoker(registry, stubPluginLog().log);
-    return new LyricsService(registry, invoker, repository as never, settingsConfig(rows).config, stubLogger());
+    pluginLog = stubPluginLog();
+    logger = stubLogger();
+    const invoker = new PluginInvoker(registry, pluginLog.log);
+    return new LyricsService(registry, invoker, repository as never, settingsConfig(rows).config, logger);
 };
 
 beforeEach(() => {
@@ -168,6 +173,21 @@ describe('fetchPending', () => {
 
         expect(summary.missed).toBe(1);
         expect(repository.recordMiss).toHaveBeenCalledWith('track-1', LRCLIB, LYRICS_MISS_TTL_MS);
+    });
+
+    // A busy LRCLIB answering 503 used to put every failure in the log twice: once from the invoker
+    // and once from here.
+    it('leaves the warning about a failed call to the invoker, which already gave it', async () => {
+        const failing = vi.fn(async () => {
+            throw new PluginError('busy');
+        });
+        const service = build([record(LRCLIB, failing)]);
+
+        await service.fetchPending(10);
+
+        expect(pluginLog.scoped.warn).toHaveBeenCalledWith('plugin call failed', expect.anything());
+        expect(logger.warn).not.toHaveBeenCalled();
+        expect(logger.debug).toHaveBeenCalledWith('lyrics plugin failed', expect.objectContaining({ pluginId: LRCLIB }));
     });
 
     it('records a failure with a backoff, and carries on', async () => {

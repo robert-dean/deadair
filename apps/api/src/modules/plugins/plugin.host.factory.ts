@@ -8,7 +8,6 @@ import type {
     DiscoveredService,
     DiscoveryOptions,
     DiscoveryQuery,
-    ConfigFieldColumn,
     HostFetchInit,
     HostFetchMethod,
     PluginConfigAccess,
@@ -38,6 +37,7 @@ import { isPrivateAddress, NETWORK_OPEN, privateAddressBehind, resolveAddresses 
 import { PluginGrantsService } from './plugin.grants.service.js';
 import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginStorageRepository } from './plugin.storage.repository.js';
+import { columnAppliesToRow } from '#modules/shared/config.rows.js';
 import { causeText, errorText } from '#modules/shared/error.text.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 
@@ -389,32 +389,6 @@ const addressCells = (value: unknown, field: ConfigField): unknown[] => {
     const urls = columns.filter(column => column.type === 'url');
 
     return parseRows(value).flatMap(row => urls.filter(column => columnAppliesToRow(column, columns, row)).map(column => row[column.key]));
-};
-
-/**
- * Whether a column applies to one row, per its own `dependsOn`.
- *
- * The host's copy of the console's rule (`appliesToRow` in `config.fields.form.tsx`), and it has to
- * agree with it: a cell the form declines to send and one the allowlist declines to read are the
- * same claim made in two places, and a plugin whose address is refused by one and accepted by the
- * other looks broken rather than misconfigured.
- *
- * Forgiving in exactly the three places the console's is, and here that is the conservative
- * direction rather than the lenient one: an unresolvable condition leaves the address contributing
- * a host, which is what it did before any of this existed. Narrowing an allowlist is a thing to do
- * on a declaration that plainly says so, not on one nothing can make sense of.
- */
-const columnAppliesToRow = (column: ConfigFieldColumn, columns: readonly ConfigFieldColumn[], row: Record<string, unknown>): boolean => {
-    if (column.dependsOn === undefined) return true;
-
-    const target = columns.find(candidate => candidate.key === column.dependsOn);
-    if (target === undefined) return true;
-
-    const cell = row[target.key];
-    const value = typeof cell === 'string' ? cell.trim() : '';
-    if (value.length === 0) return true;
-
-    return column.dependsOnValues === undefined ? true : column.dependsOnValues.includes(value);
 };
 
 /**

@@ -51,7 +51,11 @@ Phrasings tab does (`SettingsGroupPage`). Their keys keep the `rotation.` prefix
 bottom of Rotation, so a stored row still answers. `{{next.title}}` resolves through an
 explicit map in `break.templates.ts` (which is why `{{next.album}}` is one row to add when enrichment
 lands), `[[double brackets]]` mark a part dropped when it cannot be filled, and a template with an
-unknown placeholder is never used and is logged once, quoted. Two rules are the writer's rather than
+unknown placeholder is never used and is logged once, quoted. A phrasing is filled in ONE pass over its
+own text, once its chunks are settled, so a value is never read as template: a record titled
+`Song {{station.name}}` airs as written rather than as the station's name, and one titled `Song {{station}}`
+no longer rules out every phrasing that names it inside a chunk. Only the map's own names count, so
+`{{toString}}` is an unknown placeholder like any typo rather than "[object Object]" on air. Two rules are the writer's rather than
 the operator's: a placeholder outside an optional chunk that cannot be filled means the phrasing does
 not apply, and a phrasing saying nothing about the record just finished is only offered where there
 is none.
@@ -460,6 +464,14 @@ and "tonight" are one answer at nine in the evening and "this morning" and "toni
 all. It declines to the floor rather than re-drafting, on the writer registry's own argument, and asks nothing
 of a break that was never told the time. A first cut grouped the day as light against dark, which got the
 evening pair right and quietly permitted "this morning" being called "this afternoon".
+
+**A greeting is a claim too, and the bulletins did not stamp it.** The welcome and the changeover always
+claimed the greeting they said. News and weather claimed only the clock, so a bulletin that opened "Good
+morning" was stamped with nothing that could go stale. On 2026-10-11 one was written at 11:20 for a slot
+before noon, re-projected to 12:05 as the order moved, and aired its "Good morning" in the afternoon. Both
+writers now pass the greeting to `timeClaimIn`/`timeClaimFor` beside the clock and the daypart. That
+includes the model bulletin, which is never OFFERED a greeting and opens with one anyway, so it is searched
+for like the other two. A bulletin slid across noon now goes `late` and `rewriteStale` writes it again.
 
 **A break can also say the time without a word for it, by saying what the sky is doing.** On
 2026-09-11 a `conspiracy` audition at 15:48 passed "Night falls, my listeners" and "Sunrise bleeds, my
@@ -924,6 +936,15 @@ never gives one a turn, the console does not offer one on a band, and `subjectOf
 nothing — a band written before the switch was turned on would otherwise claim its slot and decline
 it forever. A station whose topics table cannot be read withholds nothing, on `categories()`' rule:
 the news is read exactly as it was before any of this existed.
+
+**A publisher's show listings are the second thing a general feed mixes in**, and `programmes` is seeded
+off air beside `shopping` for it: on 2026-10-10 a bulletin read "the Wait Wait guest for October 10 is
+Margo Price" as news. Its words are a listing's sentences ("guest host", "this episode", "puzzlemaster")
+and never a show's name, because only the operator knows which shows their feeds carry. Like every seed,
+it reaches only a station that holds no news categories yet, so an existing station adds it by hand. The
+news prompt also asks for a listing to be left out, as a second line behind whatever the words miss. It
+cannot protect the deterministic floor, which reads every headline it is given, so the filter upstream is
+the fix and the sentence is the backstop.
 
 **The strongest signal is stated on the FEED**, as a row on the plugin that reads it, and a category holds
 only the two fields that are about the WORDS. It was a box on the category naming `pluginId:feedId` by hand:

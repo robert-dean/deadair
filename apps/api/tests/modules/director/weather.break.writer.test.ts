@@ -221,4 +221,13 @@ describe('writing', () => {
 
         expect((await writer.write(request()))?.claimsReadingUntil).toBeUndefined();
     });
+
+    it('stamps the greeting only when the phrasing kept it', async () => {
+        const greeting = { words: 'Good morning', validFrom: 1_000, validUntil: 5_000 };
+        const greets = build({ [WEATHER_BREAK_KEYS.templates]: '{{greeting}}. Time for the forecast. {{weather.report}}' });
+        const plain = build({ [WEATHER_BREAK_KEYS.templates]: 'And now the weather. {{weather.report}}' });
+
+        expect((await greets.writer.write(request({ greeting })))?.claimsTime).toEqual({ from: 1_000, until: 5_000 });
+        expect((await plain.writer.write(request({ greeting })))?.claimsTime).toBeUndefined();
+    });
 });

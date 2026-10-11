@@ -113,6 +113,8 @@ export const embyManifest: PluginManifest = {
             key: 'apiKey',
             label: 'API key',
             type: 'secret',
+            // Sent to that server, so moving the address means typing this again. See the SDK's `sentTo`.
+            sentTo: 'baseUrl',
             required: true,
             help: 'Made in the Emby server settings, under Advanced, then API Keys. It is sent with every request, and it is part of the address the station fetches each record from.',
         },

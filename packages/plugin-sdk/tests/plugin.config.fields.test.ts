@@ -9,6 +9,7 @@ import {
     parseRows,
     ROW_ID_KEY,
     rowSecretKey,
+    sentToProblems,
 } from '../src/plugin.config.fields.js';
 
 // Typed as a Record so a member of the union with no key here is a type error, which is what makes
@@ -256,6 +257,43 @@ describe('configFieldSchema', () => {
 
     it('still refuses a type nobody defined', () => {
         expect(configFieldSchema.safeParse({ key: 'k', label: 'l', type: 'freeform' }).success).toBe(false);
+    });
+});
+
+describe('sentToProblems', () => {
+    it('answers nothing for a form whose secrets name real addresses', () => {
+        expect(
+            sentToProblems([
+                { key: 'host', label: 'Server', type: 'string' },
+                { key: 'password', label: 'Password', type: 'secret', sentTo: 'host' },
+                {
+                    key: 'rows',
+                    label: 'Rows',
+                    type: 'list',
+                    columns: [
+                        { key: 'issuer', label: 'Issuer', type: 'url' },
+                        { key: 'secret', label: 'Secret', type: 'secret', sentTo: 'issuer' },
+                    ],
+                },
+            ]),
+        ).toEqual([]);
+    });
+
+    it('names a secret sent to a field that is missing or is not an address', () => {
+        // Missing is the dangerous one: the host would compare an empty address with itself forever
+        // and never find it moved.
+        expect(sentToProblems([{ key: 'password', label: 'Password', type: 'secret', sentTo: 'host' }])).toHaveLength(1);
+        expect(
+            sentToProblems([
+                { key: 'port', label: 'Port', type: 'number' },
+                { key: 'password', label: 'Password', type: 'secret', sentTo: 'port' },
+            ]),
+        ).toHaveLength(1);
+        expect(
+            sentToProblems([
+                { key: 'rows', label: 'Rows', type: 'list', columns: [{ key: 'secret', label: 'Secret', type: 'secret', sentTo: 'issuer' }] },
+            ]),
+        ).toHaveLength(1);
     });
 });
 

@@ -86,6 +86,36 @@ export class SimilarPicker {
     }
 
     /**
+     * Up to `want` records by these artists THEMSELVES, one each, in the order given.
+     *
+     * {@link pickFromNeighbours} without the step to the neighbours: for a caller that already knows
+     * which acts it wants, as `BriefArtistSetGenerator` does from the brief. The same rules after that
+     * step, so an artist the walk has given a record is skipped, the period is applied here, and each
+     * artist gives the freshest of their top tracks. Appended as found, for the same reason.
+     *
+     * @returns `into`, for a caller that had nothing to append to.
+     */
+    async pickFromArtists(artists: readonly string[], want: number, walk: NeighbourWalk, into: TrackPick[] = []): Promise<TrackPick[]> {
+        const target = into.length + want;
+        if (want <= 0) return into;
+
+        for (const artist of artists) {
+            if (into.length >= target) break;
+
+            if (isArtistHeld(walk.takenArtists, artistKey([artist]), creditKey(artist))) continue;
+            for (const key of spacingKeys(artist)) walk.takenArtists.add(key);
+
+            const tracks = await this.similarity.topTracks({ name: artist }, TRACKS_PER_ARTIST);
+            const chosen = freshestFirst(eligibleOf(tracks, walk), entry => walk.freshness(entry.song));
+            if (chosen === undefined) continue;
+
+            walk.takenSongs.add(chosen.song);
+            into.push({ title: chosen.track.title, artist: chosen.track.artist });
+        }
+        return into;
+    }
+
+    /**
      * One record that sounds like this RECORD, appended to `into`, or nothing.
      *
      * Asks the record-level question first where a plugin can answer it, because a neighbour chosen

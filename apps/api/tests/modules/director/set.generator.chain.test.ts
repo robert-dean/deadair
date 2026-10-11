@@ -57,6 +57,20 @@ const picks = (prefix: string, count: number): TrackPick[] =>
 const inputs = (count: number, overrides: Partial<SetInputs> = {}): SetInputs => ({ count, rules: DEFAULT_RULES, ...overrides });
 
 describe('SetGeneratorChain', () => {
+    // The brief's own acts sit ahead of the model and take only their share. What the model is then
+    // asked for is the rest, with those records among the ones it must not choose again.
+    it('asks the binding after a share-taking one for only what is still missing, avoiding what it named', async () => {
+        const brief = new Fake('brief-artists', picks('brief', 4));
+        const model = new Fake('model', picks('model', 6));
+
+        const chosen = await chain([brief, model]).generate(inputs(10, { brief: 'Thrash: Kreator, Sodom' }));
+
+        expect(chosen).toHaveLength(10);
+        expect(model.asked[0]!.count).toBe(6);
+        // The set the model was handed held the share's records; it is one set, filled as the chain goes.
+        expect(picks('brief', 4).every(pick => model.asked[0]!.avoidSongKeys?.has(songKey(pick.title, [pick.artist])))).toBe(true);
+    });
+
     it('takes the first generator’s answer when it fills the request', async () => {
         const first = new Fake('model', picks('model', 5));
         const floor = new Fake('catalog', picks('catalog', 5));

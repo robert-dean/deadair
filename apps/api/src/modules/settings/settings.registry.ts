@@ -78,6 +78,7 @@ import {
 import { DEFAULT_MAX_OUTPUT_TOKENS, MODEL_GENERATOR_DEFAULT, MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
 import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart.set.generator.js';
 import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/similar.set.generator.js';
+import { BRIEF_ARTIST_KEYS, DEFAULT_BRIEF_ARTIST_MIX } from '#modules/director/brief.artist.set.generator.js';
 import { SIMILARITY_ORDER_KEY } from '#modules/similarity/similarity.settings.js';
 import { BRIEF_ONLY_DEFAULT, BRIEF_ONLY_KEY } from '#modules/director/set.generator.chain.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
@@ -846,6 +847,20 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         step: 0.05,
         control: 'slider',
         help: 'A share between 0 and 1 of each hour taken from acts that resemble the ones just played, rather than drawn from your library. This is how a station stops sounding like it owns two hundred songs, so it is on by default — unlike the chart mix above, which is a format rather than a habit. 0 turns it off. Needs a similarity plugin installed, and needs "Play records the station does not own yet" on, because the point of it is acts your library does not hold.',
+    },
+    {
+        group: 'rotation',
+        key: BRIEF_ARTIST_KEYS.mix,
+        label: 'How much of each batch comes from the artists a brief names',
+        type: 'number',
+        default: DEFAULT_BRIEF_ARTIST_MIX,
+        // The similar mix's range, for its reason: one more copy of the same `readMix` behind it.
+        unit: 'fraction',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        control: 'slider',
+        help: "When a show's brief names artists, a share between 0 and 1 of each hour taken from them, starting with the ones played least recently. Without it, the station tends to play the first few artists a brief names and rarely reaches the rest. 0 turns it off and leaves the whole brief to the model. Needs a similarity plugin that can list an artist's top tracks.",
     },
     {
         group: 'rotation',

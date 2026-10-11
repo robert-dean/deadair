@@ -13,7 +13,7 @@ import {
     type RenderedTemplate,
     type TemplateInputs,
 } from './break.templates.js';
-import { saysTime } from './clock.words.js';
+import { timeClaimIn } from './clock.words.js';
 import { spoken } from './talk.break.writer.js';
 import { stationLanguage } from '#modules/stream/stream.settings.js';
 
@@ -170,6 +170,7 @@ export class WeatherBreakWriter extends BreakWriter {
 
         const chosen = choose(fits, (request.recent ?? []).slice(0, RECENT_WINDOW));
         this.lastTemplate = chosen.template;
+        const claimsTime = timeClaimIn(chosen.script, request.clock, request.greeting);
 
         return {
             script: chosen.script,
@@ -180,11 +181,12 @@ export class WeatherBreakWriter extends BreakWriter {
             // how a producer files something and `Weather in Brooklyn` is how a station says it.
             listenerLabel: request.subject === undefined ? 'Weather' : `Weather in ${request.subject.label}`,
             claimsNext: chosen.saysNext,
-            // Only when the phrasing really says what time it is, which is the answered-rather-than-
-            // assumed posture every deterministic writer here takes.
-            ...(request.clock !== undefined && saysTime(chosen.script, request.clock)
-                ? { claimsTime: { from: request.clock.validFrom, until: request.clock.validUntil } }
-                : {}),
+            // Only for what the phrasing really says, which is the answered-rather-than-assumed posture
+            // every deterministic writer here takes: the time, the greeting, or both, and then the
+            // window both hold true in. The greeting was left out of this for as long as the
+            // `{{greeting}}` chunk existed, so a bulletin that opened "Good morning" and slid past
+            // noon aired it in the afternoon.
+            ...(claimsTime === undefined ? {} : { claimsTime }),
             // UNCONDITIONAL, which is where this claim differs from the two above it. Those are
             // answered rather than assumed because a phrasing may have dropped the record or the
             // time; there is no phrasing here that dropped the reading, since every one of them

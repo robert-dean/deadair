@@ -12,7 +12,7 @@ import {
     type RenderedTemplate,
     type TemplateInputs,
 } from './break.templates.js';
-import { saysTime } from './clock.words.js';
+import { timeClaimIn } from './clock.words.js';
 import { spoken } from './talk.break.writer.js';
 import { stationLanguage } from '#modules/stream/stream.settings.js';
 
@@ -171,6 +171,7 @@ export class NewsBreakWriter extends BreakWriter {
 
         const chosen = choose(fits, (request.recent ?? []).slice(0, RECENT_WINDOW));
         this.lastTemplate = chosen.template;
+        const claimsTime = timeClaimIn(chosen.script, request.clock, request.greeting);
 
         return {
             script: chosen.script,
@@ -180,11 +181,12 @@ export class NewsBreakWriter extends BreakWriter {
             // Already a line a listener understands, so it is offered as one unchanged.
             listenerLabel: request.subject === undefined ? 'News' : `${request.subject.label} news`,
             claimsNext: chosen.saysNext,
-            // Only when the phrasing really says what time it is, which is the answered-rather-than-
-            // assumed posture every deterministic writer here takes.
-            ...(request.clock !== undefined && saysTime(chosen.script, request.clock)
-                ? { claimsTime: { from: request.clock.validFrom, until: request.clock.validUntil } }
-                : {}),
+            // Only for what the phrasing really says, which is the answered-rather-than-assumed posture
+            // every deterministic writer here takes: the time, the greeting, or both, and then the
+            // window both hold true in. The greeting was left out of this for as long as the
+            // `{{greeting}}` chunk existed, so a bulletin that opened "Good morning" and slid past
+            // noon aired it in the afternoon.
+            ...(claimsTime === undefined ? {} : { claimsTime }),
         };
     }
 

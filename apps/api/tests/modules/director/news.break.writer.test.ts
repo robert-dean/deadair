@@ -188,6 +188,19 @@ describe('the phrasings an operator owns', () => {
         expect((await new NewsBreakWriter(untimed, logger).write(request({ clock })))?.claimsTime).toBeUndefined();
     });
 
+    it('stamps the greeting it opened with, so a bulletin that slides past noon is written again', async () => {
+        const greeting = { words: 'Good morning', validFrom: 1_000, validUntil: 5_000 };
+        const clock = { words: 'just after nine', validFrom: 2_000, validUntil: 3_000 };
+        const greets = config({ [NEWS_KEYS.templates]: '{{greeting}}. Time for the headlines. {{news.headlines}}' });
+        const both = config({ [NEWS_KEYS.templates]: "{{greeting}}, it's {{clock.rough}}. {{news.headlines}}" });
+        const plain = config({ [NEWS_KEYS.templates]: 'Now the news. {{news.headlines}}' });
+
+        expect(await new NewsBreakWriter(greets, logger).write(request({ greeting }))).toMatchObject({ claimsTime: { from: 1_000, until: 5_000 } });
+        // Both said, so the window both hold true in.
+        expect(await new NewsBreakWriter(both, logger).write(request({ greeting, clock }))).toMatchObject({ claimsTime: { from: 2_000, until: 3_000 } });
+        expect((await new NewsBreakWriter(plain, logger).write(request({ greeting })))?.claimsTime).toBeUndefined();
+    });
+
     it('avoids the phrasing it used last time', async () => {
         const one = config({
             [NEWS_KEYS.templates]: ['Now the news. {{news.headlines}}', 'Time for the headlines. {{news.headlines}}'].join('\n'),

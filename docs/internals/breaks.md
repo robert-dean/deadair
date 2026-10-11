@@ -461,6 +461,14 @@ all. It declines to the floor rather than re-drafting, on the writer registry's 
 of a break that was never told the time. A first cut grouped the day as light against dark, which got the
 evening pair right and quietly permitted "this morning" being called "this afternoon".
 
+**A greeting is a claim too, and the bulletins did not stamp it.** The welcome and the changeover always
+claimed the greeting they said. News and weather claimed only the clock, so a bulletin that opened "Good
+morning" was stamped with nothing that could go stale. On 2026-10-11 one was written at 11:20 for a slot
+before noon, re-projected to 12:05 as the order moved, and aired its "Good morning" in the afternoon. Both
+writers now pass the greeting to `timeClaimIn`/`timeClaimFor` beside the clock and the daypart. That
+includes the model bulletin, which is never OFFERED a greeting and opens with one anyway, so it is searched
+for like the other two. A bulletin slid across noon now goes `late` and `rewriteStale` writes it again.
+
 **A break can also say the time without a word for it, by saying what the sky is doing.** On
 2026-09-11 a `conspiracy` audition at 15:48 passed "Night falls, my listeners" and "Sunrise bleeds, my
 listeners". The same run refused "tonight" twice and "midnight" once. `namesWrongSky` is the third

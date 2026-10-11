@@ -268,7 +268,11 @@ export class ModelNewsBreakWriter extends BreakWriter {
             this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, stories: request.stories?.length });
         }
 
-        const claimsTime = timeClaimFor(script, guard.language, request.clock, request.dayPart);
+        // The greeting is not offered to a bulletin, and a model opens with one anyway ("Good morning.
+        // Here is the news."), so it is searched for like the two that are. Unstamped, a bulletin
+        // written at twenty to twelve and re-projected past noon aired its "Good morning" in the
+        // afternoon, because nothing it claimed had gone stale.
+        const claimsTime = timeClaimFor(script, guard.language, request.clock, request.dayPart, request.greeting);
 
         return {
             script,

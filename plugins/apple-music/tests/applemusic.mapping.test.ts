@@ -5,7 +5,16 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { advisoryOf, artworkAt, matchesFilters, playlistFromApple, trackFromApple, trackFromItunes, yearOf } from '../src/applemusic.mapping.js';
+import {
+    advisoryOf,
+    applePlaylistIdFromUrl,
+    artworkAt,
+    matchesFilters,
+    playlistFromApple,
+    trackFromApple,
+    trackFromItunes,
+    yearOf,
+} from '../src/applemusic.mapping.js';
 
 describe('trackFromApple', () => {
     const song = {
@@ -158,5 +167,45 @@ describe('playlistFromApple', () => {
 
     it('refuses a row with no name', () => {
         expect(playlistFromApple({ id: 'pl.1', attributes: {} })).toBeUndefined();
+    });
+});
+
+describe('applePlaylistIdFromUrl', () => {
+    const id = 'pl.f4d106fed2bd41149aaacabb233eb5eb';
+
+    it.each([
+        ['the share button', `https://music.apple.com/us/playlist/todays-hits/${id}`],
+        ['a language query', `https://music.apple.com/gb/playlist/todays-hits/${id}?l=en-GB`],
+        ['no name segment', `https://music.apple.com/us/playlist/${id}`],
+        ['a trailing slash', `https://music.apple.com/us/playlist/todays-hits/${id}/`],
+        ['an embed', `https://embed.music.apple.com/us/playlist/todays-hits/${id}`],
+        ['an old iTunes link', `https://itunes.apple.com/us/playlist/todays-hits/id${id}`],
+        ['surrounding whitespace', `  https://music.apple.com/us/playlist/todays-hits/${id}\n`],
+    ])('reads %s', (_, url) => {
+        expect(applePlaylistIdFromUrl(url)).toBe(id);
+    });
+
+    it("reads a listener's shared playlist", () => {
+        expect(applePlaylistIdFromUrl('https://music.apple.com/us/playlist/road-trip/pl.u-AkAmPlyUxqZ6Wo')).toBe('pl.u-AkAmPlyUxqZ6Wo');
+    });
+
+    it('drops the storefront, because the plugin reads its own', () => {
+        // An id carrying `gb` would be one `listPlaylists` never answers, which the SDK forbids.
+        expect(applePlaylistIdFromUrl(`https://music.apple.com/gb/playlist/x/${id}`)).toBe(
+            applePlaylistIdFromUrl(`https://music.apple.com/us/playlist/x/${id}`),
+        );
+    });
+
+    it.each([
+        ['an album', 'https://music.apple.com/us/album/dummy/1440653171'],
+        ['a song inside an album', 'https://music.apple.com/us/album/dummy/1440653171?i=1440653203'],
+        ['an artist', 'https://music.apple.com/us/artist/portishead/50254'],
+        ["another service's playlist", 'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M'],
+        ['a lookalike host', `https://music.apple.com.example.org/us/playlist/x/${id}`],
+        ['something that is not a playlist id', 'https://music.apple.com/us/playlist/x/1440653171'],
+        ['text that is not a link', 'todays hits'],
+        ['the empty string', ''],
+    ])('leaves %s alone, because the first provider to claim a link wins it', (_, url) => {
+        expect(applePlaylistIdFromUrl(url)).toBeUndefined();
     });
 });

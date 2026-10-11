@@ -2,6 +2,7 @@
 // push upstream is applied here rather than ignored, and that the audio half asks the host instead of
 // pretending to mint a URL.
 
+import { PluginError } from '@deadair/plugin-sdk';
 import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -55,7 +56,21 @@ describe('AppleMusicPlugin, with no developer key', () => {
         // The true answer for this upstream. The host reads a short page as the end of a list, so an empty
         // one is the honest shape and an error would take the plugin off the station over a missing feature.
         expect(await plugin.listPlaylists()).toEqual([]);
-        expect(await plugin.getPlaylistTracks('anything')).toEqual([]);
+    });
+
+    it('claims a pasted playlist link, and then says a key is needed to read it', async () => {
+        // Claimed rather than left alone, so the operator is told what is missing instead of being told
+        // no source recognises a link that is plainly Apple's.
+        const id = plugin.playlistIdFromUrl('https://music.apple.com/us/playlist/todays-hits/pl.f4d106fed2bd41149aaacabb233eb5eb');
+        expect(id).toBe('pl.f4d106fed2bd41149aaacabb233eb5eb');
+
+        const refusal = await plugin.getPlaylistTracks(id!).catch((error: unknown) => error);
+
+        expect(refusal).toBeInstanceOf(PluginError);
+        // `unsupported` is about the request rather than the plugin, so it never counts towards setting a
+        // working plugin aside.
+        expect(refusal).toMatchObject({ code: 'unsupported', message: expect.stringContaining('needs a MusicKit key') });
+        expect(host.calls).toHaveLength(0);
     });
 
     it('looks one record up by its catalog id', async () => {
@@ -82,6 +97,22 @@ describe('AppleMusicPlugin, with no developer key', () => {
 });
 
 describe('AppleMusicPlugin, with a developer key', () => {
+    let host: FakePluginHost;
+
+    async function keyed(storefront: string): Promise<AppleMusicPlugin> {
+        const { generateKeyPairSync } = await import('node:crypto');
+        const { privateKey } = generateKeyPairSync('ec', {
+            namedCurve: 'prime256v1',
+            privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+            publicKeyEncoding: { type: 'spki', format: 'pem' },
+        });
+        host = createFakePluginHost();
+        host.seedConfig({ storefront, teamId: 'DEF123GHIJ', keyId: 'ABC123DEFG', privateKey });
+        const plugin = new AppleMusicPlugin();
+        await plugin.init(host);
+        return plugin;
+    }
+
     it('signs a bearer token and reads the documented API', async () => {
         const { privateKey } = await import('node:crypto').then(crypto =>
             crypto.generateKeyPairSync('ec', {
@@ -108,6 +139,25 @@ describe('AppleMusicPlugin, with a developer key', () => {
         expect(found[0]?.isrc).toBe('GBAAA9400050');
         expect(host.calls[0]?.url).toContain('api.music.apple.com/v1/catalog/us/search');
         expect(host.calls[0]?.headers?.authorization).toMatch(/^Bearer ey/);
+    });
+
+    it('reads a pasted playlist link in its own storefront, and calls a missing one not found', async () => {
+        const plugin = await keyed('us');
+        const id = plugin.playlistIdFromUrl('https://music.apple.com/gb/playlist/todays-hits/pl.f4d106fed2bd41149aaacabb233eb5eb')!;
+
+        host.queueResponse({ body: JSON.stringify({ data: [{ id: '1440653203', attributes: { name: 'Roads', artistName: 'Portishead' } }] }) });
+        const found = await plugin.getPlaylistTracks(id, { limit: 10 });
+
+        expect(found.map(track => track.title)).toEqual(['Roads']);
+        expect(host.calls[0]?.url).toContain('api.music.apple.com/v1/catalog/us/playlists/pl.f4d106fed2bd41149aaacabb233eb5eb/tracks');
+
+        // A playlist the station's storefront does not carry. `not_found` is about the playlist, so a
+        // wrong paste never counts towards setting the plugin aside the way a plain throw would.
+        host.queueResponse({ status: 404, body: '{}' });
+        const refusal = await plugin.getPlaylistTracks('pl.0000', { limit: 10 }).catch((error: unknown) => error);
+
+        expect(refusal).toBeInstanceOf(PluginError);
+        expect(refusal).toMatchObject({ code: 'not_found', upstreamStatus: 404 });
     });
 });
 

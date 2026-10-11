@@ -62,19 +62,23 @@ private struct Welcome: View {
     let start: () -> Void
     @State private var revealed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Compact on a phone on its side, where the full-size mark, the name and the button filled the
+    /// height with nothing between them.
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     var body: some View {
+        let short = verticalSizeClass == .compact
         VStack(spacing: 0) {
             Spacer()
             Image("StationMark")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 168, height: 168)
-                .clipShape(RoundedRectangle(cornerRadius: 38, style: .continuous))
+                .frame(width: short ? 112 : 168, height: short ? 112 : 168)
+                .clipShape(RoundedRectangle(cornerRadius: short ? 26 : 38, style: .continuous))
                 .accessibilityHidden(true)
             Text("deadair")
                 .font(.largeTitle.weight(.semibold))
-                .padding(.top, 28)
+                .padding(.top, short ? 12 : 28)
                 .opacity(revealed ? 1 : 0)
                 .offset(y: revealed ? 0 : 24)
                 .accessibilityAddTraits(.isHeader)

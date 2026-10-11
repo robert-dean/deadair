@@ -98,17 +98,23 @@
                 <Grid ColumnDefinitions="26,26,26,*" ColumnSpacing="2" IsVisible="{Binding CanRate}">
                     <Button Classes="icon small" Classes.active="{Binding IsDisliked}"
                             Command="{Binding RateCommand}" CommandParameter="Disliked"
-                            ToolTip.Tip="Dislike it: the station stops choosing it.">
+                            ToolTip.Tip="Dislike it: the station stops choosing it."
+                            AutomationProperties.Name="Dislike it"
+                            AutomationProperties.HelpText="The station stops choosing it.">
                         <PathIcon Width="14" Height="14" Data="{DynamicResource DaIconThumbDown}" />
                     </Button>
                     <Button Grid.Column="1" Classes="icon small" Classes.active="{Binding IsNeutral}"
                             Command="{Binding RateCommand}" CommandParameter="Neutral"
-                            ToolTip.Tip="No opinion: it plays as often as anything else.">
+                            ToolTip.Tip="No opinion: it plays as often as anything else."
+                            AutomationProperties.Name="No opinion"
+                            AutomationProperties.HelpText="It plays as often as anything else.">
                         <PathIcon Width="14" Height="14" Data="{DynamicResource DaIconMinus}" />
                     </Button>
                     <Button Grid.Column="2" Classes="icon small" Classes.active="{Binding IsLiked}"
                             Command="{Binding RateCommand}" CommandParameter="Liked"
-                            ToolTip.Tip="Like it: the station chooses it more often.">
+                            ToolTip.Tip="Like it: the station chooses it more often."
+                            AutomationProperties.Name="Like it"
+                            AutomationProperties.HelpText="The station chooses it more often.">
                         <PathIcon Width="14" Height="14" Data="{DynamicResource DaIconThumbUp}" />
                     </Button>
                     <TextBlock Grid.Column="3" Text="{Binding PlayingTitle}" FontSize="12" VerticalAlignment="Center"

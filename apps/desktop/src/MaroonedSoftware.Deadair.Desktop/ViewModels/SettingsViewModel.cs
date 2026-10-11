@@ -377,6 +377,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _checkForUpdates = true;
 
+    /// <summary>When Studio keeps the display awake while this app is playing. Saved at once, like the others.</summary>
+    [ObservableProperty]
+    private KeepAwake _keepAwake = KeepAwake.Never;
+
     /// <summary>This build, beside the card's heading, so a notice about a newer one has something to compare with.</summary>
     public static string Version { get; } = $"VERSION {AppVersion.Current}";
 
@@ -536,6 +540,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Appearance = settings.Current.Appearance;
         NextSkips = settings.Current.NextSkips;
         CheckForUpdates = settings.Current.CheckForUpdates;
+        KeepAwake = settings.Current.KeepAwake;
         MarkChosenFormat(settings.Current.Format);
         SettingsProblem = DescribeProblem(settings.Problem);
     }
@@ -593,6 +598,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnNextSkipsChanged(bool value) => _ = settings.UpdateAsync(current => current with { NextSkips = value });
 
     partial void OnCheckForUpdatesChanged(bool value) => _ = settings.UpdateAsync(current => current with { CheckForUpdates = value });
+
+    partial void OnKeepAwakeChanged(KeepAwake value) => _ = settings.UpdateAsync(current => current with { KeepAwake = value });
 
     /// <summary>Reads every setting the station declares and hands each group its own.</summary>
     [RelayCommand]

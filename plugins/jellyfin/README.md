@@ -64,10 +64,40 @@ name-only search never matches, so each query is read two ways at once:
 A search for a period is honoured through Jellyfin's `Years` filter, so a track
 whose file carries no year is left out of it.
 
-## What it does not do yet
+## It also enriches
 
-No enrichment. Jellyfin carries MusicBrainz ids, genres and years from the
-files' tags, and reading them is the next change.
+The same plugin is an enrichment source, because your files carry facts no
+external service has: a bootleg, a self-release, a local band. It passes on what
+Jellyfin read from them (genres, years, release dates, a label when Jellyfin
+read one) and what its online providers found (an artist's biography and
+picture).
+
+It sorts at priority **600**, beside the Navidrome plugin: MusicBrainz at 100
+wins when both have an opinion, and this fills the gaps. A track is looked for
+among its artist's tracks, then by title across the library; a match needs both
+the artist and the title to agree, and a near miss is no answer rather than a
+wrong one.
+
+### MusicBrainz ids
+
+Jellyfin names each id for what it is, and on a file tagged by MusicBrainz
+Picard the names were checked against MusicBrainz itself:
+
+| Jellyfin's key            | is a                | filed as                    | promoted by the station |
+| ------------------------- | ------------------- | --------------------------- | ----------------------- |
+| `MusicBrainzRecording`    | recording           | `musicbrainz`               | yes, onto the track     |
+| `MusicBrainzTrack`        | track on a release  | `musicbrainz-track`         | no                      |
+| `MusicBrainzArtist`       | artist              | `musicbrainz-artist`        | yes, onto the artist    |
+| `MusicBrainzReleaseGroup` | release group       | `musicbrainz-release-group` | yes, onto the album     |
+| `MusicBrainzAlbum`        | release             | `musicbrainz-release`       | no                      |
+
+When the station already knows an id, it decides: an equal id confirms a
+candidate, and a different one rules it out however well it is named. Jellyfin
+cannot be asked for an item by id (`AnyProviderIdEquals` is ignored, and the
+query answers the whole library), so candidates are found by name and their ids
+checked here.
+
+## What it does not do
 
 No `steer`. That capability is for a provider that owns its own audio output,
 which is the Spotify Connect shape; deadair owns the running order on purpose.

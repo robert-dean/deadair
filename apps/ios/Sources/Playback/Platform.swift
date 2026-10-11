@@ -121,6 +121,38 @@ enum Platform {
     }
 }
 
+extension Platform {
+    /// Hold the screen on, or let it sleep on the phone's own timer again. The idle timer is the
+    /// app's, so it applies only while the app is in front and goes with it when the app leaves.
+    @MainActor
+    static func keepScreenOn(_ on: Bool) {
+        UIApplication.shared.isIdleTimerDisabled = on
+    }
+
+    /// Report whether the phone is on power, now and on every change, until the calling task is
+    /// cancelled. Battery monitoring is on only for as long as this runs.
+    ///
+    /// Full counts as on power: a phone that has finished charging is still plugged in.
+    @MainActor
+    static func watchCharging(_ handle: @escaping @MainActor (Bool) -> Void) async {
+        let device = UIDevice.current
+        device.isBatteryMonitoringEnabled = true
+        handle(onPower(device.batteryState))
+        let token = NotificationCenter.default.addObserver(forName: UIDevice.batteryStateDidChangeNotification, object: device, queue: .main) { _ in
+            MainActor.assumeIsolated { handle(onPower(UIDevice.current.batteryState)) }
+        }
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .seconds(3600))
+        }
+        NotificationCenter.default.removeObserver(token)
+        device.isBatteryMonitoringEnabled = false
+    }
+
+    private static func onPower(_ state: UIDevice.BatteryState) -> Bool {
+        state == .charging || state == .full
+    }
+}
+
 typealias PlatformImage = UIImage
 
 extension Platform {

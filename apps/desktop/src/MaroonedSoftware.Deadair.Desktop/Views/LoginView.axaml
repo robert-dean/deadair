@@ -28,7 +28,8 @@
                      PlaceholderText="Password" IsEnabled="{Binding !Busy}">
                 <TextBox.InnerRightContent>
                     <ToggleButton x:Name="RevealToggle" Classes="icon small" Margin="0,0,4,0"
-                                  ToolTip.Tip="Show the password">
+                                  ToolTip.Tip="Show the password"
+                                  AutomationProperties.Name="Show the password">
                         <PathIcon Width="15" Height="15"
                                   Data="{Binding #RevealToggle.IsChecked, Converter={x:Static conv:RevealIconConverter.Instance}}" />
                     </ToggleButton>

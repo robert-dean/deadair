@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.settings
 
+import com.maroonedsoftware.deadair.nowplaying.KeepAwake
 import com.maroonedsoftware.deadair.station.StationUrl
 import com.maroonedsoftware.deadair.wallpaper.STATION_PALETTE
 import com.maroonedsoftware.deadair.wallpaper.ColorSource
@@ -38,4 +39,6 @@ data class ListenerSettings(
     val wallpaperColor: Int = STATION_PALETTE.accent,
     /** When the home-screen widget shows what is on. This phone by default, which asks the station nothing while nobody here is listening. */
     val widgetFollows: WidgetFollows = WidgetFollows.THIS_PHONE,
+    /** When Now playing keeps the screen on. Never by default; the rule is `nowplaying.keepAwake`. */
+    val keepAwake: KeepAwake = KeepAwake.NEVER,
 )

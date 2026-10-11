@@ -106,6 +106,11 @@ public sealed record DesktopSettings
     [JsonPropertyName("checkForUpdates")]
     public bool CheckForUpdates { get; init; } = true;
 
+    /// <summary>When Studio keeps the display awake while this app is playing.</summary>
+    /// <remarks>Never by default, and an absent key reads as Never. See <see cref="KeepAwakeRule"/>.</remarks>
+    [JsonPropertyName("keepAwake")]
+    public KeepAwake KeepAwake { get; init; } = KeepAwake.Never;
+
     /// <summary>Whether the Now playing panel is open beside the page.</summary>
     /// <remarks>
     /// On by default, and an absent key reads as on. The window hides the panel anyway when it is too

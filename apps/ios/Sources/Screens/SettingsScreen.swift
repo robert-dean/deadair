@@ -35,6 +35,22 @@ struct SettingsScreen: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                // Three answers rather than a switch, because "while charging" is the one most people
+                // want: the phone on the counter or in the car is on power, and one in a hand is not.
+                Picker(
+                    selection: Binding(get: { model.settings.settings.keepAwake }, set: { model.settings.setKeepAwake($0) })
+                ) {
+                    ForEach(KeepAwake.allCases, id: \.self) { option in
+                        Text(option.label).tag(option)
+                    }
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Keep the screen on")
+                        Text("While this phone is playing the station and Now playing is up.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 // Here rather than on Now playing, as on Android, and only while the station is
                 // playing: there is nothing to put to sleep otherwise.
                 if model.listening.wantsToPlay {
@@ -194,5 +210,16 @@ struct SleepMenu: View {
             }
         }
         .accessibilityLabel(Text("Sleep timer"))
+    }
+}
+
+extension KeepAwake {
+    /// The answer's name in the Listening section.
+    fileprivate var label: String {
+        switch self {
+        case .never: String(localized: "Never")
+        case .whileCharging: String(localized: "While charging")
+        case .always: String(localized: "Always")
+        }
     }
 }

@@ -2328,6 +2328,38 @@ export function misCuedIn(script: string, cues: BreakCues): boolean {
     });
 }
 
+/**
+ * The words a script used to credit a record to its own title, or `undefined`: "Black Sabbath by War
+ * Pigs" for War Pigs by Black Sabbath.
+ *
+ * Measured live on 2026-10-10, in a break that named both halves of the record correctly and joined
+ * them the wrong way round. `namesNothing` cannot see it, because the script DOES name the record, and
+ * `misCuedIn` cannot either, because the record is on the right side of the break. The prompt shows a
+ * record as two labelled lines rather than as a phrase, so the order "Title by Artist" is something the
+ * model has to put together for itself.
+ *
+ * Only the swapped phrase, and only whole: the artist's name, then "by", then a title the record goes
+ * by. "War Pigs by Black Sabbath" and "Black Sabbath, War Pigs" both pass. A record whose title and
+ * artist share a name, or where one contains the other ("Black Sabbath" by Black Sabbath), is skipped,
+ * because there is no wrong order to say it in.
+ */
+export function swappedCreditIn(script: string, records: readonly (BreakTrack | undefined)[]): string | undefined {
+    const spoken = ` ${bareWords(script)} `;
+
+    for (const record of records) {
+        if (record === undefined) continue;
+        const artist = bareWords(record.artist);
+        if (artist.length === 0) continue;
+
+        const titles = identifiersOf(record).filter(one => one !== artist);
+        if (titles.some(title => title.includes(artist) || artist.includes(title))) continue;
+
+        const swapped = titles.map(title => `${artist} by ${title}`).find(phrase => spoken.includes(` ${phrase} `));
+        if (swapped !== undefined) return swapped;
+    }
+    return undefined;
+}
+
 /** A text as bare lower-case words, so a title and a script can be compared as speech, not as text. */
 const bareWords = (text: string): string =>
     // A reaction comes out FIRST, or the brackets are stripped off it and `[laugh]` becomes the word
@@ -2579,6 +2611,11 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // See `misCuedIn` for how narrowly it refuses.
     if (cuesWrongly(words, guard)) return undefined;
 
+    // A break that named the record the wrong way round, "Black Sabbath by War Pigs". Straight after
+    // the cue check and in the same position `writeDecline` asks it: both are about naming a record the
+    // station really has, wrongly. See `swappedCreditIn`.
+    if (swappedCredit(words, guard) !== undefined) return undefined;
+
     // A break that called the afternoon "tonight". Beside the cue check because it is the same kind
     // of wrongness — a statement about the moment that a listener can check against their own window
     // — and above the character check for the reason that one sits below the others: being out of
@@ -2730,6 +2767,15 @@ const cuesWrongly = (script: string, guard: AnswerGuard): boolean =>
     // The frames `misCuedIn` reads are English phrases ("that was", "up next"), so outside English it
     // could only ever answer no. Standing down says that out loud.
     guard.language === undefined && guard.cues !== undefined && misCuedIn(script, guard.cues);
+
+/**
+ * The swapped credit a script used for one of the records it was shown. See {@link swappedCreditIn}.
+ *
+ * English only, for `cuesWrongly`'s reason: "by" is the English word, and outside English the check
+ * could only ever answer no.
+ */
+const swappedCredit = (script: string, guard: AnswerGuard): string | undefined =>
+    guard.language === undefined ? swappedCreditIn(script, guard.names ?? []) : undefined;
 
 /**
  * Whether a script named a half of the day that cannot be the one it was told.
@@ -3189,6 +3235,7 @@ const FAULT_REASONS: Record<WriteFault, string> = {
         'the model wrote past the word ceiling with nothing whole to keep short of it, and a script cut mid-sentence is worse than the phrasing underneath it',
     'named-nothing': 'the model wrote a break about neither of the records it was shown, so a listener could not tell what was playing',
     'cued-wrong': 'the model announced a record on the wrong side of the break, telling a listener something had played when it had not',
+    'swapped-credit': 'the model credited a record to its own title, naming the artist as the song and the song as the artist',
     'wrong-daypart': 'the model called it the wrong half of the day, which a listener hears immediately and the station cannot take back',
     // Not "dated a RECORD", though that is almost always what happened: of the 21 aired breaks this
     // refuses, one is the paranormal host dating his own life to a year his sheet does not carry.
@@ -3241,6 +3288,7 @@ export type WriteFault =
     | 'ran-long'
     | 'named-nothing'
     | 'cued-wrong'
+    | 'swapped-credit'
     | 'wrong-daypart'
     | 'invented-year'
     | 'invented-figure'
@@ -3314,6 +3362,9 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     // a break that named nothing has not got as far as cueing anything wrongly, and a break that
     // told the listener the wrong record played is not worth asking whether it did so in voice.
     if (cuesWrongly(speakable, guard)) return reasoned('cued-wrong');
+    // With the phrase it said, so the second ask can be told exactly which words to turn round.
+    const swapped = swappedCredit(speakable, guard);
+    if (swapped !== undefined) return reasoned('swapped-credit', swapped);
     const daypart = wrongDayPartIn(speakable, guard);
     if (daypart !== undefined) return reasoned('wrong-daypart', daypart);
     // Last of the factual checks and still ahead of the character ones, on the order's own argument:

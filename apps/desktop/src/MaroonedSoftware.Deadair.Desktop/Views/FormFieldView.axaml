@@ -53,7 +53,8 @@
                               MaxWidth="480" HorizontalAlignment="Left" MinWidth="320">
                             <Slider Minimum="{Binding Minimum}" Maximum="{Binding Maximum}"
                                     SmallChange="{Binding Step}" TickFrequency="{Binding Step}"
-                                    IsSnapToTickEnabled="True" Value="{Binding Value}" />
+                                    IsSnapToTickEnabled="True" Value="{Binding Value}"
+                                    AutomationProperties.Name="{Binding Label}" />
                             <TextBlock Grid.Column="1" Classes="mono" Text="{Binding Reading}"
                                        VerticalAlignment="Center" HorizontalAlignment="Right" />
                         </Grid>

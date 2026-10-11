@@ -50,7 +50,11 @@ function record(id: string, capability: string, options: RecordOptions = {}): Pl
  * table, because the registry's `status` says whether a plugin is RUNNING and those are different
  * questions for a plugin that is switched on and misconfigured.
  */
-function build(records: PluginRecord[], rows: Record<string, string> = {}, enabledIds: string[] = records.map(one => one.id)): PluginProvidersService {
+function build(
+    records: PluginRecord[],
+    rows: Record<string, string> = {},
+    enabledIds: string[] = records.map(one => one.id),
+): PluginProvidersService {
     const registry = new PluginRegistry();
     registry.setAll(records);
 
@@ -120,7 +124,10 @@ describe('a capability with one answer', () => {
     it('does not call it unanswered when a named plugin is simply not enabled yet', async () => {
         // Still a hole in the station, and still reported as one: the setting is an instruction
         // either way, so a plugin named and switched off leaves nothing speaking.
-        const state = await stateOf(build([record('acme.speech', 'speech', { status: 'disabled' })], { [SPEECH_PLUGIN_KEY]: 'acme.speech' }), 'speech');
+        const state = await stateOf(
+            build([record('acme.speech', 'speech', { status: 'disabled' })], { [SPEECH_PLUGIN_KEY]: 'acme.speech' }),
+            'speech',
+        );
 
         expect(state.unanswered).toBe(true);
         expect(state.stale).toEqual(['acme.speech']);

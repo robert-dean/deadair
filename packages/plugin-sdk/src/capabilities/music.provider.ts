@@ -162,6 +162,24 @@ export interface ProviderStream {
     expiresAt?: number;
     /** e.g. `audio/mpeg`. */
     mimeType?: string;
+    /**
+     * How long fetching this URL may reasonably take, in integer milliseconds.
+     *
+     * Absent means "as fast as a download", which is what every provider here was until now: the
+     * station allows 90 seconds and a 320kbps Ogg off the Spotify shim arrives in 664ms. Set it only
+     * when that assumption is wrong for a REASON the provider knows and the host cannot guess.
+     *
+     * The case it exists for is a source that plays in real time rather than transferring: audio
+     * that reaches the station by being performed into a capture, where a four-minute record takes
+     * four minutes and there is no faster path to it. Left unset, such a source is cut off mid-record
+     * by a timeout meant for a download, and the failure looks like an upstream that hung.
+     *
+     * It is a CEILING and not a promise. The host clamps it to a maximum of its own, and a fetch that
+     * finishes sooner costs nothing — so the number to send is how long this may honestly take at
+     * worst, not how long it usually takes. Sending a large number for a source that is merely slow
+     * buys nothing and delays the retry that would have fixed it.
+     */
+    fetchBudgetMs?: number;
 }
 
 export interface SearchTracksOptions {

@@ -27,6 +27,7 @@ import type {
     ProviderTrack,
 } from '@deadair/plugin-sdk';
 import { SpotifyShimClient, type FetchedPlaylistTrack } from '#modules/stream/spotify.shim.client.js';
+import { ApplePlayerClient } from '#modules/stream/apple.player.client.js';
 import { PluginConfigService } from './plugin.config.service.js';
 import { DISCOVERY_DEFAULT_TIMEOUT_MS, DISCOVERY_MAX_TIMEOUT_MS, SystemDiscoverer, type NetworkDiscoverer } from './plugin.discovery.js';
 import { invocationRemainingMs, invocationSignal } from './plugin.invocation.deadline.js';
@@ -842,6 +843,7 @@ export class PluginHostFactory {
         private readonly container: Container,
         private readonly pluginLog: PluginLog,
         private readonly spotifyShimClient: SpotifyShimClient,
+        private readonly applePlayerClient: ApplePlayerClient,
         private readonly grants: PluginGrantsService,
     ) {}
 
@@ -1005,6 +1007,15 @@ export class PluginHostFactory {
             serve: async request => {
                 guard();
                 return this.spotifyShimClient.serve(request.trackId, request.session);
+            },
+            // The player-shaped helper, for audio that has to be performed rather than transferred.
+            // A second method rather than a flag on `serve`, because the two take different things:
+            // a shim is lent a login per call and a player holds its own sign-in. Gated on the same
+            // `trackFetcher` permission, since it is the same disclosure — this plugin's audio comes
+            // from a helper the station runs rather than from a URL it mints.
+            servePlayer: async request => {
+                guard();
+                return this.applePlayerClient.serve(request.trackId);
             },
             playlistTracks: async request => {
                 guard();

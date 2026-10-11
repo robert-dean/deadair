@@ -81,6 +81,12 @@ internal static class Composition
             ? new MacScreenFacts()
             : new NoScreenFacts());
 
+        // Studio's hold on the display, and the power source the setting's While charging reads.
+        // Disposed with the container, which lets the display go on quit.
+        services.AddSingleton<IDisplayAwake>(_ => OperatingSystem.IsMacOS()
+            ? new MacDisplayAwake()
+            : new NoDisplayAwake());
+
         // A control cannot be handed anything by a container, so the loader is put where controls
         // can reach it. Here rather than in the control, because this file is the only one that
         // knows how the app is wired — including that there is exactly one HttpClient.

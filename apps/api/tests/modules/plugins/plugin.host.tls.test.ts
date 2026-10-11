@@ -19,7 +19,7 @@ import { PluginConfigService } from '../../../src/modules/plugins/plugin.config.
 import { NETWORK_OPEN, type AddressResolver } from '../../../src/modules/plugins/plugin.grants.js';
 import type { PluginGrantsService } from '../../../src/modules/plugins/plugin.grants.service.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
-import { stubShimClient } from '../../utils/spotify.shim.fixture.js';
+import { stubApplePlayerClient, stubShimClient } from '../../utils/spotify.shim.fixture.js';
 import { stubContainer } from '../../utils/stub.container.js';
 
 /**
@@ -99,6 +99,7 @@ function setup(options: { grantOpen?: boolean; devices?: string[]; platformTls?:
         stubContainer([[PluginConfigService, configService]]).container,
         pluginLog.log,
         stubShimClient(),
+        stubApplePlayerClient(),
         grants,
     );
     return { factory, opened, openTls, logger: pluginLog.scoped };

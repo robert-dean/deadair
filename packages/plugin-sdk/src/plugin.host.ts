@@ -235,6 +235,24 @@ export interface TrackFetchRequest {
 }
 
 /**
+ * One record, asked of a PLAYER the station runs rather than of a protocol shim.
+ *
+ * No session, and that is the difference from {@link TrackFetchRequest} rather than an omission. A
+ * shim is lent a login per call because it speaks the provider's protocol as the operator's account.
+ * A player holds its own sign-in — an operator authorized it once, in a browser, and it keeps that —
+ * so there is nothing for the plugin to lend it and nothing it would do with a token if it had one.
+ *
+ * What is on the other side today is `stream/apple-player`: Chrome with a Widevine CDM driving Apple's
+ * own web player, recording what it plays. A provider whose audio can only be PERFORMED — decoded
+ * inside a player that will not hand over a URL — is the shape this exists for, and it is a different
+ * shape from Spotify's encrypted CDN, which is why it is a second method and not a flag on the first.
+ */
+export interface PlayerFetchRequest {
+    /** Provider-scoped track id, exactly as the plugin's own catalog reports it. */
+    trackId: string;
+}
+
+/**
  * One page of a playlist, asked of the fetcher rather than of the provider's own API.
  *
  * No session, unlike {@link TrackFetchRequest}: the fetcher reads on the login IT holds. That is
@@ -281,6 +299,18 @@ export interface PluginTrackFetcher {
      * stream side up is a normal state, not a fault.
      */
     serve(request: TrackFetchRequest): Promise<ProviderStream | undefined>;
+    /**
+     * Get a URL for one record from a player the station runs.
+     *
+     * Resolves to `undefined` on exactly the terms {@link PluginTrackFetcher.serve} does: this station
+     * has no such player configured, which a plugin passes straight through as "cannot resolve this
+     * item". An operator who has not set the stream side up is a normal state, not a fault.
+     *
+     * The URL it answers with is signed by the HOST and carries its own authorization, so it satisfies
+     * `resolveStreamUrl`'s contract unchanged — and it will take as long to fetch as the record takes
+     * to play, which is why the stream it comes back in carries `fetchBudgetMs`. Pass that through.
+     */
+    servePlayer(request: PlayerFetchRequest): Promise<ProviderStream | undefined>;
     /**
      * Read a page of a playlist your own API will not hand over.
      *

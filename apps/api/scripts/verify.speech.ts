@@ -88,6 +88,8 @@ const factory = new PluginHostFactory(
         // Never reached: the shim client is how a spotify host fetches audio, and this script
         // only ever builds a speech host.
     } as never,
+    // Never reached either: the Apple player is how an apple-music host fetches audio.
+    {} as never,
     // The operator's escape hatch, off. The speech engine's address is an allowlist entry the
     // manifest resolves from config, so nothing here ever asks about a host it did not declare.
     { isUnrestricted: () => false } as never,

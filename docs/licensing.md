@@ -109,6 +109,21 @@ documentation, and then talks to the web app's API. The same three things follow
 
 It too ships disabled.
 
+**Apple Music** has a published catalogue API and no playback API a server may use. The plugin
+searches the catalogue; the audio comes from `stream/apple-player`, which plays each record in Apple's
+own web player, in Google Chrome, signed in to your subscription, and records what comes out of a sound
+device nobody listens to. Nothing is decrypted outside Apple's player and no protection is removed.
+Three things follow:
+
+- **Apple's terms are the question, not the software.** MusicKit's terms expect playback a listener
+  started, and do not expect a record talked over or synchronised with anything else, which is what a
+  radio station does to every record. That is between you and Apple, as it is for every provider here.
+- **The `-apple` image tags contain Google Chrome**, Google's own build, because only it carries the
+  Widevine module Apple's player needs. It is Google's software under Google's terms, not part of what
+  this repository's MIT licence covers. The other tags do not contain it.
+- **It plays in real time.** A four-minute record takes four minutes to arrive, so a fresh station
+  fills its cache slowly.
+
 ## What deadair itself does about all this
 
 Nothing, deliberately. It does not check licences, it does not know which country you are in, and it

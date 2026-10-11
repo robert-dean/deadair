@@ -87,9 +87,9 @@ export const jellyfinManifest: PluginManifest = {
     version: PLUGIN_VERSION,
     // Grows with the methods that make each one true, never ahead of them: the
     // host requires a capability to be declared AND implemented.
-    capabilities: ['catalog', 'stream'],
+    capabilities: ['catalog', 'stream', 'enrichment'],
     apiVersion: '^1.0.0',
-    description: "Search and browse a Jellyfin server's music library and air its tracks.",
+    description: "Search and browse a Jellyfin server's music library, air its tracks, and read what it knows about them.",
     homepage: 'https://jellyfin.org',
     permissions: {
         // The operator names the server, so there is no hostname to write down at

@@ -40,6 +40,9 @@ on:
             variants:
                 description: Anything that could build in one image variant and not another
                 value: ${{ jobs.changes.outputs.variants }}
+            apple:
+                description: Anything that could build in the Apple Music image variants and not the others
+                value: ${{ jobs.changes.outputs.apple }}
 
 permissions:
     contents: read
@@ -59,6 +62,7 @@ jobs:
             streamdeck: ${{ steps.detect.outputs.streamdeck }}
             image: ${{ steps.detect.outputs.image }}
             variants: ${{ steps.detect.outputs.variants }}
+            apple: ${{ steps.detect.outputs.apple }}
 
         steps:
             - name: Checkout

@@ -4,10 +4,12 @@ import Testing
 /// What an install remembers, read back from text.
 struct ListenerSettingsTests {
     @Test func readsBackWhatItWrote() {
-        let settings = ListenerSettings(station: station("http://192.168.1.20:8080"), stationName: "Static", format: .hls, playOnOpen: true)
+        let settings = ListenerSettings(
+            station: station("http://192.168.1.20:8080"), stationName: "Static", format: .hls, playOnOpen: true, keepAwake: .whileCharging)
 
         let read = ListenerSettings(
-            stationText: settings.stationText, nameText: settings.stationName, formatText: settings.formatText, playOnOpenText: settings.playOnOpenText)
+            stationText: settings.stationText, nameText: settings.stationName, formatText: settings.formatText, playOnOpenText: settings.playOnOpenText,
+            keepAwakeText: settings.keepAwakeText)
 
         #expect(read == settings)
     }
@@ -16,6 +18,15 @@ struct ListenerSettingsTests {
         #expect(!ListenerSettings(stationText: nil, nameText: nil, formatText: nil, playOnOpenText: "yes").playOnOpen)
         #expect(!ListenerSettings(stationText: nil, nameText: nil, formatText: nil, playOnOpenText: nil).playOnOpen)
         #expect(ListenerSettings(stationText: nil, nameText: nil, formatText: nil, playOnOpenText: "on").playOnOpen)
+    }
+
+    @Test func readsEveryKeepAwakeBackAndAnythingElseAsNever() {
+        for value in KeepAwake.allCases {
+            let text = ListenerSettings(keepAwake: value).keepAwakeText
+            #expect(ListenerSettings(stationText: nil, nameText: nil, formatText: nil, keepAwakeText: text).keepAwake == value)
+        }
+        #expect(ListenerSettings(stationText: nil, nameText: nil, formatText: nil, keepAwakeText: "sometimes").keepAwake == .never)
+        #expect(ListenerSettings(stationText: nil, nameText: nil, formatText: nil, keepAwakeText: nil).keepAwake == .never)
     }
 
     @Test func treatsAnAddressThatNoLongerParsesAsNoneSoTheAppGoesBackToSetup() {

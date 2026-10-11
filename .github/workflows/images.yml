@@ -17,10 +17,11 @@ on:
                 default: ''
             variants:
                 description: >-
-                    Which variants to build, as a JSON list of names. All three by default, which is
-                    what every push to main builds; a pull request that changed nothing that could
-                    build in one variant and break in another asks for `slim` alone (see `variants`
-                    in `.github/scripts/changes.sh`).
+                    Which variants to build, as a JSON list of names. The three the station follows
+                    by default; the Apple Music twins are asked for by name, by a caller of their own
+                    in release.yml, so the station's own tags never wait on them. A pull request that
+                    changed nothing that could build in one variant and break in another asks for
+                    `slim` alone (see `variants` in `.github/scripts/changes.sh`).
                 type: string
                 default: '["slim", "latest", "full"]'
 permissions:
@@ -152,12 +153,20 @@ jobs:
                   case "$VARIANT" in
                       # The station and nothing under it: the operator brings a database, a cache
                       # and a speech server of their own.
-                      slim) tts=0 db=0 prefix="slim-" ;;
+                      slim) tts=0 db=0 apple=0 prefix="slim-" twin="" ;;
                       # The default. A speech server is bundled because a station with no voice is
                       # not a station; the database and cache are still the operator's.
-                      latest) tts=1 db=0 prefix="" ;;
+                      latest) tts=1 db=0 apple=0 prefix="" twin="" ;;
                       # Everything, for a host with nothing on it.
-                      full) tts=1 db=1 prefix="full-" ;;
+                      full) tts=1 db=1 apple=0 prefix="full-" twin="" ;;
+                      # Each of the three again with the Apple Music player, which is Google Chrome
+                      # and most of a gigabyte, so a station without a subscription never pulls it.
+                      # `apple` is latest's twin, so it takes no `latest-` in front, as latest's own
+                      # commit tag takes no prefix. `twin` is the variant each one is a layer away
+                      # from, whose cache it also reads; see the build step.
+                      slim-apple) tts=0 db=0 apple=1 prefix="slim-apple-" twin="slim" ;;
+                      apple) tts=1 db=0 apple=1 prefix="apple-" twin="latest" ;;
+                      full-apple) tts=1 db=1 apple=1 prefix="full-apple-" twin="full" ;;
                       *)
                           echo "::error::No image variant is called '${VARIANT}'."
                           exit 1
@@ -171,10 +180,15 @@ jobs:
                       echo "args<<ARGS"
                       echo "WITH_TTS=${tts}"
                       echo "WITH_DB=${db}"
+                      echo "WITH_APPLE=${apple}"
                       echo "ARGS"
                       echo "tags<<TAGS"
                       echo "${IMAGE}:${prefix}${GITHUB_SHA}"
                       echo "TAGS"
+                      echo "cache<<CACHE"
+                      echo "type=registry,ref=${IMAGE}:buildcache-${VARIANT}"
+                      if [ -n "$twin" ]; then echo "type=registry,ref=${IMAGE}:buildcache-${twin}"; fi
+                      echo "CACHE"
                   } >> "$GITHUB_OUTPUT"
 
             - name: Build${{ inputs.push && ' and push' || '' }}
@@ -191,7 +205,7 @@ jobs:
                   # publishing or not, and nothing downstream needs the image on disk.
                   outputs: ${{ !inputs.push && 'type=cacheonly' || '' }}
                   platforms: linux/amd64
-                  # The variant's own two arguments, plus the commit, which every variant gets and
+                  # The variant's own three arguments, plus the commit, which every variant gets and
                   # so is not in the table. It is the same sha the tag above is built from — the
                   # point of putting it INSIDE the image is that a running station can be asked
                   # what it is without anybody having to know which tag it was pulled from.
@@ -205,7 +219,13 @@ jobs:
                   # three variants together, so they would spend every run evicting each other and
                   # rebuilding what they evicted. Per variant, because they diverge only in their
                   # last layers and one scope would have three jobs writing over each other.
-                  cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache-${{ matrix.variant }}
+                  #
+                  # An Apple twin READS its twin's scope as well as its own, and writes only its
+                  # own. Everything under the Chrome layer is the same layer in both (the Dockerfile
+                  # declares WITH_APPLE just above it for that reason), so a twin whose own scope is
+                  # cold or stale still takes the voice, the database and the base packages from the
+                  # variant that built them, instead of building and pushing a second copy.
+                  cache-from: ${{ steps.variant.outputs.cache }}
                   # Only a run that can log in can write it. A pull request reads the cache the
                   # last release left and publishes nothing, which is the whole shape of this
                   # workflow one level down.

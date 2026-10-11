@@ -32,12 +32,28 @@
         <Style Selector="StackPanel#Record">
             <Setter Property="Spacing" Value="24" />
         </Style>
+        <!-- The words are as tall as the cover they replace, and wider, so a line has room to be a
+             line. Their size follows the room with the cover's. -->
+        <Style Selector="controls|LyricColumn#Words">
+            <Setter Property="FontSize" Value="26" />
+            <Setter Property="LineSpacing" Value="14" />
+        </Style>
+        <Style Selector="TextBlock#PlainWords">
+            <Setter Property="FontSize" Value="20" />
+        </Style>
         <!-- The cover follows the room. Height is what runs out first on a screen, and a cover with no
              room under it pushes the title off the bottom. -->
         <ContainerQuery Name="Studio" Query="min-height:900">
             <Style Selector="Border#Cover">
                 <Setter Property="Width" Value="480" />
                 <Setter Property="Height" Value="480" />
+            </Style>
+            <Style Selector="controls|LyricColumn#Words">
+                <Setter Property="FontSize" Value="32" />
+                <Setter Property="LineSpacing" Value="18" />
+            </Style>
+            <Style Selector="TextBlock#PlainWords">
+                <Setter Property="FontSize" Value="24" />
             </Style>
         </ContainerQuery>
         <ContainerQuery Name="Studio" Query="min-height:1200">
@@ -54,6 +70,13 @@
             <Style Selector="StackPanel#Record">
                 <Setter Property="Spacing" Value="16" />
             </Style>
+            <Style Selector="controls|LyricColumn#Words">
+                <Setter Property="FontSize" Value="20" />
+                <Setter Property="LineSpacing" Value="8" />
+            </Style>
+            <Style Selector="TextBlock#PlainWords">
+                <Setter Property="FontSize" Value="16" />
+            </Style>
         </ContainerQuery>
 
         <Style Selector=":is(Control).fades">
@@ -68,6 +91,38 @@
         <Style Selector="UserControl.idle :is(Control).fades">
             <Setter Property="Opacity" Value="0" />
             <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+
+        <!-- The cover and the words trade places with a short cross-fade. Opacity rather than
+             IsVisible, so the one leaving is still drawn while it goes; it stops taking clicks at
+             once. -->
+        <Style Selector=":is(Control).swaps">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.3" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector=":is(Control).swaps.away">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+
+        <Style Selector="Button.studio.words">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="40" />
+            <Setter Property="CornerRadius" Value="20" />
+            <Setter Property="Padding" Value="10" />
+        </Style>
+        <Style Selector="Button.studio.words /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="CornerRadius" Value="20" />
+        </Style>
+        <Style Selector="Button.studio.words.on">
+            <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
+        </Style>
+        <!-- Lit while the words are up, so the button says which way it will turn. -->
+        <Style Selector="Button.studio.words.on /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#33FFFFFF" />
         </Style>
 
         <Style Selector="Button.play.studio">
@@ -115,16 +170,34 @@
         <StackPanel x:Name="Record" HorizontalAlignment="Center" VerticalAlignment="Center"
                     Margin="32" MaxWidth="720">
 
-            <!-- Square and never rounded, as every cover in this app is. -->
-            <Border x:Name="Cover" Classes="art" HorizontalAlignment="Center"
-                    BoxShadow="0 24 64 0 #99000000">
-                <Panel>
-                    <TextBlock Text="{Binding Listener.Initial}" FontSize="120" FontWeight="Bold"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Foreground="{DynamicResource DaTextDimmedBrush}" />
-                    <Image Source="{Binding Listener.Artwork}" Stretch="UniformToFill" />
+            <!-- The cover, or the words in its place: the lyrics button below swaps them. The words
+                 are the cover's height so nothing under them moves. -->
+            <Panel HorizontalAlignment="Center">
+                <!-- Square and never rounded, as every cover in this app is. -->
+                <Border x:Name="Cover" Classes="art swaps" HorizontalAlignment="Center"
+                        Classes.away="{Binding Listener.Lyrics.StudioShowsWords}"
+                        BoxShadow="0 24 64 0 #99000000">
+                    <Panel>
+                        <TextBlock Text="{Binding Listener.Initial}" FontSize="120" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <Image Source="{Binding Listener.Artwork}" Stretch="UniformToFill" />
+                    </Panel>
+                </Border>
+
+                <Panel Classes="swaps" Width="640" Height="{Binding #Cover.Bounds.Height}"
+                       Classes.away="{Binding Listener.Lyrics.StudioShowsCover}">
+                    <controls:LyricColumn x:Name="Words" LineAlignment="Center"
+                                          Lines="{Binding Listener.Lyrics.Lines}"
+                                          Current="{Binding Listener.Lyrics.Current}"
+                                          IsVisible="{Binding Listener.Lyrics.IsSynced}" />
+                    <ScrollViewer VerticalScrollBarVisibility="Hidden" IsVisible="{Binding Listener.Lyrics.IsPlain}">
+                        <TextBlock x:Name="PlainWords" Text="{Binding Listener.Lyrics.PlainText}"
+                                   TextAlignment="Center" TextWrapping="Wrap" LineSpacing="6"
+                                   Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                    </ScrollViewer>
                 </Panel>
-            </Border>
+            </Panel>
 
             <StackPanel Spacing="6" HorizontalAlignment="Center">
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
@@ -194,13 +267,26 @@
                 </Grid>
             </Panel>
 
-            <Button Classes="play studio fades" HorizontalAlignment="Center"
-                    Command="{Binding Listener.ToggleCommand}"
-                    ToolTip.Tip="{Binding Listener.PlayLabel, StringFormat='{}{0} (Space)'}"
-                    AutomationProperties.Name="{Binding Listener.PlayLabel}">
-                <PathIcon Width="20" Height="20"
-                          Data="{Binding Listener.Playing, Converter={x:Static conv:PlayIconConverter.Instance}}" />
-            </Button>
+            <!-- Play in the middle and the lyrics button beside it, in a column of its own so play
+                 stays centred whether or not there are words to offer. No key: Studio keeps Space,
+                 F and Escape and nothing else. -->
+            <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="16">
+                <Button Grid.Column="1" Classes="play studio fades"
+                        Command="{Binding Listener.ToggleCommand}"
+                        ToolTip.Tip="{Binding Listener.PlayLabel, StringFormat='{}{0} (Space)'}"
+                        AutomationProperties.Name="{Binding Listener.PlayLabel}">
+                    <PathIcon Width="20" Height="20"
+                              Data="{Binding Listener.Playing, Converter={x:Static conv:PlayIconConverter.Instance}}" />
+                </Button>
+                <Button Grid.Column="2" Classes="icon ghost studio words fades" VerticalAlignment="Center"
+                        Classes.on="{Binding Listener.Lyrics.StudioShowsWords}"
+                        IsVisible="{Binding Listener.Lyrics.HasLyrics}"
+                        Command="{Binding Listener.Lyrics.ToggleStudioCommand}"
+                        ToolTip.Tip="{Binding Listener.Lyrics.StudioHint}"
+                        AutomationProperties.Name="{Binding Listener.Lyrics.StudioHint}">
+                    <PathIcon Data="{DynamicResource DaIconLyrics}" />
+                </Button>
+            </Grid>
         </StackPanel>
     </Panel>
     </ThemeVariantScope>

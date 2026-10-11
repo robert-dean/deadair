@@ -70,7 +70,7 @@ import type {
     MessagingSender,
     OutboundMessage,
 } from './capabilities/messaging.js';
-import type { LyricLine, TrackLyrics } from './capabilities/lyrics.js';
+import type { LyricLine, LyricWord, TrackLyrics } from './capabilities/lyrics.js';
 import type { OutputDevice, OutputMetadata, OutputMetadataRequest, OutputPlayRequest, OutputStatus } from './capabilities/output.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
 import type { SearchQuery, SearchResult } from './capabilities/search.js';
@@ -284,6 +284,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     OutputMetadataRequest: IsJsonSafe<OutputMetadataRequest>;
     OutputStatus: IsJsonSafe<OutputStatus>;
     LyricLine: IsJsonSafe<LyricLine>;
+    LyricWord: IsJsonSafe<LyricWord>;
     TrackLyrics: IsJsonSafe<TrackLyrics>;
     SpeechLimits: IsJsonSafe<SpeechLimits>;
 }>;
@@ -395,6 +396,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'OutputMetadataRequest',
     'OutputStatus',
     'LyricLine',
+    'LyricWord',
     'TrackLyrics',
     'SpeechLimits',
 ] as const;

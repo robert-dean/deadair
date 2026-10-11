@@ -170,20 +170,24 @@ data class VocalMarkersDetail(
 @Serializable
 class VocalMarkersDetailInput
 
-/** One timed line of a record's lyrics. Times are milliseconds from the start of the file. */
+/**
+ * One timed piece of a lyric line: a word, or a syllable, and when it starts being sung. Milliseconds
+ * from the start of the file, as the line's own start is.
+ */
 @Serializable
-data class LyricLineDetail(
-    /** Where the line starts */
+data class LyricWordDetail(
+    /** Where this piece starts being sung */
     val atMs: Long,
-    /** Where the line ends, when the source published one. Absent rather than guessed */
-    val endMs: Long? = null,
-    /** The words of the line. Empty for a gap the source marked between lines */
+    /** The piece, with any space after it, so a line's pieces joined are its text exactly */
     val text: String,
 )
 
-/** One timed line of a record's lyrics. Times are milliseconds from the start of the file. */
+/**
+ * One timed piece of a lyric line: a word, or a syllable, and when it starts being sung. Milliseconds
+ * from the start of the file, as the line's own start is.
+ */
 @Serializable
-class LyricLineDetailInput
+class LyricWordDetailInput
 
 /** An operator's correction: either the record is instrumental, or the singing starts at `onsetMs`. */
 @Serializable
@@ -476,52 +480,22 @@ data class TrackInput(
     val rating: Rating? = Rating.NEUTRAL,
 )
 
-/**
- * The station's answer for one record's lyrics: the words from the source it believes, or that nobody
- * sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
- * player following along adds the record's cue-in to how long it has been on air.
- */
+/** One timed line of a record's lyrics. Times are milliseconds from the start of the file. */
 @Serializable
-data class TrackLyrics(
-    val trackId: Uuid,
-    /** The words are here; a source says nobody sings on it; or no source has an answer yet */
-    val kind: TrackLyricsKind,
-    /** The plugin whose answer this is, when kind is words or instrumental */
-    val provider: String? = null,
-    /** The words without timings, when that source has them */
-    val plain: String? = null,
-    /** The timed lines, when that source has them. Preferred over plain when choosing a source */
-    val synced: List<LyricLineDetail>? = null,
-    /** A BCP 47 tag, when the source stated one */
-    val language: String? = null,
+data class LyricLineDetail(
+    /** Where the line starts */
+    val atMs: Long,
+    /** Where the line ends, when the source published one. Absent rather than guessed */
+    val endMs: Long? = null,
+    /** The words of the line. Empty for a gap the source marked between lines */
+    val text: String,
+    /** The line cut where its source timed each word, in order, when the source times words. Joined, the pieces are text */
+    val words: List<LyricWordDetail>? = null,
 )
 
-/**
- * The station's answer for one record's lyrics: the words from the source it believes, or that nobody
- * sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
- * player following along adds the record's cue-in to how long it has been on air.
- */
+/** One timed line of a record's lyrics. Times are milliseconds from the start of the file. */
 @Serializable
-class TrackLyricsInput
-
-/** One lyrics source's answer for one record. A source that was asked and had nothing is not listed. */
-@Serializable
-data class TrackLyricsSource(
-    /** The plugin that answered */
-    val provider: String,
-    /** The source's own id for what it matched */
-    val providerRef: String? = null,
-    val plain: String? = null,
-    val synced: List<LyricLineDetail>? = null,
-    val language: String? = null,
-    /** The source says nobody sings on this record, so it holds no words */
-    val instrumental: Boolean,
-    val fetchedAt: Instant,
-)
-
-/** One lyrics source's answer for one record. A source that was asked and had nothing is not listed. */
-@Serializable
-class TrackLyricsSourceInput
+class LyricLineDetailInput
 
 /**
  * Pagination plus a name filter. Every list operation here takes it, so the console's search box
@@ -755,16 +729,52 @@ data class TrackRowInput(
     val rating: Rating? = Rating.NEUTRAL,
 )
 
-/** Every lyrics source's answer for one record, in the order the station believes them. */
+/**
+ * The station's answer for one record's lyrics: the words from the source it believes, or that nobody
+ * sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
+ * player following along adds the record's cue-in to how long it has been on air.
+ */
 @Serializable
-data class TrackLyricsSources(
+data class TrackLyrics(
     val trackId: Uuid,
-    val sources: List<TrackLyricsSource>,
+    /** The words are here; a source says nobody sings on it; or no source has an answer yet */
+    val kind: TrackLyricsKind,
+    /** The plugin whose answer this is, when kind is words or instrumental */
+    val provider: String? = null,
+    /** The words without timings, when that source has them */
+    val plain: String? = null,
+    /** The timed lines, when that source has them. Preferred over plain when choosing a source */
+    val synced: List<LyricLineDetail>? = null,
+    /** A BCP 47 tag, when the source stated one */
+    val language: String? = null,
 )
 
-/** Every lyrics source's answer for one record, in the order the station believes them. */
+/**
+ * The station's answer for one record's lyrics: the words from the source it believes, or that nobody
+ * sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
+ * player following along adds the record's cue-in to how long it has been on air.
+ */
 @Serializable
-class TrackLyricsSourcesInput
+class TrackLyricsInput
+
+/** One lyrics source's answer for one record. A source that was asked and had nothing is not listed. */
+@Serializable
+data class TrackLyricsSource(
+    /** The plugin that answered */
+    val provider: String,
+    /** The source's own id for what it matched */
+    val providerRef: String? = null,
+    val plain: String? = null,
+    val synced: List<LyricLineDetail>? = null,
+    val language: String? = null,
+    /** The source says nobody sings on this record, so it holds no words */
+    val instrumental: Boolean,
+    val fetchedAt: Instant,
+)
+
+/** One lyrics source's answer for one record. A source that was asked and had nothing is not listed. */
+@Serializable
+class TrackLyricsSourceInput
 
 /**
  * A track list, narrowed by what the station has of each record as well as by name.
@@ -887,6 +897,17 @@ data class TrackPageInput(
     val data: List<TrackRowInput>,
     val states: TrackStateCountsInput,
 )
+
+/** Every lyrics source's answer for one record, in the order the station believes them. */
+@Serializable
+data class TrackLyricsSources(
+    val trackId: Uuid,
+    val sources: List<TrackLyricsSource>,
+)
+
+/** Every lyrics source's answer for one record, in the order the station believes them. */
+@Serializable
+class TrackLyricsSourcesInput
 
 /**
  * Every provider's answer, plus the same merge the promotion step used, so the console and the

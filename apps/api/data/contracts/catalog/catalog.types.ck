@@ -145,11 +145,19 @@ contract VocalMarkersDetail: {
     source: readonly enum(override, lyrics, none) # An operator's correction, the record's timed lyrics, or neither
 }
 
+# One timed piece of a lyric line: a word, or a syllable, and when it starts being sung. Milliseconds
+# from the start of the file, as the line's own start is.
+contract LyricWordDetail: {
+    atMs: readonly int(min=0) # Where this piece starts being sung
+    text: readonly string # The piece, with any space after it, so a line's pieces joined are its text exactly
+}
+
 # One timed line of a record's lyrics. Times are milliseconds from the start of the file.
 contract LyricLineDetail: {
     atMs: readonly int(min=0) # Where the line starts
     endMs?: readonly int(min=0) # Where the line ends, when the source published one. Absent rather than guessed
     text: readonly string # The words of the line. Empty for a gap the source marked between lines
+    words?: readonly array(LyricWordDetail) # The line cut where its source timed each word, in order, when the source times words. Joined, the pieces are text
 }
 
 # The station's answer for one record's lyrics: the words from the source it believes, or that nobody

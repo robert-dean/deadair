@@ -5,6 +5,7 @@ import type { BreakWriteRequest, BreakWriter, WriteDetail, WrittenBreak } from '
 import { worthRetrying, type BreakRetry } from './break.retry.js';
 import { saidIn, type WriteFault } from './break.prompt.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { usageSpentBefore } from '#modules/llm/llm.service.js';
 
 /**
  * Which writers write which kind of break, in the order they are asked.
@@ -212,6 +213,7 @@ export class BreakWriterRegistry {
         let written: WrittenBreak | undefined;
         let failure: string | undefined;
         let code: string | undefined;
+        let spent: Record<string, number> | undefined;
         try {
             written = await writer.write(request);
         } catch (error) {
@@ -223,6 +225,13 @@ export class BreakWriterRegistry {
             // Kept beside the sentence rather than instead of it: what an operator reads is the
             // prose, and what a caller can act on is this. See `WriteAttempt.code`.
             code = isPluginError(error) ? error.code : undefined;
+            // What the model had already been paid for before this went wrong. A writer records its
+            // usage only once `converse` returns, so one that threw has none of its own to give, and
+            // the row would read a refill that searched three times and then failed as free. Read
+            // here, once, rather than in every model writer, because this is where every writer's
+            // failure lands. A floor rather than the bill: see `usageSpentBefore`.
+            const usage = usageSpentBefore(error);
+            if (usage !== undefined) spent = usage as Record<string, number>;
         }
 
         // Asked on every branch, because a model that produced a script and a model that spent forty
@@ -235,6 +244,8 @@ export class BreakWriterRegistry {
         } catch {
             detail = undefined;
         }
+        // The writer's own figure wins where it has one; this only fills the gap a throw leaves.
+        if (spent !== undefined && detail?.usage === undefined) detail = { ...detail, usage: spent };
         const kept = detail === undefined ? {} : { detail };
 
         if (failure !== undefined)

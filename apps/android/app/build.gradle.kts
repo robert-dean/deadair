@@ -59,7 +59,7 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = gitCommitCount.get()
-        versionName = "0.15.6"
+        versionName = "0.16.0"
     }
 
     buildFeatures {
@@ -155,6 +155,8 @@ dependencies {
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
     implementation(libs.androidx.work.runtime)
+    // The system output switcher and the selected route's name, for Now playing's output button.
+    implementation(libs.androidx.mediarouter)
     implementation(libs.bundles.media3)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)

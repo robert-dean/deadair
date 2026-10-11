@@ -11,6 +11,10 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 
 import { ProduceProductionJob } from '../../../src/modules/productions/produce.production.job.js';
 import type { Production } from '../../../src/modules/productions/production.js';
+import { LlmGate } from '../../../src/modules/llm/llm.gate.js';
+import { LlmService } from '../../../src/modules/llm/llm.service.js';
+import { ToolRegistry } from '../../../src/modules/llm/llm.tools.js';
+import { SCRIPT_HISTORY_KEYS } from '../../../src/modules/render/script.history.settings.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 
@@ -356,5 +360,128 @@ describe('weather in a phone-in', () => {
         );
 
         expect(told.some(prompt => prompt.includes('no weather to report'))).toBe(false);
+    });
+});
+
+// A beat whose conversation THROWS used to leave no `script_history` row at all, so whatever the
+// model was paid for before it failed vanished, and `/scripts` showed a programme that failed with
+// no attempt behind it. The throw still fails the production exactly as before; what changed is the
+// row it leaves behind.
+describe('ProduceProductionJob drafting a beat whose model fails', () => {
+    const PLAN = { beats: [{ ordinal: 0, speaker: 0, words: 12 }] } as never;
+    const CAST = [{ role: 'host', name: 'Max', personaKey: 'max' }] as never;
+
+    async function draftWith(converse: () => Promise<unknown>, values: Record<string, string> = {}) {
+        const productions = {
+            claim: vi.fn(async () => production({ state: 'drafting', writingMode: 'quick', plan: PLAN, casting: CAST })),
+            isCancelled: vi.fn(async () => false),
+        } as never;
+        const recordAll = vi.fn(async (_rows: unknown[]) => {});
+        const personas = { presenting: vi.fn(async () => undefined), find: vi.fn(async () => undefined) } as never;
+        const pads = { onSet: vi.fn(async () => []), named: vi.fn(async () => undefined), markUsed: vi.fn(async () => {}) } as never;
+        const notes = { forPrompt: vi.fn(async () => []), markUsed: vi.fn(async () => {}) } as never;
+        const stories = { forPrompt: vi.fn(async () => undefined) } as never;
+        const speech = { cues: vi.fn(async () => []) } as never;
+        const config = { get: (key: string, fallback: unknown) => (key in values ? values[key] : fallback) } as unknown as AppConfig;
+
+        const job = new ProduceProductionJob(
+            productions,
+            {} as never,
+            { recordAll } as never,
+            personas,
+            pads,
+            notes,
+            stories,
+            { record: vi.fn(async () => {}) } as never,
+            {} as never,
+            speech,
+            { converse } as never,
+            {} as never,
+            config,
+            { record: vi.fn(async () => {}) } as never,
+            { id: 'job-1' } as never,
+            {} as never,
+            logger as never,
+        );
+
+        const draft = (job as unknown as { draft: (input: Production) => Promise<boolean> }).draft.bind(job);
+        const thrown = await draft(production({ state: 'drafting' })).catch((error: unknown) => error);
+
+        return { thrown, rows: recordAll.mock.calls.flatMap(([rows]) => rows) as Record<string, unknown>[] };
+    }
+
+    /** An error exactly as `LlmService` throws one after a billed step: the spend noted beside it. */
+    async function spentFailure(): Promise<unknown> {
+        let calls = 0;
+        const record = {
+            id: 'deadair.llm',
+            dir: '/plugins/llm',
+            status: 'active',
+            manifest: { capabilities: ['llm'] },
+            instance: {
+                generate: async () => {
+                    calls += 1;
+                    if (calls > 1) throw new Error('the provider fell over');
+                    return {
+                        text: new ReadableStream<string>({ start: controller => controller.close() }),
+                        result: Promise.resolve({ text: '', toolCalls: [], usage: { inputTokens: 900, totalTokens: 1700 }, finishReason: 'length' }),
+                    };
+                },
+                listModels: async () => [{ id: 'the-model', label: 'the-model', default: true }],
+            },
+        };
+        const config = { get: (_key: string, fallback: unknown) => fallback } as unknown as AppConfig;
+        const service = new LlmService(
+            { list: () => [record] } as never,
+            { invoke: async (_id: string, _op: string, work: () => Promise<unknown>) => await work() } as never,
+            new LlmGate(logger as never),
+            new ToolRegistry([], logger as never),
+            config,
+            logger as never,
+        );
+        return await service.converse({ messages: [{ role: 'user', content: 'a beat' }] }, { tools: false }).catch((error: unknown) => error);
+    }
+
+    it('leaves a failed row carrying what the steps before the failure spent', async () => {
+        const failure = await spentFailure();
+
+        const { thrown, rows } = await draftWith(async () => {
+            throw failure;
+        });
+
+        // Still thrown, so the production fails exactly as it did.
+        expect(thrown).toBe(failure);
+        expect(rows).toHaveLength(1);
+        expect(rows[0]).toMatchObject({
+            kind: 'callin',
+            writer: 'model',
+            outcome: 'failed',
+            personaKey: 'max',
+            reason: 'the model writer failed: the provider fell over',
+            usage: { inputTokens: 900, totalTokens: 1700 },
+        });
+        expect(rows[0]).not.toHaveProperty('prompt');
+    });
+
+    it('leaves a failed row with no figure when nothing was billed before the throw', async () => {
+        const { rows } = await draftWith(async () => {
+            throw new Error('the model refused');
+        });
+
+        expect(rows).toHaveLength(1);
+        expect(rows[0]).toMatchObject({ outcome: 'failed', reason: 'the model writer failed: the model refused' });
+        expect(rows[0]).not.toHaveProperty('usage');
+    });
+
+    it('keeps the prompt on the row only while the operator asked for captures', async () => {
+        const { rows } = await draftWith(
+            async () => {
+                throw new Error('the model refused');
+            },
+            { [SCRIPT_HISTORY_KEYS.capture]: 'true' },
+        );
+
+        expect(rows[0]?.prompt).toEqual(expect.any(Array));
+        expect(rows[0]).not.toHaveProperty('raw');
     });
 });

@@ -278,10 +278,10 @@ export const buildLookupSubjectsComposer = (
 };
 
 /**
- * All-users composer used for system/vendor actors that bypass the
+ * All-users composer used for trusted system actors that bypass the
  * authorization gate. Produces the same `(user_id text)` shape as the real
  * lookup so callers can JOIN identically — but every active user actor is
- * yielded. Use only when the caller is trusted (system/vendor); otherwise this
+ * yielded. Use only when the caller is a trusted system actor; otherwise this
  * leaks the full user population.
  */
 export const buildAllUserActorsComposer = (options: LookupSubjectsOptions = {}): CteAttacher => {

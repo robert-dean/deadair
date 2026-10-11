@@ -206,10 +206,23 @@ both `pr.yml` and `release.yml`, and `build.yml` takes the flags as inputs that 
 only in the speech server and the database the Dockerfile lays down around the station's own tree,
 so a change to the station's code builds in all of them or in none, and `slim` is the cheapest way
 to find out which. `variants` turns on for the Dockerfile and its ignore file, `docker/`, `stream/`,
-the nginx snippets, `analysis/` and `images.yml`, and then the pull request builds all three plus
-`slim-apple`. One Apple twin is enough: `WITH_APPLE` adds one layer of Chrome, a framebuffer and a sound
-server, and one service, and none of it touches the voice or the database, so it builds in all three twins
-or in none. Every push to main builds all six whatever it says, because `promote` moves a tag onto each.
+the nginx snippets, `analysis/` and `images.yml`, and then the pull request builds all three. It adds
+`slim-apple` only when `apple` is on, which is narrower (the Dockerfile and its ignore file, `docker/`,
+`stream/apple-player/` and `images.yml`), so a change to the sidecar or the audio chain does not pay for a
+browser. One Apple twin is enough: `WITH_APPLE` adds one layer of Chrome, a framebuffer and a sound server,
+and one service, and none of it touches the voice or the database, so it builds in all three twins or in
+none. Every push to main builds all six whatever it says.
+
+**The Apple twins are kept off the station's path, in three ways.** They build in `images-apple` and are
+retagged by `promote-apple`, beside `images` and `promote` rather than inside them, so `latest` (which a
+running station follows) and `publish` never wait on a browser. A release whose Apple build fails still
+publishes; its Apple version tags are the cost. They start with the other image jobs and run in parallel,
+and each one READS its twin's registry cache as well as its own (`buildcache-latest` for `apple`, and so
+on), so a twin whose own cache is cold still takes the voice, the database and the base packages from the
+variant that built them. That only works because the Dockerfile declares `WITH_APPLE` immediately above the
+Chrome layer: an argument is part of the cache key of every RUN after its declaration, and declared at the
+top of the stage it gave every layer in the twins a key of its own. The tag moves themselves are
+`.github/scripts/promote.sh`, which both promote jobs run, so the never-backwards rule below has one copy.
 
 **The Apple twins are their own tags because the player is most of a gigabyte.** `apple`, `slim-apple` and
 `full-apple` are `latest`, `slim` and `full` with `WITH_APPLE=1`: Google Chrome (the only build that carries
@@ -351,8 +364,8 @@ moves one copy without the other.
 
 **The variants publish under the COMMIT SHA and the mutable tags are moved onto them afterwards** (`promote`,
 a registry-side `imagetools` retag), which is what lets the image jobs run beside the tests rather than behind
-them: what the old `needs: [build]` protected was never the images but `latest`, `slim` and `full` (and their
-three `-apple` twins), and those still wait. The speech base is pinned by digest for the fence's reason again — a moving tag there rebuilds and
+them: what the old `needs: [build]` protected was never the images but `latest`, `slim` and `full` (and, in
+`promote-apple`, their three `-apple` twins), and those still wait. The speech base is pinned by digest for the fence's reason again — a moving tag there rebuilds and
 re-pushes the voice for a change nobody here made.
 
 **The mutable tags only move forwards, and a late run does not take main's head down with it.** The

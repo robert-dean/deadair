@@ -31,16 +31,20 @@ jobs:
     # `slim` alone unless the pull request touched something that could build in one variant and
     # break in another (`variants` in `.github/scripts/changes.sh`). The other two differ from it
     # only in the speech server and the database, which a change to the station's own code cannot
-    # reach, and they were the two slowest jobs in the run. Such a pull request adds `slim-apple`
-    # and not the other two Apple twins: the Apple Music player is one layer that touches neither
-    # the voice nor the database, so one build of it proves all three. The push to main builds all six.
+    # reach, and they were the two slowest jobs in the run. `slim-apple` is added only when `apple`
+    # is on, which is narrower: the Dockerfile, the rootfs, the player and this workflow. One Apple
+    # twin proves all three, because the player is one layer that touches neither the voice nor the
+    # database. The push to main builds all six.
     images:
         needs: [changes]
         if: needs.changes.outputs.image == 'true'
         uses: ./.github/workflows/images.yml
         with:
             push: false
-            variants: ${{ needs.changes.outputs.variants == 'true' && '["slim", "latest", "full", "slim-apple"]' || '["slim"]' }}
+            variants: >-
+                ${{ needs.changes.outputs.apple == 'true' && '["slim", "latest", "full", "slim-apple"]'
+                || needs.changes.outputs.variants == 'true' && '["slim", "latest", "full"]'
+                || '["slim"]' }}
 
     # The one check the ruleset on main requires. Every job above runs or skips by what the pull
     # request changed, and the test shards and image variants are named by their matrix, so no fixed

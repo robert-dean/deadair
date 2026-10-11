@@ -262,6 +262,72 @@ export type PersonaStorytelling = (typeof PERSONA_STORYTELLING)[number];
 export const isPersonaStorytelling = (value: unknown): value is PersonaStorytelling => PERSONA_STORYTELLING.includes(value as PersonaStorytelling);
 
 /**
+ * How often one of a character's quirks applies. See {@link PersonaQuirk.cadence}.
+ *
+ * `always` is the rung an unset cadence means, and it is what every quirk was before the field
+ * existed: a rule, sent on every prompt.
+ */
+export const QUIRK_CADENCES = ['always', 'often', 'occasionally', 'rarely'] as const;
+
+export type QuirkCadence = (typeof QUIRK_CADENCES)[number];
+
+/** Whether a stored value is a rung, so a hand-edited row cannot decide what a prompt carries. */
+export const isQuirkCadence = (value: unknown): value is QuirkCadence => QUIRK_CADENCES.includes(value as QuirkCadence);
+
+/**
+ * One thing a character does on air, and how often it does it.
+ *
+ * ## The rhythm is a property of the entry, not a field of its own
+ *
+ * "Once in a while, yell for Sharon" went out on every prompt as one clause of a quirk line, and it
+ * was written 0 times in 58 breaks: a writer with no memory of the last break reads "once in a
+ * while" as "not this time", every time. What does land is material the CALLER hands over for this
+ * break alone, which is how {@link PersonaSheet.preoccupations} work. So the station decides when,
+ * and the quirk says how often rather than saying "now and then" in its own words.
+ *
+ * The alternative was a list per rhythm, beside `quirks` and `preoccupations`, and that costs a
+ * column, a contract field, four SDKs and two editors for every rhythm anybody thinks of next. A
+ * rung on the entry costs one value here.
+ */
+export interface PersonaQuirk {
+    text: string;
+    /** Absent means `always`. */
+    cadence?: QuirkCadence;
+}
+
+/**
+ * A stored or sent list of quirks, as the sheet holds them.
+ *
+ * Takes a bare string as an `always` quirk, which is the shape every quirk had before
+ * {@link PersonaQuirk.cadence}: a row the migration missed or a test written the old way reads as
+ * what it always meant. An `always` cadence is dropped rather than kept, so the two spellings of the
+ * default are one value everywhere downstream. Answers `undefined` for nothing usable, as the other
+ * lists on a sheet do.
+ */
+export function quirksIn(value: unknown): PersonaQuirk[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+
+    const quirks = value.flatMap((entry): PersonaQuirk[] => {
+        if (typeof entry === 'string') return entry.trim().length === 0 ? [] : [{ text: entry }];
+        if (typeof entry !== 'object' || entry === null) return [];
+
+        const { text, cadence } = entry as { text?: unknown; cadence?: unknown };
+        if (typeof text !== 'string' || text.trim().length === 0) return [];
+
+        return [isQuirkCadence(cadence) && cadence !== 'always' ? { text, cadence } : { text }];
+    });
+    return quirks.length === 0 ? undefined : quirks;
+}
+
+/** Quirks as the contract carries them: copies, and no `cadence` key at all on an `always` one. */
+export const quirksForView = (quirks: readonly PersonaQuirk[] | undefined): PersonaQuirk[] | undefined =>
+    quirks?.map(quirk => (quirk.cadence === undefined ? { text: quirk.text } : { text: quirk.text, cadence: quirk.cadence }));
+
+/** The texts of the quirks that are rules: the ones with no cadence, which apply to every break. */
+export const ruleTexts = (quirks: readonly PersonaQuirk[] | undefined): string[] =>
+    (quirks ?? []).filter(quirk => quirk.cadence === undefined || quirk.cadence === 'always').map(quirk => quirk.text);
+
+/**
  * What a sheet with nothing set means, which is the middle rung rather than silence.
  *
  * A character who never mentions anything that happened to it is a legitimate character and is
@@ -489,8 +555,11 @@ export interface PersonaSheet {
      * somebody else's voice is by definition not evidence of this one.
      */
     dictionMarkers?: readonly string[];
-    /** What they always and never do on air, and what they care about. */
-    quirks?: readonly string[];
+    /**
+     * What they always and never do on air, and what they care about. An entry with a
+     * {@link PersonaQuirk.cadence} is something they do only now and then.
+     */
+    quirks?: readonly PersonaQuirk[];
     /**
      * The standing subjects this character keeps coming back to, of which **exactly one** reaches any
      * one prompt.
@@ -845,7 +914,10 @@ export function personaLines(sheet: PersonaSheet, opts: PersonaLineOptions = {})
         );
     }
 
-    const quirks = cleanList(sheet.quirks, PERSONA_SHEET_LIMITS.quirks);
+    const quirks = cleanList(
+        sheet.quirks?.map(quirk => quirk.text),
+        PERSONA_SHEET_LIMITS.quirks,
+    );
     if (quirks.length > 0) lines.push(`In character: ${joinClauses(quirks)}`);
 
     // Directly under the quirks, because the quirks are what govern it: whatever a character may

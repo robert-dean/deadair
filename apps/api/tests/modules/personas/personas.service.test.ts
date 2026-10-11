@@ -6,7 +6,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { PersonasService } from '../../../src/modules/personas/personas.service.js';
+import { draftOf, PersonasService } from '../../../src/modules/personas/personas.service.js';
 import { AfterCommit } from '../../../src/modules/data/after.commit.js';
 import type { Persona } from '../../../src/modules/personas/persona.js';
 
@@ -332,5 +332,27 @@ describe('the newsreader', () => {
             statusCode: 409,
             details: { message: expect.stringMatching(/already has a newsreader/) },
         });
+    });
+});
+
+// The write mapper is where an operator's save becomes a row, so it is where the two spellings of an
+// always-quirk become one: the console sends `always` from its picker, and the row stores nothing.
+describe('draftOf, for a quirk with a cadence', () => {
+    it('keeps the cadence it was sent and drops an always one', () => {
+        const draft = draftOf({
+            key: 'ozzysghost',
+            label: "Ozzy's Ghost",
+            style: 'a ghost',
+            quirks: [
+                { text: 'Call your show the Boneyard', cadence: 'always' },
+                { text: 'Yell for Sharon', cadence: 'rarely' },
+            ],
+        });
+
+        expect(draft.quirks).toEqual([{ text: 'Call your show the Boneyard' }, { text: 'Yell for Sharon', cadence: 'rarely' }]);
+    });
+
+    it('stores no quirks at all for an empty list, as every other list on a sheet does', () => {
+        expect(draftOf({ key: 'quiet', label: 'Quiet', style: 'a quiet host', quirks: [] }).quirks).toBeUndefined();
     });
 });

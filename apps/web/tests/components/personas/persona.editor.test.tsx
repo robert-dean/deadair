@@ -123,3 +123,65 @@ describe('PersonaEditor, who a caller rings', () => {
         expect(screen.queryByRole('combobox', { name: 'Rings in to' })).not.toBeInTheDocument();
     });
 });
+
+// A quirk is a row with a rung since quirks carried a cadence. What has to hold still is that the
+// rung survives the round trip: a save that dropped it would turn "yell for Sharon, rarely" back
+// into a rule sent on every break, with nothing on screen saying so.
+describe('PersonaEditor, quirks and how often they apply', () => {
+    const ghost: Persona = {
+        ...believer,
+        id: 'p-3',
+        key: 'ozzysghost',
+        label: "Ozzy's Ghost",
+        quirks: [{ text: 'Call your show the Boneyard' }, { text: 'Yell for Sharon', cadence: 'rarely' }],
+    };
+    const openGhost = (onSubmit: (draft: PersonaInput) => void) =>
+        render(<PersonaEditor persona={ghost} kind="host" opened onClose={() => {}} onSubmit={onSubmit} saving={false} />);
+
+    it('draws one row per quirk, with an absent cadence shown as always', async () => {
+        openGhost(() => {});
+
+        expect(await screen.findByLabelText('Quirk 1')).toHaveValue('Call your show the Boneyard');
+        expect(screen.getByLabelText('Quirk 2')).toHaveValue('Yell for Sharon');
+        expect(screen.getByLabelText('How often quirk 1 applies', { selector: 'input' })).toHaveValue('Always');
+        expect(screen.getByLabelText('How often quirk 2 applies', { selector: 'input' })).toHaveValue('Rarely');
+    });
+
+    it('saves each cadence it was given and none on an always quirk', async () => {
+        const onSubmit = vi.fn();
+        const user = setupUser();
+        openGhost(onSubmit);
+
+        await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+        expect(onSubmit.mock.calls[0]![0].quirks).toEqual([{ text: 'Call your show the Boneyard' }, { text: 'Yell for Sharon', cadence: 'rarely' }]);
+    });
+
+    it('adds a row, and leaves a blank one out of the save', async () => {
+        const onSubmit = vi.fn();
+        const user = setupUser();
+        openGhost(onSubmit);
+
+        await user.click(await screen.findByRole('button', { name: 'Add a quirk' }));
+        await user.click(screen.getByRole('button', { name: 'Add a quirk' }));
+        await user.type(screen.getByLabelText('Quirk 3'), 'Insist the bat was rubber');
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit.mock.calls[0]![0].quirks).toEqual([
+            { text: 'Call your show the Boneyard' },
+            { text: 'Yell for Sharon', cadence: 'rarely' },
+            { text: 'Insist the bat was rubber' },
+        ]);
+    });
+
+    it('removes a quirk', async () => {
+        const onSubmit = vi.fn();
+        const user = setupUser();
+        openGhost(onSubmit);
+
+        await user.click(await screen.findByRole('button', { name: 'Remove quirk 1' }));
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit.mock.calls[0]![0].quirks).toEqual([{ text: 'Yell for Sharon', cadence: 'rarely' }]);
+    });
+});

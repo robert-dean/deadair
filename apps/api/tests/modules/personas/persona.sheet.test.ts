@@ -25,6 +25,8 @@ import {
     personaVoiceReminder,
     preoccupationOf,
     PERSONA_SHEET_LIMITS,
+    quirksForView,
+    quirksIn,
     spentCatchphrases,
     subjectsOf,
     subjectsVisited,
@@ -38,7 +40,7 @@ describe('personaLines', () => {
     });
 
     it('leads with the dialect, because it governs every sentence and the rest do not', () => {
-        const lines = personaLines({ diction: ['Ye for you'], quirks: ['Every record is plunder'] });
+        const lines = personaLines({ diction: ['Ye for you'], quirks: [{ text: 'Every record is plunder' }] });
 
         expect(lines[0]).toContain('every sentence');
         expect(lines[0]).toContain('Ye for you');
@@ -69,7 +71,7 @@ describe('personaLines', () => {
     });
 
     describe('a preoccupation', () => {
-        const sheet = { quirks: ['Never about a real person'], preoccupations: ['the pressing plant', 'the sky over the transmitter'] };
+        const sheet = { quirks: [{ text: 'Never about a real person' }], preoccupations: ['the pressing plant', 'the sky over the transmitter'] };
 
         // Under the quirks, because the quirks are the rules that govern whichever subject it is.
         it('is rendered directly after the quirks, and only the one it was handed', () => {
@@ -113,7 +115,7 @@ describe('personaLines', () => {
     });
 
     it('caps each list, so a sheet stays a sheet', () => {
-        const quirks = Array.from({ length: PERSONA_SHEET_LIMITS.quirks + 4 }, (_, at) => `quirk ${at}`);
+        const quirks = Array.from({ length: PERSONA_SHEET_LIMITS.quirks + 4 }, (_, at) => ({ text: `quirk ${at}` }));
         const rendered = personaLines({ quirks }).join('\n');
 
         expect(rendered).toContain(`quirk ${PERSONA_SHEET_LIMITS.quirks - 1}`);
@@ -121,7 +123,7 @@ describe('personaLines', () => {
     });
 
     it('drops blanks and repeats rather than rendering them', () => {
-        const lines = personaLines({ quirks: ['  ', 'Never oversell', 'never OVERSELL', ''] });
+        const lines = personaLines({ quirks: [{ text: '  ' }, { text: 'Never oversell' }, { text: 'never OVERSELL' }, { text: '' }] });
 
         expect(lines).toHaveLength(1);
         expect(lines[0]).toBe('In character: Never oversell.');
@@ -201,9 +203,48 @@ describe('preoccupationOf', () => {
     });
 });
 
+// A quirk became an object so it could carry a cadence, and the stored column, a file or a test can
+// still hand over the old bare string. Both have to mean the same thing, or a row the migration
+// missed would read as a sheet with no rules on it at all.
+describe('quirksIn', () => {
+    it('reads a bare string as the always-quirk it was before quirks had a cadence', () => {
+        expect(quirksIn(['Never oversell'])).toEqual([{ text: 'Never oversell' }]);
+    });
+
+    it('keeps a cadence it recognises and drops an always one, so the default has one spelling', () => {
+        expect(
+            quirksIn([
+                { text: 'Yell for Sharon', cadence: 'rarely' },
+                { text: 'Call it the Boneyard', cadence: 'always' },
+            ]),
+        ).toEqual([{ text: 'Yell for Sharon', cadence: 'rarely' }, { text: 'Call it the Boneyard' }]);
+    });
+
+    it('reads a cadence it has never heard of as always, so a hand-edited row cannot invent a rung', () => {
+        expect(quirksIn([{ text: 'Grumble about being dead', cadence: 'fortnightly' }])).toEqual([{ text: 'Grumble about being dead' }]);
+    });
+
+    it('drops entries with no text and answers undefined for nothing usable', () => {
+        expect(quirksIn([{ text: '  ' }, '', 12, null, { cadence: 'often' }])).toBeUndefined();
+        expect(quirksIn('not a list')).toBeUndefined();
+        expect(quirksIn([])).toBeUndefined();
+    });
+});
+
+describe('quirksForView', () => {
+    it('copies each quirk and writes no cadence key on an always one', () => {
+        const quirks = [{ text: 'Call it the Boneyard' }, { text: 'Yell for Sharon', cadence: 'rarely' as const }];
+        const view = quirksForView(quirks)!;
+
+        expect(view).toEqual(quirks);
+        expect(view[0]).not.toBe(quirks[0]);
+        expect('cadence' in view[0]!).toBe(false);
+    });
+});
+
 describe('personaVoiceReminder', () => {
     it('is nothing for a sheet with no dialect to restate', () => {
-        expect(personaVoiceReminder({ quirks: ['Never oversell'] })).toBeUndefined();
+        expect(personaVoiceReminder({ quirks: [{ text: 'Never oversell' }] })).toBeUndefined();
     });
 
     it('restates the dialect and says plain English is wrong even for a fact', () => {
@@ -664,7 +705,7 @@ describe('characterFault', () => {
 // reaches it LAST, and that nothing else in the sheet moved to make room for it.
 describe('brevity', () => {
     it("says nothing at all when the character has the station's usual length", () => {
-        expect(personaLines({ quirks: ['Plays the record and shuts up'] })).toEqual(['In character: Plays the record and shuts up.']);
+        expect(personaLines({ quirks: [{ text: 'Plays the record and shuts up' }] })).toEqual(['In character: Plays the record and shuts up.']);
     });
 
     it('asks for less, and is the LAST thing the sheet says', () => {
@@ -705,7 +746,7 @@ describe('brevity', () => {
 describe('latitude', () => {
     it('answers nothing for a character held to the ordinary discipline', () => {
         expect(latitudeOf(undefined)).toBeUndefined();
-        expect(latitudeOf({ quirks: ['Plays the record and shuts up'] })).toBeUndefined();
+        expect(latitudeOf({ quirks: [{ text: 'Plays the record and shuts up' }] })).toBeUndefined();
     });
 
     it('answers the rung a sheet carries', () => {

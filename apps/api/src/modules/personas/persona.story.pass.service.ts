@@ -222,7 +222,7 @@ export class PersonaStoryPassService {
                         label: persona.label,
                         style: persona.style,
                         ...(persona.diction === undefined ? {} : { diction: persona.diction }),
-                        ...(persona.quirks === undefined ? {} : { quirks: persona.quirks }),
+                        ...(persona.quirks === undefined ? {} : { quirks: persona.quirks.map(quirk => quirk.text) }),
                         ...(persona.avoid === undefined ? {} : { avoid: persona.avoid }),
                     },
                     existing,

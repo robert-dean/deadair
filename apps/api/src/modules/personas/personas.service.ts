@@ -18,6 +18,7 @@ import type {
 } from './types/personas.types.js';
 import { cannotPresent, DEFAULT_PERSONA_KIND, type Persona, type PersonaDraft } from './persona.js';
 import { PersonaRepository } from './persona.repository.js';
+import { quirksForView, quirksIn } from './persona.sheet.js';
 import { SEED_PERSONAS } from './persona.defaults.js';
 import { SEED_CALLERS } from './caller.defaults.js';
 import { SEED_PERSONA_STORIES } from './persona.story.defaults.js';
@@ -484,7 +485,7 @@ export function draftOf(body: PersonaInput): PersonaDraft {
             templates: text(body.templates),
             diction: list(body.diction),
             dictionMarkers: list(body.dictionMarkers),
-            quirks: list(body.quirks),
+            quirks: quirksIn(body.quirks),
             preoccupations: list(body.preoccupations),
             catchphrases: list(body.catchphrases),
             avoid: list(body.avoid),
@@ -526,7 +527,7 @@ function toView(persona: Persona, presentingId: string | undefined, hosts?: read
             templates: persona.templates,
             diction: mutable(persona.diction),
             dictionMarkers: mutable(persona.dictionMarkers),
-            quirks: mutable(persona.quirks),
+            quirks: quirksForView(persona.quirks),
             preoccupations: mutable(persona.preoccupations),
             catchphrases: mutable(persona.catchphrases),
             avoid: mutable(persona.avoid),
@@ -570,7 +571,7 @@ function toDraftView(draft: PersonaDraft): PersonaDraftView {
             templates: draft.templates,
             diction: mutable(draft.diction),
             dictionMarkers: mutable(draft.dictionMarkers),
-            quirks: mutable(draft.quirks),
+            quirks: quirksForView(draft.quirks),
             preoccupations: mutable(draft.preoccupations),
             catchphrases: mutable(draft.catchphrases),
             avoid: mutable(draft.avoid),

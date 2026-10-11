@@ -1,6 +1,6 @@
 ---
 title: 'PersonaDraftView'
-sidebar_position: 4
+sidebar_position: 5
 mdx:
     format: 'md'
 ---
@@ -22,7 +22,7 @@ mdx:
 | `soundboard`        | `string`                                                            | No       |             |
 | `diction`           | `string[]`                                                          | No       |             |
 | `dictionMarkers`    | `string[]`                                                          | No       |             |
-| `quirks`            | `string[]`                                                          | No       |             |
+| `quirks`            | `PersonaQuirk[]`                                                    | No       |             |
 | `preoccupations`    | `string[]`                                                          | No       |             |
 | `catchphrases`      | `string[]`                                                          | No       |             |
 | `avoid`             | `string[]`                                                          | No       |             |

@@ -370,7 +370,7 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
                 templates: templates.length === 0 ? undefined : templates.join('\n'),
                 diction: nonEmpty(list(raw.diction, PERSONA_SHEET_LIMITS.diction)),
                 dictionMarkers: nonEmpty(markers),
-                quirks: nonEmpty(list(raw.quirks, PERSONA_SHEET_LIMITS.quirks)),
+                quirks: nonEmpty(list(raw.quirks, PERSONA_SHEET_LIMITS.quirks))?.map(text => ({ text })),
                 preoccupations: nonEmpty(list(raw.preoccupations, PERSONA_SHEET_LIMITS.preoccupations)),
                 catchphrases: nonEmpty(list(raw.catchphrases, PERSONA_SHEET_LIMITS.catchphrases)),
                 avoid: nonEmpty(list(raw.avoid, PERSONA_SHEET_LIMITS.avoid)),

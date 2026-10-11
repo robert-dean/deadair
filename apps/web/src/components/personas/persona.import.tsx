@@ -6,6 +6,7 @@ import { Trans, useTranslation } from 'react-i18next';
 
 import { useImportPersonas, usePreviewPersonaImport } from '../../api/personas.queries';
 import { usePhone } from '../shared/use.phone';
+import { upgradePersonaFile } from './persona.file.upgrade';
 import { ErrorAlert } from '../shared/error.alert';
 import { toneColor } from '../shared/status';
 
@@ -68,7 +69,7 @@ export function PersonaImportModal({ opened, onClose }: PersonaImportModalProps)
 
         let parsed: PersonaFile;
         try {
-            parsed = JSON.parse(await chosen.text()) as PersonaFile;
+            parsed = upgradePersonaFile(JSON.parse(await chosen.text()));
         } catch {
             setFile(undefined);
             setUnreadable(t('import.unreadable', { name: chosen.name }));

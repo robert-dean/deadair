@@ -1,6 +1,6 @@
 ---
 title: 'PersonaMemory'
-sidebar_position: 40
+sidebar_position: 41
 mdx:
     format: 'md'
 ---

@@ -10107,10 +10107,8 @@ components:
                 quirks:
                     type: array
                     items:
-                        type: string
-                        minLength: 1
-                        maxLength: 500
-                    description: 'What they always and never do on air'
+                        '$ref': '#/components/schemas/PersonaQuirk'
+                    description: 'What they always and never do on air. One with a cadence is something they do only now and then, and the station decides which breaks'
                 preoccupations:
                     type: array
                     items:
@@ -10195,6 +10193,19 @@ components:
                     description: 'Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing'
             required: [id, key, label, style, defaultHost, presenting]
             description: 'Who the station is when it opens its mouth: the character a model writes in, the phrasings underneath it, the voice that says them, and what it plays'
+        PersonaQuirk:
+            type: object
+            properties:
+                text:
+                    type: string
+                    minLength: 1
+                    maxLength: 500
+                cadence:
+                    type: string
+                    enum: [always, often, occasionally, rarely]
+                    description: 'How often it applies. Absent is `always`: a rule, sent on every break. The others are something the character does now and then, and the station picks which ordinary talk breaks, at most one such quirk to a break, so the text should not say "now and then" itself'
+            required: [text]
+            description: 'One thing a character does on air, and how often it does it'
         PersonaList:
             type: object
             properties:
@@ -10251,9 +10262,7 @@ components:
                 quirks:
                     type: array
                     items:
-                        type: string
-                        minLength: 1
-                        maxLength: 500
+                        '$ref': '#/components/schemas/PersonaQuirk'
                 preoccupations:
                     type: array
                     items:

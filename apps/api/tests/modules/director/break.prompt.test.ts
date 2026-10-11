@@ -322,7 +322,7 @@ describe('breakPrompt', () => {
         // The subject a character has on its mind, which is offered by the caller and permitted by
         // the shape — the same division the rack above runs on.
         it('tells a talk break what the character has been chewing over', () => {
-            const persona = { style: 'an overnight conspiracy host', quirks: ['Never about a real person'] };
+            const persona = { style: 'an overnight conspiracy host', quirks: [{ text: 'Never about a real person' }] };
             const rules = system(prompt({ kind: 'talkbreak', previous, next }, { persona, preoccupation: 'the pressing plant' }));
 
             expect(rules).toContain('the pressing plant');
@@ -340,7 +340,7 @@ describe('breakPrompt', () => {
         });
 
         it('says nothing about one for a character with nothing on its mind', () => {
-            const persona = { style: 'an overnight conspiracy host', quirks: ['Never about a real person'] };
+            const persona = { style: 'an overnight conspiracy host', quirks: [{ text: 'Never about a real person' }] };
             const rules = system(prompt({ kind: 'talkbreak', previous, next }, { persona }));
 
             expect(rules).not.toMatch(/on your mind/i);
@@ -659,7 +659,11 @@ describe('breakPrompt', () => {
         const rules = system(
             prompt(
                 { kind: 'talkbreak', previous },
-                { station: 'Deadair', dj: 'Sam', persona: { style: 'a dry crate-digger', quirks: ['Never smug'], catchphrases: ['Worth the dig'] } },
+                {
+                    station: 'Deadair',
+                    dj: 'Sam',
+                    persona: { style: 'a dry crate-digger', quirks: [{ text: 'Never smug' }], catchphrases: ['Worth the dig'] },
+                },
             ),
         );
 
@@ -1075,7 +1079,9 @@ describe('breakPrompt', () => {
         // The second line of defence behind the seeded off-air category: whatever a station's words
         // miss, a show listing is still not something that happened.
         it('asks for a listing for a show, a puzzle or an episode to be left out', () => {
-            expect(user(prompt({ kind: 'news', stories }))).toMatch(/a listing for a show, a puzzle or an episode rather than something that happened, leave it out/i);
+            expect(user(prompt({ kind: 'news', stories }))).toMatch(
+                /a listing for a show, a puzzle or an episode rather than something that happened, leave it out/i,
+            );
         });
 
         it("offers the publisher's words as the story rather than as a line to read out", () => {
@@ -2336,7 +2342,11 @@ describe('readAnswer, against a record credited to its own title', () => {
     });
 
     it('takes the record the right way round, or with no "by" at all', () => {
-        for (const script of ['That was War Pigs by Black Sabbath.', 'Black Sabbath, War Pigs. Up next, Bible Black.', "Black Sabbath's War Pigs, still loud."]) {
+        for (const script of [
+            'That was War Pigs by Black Sabbath.',
+            'Black Sabbath, War Pigs. Up next, Bible Black.',
+            "Black Sabbath's War Pigs, still loud.",
+        ]) {
             expect(readAnswer(script, { names }), script).toBe(script);
         }
     });

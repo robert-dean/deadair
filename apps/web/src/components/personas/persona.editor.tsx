@@ -34,6 +34,7 @@ import { useVoicePreview } from '../voices/voice.preview';
 import { suggestAirName } from './air.names';
 import { personaKeyFor } from './persona.key';
 import { PersonaRehearsalPanel } from './persona.rehearsal';
+import { quirkRowsOf, quirksOf, QuirksField, type QuirkRow } from './persona.quirks.field';
 import { faultInTemplate, templateLines, type TemplateFault } from './template.vocabulary';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { ErrorAlert } from '../shared/error.alert';
@@ -405,14 +406,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         {...form.getInputProps('dictionMarkers')}
                     />
 
-                    <Textarea
-                        label={t('editor.field.quirks.label')}
-                        description={t('editor.field.quirks.description')}
-                        autosize
-                        minRows={4}
-                        maxRows={12}
-                        {...form.getInputProps('quirks')}
-                    />
+                    <QuirksField rows={form.getValues().quirks} onChange={rows => form.setFieldValue('quirks', rows)} />
 
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                         <Textarea
@@ -986,7 +980,7 @@ interface FormValues {
     templates: string;
     diction: string;
     dictionMarkers: string;
-    quirks: string;
+    quirks: QuirkRow[];
     preoccupations: string;
     catchphrases: string;
     avoid: string;
@@ -1045,7 +1039,7 @@ function valuesOf(persona: PersonaDraftView | Persona | undefined): FormValues {
         templates: persona?.templates ?? '',
         diction: linesOf(persona?.diction),
         dictionMarkers: linesOf(persona?.dictionMarkers),
-        quirks: linesOf(persona?.quirks),
+        quirks: quirkRowsOf(persona?.quirks),
         preoccupations: linesOf(persona?.preoccupations),
         catchphrases: linesOf(persona?.catchphrases),
         avoid: linesOf(persona?.avoid),
@@ -1119,7 +1113,7 @@ function draftOf(values: FormValues, kind: PersonaKind): PersonaInput {
             templates: text(values.templates),
             diction: list(values.diction),
             dictionMarkers: list(values.dictionMarkers),
-            quirks: list(values.quirks),
+            quirks: quirksOf(values.quirks),
             preoccupations: list(values.preoccupations),
             catchphrases: list(values.catchphrases),
             avoid: list(values.avoid),

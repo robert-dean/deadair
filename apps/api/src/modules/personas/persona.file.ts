@@ -38,6 +38,7 @@
  */
 
 import type { Persona } from './persona.js';
+import { quirksForView } from './persona.sheet.js';
 import type { PersonaStory, PersonaStoryDetail } from './persona.story.js';
 import type { PersonaStoryBeat } from './persona.story.beat.js';
 import type { PersonaFilePersona, PersonaFileStory, PersonaFileStoryBeat, PersonaFileStoryDetail } from './types/personas.types.js';
@@ -49,8 +50,12 @@ import type { PersonaFilePersona, PersonaFileStory, PersonaFileStoryBeat, Person
  * repo edits migrations in place rather than superseding them (`CLAUDE.local.md`), so a version stamp
  * cannot promise a shape. What an import actually validates is the shapes; this is for the human
  * reading the failure, and for refusing a file that is plainly something else.
+ *
+ * `/2` since a quirk became `{ text, cadence }` rather than a string. A `/1` file is upgraded by the
+ * console as it reads the file (`persona.file.upgrade.ts` in `apps/web`), because the route validates
+ * the new shape and a station's own old exports should still import.
  */
-export const PERSONA_FILE_FORMAT = 'deadair.persona/1';
+export const PERSONA_FILE_FORMAT = 'deadair.persona/2';
 
 /**
  * The states a story can be in ON THE WAY OUT, which is two of the stored three.
@@ -98,7 +103,7 @@ export function personaForFile(persona: Persona, stories: readonly PersonaStory[
             templates: persona.templates,
             diction: mutable(persona.diction),
             dictionMarkers: mutable(persona.dictionMarkers),
-            quirks: mutable(persona.quirks),
+            quirks: quirksForView(persona.quirks),
             preoccupations: mutable(persona.preoccupations),
             catchphrases: mutable(persona.catchphrases),
             avoid: mutable(persona.avoid),

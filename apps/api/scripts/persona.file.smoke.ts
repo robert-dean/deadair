@@ -99,7 +99,7 @@ await db
             templates: 'That was {{previous.title}}.',
             diction: ['drop the g'],
             dictionMarkers: ['friend'],
-            quirks: ['never explains a record'],
+            quirks: [{ text: 'never explains a record' }],
             preoccupations: ['the desert'],
             catchphrases: ['stay up'],
             avoid: ['radio voice'],

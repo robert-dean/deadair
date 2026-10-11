@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-FLAGS="tree node generated sidecar android desktop ios streamdeck image variants"
+FLAGS="tree node generated sidecar android desktop ios streamdeck image variants apple"
 HEAD_REF="${HEAD_REF:-HEAD}"
 
 emit() {
@@ -125,3 +125,10 @@ flag image "^(Dockerfile$|\.dockerignore$|docker/|stream/|nginx/snippets/|analys
 # two images too many costs minutes and building one too few merges a variant that does not build.
 # Every push to main builds all three whatever this says.
 flag variants "^(Dockerfile$|\.dockerignore$|docker/|stream/|nginx/snippets/|analysis/|\.github/workflows/images\.yml$)" "/tests/|\.md$"
+
+# Whether a pull request also builds `slim-apple`, the one Apple Music twin that proves all three. The
+# twins differ from their base variants only in the Chrome layer and the player's service, so what
+# could break one is the Dockerfile and its ignore file, the image's rootfs (where the service and the
+# run scripts that set it up live), the player itself, and the workflow. A narrower `variants`, which
+# it implies, so a pull request that touches the sidecar or the audio chain does not pay for a browser.
+flag apple "^(Dockerfile$|\.dockerignore$|docker/|stream/apple-player/|\.github/workflows/images\.yml$)" "/tests/|\.md$"

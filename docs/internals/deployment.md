@@ -11,7 +11,8 @@ Read the ones covering whatever you are about to change. The always-loaded index
 
 **Production is ONE container, and what it gives up is the container boundary rather than the process one.**
 `Dockerfile` builds the whole station — API, console, audio chain, stream server, track shim, measurement
-sidecar, and on two of three variants a speech server, on one of them a database — supervised by s6, service
+sidecar, and on two of three variants a speech server, on one of them a database, and on each variant's `-apple`
+twin the Apple Music player — supervised by s6, service
 definitions in `docker/rootfs`. Nothing was folded into Node to make it fit; the sidecar is still a separate
 process because decoding still does not happen in Node. Development is unchanged and still the compose stack,
 which is why the two must not drift: an image both worlds share (nginx, the speech server) is pinned to ONE
@@ -179,8 +180,8 @@ installed after the source copy instead. The copy over the top is the MEMBERS, `
 JavaScript rebuild a function of every file in the tree, so editing an nginx snippet rebuilt all fifteen
 packages from nothing. The same argument is why `.dockerignore` keeps out everything under `apps/` and
 `packages/` that the station does not run: the website's source, and the three listener apps with their
-generated Kotlin, C# and Swift SDKs, which `COPY apps` and `COPY packages` otherwise carried in whole. Images are built and published by `.github/workflows/`, three variants from two build
-args plus a third that selects nothing, and `codegen` is never run there for the reason it is never run
+generated Kotlin, C# and Swift SDKs, which `COPY apps` and `COPY packages` otherwise carried in whole. Images are built and published by `.github/workflows/`, six variants from three build
+args plus a fourth that selects nothing, and `codegen` is never run there for the reason it is never run
 anywhere automated: its outputs are committed and regenerating them needs a live database.
 
 **That third argument is `REVISION`, and where it is USED is the whole of the care it needs.** A build argument
@@ -205,8 +206,35 @@ both `pr.yml` and `release.yml`, and `build.yml` takes the flags as inputs that 
 only in the speech server and the database the Dockerfile lays down around the station's own tree,
 so a change to the station's code builds in all of them or in none, and `slim` is the cheapest way
 to find out which. `variants` turns on for the Dockerfile and its ignore file, `docker/`, `stream/`,
-the nginx snippets, `analysis/` and `images.yml`, and then the pull request builds all three. Every
-push to main builds all three whatever it says, because `promote` moves a tag onto each.
+the nginx snippets, `analysis/` and `images.yml`, and then the pull request builds all three. It adds
+`slim-apple` only when `apple` is on, which is narrower (the Dockerfile and its ignore file, `docker/`,
+`stream/apple-player/` and `images.yml`), so a change to the sidecar or the audio chain does not pay for a
+browser. One Apple twin is enough: `WITH_APPLE` adds one layer of Chrome, a framebuffer and a sound server,
+and one service, and none of it touches the voice or the database, so it builds in all three twins or in
+none. Every push to main builds all six whatever it says.
+
+**The Apple twins are kept off the station's path, in three ways, and on the release's.** They build in
+`images-apple` and are retagged by `promote-apple`, beside `images` and `promote` rather than inside them,
+so `latest` (which a running station follows) never waits on a browser. `publish` does wait on
+`promote-apple`, so a failed Apple build blocks the version and the next push retries it, as a failed
+station build would. They start with the other image jobs and run in parallel,
+and each one READS its twin's registry cache as well as its own (`buildcache-latest` for `apple`, and so
+on), so a twin whose own cache is cold still takes the voice, the database and the base packages from the
+variant that built them. That only works because the Dockerfile declares `WITH_APPLE` immediately above the
+Chrome layer: an argument is part of the cache key of every RUN after its declaration, and declared at the
+top of the stage it gave every layer in the twins a key of its own. The tag moves themselves are
+`.github/scripts/promote.sh`, which both promote jobs run, so the never-backwards rule below has one copy.
+
+**The Apple twins are their own tags because the player is most of a gigabyte.** `apple`, `slim-apple` and
+`full-apple` are `latest`, `slim` and `full` with `WITH_APPLE=1`: Google Chrome (the only build that carries
+the Widevine CDM), Xvfb, PulseAudio and x11vnc, installed up with the other heavy layers so a commit does not
+re-push them, and the `apple-player` service running `stream/apple-player`'s own launcher. The player's
+source is copied into every variant, since it is small and a variant-shaped COPY would need a stage, and
+the service is cut from the bundle where the argument is off. `APPLE_PLAYER_URL` is exported by the API's
+run script rather than set as an image ENV, because an unset address is how the API knows there is no
+player and an ENV cannot be absent in one variant and present in another. The player reads its page from
+`APPLE_PLAYER_PAGE` and not `APPLE_PLAYER_URL` for the same shared-environment reason: one container is one
+environment, and under the old name Chrome would have opened the player's own server.
 
 **`image` is the one that deploys.** It is what the Dockerfile copies in, less what `.dockerignore`
 keeps out, and without it neither workflow builds the three variants and `release.yml` does not
@@ -337,8 +365,8 @@ moves one copy without the other.
 
 **The variants publish under the COMMIT SHA and the mutable tags are moved onto them afterwards** (`promote`,
 a registry-side `imagetools` retag), which is what lets the image jobs run beside the tests rather than behind
-them: what the old `needs: [build]` protected was never the images but `latest`, `slim` and `full`, and those
-still wait. The speech base is pinned by digest for the fence's reason again — a moving tag there rebuilds and
+them: what the old `needs: [build]` protected was never the images but `latest`, `slim` and `full` (and, in
+`promote-apple`, their three `-apple` twins), and those still wait. The speech base is pinned by digest for the fence's reason again — a moving tag there rebuilds and
 re-pushes the voice for a change nobody here made.
 
 **The mutable tags only move forwards, and a late run does not take main's head down with it.** The

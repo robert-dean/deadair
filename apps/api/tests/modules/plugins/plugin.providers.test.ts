@@ -51,7 +51,10 @@ describe('the provider table', () => {
         for (const entry of providerCapabilities().filter(one => one.mode === 'ordered')) {
             const columns = findDescriptor(entry.settingKey)?.columns ?? [];
 
-            expect(columns.map(column => column.key), entry.capability).toEqual([ORDER_SOURCE_COLUMN]);
+            expect(
+                columns.map(column => column.key),
+                entry.capability,
+            ).toEqual([ORDER_SOURCE_COLUMN]);
         }
     });
 });

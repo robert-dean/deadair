@@ -12,10 +12,18 @@ in front of that port carries the station too.
 | `deadair/deadair:full`   | a voice, PostgreSQL, Redis | nothing                            |
 | `deadair/deadair:slim`   | —                          | PostgreSQL, Redis, a speech server |
 
+Each of the three has an Apple Music twin, `deadair/deadair:apple`, `full-apple` and `slim-apple`, which
+is the same image plus a player that plays Apple Music records in Google Chrome and records them for the
+station. It is most of a gigabyte bigger, so take it only if you have an Apple Music subscription to play
+from. It needs `shm_size: 1gb` on the service (the compose file here already sets it) and a one-time sign-in, which
+[`stream/apple-player/README.md`](../stream/apple-player/README.md#in-the-one-container-image) walks through.
+Apple's terms are between you and Apple, as every provider's are; see
+[`docs/licensing.md`](../docs/licensing.md).
+
 Those three follow `main` and move on every push that changes the station, not on one that only
 touches the docs, the website or a listener app. A release publishes its version beside them, for
 each tag: `0.50.2` and `0.50` for `latest`, `full-0.50.2` and `full-0.50` for `full`, and the same
-with `slim-` for `slim`. **Pin one if you want releases only**: under Compose that is
+with `slim-` for `slim`, and `apple-`, `full-apple-` and `slim-apple-` for the twins. **Pin one if you want releases only**: under Compose that is
 `VARIANT=full-0.50` in `.env`, because the compose file takes its tag from `VARIANT`. Images are built for `linux/amd64`;
 there is no arm64 build yet.
 

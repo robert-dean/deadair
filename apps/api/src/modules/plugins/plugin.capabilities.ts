@@ -1028,3 +1028,23 @@ export const asTranscodePlugin = (record: PluginRecord): TranscodePlugin | undef
 
     return { record, manifest: record.manifest, instance: record.instance as TranscodeProvider };
 };
+
+/**
+ * The plugin ids that can actually produce audio right now, or `undefined` when nothing can be said.
+ *
+ * Used by the director to keep a binding that cannot deliver from being chosen to deliver. The SDK
+ * blesses a provider that is browsable and nothing more ("a provider that can be searched but whose
+ * audio deadair cannot get at is a legitimate thing to be"), and until one existed nothing downstream
+ * had to care: every binding in `track_sources` belonged to a plugin that could be asked for a URL.
+ *
+ * **`undefined` rather than an empty set is the whole of the care needed here.** An empty set would
+ * mean "no provider can deliver anything", and the caller filters bindings against it — so a registry
+ * that has not finished loading, or a lifecycle moment where every plugin is briefly inactive, would
+ * exclude every binding on the station and the answer to "what can play" would be nothing at all. A
+ * station whose plugins have not loaded is not a station with no deliverable providers, and the
+ * difference between those two has to survive this function rather than be discovered on air.
+ */
+export const streamCapableIds = (records: readonly PluginRecord[]): ReadonlySet<string> | undefined => {
+    const ids = new Set(records.filter(record => asStreamPlugin(record) !== undefined).map(record => record.manifest!.id));
+    return ids.size === 0 ? undefined : ids;
+};

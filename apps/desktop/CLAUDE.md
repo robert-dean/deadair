@@ -397,11 +397,16 @@ dispose, which is the request that stops the speaker, never ran. The disposal no
 lifetime's `Exit` event, on the pool, waited for with a five-second bound (`App.ReleaseOnExit`).
 Measured that `Exit` runs on a menu quit; NOT yet measured against a speaker that was playing.
 
-**The bar shows the speaker as an ICON and not a name.** The first version drew the name, capped at
-96px, and the 820px frame settled it: the bar is already full at its minimum width and the caption
-pushed the expand button off the end. The icon takes the accent when the station is playing
-elsewhere, which is the one fact somebody sitting at this machine cannot get by listening; which
-speaker is a tooltip away and a click away.
+**The window names the speaker, in a strip across its top; the bar still shows only the icon.** This
+used to say the speaker was an icon and a tooltip and never a name. That answered the bar's problem
+(full at its 820px minimum, where a caption pushed the expand button off the end) and left a worse one:
+somebody across the room from the screen could see that the sound had gone somewhere, never where,
+without walking over to hover. So while `OnDevice` is set a thin accent strip under the title row reads
+"Playing on <name>" (`PlayingOnStrip`, tested in Core), and a click on it opens the same
+`OutputPicker` the bar's button does, which is also what makes the picker rescan. The strip says nothing
+on its own and never moves playback; a speaker missing from the last scan is still named, with
+"which is not on the network" after it. The bar's icon is unchanged and still takes the accent. Frames:
+`shell-playing-on` and `shell-playing-on-missing-min`.
 
 **The system's now-playing widget is unchanged, and `Pause == Stop` now reads "or tell the device to
 drop it".** Two things here are unmeasured: whether macOS keeps a Now Playing entry for an app that

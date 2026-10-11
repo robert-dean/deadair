@@ -106,6 +106,19 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _player.TargetChanged += OnTargetChanged;
         _player.VolumeChanged += OnDeviceVolumeChanged;
 
+        // The strip follows the picker's last scan too, so a speaker that stopped answering is said to
+        // be missing without anything else changing.
+        if (Outputs is not null)
+        {
+            Outputs.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(OutputsViewModel.ActiveMissing))
+                {
+                    ShowPlayingOn();
+                }
+            };
+        }
+
         // The conductor's own retry, scheduled rather than merely computed. Requested() must not be
         // called here: that would reset the backoff the failure just advanced.
         _conductor.RetryDue += OnRetryDue;
@@ -364,6 +377,20 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     /// <summary>Whether that is somewhere other than this machine.</summary>
     [ObservableProperty]
     private bool _onDevice;
+
+    /// <summary>
+    /// What the strip across the top of the window says, or <c>null</c> for no strip: the speaker by
+    /// name, and whether it was missing from the last scan. See <see cref="PlayingOnStrip"/>.
+    /// </summary>
+    [ObservableProperty]
+    private string? _playingOnCaption;
+
+    partial void OnOnDeviceChanged(bool value) => ShowPlayingOn();
+
+    partial void OnOutputNameChanged(string value) => ShowPlayingOn();
+
+    private void ShowPlayingOn() =>
+        PlayingOnCaption = PlayingOnStrip.Caption(OnDevice, OutputName, Outputs?.ActiveMissing ?? false);
 
     private void SaveVolume()
     {

@@ -20,6 +20,7 @@ import { podcasts } from './podcasts.catalog.ts';
 import { productions } from './productions.catalog.ts';
 import { programme } from './programme.catalog.ts';
 import { pronunciations } from './pronunciations.catalog.ts';
+import { party } from './party.catalog.ts';
 import { requests } from './requests.catalog.ts';
 import { routes } from './routes.catalog.ts';
 import { schedule } from './schedule.catalog.ts';
@@ -67,6 +68,7 @@ export const en = {
     podcasts,
     productions,
     pronunciations,
+    party,
     requests,
     scripts,
     segments,

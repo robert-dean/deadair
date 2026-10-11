@@ -53,12 +53,12 @@ export class SearchRequestableRecordsMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(SearchRequestableRecordsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(RequestableTrackList, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'requests.ask' } },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
         const container = requireMcpContainer(context);
-        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.view' });
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'requests.ask' });
         const { query = await parseAndValidate({}, SearchRequestableRecordsArgs.shape.query.unwrap()) } = await parseAndValidate(
             args,
             SearchRequestableRecordsArgs,
@@ -103,12 +103,12 @@ export class CreateRequestMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(CreateRequestArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(ListenerRequest, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'requests.ask' } },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
         const container = requireMcpContainer(context);
-        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.view' });
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'requests.ask' });
         const { body } = await parseAndValidate(args, CreateRequestArgs);
         const result = await container.get(RequestsService).create(body);
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
@@ -126,12 +126,12 @@ export class ListMyRequestsMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(ListMyRequestsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(ListenerRequestList, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'requests.ask' } },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
         const container = requireMcpContainer(context);
-        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.view' });
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'requests.ask' });
         const result = await container.get(RequestsService).mine();
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     }

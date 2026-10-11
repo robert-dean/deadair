@@ -26,7 +26,7 @@ export interface DeadairActors {
   active: Generated<boolean>;
   createdAt: Generated<DateTime>;
   id: Generated<string>;
-  type: "user" | "system" | "vendor";
+  type: "user" | "system" | "vendor" | "guest";
   updatedAt: Generated<DateTime>;
 }
 
@@ -511,6 +511,22 @@ export interface DeadairPadSets {
   position: Generated<number>;
   stationKey: Generated<string>;
   updatedAt: Generated<DateTime>;
+}
+
+export interface DeadairPartyGuests {
+  actorId: string;
+  joinedAt: Generated<DateTime>;
+  passId: string;
+}
+
+export interface DeadairPartyPasses {
+  createdAt: Generated<DateTime>;
+  createdBy: string | null;
+  endedAt: DateTime | null;
+  expiresAt: DateTime;
+  id: Generated<string>;
+  tokenHash: string;
+  tokenSealed: string;
 }
 
 export interface DeadairPermissionsRelationTuples {
@@ -1222,6 +1238,8 @@ export interface DB {
   "deadair.pads": DeadairPads;
   "deadair.padSetMembers": DeadairPadSetMembers;
   "deadair.padSets": DeadairPadSets;
+  "deadair.partyGuests": DeadairPartyGuests;
+  "deadair.partyPasses": DeadairPartyPasses;
   "deadair.permissionsRelationTuples": DeadairPermissionsRelationTuples;
   "deadair.personaAuditionBreaks": DeadairPersonaAuditionBreaks;
   "deadair.personaAuditions": DeadairPersonaAuditions;

@@ -51,6 +51,7 @@ public sealed class DeadairSdk : IDisposable
         Productions = new ProductionsClient(Http);
         Render = new RenderClient(Http);
         Requests = new RequestsClient(Http);
+        RequestsParty = new RequestsPartyClient(Http);
         Schedule = new ScheduleClient(Http);
         Settings = new SettingsClient(Http);
         Logs = new LogsClient(Http);
@@ -126,6 +127,8 @@ public sealed class DeadairSdk : IDisposable
     public RenderClient Render { get; }
 
     public RequestsClient Requests { get; }
+
+    public RequestsPartyClient RequestsParty { get; }
 
     public ScheduleClient Schedule { get; }
 

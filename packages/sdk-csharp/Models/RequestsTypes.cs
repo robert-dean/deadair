@@ -64,6 +64,55 @@ public sealed record ListenerRequestDecline
     public string? Reason { get; init; }
 }
 
+/// <summary>A party: the pass guests join with by scanning its QR code, for as long as it lasts</summary>
+public sealed record PartyPass
+{
+    /// <summary>The pass itself. Put it after `#` on the station's `/party` page, as `/party#&lt;token&gt;`, and that address is what the QR code holds. Anyone holding it can join until the party ends, so show it only to the room</summary>
+    [JsonPropertyName("token")]
+    public required string Token { get; init; }
+
+    /// <summary>When the party started</summary>
+    [JsonPropertyName("createdAt")]
+    public required DateTimeOffset CreatedAt { get; init; }
+
+    /// <summary>When the pass stops letting guests in, and turns away every guest who joined with it</summary>
+    [JsonPropertyName("expiresAt")]
+    public required DateTimeOffset ExpiresAt { get; init; }
+
+    /// <summary>How many guests have joined with it</summary>
+    [JsonPropertyName("guests")]
+    public required long Guests { get; init; }
+}
+
+/// <summary>Start a party</summary>
+public sealed record PartyStart
+{
+    /// <summary>How long the pass lasts. Six when omitted</summary>
+    [JsonPropertyName("hours")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Hours { get; init; }
+}
+
+/// <summary>Join a party as a guest, with the pass from its QR code</summary>
+public sealed record PartyJoin
+{
+    /// <summary>The pass, as it appears after `#` in the party page's address</summary>
+    [JsonPropertyName("token")]
+    public required string Token { get; init; }
+}
+
+/// <summary>A guest's way in: send it as a bearer token on the request routes</summary>
+public sealed record PartyGuestSession
+{
+    /// <summary>The bearer token. It lets a guest search for records, ask for one and see their own requests, and nothing else</summary>
+    [JsonPropertyName("accessToken")]
+    public required string AccessToken { get; init; }
+
+    /// <summary>When it stops working, which is when the party's pass does</summary>
+    [JsonPropertyName("expiresAt")]
+    public required DateTimeOffset ExpiresAt { get; init; }
+}
+
 /// <summary>A record the station could be asked for: one it holds, or one a music provider carries</summary>
 public sealed record RequestableTrack
 {
@@ -175,6 +224,20 @@ public sealed record ListenerRequest
     [JsonPropertyName("message")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Message { get; init; }
+
+    /// <summary>True when a guest at a party asked for it, through the party pass. Absent otherwise</summary>
+    [JsonPropertyName("fromParty")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? FromParty { get; init; }
+}
+
+/// <summary>The party, if one is on</summary>
+public sealed record PartyState
+{
+    /// <summary>Absent when no party is on</summary>
+    [JsonPropertyName("party")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PartyPass? Party { get; init; }
 }
 
 /// <summary>Records matching a search, best matches first, the station's own before any a provider carries</summary>

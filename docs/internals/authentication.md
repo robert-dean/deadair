@@ -253,6 +253,27 @@ comment: what the tool answers, and when to use it rather than its neighbour. Th
 the HTTP method unless the block says otherwise (a `GET` is read-only and idempotent, a `DELETE`
 destructive), so an operation whose method misdescribes it has to say so.
 
+## Party guests
+
+**A guest is an actor of its own kind, not a listener without a password.** Somebody who joins a party
+with its pass (`docs/internals/messaging.md` § "Requests") gets a `deadair.actors` row of type `guest`
+and a session whose claims say `actorType: 'guest'` and name the pass. The middleware builds a
+`GuestActor` from it, and only while the pass is live: an ended or expired pass, or a guest switched off,
+revokes the session and answers 401, on every path, bootstrap routes included, since a guest has no
+sign-in to come back through.
+
+**What a guest may do is one policy, `requests.ask`, on three routes.** Granting a guest the
+`listener` role would have been one line and wrong: `platform.view` is every read the station has,
+settings included. A guest holds no role, so every `platform.*` gate refuses it, `requireUser` and
+`requireAuthentication` both refuse it, `oauth.grant` refuses it on audience, and
+`AccessControlService.require` denies it explicitly, because falling out of that switch ALLOWS.
+`tests/routes/guest.reach.test.ts` reads every router and fails on any route that names a policy
+which might admit a guest, names `requests.ask` beyond the request search, create and mine, or admits
+any session (`policy: none`) without having been reviewed for what a guest could do with it. The
+factor method on a guest session is the library's `apikey`, because its method list is closed and a
+pass is a bearer secret the guest possesses; that also keeps it from ever counting as a recent or
+second factor.
+
 ## Working on it locally
 
 `docker compose --profile sso up -d oidc` starts `navikt/mock-oauth2-server` on port 3080. Add a

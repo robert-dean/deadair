@@ -39,6 +39,65 @@ export interface ListenerRequestDecline {
 }
 
 /**
+ * A party: the pass guests join with by scanning its QR code, for as long as it lasts
+ * generated from [PartyPass](../../../../../apps/api/data/contracts/requests/requests.types.ck)
+ */
+export interface PartyPass {
+    /** The pass itself. Put it after `#` on the station's `/party` page, as `/party#<token>`, and that address is what the QR code holds. Anyone holding it can join until the party ends, so show it only to the room */
+    token: string;
+    /** When the party started */
+    createdAt: DateTime;
+    /** When the pass stops letting guests in, and turns away every guest who joined with it */
+    expiresAt: DateTime;
+    /** How many guests have joined with it */
+    guests: number;
+}
+
+/** Rehydrates every wire-encoded scalar in a PartyPass into its runtime type. Mutates and returns `raw`. */
+export function revivePartyPass(raw: PartyPass): PartyPass {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['createdAt'] = __dt(__o0['createdAt'], 'PartyPass.createdAt');
+    __o0['expiresAt'] = __dt(__o0['expiresAt'], 'PartyPass.expiresAt');
+    return raw;
+}
+
+/**
+ * Start a party
+ * generated from [PartyStart](../../../../../apps/api/data/contracts/requests/requests.types.ck)
+ */
+export interface PartyStart {
+    /** How long the pass lasts. Six when omitted */
+    hours?: number;
+}
+
+/**
+ * Join a party as a guest, with the pass from its QR code
+ * generated from [PartyJoin](../../../../../apps/api/data/contracts/requests/requests.types.ck)
+ */
+export interface PartyJoin {
+    /** The pass, as it appears after `#` in the party page's address */
+    token: string;
+}
+
+/**
+ * A guest's way in: send it as a bearer token on the request routes
+ * generated from [PartyGuestSession](../../../../../apps/api/data/contracts/requests/requests.types.ck)
+ */
+export interface PartyGuestSession {
+    /** The bearer token. It lets a guest search for records, ask for one and see their own requests, and nothing else */
+    accessToken: string;
+    /** When it stops working, which is when the party's pass does */
+    expiresAt: DateTime;
+}
+
+/** Rehydrates every wire-encoded scalar in a PartyGuestSession into its runtime type. Mutates and returns `raw`. */
+export function revivePartyGuestSession(raw: PartyGuestSession): PartyGuestSession {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['expiresAt'] = __dt(__o0['expiresAt'], 'PartyGuestSession.expiresAt');
+    return raw;
+}
+
+/**
  * A record the station could be asked for: one it holds, or one a music provider carries
  * generated from [RequestableTrack](../../../../../apps/api/data/contracts/requests/requests.types.ck)
  */
@@ -98,6 +157,8 @@ export interface ListenerRequest {
     dedicateTo?: string;
     /** What the listener asked to have said with it, in their own words */
     message?: string;
+    /** True when a guest at a party asked for it, through the party pass. Absent otherwise */
+    fromParty?: boolean;
 }
 
 /** Rehydrates every wire-encoded scalar in a ListenerRequest into its runtime type. Mutates and returns `raw`. */
@@ -106,6 +167,24 @@ export function reviveListenerRequest(raw: ListenerRequest): ListenerRequest {
     __o0['createdAt'] = __dt(__o0['createdAt'], 'ListenerRequest.createdAt');
     if (__o0['airedAt'] != null) {
         __o0['airedAt'] = __dt(__o0['airedAt'], 'ListenerRequest.airedAt');
+    }
+    return raw;
+}
+
+/**
+ * The party, if one is on
+ * generated from [PartyState](../../../../../apps/api/data/contracts/requests/requests.types.ck)
+ */
+export interface PartyState {
+    /** Absent when no party is on */
+    party?: PartyPass;
+}
+
+/** Rehydrates every wire-encoded scalar in a PartyState into its runtime type. Mutates and returns `raw`. */
+export function revivePartyState(raw: PartyState): PartyState {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['party'] != null) {
+        revivePartyPass(__o0['party'] as never);
     }
     return raw;
 }

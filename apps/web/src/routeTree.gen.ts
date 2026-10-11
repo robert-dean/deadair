@@ -18,6 +18,7 @@ import { Route as LogsRouteImport } from './routes/logs'
 import { Route as NarrationsRouteImport } from './routes/narrations'
 import { Route as NewsRouteImport } from './routes/news'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PartyPosterRouteImport } from './routes/party-poster'
 import { Route as PodcastsRouteImport } from './routes/podcasts'
 import { Route as ReleasesRouteImport } from './routes/releases'
 import { Route as ScheduleRouteImport } from './routes/schedule'
@@ -100,6 +101,11 @@ const NewsRoute = NewsRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PartyPosterRoute = PartyPosterRouteImport.update({
+  id: '/party-poster',
+  path: '/party-poster',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PodcastsRoute = PodcastsRouteImport.update({
@@ -304,6 +310,7 @@ export interface FileRoutesByFullPath {
   '/narrations': typeof NarrationsRoute
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
+  '/party-poster': typeof PartyPosterRoute
   '/podcasts': typeof PodcastsRoute
   '/releases': typeof ReleasesRoute
   '/schedule': typeof ScheduleRoute
@@ -353,6 +360,7 @@ export interface FileRoutesByTo {
   '/narrations': typeof NarrationsRoute
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
+  '/party-poster': typeof PartyPosterRoute
   '/podcasts': typeof PodcastsRoute
   '/releases': typeof ReleasesRoute
   '/schedule': typeof ScheduleRoute
@@ -403,6 +411,7 @@ export interface FileRoutesById {
   '/narrations': typeof NarrationsRoute
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
+  '/party-poster': typeof PartyPosterRoute
   '/podcasts': typeof PodcastsRoute
   '/releases': typeof ReleasesRoute
   '/schedule': typeof ScheduleRoute
@@ -454,6 +463,7 @@ export interface FileRouteTypes {
     | '/narrations'
     | '/news'
     | '/onboarding'
+    | '/party-poster'
     | '/podcasts'
     | '/releases'
     | '/schedule'
@@ -503,6 +513,7 @@ export interface FileRouteTypes {
     | '/narrations'
     | '/news'
     | '/onboarding'
+    | '/party-poster'
     | '/podcasts'
     | '/releases'
     | '/schedule'
@@ -552,6 +563,7 @@ export interface FileRouteTypes {
     | '/narrations'
     | '/news'
     | '/onboarding'
+    | '/party-poster'
     | '/podcasts'
     | '/releases'
     | '/schedule'
@@ -602,6 +614,7 @@ export interface RootRouteChildren {
   NarrationsRoute: typeof NarrationsRoute
   NewsRoute: typeof NewsRoute
   OnboardingRoute: typeof OnboardingRoute
+  PartyPosterRoute: typeof PartyPosterRoute
   PodcastsRoute: typeof PodcastsRoute
   ReleasesRoute: typeof ReleasesRoute
   ScheduleRoute: typeof ScheduleRoute
@@ -705,6 +718,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/party-poster': {
+      id: '/party-poster'
+      path: '/party-poster'
+      fullPath: '/party-poster'
+      preLoaderRoute: typeof PartyPosterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/podcasts': {
@@ -986,6 +1006,7 @@ const rootRouteChildren: RootRouteChildren = {
   NarrationsRoute: NarrationsRoute,
   NewsRoute: NewsRoute,
   OnboardingRoute: OnboardingRoute,
+  PartyPosterRoute: PartyPosterRoute,
   PodcastsRoute: PodcastsRoute,
   ReleasesRoute: ReleasesRoute,
   ScheduleRoute: ScheduleRoute,

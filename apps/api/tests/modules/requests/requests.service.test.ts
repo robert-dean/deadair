@@ -10,6 +10,7 @@ import type { RequestRow } from '../../../src/modules/requests/requests.reposito
 import { settingsConfig } from '../../utils/settings.config.js';
 
 const user = new AuthorizationContext({ kind: 'user', sessionToken: 's', actorId: 'a-1', platformRoles: new Set(['listener']), factors: [] });
+const guest = new AuthorizationContext({ kind: 'guest', sessionToken: 's', actorId: 'g-1', partyPassId: 'p-1' });
 
 const row = (overrides: Partial<RequestRow> = {}): RequestRow => ({
     id: 'r-1',
@@ -34,7 +35,7 @@ interface World {
     settings?: Record<string, string>;
 }
 
-function build(found?: RequestRow, world: World = {}) {
+function build(found?: RequestRow, world: World = {}, authz: AuthorizationContext = user) {
     const desk = { submit: vi.fn(async (..._args: unknown[]) => row()), grant: vi.fn(async () => undefined), decline: vi.fn(async () => undefined) };
     const requestable = new Set(['t-1', ...Object.values(world.copies ?? {})]);
     const repository = {
@@ -49,7 +50,7 @@ function build(found?: RequestRow, world: World = {}) {
     const copies = { resolve: vi.fn(async (_pluginId: string, externalId: string) => world.copies?.[externalId]) };
     const { config } = settingsConfig(world.settings ?? {});
     const service = new RequestsService(
-        user,
+        authz,
         desk as never,
         repository as never,
         { stationKey: 'main' } as never,
@@ -61,6 +62,38 @@ function build(found?: RequestRow, world: World = {}) {
 }
 
 describe('RequestsService', () => {
+    describe('a party guest', () => {
+        it('asks as itself, keyed apart from anybody signed in, so one at a time is its own', async () => {
+            const { service, desk } = build(undefined, {}, guest);
+
+            await service.create({ trackId: 't-1', name: 'Sam' });
+
+            expect(desk.submit).toHaveBeenCalledWith({ key: 'guest:g-1', name: 'Sam', actorId: 'g-1' }, expect.anything(), undefined);
+        });
+
+        it('sees its own requests and nobody else’s', async () => {
+            const { service, repository } = build(undefined, {}, guest);
+
+            await service.mine();
+
+            expect(repository.list).toHaveBeenCalledWith('main', { requesterKey: 'guest:g-1', limit: 20 });
+        });
+
+        it('spends its own search allowance on the providers', async () => {
+            const { service, providers } = build(undefined, { reaches: true }, guest);
+
+            await service.search({ q: 'teardrop' });
+
+            expect(providers.search).toHaveBeenCalledWith('teardrop', [], 10, 'guest:g-1');
+        });
+    });
+
+    it('refuses a caller that is neither a person nor a guest', async () => {
+        const { service } = build(undefined, {}, new AuthorizationContext({ kind: 'system', sessionToken: '', source: 'http' }));
+
+        await expect(service.create({ trackId: 't-1' })).rejects.toMatchObject({ statusCode: 403 });
+    });
+
     it('asks as the signed-in account, called what they said', async () => {
         const { service, desk } = build();
 
@@ -175,6 +208,13 @@ describe('RequestsService', () => {
     it('says whether a request came from an app or a chat', () => {
         expect(toListenerRequest(row()).source).toBe('app');
         expect(toListenerRequest(row({ requesterKey: 'chat:deadair.telegram:7' })).source).toBe('chat');
+    });
+
+    it('marks a party guest’s request fromParty and keeps its source an app, which every native app can decode', () => {
+        const guestRow = toListenerRequest(row({ requesterKey: 'guest:g-1' }));
+        expect(guestRow.source).toBe('app');
+        expect(guestRow.fromParty).toBe(true);
+        expect(toListenerRequest(row()).fromParty).toBeUndefined();
     });
 
     it('passes a dedication on, tidied', async () => {

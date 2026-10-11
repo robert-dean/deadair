@@ -1,6 +1,6 @@
 // LRC as timed lines. The cases are the ones LRCLIB's own bodies carry: a blank timed line marking
 // where singing stops, a fraction written to two digits or three, a chorus stamped twice on one line,
-// an offset tag, and per-word timings that are not lines at all.
+// an offset tag, and per-word timings, which become a line's words rather than lines of their own.
 
 import { describe, expect, it } from 'vitest';
 
@@ -38,10 +38,60 @@ describe('parseLrc', () => {
         ]);
     });
 
-    it('skips metadata tags and drops per-word timings', () => {
+    it('skips metadata tags and keeps per-word timings as words, out of the text', () => {
         expect(parseLrc('[ar: Portishead]\n[ti: Glory Box]\n[00:05.00] <00:05.00>Word <00:05.50>by <00:06.00>word')).toEqual([
-            { atMs: 5_000, text: 'Word by word' },
+            {
+                atMs: 5_000,
+                text: 'Word by word',
+                words: [
+                    { atMs: 5_000, text: 'Word ' },
+                    { atMs: 5_500, text: 'by ' },
+                    { atMs: 6_000, text: 'word' },
+                ],
+            },
         ]);
+    });
+
+    it('cuts a line into pieces that join back to its text exactly, syllables included', () => {
+        const [line] = parseLrc('[00:10.00] So <00:10.40>beau<00:10.70>ti<00:10.90>ful <00:11.50>');
+        expect(line!.words).toEqual([
+            { atMs: 10_000, text: 'So ' },
+            { atMs: 10_400, text: 'beau' },
+            { atMs: 10_700, text: 'ti' },
+            { atMs: 10_900, text: 'ful' },
+        ]);
+        expect(line!.words!.map(word => word.text).join('')).toBe(line!.text);
+    });
+
+    it('folds whitespace after an end marker into the word before it', () => {
+        const [line] = parseLrc('[00:01.00]<00:01.00>one<00:01.40> <00:01.50>two');
+        expect(line).toEqual({
+            atMs: 1_000,
+            text: 'one two',
+            words: [
+                { atMs: 1_000, text: 'one ' },
+                { atMs: 1_500, text: 'two' },
+            ],
+        });
+    });
+
+    it('applies the offset to the words too', () => {
+        expect(parseLrc('[offset:+500]\n[00:10.00]<00:10.00>Hello <00:10.80>there')[0]!.words).toEqual([
+            { atMs: 9_500, text: 'Hello ' },
+            { atMs: 10_300, text: 'there' },
+        ]);
+    });
+
+    it('moves the words of a line stamped twice along with each stamp', () => {
+        const lines = parseLrc('[00:10.00][01:30.00]<00:10.00>La <00:10.50>la');
+        expect(lines.map(line => line.words!.map(word => word.atMs))).toEqual([
+            [10_000, 10_500],
+            [90_000, 90_500],
+        ]);
+    });
+
+    it('leaves words unset on a line with no word tags', () => {
+        expect(parseLrc('[00:01.00] One')[0]).not.toHaveProperty('words');
     });
 
     it('reads Windows line endings', () => {

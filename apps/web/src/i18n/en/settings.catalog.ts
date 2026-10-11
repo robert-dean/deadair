@@ -413,7 +413,7 @@ export const settings = {
             lyrics: {
                 title: 'Where the words of a record come from',
                 meaning:
-                    'Every source is asked for the words of a record and each answer is kept, because one may have the timing of each line where another has only the words. This decides who is asked first. The station never says or shows them; it uses them to know when the singing starts.',
+                    'Every source is asked for the words of a record and each answer is kept, because one may have the timing of each line where another has only the words. This decides who is asked first. The station never says them on air; it uses them to know when the singing starts, and the listener apps and the record page show them.',
                 only: 'Only {{name}} looks up lyrics, so there is nothing to order.',
             },
         },

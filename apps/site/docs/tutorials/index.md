@@ -36,6 +36,8 @@ station can do the rest by being asked. Each page shows both where both exist.
 
 Each of these adds one thing to a station that is already on air, and none depends on another.
 
+- [Add a second music source](./another-music-source.md): a second provider beside the first, and a
+  playlist brought in from either by its link.
 - [News and weather in the breaks](./news-and-weather.md): headlines from your own feeds, a forecast
   for where the station is, and a bulletin at the top of the hour.
 - [Carry a podcast](./carry-a-podcast.md): subscribe to a show and give its newest episode a time on

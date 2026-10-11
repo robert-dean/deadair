@@ -122,7 +122,7 @@ export const playlists = {
         preview: 'Preview',
         linkLabel: 'Playlist link',
         linkPlaceholder: 'https://open.spotify.com/playlist/…',
-        linkHint: 'Copied from Spotify, YouTube Music or your Navidrome, as the browser or the app shows it.',
+        linkHint: 'Copied from Spotify, YouTube Music, Apple Music or Pandora, or from your Navidrome, Jellyfin, Emby or Plex, as the browser or the app shows it.',
         saving: "Saving {{name}} as a playlist of the station's own.",
         unreadable: '"{{file}}" is not a file this can read. A playlist file is the JSON a station playlist\'s Export saved.',
         previewFailed: 'That could not be read',

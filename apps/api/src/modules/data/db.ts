@@ -1034,6 +1034,7 @@ export interface DeadairTrackAnalysis {
   createdAt: Generated<DateTime>;
   data: Generated<Json>;
   failedAt: DateTime | null;
+  failureCode: string | null;
   failureReason: string | null;
   id: Generated<string>;
   schemaVersion: number;

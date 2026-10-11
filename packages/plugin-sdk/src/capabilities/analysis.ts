@@ -80,6 +80,21 @@ import type { PluginLifecycle } from '../plugin.lifecycle.js';
 export const ANALYSIS_SCHEMA_VERSION = 1;
 
 /**
+ * Why a measurement failed, finer than the `upstream` code all three share, carried as a
+ * `PluginError`'s `upstreamCode`.
+ *
+ * The host retries them on different clocks, because they are facts about different things.
+ * `undecodable` is a property of the FILE, so retrying it soon is a full download and decode of the
+ * same bytes. `unfetchable` is a property of the binding or the moment (a provider was down, a signed
+ * url expired), and `truncated` is a fetch that happened to deliver some bytes. A failure without one
+ * of these is treated as `undecodable`.
+ */
+export const ANALYSIS_FAILURE_CODES = ['unfetchable', 'undecodable', 'truncated'] as const;
+
+/** One of {@link ANALYSIS_FAILURE_CODES}. */
+export type AnalysisFailureCode = (typeof ANALYSIS_FAILURE_CODES)[number];
+
+/**
  * How the host asks about one track.
  *
  * Deliberately not a {@link TrackRef}: nothing here is matched by name, so
@@ -344,7 +359,9 @@ export interface AnalysisProvider extends PluginLifecycle {
      *
      * @throws {PluginError} `config` when the plugin is not set up enough to try
      *   (no analyzer address), `upstream` when the audio could not be fetched or
-     *   could not be decoded, `timeout` when the analyzer did not answer.
+     *   could not be decoded, `timeout` when the analyzer did not answer. An `upstream`
+     *   failure should carry which of {@link ANALYSIS_FAILURE_CODES} it was as its
+     *   `upstreamCode`, so the host can retry it on the right clock.
      */
     analyzeTrack(ref: AnalysisRef): Promise<TrackAnalysis>;
 }

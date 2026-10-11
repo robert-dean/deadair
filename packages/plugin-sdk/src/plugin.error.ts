@@ -166,6 +166,13 @@ export class PluginError extends Error {
      * Diagnostic only: the host never forwards it as its own response status.
      */
     upstreamStatus?: number;
+    /**
+     * The upstream's own name for what went wrong, when it has one finer than
+     * {@link code}: an analyzer's `unfetchable` against `undecodable`, which are
+     * both `upstream` here. A capability that reads it says which values it
+     * knows, and the host ignores one it does not.
+     */
+    upstreamCode?: string;
 
     constructor(message: string, options?: { cause?: unknown }) {
         super(message, options);
@@ -198,6 +205,11 @@ export class PluginError extends Error {
 
     withUpstreamStatus(upstreamStatus: number) {
         this.upstreamStatus = upstreamStatus;
+        return this;
+    }
+
+    withUpstreamCode(upstreamCode: string) {
+        this.upstreamCode = upstreamCode;
         return this;
     }
 }
@@ -265,6 +277,7 @@ export function toPluginError(error: unknown, fallback: PluginErrorCode = 'inter
 
         if (typeof error.retryAfterMs === 'number' && Number.isFinite(error.retryAfterMs)) adopted.withRetry(error.retryAfterMs);
         if (typeof error.upstreamStatus === 'number' && Number.isFinite(error.upstreamStatus)) adopted.withUpstreamStatus(error.upstreamStatus);
+        if (typeof error.upstreamCode === 'string' && error.upstreamCode.length > 0) adopted.withUpstreamCode(error.upstreamCode.slice(0, 64));
 
         return adopted;
     }

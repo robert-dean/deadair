@@ -1,7 +1,15 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { ANALYSIS_SCHEMA_VERSION, PLUGIN_CAPABILITY_ANALYSIS, type AnalysisRef, type TrackAnalysis } from '@deadair/plugin-sdk';
+import {
+    ANALYSIS_FAILURE_CODES,
+    ANALYSIS_SCHEMA_VERSION,
+    PLUGIN_CAPABILITY_ANALYSIS,
+    isPluginError,
+    type AnalysisFailureCode,
+    type AnalysisRef,
+    type TrackAnalysis,
+} from '@deadair/plugin-sdk';
 import { asAnalysisPlugin, type AnalysisPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { byPluginId, defaultPickIsNews, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
@@ -404,7 +412,7 @@ export class AnalysisService {
             // Recorded so the next pass does not pay for the same decode again.
             // A write that itself fails is left alone: the track stays
             // outstanding, which is the same state it was in a moment ago.
-            await this.repository.recordFailure(track.trackId, pluginId, reason).catch((writeError: unknown) => {
+            await this.repository.recordFailure(track.trackId, pluginId, reason, failureCodeOf(error)).catch((writeError: unknown) => {
                 this.logger.error('analysis: could not record a failure', {
                     track: track.trackId,
                     error: errorText(writeError),
@@ -414,4 +422,10 @@ export class AnalysisService {
 
         return wasLocal ? 'cheap' : 'fetched';
     }
+}
+
+/** The analyzer's own name for a failure, when it gave one this station retries on. */
+function failureCodeOf(error: unknown): AnalysisFailureCode | undefined {
+    const code = isPluginError(error) ? error.upstreamCode : undefined;
+    return (ANALYSIS_FAILURE_CODES as readonly string[]).includes(code ?? '') ? (code as AnalysisFailureCode) : undefined;
 }

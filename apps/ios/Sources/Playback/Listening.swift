@@ -36,6 +36,9 @@ final class Listening {
     /// audio. Every reading the gate lets through lands here, including the ones that change nothing
     /// on the lock screen, because the bar re-anchors on each. `nil` while nothing is playing.
     private(set) var aired: Reading<NowPlaying>?
+    /// Where the phone's sound is going, re-read on every route change. Now playing names an AirPlay
+    /// speaker or a Bluetooth device from it (`playingOn`).
+    private(set) var outputs: [AudioOutput] = []
 
     @ObservationIgnored private let player: StationPlayer
     @ObservationIgnored private let gate: NowPlayingGate
@@ -90,6 +93,7 @@ final class Listening {
         system.onSkip = { [weak self] in self?.skipFromSystem() }
         system.isPlaying = { [weak self] in self?.conductor.wantsToPlay ?? false }
         audioObservers = Platform.observeAudio { [weak self] event in self?.audio(event) }
+        outputs = Platform.currentOutputs()
         network = Platform.observeNetwork { [weak self] network in
             guard let self else { return }
             // HLS fetches every segment afresh, on whatever network is up; only a mount is left
@@ -209,10 +213,11 @@ final class Listening {
         case .interruptionEnded(let shouldResume):
             if resumeAfterInterruption, shouldResume { play() }
             resumeAfterInterruption = false
-        case .outputLost:
-            // AVPlayer pauses on its own here, and a pause is the one state this app never leaves
-            // a live mount in.
-            if conductor.wantsToPlay { stop() }
+        case .routeChanged(let change, let previous, let current):
+            outputs = current
+            // Headphones out: AVPlayer pauses on its own, and a pause is the one state this app never
+            // leaves a live mount in. A speaker chosen in the picker is a move and carries on.
+            if conductor.wantsToPlay, routeChangeStops(change, previous: previous) { stop() }
         case .reset:
             player.rebuild()
             if conductor.wantsToPlay { conductor.observed(.failed) }

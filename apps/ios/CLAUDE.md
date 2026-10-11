@@ -204,7 +204,7 @@ MediaPlayer calls from its own thread, and the remote-command handlers are all e
 `@Sendable` for that reason, and each hops to the main actor itself.
 
 **`Playback/Platform.swift` is the only file with iOS-only API in it**: the audio session, the
-background task and `UIImage`. Everything else in the app compiles for macOS as it stands, which is
+background task, the route picker and `UIImage`. Everything else in the app compiles for macOS as it stands, which is
 what let the app be type-checked against the real AVFoundation, MediaPlayer, Security and SwiftUI
 before this machine had Xcode, with that one file stubbed. Keep it that way. (`CarPlay/` is wrapped
 in `#if canImport(CarPlay)` for this reason, and `Intents/` is AppIntents, which the Mac has.)
@@ -221,7 +221,11 @@ whatever category is set: the default one is muted by the silent switch. iOS 27'
 that can last longer than the station's five-minute linger, and a paused connection through it keeps
 the station on air for nobody. `.ended` with `.shouldResume` plays again through warm-up; anything
 else stays stopped. The route change for headphones coming out stops too: `AVPlayer` pauses on its
-own there, and pause is the state this app never leaves a mount in.
+own there, and pause is the state this app never leaves a mount in. An AirPlay speaker or a Bluetooth
+device going away stops for the same reason; choosing one in the route picker is a move and must not
+(`routeChangeStops`, tested in Core). The picker moves the one player, so AirPlay is a transfer and
+the station still counts one listener; "Playing on" under the controls names an AirPlay or Bluetooth
+output while playing. Not yet seen with a real AirPlay speaker (2026-10-11).
 
 **Background playback works**: locked, the app went on feeding audio for as long as it was left, a
 minute in the measurement. The lock-screen information reached the system's media service in full

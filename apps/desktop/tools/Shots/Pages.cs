@@ -215,6 +215,11 @@ internal static class Pages
         // The minimum window with the longest speaker name, which is what decides whether the
         // caption beside the picker keeps its cap or loses it.
         yield return ("shell-min-on-device", Shell(operatorSignedIn: true, Fakes.OnASpeaker), 820, 520);
+
+        // The Playing on strip across the top of the window, at full size and at the minimum, and
+        // with the speaker missing from the last scan, which is the longest thing it ever says.
+        yield return ("shell-playing-on", Shell(operatorSignedIn: false, Fakes.OnASpeaker), 1180, 720);
+        yield return ("shell-playing-on-missing-min", Shell(operatorSignedIn: false, Fakes.OnAMissingSpeaker), 820, 520);
         yield return ("output-picker", Picker(onASpeaker: true), 1180, 720);
         yield return ("output-picker-here", Picker(onASpeaker: false), 1180, 720);
         yield return ("sidebar", Rail(operatorSignedIn: true), 1180, 720);

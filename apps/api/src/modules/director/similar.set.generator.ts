@@ -9,6 +9,7 @@ import { DISCOVER_DEFAULT, DISCOVER_KEY } from './pick.resolver.js';
 import { bindsAnything } from './candidates.repository.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { SimilarPicker, type NeighbourWalk } from './similar.picker.js';
+import { BriefArtists } from './brief.artists.js';
 import { freshnessOf, historyDaysFor, resolveSmartShuffle } from './smart.shuffle.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
@@ -35,7 +36,9 @@ import { settingIsOn } from '#modules/shared/setting.flags.js';
  * The seeds are also deduplicated against themselves, so an evening dominated by one act does not
  * produce an hour of that act's neighbours.
  *
- * **Under a brief the seeds are this BROADCAST's records rather than the station's.** What excuses
+ * **Under a brief that names its acts, the seeds are those acts**, the ones off air longest first
+ * (`BriefArtists`). **Under one that names none, they are this BROADCAST's records rather than the
+ * station's.** What excuses
  * this binding from `ignoresBrief` is that its seeds actually aired, so under a brief it draws from
  * the brief's own results — true while an hour has been running, and false at the moment the brief
  * changes, when play history is entirely the previous one. See {@link SimilarSetGenerator.seeds},
@@ -110,6 +113,8 @@ export class SimilarSetGenerator extends SetGenerator {
         private readonly identity: StationIdentity,
         private readonly config: AppConfig,
         private readonly logger: Logger,
+        // Under a brief that names its acts, the seeds. See {@link SimilarSetGenerator.seeds}.
+        private readonly briefArtists: BriefArtists,
     ) {
         super();
     }
@@ -239,6 +244,18 @@ export class SimilarSetGenerator extends SetGenerator {
         // already handles, and `rotation.briefOnly` is where an operator says whether silence beats
         // an off-brief record.
         const briefed = (inputs.brief ?? '').trim().length > 0;
+
+        // A brief that NAMES its acts seeds from them, the ones off air longest first, rather than
+        // from what this broadcast just played. The broadcast's own records are the brief's results,
+        // which is the argument above, but they are the results of a brief read from the top: on the
+        // live station, 2026-10-11, The Boneyard's last four artists were always four of the same six
+        // big names, so their neighbours were each other and the walk deepened the rut it exists to
+        // break. Seeding from Kreator and Behemoth reaches Kreator's and Behemoth's neighbours.
+        if (briefed) {
+            const named = await this.briefArtists.named(inputs.brief);
+            if (named.length > 0) return named.slice(0, MAX_SEEDS).map(artist => artist.name);
+        }
+
         const broadcast = this.identity.current();
         if (briefed && broadcast === undefined) {
             this.logger.debug('director: no broadcast to draw neighbours from, and a brief is in force, so none are offered');

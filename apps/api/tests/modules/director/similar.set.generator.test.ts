@@ -18,6 +18,7 @@ import { songKey } from '../../../src/modules/director/rotation.keys.js';
 import type { SetInputs } from '../../../src/modules/director/set.generator.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import { SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
+import type { BriefArtists } from '../../../src/modules/director/brief.artists.js';
 
 const stubLogger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() });
 
@@ -36,6 +37,8 @@ interface Options {
     lastAired?: Map<string, DateTime>;
     /** A history that cannot be read, for the case about degrading rather than failing. */
     historyFails?: boolean;
+    /** The acts the brief names, longest off air first. None unless a case says so. */
+    named?: string[];
 }
 
 function build(options: Options = {}) {
@@ -67,8 +70,21 @@ function build(options: Options = {}) {
     const identity = new StationIdentity();
     if (options.broadcast !== undefined) identity.began(options.broadcast);
 
+    const briefNamed = vi.fn(async () => (options.named ?? []).map(name => ({ name, artistKey: name.toLowerCase() })));
+
     return {
-        generator: new SimilarSetGenerator(similarity, new SimilarPicker(similarity), history, identity, config, logger as unknown as Logger),
+        generator: new SimilarSetGenerator(
+            similarity,
+            new SimilarPicker(similarity),
+            history,
+            identity,
+            config,
+            logger as unknown as Logger,
+            {
+                named: briefNamed,
+            } as unknown as BriefArtists,
+        ),
+        briefNamed,
         similarTo,
         topTracks,
         recentArtists,
@@ -172,6 +188,31 @@ describe('seeding', () => {
 
         expect(picks).toEqual([]);
         expect(recentArtists).not.toHaveBeenCalled();
+    });
+
+    // Measured on the live station, 2026-10-11: The Boneyard's last four artists were always four of
+    // the same six big names, so seeding from them walked between Megadeth, Metallica and Slayer. A
+    // brief that names its acts seeds from the ones off air longest instead.
+    it('seeds a brief that names its acts from the four off air longest, not from what just aired', async () => {
+        const { generator, recentArtists, similarTo, briefNamed } = build({
+            broadcast: 'boneyard',
+            named: ['Behemoth', 'Kreator', 'Sodom', 'Obituary', 'Metallica'],
+        });
+
+        await generator.generate(inputs({ brief: 'Thrash: Metallica, Kreator, Sodom. Death: Obituary, Behemoth.' }));
+
+        expect(briefNamed).toHaveBeenCalledWith('Thrash: Metallica, Kreator, Sodom. Death: Obituary, Behemoth.');
+        expect(recentArtists).not.toHaveBeenCalled();
+        expect(similarTo.mock.calls.map(([ref]) => ref.name)).toEqual(expect.arrayContaining(['Behemoth']));
+        expect(similarTo.mock.calls.map(([ref]) => ref.name)).not.toContain('Metallica');
+    });
+
+    it('falls back to this broadcast when the brief names nobody the library holds', async () => {
+        const { generator, recentArtists } = build({ broadcast: 'show-4', named: [] });
+
+        await generator.generate(inputs({ brief: 'Loud and fast' }));
+
+        expect(recentArtists).toHaveBeenCalledWith(expect.any(Number), expect.any(String), 'show-4');
     });
 
     it('reads a brief of nothing but spaces as no brief at all', async () => {

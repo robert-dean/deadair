@@ -166,6 +166,19 @@ transfer exactly, where a duration comparison only catches one big enough to sho
 checks are applied, because neither subsumes the other — a preview clip arrives complete and is still
 not the track.
 
+#### What it will fetch
+
+Only `http` and `https`, on the url it is sent and on every redirect. urllib on its own also opens
+`file:`, so without that a url was a read of anything on this container's disk.
+
+The url it is sent is fetched wherever it points, private addresses included, because it is always
+one of the station's own (`/playout/audio/{id}`, the segments `/join` stitches) and those live on the
+station's private address by design. A redirect is an address picked by whatever answered, so each
+hop is resolved and refused as `unfetchable` if it reaches this machine or its network. A hop back to
+the origin that was asked for is followed, and so is one to an origin in `ANALYSIS_ALLOWED_ORIGINS`.
+None of this replaces listening on loopback only: anyone who can reach the port still chooses the
+first address.
+
 #### `complete` is load-bearing and only this service can answer it
 
 The host hands over a URL and never sees the bytes, so it cannot tell a whole download from a
@@ -367,6 +380,7 @@ ffmpeg -nostdin -hide_banner -i track.mp3 -filter_complex ebur128=peak=true -f n
 | `ANALYSIS_MAX_SECONDS` | `1800` | refuse audio longer than this |
 | `ANALYSIS_MAX_BYTES` | `512M` | refuse a download larger than this |
 | `ANALYSIS_FETCH_TIMEOUT_S` | `180` | how long to wait on the audio fetch |
+| `ANALYSIS_ALLOWED_ORIGINS` | empty | origins a redirect may reach although they are private (`http://host:port`, comma-separated) |
 
 `ANALYSIS_WORKERS` is a **ceiling, not an operating value**. How many tracks actually decode at once
 is the station's own `analysis.concurrency`, because the walk is the station's and it is the number an

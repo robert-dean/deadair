@@ -22,6 +22,7 @@ for dir in \
     "$DATA/streamhls" \
     "$DATA/music" \
     "$DATA/voices" \
+    "$DATA/appleplayer" \
     "$ART_DIR" \
     "$SEGMENT_DIR" \
     "$VOICE_SAMPLE_DIR" \
@@ -50,7 +51,7 @@ chown 99:100 "$DATA" 2>/dev/null || true
 #
 # Appended rather than written: the file is the runtime's, and the entries above ours are the
 # container's own identity.
-for name in app icecast liquidsoap analysis kokoro; do
+for name in app icecast liquidsoap analysis kokoro apple-player; do
     grep -qE "^127\.0\.0\.1[[:space:]]+.*[[:space:]]${name}([[:space:]]|\$)" /etc/hosts && continue
     echo "127.0.0.1 ${name}" >> /etc/hosts 2>/dev/null || {
         echo "init-station: /etc/hosts is not writable; the station cannot resolve its own parts by name" >&2

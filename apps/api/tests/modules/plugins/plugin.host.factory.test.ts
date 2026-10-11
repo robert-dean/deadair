@@ -24,7 +24,7 @@ import { PluginConfigService } from '../../../src/modules/plugins/plugin.config.
 import { PluginGrantsService } from '../../../src/modules/plugins/plugin.grants.service.js';
 import { NETWORK_OPEN, type AddressResolver } from '../../../src/modules/plugins/plugin.grants.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
-import { stubShimClient } from '../../utils/spotify.shim.fixture.js';
+import { stubApplePlayerClient, stubShimClient } from '../../utils/spotify.shim.fixture.js';
 import { stubContainer } from '../../utils/stub.container.js';
 
 /**
@@ -155,6 +155,7 @@ function scopedFactory(
             stub.container,
             pluginLog.log,
             stubShimClient(),
+            stubApplePlayerClient(),
             grants,
         ),
     };
@@ -1376,6 +1377,7 @@ describe('PluginHostFactory network.open grant', () => {
             stub.container,
             stubPluginLog().log,
             stubShimClient(),
+            stubApplePlayerClient(),
             stubGrants(['test.plugin']),
         );
         const host = built.createHost(declaring('feeds.example.org'));
@@ -1863,6 +1865,7 @@ describe('PluginHostFactory.createHost trackFetcher', () => {
             stub.container,
             stubPluginLog().log,
             shim as never,
+            stubApplePlayerClient(),
             stubGrants(),
         );
         return { factory: built, shim };

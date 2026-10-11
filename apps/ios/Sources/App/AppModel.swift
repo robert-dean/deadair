@@ -101,7 +101,25 @@ final class AppModel {
         )
         listening.skip = { [transport] in await transport.skip() }
         followOperatorRole()
+        // Absent in a build signed without the App Group, which then writes nothing for a widget
+        // that could not read it anyway.
+        widget = WidgetStore.shared().map { store in
+            WidgetFeed(store: store, artwork: artwork) { [weak self] in
+                guard let self else { return WidgetFeed.Inputs(heard: .loading, requested: false, playing: false, station: nil, stationName: nil) }
+                return WidgetFeed.Inputs(
+                    heard: heardState,
+                    requested: listening.wantsToPlay,
+                    playing: listening.conductor.state == .playing,
+                    station: settings.settings.station,
+                    stationName: settings.settings.stationName
+                )
+            }
+        }
+        widget?.start()
     }
+
+    /// Keeps the home-screen widget's file current from what the app already knows. See `WidgetFeed`.
+    @ObservationIgnored private var widget: WidgetFeed?
 
     /// The lock screen's next button follows the role for as long as the app lives, foreground or not:
     /// a role taken away while the phone is locked takes the button with it.

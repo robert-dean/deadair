@@ -217,7 +217,8 @@ two paragraphs). The intent works today; CarPlay is built and waits on Apple.
 
 **`PlayStationIntent` is an `AudioPlaybackIntent`, and it is the route that starts a swiped-away
 app.** The system runs it in the app's own process, launching it in the background, and it calls
-`Listening.play()`, the Play button's own call. `AppModel.shared` is the one graph in the process
+`Listening.play()`, the Play button's own call, through `StationControl` (it lives in `Shared/`,
+for the widget; see "The widget"). `AppModel.shared` is the one graph in the process
 (the window, the intent and the CarPlay scene all read it), and that is what stops a second player
 existing: do not build an `AppModel` anywhere else. `DeadairShortcuts` offers it to Siri and
 Shortcuts with no set-up. With no station kept it throws a sentence rather than reporting a start.
@@ -247,8 +248,10 @@ not hold fails to sign, which would stop TestFlight (`ios-release.yml` archives 
 `generic/platform=iOS` with automatic signing) and every personal-team run. So `Config/Deadair.carplay.entitlements`
 is referenced only by `CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]` in the target's two configurations:
 simulator builds carry it (the simulator's CarPlay window needs it to connect a scene, and a
-simulator build needs no profile), and `xcodebuild -showBuildSettings -sdk iphoneos` answers no
-entitlements file at all. CI builds for the simulator with signing off, so it embeds nothing either.
+simulator build needs no profile), and `xcodebuild -showBuildSettings -sdk iphoneos` answers
+`Config/Deadair.entitlements`, which holds the App Group and nothing else. The simulator file holds the
+App Group too, since it replaces the device one there. CI builds for the simulator with signing off,
+so it embeds nothing either.
 Everything else is safe without it: the scene manifest in `Config/Info.plist` only declares a role
 CarPlay never connects to, and the delegate is never instantiated, so the app is exactly what it was.
 That is also why `INFOPLIST_KEY_UIApplicationSceneManifest_Generation` is `NO`: the generated manifest
@@ -259,9 +262,10 @@ plist. SwiftUI still makes the phone's window without a window role declared.
 at developer.apple.com for `com.maroonedsoftware.deadair` (the CarPlay request form, which is
 reviewed by hand), then make sure the App ID has the capability and let automatic signing regenerate
 the profile (`-allowProvisioningUpdates` in the release workflow does so on the next archive). Only
-then change `CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]` to plain `CODE_SIGN_ENTITLEMENTS` in both
-target configurations in `project.pbxproj`, so the file applies to every SDK. Do that BEFORE the grant
-and the next TestFlight upload fails to sign.
+then add the `com.apple.developer.carplay-audio` key to `Config/Deadair.entitlements`, and drop the
+`[sdk=iphonesimulator*]` line from the target's two configurations in `project.pbxproj` (the two
+files are then the same), so it applies to every SDK. Do that BEFORE the grant and the next
+TestFlight upload fails to sign.
 
 **With no network, a drop waits for one instead of spending the backoff.** `Platform.observeNetwork`
 (an `NWPathMonitor`, satisfied rather than internet-reaching, for a home station) feeds
@@ -315,6 +319,58 @@ policy.
 **Swift 6.3 crashed in IR generation on a main-actor method passed straight in as a `Binding`
 setter** (`set: entry.type`). An explicit closure (`set: { entry.type($0) }`) compiles, and the
 screens use that form throughout.
+
+## The widget
+
+**The widget draws a file the app writes, and never asks the station anything.** Android's rule
+(`apps/android/CLAUDE.md`, "The home-screen widget is four rules") with the platform's own reason on
+top: a WidgetKit extension has no poll, no lease and no player, and any request it made would be a
+second client the station counts under a different agent. `WidgetFeed` (app) follows
+`AppModel.heardState`, the playing state and the kept station inside one `withObservationTracking`,
+builds the next `WidgetState` with `DeadairCore`'s `advance`, and writes it only when `worthDrawing`
+says so: a drawn field changed, or a minute has passed for the age. Each write is a
+`WidgetCenter.reloadTimelines`. It holds no lease, so with nothing playing and no screen open it
+writes nothing. It takes the heard reading, never the raw poll, so the widget changes record when the
+lock screen does.
+
+**The cover is the app's to fetch.** Through `ArtworkLoader` (the one agent), shrunk to 240 pixels by
+`Platform.widgetCover`, and written beside the state as `cover.jpg`; the extension only reads files.
+A cover that fails leaves the last one, and off air removes it. Both files live in the App Group's
+container under `Widget/` (`WidgetStore`), and `PRIVACY.md` lists what is in them.
+
+**Playing or stopped is in the file, where Android keeps it in memory**, because the extension cannot
+ask the app. A killed app leaves `playing` behind; a Stop pressed then runs `StopStationIntent` in a
+fresh process, which stops nothing and rewrites the file as stopped, which is the safe way round.
+
+**Stopped, the widget shows what the app last heard, with "as of" once it is two minutes old**, where
+Android's default says "Not listening". A deliberate difference: Android can follow the station on a
+timer and so has a resting mode to choose; this widget can only ever hold what the app wrote, and an
+honest age is better than hiding it. The timeline is the file plus one entry at the moment the age
+starts to show (`widgetRedrawAt`), with `.never` after.
+
+**Play and Stop are `Button(intent:)`, and both intents run in the APP.** A widget button can only
+name an intent its own module declares, so `Shared/` is a folder compiled into both targets and holds
+`PlayStationIntent` and `StopStationIntent`. Both are `AudioPlaybackIntent`s, which iOS performs in the
+app's process (launching it in the background) whichever target pressed them. Their `perform()` calls
+`StationControl`, which each target declares: the app's acts on `AppModel.shared`, the widget's is
+empty and exists so the shared file compiles there. Never give the extension a player.
+
+**The project file has a second target.** `DeadairWidget` (`com.apple.product-type.app-extension`,
+bundle id `com.maroonedsoftware.deadair.widget`) is the synchronized folder `Widget/` plus `Shared/`,
+links `DeadairCore` and `DeadairSdk`, and is embedded by the app's "Embed Foundation Extensions"
+phase through a target dependency, so the app's scheme builds it and CI checks the `.appex` is in the
+app. Its Info.plist is `Config/DeadairWidget-Info.plist` (only `NSExtension`; the version comes from
+`Version.xcconfig` through the project configuration, as the app's does). The extension is iOS-only and
+is not part of the macOS type-check described above.
+
+**The App Group `group.com.maroonedsoftware.deadair` is on both targets for every SDK, and Robert has
+to register it before the next TestFlight upload.** At developer.apple.com: register the App Group;
+register the App ID `com.maroonedsoftware.deadair.widget`; enable App Groups on both App IDs with that
+group selected. Automatic signing then regenerates both profiles on the next archive. Until then an
+archive fails to sign, and `ios-release.yml` checks after archiving that both bundles carry the group.
+A build signed without the group (CI's, with signing off) finds no container: `WidgetStore.shared()`
+is `nil`, the app writes nothing, and the widget says to choose a station in the app. A personal-team
+build needs the group registered under that team too.
 
 ## The session
 

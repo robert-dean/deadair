@@ -12,12 +12,15 @@ from __future__ import annotations
 
 import asyncio
 import ctypes
+import ipaddress
 import json
 import os
 import re
+import socket
 import subprocess
 import tempfile
 import urllib.error
+import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -118,6 +121,17 @@ MAX_BYTES = int(os.environ.get("ANALYSIS_MAX_BYTES", str(512 * 1024 * 1024)))
 
 # A copy made to be SENT is mono or stereo and nothing wider. See `/transcode`.
 MAX_TRANSCODE_CHANNELS = 2
+
+# Origins (`scheme://host:port`) a redirect may lead to even though they resolve
+# to this machine or the network it is on. Comma-separated, and empty by default,
+# because the common case needs nothing here: see `_check_redirect`.
+ALLOWED_ORIGINS = frozenset(
+    origin.strip().rstrip("/").lower() for origin in os.environ.get("ANALYSIS_ALLOWED_ORIGINS", "").split(",") if origin.strip()
+)
+
+# What a fetch may speak. urllib on its own also opens `file:`, `ftp:` and
+# `data:`, and `file:` is a read of anything on this container's disk.
+FETCH_SCHEMES = frozenset({"http", "https"})
 
 app = FastAPI(title="deadair analysis")
 
@@ -240,6 +254,107 @@ _UNFETCHABLE = re.compile(
 )
 
 
+def _origin(url: urllib.parse.SplitResult) -> str:
+    """`scheme://host:port`, lowercased, with the scheme's default port written out."""
+    port = url.port or (443 if url.scheme == "https" else 80)
+    return f"{url.scheme}://{(url.hostname or '').lower()}:{port}"
+
+
+def _origin_text(origin: str) -> str:
+    """An entry of ANALYSIS_ALLOWED_ORIGINS in `_origin`'s form, so `http://station` matches `:80`."""
+    return _origin(urllib.parse.urlsplit(origin))
+
+
+def _checked_scheme(url: str, status: int = 400) -> urllib.parse.SplitResult:
+    """The url split, or `unfetchable` when it is not http(s) with a host.
+
+    400 for the url the caller sent, which is the caller's mistake; a redirect
+    passes 502, since the bad address came from upstream.
+    """
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme.lower() not in FETCH_SCHEMES or not parts.hostname:
+        raise AnalysisError("unfetchable", f"only http and https urls are fetched, not {parts.scheme or 'a bare path'}:", status=status)
+    return parts
+
+
+def _is_private(host: str) -> bool:
+    """Whether any address the host resolves to is this machine or the network it is on.
+
+    Every address rather than the first: a name that answers with one public and
+    one private address is a name whose next connection may well be the private
+    one. A name that does not resolve is not private, and the fetch that follows
+    fails on it in the ordinary way.
+    """
+    try:
+        infos = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    except (socket.gaierror, UnicodeError):
+        return False
+    for info in infos:
+        address = ipaddress.ip_address(info[4][0].split("%", 1)[0])
+        if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
+            address = address.ipv4_mapped
+        if not address.is_global or address.is_multicast:
+            return True
+    return False
+
+
+def _check_redirect(first: urllib.parse.SplitResult, hop: str) -> None:
+    """Refuse a redirect this service should not follow. Raises `AnalysisError`.
+
+    **The first address is not checked, and that is on purpose.** The station
+    hands this service its own URLs, `/playout/audio/{id}` and the segment routes
+    `/join` stitches, and those live on the station's own address: private by
+    design and meant to be reached. What binds that first hop is who can ask,
+    which is why the service listens on loopback only.
+
+    A redirect is different. It is an address chosen by whatever just answered,
+    so each one is resolved and refused if it reaches this machine or its network,
+    which is the same rule the station's own track fetch applies to its redirects.
+    Two exceptions keep the station's own redirects working: a hop back to the
+    origin that was asked for, and an origin named in ANALYSIS_ALLOWED_ORIGINS.
+    """
+    parts = _checked_scheme(hop, status=502)
+    origin = _origin(parts)
+    if origin == _origin(first) or origin in {_origin_text(allowed) for allowed in ALLOWED_ORIGINS}:
+        return
+    if _is_private(parts.hostname or ""):
+        raise AnalysisError("unfetchable", f"refused a redirect to a private address: {parts.hostname}")
+
+
+class _GuardedRedirects(urllib.request.HTTPRedirectHandler):
+    """urllib's own redirect handling, with every hop put through `_check_redirect` first."""
+
+    def __init__(self, first: urllib.parse.SplitResult) -> None:
+        super().__init__()
+        self._first = first
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _check_redirect(self._first, newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _open(request: urllib.request.Request, timeout: float):
+    """`urlopen`, restricted to http(s) and with each redirect re-checked. See `_check_redirect`.
+
+    An opener of exactly the handlers a fetch needs, rather than `build_opener`'s
+    defaults, so a `file:` or `ftp:` url has no handler to reach even if a check
+    above were ever got wrong.
+    """
+    first = _checked_scheme(request.full_url)
+    opener = urllib.request.OpenerDirector()
+    for handler in (
+        urllib.request.ProxyHandler(),
+        urllib.request.UnknownHandler(),
+        urllib.request.HTTPHandler(),
+        urllib.request.HTTPSHandler(),
+        urllib.request.HTTPDefaultErrorHandler(),
+        urllib.request.HTTPErrorProcessor(),
+        _GuardedRedirects(first),
+    ):
+        opener.add_handler(handler)
+    return opener.open(request, timeout=timeout)
+
+
 def _download(url: str) -> tuple[str, bool]:
     """Fetch the audio ONCE to a temp file. Returns the path and whether it is whole.
 
@@ -256,14 +371,19 @@ def _download(url: str) -> tuple[str, bool]:
     than infer. Comparing what arrived against `Content-Length` catches a
     truncated transfer directly, where a duration comparison can only catch one
     big enough to shorten the decode.
+
+    Only http and https, and a redirect is followed only past `_check_redirect`.
     """
+    # Before the temp file exists, so a refused url leaves nothing to clean up.
+    _checked_scheme(url)
+
     handle = tempfile.NamedTemporaryFile(suffix=".audio", delete=False)
     received = 0
     declared: int | None = None
 
     try:
         request = urllib.request.Request(url, headers={"user-agent": ANALYZER})
-        with urllib.request.urlopen(request, timeout=FETCH_TIMEOUT_S) as response:
+        with _open(request, timeout=FETCH_TIMEOUT_S) as response:
             length = response.headers.get("content-length")
             declared = int(length) if length and length.isdigit() else None
 

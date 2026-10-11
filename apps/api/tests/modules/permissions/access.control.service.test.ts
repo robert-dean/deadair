@@ -3,7 +3,7 @@ import { IsHttpError } from '@maroonedsoftware/errors';
 
 import { AccessControlService } from '../../../src/modules/permissions/access.control.service.js';
 import { AuthorizationContext } from '../../../src/modules/permissions/authorization.context.js';
-import type { Actor, SystemActor, UserActor, VendorActor } from '../../../src/modules/permissions/authorization.context.js';
+import type { Actor, GuestActor, SystemActor, UserActor, VendorActor } from '../../../src/modules/permissions/authorization.context.js';
 import type { PermissionsService } from '../../../src/modules/permissions/permissions.service.js';
 import type { ObjectRef } from '@maroonedsoftware/permissions';
 
@@ -18,6 +18,8 @@ const userActor = (actorId: string | undefined, roles: ReadonlyArray<'admin' | '
 const systemActor = (source: SystemActor['source']): SystemActor => ({ kind: 'system', sessionToken: '', source });
 
 const vendorActor: VendorActor = { kind: 'vendor', sessionToken: '', vendor: 'stripe', eventId: 'evt_1' };
+
+const guestActor: GuestActor = { kind: 'guest', sessionToken: 'guest-session', actorId: 'g-1', partyPassId: 'p-1' };
 
 /**
  * A tiny fixture-backed fake of the two `PermissionsService` methods
@@ -136,6 +138,24 @@ describe('AccessControlService: vendor actor', () => {
 
     it('permissionsForResource returns nothing', async () => {
         await expect(build(vendorActor).service.permissionsForResource(OBJECT)).resolves.toEqual([]);
+    });
+});
+
+describe('AccessControlService: party guest', () => {
+    // A guest reaches the request routes through `requests.ask` and no object at all. `require` is
+    // the case that matters: falling out of its switch ALLOWS.
+    it('require refuses without consulting PermissionsService', async () => {
+        const { service, permissions } = build(guestActor);
+        const error = await service.require(OBJECT, 'view').catch((e: unknown) => e);
+        expect(IsHttpError(error) && error.statusCode).toBe(403);
+        expect(permissions.checkSubject).not.toHaveBeenCalled();
+    });
+
+    it('canAccess is false, sees no ids, and holds no permission on anything', async () => {
+        const { service } = build(guestActor);
+        await expect(service.canAccess(OBJECT, 'view')).resolves.toBe(false);
+        await expect(service.listVisibleIds('plugin', 'view')).resolves.toEqual({ ids: [], truncated: false });
+        await expect(service.permissionsForResource(OBJECT)).resolves.toEqual([]);
     });
 });
 

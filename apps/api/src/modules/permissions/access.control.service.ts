@@ -70,6 +70,9 @@ export class AccessControlService {
                 return isTrustedSystemActor(actor);
             case 'vendor':
                 return false;
+            case 'guest':
+                // A party guest reaches the request routes through `requests.ask` and no object at all.
+                return false;
             case 'user':
                 if (!keyAllows(actor, permission)) return false;
                 if (
@@ -99,6 +102,7 @@ export class AccessControlService {
             case 'system':
                 return isTrustedSystemActor(actor) ? { all: true } : { ids: [], truncated: false };
             case 'vendor':
+            case 'guest':
                 return { ids: [], truncated: false };
             case 'user': {
                 if (!actor.actorId || !keyAllows(actor, permission)) return { ids: [], truncated: false };
@@ -137,6 +141,13 @@ export class AccessControlService {
                 // that verified the vendor's signature. None exists, and
                 // nothing mints one (see authorization.context.middleware),
                 // so a vendor reaching here is a bug, and a bug fails closed.
+                denied(object, permission);
+                return;
+
+            case 'guest':
+                // A party guest holds no tuples and no role. It is denied here explicitly because
+                // falling out of this switch ALLOWS, which is the wrong default for a caller anyone
+                // in the room can become by scanning a code.
                 denied(object, permission);
                 return;
 

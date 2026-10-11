@@ -202,6 +202,20 @@ operator's, never the listener's.
 **Nobody's email address is shown or read out.** An app request carries the name the listener chose, or
 "a listener"; a chat one, the name the platform shows.
 
+**A guest at a party asks without an account, through the party pass** (`party.service.ts`,
+`requests.party.ck`). An operator starts a party (`POST /party`, one at a time: starting one ends the
+last) and the station mints a token the console shows as a QR code for `/party#<token>`. Joining
+(`POST /party/join`, the one route a guest reaches without a session) makes a `guest` actor and a
+session that lasts exactly as long as the pass, and every request after that is keyed `guest:<actor
+id>`, so the arbiter's one at a time and cooldown are each guest's own. A guest is held to the
+station's `requests.approval` like anybody else. The token is never stored in the clear: its hash is
+how a join finds the pass, and a copy sealed with the root key is how the console shows the QR again.
+A guest's request answers `source: app` with `fromParty: true` rather than a new `RequestSource`
+value, because the generated Swift, Kotlin and C# enums are strict and an installed desktop app would
+fail to decode the whole operator list. Joins are limited per address (`PartyJoinLimiter`) and a pass
+admits `MAX_PARTY_GUESTS`; ending the party switches its guests off and revokes their sessions. What a
+guest may reach, and why that is only three routes, is in `authentication.md` § "Party guests".
+
 **`/request` in a chat searches, and asks at once only for a clear match** (the only one, or an exact
 title); several are offered as up to three buttons, `request.pick` with the record's id as the value, and a
 press is looked up rather than trusted, since a client can send any value. A chat account LINKED to a

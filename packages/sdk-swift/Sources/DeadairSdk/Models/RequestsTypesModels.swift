@@ -69,6 +69,126 @@ public struct ListenerRequestDecline: Codable, Equatable, Sendable {
     }
 }
 
+/// A party: the pass guests join with by scanning its QR code, for as long as it lasts
+public struct PartyPass: Codable, Equatable, Sendable {
+    /// The pass itself. Put it after `#` on the station's `/party` page, as `/party#<token>`, and that address is what the QR code holds. Anyone holding it can join until the party ends, so show it only to the room
+    public var token: String
+    /// When the party started
+    public var createdAt: Date
+    /// When the pass stops letting guests in, and turns away every guest who joined with it
+    public var expiresAt: Date
+    /// How many guests have joined with it
+    public var guests: Int
+
+    public init(token: String, createdAt: Date, expiresAt: Date, guests: Int) {
+        self.token = token
+        self.createdAt = createdAt
+        self.expiresAt = expiresAt
+        self.guests = guests
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case token = "token"
+        case createdAt = "createdAt"
+        case expiresAt = "expiresAt"
+        case guests = "guests"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.token = try container.decode(String.self, forKey: .token)
+        self.createdAt = try container.decode(Date.self, forKey: .createdAt)
+        self.expiresAt = try container.decode(Date.self, forKey: .expiresAt)
+        self.guests = try container.decode(Int.self, forKey: .guests)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.token, forKey: .token)
+        try container.encode(self.createdAt, forKey: .createdAt)
+        try container.encode(self.expiresAt, forKey: .expiresAt)
+        try container.encode(self.guests, forKey: .guests)
+    }
+}
+
+/// Start a party
+public struct PartyStart: Codable, Equatable, Sendable {
+    /// How long the pass lasts. Six when omitted
+    public var hours: Int?
+
+    public init(hours: Int? = nil) {
+        self.hours = hours
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case hours = "hours"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.hours = try container.decodeIfPresent(Int.self, forKey: .hours)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.hours, forKey: .hours)
+    }
+}
+
+/// Join a party as a guest, with the pass from its QR code
+public struct PartyJoin: Codable, Equatable, Sendable {
+    /// The pass, as it appears after `#` in the party page's address
+    public var token: String
+
+    public init(token: String) {
+        self.token = token
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case token = "token"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.token = try container.decode(String.self, forKey: .token)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.token, forKey: .token)
+    }
+}
+
+/// A guest's way in: send it as a bearer token on the request routes
+public struct PartyGuestSession: Codable, Equatable, Sendable {
+    /// The bearer token. It lets a guest search for records, ask for one and see their own requests, and nothing else
+    public var accessToken: String
+    /// When it stops working, which is when the party's pass does
+    public var expiresAt: Date
+
+    public init(accessToken: String, expiresAt: Date) {
+        self.accessToken = accessToken
+        self.expiresAt = expiresAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case accessToken = "accessToken"
+        case expiresAt = "expiresAt"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.accessToken = try container.decode(String.self, forKey: .accessToken)
+        self.expiresAt = try container.decode(Date.self, forKey: .expiresAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.accessToken, forKey: .accessToken)
+        try container.encode(self.expiresAt, forKey: .expiresAt)
+    }
+}
+
 /// A record the station could be asked for: one it holds, or one a music provider carries
 public struct RequestableTrack: Codable, Equatable, Sendable {
     /// What to send as `trackId` to make the request. Absent for a record from a provider, which is asked for by `source` instead
@@ -196,8 +316,10 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
     public var dedicateTo: String?
     /// What the listener asked to have said with it, in their own words
     public var message: String?
+    /// True when a guest at a party asked for it, through the party pass. Absent otherwise
+    public var fromParty: Bool?
 
-    public init(id: UUID, status: RequestStatus, title: String, artist: String, requesterName: String, source: RequestSource, createdAt: Date, reason: String? = nil, airedAt: Date? = nil, dedicateTo: String? = nil, message: String? = nil) {
+    public init(id: UUID, status: RequestStatus, title: String, artist: String, requesterName: String, source: RequestSource, createdAt: Date, reason: String? = nil, airedAt: Date? = nil, dedicateTo: String? = nil, message: String? = nil, fromParty: Bool? = nil) {
         self.id = id
         self.status = status
         self.title = title
@@ -209,6 +331,7 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
         self.airedAt = airedAt
         self.dedicateTo = dedicateTo
         self.message = message
+        self.fromParty = fromParty
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -223,6 +346,7 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
         case airedAt = "airedAt"
         case dedicateTo = "dedicateTo"
         case message = "message"
+        case fromParty = "fromParty"
     }
 
     public init(from decoder: Decoder) throws {
@@ -238,6 +362,7 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
         self.airedAt = try container.decodeIfPresent(Date.self, forKey: .airedAt)
         self.dedicateTo = try container.decodeIfPresent(String.self, forKey: .dedicateTo)
         self.message = try container.decodeIfPresent(String.self, forKey: .message)
+        self.fromParty = try container.decodeIfPresent(Bool.self, forKey: .fromParty)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -253,6 +378,31 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.airedAt, forKey: .airedAt)
         try container.encodeIfPresent(self.dedicateTo, forKey: .dedicateTo)
         try container.encodeIfPresent(self.message, forKey: .message)
+        try container.encodeIfPresent(self.fromParty, forKey: .fromParty)
+    }
+}
+
+/// The party, if one is on
+public struct PartyState: Codable, Equatable, Sendable {
+    /// Absent when no party is on
+    public var party: PartyPass?
+
+    public init(party: PartyPass? = nil) {
+        self.party = party
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case party = "party"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.party = try container.decodeIfPresent(PartyPass.self, forKey: .party)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.party, forKey: .party)
     }
 }
 

@@ -12,7 +12,7 @@ Ask the station to play a record. Answers with the request whatever became of it
 
 :::note
 SDK method: `createRequest`
-Security: authenticated (policy: platform.view)
+Security: authenticated (policy: requests.ask)
 :::
 
 ## Request body (`application/json`)

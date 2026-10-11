@@ -3,7 +3,7 @@ import { ActionIcon, Anchor, AppShell, Box, Button, Group, Kbd, ScrollArea, Text
 import { useHotkeys } from '@mantine/hooks';
 import { IconSearch } from '@tabler/icons-react';
 import { spotlight } from '@mantine/spotlight';
-import { createRootRouteWithContext, Outlet, redirect, useNavigate } from '@tanstack/react-router';
+import { createRootRouteWithContext, Outlet, redirect, useNavigate, useRouterState } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { OnboardingRequirement } from '@deadair/sdk';
@@ -49,6 +49,9 @@ function noDialogOpen(): boolean {
     return document.querySelector('[role="dialog"]') === null;
 }
 
+/** Signed-in pages drawn without the console's shell. */
+const BARE_PATHS: readonly string[] = ['/party-poster'];
+
 export function RootLayout() {
     const { t } = useTranslation('routes');
     const session = useSession();
@@ -74,6 +77,7 @@ export function RootLayout() {
     // whether or not its contents render, so the shell has to KNOW rather than just hide it. The
     // hook's first-paint fallback is the desktop, and `use.phone.ts` says why.
     const phone = usePhone();
+    const pathname = useRouterState({ select: state => state.location.pathname });
 
     // The letters drawn in the rail's gutter, bound to the destinations that draw them. Read off
     // `DESTINATION_KEYS` rather than restated here, so a hint the nav shows and a key the shell
@@ -111,6 +115,10 @@ export function RootLayout() {
         setLogoutError(failure);
         await navigate({ to: '/login' });
     }
+
+    // A page that is the whole screen, drawn without the shell: the party's poster, on a TV across
+    // the room, where a header and a rail would only be things for a guest to read instead of the code.
+    if (BARE_PATHS.includes(pathname)) return <Outlet />;
 
     return (
         <AppShell

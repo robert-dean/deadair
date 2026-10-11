@@ -37,7 +37,7 @@ export const SECURITY_META = 'contractkit/security';
 /**
  * What a tool's security asks of its caller. A policy this does not know is treated as `manage`, the
  * stricter tier, so a new policy hides an operation from a view grant rather than offering one it
- * would be refused; the catalog test fails on any policy outside the three, so it does not stay that
+ * would be refused; the catalog test fails on any policy outside the ones named here, so it does not stay that
  * way unnoticed.
  */
 export function accessOf(definition: Tool): CatalogAccess {
@@ -45,7 +45,9 @@ export function accessOf(definition: Tool): CatalogAccess {
     if (security === 'none') return 'anyone';
     const policy = (security as { policy?: unknown } | undefined)?.policy;
     if (policy === false) return 'anyone';
-    if (policy === 'platform.view') return 'view';
+    // `requests.ask` is `platform.view` plus a party guest, and a guest never reaches the MCP endpoint
+    // (`oauth.grant` admits a connected app's session only), so to a caller here it IS view.
+    if (policy === 'platform.view' || policy === 'requests.ask') return 'view';
     return 'manage';
 }
 

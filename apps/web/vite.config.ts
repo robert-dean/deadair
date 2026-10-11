@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 
@@ -25,12 +25,33 @@ const ICECAST_TARGET = 'http://127.0.0.1:8000';
  */
 const MOUNT_PATTERN = '^/[^/]+\\.(mp3|opus|aac|flac)$';
 
+/**
+ * `/party` is the guest request page, a second page with its own entry (`party.html`) so a guest
+ * never loads the console or its sign-in. nginx serves it at `/party` in the image
+ * (`docker/nginx.conf`, `nginx/nginx.prod.conf`); this is the same rewrite for the dev server, which
+ * otherwise answers every unknown path with the console's `index.html`.
+ */
+const partyPage = (): Plugin => ({
+    name: 'deadair-party-page',
+    configureServer(server) {
+        server.middlewares.use((req, _res, next) => {
+            if (req.url === '/party' || req.url?.startsWith('/party?')) req.url = req.url.replace('/party', '/party.html');
+            next();
+        });
+    },
+});
+
 export default defineConfig(({ mode }) => ({
     plugins: [
         // Must precede react() so the generated route tree is in place before JSX transforms.
         tanstackRouter({ target: 'react', autoCodeSplitting: true }),
         react(),
+        partyPage(),
     ],
+    build: {
+        // Two pages: the console, and the guest request page a party's QR code points at.
+        rollupOptions: { input: { main: resolve(import.meta.dirname, 'index.html'), party: resolve(import.meta.dirname, 'party.html') } },
+    },
     server: {
         // nginx.dev.conf proxies http://localhost:8080/ to this port.
         port: 3002,

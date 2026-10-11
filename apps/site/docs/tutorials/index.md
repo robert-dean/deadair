@@ -36,3 +36,5 @@ station can do the rest by being asked. Each page shows both where both exist.
 
 - [Produce a segment](./produce-a-segment.md): a short programme the station writes and voices itself,
   a listener's call, and a guest in the studio.
+- [Throw a party](./throw-a-party.md): a code on the TV, and guests asking for records from their
+  phones with no account.

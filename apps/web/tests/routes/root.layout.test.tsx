@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act } from '@testing-library/react';
 import { SdkError } from '@deadair/sdk';
 
 import { RootLayout } from '../../src/routes/__root';
@@ -7,6 +8,7 @@ import { clearSession, isAuthenticated, setSession } from '../../src/auth/sessio
 import { createTestQueryClient, render, screen, setupUser, waitFor } from '../utils/render';
 
 const navigate = vi.fn().mockResolvedValue(undefined);
+const invalidate = vi.fn().mockResolvedValue(undefined);
 const logout = vi.fn();
 
 // The layout is exercised on its own: the router is stubbed down to the three pieces it renders with.
@@ -21,6 +23,7 @@ vi.mock('@tanstack/react-router', () => ({
     Outlet: () => <div data-testid="outlet" />,
     redirect: (options: unknown) => options,
     useNavigate: () => navigate,
+    useRouter: () => ({ invalidate }),
     // The pinned footer asks the router where the operator is, to decide whether to open Settings
     // out into its sections. Answered as somewhere that is not Settings, which is what every case
     // in this file is about.
@@ -41,6 +44,7 @@ function logoutButton() {
 
 afterEach(() => {
     navigate.mockClear();
+    invalidate.mockClear();
     logout.mockReset();
     clearSession();
 });
@@ -74,6 +78,24 @@ describe('RootLayout', () => {
         const skip = screen.getByRole('link', { name: 'Skip to content' });
         expect(skip).toHaveAttribute('href', '#main');
         expect(document.getElementById('main')).not.toBeNull();
+    });
+
+    // A desk left open after its session died polled 401s for 43 minutes, because the gate only ran
+    // on the next navigation.
+    it('asks the gate again the moment a live session ends, and not before', async () => {
+        setSession('token-123', 3600);
+        render(<RootLayout />);
+        expect(invalidate).not.toHaveBeenCalled();
+
+        act(() => clearSession());
+
+        await waitFor(() => expect(invalidate).toHaveBeenCalledTimes(1));
+    });
+
+    it('does not ask again for a page that was never signed in', () => {
+        render(<RootLayout />);
+
+        expect(invalidate).not.toHaveBeenCalled();
     });
 
     it('hides them again for a token that exists but has expired', () => {

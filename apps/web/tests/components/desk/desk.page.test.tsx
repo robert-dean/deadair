@@ -4,9 +4,10 @@
 // four rows that have not happened yet.
 
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import type { StationOrder, StationOrderItem } from '@deadair/sdk';
 
+import { clearSession, setSession } from '../../../src/auth/session.store';
 import { DeskPage } from '../../../src/components/desk/desk.page';
 import { measureTheOrderPort } from '../../utils/order.port';
 import { playoutStatus, stationSilence } from '../../utils/playout.fixture';
@@ -119,7 +120,25 @@ afterEach(() => {
     vi.clearAllMocks();
 });
 
+// The desk's readers poll only while there is a session, as they do in the console.
+beforeEach(() => setSession('token-123', 3600));
+afterEach(() => clearSession());
+
 describe('DeskPage', () => {
+    // A desk left open after its session died polled 401s every two seconds for 43 minutes, because
+    // it asked for its readers with `true` while the shell gated its own on the session.
+    it('asks the station nothing once the session has gone', async () => {
+        arrange();
+        clearSession();
+        render(<DeskPage />);
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+        expect(getPlayoutStatus).not.toHaveBeenCalled();
+        expect(readStationAttention).not.toHaveBeenCalled();
+        expect(getStationAir).not.toHaveBeenCalled();
+        expect(getTheRunningOrder).not.toHaveBeenCalled();
+    });
+
     it('answers all three questions on one screen', async () => {
         arrange();
         render(<DeskPage />);

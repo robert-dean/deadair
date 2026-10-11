@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import type { StationOrder, StationOrderItem } from '@deadair/sdk';
 
+import { clearSession, setSession } from '../../../src/auth/session.store';
 import { DeskPage } from '../../../src/components/desk/desk.page';
 import { measureTheOrderPort } from '../../utils/order.port';
 import { notifyUndoable } from '../../../src/components/shared/notify';
@@ -139,6 +140,10 @@ beforeEach(() => {
 afterEach(() => {
     vi.clearAllMocks();
 });
+
+// The desk's readers poll only while there is a session, as they do in the console.
+beforeEach(() => setSession('token-123', 3600));
+afterEach(() => clearSession());
 
 describe('DeskPage: the running order and the broadcast controls', () => {
     it('draws where each item has got to, and calls a handed item handed rather than playing', async () => {

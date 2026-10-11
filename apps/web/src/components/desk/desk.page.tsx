@@ -20,6 +20,7 @@ import {
 import { usePlayoutStatus } from '../../api/playout.queries';
 import { useStationAttention } from '../../api/station.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { useSignedIn } from '../../auth/session.store';
 import { runsDryAt, whatHappensThen } from '../onair/order.runs.dry';
 import { PlanTheStation } from '../onair/plan.the.station';
 import { BringInAGuest, TakeACall } from '../onair/take.a.call';
@@ -63,12 +64,14 @@ import { OnAirNow } from './on.air.now';
  */
 export function DeskPage() {
     // Every one of these shares a query key with the shell's own polling, so the desk is one more
-    // reader of one reading rather than a second request per panel.
+    // reader of one reading rather than a second request per panel. Gated on the session as the
+    // shell's are: one reader enabled is enough to keep a shared query polling after the session dies.
     const { t } = useTranslation('desk');
-    const playout = usePlayoutStatus(true);
-    const attention = useStationAttention(true);
-    const air = useStationAir();
-    const order = useStationOrder();
+    const signedIn = useSignedIn();
+    const playout = usePlayoutStatus(signedIn);
+    const attention = useStationAttention(signedIn);
+    const air = useStationAir(signedIn);
+    const order = useStationOrder(signedIn);
 
     // Read here, ahead of the mutations below, because `onRemove`'s undo needs the position a
     // dropped row held AT THE MOMENT of the click — the table redraws under an operator's hand

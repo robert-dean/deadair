@@ -3,6 +3,7 @@ import { Trans, useTranslation } from 'react-i18next';
 
 import { useRecastStation, useStationOrder } from '../../api/director.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { useSignedIn } from '../../auth/session.store';
 import { Eyebrow } from '../shared/eyebrow';
 
 /**
@@ -29,7 +30,7 @@ import { Eyebrow } from '../shared/eyebrow';
  * — stays on the page about what is on air, where the rest of that vocabulary lives.
  */
 export function PresentingBanner() {
-    const order = useStationOrder();
+    const order = useStationOrder(useSignedIn());
     const recast = useRecastStation();
     const { t } = useTranslation('personas');
 

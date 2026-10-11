@@ -11,6 +11,7 @@ import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.auth.Notice
 import com.maroonedsoftware.deadair.sdk.models.PlayoutChartInputChartOrder
 import com.maroonedsoftware.deadair.sdk.models.RequestStatus
+import com.maroonedsoftware.deadair.sdk.models.RequestableBreakKind
 import com.maroonedsoftware.deadair.sdk.models.ScriptOutcome
 import com.maroonedsoftware.deadair.sdk.models.SilenceCause
 import com.maroonedsoftware.deadair.sdk.models.StationItemState
@@ -156,6 +157,15 @@ fun Message.resolve(): String =
                 Notice.HostGone -> stringResource(R.string.notice_host_gone)
                 Notice.RecordGone -> stringResource(R.string.notice_record_gone)
                 Notice.RecordRefused -> stringResource(R.string.notice_record_refused)
+                is Notice.BreakAsked ->
+                    when (it.kind) {
+                        RequestableBreakKind.NEWS -> stringResource(R.string.notice_break_asked_news)
+                        RequestableBreakKind.WEATHER -> stringResource(R.string.notice_break_asked_weather)
+                        RequestableBreakKind.TALKBREAK -> stringResource(R.string.notice_break_asked_talk)
+                        RequestableBreakKind.ALMANAC, RequestableBreakKind.STORY, RequestableBreakKind.JINGLE -> stringResource(R.string.notice_break_asked)
+                    }
+                // The reason is the station's words, as a `Message.Text` is: a clause in its own language, quoted rather than translated.
+                is Notice.BreakDeclined -> it.reason?.let { reason -> stringResource(R.string.notice_break_declined_because, reason) } ?: stringResource(R.string.notice_break_declined)
                 Notice.CouldNotReach -> stringResource(R.string.notice_could_not_reach)
                 is Notice.Failed -> stringResource(R.string.notice_failed, it.status)
             }

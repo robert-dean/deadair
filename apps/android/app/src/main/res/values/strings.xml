@@ -270,6 +270,12 @@
     <string name="notice_host_gone">That persona is no longer on the station.</string>
     <string name="notice_record_gone">The station no longer has that record.</string>
     <string name="notice_record_refused">The station will not play that record now.</string>
+    <string name="notice_break_asked_news">The news is on its way. It goes out once it has been written.</string>
+    <string name="notice_break_asked_weather">The weather is on its way. It goes out once it has been written.</string>
+    <string name="notice_break_asked_talk">The host will have a word once it has been written.</string>
+    <string name="notice_break_asked">The station will say it once it has been written.</string>
+    <string name="notice_break_declined">The station declined to say anything just now.</string>
+    <string name="notice_break_declined_because">The station declined: %1$s.</string>
     <string name="notice_could_not_reach">Could not reach the station to do that.</string>
     <string name="notice_failed">The station refused that (%1$d).</string>
 
@@ -479,6 +485,11 @@
     <string name="manage_replan">Replan the show</string>
     <string name="manage_air_something">Playlists</string>
     <string name="manage_add_record">Add a record</string>
+    <string name="manage_say_something">Say something</string>
+    <string name="manage_say_news">The news</string>
+    <string name="manage_say_weather">The weather</string>
+    <string name="manage_say_talk">A word from the host</string>
+    <string name="manage_say_detail">After this record, once it is written</string>
     <string name="manage_what_it_said_detail">Every break\'s script, and what became of it</string>
     <string name="one_break">One break</string>
     <string name="scripts_empty">The station has not said anything yet.</string>

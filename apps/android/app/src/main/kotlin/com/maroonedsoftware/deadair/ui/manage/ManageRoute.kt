@@ -3,19 +3,24 @@ package com.maroonedsoftware.deadair.ui.manage
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.maroonedsoftware.deadair.AppGraph
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.director.OrderState
+import com.maroonedsoftware.deadair.sdk.models.RequestableBreakKind
 import com.maroonedsoftware.deadair.ui.ShowOperatorNotices
 import com.maroonedsoftware.deadair.ui.order.BroadcastUiState
 import com.maroonedsoftware.deadair.ui.order.OrderVerb
 import com.maroonedsoftware.deadair.ui.order.orderMenu
 import com.maroonedsoftware.deadair.ui.text.Message
 import com.maroonedsoftware.deadair.ui.text.resolve
+import kotlinx.coroutines.launch
 
 /**
  * The Manage page, wired: the running order read here, and every
@@ -69,6 +74,31 @@ fun ManageRoute(
             offered(OrderVerb.AIR_SOMETHING)?.let { add(ManageAction(title = stringResource(R.string.manage_air_something), onClick = onAirSomething, opens = true)) }
             offered(OrderVerb.ADD_RECORD)?.let { add(ManageAction(title = stringResource(R.string.manage_add_record), onClick = onAddRecord, opens = true)) }
         }
+    // One request at a time: the station absorbs a second press of the same kind anyway, and a row
+    // that greys while it asks is what tells the operator the first one was heard.
+    val scope = rememberCoroutineScope()
+    var asking by remember { mutableStateOf(false) }
+    fun ask(kind: RequestableBreakKind) {
+        asking = true
+        scope.launch {
+            try {
+                graph.breaks.request(kind)
+            } finally {
+                asking = false
+            }
+        }
+    }
+    val sayDetail = stringResource(R.string.manage_say_detail)
+    val say =
+        if (offered(OrderVerb.SAY_SOMETHING) != null) {
+            listOf(
+                ManageAction(title = stringResource(R.string.manage_say_news), detail = sayDetail, enabled = !asking, onClick = { ask(RequestableBreakKind.NEWS) }),
+                ManageAction(title = stringResource(R.string.manage_say_weather), detail = sayDetail, enabled = !asking, onClick = { ask(RequestableBreakKind.WEATHER) }),
+                ManageAction(title = stringResource(R.string.manage_say_talk), detail = sayDetail, enabled = !asking, onClick = { ask(RequestableBreakKind.TALKBREAK) }),
+            )
+        } else {
+            emptyList()
+        }
     val said =
         if (session is SessionState.SignedIn) {
             listOf(ManageAction(title = stringResource(R.string.what_it_said), detail = stringResource(R.string.manage_what_it_said_detail), onClick = onScripts, opens = true))
@@ -81,6 +111,7 @@ fun ManageRoute(
             listOf(
                 ManageGroup(stringResource(R.string.manage_this_show), show),
                 ManageGroup(stringResource(R.string.manage_put_on), putOn),
+                ManageGroup(stringResource(R.string.manage_say_something), say),
                 ManageGroup(stringResource(R.string.what_it_said), said),
             ),
         snackbarHost = snackbarHost,

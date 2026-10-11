@@ -24,7 +24,7 @@ class OrderMenuTest {
     @Test
     fun `a broadcast offers every verb`() {
         assertEquals(
-            listOf(OrderVerb.AIR_SOMETHING, OrderVerb.ADD_RECORD),
+            listOf(OrderVerb.AIR_SOMETHING, OrderVerb.ADD_RECORD, OrderVerb.SAY_SOMETHING),
             orderMenu(order()).map { it.verb },
         )
         assertTrue(orderMenu(order()).all { it.enabled })
@@ -36,6 +36,16 @@ class OrderMenuTest {
 
         assertFalse(OrderVerb.ADD_RECORD in verbs)
         assertTrue(OrderVerb.AIR_SOMETHING in verbs)
+    }
+
+    @Test
+    fun `off air there is no running order for a break to go into`() {
+        assertFalse(OrderVerb.SAY_SOMETHING in orderMenu(order(name = "", items = emptyList())).map { it.verb })
+    }
+
+    @Test
+    fun `a broadcast that has run out can still be asked to say something`() {
+        assertTrue(OrderVerb.SAY_SOMETHING in orderMenu(order(items = emptyList())).map { it.verb })
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.maroonedsoftware.deadair.auth
 
 import com.maroonedsoftware.deadair.sdk.DeadairSdk
+import com.maroonedsoftware.deadair.sdk.models.RequestableBreakKind
 import com.maroonedsoftware.deadair.sdk.runtime.SdkError
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -47,6 +48,15 @@ sealed interface Notice {
      * the position asked for has already been handed to the player. One 422 for all of them.
      */
     data object RecordRefused : Notice
+
+    /** The station took a request for a break. It is heard once it has been written and spoken. */
+    data class BreakAsked(val kind: RequestableBreakKind) : Notice
+
+    /**
+     * The station declined a request for a break. Not a fault: breaks are off, it has no voice, or the
+     * same request went in a moment ago. [reason] is the station's own sentence, absent when it gave none.
+     */
+    data class BreakDeclined(val reason: String?) : Notice
 
     /** The station could not be reached to ask. */
     data object CouldNotReach : Notice
@@ -103,6 +113,11 @@ class OperatorActions(private val session: OperatorSession) {
             _notices.tryEmit(Notice.CouldNotReach)
             null
         }
+
+    /** Say something about an action that SUCCEEDED, where the answer itself is what the operator needs to read. */
+    fun tell(notice: Notice) {
+        _notices.tryEmit(notice)
+    }
 
     private companion object {
         const val FORBIDDEN = 403

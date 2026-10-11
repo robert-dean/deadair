@@ -17,6 +17,8 @@ import {
     parseTemplates,
     renderTemplate,
     resolveTemplates,
+    unknownPlaceholders,
+    unusablePhrasing,
     usable,
     wasHeard,
 } from '../../../src/modules/director/break.templates.js';
@@ -325,6 +327,68 @@ describe('a chart position', () => {
     it('does not use a phrasing that cannot do without one', () => {
         expect(renderTemplate('Number {{next.chart.rank}}: {{next.title}}.', { previous, next }, spoken)).toBeUndefined();
     });
+});
+
+// A title is somebody else's text, and the renderer used to read it as template. The chunks were
+// filled first and the required pass then ran over the result, values included, so a placeholder
+// spelled inside a record's title was filled (or failed to be) as though the phrasing had named it.
+describe('a value that looks like a placeholder', () => {
+    const station = 'The Far Frequency';
+    const braced = { title: 'Song {{station.name}}', artist: 'The {{dj.name}} Band' };
+
+    it('airs literally inside an optional chunk', () => {
+        const rendered = render('This is {{station.name}}.[[ Coming up, {{next.artist}}, {{next.title}}.]]', { next: braced, station, dj: 'Sam' });
+
+        expect(rendered.script).toBe('This is The Far Frequency. Coming up, The {{dj.name}} Band, Song {{station.name}}.');
+    });
+
+    it('airs literally outside one', () => {
+        const rendered = render('Coming up next, {{next.title}}, from {{next.artist}}.', { next: braced, station, dj: 'Sam' });
+
+        expect(rendered.script).toBe('Coming up next, Song {{station.name}}, from The {{dj.name}} Band.');
+    });
+
+    // The quieter half: a title naming a placeholder nothing can fill made the phrasing look as
+    // though IT named one, so every phrasing mentioning that record in a chunk dropped out of the pool.
+    it('does not rule the phrasing out when it names something the station cannot fill', () => {
+        const rendered = render('This is {{station.name}}.[[ Coming up, {{next.title}}.]]', {
+            next: { title: 'Song {{station}}', artist: 'Nobody' },
+            station,
+        });
+
+        expect(rendered.script).toBe('This is The Far Frequency. Coming up, Song {{station}}.');
+    });
+
+    it('is not read for a placeholder whose input is missing either', () => {
+        // No clock on this break, so a title naming it must not be what decides anything.
+        const rendered = render("Here's {{next.artist}} with {{next.title}}.", { next: { title: '{{clock.rough}}', artist: 'Nobody' }, station });
+
+        expect(rendered.script).toBe("Here's Nobody with {{clock.rough}}.");
+    });
+});
+
+// The vocabulary is a plain object, so every name on Object.prototype used to count as a placeholder:
+// `{{toString}}` aired "[object Object]", and `{{constructor}}` and `{{__proto__}}` threw out of the
+// renderer, past the check an operator's phrasing had already passed.
+describe('a placeholder named after a property every object has', () => {
+    const names = ['toString', 'constructor', '__proto__', 'hasOwnProperty', 'valueOf'];
+
+    for (const name of names) {
+        it(`treats {{${name}}} as unknown`, () => {
+            const template = `This is {{station.name}}, and {{${name}}}.`;
+
+            expect(unknownPlaceholders(template)).toEqual([name]);
+            expect(unusablePhrasing(template)).toContain(`{{${name}}}`);
+        });
+
+        it(`never renders or throws over {{${name}}}, in a chunk or out of one`, () => {
+            const inputs = { previous, next, station: 'The Far Frequency' };
+
+            expect(() => renderTemplate(`{{${name}}}.`, inputs, spoken)).not.toThrow();
+            expect(renderTemplate(`{{${name}}}.`, inputs, spoken)).toBeUndefined();
+            expect(renderTemplate(`This is {{station.name}}.[[ {{${name}}}.]]`, inputs, spoken)).toBeUndefined();
+        });
+    }
 });
 
 // Every phrasing the station ships, rendered against every shape of break it can meet, and pinned

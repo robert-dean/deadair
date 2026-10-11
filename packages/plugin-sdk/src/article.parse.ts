@@ -24,11 +24,12 @@ import type { HostFetchInit, PluginHost } from './plugin.host.js';
  * host can check a claim against the text it came from, and prose that has been
  * through a plugin's own paraphrase is prose nothing can check.
  *
- * Two things removed are not furniture. One is a paragraph announcing itself as an advertisement
- * (see {@link SPONSOR_OPENERS}); the other is a paragraph set entirely in italics (see
+ * Three things removed are not furniture: a paragraph announcing itself as an advertisement (see
+ * {@link SPONSOR_OPENERS}), a paragraph in which the writer pitches their own book or newsletter
+ * (see {@link SELF_PROMOTION}), and a paragraph set entirely in italics (see
  * {@link setEntirelyInEmphasis}), which is the publisher's note about the story rather than the
- * story. Both are still cuts rather than rewrites: what is left is the publisher's own prose, and
- * what went is prose the publisher was paid for or wrote about itself.
+ * story. All three are still cuts rather than rewrites: what is left is the publisher's own prose,
+ * and what went is prose the publisher was paid for or wrote about itself.
  *
  * ## Wrong in one direction on purpose
  *
@@ -191,6 +192,23 @@ function opensWithASponsor(text: string): boolean {
 }
 
 /**
+ * How a writer or a publisher asks the reader for something of its own, anywhere in a paragraph.
+ *
+ * The other half of {@link SPONSOR_OPENERS}, for the pitch that does not open its paragraph.
+ * Measured on 404 Media: "As always, for more of my work, check out my book First Contact…, or
+ * subscribe to my personal newsletter" sat between a column's introduction and its first item, and
+ * nothing about where it starts says what it is.
+ *
+ * Matched anywhere, so the vocabulary is narrower than the openers' and every entry is in the first
+ * person: a story about a newsletter says "subscribe to the newsletter", and only the person selling
+ * it says "subscribe to MY newsletter". Where reporting does carry one of these, it is inside a
+ * quotation of somebody else's pitch, and dropping that costs one paragraph of a story that has
+ * others.
+ */
+const SELF_PROMOTION =
+    /\b(?:check out my (?:book|newsletter|podcast)|for more of my work|sign up for (?:my|our) newsletter|subscribe to (?:my|our))\b/i;
+
+/**
  * Whether a paragraph is set entirely in italics, which is how a publisher typesets an editor's note.
  *
  * The note that says who the publisher is, where a story first ran, which series it belongs to, or
@@ -256,7 +274,7 @@ export function extractArticle(html: string, maxChars: number = ARTICLE_MAX_CHAR
 
         // After the length test rather than before it, because this is the more expensive check and
         // most of what it would run over has already been dropped for being too short to be prose.
-        if (opensWithASponsor(text) || setEntirelyInEmphasis(match[1] ?? '')) continue;
+        if (opensWithASponsor(text) || SELF_PROMOTION.test(text) || setEntirelyInEmphasis(match[1] ?? '')) continue;
 
         // A page that repeats its own standfirst inside the body is ordinary,
         // and reading it twice is not.

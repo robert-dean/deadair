@@ -241,6 +241,20 @@ describe('extractArticle: sponsors', () => {
             extractArticle(page('Sponsored content: Example Corp has been making outdoor equipment for readers like you since 1974.')),
         ).toBeUndefined();
     });
+
+    // Measured on 404 Media, between a column's introduction and its first item.
+    it("drops a writer's pitch for their own book and newsletter wherever it starts", () => {
+        const pitch =
+            'As always, for more of my work, check out my book First Contact: The Story of Our Obsession with Aliens, or subscribe to my personal newsletter.';
+
+        expect(extractArticle(page(REPORTING, pitch))).toBe(REPORTING);
+    });
+
+    it('leaves a story about a newsletter, which is not in the first person', () => {
+        const story = 'More than forty thousand readers subscribe to the newsletter, which the council began publishing during the closure.';
+
+        expect(extractArticle(page(story))).toBe(story);
+    });
 });
 
 /**

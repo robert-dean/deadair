@@ -451,6 +451,12 @@ export interface BreakWriteRequest {
      */
     preoccupation?: string;
     /**
+     * The one quirk with a cadence that came up for this break, from `PersonaSheet.quirks`, chosen by
+     * the caller for {@link BreakWriteRequest.preoccupation}'s reason and unread by every
+     * deterministic writer for the same one: a phrasing has nowhere to put an act.
+     */
+    occasionalQuirk?: string;
+    /**
      * The last few things the station said, newest first.
      *
      * Not history for its own sake: a writer with a pool of phrasings needs to know which ones are

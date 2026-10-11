@@ -12,7 +12,7 @@ import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { MODEL_PRIORITY, MODEL_WAIT_MS } from './persona.distil.service.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { PersonaRepository } from './persona.repository.js';
-import { characterFault, growthOf } from './persona.sheet.js';
+import { characterFault, growthOf, ruleTexts } from './persona.sheet.js';
 import type { Persona } from './persona.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
 import { MAX_PROPOSALS, MIN_RECAP_TELLINGS, readProposals, readRecaps, recapPrompt, storyPrompt, type ExistingStory } from './persona.story.model.js';
@@ -222,7 +222,7 @@ export class PersonaStoryPassService {
                         label: persona.label,
                         style: persona.style,
                         ...(persona.diction === undefined ? {} : { diction: persona.diction }),
-                        ...(persona.quirks === undefined ? {} : { quirks: persona.quirks.map(quirk => quirk.text) }),
+                        ...(persona.quirks === undefined ? {} : { quirks: ruleTexts(persona.quirks) }),
                         ...(persona.avoid === undefined ? {} : { avoid: persona.avoid }),
                     },
                     existing,

@@ -15,6 +15,8 @@ import {
     isPersonaLatitude,
     keepsCharacter,
     latitudeOf,
+    occasionalQuirkOf,
+    QUIRK_CADENCE_ODDS,
     LATITUDE_LICENCE,
     LATITUDE_MAX_WORDS,
     matchesDictionMarker,
@@ -206,6 +208,95 @@ describe('preoccupationOf', () => {
 // A quirk became an object so it could carry a cadence, and the stored column, a file or a test can
 // still hand over the old bare string. Both have to mean the same thing, or a row the migration
 // missed would read as a sheet with no rules on it at all.
+// A quirk with a cadence is one the station decides the times for. It replaced "once in a while" in
+// a quirk's own words, which went out on every prompt and was written 0 times in 58 breaks.
+describe('occasionalQuirkOf', () => {
+    const ghost = {
+        quirks: [
+            { text: 'Call your show the Boneyard' },
+            { text: 'Grumble about being dead', cadence: 'occasionally' as const },
+            { text: 'Yell for Sharon', cadence: 'rarely' as const },
+            { text: 'Insist the bat was rubber', cadence: 'rarely' as const },
+        ],
+    };
+    const ids = Array.from({ length: 4000 }, (_, index) => `segment-${index}`);
+
+    it('gives one id the same answer every time, so a re-offered break is handed what it was handed', () => {
+        for (const id of ids.slice(0, 50)) expect(occasionalQuirkOf(ghost, id)).toBe(occasionalQuirkOf(ghost, id));
+    });
+
+    it('never hands over a rule, which goes out on every break anyway', () => {
+        expect(new Set(ids.map(id => occasionalQuirkOf(ghost, id)))).not.toContain('Call your show the Boneyard');
+    });
+
+    // The odds are the feature, so they are measured rather than trusted: each cadence comes up near
+    // its own rate over thousands of breaks, and a sheet's three habits are not one draw three times.
+    it.each(Object.entries(QUIRK_CADENCE_ODDS))('brings a quirk set to %s up at about its odds', (cadence, odds) => {
+        const alone = { quirks: [{ text: 'the one habit', cadence: cadence as 'often' | 'occasionally' | 'rarely' }] };
+        const rate = ids.filter(id => occasionalQuirkOf(alone, id) !== undefined).length / ids.length;
+
+        expect(rate).toBeGreaterThan(odds * 0.8);
+        expect(rate).toBeLessThan(odds * 1.2);
+    });
+
+    it('draws each quirk for itself, so two at the same cadence are not the same draw twice', () => {
+        const pair = {
+            quirks: [
+                { text: 'Yell for Sharon', cadence: 'rarely' as const },
+                { text: 'Insist the bat was rubber', cadence: 'rarely' as const },
+            ],
+        };
+        const handed = ids.map(id => occasionalQuirkOf(pair, id));
+
+        // Independent draws at a tenth each come up on about 19% of breaks between them. Two that
+        // moved in step would come up on 10% and always together.
+        const rate = handed.filter(quirk => quirk !== undefined).length / ids.length;
+        expect(rate).toBeGreaterThan(0.16);
+        expect(rate).toBeLessThan(0.22);
+        expect(new Set(handed)).toEqual(new Set([undefined, 'Yell for Sharon', 'Insist the bat was rubber']));
+    });
+
+    it('is drawn apart from the preoccupation, so a habit does not always arrive with one subject', () => {
+        const sheet = { ...ghost, preoccupations: ['the plant', 'the sky', 'the running order', 'the catering'] };
+        const subjects = new Set(ids.filter(id => occasionalQuirkOf(sheet, id) === 'Yell for Sharon').map(id => preoccupationOf(sheet, id)));
+
+        expect(subjects.size).toBe(4);
+    });
+
+    it('answers nothing for a sheet of rules alone, an empty one, or no character', () => {
+        expect(occasionalQuirkOf({ quirks: [{ text: 'Never oversell' }] }, 'segment-1')).toBeUndefined();
+        expect(occasionalQuirkOf({}, 'segment-1')).toBeUndefined();
+        expect(occasionalQuirkOf(undefined, 'segment-1')).toBeUndefined();
+    });
+
+    it('ignores the order of the sheet, so moving a quirk up the list re-rolls nothing', () => {
+        const reordered = { quirks: [...ghost.quirks].reverse() };
+
+        for (const id of ids.slice(0, 200)) expect(occasionalQuirkOf(reordered, id)).toBe(occasionalQuirkOf(ghost, id));
+    });
+});
+
+describe('personaLines, a quirk with a cadence', () => {
+    const ghost = { quirks: [{ text: 'Call your show the Boneyard' }, { text: 'Yell for Sharon', cadence: 'rarely' as const }] };
+
+    it('leaves it out of the rules, which go out on every break', () => {
+        expect(personaLines(ghost)).toEqual(['In character: Call your show the Boneyard.']);
+    });
+
+    it('says it as this break\u2019s instruction when it came up, after the rules', () => {
+        const lines = personaLines(ghost, { occasionalQuirk: 'Yell for Sharon.' });
+
+        expect(lines).toEqual([
+            'In character: Call your show the Boneyard.',
+            'Now and then you do this, and this break is one of those times, so do it once: Yell for Sharon.',
+        ]);
+    });
+
+    it('says nothing for a blank one', () => {
+        expect(personaLines(ghost, { occasionalQuirk: '  ' })).toEqual(personaLines(ghost));
+    });
+});
+
 describe('quirksIn', () => {
     it('reads a bare string as the always-quirk it was before quirks had a cadence', () => {
         expect(quirksIn(['Never oversell'])).toEqual([{ text: 'Never oversell' }]);

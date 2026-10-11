@@ -339,6 +339,30 @@ describe('breakPrompt', () => {
             expect(rules).not.toContain('the pressing plant');
         });
 
+        // A quirk with a cadence on the preoccupation's terms: drawn by the caller, heard only where
+        // the shape allows it, and nowhere at all on a break it did not come up for.
+        it('tells a talk break the now-and-then quirk that came up', () => {
+            const persona = { style: 'a ghost', quirks: [{ text: 'Yell for Sharon', cadence: 'rarely' as const }] };
+            const rules = system(prompt({ kind: 'talkbreak', previous, next }, { persona, occasionalQuirk: 'Yell for Sharon' }));
+
+            expect(rules).toContain('this break is one of those times, so do it once: Yell for Sharon.');
+        });
+
+        it('keeps a now-and-then quirk out of a bulletin, and out of a talk break it did not come up for', () => {
+            const persona = { style: 'a ghost', quirks: [{ text: 'Yell for Sharon', cadence: 'rarely' as const }] };
+            const bulletin = system(
+                breakPrompt(
+                    { kind: 'news', stories: [{ headline: 'Bridge reopens.' }] },
+                    { persona, occasionalQuirk: 'Yell for Sharon' },
+                    NEWS_SHAPE,
+                ),
+            );
+            const ordinary = system(prompt({ kind: 'talkbreak', previous, next }, { persona }));
+
+            expect(bulletin).not.toContain('Sharon');
+            expect(ordinary).not.toContain('Sharon');
+        });
+
         it('says nothing about one for a character with nothing on its mind', () => {
             const persona = { style: 'an overnight conspiracy host', quirks: [{ text: 'Never about a real person' }] };
             const rules = system(prompt({ kind: 'talkbreak', previous, next }, { persona }));

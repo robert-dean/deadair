@@ -83,6 +83,7 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     notebook: 'timeless',
     story: 'timeless',
     preoccupation: 'timeless',
+    occasionalQuirk: 'timeless',
 
     // What the engine can perform and what is on the rack. Both are read at write time and both are
     // re-resolved on the way to air — `RenderSegmentJob` drops a reaction the engine cannot do, and

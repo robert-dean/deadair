@@ -377,6 +377,15 @@ export interface BreakPromptShape {
      * arriving wants first.
      */
     allowsPreoccupation?: boolean;
+    /**
+     * Whether this kind of break is handed the one quirk with a cadence that came up.
+     *
+     * `allowsPreoccupation`'s argument exactly, and the same one kind says yes: a bulletin that yells
+     * for somebody halfway through the news, or a welcome that opens on the bat, is the character's
+     * act in the one place it is not wanted. The quirk is not lost on those breaks; it simply did not
+     * come up, and a quirk with a cadence was never a rule to be sent everywhere.
+     */
+    allowsOccasionalQuirk?: boolean;
 }
 
 /**
@@ -497,6 +506,8 @@ export const TALK_BREAK_SHAPE: BreakPromptShape = {
     allowsPads: true,
     // The one kind with somewhere to put a subject of its own. See `allowsPreoccupation`.
     allowsPreoccupation: true,
+    // And the one with room for a character's now-and-then act. See `allowsOccasionalQuirk`.
+    allowsOccasionalQuirk: true,
 };
 
 /** How the station wants this break to sound, and how long it may run. */
@@ -563,6 +574,12 @@ export interface PromptSettings {
      * is no rotation here to spoil by asking twice.
      */
     preoccupation?: string;
+    /**
+     * The one quirk with a cadence that came up for this break, from `occasionalQuirkOf`, on
+     * {@link PromptSettings.preoccupation}'s terms exactly: the caller draws it, and
+     * {@link BreakPromptShape.allowsOccasionalQuirk} decides whether this kind of break hears it.
+     */
+    occasionalQuirk?: string;
     /**
      * The one story this break may draw on, from `deadair.persona_stories`.
      *
@@ -925,6 +942,9 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
             ? []
             : personaLines(persona, {
                   ...(shape.allowsPreoccupation === true && settings.preoccupation !== undefined ? { preoccupation: settings.preoccupation } : {}),
+                  ...(shape.allowsOccasionalQuirk === true && settings.occasionalQuirk !== undefined
+                      ? { occasionalQuirk: settings.occasionalQuirk }
+                      : {}),
                   ...(shape.voice === 'lean' ? { lean: true } : {}),
               })),
         // Immediately after the sheet, and inside the same block, because a trait IS a sheet line —

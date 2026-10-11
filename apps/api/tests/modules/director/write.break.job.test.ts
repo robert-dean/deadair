@@ -1026,6 +1026,43 @@ describe('WriteBreakJob', () => {
         });
     });
 
+    describe('a quirk the character does now and then', () => {
+        const ghost = {
+            id: 'p-1',
+            key: 'ozzysghost',
+            label: "Ozzy's Ghost",
+            style: 'a ghost',
+            kind: 'host',
+            defaultHost: true,
+            quirks: [{ text: 'Call your show the Boneyard' }, { text: 'Yell for Sharon', cadence: 'often' }],
+        } as Persona;
+
+        const wrote = async (segmentId: string, persona: Persona = ghost) => {
+            const { job, writers } = harness({ lineup: await lineupWithBreak(segmentId), segment: planned({ id: segmentId }), persona });
+            await job.run({ segmentId });
+
+            const [request] = writers.write.mock.calls[0] as unknown as [BreakWriteRequest];
+            return request.occasionalQuirk;
+        };
+
+        it('is handed over on some breaks and not others', async () => {
+            const handed = await Promise.all(Array.from({ length: 16 }, (_, index) => wrote(`seg-${index}`)));
+
+            expect(handed).toContain('Yell for Sharon');
+            expect(handed).toContain(undefined);
+        });
+
+        it('is the same when the same break is written again', async () => {
+            for (const id of ['seg-1', 'seg-2', 'seg-3']) expect(await wrote(id)).toBe(await wrote(id));
+        });
+
+        it('is absent for a character whose quirks are all rules', async () => {
+            const rules = { ...ghost, quirks: [{ text: 'Call your show the Boneyard' }] } as Persona;
+
+            expect(await wrote('seg-1', rules)).toBeUndefined();
+        });
+    });
+
     it('hands the writers what the installed engine can perform', async () => {
         // Read here rather than by any writer, so every binding asked for this break agrees about
         // what was on offer — and so a station that changed engine between two breaks writes for the

@@ -234,6 +234,8 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // And the subject, on those same terms one more time: the caller says which one came
             // round and `TALK_BREAK_SHAPE.allowsPreoccupation` says a link is where it may be raised.
             ...(request.preoccupation === undefined ? {} : { preoccupation: request.preoccupation }),
+            // And the now-and-then quirk, a third time on the same terms: `TALK_BREAK_SHAPE.allowsOccasionalQuirk`.
+            ...(request.occasionalQuirk === undefined ? {} : { occasionalQuirk: request.occasionalQuirk }),
             // And the readings, on the reactions' terms exactly: the caller says what the engine can
             // perform and `TALK_BREAK_SHAPE.allowsDeliveries` says a link may be read one way or another.
             ...(request.deliveries === undefined ? {} : { deliveries: request.deliveries }),

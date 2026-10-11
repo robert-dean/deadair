@@ -78,6 +78,28 @@ export const DEFAULT_CACHE_MINUTES = 10;
 export const MAX_CACHE_MINUTES = 180;
 
 /**
+ * How long a service that failed is left alone before it is asked about the same thing again.
+ *
+ * A minute, or the service's own `Retry-After` when it asks for longer. Without it every break and
+ * every tool call asks a service that has just refused, each one is a failed invocation, and three
+ * of those quarantine the plugin: a short outage upstream became the station losing the weather
+ * until somebody re-enabled it.
+ */
+export const FAILURE_HOLD_MS = 60_000;
+
+/** The longest a `Retry-After` is honoured for. A service asking for a day is not one to believe. */
+export const MAX_FAILURE_HOLD_MS = 15 * 60_000;
+
+/**
+ * How long a place nothing could find stays not found.
+ *
+ * An hour rather than for as long as the plugin is loaded, which is what a found place gets: a
+ * geocoder's index grows, and an empty answer is cheaper to be wrong about for an hour than for
+ * the life of the process. Without it, a location nothing can find was asked about on every call.
+ */
+export const PLACE_MISS_HOLD_MS = 60 * 60_000;
+
+/**
  * How many days of forecast any engine will be asked for.
  *
  * Seven, because a station talks about "the rest of the week" and nothing on air

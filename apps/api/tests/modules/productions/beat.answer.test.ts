@@ -6,7 +6,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { EMPTY_BEAT_RETRIES, PREEMPTED_BEAT_RETRIES, askForBeat } from '../../../src/modules/productions/beat.answer.js';
+import { EMPTY_BEAT_RETRIES, PREEMPTED_BEAT_RETRIES, askForBeat, attemptsBefore } from '../../../src/modules/productions/beat.answer.js';
 
 interface Answer {
     text: string;
@@ -123,5 +123,40 @@ describe('askForBeat', () => {
 
         expect(outcome.script).toBe('Right then.');
         expect(outcome.asked[0]?.script).toBe('');
+    });
+});
+
+// A throw used to take the attempts with it: `asked` came back only on a normal return, so an empty
+// answer that was asked again and whose retry threw left no trace. The error is rethrown as the same
+// object, with the attempts readable beside it.
+describe('askForBeat when an ask throws', () => {
+    it('keeps the attempts made before the throw beside the error, preemptions excluded', async () => {
+        const failure = new Error('the provider fell over');
+        let at = 0;
+        const answers = [said(''), preempted()];
+        const ask = vi.fn(async () => {
+            const answer = answers[at++];
+            if (answer === undefined) throw failure;
+            return answer;
+        });
+
+        const thrown = await askForBeat(ask, read).catch((error: unknown) => error);
+
+        expect(thrown).toBe(failure);
+        expect(attemptsBefore<Answer>(thrown).map(attempt => attempt.answer)).toEqual([said('')]);
+    });
+
+    it('notes nothing when the first ask throws', async () => {
+        const failure = new Error('the model refused');
+
+        const thrown = await askForBeat(
+            vi.fn(async (): Promise<Answer> => {
+                throw failure;
+            }),
+            read,
+        ).catch((error: unknown) => error);
+
+        expect(thrown).toBe(failure);
+        expect(attemptsBefore(thrown)).toEqual([]);
     });
 });

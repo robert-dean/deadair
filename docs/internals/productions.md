@@ -330,4 +330,8 @@ behind it. `askRecordingFailure` writes one `failed` row first, worded as a brea
 on, and `usage` from `usageSpentBefore` when the conversation had finished a billed step. That figure
 is a floor: the failing generation's own tokens are never known (see `llm.md`). The throw is rethrown
 untouched, so the production still fails exactly as before. A preempted ask still leaves no row,
-since nothing was said and a row would blame the model.
+since nothing was said and a row would blame the model. The asks BEFORE the throw are written down
+too, exactly as a normal return writes them: `askForBeat` notes its attempts beside the error
+(`attemptsBefore`), so an empty answer that was asked again and whose retry threw keeps its row, its
+usage and its captured answer. Each ask is its own conversation, so its usage and the failed row's
+never overlap.

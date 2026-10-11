@@ -63,6 +63,27 @@ export interface BeatAskHooks {
     onPreempted?: (preemptions: number) => void;
 }
 
+/**
+ * The attempts a beat had already made when an ask THREW, keyed by the error it threw.
+ *
+ * {@link askForBeat} hands its attempts back only on the way out of a normal return, so a beat that
+ * came back empty, was asked again, and then failed would lose the empty attempt along with the
+ * outcome: its row, its usage and its captured answer. The error is rethrown as it came rather than
+ * wrapped, for `usageSpentBefore`'s reason: everything that catches it reads what it IS.
+ */
+const askedBeforeFailing = new WeakMap<object, readonly BeatAttempt<BeatAnswer>[]>();
+
+/**
+ * What {@link askForBeat} had been answered with before it threw `error`, in order, or nothing.
+ *
+ * The throwing ask is not among them: it produced no answer. Each entry is one whole conversation of
+ * its own, so its usage never overlaps what `usageSpentBefore` reports for the call that threw.
+ */
+export function attemptsBefore<A extends BeatAnswer>(error: unknown): readonly BeatAttempt<A>[] {
+    if (typeof error !== 'object' || error === null) return [];
+    return (askedBeforeFailing.get(error) as readonly BeatAttempt<A>[] | undefined) ?? [];
+}
+
 export async function askForBeat<A extends BeatAnswer>(
     ask: () => Promise<A>,
     read: (answer: A) => string,
@@ -76,7 +97,13 @@ export async function askForBeat<A extends BeatAnswer>(
     let empties = 0;
 
     for (;;) {
-        const answer = await ask();
+        let answer: A;
+        try {
+            answer = await ask();
+        } catch (error) {
+            if (typeof error === 'object' && error !== null && asked.length > 0) askedBeforeFailing.set(error, [...asked]);
+            throw error;
+        }
 
         if (answer.finishReason === 'preempted') {
             preempted += 1;

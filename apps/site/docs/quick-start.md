@@ -11,8 +11,10 @@ choice for you: one container that brings its own database, one port, one music 
 here is hard to change later, and [Install](./install.md) is the page that covers each choice this
 one skips.
 
-You need Docker, a machine to run it on, and either a Spotify account (Premium, because the station
-fetches audio) or a media server of your own: Navidrome or another Subsonic server, Jellyfin, Emby, or Plex.
+You need Docker, a machine to run it on, and somewhere the music comes from. This page covers a
+Spotify account (Premium, because the station fetches audio) or a media server of your own: Navidrome
+or another Subsonic server, Jellyfin, Emby, or Plex. YouTube Music, Pandora and Apple Music are
+plugins too, and [the library](./features/library.md) says what each needs.
 
 ## 1. Start it
 

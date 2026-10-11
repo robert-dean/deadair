@@ -574,4 +574,25 @@ export class TrackAudioRepository extends DataRepository {
             )
             .execute();
     }
+
+    /**
+     * Records that a fetch was put off because the PROVIDER was busy, without counting it as a failure.
+     *
+     * {@link recordFailure}'s sibling, and the difference is the whole point: `attempts` is the tally of
+     * consecutive failures that writes a copy off, and an account streaming on somebody's phone or a
+     * spent quota says nothing about this copy. So the count is left exactly where it was (zero on a
+     * first row), and only the error and the next try move. Being busy also does not RESET the count,
+     * because it is not evidence the copy works either.
+     *
+     * The delay is fixed rather than doubled, because there is no streak to double off.
+     */
+    async recordDeferral(sourceId: string, error: string, retryMs: number): Promise<void> {
+        const nextAttemptAt = sql<never>`now() + make_interval(secs => ${retryMs / 1000}::double precision)`;
+
+        await this.db
+            .insertInto('deadair.trackAudio')
+            .values({ sourceId, attempts: 0, lastError: error, nextAttemptAt })
+            .onConflict(oc => oc.column('sourceId').doUpdateSet({ lastError: error, nextAttemptAt }))
+            .execute();
+    }
 }

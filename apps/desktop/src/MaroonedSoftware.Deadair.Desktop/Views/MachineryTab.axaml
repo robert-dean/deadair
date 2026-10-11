@@ -199,6 +199,7 @@
                             <!-- A bar rather than a percentage, because what an operator reads off it
                                  is how far along it is. -->
                             <ProgressBar Value="{Binding MeasuredPercent}" Maximum="100" MinWidth="0" Height="4"
+                                         AutomationProperties.Name="Share of the library measured"
                                          Foreground="{DynamicResource DaAccentBrush}" />
                         </StackPanel>
                     </StackPanel>

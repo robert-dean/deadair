@@ -1,0 +1,30 @@
+{
+    "$schema": "https://json.schemastore.org/tsconfig",
+    // Standalone rather than extending `@repo/config-typescript`, because this is a container and not
+    // a workspace member: pnpm never links anything here, so an `extends` naming a workspace package
+    // would resolve on a developer's machine and not in CI. The options are the shared base's, minus
+    // everything about emitting (there is no build: Node runs the TypeScript directly) and plus the
+    // two that make that possible.
+    "compilerOptions": {
+        "lib": ["es2023", "DOM"],
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "target": "es2023",
+        "types": ["node"],
+        "strict": true,
+        "noUncheckedIndexedAccess": true,
+        "noFallthroughCasesInSwitch": true,
+        "noUncheckedSideEffectImports": true,
+        "isolatedModules": true,
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        // Imports name `./thing.ts` because that is what Node's own loader wants when it strips types.
+        "allowImportingTsExtensions": true,
+        // And this is the other half of running unbuilt: it fails the build over any syntax that
+        // needs a transform rather than an erasure (enums, parameter properties, namespaces), which
+        // is exactly the set Node's type stripping refuses at runtime.
+        "erasableSyntaxOnly": true,
+        "noEmit": true
+    },
+    "include": ["src/**/*.ts", "tests/**/*.ts"]
+}

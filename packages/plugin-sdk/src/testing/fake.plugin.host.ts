@@ -336,6 +336,11 @@ export function createFakePluginHost(): FakePluginHost {
         events: { emit: vi.fn() },
         trackFetcher: {
             serve: vi.fn(async () => fetchedTrack),
+            // Answers the same canned stream as `serve`: a plugin under test cares that it asked the
+            // host for audio and passed the answer through, not which helper the station happens to run
+            // behind it. `fetchedTrack` is what a test sets to say "the station has a fetcher" or, as
+            // undefined, "it has not got one".
+            servePlayer: vi.fn(async () => fetchedTrack),
             playlistTracks: vi.fn(async () => {
                 if (fetchedPlaylist instanceof Error) throw fetchedPlaylist;
                 return fetchedPlaylist;

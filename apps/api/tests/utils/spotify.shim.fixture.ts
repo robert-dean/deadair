@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 
 import type { SpotifyShimClient } from '../../src/modules/stream/spotify.shim.client.js';
+import type { ApplePlayerClient } from '../../src/modules/stream/apple.player.client.js';
 
 /**
  * Shared `SpotifyShimClient` test double for anything that only needs the
@@ -18,3 +19,16 @@ export const stubShimClient = (): SpotifyShimClient =>
             message: 'the track fetcher has no login secret, so the stream half of this install has not been set up yet',
         })),
     }) as unknown as SpotifyShimClient;
+
+/**
+ * The same for {@link ApplePlayerClient}, whose one capability call is `servePlayer`.
+ *
+ * "This station has no player" is the honest default here too: it is what a station that never set the
+ * stream half up answers, and a plugin is expected to pass it straight through as "cannot resolve this
+ * item" rather than treat it as a fault.
+ */
+export const stubApplePlayerClient = (): ApplePlayerClient =>
+    ({
+        serve: vi.fn(async () => undefined),
+        configured: vi.fn(() => false),
+    }) as unknown as ApplePlayerClient;

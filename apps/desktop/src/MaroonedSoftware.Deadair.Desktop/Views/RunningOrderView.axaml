@@ -79,6 +79,8 @@
                             <Button Classes="icon small reveal" HorizontalAlignment="Right"
                                     IsVisible="{Binding CanSkipTo}"
                                     ToolTip.Tip="Skip straight to this record. Everything in front of it is passed over and what is on air is cut."
+                                    AutomationProperties.Name="Skip straight to this record"
+                                    AutomationProperties.HelpText="Everything in front of it is passed over and what is on air is cut."
                                     Command="{Binding $parent[ListBox].((vm:RunningOrderViewModel)DataContext).SkipToCommand}"
                                     CommandParameter="{Binding}">
                                 <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconSkip}" />
@@ -91,17 +93,18 @@
                         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2"
                                     HorizontalAlignment="Right" Opacity="{Binding CanMove, Converter={x:Static conv:MovableOpacityConverter.Instance}}"
                                     IsHitTestVisible="{Binding CanMove}">
-                            <Button Classes="icon small"
+                            <Button Classes="icon small" ToolTip.Tip="Move up" AutomationProperties.Name="Move up"
                                     Command="{Binding $parent[ListBox].((vm:RunningOrderViewModel)DataContext).MoveUpCommand}"
                                     CommandParameter="{Binding}">
                                 <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconChevronUp}" />
                             </Button>
-                            <Button Classes="icon small"
+                            <Button Classes="icon small" ToolTip.Tip="Move down" AutomationProperties.Name="Move down"
                                     Command="{Binding $parent[ListBox].((vm:RunningOrderViewModel)DataContext).MoveDownCommand}"
                                     CommandParameter="{Binding}">
                                 <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconChevronDown}" />
                             </Button>
-                            <Button Classes="icon small"
+                            <Button Classes="icon small" ToolTip.Tip="Drop it from the running order"
+                                    AutomationProperties.Name="Drop it from the running order"
                                     Command="{Binding $parent[ListBox].((vm:RunningOrderViewModel)DataContext).DropCommand}"
                                     CommandParameter="{Binding}">
                                 <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconClose}" />

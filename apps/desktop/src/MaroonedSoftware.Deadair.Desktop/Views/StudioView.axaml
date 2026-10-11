@@ -107,7 +107,7 @@
         <!-- Below the title row's 38, so it never sits under the window's own buttons. -->
         <Button Classes="icon ghost fades" HorizontalAlignment="Right" VerticalAlignment="Top"
                 Margin="0,48,24,0" Width="36" Height="36" Padding="9"
-                ToolTip.Tip="Leave Studio (Esc)"
+                ToolTip.Tip="Leave Studio (Esc)" AutomationProperties.Name="Leave Studio"
                 Command="{Binding LeaveStudioCommand}">
             <PathIcon Data="{DynamicResource DaIconClose}" />
         </Button>
@@ -174,6 +174,7 @@
                                Foreground="{DynamicResource DaTextDimmedBrush}" />
                     <ProgressBar Grid.Column="1" Minimum="0" Maximum="{Binding Listener.Duration}"
                                  Value="{Binding Listener.Position}" Height="3" MinWidth="0"
+                                 AutomationProperties.Name="How far into the record"
                                  VerticalAlignment="Center"
                                  Foreground="{DynamicResource DaTextBrush}"
                                  Background="#40FFFFFF" />
@@ -195,7 +196,8 @@
 
             <Button Classes="play studio fades" HorizontalAlignment="Center"
                     Command="{Binding Listener.ToggleCommand}"
-                    ToolTip.Tip="{Binding Listener.PlayLabel, StringFormat='{}{0} (Space)'}">
+                    ToolTip.Tip="{Binding Listener.PlayLabel, StringFormat='{}{0} (Space)'}"
+                    AutomationProperties.Name="{Binding Listener.PlayLabel}">
                 <PathIcon Width="20" Height="20"
                           Data="{Binding Listener.Playing, Converter={x:Static conv:PlayIconConverter.Instance}}" />
             </Button>

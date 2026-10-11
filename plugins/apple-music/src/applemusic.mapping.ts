@@ -154,6 +154,34 @@ export function playlistFromApple(playlist: {
     };
 }
 
+/** An Apple Music playlist id: `pl.` and hex for Apple's own, `pl.u-` and more for one a listener shared. */
+const APPLE_PLAYLIST_ID = /^pl\.(?:u-)?[A-Za-z0-9]+$/;
+
+/**
+ * The playlist an Apple Music link names, as the share button writes it:
+ * `https://music.apple.com/us/playlist/todays-hits/pl.f4d106fed2bd41149aaacabb233eb5eb`, with or without
+ * the name segment and a `?l=` query, an embed link, or an old `itunes.apple.com` link whose id is
+ * written `idpl.…`. Anything else is not ours, an album or a song on the same host included, because the
+ * first provider to claim a link wins it.
+ *
+ * The storefront in the path is deliberately dropped. The plugin reads its own configured storefront,
+ * and an id that carried the link's would not be one `listPlaylists` ever answers.
+ */
+export function applePlaylistIdFromUrl(url: string): string | undefined {
+    let parsed: URL;
+    try {
+        parsed = new URL(url.trim());
+    } catch {
+        return undefined;
+    }
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return undefined;
+    if (!['music.apple.com', 'embed.music.apple.com', 'geo.music.apple.com', 'itunes.apple.com'].includes(parsed.hostname)) return undefined;
+
+    const match = /^\/(?:[a-z]{2}\/)?playlist\/(?:[^/]+\/)?(?:id)?([^/]+)\/?$/i.exec(parsed.pathname);
+    const id = match?.[1];
+    return id !== undefined && APPLE_PLAYLIST_ID.test(id) ? id : undefined;
+}
+
 /**
  * Whether a search result honours the filters the caller asked for.
  *

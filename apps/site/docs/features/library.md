@@ -73,7 +73,7 @@ A playlist from a provider is read live every time it airs, and it changes whene
 
 - **A file**: a playlist another deadair station exported, an M3U from a media player, or a CSV from a playlist exporter such as Exportify. A CSV's columns are found by name, so their order does not matter.
 - **A pasted list**, one `Artist - Title` per line. Numbered lines are fine.
-- **A link** to a Spotify, YouTube Music, Pandora, Navidrome, Jellyfin, Emby or Plex playlist, including one your account does not list, such as a playlist a friend shared.
+- **A link** to a Spotify, YouTube Music, Pandora, Apple Music, Navidrome, Jellyfin, Emby or Plex playlist, including one your account does not list, such as a playlist a friend shared. An Apple Music playlist is read in the storefront the plugin is set to, and only with a MusicKit key in its settings: without one, the import says a key is needed.
 
 **Save as a station playlist** on any provider playlist's page makes one the same way. Every import is previewed first: which records the library already holds, which it will look up, and any line that named no record. Nothing is written until you press Import. Importing the same thing twice makes two playlists, and neither is tied to where it came from.
 

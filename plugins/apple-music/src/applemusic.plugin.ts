@@ -12,6 +12,7 @@ import {
 } from '@deadair/plugin-sdk';
 import { AppleApiCatalog, ItunesSearchCatalog, type AppleCatalog } from './applemusic.client.js';
 import { configSchema, hasDeveloperKey, type AppleMusicConfig } from './applemusic.manifest.js';
+import { applePlaylistIdFromUrl } from './applemusic.mapping.js';
 import { DeveloperTokenSource } from './applemusic.token.js';
 
 /**
@@ -87,6 +88,17 @@ export class AppleMusicPlugin extends Plugin implements MusicProviderCatalog, Mu
         const host = this.host;
         const catalog = await this.source(host);
         return catalog.getTrack(host, trackId);
+    }
+
+    /**
+     * Claims every Apple Music playlist link, with a developer key or without one.
+     *
+     * Without a key there is nothing to read the playlist with, and `getPlaylistTracks` says so. Claiming
+     * the link anyway is what puts that sentence in front of the operator: left unclaimed, they are told
+     * no source recognises a link that is plainly Apple's.
+     */
+    playlistIdFromUrl(url: string): string | undefined {
+        return applePlaylistIdFromUrl(url);
     }
 
     async listPlaylists(): Promise<ProviderPlaylist[]> {

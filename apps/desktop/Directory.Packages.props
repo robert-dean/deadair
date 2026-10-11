@@ -37,15 +37,6 @@
         <PackageVersion Include="Avalonia.Skia" Version="12.1.2" />
     </ItemGroup>
 
-    <ItemGroup Label="Skia">
-        <!--
-            Named directly only so Studio's cover backdrop can run a shader on the canvas Avalonia
-            leases it. Pinned to the version Avalonia.Skia already resolves, so it moves with Avalonia
-            and never ahead of it.
-        -->
-        <PackageVersion Include="SkiaSharp" Version="3.119.4" />
-    </ItemGroup>
-
     <ItemGroup Label="Application">
         <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />

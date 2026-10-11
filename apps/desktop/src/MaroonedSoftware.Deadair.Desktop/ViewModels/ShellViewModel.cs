@@ -122,12 +122,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // has to reapply the system's Next button the same way signing in and out already does.
         // FileSettingsStore raises Changed after a ConfigureAwait(false), on a pool thread, and
         // ApplySession sets UI-bound properties.
-        StudioFromCover = StudioBackdrops.FromCover(settings.Current.StudioBackdrop);
-        _onSettingsChanged = changed => _dispatcher.Post(() =>
-        {
-            StudioFromCover = StudioBackdrops.FromCover(changed.StudioBackdrop);
-            ApplySession();
-        });
+        _onSettingsChanged = _ => _dispatcher.Post(ApplySession);
         _settings.Changed += _onSettingsChanged;
 
         // A media key's Next is the operator's Skip, so it goes through the desk rather than the
@@ -237,25 +232,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// into it would hide everything they came to the app to do.
     /// </remarks>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowsGradientBackdrop), nameof(ShowsCoverBackdrop))]
     private bool _isStudio;
-
-    /// <summary>
-    /// Whether Studio draws the cover itself behind the record rather than a few of its colours
-    /// (<see cref="DesktopSettings.StudioBackdrop"/>, set by hand while it is a prototype).
-    /// </summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowsGradientBackdrop), nameof(ShowsCoverBackdrop))]
-    private bool _studioFromCover;
-
-    /// <summary>
-    /// Each backdrop's own visibility, because a backdrop's clock only hears about its own: the one
-    /// not chosen is never visible, so it never runs.
-    /// </summary>
-    public bool ShowsGradientBackdrop => IsStudio && !StudioFromCover;
-
-    /// <inheritdoc cref="ShowsGradientBackdrop"/>
-    public bool ShowsCoverBackdrop => IsStudio && StudioFromCover;
 
     /// <summary>Into Studio, or back out of it: the bar's button, the Window menu, and F.</summary>
     [RelayCommand]

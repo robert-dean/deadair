@@ -21,7 +21,6 @@
         <PackageReference Include="Avalonia.Themes.Fluent" />
         <PackageReference Include="CommunityToolkit.Mvvm" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-        <PackageReference Include="SkiaSharp" />
     </ItemGroup>
 
     <ItemGroup>

@@ -51,16 +51,6 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.11"
         }
       },
-      "SkiaSharp": {
-        "type": "Direct",
-        "requested": "[3.119.4, )",
-        "resolved": "3.119.4",
-        "contentHash": "53NOSUZ1Us+91Sm0uCkIivh/k7jOowRErZT2sIWwPFN9mLUvdxnE6rS4sWo4255+Rd2MWUSF+j0NMZHD6Cke+Q==",
-        "dependencies": {
-          "SkiaSharp.NativeAssets.Win32": "3.119.4",
-          "SkiaSharp.NativeAssets.macOS": "3.119.4"
-        }
-      },
       "Avalonia.Angle.Windows.Natives": {
         "type": "Transitive",
         "resolved": "2.1.27548.20260419",
@@ -171,6 +161,15 @@
         "resolved": "10.0.11",
         "contentHash": "/a1aJz4m7ylhEDf25ugQChLQoN5XwoGjWw/BoR/ZWWKsO1v4DdJElS1uyngahz4B/eOzjFk1KNTkarRLE5wsIg=="
       },
+      "SkiaSharp": {
+        "type": "Transitive",
+        "resolved": "3.119.4",
+        "contentHash": "53NOSUZ1Us+91Sm0uCkIivh/k7jOowRErZT2sIWwPFN9mLUvdxnE6rS4sWo4255+Rd2MWUSF+j0NMZHD6Cke+Q==",
+        "dependencies": {
+          "SkiaSharp.NativeAssets.Win32": "3.119.4",
+          "SkiaSharp.NativeAssets.macOS": "3.119.4"
+        }
+      },
       "SkiaSharp.NativeAssets.Linux": {
         "type": "Transitive",
         "resolved": "3.119.4",
@@ -209,7 +208,7 @@
       "maroonedsoftware.deadair.desktop.player.mac": {
         "type": "Project",
         "dependencies": {
-          "MaroonedSoftware.Deadair.Desktop.Core": "[0.7.3, )"
+          "MaroonedSoftware.Deadair.Desktop.Core": "[0.1.0, )"
         }
       },
       "maroonedsoftware.deadair.desktop.pluginsdk": {

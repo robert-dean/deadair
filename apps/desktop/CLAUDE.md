@@ -922,6 +922,14 @@ the bar's TV button, the Window menu's Studio, or F, and it is left by its close
   draws at 20 frames a second, which on a slow drift is the same picture as 60 for a third of the
   work, and its clock runs only while its OWN `IsVisible` is true: Avalonia tells a control when it is
   hidden and not when a parent is, so the view binds it on the backdrop itself.
+  A backdrop sampled from the cover itself was tried on 2026-10-11 and lost (the Android app reached
+  the same answer from a blurred copy): an SkSL shader over the cover shrunk to 64 pixels and blurred
+  once, a breathing zoom, two feathered discs turning opposite ways, darkened by the same walk and
+  dithered. Rendered full screen in Shots over twelve station covers, it showed no banding, but the
+  cover's layout came through as blotches (a blue strip down one side, a pale moon in a corner, a face
+  as a brown smear), the disc edges read as arcs, and pale or busy covers came out a muddy mid-grey
+  that the secondary line and the playhead's times barely read on. The gradients were cleaner on every
+  cover and lost only on the busiest, where the cover's version had more depth.
 - **It holds still for Reduce Motion and stops drawing while it cannot be seen** (`Core/Ui/IScreenFacts`,
   `Player.Mac/MacScreenFacts`). Reduce Motion is read each time the backdrop starts, so a change in
   System Settings applies the next time Studio opens, and with it on there is no clock at all. While

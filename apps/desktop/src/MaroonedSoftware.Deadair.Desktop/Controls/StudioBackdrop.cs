@@ -123,20 +123,16 @@ public sealed class StudioBackdrop : Control
         base.OnDetachedFromVisualTree(e);
     }
 
-    public override void Render(DrawingContext context) =>
-        Paint(context, new Rect(Bounds.Size), StudioDrift.Blend(_from, _to, _fade),
-            StudioDrift.Mix(StudioDrift.Ground(_from), StudioDrift.Ground(_to), _fade), _phase);
-
-    /// <summary>
-    /// The patches drawn over their ground. Shared with <see cref="StudioCoverBackdrop"/>, which falls
-    /// back to this where it cannot reach Skia.
-    /// </summary>
-    internal static void Paint(DrawingContext context, Rect bounds, IReadOnlyList<uint> colours, uint ground, double phase)
+    public override void Render(DrawingContext context)
     {
+        var bounds = new Rect(Bounds.Size);
+        var colours = StudioDrift.Blend(_from, _to, _fade);
+        var ground = StudioDrift.Mix(StudioDrift.Ground(_from), StudioDrift.Ground(_to), _fade);
+
         context.FillRectangle(new SolidColorBrush(Color.FromUInt32(ground)), bounds);
 
         var reach = Math.Max(bounds.Width, bounds.Height);
-        var patches = StudioDrift.At(phase);
+        var patches = StudioDrift.At(_phase);
         for (var index = 0; index < patches.Count; index++)
         {
             var patch = patches[index];

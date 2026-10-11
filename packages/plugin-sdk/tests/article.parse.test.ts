@@ -220,6 +220,22 @@ describe('extractArticle: sponsors', () => {
         expect(extractArticle(page(story))).toBe(story);
     });
 
+    // Measured on NPR: on one page this was the only paragraph, and the article was a membership ask.
+    it("drops a broadcaster's membership ask, and answers with nothing when that was all the page had", () => {
+        const ask = 'Your support helps make our show possible and unlocks access to our sponsor-free feed.';
+
+        expect(extractArticle(page(ask, REPORTING))).toBe(REPORTING);
+        expect(extractArticle(page(ask))).toBeUndefined();
+    });
+
+    it('drops a link to another story set as a paragraph, but not a sentence that starts the same way', () => {
+        const link = "READ MORE: Trump's arch could disrupt the significance of many of Washington's historical sites";
+        const sentence = 'Read more than a thousand pages of the filing and the pattern is plain: the county was never consulted.';
+
+        expect(extractArticle(page(REPORTING, link))).toBe(REPORTING);
+        expect(extractArticle(page(sentence))).toBe(sentence);
+    });
+
     it('answers with nothing for a page whose only paragraph was the advertisement', () => {
         expect(
             extractArticle(page('Sponsored content: Example Corp has been making outdoor equipment for readers like you since 1974.')),

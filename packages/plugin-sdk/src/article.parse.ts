@@ -140,6 +140,13 @@ const REFERENCE_APPARATUS: readonly (readonly [RegExp, string])[] = [
  * disclosure itself. The vocabulary is closed and every entry names something that is an
  * advertisement wherever it appears, so this can only ever cut, which is {@link FURNITURE_CLASSES}'
  * argument one level down — and a false positive costs one paragraph of a story that has others.
+ *
+ * Two entries are a publisher's own pitch rather than a sponsor's, and are here because they open a
+ * paragraph exactly the way a sponsor does. "Your support helps" is a public broadcaster asking for
+ * a membership, measured opening three of ten NPR pages, and on one of them it was the ONLY
+ * paragraph, so the whole article the bulletin was handed was a request for money. "Read more:" is
+ * a link to another story set as a paragraph of this one, measured on PBS NewsHour; the colon is
+ * part of the entry so that "Read more than…" stays a sentence.
  */
 const SPONSOR_OPENERS: readonly string[] = [
     'a message from',
@@ -151,6 +158,7 @@ const SPONSOR_OPENERS: readonly string[] = [
     'paid partnership',
     'presented by',
     'promoted by',
+    'read more:',
     'sponsored',
     'sponsored by',
     'sponsored content',
@@ -158,6 +166,7 @@ const SPONSOR_OPENERS: readonly string[] = [
     'support for this',
     'support comes from',
     'this post is sponsored',
+    'your support helps',
 ];
 
 /**

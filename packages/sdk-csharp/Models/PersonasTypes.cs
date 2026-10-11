@@ -11,255 +11,16 @@ using MaroonedSoftware.Deadair.Sdk.Runtime;
 
 namespace MaroonedSoftware.Deadair.Sdk.Models;
 
-/// <summary>Who the station is when it opens its mouth: the character a model writes in, the phrasings underneath it, the voice that says them, and what it plays</summary>
-public sealed record Persona
+/// <summary>One thing a character does on air, and how often it does it</summary>
+public sealed record PersonaQuirk
 {
-    [JsonPropertyName("id")]
-    public required string Id { get; init; }
+    [JsonPropertyName("text")]
+    public required string Text { get; init; }
 
-    /// <summary>A stable slug, unique per station. What a log line names and what a seeded persona is recognised by</summary>
-    [JsonPropertyName("key")]
-    public required string Key { get; init; }
-
-    /// <summary>What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant</summary>
-    [JsonPropertyName("kind")]
+    /// <summary>How often it applies. Absent is `always`: a rule, sent on every break. The others are something the character does now and then, and the station picks which ordinary talk breaks, at most one such quirk to a break, so the text should not say "now and then" itself</summary>
+    [JsonPropertyName("cadence")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaKind? Kind { get; init; }
-
-    [JsonPropertyName("label")]
-    public required string Label { get; init; }
-
-    /// <summary>Completes "You are …". Who they ARE; the sheet below carries how they talk</summary>
-    [JsonPropertyName("style")]
-    public required string Style { get; init; }
-
-    /// <summary>The name this character goes by on air, overriding the station's own while it is active</summary>
-    [JsonPropertyName("djName")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? DjName { get; init; }
-
-    /// <summary>The station voice that speaks this persona, as the id a speech plugin maps. Empty means that plugin's default</summary>
-    [JsonPropertyName("voice")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Voice { get; init; }
-
-    /// <summary>The soundboard this character has to hand, as the name of a board in the pad library. Empty for a presenter who works without one. What reaches a model is the names of the pads on that board, never this word</summary>
-    [JsonPropertyName("soundboard")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Soundboard { get; init; }
-
-    /// <summary>The dialect: grammar and substitutions that apply to every sentence rather than to a subject</summary>
-    [JsonPropertyName("diction")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Diction { get; init; }
-
-    /// <summary>Words whose presence proves the dialect survived. What a model's answer is checked against</summary>
-    [JsonPropertyName("dictionMarkers")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? DictionMarkers { get; init; }
-
-    /// <summary>What they always and never do on air</summary>
-    [JsonPropertyName("quirks")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Quirks { get; init; }
-
-    /// <summary>The standing subjects they keep coming back to. Exactly ONE reaches any one break, chosen by rotation, which is what makes a character sound like it has things on its mind rather than one thing</summary>
-    [JsonPropertyName("preoccupations")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Preoccupations { get; init; }
-
-    /// <summary>Signature phrases, asked for sparingly</summary>
-    [JsonPropertyName("catchphrases")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Catchphrases { get; init; }
-
-    /// <summary>Wording that breaks the character</summary>
-    [JsonPropertyName("avoid")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Avoid { get; init; }
-
-    /// <summary>Subjects this character takes one at a time. Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot, sasquatch, yeti"), and a break that brings up words from two of them is refused and written again. A word inside a record's title does not count</summary>
-    [JsonPropertyName("exclusiveSubjects")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? ExclusiveSubjects { get; init; }
-
-    /// <summary>A couple of grounded facts they may self-reference</summary>
-    [JsonPropertyName("background")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Background { get; init; }
-
-    /// <summary>How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one</summary>
-    [JsonPropertyName("brevity")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaBrevity? Brevity { get; init; }
-
-    /// <summary>How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal</summary>
-    [JsonPropertyName("latitude")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaLatitude? Latitude { get; init; }
-
-    /// <summary>How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree</summary>
-    [JsonPropertyName("chattiness")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaChattiness? Chattiness { get; init; }
-
-    /// <summary>How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says</summary>
-    [JsonPropertyName("storytelling")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaStorytelling? Storytelling { get; init; }
-
-    /// <summary>Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is</summary>
-    [JsonPropertyName("growth")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaGrowth? Growth { get; init; }
-
-    /// <summary>How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says</summary>
-    [JsonPropertyName("trivia")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaTrivia? Trivia { get; init; }
-
-    /// <summary>Lines in their own voice, used as examples and as a console preview</summary>
-    [JsonPropertyName("samples")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Samples { get; init; }
-
-    /// <summary>This character's own break phrasings, one per line. Empty means the station's own five</summary>
-    [JsonPropertyName("templates")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Templates { get; init; }
-
-    /// <summary>The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties</summary>
-    [JsonPropertyName("hosts")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Hosts { get; init; }
-
-    /// <summary>The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host</summary>
-    [JsonPropertyName("defaultHost")]
-    public required bool DefaultHost { get; init; }
-
-    /// <summary>Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing</summary>
-    [JsonPropertyName("presenting")]
-    public required bool Presenting { get; init; }
-}
-
-/// <summary>Who the station is when it opens its mouth: the character a model writes in, the phrasings underneath it, the voice that says them, and what it plays</summary>
-public sealed record PersonaInput
-{
-    /// <summary>A stable slug, unique per station. What a log line names and what a seeded persona is recognised by</summary>
-    [JsonPropertyName("key")]
-    public required string Key { get; init; }
-
-    /// <summary>What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant</summary>
-    [JsonPropertyName("kind")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaKind? Kind { get; init; }
-
-    [JsonPropertyName("label")]
-    public required string Label { get; init; }
-
-    /// <summary>Completes "You are …". Who they ARE; the sheet below carries how they talk</summary>
-    [JsonPropertyName("style")]
-    public required string Style { get; init; }
-
-    /// <summary>The name this character goes by on air, overriding the station's own while it is active</summary>
-    [JsonPropertyName("djName")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? DjName { get; init; }
-
-    /// <summary>The station voice that speaks this persona, as the id a speech plugin maps. Empty means that plugin's default</summary>
-    [JsonPropertyName("voice")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Voice { get; init; }
-
-    /// <summary>The soundboard this character has to hand, as the name of a board in the pad library. Empty for a presenter who works without one. What reaches a model is the names of the pads on that board, never this word</summary>
-    [JsonPropertyName("soundboard")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Soundboard { get; init; }
-
-    /// <summary>The dialect: grammar and substitutions that apply to every sentence rather than to a subject</summary>
-    [JsonPropertyName("diction")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Diction { get; init; }
-
-    /// <summary>Words whose presence proves the dialect survived. What a model's answer is checked against</summary>
-    [JsonPropertyName("dictionMarkers")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? DictionMarkers { get; init; }
-
-    /// <summary>What they always and never do on air</summary>
-    [JsonPropertyName("quirks")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Quirks { get; init; }
-
-    /// <summary>The standing subjects they keep coming back to. Exactly ONE reaches any one break, chosen by rotation, which is what makes a character sound like it has things on its mind rather than one thing</summary>
-    [JsonPropertyName("preoccupations")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Preoccupations { get; init; }
-
-    /// <summary>Signature phrases, asked for sparingly</summary>
-    [JsonPropertyName("catchphrases")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Catchphrases { get; init; }
-
-    /// <summary>Wording that breaks the character</summary>
-    [JsonPropertyName("avoid")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Avoid { get; init; }
-
-    /// <summary>Subjects this character takes one at a time. Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot, sasquatch, yeti"), and a break that brings up words from two of them is refused and written again. A word inside a record's title does not count</summary>
-    [JsonPropertyName("exclusiveSubjects")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? ExclusiveSubjects { get; init; }
-
-    /// <summary>A couple of grounded facts they may self-reference</summary>
-    [JsonPropertyName("background")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Background { get; init; }
-
-    /// <summary>How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one</summary>
-    [JsonPropertyName("brevity")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaBrevity? Brevity { get; init; }
-
-    /// <summary>How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal</summary>
-    [JsonPropertyName("latitude")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaLatitude? Latitude { get; init; }
-
-    /// <summary>How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree</summary>
-    [JsonPropertyName("chattiness")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaChattiness? Chattiness { get; init; }
-
-    /// <summary>How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says</summary>
-    [JsonPropertyName("storytelling")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaStorytelling? Storytelling { get; init; }
-
-    /// <summary>Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is</summary>
-    [JsonPropertyName("growth")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaGrowth? Growth { get; init; }
-
-    /// <summary>How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says</summary>
-    [JsonPropertyName("trivia")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaTrivia? Trivia { get; init; }
-
-    /// <summary>Lines in their own voice, used as examples and as a console preview</summary>
-    [JsonPropertyName("samples")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Samples { get; init; }
-
-    /// <summary>This character's own break phrasings, one per line. Empty means the station's own five</summary>
-    [JsonPropertyName("templates")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Templates { get; init; }
-
-    /// <summary>The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties</summary>
-    [JsonPropertyName("hosts")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Hosts { get; init; }
+    public PersonaQuirkCadence? Cadence { get; init; }
 }
 
 /// <summary>A description of a character, in the operator's own words</summary>
@@ -267,95 +28,6 @@ public sealed record PersonaRequest
 {
     [JsonPropertyName("description")]
     public required string Description { get; init; }
-}
-
-/// <summary>
-/// A persona as a form's contents rather than a row: no id and not on air, because nothing has been
-/// saved. The console opens this in the editor and the operator saves it through POST /personas, which
-/// is what keeps generating a way of filling in the form rather than a second writer of the table
-/// </summary>
-public sealed record PersonaDraftView
-{
-    [JsonPropertyName("key")]
-    public required string Key { get; init; }
-
-    [JsonPropertyName("label")]
-    public required string Label { get; init; }
-
-    [JsonPropertyName("style")]
-    public required string Style { get; init; }
-
-    [JsonPropertyName("djName")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? DjName { get; init; }
-
-    [JsonPropertyName("voice")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Voice { get; init; }
-
-    [JsonPropertyName("soundboard")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Soundboard { get; init; }
-
-    [JsonPropertyName("diction")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Diction { get; init; }
-
-    [JsonPropertyName("dictionMarkers")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? DictionMarkers { get; init; }
-
-    [JsonPropertyName("quirks")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Quirks { get; init; }
-
-    [JsonPropertyName("preoccupations")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Preoccupations { get; init; }
-
-    [JsonPropertyName("catchphrases")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Catchphrases { get; init; }
-
-    [JsonPropertyName("avoid")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Avoid { get; init; }
-
-    [JsonPropertyName("exclusiveSubjects")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? ExclusiveSubjects { get; init; }
-
-    [JsonPropertyName("background")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Background { get; init; }
-
-    [JsonPropertyName("brevity")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaDraftViewBrevity? Brevity { get; init; }
-
-    [JsonPropertyName("latitude")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaDraftViewLatitude? Latitude { get; init; }
-
-    [JsonPropertyName("chattiness")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaDraftViewChattiness? Chattiness { get; init; }
-
-    [JsonPropertyName("storytelling")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaDraftViewStorytelling? Storytelling { get; init; }
-
-    [JsonPropertyName("trivia")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PersonaDraftViewTrivia? Trivia { get; init; }
-
-    [JsonPropertyName("samples")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Samples { get; init; }
-
-    [JsonPropertyName("templates")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Templates { get; init; }
 }
 
 /// <summary>
@@ -825,16 +497,344 @@ public sealed record PersonaMemoryRollback
     public bool? Relearn { get; init; }
 }
 
-public sealed record PersonaList
+/// <summary>Who the station is when it opens its mouth: the character a model writes in, the phrasings underneath it, the voice that says them, and what it plays</summary>
+public sealed record Persona
 {
-    [JsonPropertyName("personas")]
-    public required List<Persona> Personas { get; init; }
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    /// <summary>A stable slug, unique per station. What a log line names and what a seeded persona is recognised by</summary>
+    [JsonPropertyName("key")]
+    public required string Key { get; init; }
+
+    /// <summary>What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant</summary>
+    [JsonPropertyName("kind")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaKind? Kind { get; init; }
+
+    [JsonPropertyName("label")]
+    public required string Label { get; init; }
+
+    /// <summary>Completes "You are …". Who they ARE; the sheet below carries how they talk</summary>
+    [JsonPropertyName("style")]
+    public required string Style { get; init; }
+
+    /// <summary>The name this character goes by on air, overriding the station's own while it is active</summary>
+    [JsonPropertyName("djName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DjName { get; init; }
+
+    /// <summary>The station voice that speaks this persona, as the id a speech plugin maps. Empty means that plugin's default</summary>
+    [JsonPropertyName("voice")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Voice { get; init; }
+
+    /// <summary>The soundboard this character has to hand, as the name of a board in the pad library. Empty for a presenter who works without one. What reaches a model is the names of the pads on that board, never this word</summary>
+    [JsonPropertyName("soundboard")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Soundboard { get; init; }
+
+    /// <summary>The dialect: grammar and substitutions that apply to every sentence rather than to a subject</summary>
+    [JsonPropertyName("diction")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Diction { get; init; }
+
+    /// <summary>Words whose presence proves the dialect survived. What a model's answer is checked against</summary>
+    [JsonPropertyName("dictionMarkers")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? DictionMarkers { get; init; }
+
+    /// <summary>What they always and never do on air. One with a cadence is something they do only now and then, and the station decides which breaks</summary>
+    [JsonPropertyName("quirks")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PersonaQuirk>? Quirks { get; init; }
+
+    /// <summary>The standing subjects they keep coming back to. Exactly ONE reaches any one break, chosen by rotation, which is what makes a character sound like it has things on its mind rather than one thing</summary>
+    [JsonPropertyName("preoccupations")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Preoccupations { get; init; }
+
+    /// <summary>Signature phrases, asked for sparingly</summary>
+    [JsonPropertyName("catchphrases")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Catchphrases { get; init; }
+
+    /// <summary>Wording that breaks the character</summary>
+    [JsonPropertyName("avoid")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Avoid { get; init; }
+
+    /// <summary>Subjects this character takes one at a time. Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot, sasquatch, yeti"), and a break that brings up words from two of them is refused and written again. A word inside a record's title does not count</summary>
+    [JsonPropertyName("exclusiveSubjects")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? ExclusiveSubjects { get; init; }
+
+    /// <summary>A couple of grounded facts they may self-reference</summary>
+    [JsonPropertyName("background")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Background { get; init; }
+
+    /// <summary>How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one</summary>
+    [JsonPropertyName("brevity")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaBrevity? Brevity { get; init; }
+
+    /// <summary>How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal</summary>
+    [JsonPropertyName("latitude")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaLatitude? Latitude { get; init; }
+
+    /// <summary>How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree</summary>
+    [JsonPropertyName("chattiness")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaChattiness? Chattiness { get; init; }
+
+    /// <summary>How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says</summary>
+    [JsonPropertyName("storytelling")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaStorytelling? Storytelling { get; init; }
+
+    /// <summary>Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is</summary>
+    [JsonPropertyName("growth")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaGrowth? Growth { get; init; }
+
+    /// <summary>How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says</summary>
+    [JsonPropertyName("trivia")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaTrivia? Trivia { get; init; }
+
+    /// <summary>Lines in their own voice, used as examples and as a console preview</summary>
+    [JsonPropertyName("samples")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Samples { get; init; }
+
+    /// <summary>This character's own break phrasings, one per line. Empty means the station's own five</summary>
+    [JsonPropertyName("templates")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Templates { get; init; }
+
+    /// <summary>The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties</summary>
+    [JsonPropertyName("hosts")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Hosts { get; init; }
+
+    /// <summary>The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host</summary>
+    [JsonPropertyName("defaultHost")]
+    public required bool DefaultHost { get; init; }
+
+    /// <summary>Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing</summary>
+    [JsonPropertyName("presenting")]
+    public required bool Presenting { get; init; }
 }
 
-public sealed record PersonaListInput
+/// <summary>Who the station is when it opens its mouth: the character a model writes in, the phrasings underneath it, the voice that says them, and what it plays</summary>
+public sealed record PersonaInput
 {
-    [JsonPropertyName("personas")]
-    public required List<PersonaInput> Personas { get; init; }
+    /// <summary>A stable slug, unique per station. What a log line names and what a seeded persona is recognised by</summary>
+    [JsonPropertyName("key")]
+    public required string Key { get; init; }
+
+    /// <summary>What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant</summary>
+    [JsonPropertyName("kind")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaKind? Kind { get; init; }
+
+    [JsonPropertyName("label")]
+    public required string Label { get; init; }
+
+    /// <summary>Completes "You are …". Who they ARE; the sheet below carries how they talk</summary>
+    [JsonPropertyName("style")]
+    public required string Style { get; init; }
+
+    /// <summary>The name this character goes by on air, overriding the station's own while it is active</summary>
+    [JsonPropertyName("djName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DjName { get; init; }
+
+    /// <summary>The station voice that speaks this persona, as the id a speech plugin maps. Empty means that plugin's default</summary>
+    [JsonPropertyName("voice")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Voice { get; init; }
+
+    /// <summary>The soundboard this character has to hand, as the name of a board in the pad library. Empty for a presenter who works without one. What reaches a model is the names of the pads on that board, never this word</summary>
+    [JsonPropertyName("soundboard")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Soundboard { get; init; }
+
+    /// <summary>The dialect: grammar and substitutions that apply to every sentence rather than to a subject</summary>
+    [JsonPropertyName("diction")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Diction { get; init; }
+
+    /// <summary>Words whose presence proves the dialect survived. What a model's answer is checked against</summary>
+    [JsonPropertyName("dictionMarkers")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? DictionMarkers { get; init; }
+
+    /// <summary>What they always and never do on air. One with a cadence is something they do only now and then, and the station decides which breaks</summary>
+    [JsonPropertyName("quirks")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PersonaQuirk>? Quirks { get; init; }
+
+    /// <summary>The standing subjects they keep coming back to. Exactly ONE reaches any one break, chosen by rotation, which is what makes a character sound like it has things on its mind rather than one thing</summary>
+    [JsonPropertyName("preoccupations")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Preoccupations { get; init; }
+
+    /// <summary>Signature phrases, asked for sparingly</summary>
+    [JsonPropertyName("catchphrases")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Catchphrases { get; init; }
+
+    /// <summary>Wording that breaks the character</summary>
+    [JsonPropertyName("avoid")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Avoid { get; init; }
+
+    /// <summary>Subjects this character takes one at a time. Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot, sasquatch, yeti"), and a break that brings up words from two of them is refused and written again. A word inside a record's title does not count</summary>
+    [JsonPropertyName("exclusiveSubjects")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? ExclusiveSubjects { get; init; }
+
+    /// <summary>A couple of grounded facts they may self-reference</summary>
+    [JsonPropertyName("background")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Background { get; init; }
+
+    /// <summary>How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one</summary>
+    [JsonPropertyName("brevity")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaBrevity? Brevity { get; init; }
+
+    /// <summary>How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal</summary>
+    [JsonPropertyName("latitude")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaLatitude? Latitude { get; init; }
+
+    /// <summary>How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree</summary>
+    [JsonPropertyName("chattiness")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaChattiness? Chattiness { get; init; }
+
+    /// <summary>How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says</summary>
+    [JsonPropertyName("storytelling")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaStorytelling? Storytelling { get; init; }
+
+    /// <summary>Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is</summary>
+    [JsonPropertyName("growth")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaGrowth? Growth { get; init; }
+
+    /// <summary>How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says</summary>
+    [JsonPropertyName("trivia")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaTrivia? Trivia { get; init; }
+
+    /// <summary>Lines in their own voice, used as examples and as a console preview</summary>
+    [JsonPropertyName("samples")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Samples { get; init; }
+
+    /// <summary>This character's own break phrasings, one per line. Empty means the station's own five</summary>
+    [JsonPropertyName("templates")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Templates { get; init; }
+
+    /// <summary>The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties</summary>
+    [JsonPropertyName("hosts")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Hosts { get; init; }
+}
+
+/// <summary>
+/// A persona as a form's contents rather than a row: no id and not on air, because nothing has been
+/// saved. The console opens this in the editor and the operator saves it through POST /personas, which
+/// is what keeps generating a way of filling in the form rather than a second writer of the table
+/// </summary>
+public sealed record PersonaDraftView
+{
+    [JsonPropertyName("key")]
+    public required string Key { get; init; }
+
+    [JsonPropertyName("label")]
+    public required string Label { get; init; }
+
+    [JsonPropertyName("style")]
+    public required string Style { get; init; }
+
+    [JsonPropertyName("djName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DjName { get; init; }
+
+    [JsonPropertyName("voice")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Voice { get; init; }
+
+    [JsonPropertyName("soundboard")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Soundboard { get; init; }
+
+    [JsonPropertyName("diction")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Diction { get; init; }
+
+    [JsonPropertyName("dictionMarkers")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? DictionMarkers { get; init; }
+
+    [JsonPropertyName("quirks")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PersonaQuirk>? Quirks { get; init; }
+
+    [JsonPropertyName("preoccupations")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Preoccupations { get; init; }
+
+    [JsonPropertyName("catchphrases")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Catchphrases { get; init; }
+
+    [JsonPropertyName("avoid")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Avoid { get; init; }
+
+    [JsonPropertyName("exclusiveSubjects")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? ExclusiveSubjects { get; init; }
+
+    [JsonPropertyName("background")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Background { get; init; }
+
+    [JsonPropertyName("brevity")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaDraftViewBrevity? Brevity { get; init; }
+
+    [JsonPropertyName("latitude")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaDraftViewLatitude? Latitude { get; init; }
+
+    [JsonPropertyName("chattiness")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaDraftViewChattiness? Chattiness { get; init; }
+
+    [JsonPropertyName("storytelling")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaDraftViewStorytelling? Storytelling { get; init; }
+
+    [JsonPropertyName("trivia")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaDraftViewTrivia? Trivia { get; init; }
+
+    [JsonPropertyName("samples")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Samples { get; init; }
+
+    [JsonPropertyName("templates")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Templates { get; init; }
 }
 
 /// <summary>One character's whole notebook, oldest first, in every state</summary>
@@ -855,25 +855,6 @@ public sealed record PersonaNoteListInput
 
     [JsonPropertyName("notes")]
     public required List<PersonaNoteInput> Notes { get; init; }
-}
-
-/// <summary>What a model wrote, and what had to be dropped to make it usable</summary>
-public sealed record GeneratedPersona
-{
-    [JsonPropertyName("persona")]
-    public required PersonaDraftView Persona { get; init; }
-
-    /// <summary>A couple of things that have happened to this character. Beside the form rather than in it, because they are their own table: the console saves the persona and then writes these through the stories route, so they go through the same validation an operator's own typing does</summary>
-    [JsonPropertyName("stories")]
-    public required List<PersonaStoryWrite> Stories { get; init; }
-
-    /// <summary>Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off</summary>
-    [JsonPropertyName("droppedMarkers")]
-    public required List<string> DroppedMarkers { get; init; }
-
-    /// <summary>Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings</summary>
-    [JsonPropertyName("droppedTemplates")]
-    public required List<string> DroppedTemplates { get; init; }
 }
 
 /// <summary>
@@ -1190,6 +1171,37 @@ public sealed record PersonaMemoryInput
     public required List<PersonaTellingInput> Tellings { get; init; }
 }
 
+public sealed record PersonaList
+{
+    [JsonPropertyName("personas")]
+    public required List<Persona> Personas { get; init; }
+}
+
+public sealed record PersonaListInput
+{
+    [JsonPropertyName("personas")]
+    public required List<PersonaInput> Personas { get; init; }
+}
+
+/// <summary>What a model wrote, and what had to be dropped to make it usable</summary>
+public sealed record GeneratedPersona
+{
+    [JsonPropertyName("persona")]
+    public required PersonaDraftView Persona { get; init; }
+
+    /// <summary>A couple of things that have happened to this character. Beside the form rather than in it, because they are their own table: the console saves the persona and then writes these through the stories route, so they go through the same validation an operator's own typing does</summary>
+    [JsonPropertyName("stories")]
+    public required List<PersonaStoryWrite> Stories { get; init; }
+
+    /// <summary>Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off</summary>
+    [JsonPropertyName("droppedMarkers")]
+    public required List<string> DroppedMarkers { get; init; }
+
+    /// <summary>Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings</summary>
+    [JsonPropertyName("droppedTemplates")]
+    public required List<string> DroppedTemplates { get; init; }
+}
+
 /// <summary>Every story one character holds, oldest first, in every state</summary>
 public sealed record PersonaStoryList
 {
@@ -1249,7 +1261,7 @@ public sealed record PersonaFilePersona
 
     [JsonPropertyName("quirks")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Quirks { get; init; }
+    public List<PersonaQuirk>? Quirks { get; init; }
 
     [JsonPropertyName("preoccupations")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -1558,6 +1570,23 @@ public enum PersonaTrivia
 {
     [JsonStringEnumMemberName("keen")]
     Keen,
+}
+
+/// <summary>How often it applies. Absent is `always`: a rule, sent on every break. The others are something the character does now and then, and the station picks which ordinary talk breaks, at most one such quirk to a break, so the text should not say "now and then" itself</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaQuirkCadence>))]
+public enum PersonaQuirkCadence
+{
+    [JsonStringEnumMemberName("always")]
+    Always,
+
+    [JsonStringEnumMemberName("often")]
+    Often,
+
+    [JsonStringEnumMemberName("occasionally")]
+    Occasionally,
+
+    [JsonStringEnumMemberName("rarely")]
+    Rarely,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<PersonaDraftViewBrevity>))]

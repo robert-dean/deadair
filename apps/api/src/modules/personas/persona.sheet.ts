@@ -70,7 +70,7 @@
 // The one import here, and it keeps this file's promise: a hash over a string is as pure as the
 // rest of it. Shared rather than local because a break, a production and the facts all spread over
 // an id, and three copies of one modulo is three chances to get the empty-list case wrong.
-import { rotateInto } from '#modules/shared/rotation.js';
+import { drawOf, rotateInto } from '#modules/shared/rotation.js';
 import { languageName } from '#modules/shared/language.name.js';
 
 /** How much a character says, below the station's ordinary length. See {@link PersonaSheet.brevity}. */
@@ -262,6 +262,72 @@ export type PersonaStorytelling = (typeof PERSONA_STORYTELLING)[number];
 export const isPersonaStorytelling = (value: unknown): value is PersonaStorytelling => PERSONA_STORYTELLING.includes(value as PersonaStorytelling);
 
 /**
+ * How often one of a character's quirks applies. See {@link PersonaQuirk.cadence}.
+ *
+ * `always` is the rung an unset cadence means, and it is what every quirk was before the field
+ * existed: a rule, sent on every prompt.
+ */
+export const QUIRK_CADENCES = ['always', 'often', 'occasionally', 'rarely'] as const;
+
+export type QuirkCadence = (typeof QUIRK_CADENCES)[number];
+
+/** Whether a stored value is a rung, so a hand-edited row cannot decide what a prompt carries. */
+export const isQuirkCadence = (value: unknown): value is QuirkCadence => QUIRK_CADENCES.includes(value as QuirkCadence);
+
+/**
+ * One thing a character does on air, and how often it does it.
+ *
+ * ## The rhythm is a property of the entry, not a field of its own
+ *
+ * "Once in a while, yell for Sharon" went out on every prompt as one clause of a quirk line, and it
+ * was written 0 times in 58 breaks: a writer with no memory of the last break reads "once in a
+ * while" as "not this time", every time. What does land is material the CALLER hands over for this
+ * break alone, which is how {@link PersonaSheet.preoccupations} work. So the station decides when,
+ * and the quirk says how often rather than saying "now and then" in its own words.
+ *
+ * The alternative was a list per rhythm, beside `quirks` and `preoccupations`, and that costs a
+ * column, a contract field, four SDKs and two editors for every rhythm anybody thinks of next. A
+ * rung on the entry costs one value here.
+ */
+export interface PersonaQuirk {
+    text: string;
+    /** Absent means `always`. */
+    cadence?: QuirkCadence;
+}
+
+/**
+ * A stored or sent list of quirks, as the sheet holds them.
+ *
+ * Takes a bare string as an `always` quirk, which is the shape every quirk had before
+ * {@link PersonaQuirk.cadence}: a row the migration missed or a test written the old way reads as
+ * what it always meant. An `always` cadence is dropped rather than kept, so the two spellings of the
+ * default are one value everywhere downstream. Answers `undefined` for nothing usable, as the other
+ * lists on a sheet do.
+ */
+export function quirksIn(value: unknown): PersonaQuirk[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+
+    const quirks = value.flatMap((entry): PersonaQuirk[] => {
+        if (typeof entry === 'string') return entry.trim().length === 0 ? [] : [{ text: entry }];
+        if (typeof entry !== 'object' || entry === null) return [];
+
+        const { text, cadence } = entry as { text?: unknown; cadence?: unknown };
+        if (typeof text !== 'string' || text.trim().length === 0) return [];
+
+        return [isQuirkCadence(cadence) && cadence !== 'always' ? { text, cadence } : { text }];
+    });
+    return quirks.length === 0 ? undefined : quirks;
+}
+
+/** Quirks as the contract carries them: copies, and no `cadence` key at all on an `always` one. */
+export const quirksForView = (quirks: readonly PersonaQuirk[] | undefined): PersonaQuirk[] | undefined =>
+    quirks?.map(quirk => (quirk.cadence === undefined ? { text: quirk.text } : { text: quirk.text, cadence: quirk.cadence }));
+
+/** The texts of the quirks that are rules: the ones with no cadence, which apply to every break. */
+export const ruleTexts = (quirks: readonly PersonaQuirk[] | undefined): string[] =>
+    (quirks ?? []).filter(quirk => quirk.cadence === undefined || quirk.cadence === 'always').map(quirk => quirk.text);
+
+/**
  * What a sheet with nothing set means, which is the middle rung rather than silence.
  *
  * A character who never mentions anything that happened to it is a legitimate character and is
@@ -448,6 +514,68 @@ export const preoccupationOf = (sheet: PersonaSheet | undefined, rotationId: str
     sheet === undefined ? undefined : rotateInto(cleanList(sheet.preoccupations, PERSONA_SHEET_LIMITS.preoccupations), rotationId);
 
 /**
+ * How likely a quirk of each rung is to come round on any one break.
+ *
+ * A probability per entry rather than a share of breaks, so two quirks that are both `rarely` are each
+ * rare: a character with three of them does not do one of the three every third break. The numbers
+ * are where the "now and then" a sheet used to say in words actually lives, and they are judged
+ * against how often a preoccupation that is OFFERED lands, which was about half the time measured on
+ * the live station: `rarely` offered on one break in ten is heard on roughly one in fifteen to twenty.
+ */
+export const QUIRK_CADENCE_ODDS: Readonly<Record<Exclude<QuirkCadence, 'always'>, number>> = {
+    often: 1 / 2,
+    occasionally: 1 / 4,
+    rarely: 1 / 10,
+};
+
+/** A sheet's quirks with a cadence, cleaned and capped as {@link personaLines} cleans the rules. */
+function occasionalQuirks(sheet: PersonaSheet): Array<PersonaQuirk & { cadence: Exclude<QuirkCadence, 'always'> }> {
+    const seen = new Set<string>();
+    const out: Array<PersonaQuirk & { cadence: Exclude<QuirkCadence, 'always'> }> = [];
+    for (const quirk of sheet.quirks ?? []) {
+        const text = quirk.text.trim();
+        const cadence = quirk.cadence;
+        if (text.length === 0 || cadence === undefined || cadence === 'always' || !isQuirkCadence(cadence)) continue;
+
+        const key = text.toLowerCase();
+        if (seen.has(key)) continue;
+
+        seen.add(key);
+        out.push({ text, cadence });
+        if (out.length >= PERSONA_SHEET_LIMITS.occasionalQuirks) break;
+    }
+    return out;
+}
+
+/**
+ * The one now-and-then quirk `rotationId` gets, or `undefined` for a break that gets none.
+ *
+ * Each quirk with a cadence draws for itself against {@link QUIRK_CADENCE_ODDS}, and when more than
+ * one comes up a second draw of each picks between them, so a break is never handed two: "yell for Sharon"
+ * and "the bat was rubber" in one forty-word link is a character doing its whole act at once.
+ *
+ * The draw is salted with the quirk's own words rather than its position, so reordering a sheet
+ * changes nothing and rewording one quirk re-rolls that quirk alone. It goes through {@link drawOf}
+ * rather than {@link rotateInto} because the draws have to be INDEPENDENT of one another and of the
+ * preoccupation, and a linear hash over salted copies of one id is not. Stable for one id, for
+ * `preoccupationOf`'s reason: a break re-offered after a lost job is handed what it was handed.
+ */
+export function occasionalQuirkOf(sheet: PersonaSheet | undefined, rotationId: string): string | undefined {
+    if (sheet === undefined) return undefined;
+
+    // The tie-break is a second draw per quirk and the lowest wins, rather than a draw into the list,
+    // because an index into the list would make the sheet's order decide which of two came up.
+    let chosen: { text: string; draw: number } | undefined;
+    for (const quirk of occasionalQuirks(sheet)) {
+        if (drawOf(`${rotationId}:quirk:${quirk.text}`) >= QUIRK_CADENCE_ODDS[quirk.cadence]) continue;
+
+        const draw = drawOf(`${rotationId}:pick:${quirk.text}`);
+        if (chosen === undefined || draw < chosen.draw) chosen = { text: quirk.text, draw };
+    }
+    return chosen?.text;
+}
+
+/**
  * The facets of a character beyond the one-line style, all optional.
  *
  * A sheet carrying none of them renders to nothing at all, which is what makes an operator who has
@@ -489,16 +617,20 @@ export interface PersonaSheet {
      * somebody else's voice is by definition not evidence of this one.
      */
     dictionMarkers?: readonly string[];
-    /** What they always and never do on air, and what they care about. */
-    quirks?: readonly string[];
+    /**
+     * What they always and never do on air, and what they care about. An entry with a
+     * {@link PersonaQuirk.cadence} is something they do only now and then.
+     */
+    quirks?: readonly PersonaQuirk[];
     /**
      * The standing subjects this character keeps coming back to, of which **exactly one** reaches any
      * one prompt.
      *
      * ## Not a quirk, which is the same split {@link PersonaSheet.diction} makes one field up
      *
-     * A quirk is a RULE about how the character behaves and is true of every break there will ever
-     * be, so all six go out every time. These are MATERIAL, and material a model is handed gets used:
+     * A quirk with no cadence is a RULE about how the character behaves and is true of every break
+     * there will ever be, so all of them go out every time. (One WITH a cadence is a habit and is drawn
+     * per break; see {@link occasionalQuirkOf}.) These are MATERIAL, and material a model is handed gets used:
      * five of them in a forty-word break is a presenter reading their own file. That is
      * `persona_stories`' rule exactly, and it is why the caller picks one rather than the sheet
      * offering the list.
@@ -678,7 +810,13 @@ export const PERSONA_SHEET_LIMITS = {
     diction: 6,
     /** Higher than the rest: markers are single words, and the check needs enough to be fair. */
     dictionMarkers: 16,
+    /** The rules: quirks with no cadence, which go out on every prompt. */
     quirks: 6,
+    /**
+     * Quirks with a cadence, capped apart from the rules so moving one from a rule to a habit never
+     * pushes a rule off the end of the list. Only ever one of them reaches a prompt.
+     */
+    occasionalQuirks: 6,
     /** Matching {@link PERSONA_SHEET_LIMITS.quirks}: enough for a rotation to be worth having, few enough that a sheet stays a sheet. */
     preoccupations: 6,
     catchphrases: 6,
@@ -795,6 +933,11 @@ export interface PersonaLineOptions {
      * is a caller that has decided something, which is the same latitude `maxExamples` already has.
      */
     preoccupation?: string;
+    /**
+     * The one quirk with a cadence that came up for this moment, from {@link occasionalQuirkOf}, or
+     * absent for none. Chosen by the caller for {@link PersonaLineOptions.preoccupation}'s reason.
+     */
+    occasionalQuirk?: string;
 }
 
 /**
@@ -845,7 +988,10 @@ export function personaLines(sheet: PersonaSheet, opts: PersonaLineOptions = {})
         );
     }
 
-    const quirks = cleanList(sheet.quirks, PERSONA_SHEET_LIMITS.quirks);
+    // The rules alone. A quirk with a cadence is not true of every break, and stating it beside the
+    // rules is what made it a rule nobody followed; it arrives as `occasionalQuirk` on the breaks it
+    // comes up on, and not at all on the rest.
+    const quirks = cleanList(ruleTexts(sheet.quirks), PERSONA_SHEET_LIMITS.quirks);
     if (quirks.length > 0) lines.push(`In character: ${joinClauses(quirks)}`);
 
     // Directly under the quirks, because the quirks are what govern it: whatever a character may
@@ -860,6 +1006,14 @@ export function personaLines(sheet: PersonaSheet, opts: PersonaLineOptions = {})
         lines.push(
             `Lately you have had this on your mind: ${preoccupation}. Bring it up if the moment gives you an opening, and let it go if it does not.`,
         );
+    }
+
+    // After the preoccupation, and an instruction where that is an offer: whether this is one of the
+    // times was decided by `occasionalQuirkOf` before there was a prompt, and "now and then" handed
+    // to the model as a choice is the choice it measurably never made.
+    const occasionalQuirk = opts.occasionalQuirk?.trim().replace(/[.;]\s*$/, '');
+    if (occasionalQuirk !== undefined && occasionalQuirk.length > 0) {
+        lines.push(`Now and then you do this, and this break is one of those times, so do it once: ${occasionalQuirk}.`);
     }
 
     // Not offered to a break that reports: see `PersonaLineOptions.lean`.

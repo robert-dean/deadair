@@ -155,6 +155,32 @@ describe('reading a persona out of an answer', () => {
         expect(generated.draft.dictionMarkers).toEqual(['love']);
     });
 
+    // "Once in a while" written into a quirk went out on every prompt and was never once said. The
+    // writer asks for a habit as its own list so the station can decide the times, and the words do
+    // not have to.
+    it('asks for habits apart from the rules, with no word in them about how often', () => {
+        const system = personaPrompt('anything')[0]!.content;
+
+        expect(system).toContain('"habits"');
+        expect(system).toMatch(/never write "now and then", "sometimes" or "once in a while" into one/);
+    });
+
+    it('reads the habits as quirks with a cadence, after the rules', () => {
+        const generated = readPersona(answer({ habits: ['Yell for Sharon', 'Insist the bat was rubber'] }))!;
+
+        expect(generated.draft.quirks).toEqual([
+            { text: 'Every record is a stomper or it is nothing' },
+            { text: 'Yell for Sharon', cadence: 'occasionally' },
+            { text: 'Insist the bat was rubber', cadence: 'occasionally' },
+        ]);
+    });
+
+    it('takes at most three habits, since a character is mostly its rules', () => {
+        const generated = readPersona(answer({ quirks: [], habits: ['one', 'two', 'three', 'four'] }))!;
+
+        expect(generated.draft.quirks?.map(quirk => quirk.text)).toEqual(['one', 'two', 'three']);
+    });
+
     it('answers undefined when there is no object, rather than throwing', () => {
         expect(readPersona('I am afraid I cannot do that.')).toBeUndefined();
         expect(readPersona('{ "key": "broken", ')).toBeUndefined();

@@ -220,7 +220,18 @@ export const personas = {
             },
             quirks: {
                 label: 'In character',
-                description: 'What they always and never do on air, one per line.',
+                description:
+                    'What they always and never do on air, one to a row. Set one to often, occasionally or rarely and it becomes something they do now and then: the station picks which breaks, so leave "now and then" out of the words.',
+                text: 'Quirk {{number}}',
+                remove: 'Remove quirk {{number}}',
+                add: 'Add a quirk',
+                cadence: {
+                    label: 'How often quirk {{number}} applies',
+                    always: 'Always',
+                    often: 'Often',
+                    occasionally: 'Occasionally',
+                    rarely: 'Rarely',
+                },
             },
             catchphrases: {
                 label: 'Signature phrases',

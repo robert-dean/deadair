@@ -17,7 +17,7 @@ public class PersonaSheetTests
     [Fact]
     public void AnEmptyFieldIsLeftOutRatherThanSentEmpty()
     {
-        var input = new PersonaSheet { Key = "k", Label = "L", Style = "s", DjName = "  ", Quirks = "\n \n" }.ToInput(PersonaKind.Host);
+        var input = new PersonaSheet { Key = "k", Label = "L", Style = "s", DjName = "  ", Quirks = [new QuirkLine(" ", string.Empty)] }.ToInput(PersonaKind.Host);
 
         Assert.Null(input.DjName);
         Assert.Null(input.Quirks);
@@ -62,14 +62,44 @@ public class PersonaSheetTests
             Style = "dry",
             Brevity = PersonaBrevity.OneLine,
             Chattiness = PersonaChattiness.Ordinary,
-            Quirks = ["one", "two"],
+            Quirks = [new PersonaQuirk { Text = "one" }, new PersonaQuirk { Text = "two", Cadence = PersonaQuirkCadence.Rarely }],
             DefaultHost = false,
             Presenting = false,
         });
 
         Assert.Equal("one-line", sheet.Brevity);
         Assert.Equal(string.Empty, sheet.Chattiness);
-        Assert.Equal("one\ntwo", sheet.Quirks);
+        Assert.Equal([new QuirkLine("one", string.Empty), new QuirkLine("two", "rarely")], sheet.Quirks);
+    }
+
+    [Fact]
+    public void AQuirkIsSentWithItsCadence_AndAnAlwaysOneWithNone()
+    {
+        var input = new PersonaSheet
+        {
+            Key = "k",
+            Label = "L",
+            Style = "s",
+            Quirks = [new QuirkLine(" Call it the Boneyard ", string.Empty), new QuirkLine("Yell for Sharon", "rarely"), new QuirkLine("Mean it", "always")],
+        }.ToInput(PersonaKind.Host);
+
+        Assert.Equal(
+            [
+                new PersonaQuirk { Text = "Call it the Boneyard" },
+                new PersonaQuirk { Text = "Yell for Sharon", Cadence = PersonaQuirkCadence.Rarely },
+                new PersonaQuirk { Text = "Mean it" },
+            ],
+            input.Quirks);
+    }
+
+    [Fact]
+    public void TwoSheetsWithTheSameQuirksAreTheSame_AndAChangedCadenceIsAChange()
+    {
+        var one = new PersonaSheet { Label = "L", Quirks = [new QuirkLine("Yell for Sharon", "rarely")] };
+        var two = new PersonaSheet { Label = "L", Quirks = new List<QuirkLine> { new("Yell for Sharon", "rarely") } };
+
+        Assert.True(one.SameAs(two));
+        Assert.False(one.SameAs(two with { Quirks = [new QuirkLine("Yell for Sharon", "often")] }));
     }
 
     [Fact]

@@ -183,8 +183,26 @@
 
                         <StackPanel Classes="field">
                             <TextBlock Classes="label" Text="In character" />
-                            <TextBox Classes="lines" Text="{Binding Quirks}" />
-                            <TextBlock Classes="help" Text="What they always and never do on air, one per line." />
+                            <ItemsControl ItemsSource="{Binding Quirks}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:QuirkRowViewModel">
+                                        <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,6">
+                                            <TextBox Grid.Column="0" Text="{Binding Text}" TextWrapping="Wrap" AcceptsReturn="False" />
+                                            <ComboBox Grid.Column="1" Width="150" Margin="8,0,0,0" VerticalAlignment="Top"
+                                                      ItemsSource="{x:Static vm:PersonaDetailViewModel.CadenceOptions}" SelectedItem="{Binding Cadence}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:DialOption">
+                                                        <TextBlock Text="{Binding Label}" />
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <Button Grid.Column="2" Classes="ghost" Content="Remove" Margin="8,0,0,0" VerticalAlignment="Top" Command="{Binding RemoveCommand}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Classes="ghost" Content="Add a quirk" HorizontalAlignment="Left" Command="{Binding AddQuirkCommand}" />
+                            <TextBlock Classes="help" Text="What they always and never do on air, one to a row. Set one to often, occasionally or rarely and it becomes something they do now and then: the station picks which breaks, so leave &quot;now and then&quot; out of the words." />
                         </StackPanel>
 
                         <StackPanel Classes="field">

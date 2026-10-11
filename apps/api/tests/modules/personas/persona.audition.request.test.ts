@@ -180,6 +180,18 @@ describe('auditionRequest', () => {
         expect(Object.keys(auditionRequest(input()))).not.toContain('preoccupation');
     });
 
+    // An audition is how an operator hears a character before it airs, so it draws the now-and-then
+    // quirk exactly as a break would: on some transitions, the same one for the same transition.
+    it('hands a now-and-then quirk to some transitions of a run and not others, the same each time', () => {
+        const sheet = persona({ quirks: [{ text: 'Yell for Sharon', cadence: 'often' }] });
+        const turns = Array.from({ length: 16 }, (_, ordinal) => `audition-1:${ordinal}`);
+        const handed = turns.map(turn => auditionRequest(input({ persona: sheet, turn })).occasionalQuirk);
+
+        expect(handed).toContain('Yell for Sharon');
+        expect(handed).toContain(undefined);
+        expect(turns.map(turn => auditionRequest(input({ persona: sheet, turn })).occasionalQuirk)).toEqual(handed);
+    });
+
     it('tells the writers what time of day it is', () => {
         const request = auditionRequest(input({ now: AFTERNOON }));
 

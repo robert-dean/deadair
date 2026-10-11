@@ -17,7 +17,7 @@ import { PersonaStoriesRepository } from '#modules/personas/persona.stories.repo
 import { PersonaTellingRepository } from '#modules/personas/persona.telling.repository.js';
 import { resolveThreadGapMs } from '#modules/personas/persona.thread.settings.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
-import { preoccupationOf, storytellingOf, triviaOf, TRIVIA_FACT_BUDGET } from '#modules/personas/persona.sheet.js';
+import { occasionalQuirkOf, preoccupationOf, storytellingOf, triviaOf, TRIVIA_FACT_BUDGET } from '#modules/personas/persona.sheet.js';
 import type { Persona } from '#modules/personas/persona.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository, type PadHit, type Segment } from '#modules/render/segment.repository.js';
@@ -144,6 +144,16 @@ const nothingKnownAbout = (neighbours: Neighbours): boolean =>
 function preoccupation(persona: Persona | undefined, segmentId: string): { preoccupation?: string } {
     const chosen = preoccupationOf(persona, segmentId);
     return chosen === undefined ? {} : { preoccupation: chosen };
+}
+
+/**
+ * The one quirk with a cadence that came up for this break, drawn over the segment id, on
+ * {@link preoccupation}'s terms: attached to every kind, vetoed by `BreakPromptShape.allowsOccasionalQuirk`,
+ * and `{}` when nothing came up, so most breaks are byte-identical to one from before quirks had a cadence.
+ */
+function occasionalQuirk(persona: Persona | undefined, segmentId: string): { occasionalQuirk?: string } {
+    const chosen = occasionalQuirkOf(persona, segmentId);
+    return chosen === undefined ? {} : { occasionalQuirk: chosen };
 }
 
 export interface WriteBreakPayload {
@@ -462,6 +472,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // which kinds are TOLD is `BreakPromptShape.allowsPreoccupation`, one file over, exactly
             // as the pads above are offered here and vetoed there.
             ...preoccupation(persona, segment.id),
+            // And the now-and-then quirk, if this is one of its times, on exactly those terms.
+            ...occasionalQuirk(persona, segment.id),
             // What this break's words are worth at the one model slot. Absent for a planted break,
             // which is the gate's `air` default: it has a deadline like everything on air, and no
             // claim to jump the ones in front of it. A REQUESTED break is worth what its urgency

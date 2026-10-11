@@ -51,6 +51,34 @@ same character and a break writer's one job is not to be slow.
 And **a sheet that named no markers passes everything**, because an author who filled in fewer boxes made no
 checkable claim and should not have their scripts refused for it.
 
+**A quirk carries a CADENCE, and the station decides when a now-and-then quirk happens.** Each quirk is
+`{ text, cadence }`. An absent cadence is `always`, which is a rule: it goes out on every prompt in the
+`In character:` line, and it is what every quirk was before migration 0089. `often`, `occasionally` and
+`rarely` make it a habit. `occasionalQuirkOf` draws each habit per break against `QUIRK_CADENCE_ODDS` (1/2,
+1/4, 1/10), breaks a tie with a second draw so no break is handed two, and the talk break alone hears the
+winner, as an instruction ("this break is one of those times") rather than an offer. Three things are
+load-bearing.
+
+**It exists because the words could not do it.** Ozzy's Ghost had "once in a while, yell for Sharon" as a
+quirk from 2026-10-07. It was in all 58 of his prompts and in none of his 58 scripts, and the bat line beside
+it scored the same, while his preoccupations, handed over one per break, landed about half the time they
+were offered. A writer with no memory of the last break reads "once in a while" as "not this time", every
+time, so the decision has to be made before there is a prompt. That is also why a habit's text should not
+say how often: the seed test refuses a rule that opens "now and then", and `personaPrompt` asks for habits
+as their own list worded without it.
+
+**The draw is `drawOf`, not `rotationOf`.** `rotationOf` is a linear hash, so two salted copies of one
+segment id answer numbers a constant apart, and per-quirk draws over it move in step. `drawOf` (FNV-1a with
+an avalanche) makes the draws independent of each other and of the preoccupation, while staying
+deterministic so a re-offered break is handed what it was handed. Each draw is salted with the quirk's own
+words, so reordering a sheet re-rolls nothing.
+
+**A rhythm is a property of the entry, never a list of its own.** The first plan was a `habits` field
+beside `quirks` and `preoccupations`, and it was turned down because every rhythm after it would cost
+another column, contract field, four SDKs and two editors. A new rhythm is now one enum value and one
+branch in the selector. `preoccupations` stay their own list, though, because they are read as subjects
+elsewhere (`callSubjectOf`, `exclusiveSubjects`) and select differently: exactly one per break, always.
+
 **On a station that is not English the sheet is written in that language**, and the writer asks for it:
 `personaPrompt` takes the station language and asks for the samples, markers, catchphrases, avoid list,
 stories and templates in it, with the descriptive fields left in English because they are read by the console

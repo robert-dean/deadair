@@ -1,207 +1,19 @@
 import { z } from 'zod';
 
 /**
- * Who the station is when it opens its mouth: the character a model writes in, the phrasings underneath it, the voice that says them, and what it plays
- * generated from [Persona](../../../../data/contracts/personas/personas.types.ck)
+ * One thing a character does on air, and how often it does it
+ * generated from [PersonaQuirk](../../../../data/contracts/personas/personas.types.ck)
  */
-export const Persona = z.strictObject({
-    id: z.string().min(1).max(100),
-    key: z.string().min(1).max(100).describe('A stable slug, unique per station. What a log line names and what a seeded persona is recognised by'),
-    kind: z
-        .enum(['host', 'caller', 'newsreader', 'guest'])
+export const PersonaQuirk = z.strictObject({
+    text: z.string().min(1).max(500),
+    cadence: z
+        .enum(['always', 'often', 'occasionally', 'rarely'])
         .optional()
         .describe(
-            "What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant",
-        ),
-    label: z.string().min(1).max(200),
-    style: z.string().min(1).max(2000).describe('Completes "You are …". Who they ARE; the sheet below carries how they talk'),
-    djName: z.string().max(200).optional().describe("The name this character goes by on air, overriding the station's own while it is active"),
-    voice: z
-        .string()
-        .max(200)
-        .optional()
-        .describe("The station voice that speaks this persona, as the id a speech plugin maps. Empty means that plugin's default"),
-    soundboard: z
-        .string()
-        .max(200)
-        .optional()
-        .describe(
-            'The soundboard this character has to hand, as the name of a board in the pad library. Empty for a presenter who works without one. What reaches a model is the names of the pads on that board, never this word',
-        ),
-    diction: z
-        .array(z.string().min(1).max(500))
-        .optional()
-        .describe('The dialect: grammar and substitutions that apply to every sentence rather than to a subject'),
-    dictionMarkers: z
-        .array(z.string().min(1).max(100))
-        .optional()
-        .describe("Words whose presence proves the dialect survived. What a model's answer is checked against"),
-    quirks: z.array(z.string().min(1).max(500)).optional().describe('What they always and never do on air'),
-    preoccupations: z
-        .array(z.string().min(1).max(500))
-        .optional()
-        .describe(
-            'The standing subjects they keep coming back to. Exactly ONE reaches any one break, chosen by rotation, which is what makes a character sound like it has things on its mind rather than one thing',
-        ),
-    catchphrases: z.array(z.string().min(1).max(200)).optional().describe('Signature phrases, asked for sparingly'),
-    avoid: z.array(z.string().min(1).max(200)).optional().describe('Wording that breaks the character'),
-    exclusiveSubjects: z
-        .array(z.string().min(1).max(500))
-        .optional()
-        .describe(
-            'Subjects this character takes one at a time. Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot, sasquatch, yeti"), and a break that brings up words from two of them is refused and written again. A word inside a record\'s title does not count',
-        ),
-    background: z.string().max(2000).optional().describe('A couple of grounded facts they may self-reference'),
-    brevity: z
-        .enum(['short', 'one-line'])
-        .optional()
-        .describe(
-            "How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one",
-        ),
-    latitude: z
-        .enum(['loose', 'unleashed'])
-        .optional()
-        .describe(
-            "How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal",
-        ),
-    chattiness: z
-        .enum(['reserved', 'sparing', 'ordinary', 'chatty', 'relentless'])
-        .optional()
-        .describe(
-            "How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree",
-        ),
-    storytelling: z
-        .enum(['never', 'occasionally', 'often'])
-        .optional()
-        .describe(
-            'How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says',
-        ),
-    growth: z
-        .enum(['proposes', 'self-directed'])
-        .optional()
-        .describe(
-            'Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is',
-        ),
-    trivia: z
-        .enum(['keen'])
-        .optional()
-        .describe(
-            "How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says",
-        ),
-    samples: z.array(z.string().min(1).max(500)).optional().describe('Lines in their own voice, used as examples and as a console preview'),
-    templates: z.string().max(20000).optional().describe("This character's own break phrasings, one per line. Empty means the station's own five"),
-    hosts: z
-        .array(z.string().min(1).max(100))
-        .optional()
-        .describe(
-            "The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties",
-        ),
-    defaultHost: z
-        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
-        .describe(
-            'The station\'s own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host',
-        ),
-    presenting: z
-        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
-        .describe(
-            'Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing',
+            'How often it applies. Absent is `always`: a rule, sent on every break. The others are something the character does now and then, and the station picks which ordinary talk breaks, at most one such quirk to a break, so the text should not say "now and then" itself',
         ),
 });
-export type Persona = z.infer<typeof Persona>;
-
-export const PersonaInput = z.strictObject({
-    key: z.string().min(1).max(100).describe('A stable slug, unique per station. What a log line names and what a seeded persona is recognised by'),
-    kind: z
-        .enum(['host', 'caller', 'newsreader', 'guest'])
-        .optional()
-        .describe(
-            "What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant",
-        ),
-    label: z.string().min(1).max(200),
-    style: z.string().min(1).max(2000).describe('Completes "You are …". Who they ARE; the sheet below carries how they talk'),
-    djName: z.string().max(200).optional().describe("The name this character goes by on air, overriding the station's own while it is active"),
-    voice: z
-        .string()
-        .max(200)
-        .optional()
-        .describe("The station voice that speaks this persona, as the id a speech plugin maps. Empty means that plugin's default"),
-    soundboard: z
-        .string()
-        .max(200)
-        .optional()
-        .describe(
-            'The soundboard this character has to hand, as the name of a board in the pad library. Empty for a presenter who works without one. What reaches a model is the names of the pads on that board, never this word',
-        ),
-    diction: z
-        .array(z.string().min(1).max(500))
-        .optional()
-        .describe('The dialect: grammar and substitutions that apply to every sentence rather than to a subject'),
-    dictionMarkers: z
-        .array(z.string().min(1).max(100))
-        .optional()
-        .describe("Words whose presence proves the dialect survived. What a model's answer is checked against"),
-    quirks: z.array(z.string().min(1).max(500)).optional().describe('What they always and never do on air'),
-    preoccupations: z
-        .array(z.string().min(1).max(500))
-        .optional()
-        .describe(
-            'The standing subjects they keep coming back to. Exactly ONE reaches any one break, chosen by rotation, which is what makes a character sound like it has things on its mind rather than one thing',
-        ),
-    catchphrases: z.array(z.string().min(1).max(200)).optional().describe('Signature phrases, asked for sparingly'),
-    avoid: z.array(z.string().min(1).max(200)).optional().describe('Wording that breaks the character'),
-    exclusiveSubjects: z
-        .array(z.string().min(1).max(500))
-        .optional()
-        .describe(
-            'Subjects this character takes one at a time. Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot, sasquatch, yeti"), and a break that brings up words from two of them is refused and written again. A word inside a record\'s title does not count',
-        ),
-    background: z.string().max(2000).optional().describe('A couple of grounded facts they may self-reference'),
-    brevity: z
-        .enum(['short', 'one-line'])
-        .optional()
-        .describe(
-            "How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one",
-        ),
-    latitude: z
-        .enum(['loose', 'unleashed'])
-        .optional()
-        .describe(
-            "How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal",
-        ),
-    chattiness: z
-        .enum(['reserved', 'sparing', 'ordinary', 'chatty', 'relentless'])
-        .optional()
-        .describe(
-            "How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree",
-        ),
-    storytelling: z
-        .enum(['never', 'occasionally', 'often'])
-        .optional()
-        .describe(
-            'How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says',
-        ),
-    growth: z
-        .enum(['proposes', 'self-directed'])
-        .optional()
-        .describe(
-            'Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is',
-        ),
-    trivia: z
-        .enum(['keen'])
-        .optional()
-        .describe(
-            "How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says",
-        ),
-    samples: z.array(z.string().min(1).max(500)).optional().describe('Lines in their own voice, used as examples and as a console preview'),
-    templates: z.string().max(20000).optional().describe("This character's own break phrasings, one per line. Empty means the station's own five"),
-    hosts: z
-        .array(z.string().min(1).max(100))
-        .optional()
-        .describe(
-            "The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties",
-        ),
-});
-export type PersonaInput = z.infer<typeof PersonaInput>;
+export type PersonaQuirk = z.infer<typeof PersonaQuirk>;
 
 /**
  * A description of a character, in the operator's own words
@@ -211,37 +23,6 @@ export const PersonaRequest = z.strictObject({
     description: z.string().min(1).max(2000),
 });
 export type PersonaRequest = z.infer<typeof PersonaRequest>;
-
-/**
- * A persona as a form's contents rather than a row: no id and not on air, because nothing has been
- * saved. The console opens this in the editor and the operator saves it through POST /personas, which
- * is what keeps generating a way of filling in the form rather than a second writer of the table
- * generated from [PersonaDraftView](../../../../data/contracts/personas/personas.types.ck)
- */
-export const PersonaDraftView = z.strictObject({
-    key: z.string().min(1).max(100),
-    label: z.string().min(1).max(200),
-    style: z.string().min(1).max(2000),
-    djName: z.string().max(200).optional(),
-    voice: z.string().max(200).optional(),
-    soundboard: z.string().max(200).optional(),
-    diction: z.array(z.string().min(1).max(500)).optional(),
-    dictionMarkers: z.array(z.string().min(1).max(100)).optional(),
-    quirks: z.array(z.string().min(1).max(500)).optional(),
-    preoccupations: z.array(z.string().min(1).max(500)).optional(),
-    catchphrases: z.array(z.string().min(1).max(200)).optional(),
-    avoid: z.array(z.string().min(1).max(200)).optional(),
-    exclusiveSubjects: z.array(z.string().min(1).max(500)).optional(),
-    background: z.string().max(2000).optional(),
-    brevity: z.enum(['short', 'one-line']).optional(),
-    latitude: z.enum(['loose', 'unleashed']).optional(),
-    chattiness: z.enum(['reserved', 'sparing', 'ordinary', 'chatty', 'relentless']).optional(),
-    storytelling: z.enum(['never', 'occasionally', 'often']).optional(),
-    trivia: z.enum(['keen']).optional(),
-    samples: z.array(z.string().min(1).max(500)).optional(),
-    templates: z.string().max(20000).optional(),
-});
-export type PersonaDraftView = z.infer<typeof PersonaDraftView>;
 
 /**
  * One thing this character has accumulated that its sheet does not hold. Two kinds and they are two
@@ -597,17 +378,248 @@ export const PersonaMemoryRollback = z.strictObject({
 export type PersonaMemoryRollback = z.infer<typeof PersonaMemoryRollback>;
 
 /**
- * generated from [PersonaList](../../../../data/contracts/personas/personas.types.ck)
+ * Who the station is when it opens its mouth: the character a model writes in, the phrasings underneath it, the voice that says them, and what it plays
+ * generated from [Persona](../../../../data/contracts/personas/personas.types.ck)
  */
-export const PersonaList = z.strictObject({
-    personas: z.array(Persona),
+export const Persona = z.strictObject({
+    id: z.string().min(1).max(100),
+    key: z.string().min(1).max(100).describe('A stable slug, unique per station. What a log line names and what a seeded persona is recognised by'),
+    kind: z
+        .enum(['host', 'caller', 'newsreader', 'guest'])
+        .optional()
+        .describe(
+            "What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant",
+        ),
+    label: z.string().min(1).max(200),
+    style: z.string().min(1).max(2000).describe('Completes "You are …". Who they ARE; the sheet below carries how they talk'),
+    djName: z.string().max(200).optional().describe("The name this character goes by on air, overriding the station's own while it is active"),
+    voice: z
+        .string()
+        .max(200)
+        .optional()
+        .describe("The station voice that speaks this persona, as the id a speech plugin maps. Empty means that plugin's default"),
+    soundboard: z
+        .string()
+        .max(200)
+        .optional()
+        .describe(
+            'The soundboard this character has to hand, as the name of a board in the pad library. Empty for a presenter who works without one. What reaches a model is the names of the pads on that board, never this word',
+        ),
+    diction: z
+        .array(z.string().min(1).max(500))
+        .optional()
+        .describe('The dialect: grammar and substitutions that apply to every sentence rather than to a subject'),
+    dictionMarkers: z
+        .array(z.string().min(1).max(100))
+        .optional()
+        .describe("Words whose presence proves the dialect survived. What a model's answer is checked against"),
+    quirks: z
+        .array(PersonaQuirk)
+        .optional()
+        .describe(
+            'What they always and never do on air. One with a cadence is something they do only now and then, and the station decides which breaks',
+        ),
+    preoccupations: z
+        .array(z.string().min(1).max(500))
+        .optional()
+        .describe(
+            'The standing subjects they keep coming back to. Exactly ONE reaches any one break, chosen by rotation, which is what makes a character sound like it has things on its mind rather than one thing',
+        ),
+    catchphrases: z.array(z.string().min(1).max(200)).optional().describe('Signature phrases, asked for sparingly'),
+    avoid: z.array(z.string().min(1).max(200)).optional().describe('Wording that breaks the character'),
+    exclusiveSubjects: z
+        .array(z.string().min(1).max(500))
+        .optional()
+        .describe(
+            'Subjects this character takes one at a time. Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot, sasquatch, yeti"), and a break that brings up words from two of them is refused and written again. A word inside a record\'s title does not count',
+        ),
+    background: z.string().max(2000).optional().describe('A couple of grounded facts they may self-reference'),
+    brevity: z
+        .enum(['short', 'one-line'])
+        .optional()
+        .describe(
+            "How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one",
+        ),
+    latitude: z
+        .enum(['loose', 'unleashed'])
+        .optional()
+        .describe(
+            "How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal",
+        ),
+    chattiness: z
+        .enum(['reserved', 'sparing', 'ordinary', 'chatty', 'relentless'])
+        .optional()
+        .describe(
+            "How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree",
+        ),
+    storytelling: z
+        .enum(['never', 'occasionally', 'often'])
+        .optional()
+        .describe(
+            'How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says',
+        ),
+    growth: z
+        .enum(['proposes', 'self-directed'])
+        .optional()
+        .describe(
+            'Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is',
+        ),
+    trivia: z
+        .enum(['keen'])
+        .optional()
+        .describe(
+            "How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says",
+        ),
+    samples: z.array(z.string().min(1).max(500)).optional().describe('Lines in their own voice, used as examples and as a console preview'),
+    templates: z.string().max(20000).optional().describe("This character's own break phrasings, one per line. Empty means the station's own five"),
+    hosts: z
+        .array(z.string().min(1).max(100))
+        .optional()
+        .describe(
+            "The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties",
+        ),
+    defaultHost: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe(
+            'The station\'s own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host',
+        ),
+    presenting: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe(
+            'Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing',
+        ),
 });
-export type PersonaList = z.infer<typeof PersonaList>;
+export type Persona = z.infer<typeof Persona>;
 
-export const PersonaListInput = z.strictObject({
-    personas: z.array(PersonaInput),
+export const PersonaInput = z.strictObject({
+    key: z.string().min(1).max(100).describe('A stable slug, unique per station. What a log line names and what a seeded persona is recognised by'),
+    kind: z
+        .enum(['host', 'caller', 'newsreader', 'guest'])
+        .optional()
+        .describe(
+            "What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant",
+        ),
+    label: z.string().min(1).max(200),
+    style: z.string().min(1).max(2000).describe('Completes "You are …". Who they ARE; the sheet below carries how they talk'),
+    djName: z.string().max(200).optional().describe("The name this character goes by on air, overriding the station's own while it is active"),
+    voice: z
+        .string()
+        .max(200)
+        .optional()
+        .describe("The station voice that speaks this persona, as the id a speech plugin maps. Empty means that plugin's default"),
+    soundboard: z
+        .string()
+        .max(200)
+        .optional()
+        .describe(
+            'The soundboard this character has to hand, as the name of a board in the pad library. Empty for a presenter who works without one. What reaches a model is the names of the pads on that board, never this word',
+        ),
+    diction: z
+        .array(z.string().min(1).max(500))
+        .optional()
+        .describe('The dialect: grammar and substitutions that apply to every sentence rather than to a subject'),
+    dictionMarkers: z
+        .array(z.string().min(1).max(100))
+        .optional()
+        .describe("Words whose presence proves the dialect survived. What a model's answer is checked against"),
+    quirks: z
+        .array(PersonaQuirk)
+        .optional()
+        .describe(
+            'What they always and never do on air. One with a cadence is something they do only now and then, and the station decides which breaks',
+        ),
+    preoccupations: z
+        .array(z.string().min(1).max(500))
+        .optional()
+        .describe(
+            'The standing subjects they keep coming back to. Exactly ONE reaches any one break, chosen by rotation, which is what makes a character sound like it has things on its mind rather than one thing',
+        ),
+    catchphrases: z.array(z.string().min(1).max(200)).optional().describe('Signature phrases, asked for sparingly'),
+    avoid: z.array(z.string().min(1).max(200)).optional().describe('Wording that breaks the character'),
+    exclusiveSubjects: z
+        .array(z.string().min(1).max(500))
+        .optional()
+        .describe(
+            'Subjects this character takes one at a time. Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot, sasquatch, yeti"), and a break that brings up words from two of them is refused and written again. A word inside a record\'s title does not count',
+        ),
+    background: z.string().max(2000).optional().describe('A couple of grounded facts they may self-reference'),
+    brevity: z
+        .enum(['short', 'one-line'])
+        .optional()
+        .describe(
+            "How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one",
+        ),
+    latitude: z
+        .enum(['loose', 'unleashed'])
+        .optional()
+        .describe(
+            "How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal",
+        ),
+    chattiness: z
+        .enum(['reserved', 'sparing', 'ordinary', 'chatty', 'relentless'])
+        .optional()
+        .describe(
+            "How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree",
+        ),
+    storytelling: z
+        .enum(['never', 'occasionally', 'often'])
+        .optional()
+        .describe(
+            'How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says',
+        ),
+    growth: z
+        .enum(['proposes', 'self-directed'])
+        .optional()
+        .describe(
+            'Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is',
+        ),
+    trivia: z
+        .enum(['keen'])
+        .optional()
+        .describe(
+            "How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says",
+        ),
+    samples: z.array(z.string().min(1).max(500)).optional().describe('Lines in their own voice, used as examples and as a console preview'),
+    templates: z.string().max(20000).optional().describe("This character's own break phrasings, one per line. Empty means the station's own five"),
+    hosts: z
+        .array(z.string().min(1).max(100))
+        .optional()
+        .describe(
+            "The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties",
+        ),
 });
-export type PersonaListInput = z.infer<typeof PersonaListInput>;
+export type PersonaInput = z.infer<typeof PersonaInput>;
+
+/**
+ * A persona as a form's contents rather than a row: no id and not on air, because nothing has been
+ * saved. The console opens this in the editor and the operator saves it through POST /personas, which
+ * is what keeps generating a way of filling in the form rather than a second writer of the table
+ * generated from [PersonaDraftView](../../../../data/contracts/personas/personas.types.ck)
+ */
+export const PersonaDraftView = z.strictObject({
+    key: z.string().min(1).max(100),
+    label: z.string().min(1).max(200),
+    style: z.string().min(1).max(2000),
+    djName: z.string().max(200).optional(),
+    voice: z.string().max(200).optional(),
+    soundboard: z.string().max(200).optional(),
+    diction: z.array(z.string().min(1).max(500)).optional(),
+    dictionMarkers: z.array(z.string().min(1).max(100)).optional(),
+    quirks: z.array(PersonaQuirk).optional(),
+    preoccupations: z.array(z.string().min(1).max(500)).optional(),
+    catchphrases: z.array(z.string().min(1).max(200)).optional(),
+    avoid: z.array(z.string().min(1).max(200)).optional(),
+    exclusiveSubjects: z.array(z.string().min(1).max(500)).optional(),
+    background: z.string().max(2000).optional(),
+    brevity: z.enum(['short', 'one-line']).optional(),
+    latitude: z.enum(['loose', 'unleashed']).optional(),
+    chattiness: z.enum(['reserved', 'sparing', 'ordinary', 'chatty', 'relentless']).optional(),
+    storytelling: z.enum(['never', 'occasionally', 'often']).optional(),
+    trivia: z.enum(['keen']).optional(),
+    samples: z.array(z.string().min(1).max(500)).optional(),
+    templates: z.string().max(20000).optional(),
+});
+export type PersonaDraftView = z.infer<typeof PersonaDraftView>;
 
 /**
  * One character's whole notebook, oldest first, in every state
@@ -624,30 +636,6 @@ export const PersonaNoteListInput = z.strictObject({
     notes: z.array(PersonaNoteInput),
 });
 export type PersonaNoteListInput = z.infer<typeof PersonaNoteListInput>;
-
-/**
- * What a model wrote, and what had to be dropped to make it usable
- * generated from [GeneratedPersona](../../../../data/contracts/personas/personas.types.ck)
- */
-export const GeneratedPersona = z.strictObject({
-    persona: PersonaDraftView,
-    stories: z
-        .array(PersonaStoryWrite)
-        .describe(
-            "A couple of things that have happened to this character. Beside the form rather than in it, because they are their own table: the console saves the persona and then writes these through the stories route, so they go through the same validation an operator's own typing does",
-        ),
-    droppedMarkers: z
-        .array(z.string().min(1).max(100))
-        .describe(
-            'Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off',
-        ),
-    droppedTemplates: z
-        .array(z.string().min(1).max(500))
-        .describe(
-            'Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings',
-        ),
-});
-export type GeneratedPersona = z.infer<typeof GeneratedPersona>;
 
 /**
  * Something that happened to this character, in its own telling. Not a claim about the world and never
@@ -845,6 +833,43 @@ export const PersonaMemoryInput = z.strictObject({
     tellings: z.array(PersonaTellingInput),
 });
 export type PersonaMemoryInput = z.infer<typeof PersonaMemoryInput>;
+
+/**
+ * generated from [PersonaList](../../../../data/contracts/personas/personas.types.ck)
+ */
+export const PersonaList = z.strictObject({
+    personas: z.array(Persona),
+});
+export type PersonaList = z.infer<typeof PersonaList>;
+
+export const PersonaListInput = z.strictObject({
+    personas: z.array(PersonaInput),
+});
+export type PersonaListInput = z.infer<typeof PersonaListInput>;
+
+/**
+ * What a model wrote, and what had to be dropped to make it usable
+ * generated from [GeneratedPersona](../../../../data/contracts/personas/personas.types.ck)
+ */
+export const GeneratedPersona = z.strictObject({
+    persona: PersonaDraftView,
+    stories: z
+        .array(PersonaStoryWrite)
+        .describe(
+            "A couple of things that have happened to this character. Beside the form rather than in it, because they are their own table: the console saves the persona and then writes these through the stories route, so they go through the same validation an operator's own typing does",
+        ),
+    droppedMarkers: z
+        .array(z.string().min(1).max(100))
+        .describe(
+            'Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off',
+        ),
+    droppedTemplates: z
+        .array(z.string().min(1).max(500))
+        .describe(
+            'Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings',
+        ),
+});
+export type GeneratedPersona = z.infer<typeof GeneratedPersona>;
 
 /**
  * Every story one character holds, oldest first, in every state

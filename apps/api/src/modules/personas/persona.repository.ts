@@ -9,6 +9,7 @@ import {
     isPersonaLatitude,
     isPersonaStorytelling,
     isPersonaTrivia,
+    quirksIn,
 } from './persona.sheet.js';
 import { DEFAULT_PERSONA_KIND, isPersonaKind, NEWSREADER_READS, type Persona, type PersonaDraft } from './persona.js';
 
@@ -404,7 +405,7 @@ function columnsOf(draft: PersonaDraft) {
     };
 }
 
-const jsonOf = (values: readonly string[] | undefined) => sql<string>`${JSON.stringify(values ?? [])}::jsonb`;
+const jsonOf = (values: readonly unknown[] | undefined) => sql<string>`${JSON.stringify(values ?? [])}::jsonb`;
 
 /**
  * A stored list, or `undefined` when the column holds something that is not one.
@@ -451,6 +452,9 @@ function toPersona(row: {
         const strings = stringsIn(value);
         return strings === undefined ? {} : { [key]: strings };
     };
+    // Objects rather than strings since quirks carry a cadence; `quirksIn` reads a bare string as the
+    // `always` quirk it was before that, so a row the migration missed still means what it meant.
+    const quirks = quirksIn(row.quirks);
 
     return {
         id: row.id,
@@ -478,7 +482,7 @@ function toPersona(row: {
         ...(isPersonaTrivia(row.trivia) ? { trivia: row.trivia } : {}),
         ...list(row.diction, 'diction'),
         ...list(row.dictionMarkers, 'dictionMarkers'),
-        ...list(row.quirks, 'quirks'),
+        ...(quirks === undefined ? {} : { quirks }),
         ...list(row.preoccupations, 'preoccupations'),
         ...list(row.catchphrases, 'catchphrases'),
         ...list(row.avoid, 'avoid'),

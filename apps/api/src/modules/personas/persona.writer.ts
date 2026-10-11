@@ -50,6 +50,9 @@ import {
     unearnedMarkers,
 } from './persona.sheet.js';
 
+/** How many habits the writer is asked for, below the sheet's cap: a character is mostly its rules. */
+const HABITS_ASKED_FOR = 3;
+
 /** How long a description may be. Long enough for a paragraph, short enough not to be a script. */
 export const MAX_DESCRIPTION = 2000;
 
@@ -163,6 +166,10 @@ export function personaPrompt(description: string, language?: string): LlmMessag
                 '  "samples": ["at least six lines in their own voice, as said on air. Between them they must use EVERY diction rule above"],',
                 '  "dictionMarkers": ["words COPIED from the sample lines you just wrote — see the rules below"],',
                 '  "quirks": ["what they always and never do on air, and what they care about"],',
+                // A list of its own in the ANSWER only: a flat list of strings is what a local model
+                // gets right, where an object per quirk is one more shape to get wrong. `draftFrom`
+                // turns these into quirks with a cadence, which is what the sheet actually holds.
+                '  "habits": ["at most three things they do only now and then, never every break, or omit it. Write each as the thing itself, with no word about how often"],',
                 '  "preoccupations": ["four or five subjects this character keeps coming back to. One of them goes into any one break, so make each of them enough to talk about on its own"],',
                 '  "catchphrases": ["signature phrases, at most three"],',
                 '  "avoid": ["wording that would break the character"],',
@@ -225,6 +232,10 @@ export function personaPrompt(description: string, language?: string): LlmMessag
                 // repeated five times is one preoccupation written out five ways, and the station
                 // gets no variety out of a list whose entries are all the same instruction.
                 '- A quirk is a RULE about how they behave, true of every break. A preoccupation is a SUBJECT they return to, and only one is shown at a time. So no entry may be a rule, and no two may be the same subject worded differently.',
+                // Measured: "once in a while, yell for Sharon" as a quirk went out on every prompt and
+                // was written 0 times in 58 breaks. The station decides the times now, so the words
+                // must not try to.
+                '- A habit is something they do only some of the time: a running gag, an outburst, a bit. The station picks the breaks it comes up on, so never write "now and then", "sometimes" or "once in a while" into one, and never put one among the quirks.',
                 // A local model wrapping a long string across lines is invalid JSON and loses the
                 // whole persona. `parseLooseJson` repairs it; asking is cheaper than repairing.
                 '- Every value is on ONE line. Never break a string across lines, and use plain straight quotes and hyphens.',
@@ -370,7 +381,13 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
                 templates: templates.length === 0 ? undefined : templates.join('\n'),
                 diction: nonEmpty(list(raw.diction, PERSONA_SHEET_LIMITS.diction)),
                 dictionMarkers: nonEmpty(markers),
-                quirks: nonEmpty(list(raw.quirks, PERSONA_SHEET_LIMITS.quirks)),
+                // The rules, then the habits as quirks with a cadence. `occasionally` rather than
+                // anything rarer, because a model asked for "now and then" has not said how rare, and
+                // the operator sets the rung in the editor once they have heard it.
+                quirks: nonEmpty([
+                    ...list(raw.quirks, PERSONA_SHEET_LIMITS.quirks).map(text => ({ text })),
+                    ...list(raw.habits, HABITS_ASKED_FOR).map(text => ({ text, cadence: 'occasionally' as const })),
+                ]),
                 preoccupations: nonEmpty(list(raw.preoccupations, PERSONA_SHEET_LIMITS.preoccupations)),
                 catchphrases: nonEmpty(list(raw.catchphrases, PERSONA_SHEET_LIMITS.catchphrases)),
                 avoid: nonEmpty(list(raw.avoid, PERSONA_SHEET_LIMITS.avoid)),
@@ -472,7 +489,7 @@ function lines(value: unknown): string[] {
         .filter(line => line.length > 0);
 }
 
-const nonEmpty = (values: string[]): string[] | undefined => (values.length === 0 ? undefined : values);
+const nonEmpty = <T>(values: T[]): T[] | undefined => (values.length === 0 ? undefined : values);
 
 function omitUndefined<T extends Record<string, unknown>>(values: T): Partial<T> {
     return Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined)) as Partial<T>;

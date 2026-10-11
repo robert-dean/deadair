@@ -1,110 +1,11 @@
 /**
- * Who the station is when it opens its mouth: the character a model writes in, the phrasings underneath it, the voice that says them, and what it plays
- * generated from [Persona](../../../../../apps/api/data/contracts/personas/personas.types.ck)
+ * One thing a character does on air, and how often it does it
+ * generated from [PersonaQuirk](../../../../../apps/api/data/contracts/personas/personas.types.ck)
  */
-export interface Persona {
-    id: string;
-    /** A stable slug, unique per station. What a log line names and what a seeded persona is recognised by */
-    key: string;
-    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
-    kind?: 'host' | 'caller' | 'newsreader' | 'guest';
-    label: string;
-    /** Completes "You are …". Who they ARE; the sheet below carries how they talk */
-    style: string;
-    /** The name this character goes by on air, overriding the station's own while it is active */
-    djName?: string;
-    /** The station voice that speaks this persona, as the id a speech plugin maps. Empty means that plugin's default */
-    voice?: string;
-    /** The soundboard this character has to hand, as the name of a board in the pad library. Empty for a presenter who works without one. What reaches a model is the names of the pads on that board, never this word */
-    soundboard?: string;
-    /** The dialect: grammar and substitutions that apply to every sentence rather than to a subject */
-    diction?: string[];
-    /** Words whose presence proves the dialect survived. What a model's answer is checked against */
-    dictionMarkers?: string[];
-    /** What they always and never do on air */
-    quirks?: string[];
-    /** The standing subjects they keep coming back to. Exactly ONE reaches any one break, chosen by rotation, which is what makes a character sound like it has things on its mind rather than one thing */
-    preoccupations?: string[];
-    /** Signature phrases, asked for sparingly */
-    catchphrases?: string[];
-    /** Wording that breaks the character */
-    avoid?: string[];
-    /** Subjects this character takes one at a time. Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot, sasquatch, yeti"), and a break that brings up words from two of them is refused and written again. A word inside a record's title does not count */
-    exclusiveSubjects?: string[];
-    /** A couple of grounded facts they may self-reference */
-    background?: string;
-    /** How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one */
-    brevity?: 'short' | 'one-line';
-    /** How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal */
-    latitude?: 'loose' | 'unleashed';
-    /** How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree */
-    chattiness?: 'reserved' | 'sparing' | 'ordinary' | 'chatty' | 'relentless';
-    /** How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says */
-    storytelling?: 'never' | 'occasionally' | 'often';
-    /** Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is */
-    growth?: 'proposes' | 'self-directed';
-    /** How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says */
-    trivia?: 'keen';
-    /** Lines in their own voice, used as examples and as a console preview */
-    samples?: string[];
-    /** This character's own break phrasings, one per line. Empty means the station's own five */
-    templates?: string;
-    /** The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties */
-    hosts?: string[];
-    /** The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host */
-    defaultHost: boolean;
-    /** Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing */
-    presenting: boolean;
-}
-
-export interface PersonaInput {
-    /** A stable slug, unique per station. What a log line names and what a seeded persona is recognised by */
-    key: string;
-    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
-    kind?: 'host' | 'caller' | 'newsreader' | 'guest';
-    label: string;
-    /** Completes "You are …". Who they ARE; the sheet below carries how they talk */
-    style: string;
-    /** The name this character goes by on air, overriding the station's own while it is active */
-    djName?: string;
-    /** The station voice that speaks this persona, as the id a speech plugin maps. Empty means that plugin's default */
-    voice?: string;
-    /** The soundboard this character has to hand, as the name of a board in the pad library. Empty for a presenter who works without one. What reaches a model is the names of the pads on that board, never this word */
-    soundboard?: string;
-    /** The dialect: grammar and substitutions that apply to every sentence rather than to a subject */
-    diction?: string[];
-    /** Words whose presence proves the dialect survived. What a model's answer is checked against */
-    dictionMarkers?: string[];
-    /** What they always and never do on air */
-    quirks?: string[];
-    /** The standing subjects they keep coming back to. Exactly ONE reaches any one break, chosen by rotation, which is what makes a character sound like it has things on its mind rather than one thing */
-    preoccupations?: string[];
-    /** Signature phrases, asked for sparingly */
-    catchphrases?: string[];
-    /** Wording that breaks the character */
-    avoid?: string[];
-    /** Subjects this character takes one at a time. Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot, sasquatch, yeti"), and a break that brings up words from two of them is refused and written again. A word inside a record's title does not count */
-    exclusiveSubjects?: string[];
-    /** A couple of grounded facts they may self-reference */
-    background?: string;
-    /** How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one */
-    brevity?: 'short' | 'one-line';
-    /** How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal */
-    latitude?: 'loose' | 'unleashed';
-    /** How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree */
-    chattiness?: 'reserved' | 'sparing' | 'ordinary' | 'chatty' | 'relentless';
-    /** How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says */
-    storytelling?: 'never' | 'occasionally' | 'often';
-    /** Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is */
-    growth?: 'proposes' | 'self-directed';
-    /** How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says */
-    trivia?: 'keen';
-    /** Lines in their own voice, used as examples and as a console preview */
-    samples?: string[];
-    /** This character's own break phrasings, one per line. Empty means the station's own five */
-    templates?: string;
-    /** The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties */
-    hosts?: string[];
+export interface PersonaQuirk {
+    text: string;
+    /** How often it applies. Absent is `always`: a rule, sent on every break. The others are something the character does now and then, and the station picks which ordinary talk breaks, at most one such quirk to a break, so the text should not say "now and then" itself */
+    cadence?: 'always' | 'often' | 'occasionally' | 'rarely';
 }
 
 /**
@@ -113,36 +14,6 @@ export interface PersonaInput {
  */
 export interface PersonaRequest {
     description: string;
-}
-
-/**
- * A persona as a form's contents rather than a row: no id and not on air, because nothing has been
- * saved. The console opens this in the editor and the operator saves it through POST /personas, which
- * is what keeps generating a way of filling in the form rather than a second writer of the table
- * generated from [PersonaDraftView](../../../../../apps/api/data/contracts/personas/personas.types.ck)
- */
-export interface PersonaDraftView {
-    key: string;
-    label: string;
-    style: string;
-    djName?: string;
-    voice?: string;
-    soundboard?: string;
-    diction?: string[];
-    dictionMarkers?: string[];
-    quirks?: string[];
-    preoccupations?: string[];
-    catchphrases?: string[];
-    avoid?: string[];
-    exclusiveSubjects?: string[];
-    background?: string;
-    brevity?: 'short' | 'one-line';
-    latitude?: 'loose' | 'unleashed';
-    chattiness?: 'reserved' | 'sparing' | 'ordinary' | 'chatty' | 'relentless';
-    storytelling?: 'never' | 'occasionally' | 'often';
-    trivia?: 'keen';
-    samples?: string[];
-    templates?: string;
 }
 
 /**
@@ -439,14 +310,142 @@ export interface PersonaMemoryRollback {
 }
 
 /**
- * generated from [PersonaList](../../../../../apps/api/data/contracts/personas/personas.types.ck)
+ * Who the station is when it opens its mouth: the character a model writes in, the phrasings underneath it, the voice that says them, and what it plays
+ * generated from [Persona](../../../../../apps/api/data/contracts/personas/personas.types.ck)
  */
-export interface PersonaList {
-    personas: Persona[];
+export interface Persona {
+    id: string;
+    /** A stable slug, unique per station. What a log line names and what a seeded persona is recognised by */
+    key: string;
+    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
+    kind?: 'host' | 'caller' | 'newsreader' | 'guest';
+    label: string;
+    /** Completes "You are …". Who they ARE; the sheet below carries how they talk */
+    style: string;
+    /** The name this character goes by on air, overriding the station's own while it is active */
+    djName?: string;
+    /** The station voice that speaks this persona, as the id a speech plugin maps. Empty means that plugin's default */
+    voice?: string;
+    /** The soundboard this character has to hand, as the name of a board in the pad library. Empty for a presenter who works without one. What reaches a model is the names of the pads on that board, never this word */
+    soundboard?: string;
+    /** The dialect: grammar and substitutions that apply to every sentence rather than to a subject */
+    diction?: string[];
+    /** Words whose presence proves the dialect survived. What a model's answer is checked against */
+    dictionMarkers?: string[];
+    /** What they always and never do on air. One with a cadence is something they do only now and then, and the station decides which breaks */
+    quirks?: PersonaQuirk[];
+    /** The standing subjects they keep coming back to. Exactly ONE reaches any one break, chosen by rotation, which is what makes a character sound like it has things on its mind rather than one thing */
+    preoccupations?: string[];
+    /** Signature phrases, asked for sparingly */
+    catchphrases?: string[];
+    /** Wording that breaks the character */
+    avoid?: string[];
+    /** Subjects this character takes one at a time. Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot, sasquatch, yeti"), and a break that brings up words from two of them is refused and written again. A word inside a record's title does not count */
+    exclusiveSubjects?: string[];
+    /** A couple of grounded facts they may self-reference */
+    background?: string;
+    /** How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one */
+    brevity?: 'short' | 'one-line';
+    /** How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal */
+    latitude?: 'loose' | 'unleashed';
+    /** How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree */
+    chattiness?: 'reserved' | 'sparing' | 'ordinary' | 'chatty' | 'relentless';
+    /** How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says */
+    storytelling?: 'never' | 'occasionally' | 'often';
+    /** Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is */
+    growth?: 'proposes' | 'self-directed';
+    /** How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says */
+    trivia?: 'keen';
+    /** Lines in their own voice, used as examples and as a console preview */
+    samples?: string[];
+    /** This character's own break phrasings, one per line. Empty means the station's own five */
+    templates?: string;
+    /** The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties */
+    hosts?: string[];
+    /** The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host */
+    defaultHost: boolean;
+    /** Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing */
+    presenting: boolean;
 }
 
-export interface PersonaListInput {
-    personas: PersonaInput[];
+export interface PersonaInput {
+    /** A stable slug, unique per station. What a log line names and what a seeded persona is recognised by */
+    key: string;
+    /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
+    kind?: 'host' | 'caller' | 'newsreader' | 'guest';
+    label: string;
+    /** Completes "You are …". Who they ARE; the sheet below carries how they talk */
+    style: string;
+    /** The name this character goes by on air, overriding the station's own while it is active */
+    djName?: string;
+    /** The station voice that speaks this persona, as the id a speech plugin maps. Empty means that plugin's default */
+    voice?: string;
+    /** The soundboard this character has to hand, as the name of a board in the pad library. Empty for a presenter who works without one. What reaches a model is the names of the pads on that board, never this word */
+    soundboard?: string;
+    /** The dialect: grammar and substitutions that apply to every sentence rather than to a subject */
+    diction?: string[];
+    /** Words whose presence proves the dialect survived. What a model's answer is checked against */
+    dictionMarkers?: string[];
+    /** What they always and never do on air. One with a cadence is something they do only now and then, and the station decides which breaks */
+    quirks?: PersonaQuirk[];
+    /** The standing subjects they keep coming back to. Exactly ONE reaches any one break, chosen by rotation, which is what makes a character sound like it has things on its mind rather than one thing */
+    preoccupations?: string[];
+    /** Signature phrases, asked for sparingly */
+    catchphrases?: string[];
+    /** Wording that breaks the character */
+    avoid?: string[];
+    /** Subjects this character takes one at a time. Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot, sasquatch, yeti"), and a break that brings up words from two of them is refused and written again. A word inside a record's title does not count */
+    exclusiveSubjects?: string[];
+    /** A couple of grounded facts they may self-reference */
+    background?: string;
+    /** How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one */
+    brevity?: 'short' | 'one-line';
+    /** How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal */
+    latitude?: 'loose' | 'unleashed';
+    /** How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree */
+    chattiness?: 'reserved' | 'sparing' | 'ordinary' | 'chatty' | 'relentless';
+    /** How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says */
+    storytelling?: 'never' | 'occasionally' | 'often';
+    /** Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is */
+    growth?: 'proposes' | 'self-directed';
+    /** How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says */
+    trivia?: 'keen';
+    /** Lines in their own voice, used as examples and as a console preview */
+    samples?: string[];
+    /** This character's own break phrasings, one per line. Empty means the station's own five */
+    templates?: string;
+    /** The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties */
+    hosts?: string[];
+}
+
+/**
+ * A persona as a form's contents rather than a row: no id and not on air, because nothing has been
+ * saved. The console opens this in the editor and the operator saves it through POST /personas, which
+ * is what keeps generating a way of filling in the form rather than a second writer of the table
+ * generated from [PersonaDraftView](../../../../../apps/api/data/contracts/personas/personas.types.ck)
+ */
+export interface PersonaDraftView {
+    key: string;
+    label: string;
+    style: string;
+    djName?: string;
+    voice?: string;
+    soundboard?: string;
+    diction?: string[];
+    dictionMarkers?: string[];
+    quirks?: PersonaQuirk[];
+    preoccupations?: string[];
+    catchphrases?: string[];
+    avoid?: string[];
+    exclusiveSubjects?: string[];
+    background?: string;
+    brevity?: 'short' | 'one-line';
+    latitude?: 'loose' | 'unleashed';
+    chattiness?: 'reserved' | 'sparing' | 'ordinary' | 'chatty' | 'relentless';
+    storytelling?: 'never' | 'occasionally' | 'often';
+    trivia?: 'keen';
+    samples?: string[];
+    templates?: string;
 }
 
 /**
@@ -461,20 +460,6 @@ export interface PersonaNoteList {
 export interface PersonaNoteListInput {
     personaId: string;
     notes: PersonaNoteInput[];
-}
-
-/**
- * What a model wrote, and what had to be dropped to make it usable
- * generated from [GeneratedPersona](../../../../../apps/api/data/contracts/personas/personas.types.ck)
- */
-export interface GeneratedPersona {
-    persona: PersonaDraftView;
-    /** A couple of things that have happened to this character. Beside the form rather than in it, because they are their own table: the console saves the persona and then writes these through the stories route, so they go through the same validation an operator's own typing does */
-    stories: PersonaStoryWrite[];
-    /** Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off */
-    droppedMarkers: string[];
-    /** Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings */
-    droppedTemplates: string[];
 }
 
 /**
@@ -653,6 +638,31 @@ export interface PersonaMemoryInput {
     personaId: string;
     undone: PersonaMemoryChange;
     tellings: PersonaTellingInput[];
+}
+
+/**
+ * generated from [PersonaList](../../../../../apps/api/data/contracts/personas/personas.types.ck)
+ */
+export interface PersonaList {
+    personas: Persona[];
+}
+
+export interface PersonaListInput {
+    personas: PersonaInput[];
+}
+
+/**
+ * What a model wrote, and what had to be dropped to make it usable
+ * generated from [GeneratedPersona](../../../../../apps/api/data/contracts/personas/personas.types.ck)
+ */
+export interface GeneratedPersona {
+    persona: PersonaDraftView;
+    /** A couple of things that have happened to this character. Beside the form rather than in it, because they are their own table: the console saves the persona and then writes these through the stories route, so they go through the same validation an operator's own typing does */
+    stories: PersonaStoryWrite[];
+    /** Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off */
+    droppedMarkers: string[];
+    /** Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings */
+    droppedTemplates: string[];
 }
 
 /**

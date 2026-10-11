@@ -35,7 +35,7 @@
 
 import { TALK_BREAK_KIND } from '#modules/director/talk.break.writer.js';
 import { dayGreeting, dayPart } from '#modules/director/clock.words.js';
-import { preoccupationOf } from './persona.sheet.js';
+import { occasionalQuirkOf, preoccupationOf } from './persona.sheet.js';
 import type { BreakTrack, BreakWriteRequest } from '#modules/director/break.writer.js';
 import type { Persona } from './persona.js';
 import type { PersonaNotesForPrompt } from './persona.note.js';
@@ -104,6 +104,9 @@ export function toBreakTrack(record: AuditionRecord, facts?: readonly string[]):
 export function auditionRequest(input: AuditionRequestInput): BreakWriteRequest {
     const greeting = dayGreeting(input.now, input.zone);
     const preoccupation = preoccupationOf(input.persona, input.turn);
+    // Drawn over the turn as the preoccupation is, so an audition hears a character's now-and-then
+    // act about as often as a listener would rather than never, which is what an audition is for.
+    const occasionalQuirk = occasionalQuirkOf(input.persona, input.turn);
 
     return {
         kind: TALK_BREAK_KIND,
@@ -114,6 +117,7 @@ export function auditionRequest(input: AuditionRequestInput): BreakWriteRequest 
         ...(input.notebook === undefined ? {} : { notebook: input.notebook }),
         ...(input.story === undefined ? {} : { story: input.story }),
         ...(preoccupation === undefined ? {} : { preoccupation }),
+        ...(occasionalQuirk === undefined ? {} : { occasionalQuirk }),
         // The rack exactly as `WriteBreakJob` offers it, and vetoed by the same talk-break shape. An
         // empty list is left out rather than passed, so a character with no board is told nothing.
         ...(input.pads === undefined || input.pads.length === 0 ? {} : { pads: input.pads }),

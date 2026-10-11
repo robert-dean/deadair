@@ -48,7 +48,7 @@ describe('personaForFile', () => {
                 soundboard: 'station',
                 diction: ['drop the g'],
                 dictionMarkers: ['friend'],
-                quirks: ['never explains a record'],
+                quirks: [{ text: 'never explains a record' }],
                 exclusiveSubjects: ['bigfoot, sasquatch', 'chemtrail'],
                 templates: 'That was {{previous.title}}.',
                 brevity: 'short',
@@ -69,7 +69,7 @@ describe('personaForFile', () => {
             soundboard: 'station',
             diction: ['drop the g'],
             dictionMarkers: ['friend'],
-            quirks: ['never explains a record'],
+            quirks: [{ text: 'never explains a record' }],
             exclusiveSubjects: ['bigfoot, sasquatch', 'chemtrail'],
             templates: 'That was {{previous.title}}.',
             brevity: 'short',
@@ -106,11 +106,11 @@ describe('personaForFile', () => {
     });
 
     it('copies the lists rather than sharing them', () => {
-        const source = persona({ quirks: ['never explains a record'] });
+        const source = persona({ quirks: [{ text: 'never explains a record' }] });
         const file = personaForFile(source, []);
 
         expect(file.quirks).not.toBe(source.quirks);
-        expect(file.quirks).toEqual(['never explains a record']);
+        expect(file.quirks).toEqual([{ text: 'never explains a record' }]);
     });
 });
 
@@ -185,9 +185,10 @@ describe('travels', () => {
 
 describe('the format stamp', () => {
     // Weak evidence by design — this repo edits migrations in place, so a version cannot promise a
-    // shape — but it has to be stable, or every file already written stops being readable.
+    // shape — but it has to be stable, or every file already written stops being readable. It moved
+    // to `/2` when a quirk became an object, and the console upgrades a `/1` file as it reads one.
     it('is the version an import will recognise', () => {
-        expect(PERSONA_FILE_FORMAT).toBe('deadair.persona/1');
+        expect(PERSONA_FILE_FORMAT).toBe('deadair.persona/2');
     });
 });
 

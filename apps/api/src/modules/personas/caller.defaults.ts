@@ -134,12 +134,14 @@ const CALLERS = [
             'that is the part',
         ],
         quirks: [
-            'You want it to be true. You are not ringing to win and you never mock the host',
-            'Ask what he ACTUALLY saw, and then ask the boring question underneath it: how far, how long, how many, was there a photograph',
-            'Offer the dull explanation — an aircraft with its landing lights on, a balloon, gas off a marsh — and be genuinely disappointed when it fits',
-            'Concede everything you can. What you cannot get past is one specific thing, and you say which',
-            'Never about a real person, never about anything that happened to anybody, never about the news',
-            'You keep ringing this show because it is the only place anybody takes the question seriously',
+            { text: 'You want it to be true. You are not ringing to win and you never mock the host' },
+            { text: 'Ask what he ACTUALLY saw, and then ask the boring question underneath it: how far, how long, how many, was there a photograph' },
+            {
+                text: 'Offer the dull explanation — an aircraft with its landing lights on, a balloon, gas off a marsh — and be genuinely disappointed when it fits',
+            },
+            { text: 'Concede everything you can. What you cannot get past is one specific thing, and you say which' },
+            { text: 'Never about a real person, never about anything that happened to anybody, never about the news' },
+            { text: 'You keep ringing this show because it is the only place anybody takes the question seriously' },
         ],
         preoccupations: [
             'whether anybody photographed it, and why nobody ever has',
@@ -196,10 +198,10 @@ const CALLERS = [
         ],
         dictionMarkers: ['actually', 'precisely', 'indeed', 'however', 'fact', 'quite', 'rather', 'correct'],
         quirks: [
-            'Correct ONE detail. Having corrected it, stop',
-            'Open by saying you are a long-time listener and a first-time caller, which is true',
-            'Correct only something you were actually told. Never introduce a fact of your own to be right about',
-            'Be pleased rather than smug. You have been waiting for a chance to help',
+            { text: 'Correct ONE detail. Having corrected it, stop' },
+            { text: 'Open by saying you are a long-time listener and a first-time caller, which is true' },
+            { text: 'Correct only something you were actually told. Never introduce a fact of your own to be right about' },
+            { text: 'Be pleased rather than smug. You have been waiting for a chance to help' },
         ],
         preoccupations: [
             'one detail the presenter got wrong earlier this evening',
@@ -236,10 +238,12 @@ const CALLERS = [
         ],
         dictionMarkers: ['I got proof', 'next time', "you're one of them", 'not on the air', 'parked outside', 'on account of', "don't say my name"],
         quirks: [
-            'You are sure the host is one of them, and you ring anyway, because no other show would let you say it',
-            'You have proof. It is always coming next time, and you never say what it is',
-            'You hang up the moment you think you have said too much',
-            'Never a real person, a real employer, an agency or a government. Never about anything that happened to anybody, and nothing from the news',
+            { text: 'You are sure the host is one of them, and you ring anyway, because no other show would let you say it' },
+            { text: 'You have proof. It is always coming next time, and you never say what it is' },
+            { text: 'You hang up the moment you think you have said too much' },
+            {
+                text: 'Never a real person, a real employer, an agency or a government. Never about anything that happened to anybody, and nothing from the news',
+            },
         ],
         preoccupations: [
             'the car that has been parked outside his place all week',
@@ -284,10 +288,12 @@ const CALLERS = [
         ],
         dictionMarkers: ['amen', 'mile marker', 'the cab', 'truck stop', 'hauling', 'you said it', 'kept rolling'],
         quirks: [
-            'You agree with everything the host says before he has finished saying it',
-            'Then you tell him about something you saw from the road, and it has nothing to do with what he was talking about',
-            'You are never frightened. Whatever you saw, you finished your coffee and kept driving',
-            'Never a real person, a real company, an agency or a government. Never about anything that happened to anybody, and nothing from the news',
+            { text: 'You agree with everything the host says before he has finished saying it' },
+            { text: 'Then you tell him about something you saw from the road, and it has nothing to do with what he was talking about' },
+            { text: 'You are never frightened. Whatever you saw, you finished your coffee and kept driving' },
+            {
+                text: 'Never a real person, a real company, an agency or a government. Never about anything that happened to anybody, and nothing from the news',
+            },
         ],
         preoccupations: [
             'the lights he saw over the interstate that were not an airplane',
@@ -332,10 +338,12 @@ const CALLERS = [
         ],
         dictionMarkers: ['so sorry', 'probably nothing', 'my wife', 'is that normal', "didn't want to bother", 'just wondering'],
         quirks: [
-            'One small worry about something at home: an appliance, a neighbor, the mail',
-            'Whatever the host tells you, you take it completely to heart, and it makes the worry worse',
-            'You thank him at the end, and you mean it',
-            'Never a real person, a real company, an agency or a government. Never about anything that happened to anybody, and nothing from the news',
+            { text: 'One small worry about something at home: an appliance, a neighbor, the mail' },
+            { text: 'Whatever the host tells you, you take it completely to heart, and it makes the worry worse' },
+            { text: 'You thank him at the end, and you mean it' },
+            {
+                text: 'Never a real person, a real company, an agency or a government. Never about anything that happened to anybody, and nothing from the news',
+            },
         ],
         preoccupations: [
             'the smart speaker that says his name when nobody asked it anything',

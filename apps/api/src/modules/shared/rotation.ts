@@ -28,3 +28,27 @@ export function rotateInto<T>(values: readonly T[], id: string): T | undefined {
 
     return values[rotationOf(id) % values.length];
 }
+
+/**
+ * A number in `[0, 1)` taken from `id`, for a yes-or-no about this moment rather than a place in a list.
+ *
+ * Not {@link rotationOf}, because that hash is LINEAR: two ids that differ by a suffix answer numbers
+ * that differ by a constant, so `rotationOf(`${id}:a`) % 20` and `rotationOf(`${id}:b`) % 20` move in
+ * step and two draws that were meant to be independent are the same draw twice. This is FNV-1a with
+ * a final avalanche (MurmurHash3's `fmix32`), so a one-character change anywhere moves every bit.
+ * Still deterministic, for {@link rotationOf}'s reason: a break re-offered after a lost job has to be
+ * handed what it was handed the first time.
+ */
+export function drawOf(id: string): number {
+    let hash = 0x811c9dc5;
+    for (const character of id) {
+        hash ^= character.charCodeAt(0);
+        hash = Math.imul(hash, 0x01000193);
+    }
+    hash ^= hash >>> 16;
+    hash = Math.imul(hash, 0x85ebca6b);
+    hash ^= hash >>> 13;
+    hash = Math.imul(hash, 0xc2b2ae35);
+    hash ^= hash >>> 16;
+    return (hash >>> 0) / 0x100000000;
+}

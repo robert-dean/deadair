@@ -33,6 +33,19 @@ public sealed partial class HostChoiceViewModel(string id, string label, bool ch
     private bool _isChosen = chosen;
 }
 
+/// <summary>One quirk on the page: its words, and how often it applies.</summary>
+public sealed partial class QuirkRowViewModel(string text, DialOption cadence, Action<QuirkRowViewModel> remove) : ObservableObject
+{
+    [ObservableProperty]
+    private string _text = text;
+
+    [ObservableProperty]
+    private DialOption _cadence = cadence;
+
+    [RelayCommand]
+    private void Remove() => remove(this);
+}
+
 /// <summary>
 /// One character's sheet, on its own page.
 /// </summary>
@@ -121,6 +134,7 @@ public sealed partial class PersonaDetailViewModel : ObservableObject
             VoiceChoices.Add(voice.Id);
         }
 
+        Quirks.CollectionChanged += (_, _) => Remeasure();
         Fill(_saved);
 
         PropertyChanged += OnEdited;
@@ -209,6 +223,21 @@ public sealed partial class PersonaDetailViewModel : ObservableObject
     /// <summary>The station's sets of sounds, by key. Suggestions rather than a list: a set about to be made stays typeable.</summary>
     public ObservableCollection<string> SoundboardChoices { get; } = [];
 
+    /// <summary>
+    /// The quirks, a row each. A row rather than a line in one box because each carries how often it
+    /// applies: one set to anything but always is handed to the writer on the breaks the station picks
+    /// for it, so its words should not say "now and then" themselves.
+    /// </summary>
+    public ObservableCollection<QuirkRowViewModel> Quirks { get; } = [];
+
+    public static IReadOnlyList<DialOption> CadenceOptions { get; } =
+    [
+        new(string.Empty, "Always"),
+        new("often", "Often"),
+        new("occasionally", "Occasionally"),
+        new("rarely", "Rarely"),
+    ];
+
     public static IReadOnlyList<DialOption> BrevityOptions { get; } =
     [
         new(string.Empty, "The station's usual"),
@@ -272,8 +301,6 @@ public sealed partial class PersonaDetailViewModel : ObservableObject
     [ObservableProperty]
     private string _dictionMarkers = string.Empty;
 
-    [ObservableProperty]
-    private string _quirks = string.Empty;
 
     [ObservableProperty]
     private string _catchphrases = string.Empty;
@@ -536,7 +563,7 @@ public sealed partial class PersonaDetailViewModel : ObservableObject
         Templates = Templates,
         Diction = Diction,
         DictionMarkers = DictionMarkers,
-        Quirks = Quirks,
+        Quirks = Quirks.Select(row => new QuirkLine(row.Text, row.Cadence.Value)).ToList(),
         Preoccupations = Preoccupations,
         Catchphrases = Catchphrases,
         Avoid = Avoid,
@@ -557,7 +584,11 @@ public sealed partial class PersonaDetailViewModel : ObservableObject
             Background = sheet.Background;
             Diction = sheet.Diction;
             DictionMarkers = sheet.DictionMarkers;
-            Quirks = sheet.Quirks;
+            Quirks.Clear();
+            foreach (var quirk in sheet.Quirks)
+            {
+                Quirks.Add(QuirkRow(quirk.Text, Pick(CadenceOptions, quirk.Cadence)));
+            }
             Catchphrases = sheet.Catchphrases;
             Avoid = sheet.Avoid;
             ExclusiveSubjects = sheet.ExclusiveSubjects;
@@ -579,6 +610,25 @@ public sealed partial class PersonaDetailViewModel : ObservableObject
         }
 
         IsDirty = !Current().SameAs(_saved);
+    }
+
+    [RelayCommand]
+    private void AddQuirk() => Quirks.Add(QuirkRow(string.Empty, CadenceOptions[0]));
+
+    private QuirkRowViewModel QuirkRow(string text, DialOption cadence)
+    {
+        var row = new QuirkRowViewModel(text, cadence, gone => Quirks.Remove(gone));
+        row.PropertyChanged += (_, _) => Remeasure();
+        return row;
+    }
+
+    /// <summary>Whether the page now differs from what was saved, unless it is being filled from a sheet.</summary>
+    private void Remeasure()
+    {
+        if (!_loading)
+        {
+            IsDirty = !Current().SameAs(_saved);
+        }
     }
 
     private static DialOption Pick(IReadOnlyList<DialOption> options, string value) =>

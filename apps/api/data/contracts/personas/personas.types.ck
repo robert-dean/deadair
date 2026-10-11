@@ -16,7 +16,7 @@ contract Persona: {
     soundboard?: string(max=200) # The soundboard this character has to hand, as the name of a board in the pad library. Empty for a presenter who works without one. What reaches a model is the names of the pads on that board, never this word
     diction?: array(string(min=1, max=500)) # The dialect: grammar and substitutions that apply to every sentence rather than to a subject
     dictionMarkers?: array(string(min=1, max=100)) # Words whose presence proves the dialect survived. What a model's answer is checked against
-    quirks?: array(string(min=1, max=500)) # What they always and never do on air
+    quirks?: array(PersonaQuirk) # What they always and never do on air. One with a cadence is something they do only now and then, and the station decides which breaks
     preoccupations?: array(string(min=1, max=500)) # The standing subjects they keep coming back to. Exactly ONE reaches any one break, chosen by rotation, which is what makes a character sound like it has things on its mind rather than one thing
     catchphrases?: array(string(min=1, max=200)) # Signature phrases, asked for sparingly
     avoid?: array(string(min=1, max=200)) # Wording that breaks the character
@@ -33,6 +33,12 @@ contract Persona: {
     hosts?: array(string(min=1, max=100)) # The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties
     defaultHost: readonly boolean # The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host
     presenting: readonly boolean # Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing
+}
+
+# One thing a character does on air, and how often it does it
+contract PersonaQuirk: {
+    text: string(min=1, max=500)
+    cadence?: enum(always, often, occasionally, rarely) # How often it applies. Absent is `always`: a rule, sent on every break. The others are something the character does now and then, and the station picks which ordinary talk breaks, at most one such quirk to a break, so the text should not say "now and then" itself
 }
 
 contract PersonaList: {
@@ -56,7 +62,7 @@ contract PersonaDraftView: {
     soundboard?: string(max=200)
     diction?: array(string(min=1, max=500))
     dictionMarkers?: array(string(min=1, max=100))
-    quirks?: array(string(min=1, max=500))
+    quirks?: array(PersonaQuirk)
     preoccupations?: array(string(min=1, max=500))
     catchphrases?: array(string(min=1, max=200))
     avoid?: array(string(min=1, max=200))

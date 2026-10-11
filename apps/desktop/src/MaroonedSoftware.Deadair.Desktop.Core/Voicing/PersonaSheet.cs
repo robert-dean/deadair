@@ -4,7 +4,14 @@ using MaroonedSoftware.Deadair.Sdk.Models;
 namespace MaroonedSoftware.Deadair.Desktop.Core.Voicing;
 
 /// <summary>
-/// One character as the editor holds it: every list is one string, one entry per line.
+/// One quirk as the editor holds it: the words, and the station's word for how often it applies, with
+/// the empty string for <c>always</c>, the rung that is not there.
+/// </summary>
+public sealed record QuirkLine(string Text, string Cadence);
+
+/// <summary>
+/// One character as the editor holds it: every list is one string, one entry per line, except the quirks,
+/// which are rows because each one carries how often it applies.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -51,7 +58,8 @@ public sealed record PersonaSheet
 
     public string DictionMarkers { get; init; } = string.Empty;
 
-    public string Quirks { get; init; } = string.Empty;
+    /// <summary>A row each, because a quirk carries a cadence a line of text has nowhere to put.</summary>
+    public IReadOnlyList<QuirkLine> Quirks { get; init; } = [];
 
     public string Preoccupations { get; init; } = string.Empty;
 
@@ -89,7 +97,7 @@ public sealed record PersonaSheet
             Templates = persona.Templates ?? string.Empty,
             Diction = Lines(persona.Diction),
             DictionMarkers = Lines(persona.DictionMarkers),
-            Quirks = Lines(persona.Quirks),
+            Quirks = QuirkLines(persona.Quirks),
             Preoccupations = Lines(persona.Preoccupations),
             Catchphrases = Lines(persona.Catchphrases),
             Avoid = Lines(persona.Avoid),
@@ -127,7 +135,7 @@ public sealed record PersonaSheet
             Templates = draft.Templates ?? string.Empty,
             Diction = Lines(draft.Diction),
             DictionMarkers = Lines(draft.DictionMarkers),
-            Quirks = Lines(draft.Quirks),
+            Quirks = QuirkLines(draft.Quirks),
             Preoccupations = Lines(draft.Preoccupations),
             Catchphrases = Lines(draft.Catchphrases),
             Avoid = Lines(draft.Avoid),
@@ -167,7 +175,7 @@ public sealed record PersonaSheet
         Templates = Text(Templates),
         Diction = ListOf(Diction),
         DictionMarkers = ListOf(DictionMarkers),
-        Quirks = ListOf(Quirks),
+        Quirks = QuirksOf(Quirks),
         Preoccupations = ListOf(Preoccupations),
         Catchphrases = ListOf(Catchphrases),
         Avoid = ListOf(Avoid),
@@ -179,15 +187,17 @@ public sealed record PersonaSheet
     };
 
     /// <summary>
-    /// Whether two sheets say the same thing. A record compares its list by reference, so the ties are
-    /// compared by what they hold.
+    /// Whether two sheets say the same thing. A record compares its lists by reference, so the ties and
+    /// the quirks are compared by what they hold: the ties as a set, the quirks in order.
     /// </summary>
     public bool SameAs(PersonaSheet other)
     {
         ArgumentNullException.ThrowIfNull(other);
 
-        return this with { Hosts = Array.Empty<string>() } == other with { Hosts = Array.Empty<string>() }
-            && Hosts.Order(StringComparer.Ordinal).SequenceEqual(other.Hosts.Order(StringComparer.Ordinal));
+        return this with { Hosts = Array.Empty<string>(), Quirks = Array.Empty<QuirkLine>() }
+                == other with { Hosts = Array.Empty<string>(), Quirks = Array.Empty<QuirkLine>() }
+            && Hosts.Order(StringComparer.Ordinal).SequenceEqual(other.Hosts.Order(StringComparer.Ordinal))
+            && Quirks.SequenceEqual(other.Quirks);
     }
 
     /// <summary>The first thing stopping this being saved, in the order the fields are drawn, or null.</summary>
@@ -237,6 +247,25 @@ public sealed record PersonaSheet
     /// <summary>A list as one entry per line.</summary>
     public static string Lines(IEnumerable<string>? values) => values is null ? string.Empty : string.Join('\n', values);
 
+    /// <summary>Saved quirks as rows, with an absent cadence as the empty string it is held as.</summary>
+    public static IReadOnlyList<QuirkLine> QuirkLines(IEnumerable<PersonaQuirk>? quirks) =>
+        quirks is null ? [] : quirks.Select(quirk => new QuirkLine(quirk.Text, AlwaysIsAbsent(Wire.Name(quirk.Cadence)))).ToList();
+
+    /// <summary>
+    /// Rows as the station takes them: blank ones dropped, the words trimmed, and no cadence on an
+    /// <c>always</c> one. Null when there are none, so the field is left out.
+    /// </summary>
+    public static List<PersonaQuirk>? QuirksOf(IEnumerable<QuirkLine> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+
+        var quirks = rows
+            .Where(row => row.Text.Trim().Length > 0)
+            .Select(row => new PersonaQuirk { Text = row.Text.Trim(), Cadence = Wire.Parse<PersonaQuirkCadence>(AlwaysIsAbsent(row.Cadence)) })
+            .ToList();
+        return quirks.Count == 0 ? null : quirks;
+    }
+
     /// <summary>One entry per line as a list, or null when there are none, so the field is left out.</summary>
     public static List<string>? ListOf(string raw)
     {
@@ -276,4 +305,6 @@ public sealed record PersonaSheet
     private static string OccasionallyIsAbsent(string word) => word == "occasionally" ? string.Empty : word;
 
     private static string ProposesIsAbsent(string word) => word == "proposes" ? string.Empty : word;
+
+    private static string AlwaysIsAbsent(string word) => word == "always" ? string.Empty : word;
 }

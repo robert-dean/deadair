@@ -640,6 +640,12 @@ jobs:
                   -destination 'generic/platform=iOS Simulator' -derivedDataPath .derived
                   CODE_SIGNING_ALLOWED=NO
 
+            # The widget is a second target the app's scheme builds through its dependency, and an
+            # embed phase that lost it would still build an app, just one with no widget.
+            - name: Check the widget is embedded
+              working-directory: apps/ios
+              run: test -f .derived/Build/Products/Debug-iphonesimulator/Deadair.app/PlugIns/DeadairWidget.appex/DeadairWidget
+
     # The Stream Deck plugin, checked the way the Stream Deck app will see it.
     #
     # Its type check is the `build` job's and its tests are in the root suite, because unlike the three

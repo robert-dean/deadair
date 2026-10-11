@@ -57,6 +57,39 @@
                 </Grid>
             </StackPanel>
 
+            <!-- The words, when the station has them for the record being heard and somebody is
+                 signed in to read them (Core's Lyrics.State). Under the record rather than in place
+                 of the cover, because the cover is what the panel is for. Timed lines scroll inside
+                 their own height with the sung one lit; plain words are shown whole, unscrolled, as
+                 the panel scrolls. Folded away by its heading, for this session. -->
+            <StackPanel Spacing="8" IsVisible="{Binding Listener.Lyrics.HasLyrics}">
+                <Button Classes="link" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                        Command="{Binding Listener.Lyrics.ToggleOpenCommand}"
+                        ToolTip.Tip="{Binding Listener.Lyrics.ToggleHint}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="h3" Text="Lyrics" />
+                        <Panel Grid.Column="1" VerticalAlignment="Center">
+                            <PathIcon Data="{DynamicResource DaIconChevronUp}" Width="12" Height="12"
+                                      IsVisible="{Binding Listener.Lyrics.IsOpen}" />
+                            <PathIcon Data="{DynamicResource DaIconChevronDown}" Width="12" Height="12"
+                                      IsVisible="{Binding !Listener.Lyrics.IsOpen}" />
+                        </Panel>
+                    </Grid>
+                </Button>
+                <StackPanel Spacing="8" IsVisible="{Binding Listener.Lyrics.IsOpen}">
+                    <controls:LyricColumn Height="200" FontSize="15" LineSpacing="6"
+                                          Lines="{Binding Listener.Lyrics.Lines}"
+                                          Current="{Binding Listener.Lyrics.Current}"
+                                          IsVisible="{Binding Listener.Lyrics.IsSynced}" />
+                    <TextBlock Text="{Binding Listener.Lyrics.PlainText}" FontSize="14" LineHeight="22"
+                               TextWrapping="Wrap" Foreground="{DynamicResource DaTextSecondaryBrush}"
+                               IsVisible="{Binding Listener.Lyrics.IsPlain}" />
+                    <TextBlock Text="{Binding Listener.Lyrics.Credit}" FontSize="11"
+                               IsVisible="{Binding Listener.Lyrics.Credit, Converter={x:Static ObjectConverters.IsNotNull}}"
+                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                </StackPanel>
+            </StackPanel>
+
             <!-- An operator's: what the station says about itself, then what is coming up. -->
             <StackPanel Spacing="12" IsVisible="{Binding Transport.IsOperator}">
                 <views:TransportView DataContext="{Binding Transport}" />

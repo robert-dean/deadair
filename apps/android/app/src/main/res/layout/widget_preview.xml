@@ -8,6 +8,7 @@
     playing says, because inventing a record here would be a picture telling a lie.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/widget_preview_background"
@@ -40,10 +41,13 @@
             android:textSize="13sp" />
     </LinearLayout>
 
+    <!-- android:tint, not app:tint: appcompat's UseAppTint check (here since mediarouter brought appcompat in)
+         assumes an inflater that maps app:tint, and the launcher inflating this preview is not one. -->
     <ImageView
         android:layout_width="28dp"
         android:layout_height="28dp"
         android:contentDescription="@string/play"
         android:src="@drawable/ic_play"
-        android:tint="?android:attr/colorAccent" />
+        android:tint="?android:attr/colorAccent"
+        tools:ignore="UseAppTint" />
 </LinearLayout>

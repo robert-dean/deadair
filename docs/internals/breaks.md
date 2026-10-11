@@ -51,7 +51,11 @@ Phrasings tab does (`SettingsGroupPage`). Their keys keep the `rotation.` prefix
 bottom of Rotation, so a stored row still answers. `{{next.title}}` resolves through an
 explicit map in `break.templates.ts` (which is why `{{next.album}}` is one row to add when enrichment
 lands), `[[double brackets]]` mark a part dropped when it cannot be filled, and a template with an
-unknown placeholder is never used and is logged once, quoted. Two rules are the writer's rather than
+unknown placeholder is never used and is logged once, quoted. A phrasing is filled in ONE pass over its
+own text, once its chunks are settled, so a value is never read as template: a record titled
+`Song {{station.name}}` airs as written rather than as the station's name, and one titled `Song {{station}}`
+no longer rules out every phrasing that names it inside a chunk. Only the map's own names count, so
+`{{toString}}` is an unknown placeholder like any typo rather than "[object Object]" on air. Two rules are the writer's rather than
 the operator's: a placeholder outside an optional chunk that cannot be filled means the phrasing does
 not apply, and a phrasing saying nothing about the record just finished is only offered where there
 is none.

@@ -12,6 +12,8 @@
 #
 # NONE OF THIS HAS RUN YET. It needs, before the first run: an Apple Developer Program membership;
 # the App ID `com.maroonedsoftware.deadair` and an app record in App Store Connect under it; the
+# widget's App ID `com.maroonedsoftware.deadair.widget` and the App Group
+# `group.com.maroonedsoftware.deadair`, enabled on both App IDs; the
 # current program agreement accepted, or every upload is refused with an error that does not say so;
 # the secrets APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_ISSUER_ID and APP_STORE_CONNECT_KEY_P8
 # (the .p8 file, base64); and the repository variable APPLE_TEAM_ID. `apps/ios/README.md` lists the
@@ -162,6 +164,21 @@ jobs:
                       -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${KEY_ID}.p8" \
                       -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER_ID" \
                       DEVELOPMENT_TEAM="$TEAM_ID" CURRENT_PROJECT_VERSION="$BUILD"
+
+            # The archive signs the embedded widget extension with its own profile, and both have to
+            # carry the App Group or the widget reads nothing the app wrote. A profile without it is
+            # a signing failure above when the entitlement is named; this catches the quieter case of
+            # an extension missing from the archive or signed without its group.
+            - name: Check the widget is embedded and signed
+              run: |
+                  set -euo pipefail
+                  app="$RUNNER_TEMP/Deadair.xcarchive/Products/Applications/Deadair.app"
+                  for bundle in "$app" "$app/PlugIns/DeadairWidget.appex"; do
+                      if ! codesign -d --entitlements :- "$bundle" 2>/dev/null | grep -q 'group.com.maroonedsoftware.deadair'; then
+                          echo "::error::$bundle is missing, or is not signed with the App Group group.com.maroonedsoftware.deadair."
+                          exit 1
+                      fi
+                  done
 
             # `destination: upload` in the plist makes the export the upload; there is no IPA to keep.
             # `manageAppVersionAndBuildNumber: false` stops Xcode replacing the commit count.

@@ -1,0 +1,2631 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the shipped pools, word for word > renders the almanac pool exactly as it always has 1`] = `
+{
+  "everything": [
+    {
+      "rendered": {
+        "opening": "A bit of history",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "A bit of history on The Far Frequency. On this day the bridge opened. Now, Hangar 18.",
+        "template": "A bit of history[[ on {{station.name}}]]. {{almanac.report}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "A bit of history[[ on {{station.name}}]]. {{almanac.report}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This day in history. ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning. This day in history. On this day the bridge opened. Then, Megadeth.",
+        "template": "[[{{greeting}}. ]]This day in history. {{almanac.report}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]This day in history. {{almanac.report}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Something for the date.",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Something for the date. On this day the bridge opened. Coming up, Megadeth with Hangar 18.",
+        "template": "Something for the date. {{almanac.report}}[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "Something for the date. {{almanac.report}}[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's 20 September on The Far Frequency. On this day the bridge opened.",
+        "template": "It's {{almanac.date}}[[ on {{station.name}}]]. {{almanac.report}}",
+      },
+      "template": "It's {{almanac.date}}[[ on {{station.name}}]]. {{almanac.report}}",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "On this day the bridge opened. And now, Hangar 18.",
+        "template": "{{almanac.report}}[[ And now, {{next.title}}.]]",
+      },
+      "template": "{{almanac.report}}[[ And now, {{next.title}}.]]",
+    },
+  ],
+  "no record coming up": [
+    {
+      "rendered": {
+        "opening": "A bit of history",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "A bit of history on The Far Frequency. On this day the bridge opened.",
+        "template": "A bit of history[[ on {{station.name}}]]. {{almanac.report}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "A bit of history[[ on {{station.name}}]]. {{almanac.report}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This day in history. ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. This day in history. On this day the bridge opened.",
+        "template": "[[{{greeting}}. ]]This day in history. {{almanac.report}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]This day in history. {{almanac.report}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Something for the date.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Something for the date. On this day the bridge opened.",
+        "template": "Something for the date. {{almanac.report}}[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "Something for the date. {{almanac.report}}[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's 20 September on The Far Frequency. On this day the bridge opened.",
+        "template": "It's {{almanac.date}}[[ on {{station.name}}]]. {{almanac.report}}",
+      },
+      "template": "It's {{almanac.date}}[[ on {{station.name}}]]. {{almanac.report}}",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "On this day the bridge opened.",
+        "template": "{{almanac.report}}[[ And now, {{next.title}}.]]",
+      },
+      "template": "{{almanac.report}}[[ And now, {{next.title}}.]]",
+    },
+  ],
+  "no record just finished": [
+    {
+      "rendered": {
+        "opening": "A bit of history",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "A bit of history on The Far Frequency. On this day the bridge opened. Now, Hangar 18.",
+        "template": "A bit of history[[ on {{station.name}}]]. {{almanac.report}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "A bit of history[[ on {{station.name}}]]. {{almanac.report}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This day in history. ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning. This day in history. On this day the bridge opened. Then, Megadeth.",
+        "template": "[[{{greeting}}. ]]This day in history. {{almanac.report}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]This day in history. {{almanac.report}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Something for the date.",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Something for the date. On this day the bridge opened. Coming up, Megadeth with Hangar 18.",
+        "template": "Something for the date. {{almanac.report}}[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "Something for the date. {{almanac.report}}[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's 20 September on The Far Frequency. On this day the bridge opened.",
+        "template": "It's {{almanac.date}}[[ on {{station.name}}]]. {{almanac.report}}",
+      },
+      "template": "It's {{almanac.date}}[[ on {{station.name}}]]. {{almanac.report}}",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "On this day the bridge opened. And now, Hangar 18.",
+        "template": "{{almanac.report}}[[ And now, {{next.title}}.]]",
+      },
+      "template": "{{almanac.report}}[[ And now, {{next.title}}.]]",
+    },
+  ],
+  "no records at all": [
+    {
+      "rendered": {
+        "opening": "A bit of history",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "A bit of history on The Far Frequency. On this day the bridge opened.",
+        "template": "A bit of history[[ on {{station.name}}]]. {{almanac.report}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "A bit of history[[ on {{station.name}}]]. {{almanac.report}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This day in history. ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. This day in history. On this day the bridge opened.",
+        "template": "[[{{greeting}}. ]]This day in history. {{almanac.report}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]This day in history. {{almanac.report}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Something for the date.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Something for the date. On this day the bridge opened.",
+        "template": "Something for the date. {{almanac.report}}[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "Something for the date. {{almanac.report}}[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's 20 September on The Far Frequency. On this day the bridge opened.",
+        "template": "It's {{almanac.date}}[[ on {{station.name}}]]. {{almanac.report}}",
+      },
+      "template": "It's {{almanac.date}}[[ on {{station.name}}]]. {{almanac.report}}",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "On this day the bridge opened.",
+        "template": "{{almanac.report}}[[ And now, {{next.title}}.]]",
+      },
+      "template": "{{almanac.report}}[[ And now, {{next.title}}.]]",
+    },
+  ],
+  "nothing the station writes itself": [
+    {
+      "rendered": {
+        "opening": "A bit of history",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "A bit of history on The Far Frequency. On this day the bridge opened. Now, Hangar 18.",
+        "template": "A bit of history[[ on {{station.name}}]]. {{almanac.report}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "A bit of history[[ on {{station.name}}]]. {{almanac.report}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This day in history. ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "This day in history. On this day the bridge opened. Then, Megadeth.",
+        "template": "[[{{greeting}}. ]]This day in history. {{almanac.report}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]This day in history. {{almanac.report}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Something for the date.",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Something for the date. On this day the bridge opened. Coming up, Megadeth with Hangar 18.",
+        "template": "Something for the date. {{almanac.report}}[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "Something for the date. {{almanac.report}}[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's 20 September on The Far Frequency. On this day the bridge opened.",
+        "template": "It's {{almanac.date}}[[ on {{station.name}}]]. {{almanac.report}}",
+      },
+      "template": "It's {{almanac.date}}[[ on {{station.name}}]]. {{almanac.report}}",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "On this day the bridge opened. And now, Hangar 18.",
+        "template": "{{almanac.report}}[[ And now, {{next.title}}.]]",
+      },
+      "template": "{{almanac.report}}[[ And now, {{next.title}}.]]",
+    },
+  ],
+  "values with their own punctuation and furniture": [
+    {
+      "rendered": {
+        "opening": "A bit of history",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "A bit of history on Deadair (Deluxe Edition). On this day the bridge opened. Now, Paranoid.",
+        "template": "A bit of history[[ on {{station.name}}]]. {{almanac.report}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "A bit of history[[ on {{station.name}}]]. {{almanac.report}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This day in history. ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning. This day in history. On this day the bridge opened. Then, Black Sabbath.",
+        "template": "[[{{greeting}}. ]]This day in history. {{almanac.report}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]This day in history. {{almanac.report}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Something for the date.",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Something for the date. On this day the bridge opened. Coming up, Black Sabbath with Paranoid.",
+        "template": "Something for the date. {{almanac.report}}[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "Something for the date. {{almanac.report}}[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's 20 September on Deadair (Deluxe Edition). On this day the bridge opened.",
+        "template": "It's {{almanac.date}}[[ on {{station.name}}]]. {{almanac.report}}",
+      },
+      "template": "It's {{almanac.date}}[[ on {{station.name}}]]. {{almanac.report}}",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "On this day the bridge opened. And now, Paranoid.",
+        "template": "{{almanac.report}}[[ And now, {{next.title}}.]]",
+      },
+      "template": "{{almanac.report}}[[ And now, {{next.title}}.]]",
+    },
+  ],
+}
+`;
+
+exports[`the shipped pools, word for word > renders the changeover pool exactly as it always has 1`] = `
+{
+  "everything": [
+    {
+      "rendered": {
+        "opening": "Thanks to",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Thanks to Alex for The Late Shift. This is The Far Frequency, and this is Breakfast with Sam.",
+        "template": "Thanks to {{outgoing.name}}[[ for {{outgoing.show}}]]. This is {{station.name}}[[, and this is {{show.name}}]][[ with {{dj.name}}]].",
+      },
+      "template": "Thanks to {{outgoing.name}}[[ for {{outgoing.show}}]]. This is {{station.name}}[[, and this is {{show.name}}]][[ with {{dj.name}}]].",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " has handed over to ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. Alex has handed over to Sam for Breakfast, here on The Far Frequency.",
+        "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+      },
+      "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "That takes us into",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "That takes us into Breakfast, here on The Far Frequency with Sam.",
+        "template": "That takes us into {{show.name}}, here on {{station.name}}[[ with {{dj.name}}]].",
+      },
+      "template": "That takes us into {{show.name}}, here on {{station.name}}[[ with {{dj.name}}]].",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. This is Breakfast, on The Far Frequency.",
+        "template": "[[{{greeting}}. ]]This is {{show.name}}, on {{station.name}}.",
+      },
+      "template": "[[{{greeting}}. ]]This is {{show.name}}, on {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "That's the end of",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "That's the end of The Late Shift. You're still listening to The Far Frequency.",
+        "template": "That's the end of {{outgoing.show}}. You're still listening to {{station.name}}.",
+      },
+      "template": "That's the end of {{outgoing.show}}. You're still listening to {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. This is The Far Frequency, with Sam.",
+        "template": "[[{{greeting}}. ]]This is {{station.name}}[[, with {{dj.name}}]].",
+      },
+      "template": "[[{{greeting}}. ]]This is {{station.name}}[[, with {{dj.name}}]].",
+    },
+  ],
+  "no record coming up": [
+    {
+      "rendered": {
+        "opening": "Thanks to",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Thanks to Alex for The Late Shift. This is The Far Frequency, and this is Breakfast with Sam.",
+        "template": "Thanks to {{outgoing.name}}[[ for {{outgoing.show}}]]. This is {{station.name}}[[, and this is {{show.name}}]][[ with {{dj.name}}]].",
+      },
+      "template": "Thanks to {{outgoing.name}}[[ for {{outgoing.show}}]]. This is {{station.name}}[[, and this is {{show.name}}]][[ with {{dj.name}}]].",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " has handed over to ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. Alex has handed over to Sam for Breakfast, here on The Far Frequency.",
+        "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+      },
+      "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "That takes us into",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "That takes us into Breakfast, here on The Far Frequency with Sam.",
+        "template": "That takes us into {{show.name}}, here on {{station.name}}[[ with {{dj.name}}]].",
+      },
+      "template": "That takes us into {{show.name}}, here on {{station.name}}[[ with {{dj.name}}]].",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. This is Breakfast, on The Far Frequency.",
+        "template": "[[{{greeting}}. ]]This is {{show.name}}, on {{station.name}}.",
+      },
+      "template": "[[{{greeting}}. ]]This is {{show.name}}, on {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "That's the end of",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "That's the end of The Late Shift. You're still listening to The Far Frequency.",
+        "template": "That's the end of {{outgoing.show}}. You're still listening to {{station.name}}.",
+      },
+      "template": "That's the end of {{outgoing.show}}. You're still listening to {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. This is The Far Frequency, with Sam.",
+        "template": "[[{{greeting}}. ]]This is {{station.name}}[[, with {{dj.name}}]].",
+      },
+      "template": "[[{{greeting}}. ]]This is {{station.name}}[[, with {{dj.name}}]].",
+    },
+  ],
+  "no record just finished": [
+    {
+      "rendered": {
+        "opening": "Thanks to",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Thanks to Alex for The Late Shift. This is The Far Frequency, and this is Breakfast with Sam.",
+        "template": "Thanks to {{outgoing.name}}[[ for {{outgoing.show}}]]. This is {{station.name}}[[, and this is {{show.name}}]][[ with {{dj.name}}]].",
+      },
+      "template": "Thanks to {{outgoing.name}}[[ for {{outgoing.show}}]]. This is {{station.name}}[[, and this is {{show.name}}]][[ with {{dj.name}}]].",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " has handed over to ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. Alex has handed over to Sam for Breakfast, here on The Far Frequency.",
+        "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+      },
+      "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "That takes us into",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "That takes us into Breakfast, here on The Far Frequency with Sam.",
+        "template": "That takes us into {{show.name}}, here on {{station.name}}[[ with {{dj.name}}]].",
+      },
+      "template": "That takes us into {{show.name}}, here on {{station.name}}[[ with {{dj.name}}]].",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. This is Breakfast, on The Far Frequency.",
+        "template": "[[{{greeting}}. ]]This is {{show.name}}, on {{station.name}}.",
+      },
+      "template": "[[{{greeting}}. ]]This is {{show.name}}, on {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "That's the end of",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "That's the end of The Late Shift. You're still listening to The Far Frequency.",
+        "template": "That's the end of {{outgoing.show}}. You're still listening to {{station.name}}.",
+      },
+      "template": "That's the end of {{outgoing.show}}. You're still listening to {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. This is The Far Frequency, with Sam.",
+        "template": "[[{{greeting}}. ]]This is {{station.name}}[[, with {{dj.name}}]].",
+      },
+      "template": "[[{{greeting}}. ]]This is {{station.name}}[[, with {{dj.name}}]].",
+    },
+  ],
+  "no records at all": [
+    {
+      "rendered": {
+        "opening": "Thanks to",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Thanks to Alex for The Late Shift. This is The Far Frequency, and this is Breakfast with Sam.",
+        "template": "Thanks to {{outgoing.name}}[[ for {{outgoing.show}}]]. This is {{station.name}}[[, and this is {{show.name}}]][[ with {{dj.name}}]].",
+      },
+      "template": "Thanks to {{outgoing.name}}[[ for {{outgoing.show}}]]. This is {{station.name}}[[, and this is {{show.name}}]][[ with {{dj.name}}]].",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " has handed over to ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. Alex has handed over to Sam for Breakfast, here on The Far Frequency.",
+        "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+      },
+      "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "That takes us into",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "That takes us into Breakfast, here on The Far Frequency with Sam.",
+        "template": "That takes us into {{show.name}}, here on {{station.name}}[[ with {{dj.name}}]].",
+      },
+      "template": "That takes us into {{show.name}}, here on {{station.name}}[[ with {{dj.name}}]].",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. This is Breakfast, on The Far Frequency.",
+        "template": "[[{{greeting}}. ]]This is {{show.name}}, on {{station.name}}.",
+      },
+      "template": "[[{{greeting}}. ]]This is {{show.name}}, on {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "That's the end of",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "That's the end of The Late Shift. You're still listening to The Far Frequency.",
+        "template": "That's the end of {{outgoing.show}}. You're still listening to {{station.name}}.",
+      },
+      "template": "That's the end of {{outgoing.show}}. You're still listening to {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. This is The Far Frequency, with Sam.",
+        "template": "[[{{greeting}}. ]]This is {{station.name}}[[, with {{dj.name}}]].",
+      },
+      "template": "[[{{greeting}}. ]]This is {{station.name}}[[, with {{dj.name}}]].",
+    },
+  ],
+  "nothing the station writes itself": [
+    {
+      "rendered": "not used",
+      "template": "Thanks to {{outgoing.name}}[[ for {{outgoing.show}}]]. This is {{station.name}}[[, and this is {{show.name}}]][[ with {{dj.name}}]].",
+    },
+    {
+      "rendered": "not used",
+      "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+    },
+    {
+      "rendered": "not used",
+      "template": "That takes us into {{show.name}}, here on {{station.name}}[[ with {{dj.name}}]].",
+    },
+    {
+      "rendered": "not used",
+      "template": "[[{{greeting}}. ]]This is {{show.name}}, on {{station.name}}.",
+    },
+    {
+      "rendered": "not used",
+      "template": "That's the end of {{outgoing.show}}. You're still listening to {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "This is The Far Frequency.",
+        "template": "[[{{greeting}}. ]]This is {{station.name}}[[, with {{dj.name}}]].",
+      },
+      "template": "[[{{greeting}}. ]]This is {{station.name}}[[, with {{dj.name}}]].",
+    },
+  ],
+  "values with their own punctuation and furniture": [
+    {
+      "rendered": {
+        "opening": "Thanks to",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Thanks to Alex for The Late Shift. This is Deadair (Deluxe Edition), and this is Breakfast with Sam.",
+        "template": "Thanks to {{outgoing.name}}[[ for {{outgoing.show}}]]. This is {{station.name}}[[, and this is {{show.name}}]][[ with {{dj.name}}]].",
+      },
+      "template": "Thanks to {{outgoing.name}}[[ for {{outgoing.show}}]]. This is {{station.name}}[[, and this is {{show.name}}]][[ with {{dj.name}}]].",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " has handed over to ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. Alex has handed over to Sam for Breakfast, here on Deadair (Deluxe Edition).",
+        "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+      },
+      "template": "[[{{greeting}}. ]]{{outgoing.name}} has handed over to {{dj.name}}[[ for {{show.name}}]], here on {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "That takes us into",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "That takes us into Breakfast, here on Deadair (Deluxe Edition) with Sam.",
+        "template": "That takes us into {{show.name}}, here on {{station.name}}[[ with {{dj.name}}]].",
+      },
+      "template": "That takes us into {{show.name}}, here on {{station.name}}[[ with {{dj.name}}]].",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. This is Breakfast, on Deadair (Deluxe Edition).",
+        "template": "[[{{greeting}}. ]]This is {{show.name}}, on {{station.name}}.",
+      },
+      "template": "[[{{greeting}}. ]]This is {{show.name}}, on {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "That's the end of",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "That's the end of The Late Shift. You're still listening to Deadair (Deluxe Edition).",
+        "template": "That's the end of {{outgoing.show}}. You're still listening to {{station.name}}.",
+      },
+      "template": "That's the end of {{outgoing.show}}. You're still listening to {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. This is Deadair (Deluxe Edition), with Sam.",
+        "template": "[[{{greeting}}. ]]This is {{station.name}}[[, with {{dj.name}}]].",
+      },
+      "template": "[[{{greeting}}. ]]This is {{station.name}}[[, with {{dj.name}}]].",
+    },
+  ],
+}
+`;
+
+exports[`the shipped pools, word for word > renders the jingle pool exactly as it always has 1`] = `
+{
+  "everything": [
+    {
+      "rendered": {
+        "opening": "You're listening to",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "You're listening to The Far Frequency.",
+        "template": "You're listening to {{station.name}}.",
+      },
+      "template": "You're listening to {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " More music, right now.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The Far Frequency. With Sam. More music, right now.",
+        "template": "{{station.name}}.[[ With {{dj.name}}.]] More music, right now.",
+      },
+      "template": "{{station.name}}.[[ With {{dj.name}}.]] More music, right now.",
+    },
+    {
+      "rendered": {
+        "opening": "This is",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "This is The Far Frequency.",
+        "template": "This is {{station.name}}.",
+      },
+      "template": "This is {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": ": all the records, none of the dead air.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The Far Frequency: all the records, none of the dead air.",
+        "template": "{{station.name}}: all the records, none of the dead air.",
+      },
+      "template": "{{station.name}}: all the records, none of the dead air.",
+    },
+    {
+      "rendered": {
+        "opening": "Stay right there.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Stay right there. The Far Frequency.",
+        "template": "Stay right there. {{station.name}}.",
+      },
+      "template": "Stay right there. {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " Here's another one.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Sam on The Far Frequency. Here's another one.",
+        "template": "[[{{dj.name}} on ]]{{station.name}}. Here's another one.",
+      },
+      "template": "[[{{dj.name}} on ]]{{station.name}}. Here's another one.",
+    },
+  ],
+  "no record coming up": [
+    {
+      "rendered": {
+        "opening": "You're listening to",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "You're listening to The Far Frequency.",
+        "template": "You're listening to {{station.name}}.",
+      },
+      "template": "You're listening to {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " More music, right now.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The Far Frequency. With Sam. More music, right now.",
+        "template": "{{station.name}}.[[ With {{dj.name}}.]] More music, right now.",
+      },
+      "template": "{{station.name}}.[[ With {{dj.name}}.]] More music, right now.",
+    },
+    {
+      "rendered": {
+        "opening": "This is",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "This is The Far Frequency.",
+        "template": "This is {{station.name}}.",
+      },
+      "template": "This is {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": ": all the records, none of the dead air.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The Far Frequency: all the records, none of the dead air.",
+        "template": "{{station.name}}: all the records, none of the dead air.",
+      },
+      "template": "{{station.name}}: all the records, none of the dead air.",
+    },
+    {
+      "rendered": {
+        "opening": "Stay right there.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Stay right there. The Far Frequency.",
+        "template": "Stay right there. {{station.name}}.",
+      },
+      "template": "Stay right there. {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " Here's another one.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Sam on The Far Frequency. Here's another one.",
+        "template": "[[{{dj.name}} on ]]{{station.name}}. Here's another one.",
+      },
+      "template": "[[{{dj.name}} on ]]{{station.name}}. Here's another one.",
+    },
+  ],
+  "no record just finished": [
+    {
+      "rendered": {
+        "opening": "You're listening to",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "You're listening to The Far Frequency.",
+        "template": "You're listening to {{station.name}}.",
+      },
+      "template": "You're listening to {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " More music, right now.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The Far Frequency. With Sam. More music, right now.",
+        "template": "{{station.name}}.[[ With {{dj.name}}.]] More music, right now.",
+      },
+      "template": "{{station.name}}.[[ With {{dj.name}}.]] More music, right now.",
+    },
+    {
+      "rendered": {
+        "opening": "This is",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "This is The Far Frequency.",
+        "template": "This is {{station.name}}.",
+      },
+      "template": "This is {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": ": all the records, none of the dead air.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The Far Frequency: all the records, none of the dead air.",
+        "template": "{{station.name}}: all the records, none of the dead air.",
+      },
+      "template": "{{station.name}}: all the records, none of the dead air.",
+    },
+    {
+      "rendered": {
+        "opening": "Stay right there.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Stay right there. The Far Frequency.",
+        "template": "Stay right there. {{station.name}}.",
+      },
+      "template": "Stay right there. {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " Here's another one.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Sam on The Far Frequency. Here's another one.",
+        "template": "[[{{dj.name}} on ]]{{station.name}}. Here's another one.",
+      },
+      "template": "[[{{dj.name}} on ]]{{station.name}}. Here's another one.",
+    },
+  ],
+  "no records at all": [
+    {
+      "rendered": {
+        "opening": "You're listening to",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "You're listening to The Far Frequency.",
+        "template": "You're listening to {{station.name}}.",
+      },
+      "template": "You're listening to {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " More music, right now.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The Far Frequency. With Sam. More music, right now.",
+        "template": "{{station.name}}.[[ With {{dj.name}}.]] More music, right now.",
+      },
+      "template": "{{station.name}}.[[ With {{dj.name}}.]] More music, right now.",
+    },
+    {
+      "rendered": {
+        "opening": "This is",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "This is The Far Frequency.",
+        "template": "This is {{station.name}}.",
+      },
+      "template": "This is {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": ": all the records, none of the dead air.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The Far Frequency: all the records, none of the dead air.",
+        "template": "{{station.name}}: all the records, none of the dead air.",
+      },
+      "template": "{{station.name}}: all the records, none of the dead air.",
+    },
+    {
+      "rendered": {
+        "opening": "Stay right there.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Stay right there. The Far Frequency.",
+        "template": "Stay right there. {{station.name}}.",
+      },
+      "template": "Stay right there. {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " Here's another one.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Sam on The Far Frequency. Here's another one.",
+        "template": "[[{{dj.name}} on ]]{{station.name}}. Here's another one.",
+      },
+      "template": "[[{{dj.name}} on ]]{{station.name}}. Here's another one.",
+    },
+  ],
+  "nothing the station writes itself": [
+    {
+      "rendered": {
+        "opening": "You're listening to",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "You're listening to The Far Frequency.",
+        "template": "You're listening to {{station.name}}.",
+      },
+      "template": "You're listening to {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " More music, right now.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The Far Frequency. More music, right now.",
+        "template": "{{station.name}}.[[ With {{dj.name}}.]] More music, right now.",
+      },
+      "template": "{{station.name}}.[[ With {{dj.name}}.]] More music, right now.",
+    },
+    {
+      "rendered": {
+        "opening": "This is",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "This is The Far Frequency.",
+        "template": "This is {{station.name}}.",
+      },
+      "template": "This is {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": ": all the records, none of the dead air.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The Far Frequency: all the records, none of the dead air.",
+        "template": "{{station.name}}: all the records, none of the dead air.",
+      },
+      "template": "{{station.name}}: all the records, none of the dead air.",
+    },
+    {
+      "rendered": {
+        "opening": "Stay right there.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Stay right there. The Far Frequency.",
+        "template": "Stay right there. {{station.name}}.",
+      },
+      "template": "Stay right there. {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " Here's another one.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The Far Frequency. Here's another one.",
+        "template": "[[{{dj.name}} on ]]{{station.name}}. Here's another one.",
+      },
+      "template": "[[{{dj.name}} on ]]{{station.name}}. Here's another one.",
+    },
+  ],
+  "values with their own punctuation and furniture": [
+    {
+      "rendered": {
+        "opening": "You're listening to",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "You're listening to Deadair (Deluxe Edition).",
+        "template": "You're listening to {{station.name}}.",
+      },
+      "template": "You're listening to {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " More music, right now.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Deadair (Deluxe Edition). With Sam. More music, right now.",
+        "template": "{{station.name}}.[[ With {{dj.name}}.]] More music, right now.",
+      },
+      "template": "{{station.name}}.[[ With {{dj.name}}.]] More music, right now.",
+    },
+    {
+      "rendered": {
+        "opening": "This is",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "This is Deadair (Deluxe Edition).",
+        "template": "This is {{station.name}}.",
+      },
+      "template": "This is {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": ": all the records, none of the dead air.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Deadair (Deluxe Edition): all the records, none of the dead air.",
+        "template": "{{station.name}}: all the records, none of the dead air.",
+      },
+      "template": "{{station.name}}: all the records, none of the dead air.",
+    },
+    {
+      "rendered": {
+        "opening": "Stay right there.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Stay right there. Deadair (Deluxe Edition).",
+        "template": "Stay right there. {{station.name}}.",
+      },
+      "template": "Stay right there. {{station.name}}.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " Here's another one.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Sam on Deadair (Deluxe Edition). Here's another one.",
+        "template": "[[{{dj.name}} on ]]{{station.name}}. Here's another one.",
+      },
+      "template": "[[{{dj.name}} on ]]{{station.name}}. Here's another one.",
+    },
+  ],
+}
+`;
+
+exports[`the shipped pools, word for word > renders the news pool exactly as it always has 1`] = `
+{
+  "everything": [
+    {
+      "rendered": {
+        "opening": "Now the news.",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Now the news. A bridge reopened. Next up, Megadeth with Hangar 18.",
+        "template": "Now the news. {{news.headlines}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "Now the news. {{news.headlines}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's the news",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Here's the news on The Far Frequency. A bridge reopened. Now, Hangar 18.",
+        "template": "Here's the news[[ on {{station.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "Here's the news[[ on {{station.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Time for the headlines. ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning. Time for the headlines. A bridge reopened. Then, Megadeth.",
+        "template": "[[{{greeting}}. ]]Time for the headlines. {{news.headlines}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Time for the headlines. {{news.headlines}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's just after nine, and this is the news on The Far Frequency. A bridge reopened.",
+        "template": "It's {{clock.rough}}, and this is the news[[ on {{station.name}}]]. {{news.headlines}}",
+      },
+      "template": "It's {{clock.rough}}, and this is the news[[ on {{station.name}}]]. {{news.headlines}}",
+    },
+    {
+      "rendered": {
+        "opening": "Now the",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Now the Technology news. A bridge reopened. Next up, Megadeth.",
+        "template": "Now the {{news.topic}} news. {{news.headlines}}[[ Next up, {{next.artist}}.]]",
+      },
+      "template": "Now the {{news.topic}} news. {{news.headlines}}[[ Next up, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's what's happening in",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Here's what's happening in Technology on The Far Frequency. A bridge reopened.",
+        "template": "Here's what's happening in {{news.topic}}[[ on {{station.name}}]]. {{news.headlines}}",
+      },
+      "template": "Here's what's happening in {{news.topic}}[[ on {{station.name}}]]. {{news.headlines}}",
+    },
+  ],
+  "no record coming up": [
+    {
+      "rendered": {
+        "opening": "Now the news.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Now the news. A bridge reopened.",
+        "template": "Now the news. {{news.headlines}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "Now the news. {{news.headlines}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's the news",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Here's the news on The Far Frequency. A bridge reopened.",
+        "template": "Here's the news[[ on {{station.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "Here's the news[[ on {{station.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Time for the headlines. ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. Time for the headlines. A bridge reopened.",
+        "template": "[[{{greeting}}. ]]Time for the headlines. {{news.headlines}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Time for the headlines. {{news.headlines}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's just after nine, and this is the news on The Far Frequency. A bridge reopened.",
+        "template": "It's {{clock.rough}}, and this is the news[[ on {{station.name}}]]. {{news.headlines}}",
+      },
+      "template": "It's {{clock.rough}}, and this is the news[[ on {{station.name}}]]. {{news.headlines}}",
+    },
+    {
+      "rendered": {
+        "opening": "Now the",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Now the Technology news. A bridge reopened.",
+        "template": "Now the {{news.topic}} news. {{news.headlines}}[[ Next up, {{next.artist}}.]]",
+      },
+      "template": "Now the {{news.topic}} news. {{news.headlines}}[[ Next up, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's what's happening in",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Here's what's happening in Technology on The Far Frequency. A bridge reopened.",
+        "template": "Here's what's happening in {{news.topic}}[[ on {{station.name}}]]. {{news.headlines}}",
+      },
+      "template": "Here's what's happening in {{news.topic}}[[ on {{station.name}}]]. {{news.headlines}}",
+    },
+  ],
+  "no record just finished": [
+    {
+      "rendered": {
+        "opening": "Now the news.",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Now the news. A bridge reopened. Next up, Megadeth with Hangar 18.",
+        "template": "Now the news. {{news.headlines}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "Now the news. {{news.headlines}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's the news",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Here's the news on The Far Frequency. A bridge reopened. Now, Hangar 18.",
+        "template": "Here's the news[[ on {{station.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "Here's the news[[ on {{station.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Time for the headlines. ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning. Time for the headlines. A bridge reopened. Then, Megadeth.",
+        "template": "[[{{greeting}}. ]]Time for the headlines. {{news.headlines}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Time for the headlines. {{news.headlines}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's just after nine, and this is the news on The Far Frequency. A bridge reopened.",
+        "template": "It's {{clock.rough}}, and this is the news[[ on {{station.name}}]]. {{news.headlines}}",
+      },
+      "template": "It's {{clock.rough}}, and this is the news[[ on {{station.name}}]]. {{news.headlines}}",
+    },
+    {
+      "rendered": {
+        "opening": "Now the",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Now the Technology news. A bridge reopened. Next up, Megadeth.",
+        "template": "Now the {{news.topic}} news. {{news.headlines}}[[ Next up, {{next.artist}}.]]",
+      },
+      "template": "Now the {{news.topic}} news. {{news.headlines}}[[ Next up, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's what's happening in",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Here's what's happening in Technology on The Far Frequency. A bridge reopened.",
+        "template": "Here's what's happening in {{news.topic}}[[ on {{station.name}}]]. {{news.headlines}}",
+      },
+      "template": "Here's what's happening in {{news.topic}}[[ on {{station.name}}]]. {{news.headlines}}",
+    },
+  ],
+  "no records at all": [
+    {
+      "rendered": {
+        "opening": "Now the news.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Now the news. A bridge reopened.",
+        "template": "Now the news. {{news.headlines}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "Now the news. {{news.headlines}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's the news",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Here's the news on The Far Frequency. A bridge reopened.",
+        "template": "Here's the news[[ on {{station.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "Here's the news[[ on {{station.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Time for the headlines. ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. Time for the headlines. A bridge reopened.",
+        "template": "[[{{greeting}}. ]]Time for the headlines. {{news.headlines}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Time for the headlines. {{news.headlines}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's just after nine, and this is the news on The Far Frequency. A bridge reopened.",
+        "template": "It's {{clock.rough}}, and this is the news[[ on {{station.name}}]]. {{news.headlines}}",
+      },
+      "template": "It's {{clock.rough}}, and this is the news[[ on {{station.name}}]]. {{news.headlines}}",
+    },
+    {
+      "rendered": {
+        "opening": "Now the",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Now the Technology news. A bridge reopened.",
+        "template": "Now the {{news.topic}} news. {{news.headlines}}[[ Next up, {{next.artist}}.]]",
+      },
+      "template": "Now the {{news.topic}} news. {{news.headlines}}[[ Next up, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's what's happening in",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Here's what's happening in Technology on The Far Frequency. A bridge reopened.",
+        "template": "Here's what's happening in {{news.topic}}[[ on {{station.name}}]]. {{news.headlines}}",
+      },
+      "template": "Here's what's happening in {{news.topic}}[[ on {{station.name}}]]. {{news.headlines}}",
+    },
+  ],
+  "nothing the station writes itself": [
+    {
+      "rendered": {
+        "opening": "Now the news.",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Now the news. A bridge reopened. Next up, Megadeth with Hangar 18.",
+        "template": "Now the news. {{news.headlines}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "Now the news. {{news.headlines}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's the news",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Here's the news on The Far Frequency. A bridge reopened. Now, Hangar 18.",
+        "template": "Here's the news[[ on {{station.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "Here's the news[[ on {{station.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Time for the headlines. ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Time for the headlines. A bridge reopened. Then, Megadeth.",
+        "template": "[[{{greeting}}. ]]Time for the headlines. {{news.headlines}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Time for the headlines. {{news.headlines}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": "not used",
+      "template": "It's {{clock.rough}}, and this is the news[[ on {{station.name}}]]. {{news.headlines}}",
+    },
+    {
+      "rendered": "not used",
+      "template": "Now the {{news.topic}} news. {{news.headlines}}[[ Next up, {{next.artist}}.]]",
+    },
+    {
+      "rendered": "not used",
+      "template": "Here's what's happening in {{news.topic}}[[ on {{station.name}}]]. {{news.headlines}}",
+    },
+  ],
+  "values with their own punctuation and furniture": [
+    {
+      "rendered": {
+        "opening": "Now the news.",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Now the news. A bridge reopened. Next up, Black Sabbath with Paranoid.",
+        "template": "Now the news. {{news.headlines}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "Now the news. {{news.headlines}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's the news",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Here's the news on Deadair (Deluxe Edition). A bridge reopened. Now, Paranoid.",
+        "template": "Here's the news[[ on {{station.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "Here's the news[[ on {{station.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Time for the headlines. ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning. Time for the headlines. A bridge reopened. Then, Black Sabbath.",
+        "template": "[[{{greeting}}. ]]Time for the headlines. {{news.headlines}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Time for the headlines. {{news.headlines}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's nearly ten, and this is the news on Deadair (Deluxe Edition). A bridge reopened.",
+        "template": "It's {{clock.rough}}, and this is the news[[ on {{station.name}}]]. {{news.headlines}}",
+      },
+      "template": "It's {{clock.rough}}, and this is the news[[ on {{station.name}}]]. {{news.headlines}}",
+    },
+    {
+      "rendered": {
+        "opening": "Now the",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Now the Technology news. A bridge reopened. Next up, Black Sabbath.",
+        "template": "Now the {{news.topic}} news. {{news.headlines}}[[ Next up, {{next.artist}}.]]",
+      },
+      "template": "Now the {{news.topic}} news. {{news.headlines}}[[ Next up, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's what's happening in",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Here's what's happening in Technology on Deadair (Deluxe Edition). A bridge reopened.",
+        "template": "Here's what's happening in {{news.topic}}[[ on {{station.name}}]]. {{news.headlines}}",
+      },
+      "template": "Here's what's happening in {{news.topic}}[[ on {{station.name}}]]. {{news.headlines}}",
+    },
+  ],
+}
+`;
+
+exports[`the shipped pools, word for word > renders the talk pool exactly as it always has 1`] = `
+{
+  "everything": [
+    {
+      "rendered": {
+        "opening": "That was",
+        "saysNext": true,
+        "saysPrevious": true,
+        "script": "That was Domination, from Pantera. Now, here's Megadeth with Hangar 18.",
+        "template": "That was {{previous.title}}, from {{previous.artist}}.[[ Now, here's {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "That was {{previous.title}}, from {{previous.artist}}.[[ Now, here's {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "You just heard",
+        "saysNext": true,
+        "saysPrevious": true,
+        "script": "You just heard Pantera, with Domination. Up next, Hangar 18 by Megadeth.",
+        "template": "You just heard {{previous.artist}}, with {{previous.title}}.[[ Up next, {{next.title}} by {{next.artist}}.]]",
+      },
+      "template": "You just heard {{previous.artist}}, with {{previous.title}}.[[ Up next, {{next.title}} by {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "This is",
+        "saysNext": true,
+        "saysPrevious": true,
+        "script": "This is The Far Frequency. Domination there, from Pantera. Coming up, Megadeth, Hangar 18.",
+        "template": "This is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "This is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Coming up next,",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Coming up next, Hangar 18, from Megadeth.",
+        "template": "Coming up next, {{next.title}}, from {{next.artist}}.",
+      },
+      "template": "Coming up next, {{next.title}}, from {{next.artist}}.",
+    },
+    {
+      "rendered": {
+        "opening": "Here's",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Here's Megadeth with Hangar 18.",
+        "template": "Here's {{next.artist}} with {{next.title}}.",
+      },
+      "template": "Here's {{next.artist}} with {{next.title}}.",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": true,
+        "saysPrevious": true,
+        "script": "It's just after nine, and this is The Far Frequency. Domination there, from Pantera. Coming up, Megadeth, Hangar 18.",
+        "template": "It's {{clock.rough}}, and this is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "It's {{clock.rough}}, and this is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+    },
+  ],
+  "no record coming up": [
+    {
+      "rendered": {
+        "opening": "That was",
+        "saysNext": false,
+        "saysPrevious": true,
+        "script": "That was Domination, from Pantera.",
+        "template": "That was {{previous.title}}, from {{previous.artist}}.[[ Now, here's {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "That was {{previous.title}}, from {{previous.artist}}.[[ Now, here's {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "You just heard",
+        "saysNext": false,
+        "saysPrevious": true,
+        "script": "You just heard Pantera, with Domination.",
+        "template": "You just heard {{previous.artist}}, with {{previous.title}}.[[ Up next, {{next.title}} by {{next.artist}}.]]",
+      },
+      "template": "You just heard {{previous.artist}}, with {{previous.title}}.[[ Up next, {{next.title}} by {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "This is",
+        "saysNext": false,
+        "saysPrevious": true,
+        "script": "This is The Far Frequency. Domination there, from Pantera.",
+        "template": "This is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "This is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+    },
+    {
+      "rendered": "not used",
+      "template": "Coming up next, {{next.title}}, from {{next.artist}}.",
+    },
+    {
+      "rendered": "not used",
+      "template": "Here's {{next.artist}} with {{next.title}}.",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": true,
+        "script": "It's just after nine, and this is The Far Frequency. Domination there, from Pantera.",
+        "template": "It's {{clock.rough}}, and this is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "It's {{clock.rough}}, and this is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+    },
+  ],
+  "no record just finished": [
+    {
+      "rendered": "not used",
+      "template": "That was {{previous.title}}, from {{previous.artist}}.[[ Now, here's {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": "not used",
+      "template": "You just heard {{previous.artist}}, with {{previous.title}}.[[ Up next, {{next.title}} by {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "This is",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "This is The Far Frequency. Coming up, Megadeth, Hangar 18.",
+        "template": "This is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "This is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Coming up next,",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Coming up next, Hangar 18, from Megadeth.",
+        "template": "Coming up next, {{next.title}}, from {{next.artist}}.",
+      },
+      "template": "Coming up next, {{next.title}}, from {{next.artist}}.",
+    },
+    {
+      "rendered": {
+        "opening": "Here's",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Here's Megadeth with Hangar 18.",
+        "template": "Here's {{next.artist}} with {{next.title}}.",
+      },
+      "template": "Here's {{next.artist}} with {{next.title}}.",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "It's just after nine, and this is The Far Frequency. Coming up, Megadeth, Hangar 18.",
+        "template": "It's {{clock.rough}}, and this is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "It's {{clock.rough}}, and this is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+    },
+  ],
+  "no records at all": [
+    {
+      "rendered": "not used",
+      "template": "That was {{previous.title}}, from {{previous.artist}}.[[ Now, here's {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": "not used",
+      "template": "You just heard {{previous.artist}}, with {{previous.title}}.[[ Up next, {{next.title}} by {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "This is",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "This is The Far Frequency.",
+        "template": "This is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "This is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+    },
+    {
+      "rendered": "not used",
+      "template": "Coming up next, {{next.title}}, from {{next.artist}}.",
+    },
+    {
+      "rendered": "not used",
+      "template": "Here's {{next.artist}} with {{next.title}}.",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's just after nine, and this is The Far Frequency.",
+        "template": "It's {{clock.rough}}, and this is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "It's {{clock.rough}}, and this is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+    },
+  ],
+  "nothing the station writes itself": [
+    {
+      "rendered": {
+        "opening": "That was",
+        "saysNext": true,
+        "saysPrevious": true,
+        "script": "That was Domination, from Pantera. Now, here's Megadeth with Hangar 18.",
+        "template": "That was {{previous.title}}, from {{previous.artist}}.[[ Now, here's {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "That was {{previous.title}}, from {{previous.artist}}.[[ Now, here's {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "You just heard",
+        "saysNext": true,
+        "saysPrevious": true,
+        "script": "You just heard Pantera, with Domination. Up next, Hangar 18 by Megadeth.",
+        "template": "You just heard {{previous.artist}}, with {{previous.title}}.[[ Up next, {{next.title}} by {{next.artist}}.]]",
+      },
+      "template": "You just heard {{previous.artist}}, with {{previous.title}}.[[ Up next, {{next.title}} by {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "This is",
+        "saysNext": true,
+        "saysPrevious": true,
+        "script": "This is The Far Frequency. Domination there, from Pantera. Coming up, Megadeth, Hangar 18.",
+        "template": "This is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "This is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Coming up next,",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Coming up next, Hangar 18, from Megadeth.",
+        "template": "Coming up next, {{next.title}}, from {{next.artist}}.",
+      },
+      "template": "Coming up next, {{next.title}}, from {{next.artist}}.",
+    },
+    {
+      "rendered": {
+        "opening": "Here's",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Here's Megadeth with Hangar 18.",
+        "template": "Here's {{next.artist}} with {{next.title}}.",
+      },
+      "template": "Here's {{next.artist}} with {{next.title}}.",
+    },
+    {
+      "rendered": "not used",
+      "template": "It's {{clock.rough}}, and this is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+    },
+  ],
+  "values with their own punctuation and furniture": [
+    {
+      "rendered": {
+        "opening": "That was",
+        "saysNext": true,
+        "saysPrevious": true,
+        "script": "That was Where Is My Mind?, from R.E.M. Now, here's Black Sabbath with Paranoid.",
+        "template": "That was {{previous.title}}, from {{previous.artist}}.[[ Now, here's {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "That was {{previous.title}}, from {{previous.artist}}.[[ Now, here's {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "You just heard",
+        "saysNext": true,
+        "saysPrevious": true,
+        "script": "You just heard R.E.M., with Where Is My Mind? Up next, Paranoid by Black Sabbath.",
+        "template": "You just heard {{previous.artist}}, with {{previous.title}}.[[ Up next, {{next.title}} by {{next.artist}}.]]",
+      },
+      "template": "You just heard {{previous.artist}}, with {{previous.title}}.[[ Up next, {{next.title}} by {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "This is",
+        "saysNext": true,
+        "saysPrevious": true,
+        "script": "This is Deadair (Deluxe Edition). Where Is My Mind? there, from R.E.M. Coming up, Black Sabbath, Paranoid.",
+        "template": "This is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "This is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Coming up next,",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Coming up next, Paranoid, from Black Sabbath.",
+        "template": "Coming up next, {{next.title}}, from {{next.artist}}.",
+      },
+      "template": "Coming up next, {{next.title}}, from {{next.artist}}.",
+    },
+    {
+      "rendered": {
+        "opening": "Here's",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Here's Black Sabbath with Paranoid.",
+        "template": "Here's {{next.artist}} with {{next.title}}.",
+      },
+      "template": "Here's {{next.artist}} with {{next.title}}.",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": true,
+        "saysPrevious": true,
+        "script": "It's nearly ten, and this is Deadair (Deluxe Edition). Where Is My Mind? there, from R.E.M. Coming up, Black Sabbath, Paranoid.",
+        "template": "It's {{clock.rough}}, and this is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "It's {{clock.rough}}, and this is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
+    },
+  ],
+}
+`;
+
+exports[`the shipped pools, word for word > renders the warmup pool exactly as it always has 1`] = `
+{
+  "everything": [
+    {
+      "rendered": {
+        "opening": "You're early",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "You're early — this is The Far Frequency. Give us a moment while the music loads.",
+        "template": "You're early[[ — this is {{station.name}}]]. Give us a moment while the music loads.",
+      },
+      "template": "You're early[[ — this is {{station.name}}]]. Give us a moment while the music loads.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Just getting the records out. Stay with us.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The Far Frequency. Just getting the records out. Stay with us.",
+        "template": "[[{{station.name}}. ]]Just getting the records out. Stay with us.",
+      },
+      "template": "[[{{station.name}}. ]]Just getting the records out. Stay with us.",
+    },
+    {
+      "rendered": {
+        "opening": "Nearly there",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Nearly there on The Far Frequency. The first track is on its way.",
+        "template": "Nearly there[[ on {{station.name}}]]. The first track is on its way.",
+      },
+      "template": "Nearly there[[ on {{station.name}}]]. The first track is on its way.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " Music in a moment.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. We're warming up here on The Far Frequency. Music in a moment.",
+        "template": "[[{{greeting}}. ]]We're warming up[[ here on {{station.name}}]]. Music in a moment.",
+      },
+      "template": "[[{{greeting}}. ]]We're warming up[[ here on {{station.name}}]]. Music in a moment.",
+    },
+  ],
+  "no record coming up": [
+    {
+      "rendered": {
+        "opening": "You're early",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "You're early — this is The Far Frequency. Give us a moment while the music loads.",
+        "template": "You're early[[ — this is {{station.name}}]]. Give us a moment while the music loads.",
+      },
+      "template": "You're early[[ — this is {{station.name}}]]. Give us a moment while the music loads.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Just getting the records out. Stay with us.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The Far Frequency. Just getting the records out. Stay with us.",
+        "template": "[[{{station.name}}. ]]Just getting the records out. Stay with us.",
+      },
+      "template": "[[{{station.name}}. ]]Just getting the records out. Stay with us.",
+    },
+    {
+      "rendered": {
+        "opening": "Nearly there",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Nearly there on The Far Frequency. The first track is on its way.",
+        "template": "Nearly there[[ on {{station.name}}]]. The first track is on its way.",
+      },
+      "template": "Nearly there[[ on {{station.name}}]]. The first track is on its way.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " Music in a moment.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. We're warming up here on The Far Frequency. Music in a moment.",
+        "template": "[[{{greeting}}. ]]We're warming up[[ here on {{station.name}}]]. Music in a moment.",
+      },
+      "template": "[[{{greeting}}. ]]We're warming up[[ here on {{station.name}}]]. Music in a moment.",
+    },
+  ],
+  "no record just finished": [
+    {
+      "rendered": {
+        "opening": "You're early",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "You're early — this is The Far Frequency. Give us a moment while the music loads.",
+        "template": "You're early[[ — this is {{station.name}}]]. Give us a moment while the music loads.",
+      },
+      "template": "You're early[[ — this is {{station.name}}]]. Give us a moment while the music loads.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Just getting the records out. Stay with us.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The Far Frequency. Just getting the records out. Stay with us.",
+        "template": "[[{{station.name}}. ]]Just getting the records out. Stay with us.",
+      },
+      "template": "[[{{station.name}}. ]]Just getting the records out. Stay with us.",
+    },
+    {
+      "rendered": {
+        "opening": "Nearly there",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Nearly there on The Far Frequency. The first track is on its way.",
+        "template": "Nearly there[[ on {{station.name}}]]. The first track is on its way.",
+      },
+      "template": "Nearly there[[ on {{station.name}}]]. The first track is on its way.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " Music in a moment.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. We're warming up here on The Far Frequency. Music in a moment.",
+        "template": "[[{{greeting}}. ]]We're warming up[[ here on {{station.name}}]]. Music in a moment.",
+      },
+      "template": "[[{{greeting}}. ]]We're warming up[[ here on {{station.name}}]]. Music in a moment.",
+    },
+  ],
+  "no records at all": [
+    {
+      "rendered": {
+        "opening": "You're early",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "You're early — this is The Far Frequency. Give us a moment while the music loads.",
+        "template": "You're early[[ — this is {{station.name}}]]. Give us a moment while the music loads.",
+      },
+      "template": "You're early[[ — this is {{station.name}}]]. Give us a moment while the music loads.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Just getting the records out. Stay with us.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The Far Frequency. Just getting the records out. Stay with us.",
+        "template": "[[{{station.name}}. ]]Just getting the records out. Stay with us.",
+      },
+      "template": "[[{{station.name}}. ]]Just getting the records out. Stay with us.",
+    },
+    {
+      "rendered": {
+        "opening": "Nearly there",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Nearly there on The Far Frequency. The first track is on its way.",
+        "template": "Nearly there[[ on {{station.name}}]]. The first track is on its way.",
+      },
+      "template": "Nearly there[[ on {{station.name}}]]. The first track is on its way.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " Music in a moment.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. We're warming up here on The Far Frequency. Music in a moment.",
+        "template": "[[{{greeting}}. ]]We're warming up[[ here on {{station.name}}]]. Music in a moment.",
+      },
+      "template": "[[{{greeting}}. ]]We're warming up[[ here on {{station.name}}]]. Music in a moment.",
+    },
+  ],
+  "nothing the station writes itself": [
+    {
+      "rendered": {
+        "opening": "You're early",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "You're early — this is The Far Frequency. Give us a moment while the music loads.",
+        "template": "You're early[[ — this is {{station.name}}]]. Give us a moment while the music loads.",
+      },
+      "template": "You're early[[ — this is {{station.name}}]]. Give us a moment while the music loads.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Just getting the records out. Stay with us.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The Far Frequency. Just getting the records out. Stay with us.",
+        "template": "[[{{station.name}}. ]]Just getting the records out. Stay with us.",
+      },
+      "template": "[[{{station.name}}. ]]Just getting the records out. Stay with us.",
+    },
+    {
+      "rendered": {
+        "opening": "Nearly there",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Nearly there on The Far Frequency. The first track is on its way.",
+        "template": "Nearly there[[ on {{station.name}}]]. The first track is on its way.",
+      },
+      "template": "Nearly there[[ on {{station.name}}]]. The first track is on its way.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " Music in a moment.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "We're warming up here on The Far Frequency. Music in a moment.",
+        "template": "[[{{greeting}}. ]]We're warming up[[ here on {{station.name}}]]. Music in a moment.",
+      },
+      "template": "[[{{greeting}}. ]]We're warming up[[ here on {{station.name}}]]. Music in a moment.",
+    },
+  ],
+  "values with their own punctuation and furniture": [
+    {
+      "rendered": {
+        "opening": "You're early",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "You're early — this is Deadair (Deluxe Edition). Give us a moment while the music loads.",
+        "template": "You're early[[ — this is {{station.name}}]]. Give us a moment while the music loads.",
+      },
+      "template": "You're early[[ — this is {{station.name}}]]. Give us a moment while the music loads.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Just getting the records out. Stay with us.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Deadair (Deluxe Edition). Just getting the records out. Stay with us.",
+        "template": "[[{{station.name}}. ]]Just getting the records out. Stay with us.",
+      },
+      "template": "[[{{station.name}}. ]]Just getting the records out. Stay with us.",
+    },
+    {
+      "rendered": {
+        "opening": "Nearly there",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Nearly there on Deadair (Deluxe Edition). The first track is on its way.",
+        "template": "Nearly there[[ on {{station.name}}]]. The first track is on its way.",
+      },
+      "template": "Nearly there[[ on {{station.name}}]]. The first track is on its way.",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": " Music in a moment.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. We're warming up here on Deadair (Deluxe Edition). Music in a moment.",
+        "template": "[[{{greeting}}. ]]We're warming up[[ here on {{station.name}}]]. Music in a moment.",
+      },
+      "template": "[[{{greeting}}. ]]We're warming up[[ here on {{station.name}}]]. Music in a moment.",
+    },
+  ],
+}
+`;
+
+exports[`the shipped pools, word for word > renders the weather pool exactly as it always has 1`] = `
+{
+  "everything": [
+    {
+      "rendered": {
+        "opening": "And now the weather.",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "And now the weather. Rain later. Next up, Megadeth with Hangar 18.",
+        "template": "And now the weather. {{weather.report}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "And now the weather. {{weather.report}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's the weather",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Here's the weather on The Far Frequency. Rain later. Now, Hangar 18.",
+        "template": "Here's the weather[[ on {{station.name}}]]. {{weather.report}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "Here's the weather[[ on {{station.name}}]]. {{weather.report}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Time for the forecast. ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning. Time for the forecast. Rain later. Then, Megadeth.",
+        "template": "[[{{greeting}}. ]]Time for the forecast. {{weather.report}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Time for the forecast. {{weather.report}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's just after nine on The Far Frequency. Rain later.",
+        "template": "It's {{clock.rough}}[[ on {{station.name}}]]. {{weather.report}}",
+      },
+      "template": "It's {{clock.rough}}[[ on {{station.name}}]]. {{weather.report}}",
+    },
+    {
+      "rendered": {
+        "opening": "The weather in",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "The weather in Atlanta now. Rain later. Then, Hangar 18.",
+        "template": "The weather in {{weather.place}} now. {{weather.report}}[[ Then, {{next.title}}.]]",
+      },
+      "template": "The weather in {{weather.place}} now. {{weather.report}}[[ Then, {{next.title}}.]]",
+    },
+  ],
+  "no record coming up": [
+    {
+      "rendered": {
+        "opening": "And now the weather.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "And now the weather. Rain later.",
+        "template": "And now the weather. {{weather.report}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "And now the weather. {{weather.report}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's the weather",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Here's the weather on The Far Frequency. Rain later.",
+        "template": "Here's the weather[[ on {{station.name}}]]. {{weather.report}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "Here's the weather[[ on {{station.name}}]]. {{weather.report}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Time for the forecast. ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. Time for the forecast. Rain later.",
+        "template": "[[{{greeting}}. ]]Time for the forecast. {{weather.report}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Time for the forecast. {{weather.report}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's just after nine on The Far Frequency. Rain later.",
+        "template": "It's {{clock.rough}}[[ on {{station.name}}]]. {{weather.report}}",
+      },
+      "template": "It's {{clock.rough}}[[ on {{station.name}}]]. {{weather.report}}",
+    },
+    {
+      "rendered": {
+        "opening": "The weather in",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The weather in Atlanta now. Rain later.",
+        "template": "The weather in {{weather.place}} now. {{weather.report}}[[ Then, {{next.title}}.]]",
+      },
+      "template": "The weather in {{weather.place}} now. {{weather.report}}[[ Then, {{next.title}}.]]",
+    },
+  ],
+  "no record just finished": [
+    {
+      "rendered": {
+        "opening": "And now the weather.",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "And now the weather. Rain later. Next up, Megadeth with Hangar 18.",
+        "template": "And now the weather. {{weather.report}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "And now the weather. {{weather.report}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's the weather",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Here's the weather on The Far Frequency. Rain later. Now, Hangar 18.",
+        "template": "Here's the weather[[ on {{station.name}}]]. {{weather.report}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "Here's the weather[[ on {{station.name}}]]. {{weather.report}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Time for the forecast. ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning. Time for the forecast. Rain later. Then, Megadeth.",
+        "template": "[[{{greeting}}. ]]Time for the forecast. {{weather.report}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Time for the forecast. {{weather.report}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's just after nine on The Far Frequency. Rain later.",
+        "template": "It's {{clock.rough}}[[ on {{station.name}}]]. {{weather.report}}",
+      },
+      "template": "It's {{clock.rough}}[[ on {{station.name}}]]. {{weather.report}}",
+    },
+    {
+      "rendered": {
+        "opening": "The weather in",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "The weather in Atlanta now. Rain later. Then, Hangar 18.",
+        "template": "The weather in {{weather.place}} now. {{weather.report}}[[ Then, {{next.title}}.]]",
+      },
+      "template": "The weather in {{weather.place}} now. {{weather.report}}[[ Then, {{next.title}}.]]",
+    },
+  ],
+  "no records at all": [
+    {
+      "rendered": {
+        "opening": "And now the weather.",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "And now the weather. Rain later.",
+        "template": "And now the weather. {{weather.report}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "And now the weather. {{weather.report}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's the weather",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Here's the weather on The Far Frequency. Rain later.",
+        "template": "Here's the weather[[ on {{station.name}}]]. {{weather.report}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "Here's the weather[[ on {{station.name}}]]. {{weather.report}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Time for the forecast. ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. Time for the forecast. Rain later.",
+        "template": "[[{{greeting}}. ]]Time for the forecast. {{weather.report}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Time for the forecast. {{weather.report}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's just after nine on The Far Frequency. Rain later.",
+        "template": "It's {{clock.rough}}[[ on {{station.name}}]]. {{weather.report}}",
+      },
+      "template": "It's {{clock.rough}}[[ on {{station.name}}]]. {{weather.report}}",
+    },
+    {
+      "rendered": {
+        "opening": "The weather in",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "The weather in Atlanta now. Rain later.",
+        "template": "The weather in {{weather.place}} now. {{weather.report}}[[ Then, {{next.title}}.]]",
+      },
+      "template": "The weather in {{weather.place}} now. {{weather.report}}[[ Then, {{next.title}}.]]",
+    },
+  ],
+  "nothing the station writes itself": [
+    {
+      "rendered": {
+        "opening": "And now the weather.",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "And now the weather. Rain later. Next up, Megadeth with Hangar 18.",
+        "template": "And now the weather. {{weather.report}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "And now the weather. {{weather.report}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's the weather",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Here's the weather on The Far Frequency. Rain later. Now, Hangar 18.",
+        "template": "Here's the weather[[ on {{station.name}}]]. {{weather.report}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "Here's the weather[[ on {{station.name}}]]. {{weather.report}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Time for the forecast. ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Time for the forecast. Rain later. Then, Megadeth.",
+        "template": "[[{{greeting}}. ]]Time for the forecast. {{weather.report}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Time for the forecast. {{weather.report}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": "not used",
+      "template": "It's {{clock.rough}}[[ on {{station.name}}]]. {{weather.report}}",
+    },
+    {
+      "rendered": {
+        "opening": "The weather in",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "The weather in Atlanta now. Rain later. Then, Hangar 18.",
+        "template": "The weather in {{weather.place}} now. {{weather.report}}[[ Then, {{next.title}}.]]",
+      },
+      "template": "The weather in {{weather.place}} now. {{weather.report}}[[ Then, {{next.title}}.]]",
+    },
+  ],
+  "values with their own punctuation and furniture": [
+    {
+      "rendered": {
+        "opening": "And now the weather.",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "And now the weather. Rain later. Next up, Black Sabbath with Paranoid.",
+        "template": "And now the weather. {{weather.report}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "And now the weather. {{weather.report}}[[ Next up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "Here's the weather",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Here's the weather on Deadair (Deluxe Edition). Rain later. Now, Paranoid.",
+        "template": "Here's the weather[[ on {{station.name}}]]. {{weather.report}}[[ Now, {{next.title}}.]]",
+      },
+      "template": "Here's the weather[[ on {{station.name}}]]. {{weather.report}}[[ Now, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Time for the forecast. ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning. Time for the forecast. Rain later. Then, Black Sabbath.",
+        "template": "[[{{greeting}}. ]]Time for the forecast. {{weather.report}}[[ Then, {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Time for the forecast. {{weather.report}}[[ Then, {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "It's",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "It's nearly ten on Deadair (Deluxe Edition). Rain later.",
+        "template": "It's {{clock.rough}}[[ on {{station.name}}]]. {{weather.report}}",
+      },
+      "template": "It's {{clock.rough}}[[ on {{station.name}}]]. {{weather.report}}",
+    },
+    {
+      "rendered": {
+        "opening": "The weather in",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "The weather in Atlanta now. Rain later. Then, Paranoid.",
+        "template": "The weather in {{weather.place}} now. {{weather.report}}[[ Then, {{next.title}}.]]",
+      },
+      "template": "The weather in {{weather.place}} now. {{weather.report}}[[ Then, {{next.title}}.]]",
+    },
+  ],
+}
+`;
+
+exports[`the shipped pools, word for word > renders the welcome pool exactly as it always has 1`] = `
+{
+  "everything": [
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "you're listening to ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning, and you're listening to The Far Frequency. Coming up, Megadeth with Hangar 18.",
+        "template": "[[{{greeting}}, and ]]you're listening to {{station.name}}.[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "[[{{greeting}}, and ]]you're listening to {{station.name}}.[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning. This is The Far Frequency. Next up, Hangar 18, from Megadeth.",
+        "template": "[[{{greeting}}. ]]This is {{station.name}}.[[ Next up, {{next.title}}, from {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]This is {{station.name}}.[[ Next up, {{next.title}}, from {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Thanks for joining us on ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning. Thanks for joining us on The Far Frequency. Here's Megadeth, Hangar 18.",
+        "template": "[[{{greeting}}. ]]Thanks for joining us on {{station.name}}.[[ Here's {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Thanks for joining us on {{station.name}}.[[ Here's {{next.artist}}, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "You just caught",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "You just caught The Far Frequency with Sam. Coming up, Hangar 18.",
+        "template": "You just caught {{station.name}}[[ with {{dj.name}}]].[[ Coming up, {{next.title}}.]]",
+      },
+      "template": "You just caught {{station.name}}[[ with {{dj.name}}]].[[ Coming up, {{next.title}}.]]",
+    },
+  ],
+  "no record coming up": [
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "you're listening to ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning, and you're listening to The Far Frequency.",
+        "template": "[[{{greeting}}, and ]]you're listening to {{station.name}}.[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "[[{{greeting}}, and ]]you're listening to {{station.name}}.[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. This is The Far Frequency.",
+        "template": "[[{{greeting}}. ]]This is {{station.name}}.[[ Next up, {{next.title}}, from {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]This is {{station.name}}.[[ Next up, {{next.title}}, from {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Thanks for joining us on ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. Thanks for joining us on The Far Frequency.",
+        "template": "[[{{greeting}}. ]]Thanks for joining us on {{station.name}}.[[ Here's {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Thanks for joining us on {{station.name}}.[[ Here's {{next.artist}}, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "You just caught",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "You just caught The Far Frequency with Sam.",
+        "template": "You just caught {{station.name}}[[ with {{dj.name}}]].[[ Coming up, {{next.title}}.]]",
+      },
+      "template": "You just caught {{station.name}}[[ with {{dj.name}}]].[[ Coming up, {{next.title}}.]]",
+    },
+  ],
+  "no record just finished": [
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "you're listening to ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning, and you're listening to The Far Frequency. Coming up, Megadeth with Hangar 18.",
+        "template": "[[{{greeting}}, and ]]you're listening to {{station.name}}.[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "[[{{greeting}}, and ]]you're listening to {{station.name}}.[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning. This is The Far Frequency. Next up, Hangar 18, from Megadeth.",
+        "template": "[[{{greeting}}. ]]This is {{station.name}}.[[ Next up, {{next.title}}, from {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]This is {{station.name}}.[[ Next up, {{next.title}}, from {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Thanks for joining us on ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning. Thanks for joining us on The Far Frequency. Here's Megadeth, Hangar 18.",
+        "template": "[[{{greeting}}. ]]Thanks for joining us on {{station.name}}.[[ Here's {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Thanks for joining us on {{station.name}}.[[ Here's {{next.artist}}, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "You just caught",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "You just caught The Far Frequency with Sam. Coming up, Hangar 18.",
+        "template": "You just caught {{station.name}}[[ with {{dj.name}}]].[[ Coming up, {{next.title}}.]]",
+      },
+      "template": "You just caught {{station.name}}[[ with {{dj.name}}]].[[ Coming up, {{next.title}}.]]",
+    },
+  ],
+  "no records at all": [
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "you're listening to ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning, and you're listening to The Far Frequency.",
+        "template": "[[{{greeting}}, and ]]you're listening to {{station.name}}.[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "[[{{greeting}}, and ]]you're listening to {{station.name}}.[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. This is The Far Frequency.",
+        "template": "[[{{greeting}}. ]]This is {{station.name}}.[[ Next up, {{next.title}}, from {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]This is {{station.name}}.[[ Next up, {{next.title}}, from {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Thanks for joining us on ",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "Good morning. Thanks for joining us on The Far Frequency.",
+        "template": "[[{{greeting}}. ]]Thanks for joining us on {{station.name}}.[[ Here's {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Thanks for joining us on {{station.name}}.[[ Here's {{next.artist}}, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "You just caught",
+        "saysNext": false,
+        "saysPrevious": false,
+        "script": "You just caught The Far Frequency with Sam.",
+        "template": "You just caught {{station.name}}[[ with {{dj.name}}]].[[ Coming up, {{next.title}}.]]",
+      },
+      "template": "You just caught {{station.name}}[[ with {{dj.name}}]].[[ Coming up, {{next.title}}.]]",
+    },
+  ],
+  "nothing the station writes itself": [
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "you're listening to ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "you're listening to The Far Frequency. Coming up, Megadeth with Hangar 18.",
+        "template": "[[{{greeting}}, and ]]you're listening to {{station.name}}.[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "[[{{greeting}}, and ]]you're listening to {{station.name}}.[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "This is The Far Frequency. Next up, Hangar 18, from Megadeth.",
+        "template": "[[{{greeting}}. ]]This is {{station.name}}.[[ Next up, {{next.title}}, from {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]This is {{station.name}}.[[ Next up, {{next.title}}, from {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Thanks for joining us on ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Thanks for joining us on The Far Frequency. Here's Megadeth, Hangar 18.",
+        "template": "[[{{greeting}}. ]]Thanks for joining us on {{station.name}}.[[ Here's {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Thanks for joining us on {{station.name}}.[[ Here's {{next.artist}}, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "You just caught",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "You just caught The Far Frequency. Coming up, Hangar 18.",
+        "template": "You just caught {{station.name}}[[ with {{dj.name}}]].[[ Coming up, {{next.title}}.]]",
+      },
+      "template": "You just caught {{station.name}}[[ with {{dj.name}}]].[[ Coming up, {{next.title}}.]]",
+    },
+  ],
+  "values with their own punctuation and furniture": [
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "you're listening to ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning, and you're listening to Deadair (Deluxe Edition). Coming up, Black Sabbath with Paranoid.",
+        "template": "[[{{greeting}}, and ]]you're listening to {{station.name}}.[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+      },
+      "template": "[[{{greeting}}, and ]]you're listening to {{station.name}}.[[ Coming up, {{next.artist}} with {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "This is ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning. This is Deadair (Deluxe Edition). Next up, Paranoid, from Black Sabbath.",
+        "template": "[[{{greeting}}. ]]This is {{station.name}}.[[ Next up, {{next.title}}, from {{next.artist}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]This is {{station.name}}.[[ Next up, {{next.title}}, from {{next.artist}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "",
+        "refrain": "Thanks for joining us on ",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "Good morning. Thanks for joining us on Deadair (Deluxe Edition). Here's Black Sabbath, Paranoid.",
+        "template": "[[{{greeting}}. ]]Thanks for joining us on {{station.name}}.[[ Here's {{next.artist}}, {{next.title}}.]]",
+      },
+      "template": "[[{{greeting}}. ]]Thanks for joining us on {{station.name}}.[[ Here's {{next.artist}}, {{next.title}}.]]",
+    },
+    {
+      "rendered": {
+        "opening": "You just caught",
+        "saysNext": true,
+        "saysPrevious": false,
+        "script": "You just caught Deadair (Deluxe Edition) with Sam. Coming up, Paranoid.",
+        "template": "You just caught {{station.name}}[[ with {{dj.name}}]].[[ Coming up, {{next.title}}.]]",
+      },
+      "template": "You just caught {{station.name}}[[ with {{dj.name}}]].[[ Coming up, {{next.title}}.]]",
+    },
+  ],
+}
+`;

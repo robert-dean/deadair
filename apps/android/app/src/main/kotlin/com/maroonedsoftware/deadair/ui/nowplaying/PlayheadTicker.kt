@@ -25,15 +25,19 @@ import kotlinx.coroutines.delay
  * still running against an alpha of zero, which is the one case where the cost buys nothing at all.
  * The projection is recomputed the moment it starts again, so waking the screen shows the bar where
  * it should be rather than where it was left.
+ *
+ * [fast] is whether the words are on screen. A word lasts a few hundred milliseconds, so lighting it
+ * on a half-second tick lands it late or skips it; a tenth of a second keeps up. Only while the
+ * lyrics are open, because nothing else on the screen moves finely enough to need it.
  */
 @Composable
-fun rememberPlayhead(reading: Reading?, ticking: Boolean = true): Playhead? {
+fun rememberPlayhead(reading: Reading?, ticking: Boolean = true, fast: Boolean = false): Playhead? {
     var now by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
 
-    LaunchedEffect(reading, ticking) {
+    LaunchedEffect(reading, ticking, fast) {
         while (ticking) {
             now = SystemClock.elapsedRealtime()
-            delay(TICK_MS)
+            delay(if (fast) LYRIC_TICK_MS else TICK_MS)
         }
     }
 
@@ -41,3 +45,5 @@ fun rememberPlayhead(reading: Reading?, ticking: Boolean = true): Playhead? {
 }
 
 private const val TICK_MS = 500L
+
+private const val LYRIC_TICK_MS = 100L

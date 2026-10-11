@@ -1,4 +1,6 @@
 import AVFoundation
+import AVKit
+import DeadairCore
 import Network
 import SwiftUI
 import UIKit
@@ -15,13 +17,14 @@ enum Platform {
     private static let audioSessionQueue = DispatchQueue(label: "com.maroonedsoftware.deadair.audio-session")
 
     /// Claim audio output for playback, the way a music app does: other audio stops, and the
-    /// silent switch does not mute the station.
+    /// silent switch does not mute the station. The long-form policy is what puts AirPlay 2 speakers in
+    /// the route picker, and lets the station go on playing on one while the phone does something else.
     ///
     /// The category is set before this returns, so a player that starts before the activation
     /// lands activates the session itself under `.playback` rather than under the default category,
     /// which the silent switch mutes.
     static func activateAudio() {
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, policy: .longFormAudio)
         audioSessionQueue.async {
             try? AVAudioSession.sharedInstance().setActive(true)
         }
@@ -40,8 +43,9 @@ enum Platform {
         case interrupted
         /// It gave the audio back, and says whether playing again is expected.
         case interruptionEnded(shouldResume: Bool)
-        /// The headphones came out, or the Bluetooth device went away.
-        case outputLost
+        /// The route moved: an output went away (headphones out, a speaker gone), or the listener
+        /// chose another one. `routeChangeStops` decides which of those stops the station.
+        case routeChanged(AudioRouteChange, previous: [AudioOutput], current: [AudioOutput])
         /// The media server restarted, and every player built before it is dead.
         case reset
     }
@@ -65,13 +69,36 @@ enum Platform {
             },
             centre.addObserver(forName: AVAudioSession.routeChangeNotification, object: session, queue: .main) { note in
                 let reason = (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt).flatMap(AVAudioSession.RouteChangeReason.init(rawValue:))
-                guard reason == .oldDeviceUnavailable else { return }
-                MainActor.assumeIsolated { handle(.outputLost) }
+                let previous = (note.userInfo?[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription).map(outputs) ?? []
+                let change: AudioRouteChange = reason == .oldDeviceUnavailable ? .outputGone : .other
+                MainActor.assumeIsolated { handle(.routeChanged(change, previous: previous, current: currentOutputs())) }
             },
             centre.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: session, queue: .main) { _ in
                 MainActor.assumeIsolated { handle(.reset) }
             },
         ]
+    }
+
+    /// Where the sound is going now.
+    static func currentOutputs() -> [AudioOutput] {
+        outputs(AVAudioSession.sharedInstance().currentRoute)
+    }
+
+    private static func outputs(_ route: AVAudioSessionRouteDescription) -> [AudioOutput] {
+        route.outputs.map { port in
+            let kind: AudioOutput.Kind = switch port.portType {
+            case .builtInSpeaker: .builtInSpeaker
+            case .builtInReceiver: .builtInReceiver
+            case .headphones, .lineOut: .headphones
+            case .bluetoothA2DP, .bluetoothLE, .bluetoothHFP: .bluetooth
+            case .airPlay: .airPlay
+            case .carAudio: .carAudio
+            case .usbAudio: .usb
+            case .HDMI: .hdmi
+            default: .other
+            }
+            return AudioOutput(kind: kind, name: port.portName)
+        }
     }
 
     /// Report the phone's network, on the main actor, for as long as the returned monitor is kept:
@@ -118,6 +145,30 @@ enum Platform {
             UIApplication.shared.endBackgroundTask(identifier)
             identifier = .invalid
         }
+    }
+}
+
+/// The system's own route picker, the AirPlay button: a press opens the sheet listing the phone, AirPlay
+/// speakers and Bluetooth devices, and choosing one moves this app's audio there. It moves the one
+/// player, so the station keeps one listener rather than gaining a second.
+struct RoutePicker: UIViewRepresentable {
+    /// The colour of the button at rest, and while the sound is somewhere other than the phone.
+    var tint: Color
+
+    func makeUIView(context: Context) -> AVRoutePickerView {
+        let picker = AVRoutePickerView()
+        picker.prioritizesVideoDevices = false
+        return picker
+    }
+
+    func updateUIView(_ picker: AVRoutePickerView, context: Context) {
+        picker.tintColor = UIColor(tint).withAlphaComponent(0.7)
+        picker.activeTintColor = UIColor(tint)
+        // VoiceOver reads the button inside the view, not the view, and the system's own label is a
+        // product name rather than what pressing it does.
+        let label = String(localized: "Choose where the station plays")
+        picker.accessibilityLabel = label
+        for case let button as UIButton in picker.subviews { button.accessibilityLabel = label }
     }
 }
 
@@ -186,6 +237,22 @@ extension Platform {
             .sorted { $0.count > $1.count }
             .prefix(count)
             .map { UInt32($0.r / $0.count) << 16 | UInt32($0.g / $0.count) << 8 | UInt32($0.b / $0.count) }
+    }
+}
+
+extension Platform {
+    /// A cover made small enough for the widget and the Live Activity to read off disk: 240 pixels
+    /// on its longer side, as a JPEG.
+    ///
+    /// The extension that draws them runs in a few tens of megabytes, and a full-size cover decoded
+    /// there is a widget that silently draws nothing. Shrunk here, once per record, by the app.
+    static func widgetCover(_ image: PlatformImage, side: CGFloat = 240) -> Data? {
+        let scale = min(1, side / max(image.size.width, image.size.height, 1))
+        let size = CGSize(width: (image.size.width * scale).rounded(), height: (image.size.height * scale).rounded())
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let small = UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+        return small.jpegData(compressionQuality: 0.8)
     }
 }
 

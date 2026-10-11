@@ -14,6 +14,25 @@ internal sealed class DispatcherTicker(TimeSpan interval, Action tick)
 {
     private DispatcherTimer? _timer;
 
+    /// <summary>How often it ticks. Changing it while running takes effect from the next tick.</summary>
+    public TimeSpan Interval
+    {
+        get => interval;
+        set
+        {
+            if (value == interval)
+            {
+                return;
+            }
+
+            interval = value;
+            if (_timer is not null)
+            {
+                _timer.Interval = value;
+            }
+        }
+    }
+
     public void Start()
     {
         if (_timer is not null)

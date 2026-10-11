@@ -321,3 +321,13 @@ every turn is
 somebody who tells the same anecdote three times in four minutes. `PLAIN_KINDS` withholds both
 from a
 production an operator called news or a bulletin, on `showsFacts`' argument one source further out.
+
+**A beat whose model THROWS still leaves its row.** It used to leave none: the throw went straight to
+the pass's catch and failed the production, so a beat that had spent a generation and then hit a
+provider error cost tokens nothing recorded, and `/scripts` showed a failed programme with no attempt
+behind it. `askRecordingFailure` writes one `failed` row first, worded as a break's thrown writer is
+(`the model writer failed: …`), with the speaker's key, the prompt only while `llm.captureWrites` is
+on, and `usage` from `usageSpentBefore` when the conversation had finished a billed step. That figure
+is a floor: the failing generation's own tokens are never known (see `llm.md`). The throw is rethrown
+untouched, so the production still fails exactly as before. A preempted ask still leaves no row,
+since nothing was said and a row would blame the model.

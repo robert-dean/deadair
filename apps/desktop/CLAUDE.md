@@ -397,11 +397,16 @@ dispose, which is the request that stops the speaker, never ran. The disposal no
 lifetime's `Exit` event, on the pool, waited for with a five-second bound (`App.ReleaseOnExit`).
 Measured that `Exit` runs on a menu quit; NOT yet measured against a speaker that was playing.
 
-**The bar shows the speaker as an ICON and not a name.** The first version drew the name, capped at
-96px, and the 820px frame settled it: the bar is already full at its minimum width and the caption
-pushed the expand button off the end. The icon takes the accent when the station is playing
-elsewhere, which is the one fact somebody sitting at this machine cannot get by listening; which
-speaker is a tooltip away and a click away.
+**The window names the speaker, in a strip across its top; the bar still shows only the icon.** This
+used to say the speaker was an icon and a tooltip and never a name. That answered the bar's problem
+(full at its 820px minimum, where a caption pushed the expand button off the end) and left a worse one:
+somebody across the room from the screen could see that the sound had gone somewhere, never where,
+without walking over to hover. So while `OnDevice` is set a thin accent strip under the title row reads
+"Playing on <name>" (`PlayingOnStrip`, tested in Core), and a click on it opens the same
+`OutputPicker` the bar's button does, which is also what makes the picker rescan. The strip says nothing
+on its own and never moves playback; a speaker missing from the last scan is still named, with
+"which is not on the network" after it. The bar's icon is unchanged and still takes the accent. Frames:
+`shell-playing-on` and `shell-playing-on-missing-min`.
 
 **The system's now-playing widget is unchanged, and `Pause == Stop` now reads "or tell the device to
 drop it".** Two things here are unmeasured: whether macOS keeps a Now Playing entry for an app that
@@ -511,6 +516,24 @@ reading in effect with when the listener hears it (read at plus the lead), `Appl
 `now` fall before its anchor: clamping that gap held the bar still for the lead after every reading,
 which on a three-second poll is a bar that never moves. The price is that a wall clock corrected
 backwards can step the bar back until the next reading re-anchors it, a few seconds at most.
+
+**The words follow the HELD reading too** (`Core/NowPlaying/Lyrics`, the Android and iOS rules
+ported case for case). `GET /nowplaying/lyrics` is read once per airing, keyed on the held track's
+`startedAt` as `ItemKey` is, and only while signed in, since the route is `platform.view`;
+`ShellViewModel.ApplySession` says which through `SetSignedIn`. The old answer is kept while the next
+loads, because `Lyrics.State` already refuses one whose `startedAt` is not the heard record's, and
+clearing it would only flicker the section. A line's `atMs` is on the FILE's timeline, so the position
+is `(cueOutMs ?? durationMs) - remaining`, with remaining derived from the playhead's ELAPSED, and the
+half-second `Tick` re-lights it; never the wall clock since `startedAt`
+(`docs/internals/breaks.md`). A failed read is no words, said in the log and nowhere else. The panel
+draws them under the record, foldable for the session: timed lines in their own 200-unit column,
+scrolled so the sung line sits two below the top (`Controls/LyricColumn`, which jumps on a new song
+and glides after), plain words whole. A line whose source timed its words lights word by word
+(`Lyrics.CurrentWord` and `SungLength`): the sung part in the accent over a blurred copy of itself
+for the glow, and the tick drops to 100ms while such words are showing (`LyricsViewModel.FollowsWords`)
+and goes back to 500ms otherwise. A line with no word timings is drawn exactly as before. The
+`shell-desk-lyrics` and `studio-lyrics` frames in `tools/Shots` pose them with words written for the
+purpose, never a real song's, with the lit line sung as far as its fourth word.
 
 **A failed poll keeps the last good reading and marks it stale.** Blanking a screen because one
 request timed out throws away something true and still useful. It is the station's own rule read from
@@ -963,9 +986,18 @@ the bar's TV button, the Window menu's Studio, or F, and it is left by its close
   decides again every five seconds; leaving Studio, stopping and quitting (the container disposes it)
   each let the display go. The IOKit half was checked on 2026-10-11 with `pmset -g assertions`, which
   listed the assertion by name while held and not after.
-- **The close and play buttons fade after three seconds of a still pointer**, and the pointer goes
+- **The close, play and lyrics buttons fade after three seconds of a still pointer**, and the pointer goes
   with them; they are not pressable while faded, so the first click after a rest wakes them rather
   than pressing a button nobody could see. A pointer resting on a button keeps them up.
+- **The lyrics button swaps the cover for the words** (`Listener.Lyrics`, the same `LyricsViewModel`
+  the Now playing panel draws). It sits beside play, in a column of its own so play stays centred,
+  and is drawn only while Core's `Lyrics.State` is not Hidden. The words take the cover's height and
+  640 units of width, so nothing under them moves, in `Controls/LyricColumn` at a size that follows
+  the cover's container queries. The two trade places with a 0.3 second cross-fade on `Opacity`, not
+  `IsVisible`, so the one leaving is still drawn while it goes; a 3D flip was judged not worth it in
+  Avalonia. The choice lasts the session and is not saved, and it gives way to the cover by itself
+  whenever there are no words (a break, an instrumental, the next airing before its answer), and
+  comes back with them. It has no key, for the reason below.
 - **Its keys are in `MainWindow.OnKeyDown`, never menu key equivalents**, for the reason Space is
   there: AppKit offers every keypress to the menu first, so a bare F on the Window menu's Studio would
   take F from every text box. While Studio is up the window keeps Space, F and Escape and lends no

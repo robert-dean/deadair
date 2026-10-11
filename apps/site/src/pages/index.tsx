@@ -55,7 +55,7 @@ const sources = [
     'US National Weather Service',
     'OpenWeatherMap',
 ];
-const providers = ['Spotify', 'YouTube Music', 'Navidrome', 'Any Subsonic server', 'Jellyfin', 'Plex'];
+const providers = ['Spotify', 'YouTube Music', 'Navidrome', 'Any Subsonic server', 'Jellyfin', 'Emby', 'Plex'];
 
 /** The three images, as the install guide lists them. */
 const tags = [

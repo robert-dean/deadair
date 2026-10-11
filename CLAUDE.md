@@ -128,7 +128,7 @@ apps/streamdeck   the Elgato Stream Deck plugin (TypeScript, on packages/sdk): N
                   suite, with a CI job and a release unit of its own. Never in the image
 packages/error-codes  shared error code constants
 packages/config-*     shared eslint / tsconfig
-plugins/*             bundled plugins: spotify, navidrome, jellyfin, plex, ytmusic (YouTube Music; the audio
+plugins/*             bundled plugins: spotify, navidrome, jellyfin, emby, plex, ytmusic (YouTube Music; the audio
                       resolves signed out through ytaudio/), apple-music (searchable with no
                       developer key at all; its audio is CAPTURED from Apple's own web player by
                       stream/apple-player), pandora (unofficial, US only; airs records with Premium,

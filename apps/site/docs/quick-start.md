@@ -12,7 +12,7 @@ here is hard to change later, and [Install](./install.md) is the page that cover
 one skips.
 
 You need Docker, a machine to run it on, and either a Spotify account (Premium, because the station
-fetches audio) or a media server of your own: Navidrome or another Subsonic server, Jellyfin, or Plex.
+fetches audio) or a media server of your own: Navidrome or another Subsonic server, Jellyfin, Emby, or Plex.
 
 ## 1. Start it
 
@@ -74,6 +74,9 @@ server's address and an account on it. There is one authorization and no browser
 
 **On Jellyfin**, enable the Jellyfin plugin and give it the server's address, an API key made under
 **API Keys** in Jellyfin's dashboard, and the Jellyfin user to read the library as.
+
+**On Emby**, the same three things for the Emby plugin: the server's address, an API key made in
+Emby's server settings under **Advanced → API Keys**, and the Emby user to read the library as.
 
 **On Plex**, enable the Plex plugin and give it the address of the server itself
 (`http://your-server:32400`) and your Plex token. In Plex Web, running

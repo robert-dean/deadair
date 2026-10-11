@@ -314,6 +314,38 @@ function addUsage(total: LlmUsage, step: LlmUsage | undefined): void {
 }
 
 /**
+ * What a conversation had spent before it threw, keyed by the error it threw.
+ *
+ * Beside the error rather than wrapped around it, deliberately. Every caller of `converse` already
+ * reads a failure by what it IS: the break registry keeps `isPluginError(error) ? error.code`, fact
+ * extraction backs off on a `timeout` code, and every log line quotes the message. A wrapper class
+ * would have to copy all of that and still change the error's identity, and the first catch site
+ * that missed a field would start classifying a gate timeout as a writer bug. A side table changes
+ * nothing about the error and lets the one reader that wants the spend ask for it.
+ */
+const spentBeforeFailing = new WeakMap<object, LlmUsage>();
+
+/**
+ * The tokens a conversation had already spent when it threw `error`, or nothing when no finished
+ * step reported any (or `error` did not come out of a conversation at all).
+ *
+ * A FLOOR, never the whole bill: it sums the steps that came back, and the generation that failed
+ * is not among them. One that was abandoned mid-stream was cancelled without a result, so whatever
+ * the provider counted for it is never known here. A conversation that failed on its first step
+ * therefore answers nothing rather than zero, because zero would be a claim.
+ */
+export function usageSpentBefore(error: unknown): LlmUsage | undefined {
+    if (typeof error !== 'object' || error === null) return undefined;
+    return spentBeforeFailing.get(error);
+}
+
+/** Note what a conversation had spent on the error it is about to throw, and hand the error back. */
+function spending(error: unknown, usage: LlmUsage): unknown {
+    if (typeof error === 'object' && error !== null && Object.keys(usage).length > 0) spentBeforeFailing.set(error, { ...usage });
+    return error;
+}
+
+/**
  * Asking a model for words.
  *
  * The one place that knows how, so everything downstream (a break writer, a set generator, a show)
@@ -603,7 +635,12 @@ export class LlmService {
                 // would hand the break that preempted this exactly the delay it preempted to avoid.
                 // The same signal also fires when this caller's own budget runs out, and the two
                 // are told apart by {@link stoppedBy} rather than both being called a preemption.
-                if (!signal.aborted) throw error;
+                //
+                // A failure that was NOT the station's doing is thrown as it came, untouched, but
+                // with what the earlier steps cost noted beside it: a refill that searched three
+                // times and then hit a provider error was billed for three generations, and the row
+                // recording it should not read as free. See {@link usageSpentBefore}.
+                if (!signal.aborted) throw spending(error, usage);
 
                 const stopped = stoppedBy(signal);
                 this.logger.info(

@@ -17,9 +17,14 @@ import {
     parseTemplates,
     renderTemplate,
     resolveTemplates,
+    unknownPlaceholders,
+    unusablePhrasing,
     usable,
     wasHeard,
 } from '../../../src/modules/director/break.templates.js';
+import { ALMANAC_TEMPLATES } from '../../../src/modules/director/almanac.break.writer.js';
+import { CHANGEOVER_TEMPLATES } from '../../../src/modules/director/changeover.writer.js';
+import { JINGLE_TEMPLATES } from '../../../src/modules/director/jingle.writer.js';
 import { NEWS_TEMPLATES } from '../../../src/modules/director/news.break.writer.js';
 import { WARMUP_TEMPLATES } from '../../../src/modules/director/warmup.writer.js';
 import { WEATHER_TEMPLATES } from '../../../src/modules/director/weather.break.writer.js';
@@ -322,4 +327,135 @@ describe('a chart position', () => {
     it('does not use a phrasing that cannot do without one', () => {
         expect(renderTemplate('Number {{next.chart.rank}}: {{next.title}}.', { previous, next }, spoken)).toBeUndefined();
     });
+});
+
+// A title is somebody else's text, and the renderer used to read it as template. The chunks were
+// filled first and the required pass then ran over the result, values included, so a placeholder
+// spelled inside a record's title was filled (or failed to be) as though the phrasing had named it.
+describe('a value that looks like a placeholder', () => {
+    const station = 'The Far Frequency';
+    const braced = { title: 'Song {{station.name}}', artist: 'The {{dj.name}} Band' };
+
+    it('airs literally inside an optional chunk', () => {
+        const rendered = render('This is {{station.name}}.[[ Coming up, {{next.artist}}, {{next.title}}.]]', { next: braced, station, dj: 'Sam' });
+
+        expect(rendered.script).toBe('This is The Far Frequency. Coming up, The {{dj.name}} Band, Song {{station.name}}.');
+    });
+
+    it('airs literally outside one', () => {
+        const rendered = render('Coming up next, {{next.title}}, from {{next.artist}}.', { next: braced, station, dj: 'Sam' });
+
+        expect(rendered.script).toBe('Coming up next, Song {{station.name}}, from The {{dj.name}} Band.');
+    });
+
+    // The quieter half: a title naming a placeholder nothing can fill made the phrasing look as
+    // though IT named one, so every phrasing mentioning that record in a chunk dropped out of the pool.
+    it('does not rule the phrasing out when it names something the station cannot fill', () => {
+        const rendered = render('This is {{station.name}}.[[ Coming up, {{next.title}}.]]', {
+            next: { title: 'Song {{station}}', artist: 'Nobody' },
+            station,
+        });
+
+        expect(rendered.script).toBe('This is The Far Frequency. Coming up, Song {{station}}.');
+    });
+
+    it('is not read for a placeholder whose input is missing either', () => {
+        // No clock on this break, so a title naming it must not be what decides anything.
+        const rendered = render("Here's {{next.artist}} with {{next.title}}.", { next: { title: '{{clock.rough}}', artist: 'Nobody' }, station });
+
+        expect(rendered.script).toBe("Here's Nobody with {{clock.rough}}.");
+    });
+});
+
+// The vocabulary is a plain object, so every name on Object.prototype used to count as a placeholder:
+// `{{toString}}` aired "[object Object]", and `{{constructor}}` and `{{__proto__}}` threw out of the
+// renderer, past the check an operator's phrasing had already passed.
+describe('a placeholder named after a property every object has', () => {
+    const names = ['toString', 'constructor', '__proto__', 'hasOwnProperty', 'valueOf'];
+
+    for (const name of names) {
+        it(`treats {{${name}}} as unknown`, () => {
+            const template = `This is {{station.name}}, and {{${name}}}.`;
+
+            expect(unknownPlaceholders(template)).toEqual([name]);
+            expect(unusablePhrasing(template)).toContain(`{{${name}}}`);
+        });
+
+        it(`never renders or throws over {{${name}}}, in a chunk or out of one`, () => {
+            const inputs = { previous, next, station: 'The Far Frequency' };
+
+            expect(() => renderTemplate(`{{${name}}}.`, inputs, spoken)).not.toThrow();
+            expect(renderTemplate(`{{${name}}}.`, inputs, spoken)).toBeUndefined();
+            expect(renderTemplate(`This is {{station.name}}.[[ {{${name}}}.]]`, inputs, spoken)).toBeUndefined();
+        });
+    }
+});
+
+// Every phrasing the station ships, rendered against every shape of break it can meet, and pinned
+// word for word. Written against the renderer BEFORE it was restructured to fill in one pass, so the
+// snapshot beside this file is the proof that the restructure changed nothing a listener hears from
+// the station's own lines. A change here is a change on air: read the diff before updating it.
+describe('the shipped pools, word for word', () => {
+    const pools: Record<string, readonly string[]> = {
+        talk: DEFAULT_TEMPLATES,
+        welcome: WELCOME_TEMPLATES,
+        warmup: WARMUP_TEMPLATES,
+        jingle: JINGLE_TEMPLATES,
+        changeover: CHANGEOVER_TEMPLATES,
+        news: NEWS_TEMPLATES,
+        weather: WEATHER_TEMPLATES,
+        almanac: ALMANAC_TEMPLATES,
+    };
+
+    // Everything a phrasing can be filled from, so every chunk survives somewhere.
+    const everything: TemplateInputs = {
+        previous: { title: 'Domination', artist: 'Pantera' },
+        next: { title: 'Hangar 18', artist: 'Megadeth', chart: { rank: 4, name: 'the Top 40' } },
+        station: 'The Far Frequency',
+        dj: 'Sam',
+        clock: 'just after nine',
+        news: 'A bridge reopened.',
+        weather: 'Rain later.',
+        weatherPlace: 'Atlanta',
+        almanac: 'On this day the bridge opened.',
+        almanacDate: '20 September',
+        subject: 'Technology',
+        greeting: 'good morning',
+        outgoing: 'Alex',
+        outgoingShow: 'The Late Shift',
+        show: 'Breakfast',
+    };
+
+    const without = (...keys: (keyof TemplateInputs)[]): TemplateInputs =>
+        Object.fromEntries(Object.entries(everything).filter(([key]) => !keys.includes(key as keyof TemplateInputs))) as TemplateInputs;
+
+    const scenarios: Record<string, TemplateInputs> = {
+        everything,
+        'no record just finished': without('previous'),
+        'no record coming up': without('next'),
+        'no records at all': without('previous', 'next'),
+        'nothing the station writes itself': without('clock', 'greeting', 'subject', 'dj', 'outgoing', 'outgoingShow', 'show'),
+        // Values that already end a sentence, catalogue furniture for `spoken` to strip, and a
+        // lowercase phrase opening a sentence: the three things the filler does beyond substitution.
+        'values with their own punctuation and furniture': {
+            ...everything,
+            previous: { title: 'Where Is My Mind?', artist: 'R.E.M.' },
+            next: { title: 'Paranoid - 2012 - Remaster', artist: 'Black Sabbath' },
+            station: 'Deadair (Deluxe Edition)',
+            clock: 'nearly ten',
+        },
+    };
+
+    for (const [pool, templates] of Object.entries(pools)) {
+        it(`renders the ${pool} pool exactly as it always has`, () => {
+            const rendered = Object.fromEntries(
+                Object.entries(scenarios).map(([scenario, inputs]) => [
+                    scenario,
+                    templates.map(template => ({ template, rendered: renderTemplate(template, inputs, spoken) ?? 'not used' })),
+                ]),
+            );
+
+            expect(rendered).toMatchSnapshot();
+        });
+    }
 });

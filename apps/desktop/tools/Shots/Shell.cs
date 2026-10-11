@@ -160,6 +160,13 @@ internal static class Fakes
         listener.OnDevice = true;
     }
 
+    /// <summary>The same speaker, left playing although the last scan did not find it.</summary>
+    public static void OnAMissingSpeaker(ListenerViewModel listener)
+    {
+        OnASpeaker(listener);
+        listener.Outputs!.ActiveMissing = true;
+    }
+
     /// <summary>Fills the picker, and marks the speaker the station is on.</summary>
     public static async Task ShowOutputsAsync(OutputsViewModel outputs, bool onASpeaker)
     {

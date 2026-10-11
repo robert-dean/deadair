@@ -577,6 +577,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         IsOperator = isOperator;
         Listener.SetCanSkip(isOperator && _settings.Current.NextSkips);
 
+        // The lyrics route is a signed-in read, so a listener with no session is asked nothing.
+        Listener.SetSignedIn(_session.State is SessionState.SignedIn);
+
         // The rail hides what this account cannot reach, and sends somebody back to the desk rather
         // than leaving them on a page that has just become empty.
         Navigation.ApplyRole(isOperator);

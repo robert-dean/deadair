@@ -1,0 +1,67 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Controls.LyricColumn">
+
+    <!--
+        Timed lines, the one being sung lit, scrolled so it sits two lines from the top. The Now
+        playing panel draws it small inside its own height and Studio draws it large; both are this.
+        The lines are dimmed by the theme's own dimmed brush, so Studio's re-declared dark brushes
+        reach it as they reach everything else there.
+
+        A line whose source timed its words is drawn as two runs, the part already sung in the accent
+        and the rest, over a blurred copy in which only the sung part is drawn: the soft glow. The two
+        layers are the same text in the same font and weight, so they wrap identically and the glow
+        sits behind the lit letters and nowhere else. A line with nothing sung has an empty first run
+        and no glow, which is the plain line it always was.
+    -->
+    <UserControl.Styles>
+        <Style Selector="TextBlock.lyric">
+            <Setter Property="Foreground" Value="{DynamicResource DaTextDimmedBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.25" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="TextBlock.lyric.lit">
+            <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.glow">
+            <Setter Property="Transitions" Value="{x:Null}" />
+            <Setter Property="Opacity" Value="0.85" />
+            <Setter Property="Effect">
+                <BlurEffect Radius="10" />
+            </Setter>
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
+        <ItemsControl x:Name="Items">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Spacing="{Binding $parent[controls:LyricColumn].LineSpacing}" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:LyricLineViewModel">
+                    <Panel>
+                        <TextBlock Classes="lyric glow" Classes.lit="{Binding IsCurrent}" IsVisible="{Binding IsSinging}"
+                                   TextAlignment="{Binding $parent[controls:LyricColumn].LineAlignment}">
+                            <Run Text="{Binding Sung}" Foreground="{DynamicResource DaAccentBrush}" /><Run Text="{Binding Rest}" Foreground="Transparent" />
+                        </TextBlock>
+                        <TextBlock Classes="lyric" Classes.lit="{Binding IsCurrent}"
+                                   TextAlignment="{Binding $parent[controls:LyricColumn].LineAlignment}">
+                            <Run Text="{Binding Sung}" Foreground="{DynamicResource DaAccentBrush}" /><Run Text="{Binding Rest}" />
+                        </TextBlock>
+                    </Panel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </ScrollViewer>
+
+</UserControl>

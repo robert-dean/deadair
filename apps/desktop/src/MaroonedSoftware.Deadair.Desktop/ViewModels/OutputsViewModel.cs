@@ -53,6 +53,10 @@ public sealed partial class OutputsViewModel(OutputCatalog catalog, IUiDispatche
     [ObservableProperty]
     private string? _notice;
 
+    /// <summary>Whether the device playing was not in the last scan. The window's strip says so.</summary>
+    [ObservableProperty]
+    private bool _activeMissing;
+
     public string RescanLabel => Scanning ? "Looking…" : "Look again";
 
     /// <summary>Raised when the picker has done something the bar should show.</summary>
@@ -131,6 +135,7 @@ public sealed partial class OutputsViewModel(OutputCatalog catalog, IUiDispatche
 
         var outputs = catalog.Outputs;
         var active = catalog.Active;
+        ActiveMissing = catalog.ActiveMissing;
 
         // The active output is always a row, even when the last scan did not find it: taking it away
         // would leave the picker with nothing checked while the sound was plainly coming out of it.

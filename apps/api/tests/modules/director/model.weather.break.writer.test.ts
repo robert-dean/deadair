@@ -229,4 +229,11 @@ describe('what it produces', () => {
         expect(written?.claimsTime).toBeUndefined();
         expect(written?.claimsReadingUntil).toBe(1_800_000);
     });
+
+    it('stamps a greeting it opened with, for the bulletin\'s reason', async () => {
+        const greeting = { words: 'Good morning', validFrom: 1_000, validUntil: 5_000 };
+        const { writer } = build("Good morning. It's 17 and raining.");
+
+        expect((await writer.write(request({ greeting })))?.claimsTime).toEqual({ from: 1_000, until: 5_000 });
+    });
 });

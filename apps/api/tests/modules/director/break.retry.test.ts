@@ -24,6 +24,7 @@ describe('worthRetrying', () => {
             'invented-figure',
             'quoted-lyric',
             'invented-home',
+            'swapped-credit',
         ] as WriteFault[]) {
             expect(worthRetrying(fault), fault).toBe(true);
         }

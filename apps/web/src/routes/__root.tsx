@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActionIcon, Anchor, AppShell, Box, Button, Group, Kbd, ScrollArea, Text } from '@mantine/core';
 import { useHotkeys } from '@mantine/hooks';
 import { IconSearch } from '@tabler/icons-react';
 import { spotlight } from '@mantine/spotlight';
-import { createRootRouteWithContext, Outlet, redirect, useNavigate, useRouterState } from '@tanstack/react-router';
+import { createRootRouteWithContext, Outlet, redirect, useNavigate, useRouter, useRouterState } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { OnboardingRequirement } from '@deadair/sdk';
@@ -49,6 +49,24 @@ function noDialogOpen(): boolean {
     return document.querySelector('[role="dialog"]') === null;
 }
 
+/**
+ * Asks the router's gate again the moment a session dies, rather than on the next navigation.
+ *
+ * The gate runs in `beforeLoad`, so a page whose session ended under it stayed drawn, and anything it
+ * polled was refused every few seconds until somebody clicked: a desk left open answered 401 for 43
+ * minutes. Invalidating re-runs `beforeLoad`, which tries the refresh cookie first, so a session the
+ * cookie can still buy stays on the page and one it cannot is sent to sign-in with the way back.
+ */
+function useLeaveWhenSignedOut(signedIn: boolean): void {
+    const router = useRouter();
+    const wasSignedIn = useRef(signedIn);
+
+    useEffect(() => {
+        if (wasSignedIn.current && !signedIn) void router.invalidate();
+        wasSignedIn.current = signedIn;
+    }, [router, signedIn]);
+}
+
 /** Signed-in pages drawn without the console's shell. */
 const BARE_PATHS: readonly string[] = ['/party-poster'];
 
@@ -58,6 +76,7 @@ export function RootLayout() {
     // The same predicate the auth gate uses: a token that exists but has expired is not a session,
     // and offering Logout for one would promise something the shell cannot deliver.
     const signedIn = isSessionActive(session);
+    useLeaveWhenSignedOut(signedIn);
     // The console in the language this account chose, once there is an account to ask.
     useAccountLanguage(signedIn);
     const navigate = useNavigate();

@@ -7,6 +7,7 @@ import type { OutputCastRequest, OutputDevice } from '@deadair/sdk';
 
 import { useOutputCasts, useOutputDevices } from '../../api/outputs.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { useSignedIn } from '../../auth/session.store';
 
 export interface CastMenuProps {
     onStart: (request: OutputCastRequest) => void;
@@ -30,7 +31,8 @@ export interface CastMenuProps {
 export function CastMenu({ onStart, onStop, busy }: CastMenuProps) {
     const { t } = useTranslation('desk');
     const [opened, setOpened] = useState(false);
-    const casts = useOutputCasts(true);
+    // Polled, so gated on the session as the desk's readers are.
+    const casts = useOutputCasts(useSignedIn());
     const devices = useOutputDevices(opened);
     const active = casts.data?.casts ?? [];
     const idle = (devices.data?.devices ?? []).filter(device => !device.casting);

@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import { categoriesOf, keptOffAir, newsTopicRules, rankOf, type ClassifiableStory } from '../../../src/modules/news/news.classify.js';
 import type { Topic } from '../../../src/modules/topics/topic.js';
+import { NEWS_TOPIC_SEEDS } from '../../../src/modules/news/news.topic.defaults.js';
 
 const topic = (key: string, config: Record<string, unknown>, label?: string): Topic => ({
     id: `topic-${key}`,
@@ -171,5 +172,39 @@ describe('keptOffAir', () => {
         const deal = story({ categories: ['Deals'], title: 'Save on tents with this discount code' });
 
         expect(categoriesOf(deal, [shopping, tech])).toEqual([]);
+    });
+});
+
+describe('the seeded programmes category', () => {
+    const seeded = NEWS_TOPIC_SEEDS.find(draft => draft.key === 'programmes');
+    const programmes = newsTopicRules({ id: 'topic-programmes', ...seeded! } as Topic);
+
+    it('is seeded off the air', () => {
+        expect(seeded?.config).toMatchObject({ offAir: true });
+    });
+
+    // Both came out of the station's own entertainment feed on 2026-10-10 and 11, and the first was
+    // read out as a headline.
+    it('withholds a show listing and a puzzle, on their own words', () => {
+        const listing = story({
+            title: "'Wait Wait' for October 10, 2026: With Not My Job guest Margo Price",
+            summary: 'This week, Wait Wait is live in Chicago with guest host Negin Farsad, special guest Margo Price.',
+        });
+        const puzzle = story({
+            title: 'Sunday Puzzle: Back to school',
+            summary: "NPR's Ayesha Rascoe plays the puzzle along with Weekend Edition Puzzlemaster Will Shortz.",
+        });
+
+        expect(keptOffAir(listing, [programmes])?.key).toBe('programmes');
+        expect(keptOffAir(puzzle, [programmes])?.key).toBe('programmes');
+    });
+
+    it('leaves the reporting beside them alone', () => {
+        const news = story({
+            title: 'Pope Leo XIV to undergo lung surgery this week',
+            summary: 'Pope Leo XIV said he would undergo surgery after doctors found a "localized nodule" in his lung.',
+        });
+
+        expect(keptOffAir(news, [programmes])).toBeUndefined();
     });
 });

@@ -2,10 +2,11 @@
 // this file mostly pins is the degradation: one dead reader costs the page ONE section, never the
 // screen, which is the whole reason a page like this is worth having.
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import { DateTime } from 'luxon';
 import type { ReactNode } from 'react';
 
+import { clearSession, setSession } from '../../../src/auth/session.store';
 import { CheckupPage } from '../../../src/components/station/checkup.page';
 import { stubPhoneMedia } from '../../utils/phone';
 import { playoutStatus, stationSilence } from '../../utils/playout.fixture';
@@ -73,6 +74,10 @@ function allWell() {
 afterEach(() => {
     vi.resetAllMocks();
 });
+
+// The desk's readers poll only while there is a session, as they do in the console.
+beforeEach(() => setSession('token-123', 3600));
+afterEach(() => clearSession());
 
 describe('CheckupPage', () => {
     it('assembles the machinery in one place', async () => {

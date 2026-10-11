@@ -2,9 +2,10 @@
 // worth testing is what it offers: the speakers already playing (with a way to stop each), the ones
 // that could be, one entry per mount a speaker can take, and an honest word when there are none.
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import type { OutputCast, OutputDevice } from '@deadair/sdk';
 
+import { clearSession, setSession } from '../../../src/auth/session.store';
 import { CastMenu } from '../../../src/components/desk/cast.menu';
 import { render, screen, setupUser, waitFor } from '../../utils/render';
 
@@ -51,6 +52,10 @@ function renderMenu() {
 afterEach(() => {
     vi.clearAllMocks();
 });
+
+// The desk's readers poll only while there is a session, as they do in the console.
+beforeEach(() => setSession('token-123', 3600));
+afterEach(() => clearSession());
 
 describe('CastMenu', () => {
     it('says how many speakers are playing, and does not list speakers until it is opened', async () => {

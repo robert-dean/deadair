@@ -20,6 +20,7 @@ import {
     shownWithoutRecent,
     TALK_BREAK_SHAPE,
     saidIn,
+    swappedCreditIn,
     writeDecline,
     writeTrim,
     yearsIn,
@@ -1069,6 +1070,12 @@ describe('breakPrompt', () => {
 
             expect(said).toContain('Bridge reopens after four years.');
             expect(said.indexOf('Bridge reopens')).toBeLessThan(said.indexOf('Council votes'));
+        });
+
+        // The second line of defence behind the seeded off-air category: whatever a station's words
+        // miss, a show listing is still not something that happened.
+        it('asks for a listing for a show, a puzzle or an episode to be left out', () => {
+            expect(user(prompt({ kind: 'news', stories }))).toMatch(/a listing for a show, a puzzle or an episode rather than something that happened, leave it out/i);
         });
 
         it("offers the publisher's words as the story rather than as a line to read out", () => {
@@ -2315,6 +2322,45 @@ describe('readAnswer, past the ceiling', () => {
 // The reason that reaches `script_history.reason` and the log beside it. It exists because the row
 // could not tell a 203-word bulletin from a model that answered with nothing: both were reported as
 // the writer having had nothing to say, and only one of them is about a ceiling.
+describe('readAnswer, against a record credited to its own title', () => {
+    const pigs = { title: 'War Pigs', artist: 'Black Sabbath' };
+    const bible = { title: 'Bible Black', artist: 'Heaven & Hell' };
+    const names = [pigs, bible];
+
+    it('declines "Artist by Title", the break that aired on 10 October', () => {
+        const script = 'The leaders are all bad news, baby! Black Sabbath by War Pigs.';
+
+        expect(readAnswer(script, { names })).toBeUndefined();
+        expect(writeDecline(script, { names })).toMatchObject({ fault: 'swapped-credit' });
+        expect(saidIn(writeDecline(script, { names })?.reason ?? '')).toBe('black sabbath by war pigs');
+    });
+
+    it('takes the record the right way round, or with no "by" at all', () => {
+        for (const script of ['That was War Pigs by Black Sabbath.', 'Black Sabbath, War Pigs. Up next, Bible Black.', "Black Sabbath's War Pigs, still loud."]) {
+            expect(readAnswer(script, { names }), script).toBe(script);
+        }
+    });
+
+    it('catches either record, and a title as it is read', () => {
+        const reissue = { title: 'Tornado Of Souls - 2004 Remix', artist: 'Megadeth' };
+
+        expect(swappedCreditIn('Up next, Heaven & Hell by Bible Black.', names)).toBe('heaven hell by bible black');
+        expect(swappedCreditIn('Megadeth by Tornado Of Souls, loud.', [reissue])).toBe('megadeth by tornado of souls');
+    });
+
+    it('leaves a self-titled record alone, since there is no wrong way round to say it', () => {
+        const selfTitled = { title: 'Black Sabbath', artist: 'Black Sabbath' };
+
+        expect(swappedCreditIn('Black Sabbath by Black Sabbath, where it all began.', [selfTitled])).toBeUndefined();
+    });
+
+    it('asks nothing outside English, where "by" is not the word', () => {
+        const script = 'Black Sabbath by War Pigs.';
+
+        expect(readAnswer(script, { names, language: 'de' })).toBe(script);
+    });
+});
+
 describe('writeDecline', () => {
     const pirate = { dictionMarkers: ['ye', 'aye', 'matey'] };
 

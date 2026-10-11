@@ -11,6 +11,7 @@ import { usePlayoutStatus } from '../../api/playout.queries';
 import { pluginsListOptions } from '../../api/plugins.queries';
 import { useStationAttention, useStationCheckup, useStationReleases } from '../../api/station.queries';
 import { useStorage } from '../../api/storage.queries';
+import { useSignedIn } from '../../auth/session.store';
 import { AttentionList } from './attention.list';
 import { CopyButton } from '../shared/copy.button';
 import { EmptyState } from '../shared/empty.state';
@@ -41,11 +42,13 @@ import { formatCount } from '../../i18n/format.locale';
  */
 export function CheckupPage() {
     const { t } = useTranslation('station');
-    const playout = usePlayoutStatus(true);
-    const attention = useStationAttention(true);
+    // The polled readers gated on the session, as the desk's are and for the desk's reason.
+    const signedIn = useSignedIn();
+    const playout = usePlayoutStatus(signedIn);
+    const attention = useStationAttention(signedIn);
     const plugins = useQuery(pluginsListOptions);
     const storage = useStorage();
-    const checkup = useStationCheckup();
+    const checkup = useStationCheckup(signedIn);
 
     // The same reading the header's tally draws, so the two surfaces naming one state cannot word it
     // differently — which they did for as long as this page handed the raw cause to a badge.

@@ -606,7 +606,8 @@ export class EnrichmentService {
             } catch (error) {
                 const message = errorText(error);
                 failures.push({ pluginId, message });
-                this.logger.warn('artist enrichment plugin failed', { pluginId, artist: ref.name, error: message });
+                // At debug, for the lyrics pass's reason: the invoker has already warned about this one.
+                this.logger.debug('artist enrichment plugin failed', { pluginId, artist: ref.name, error: message });
             }
         }
 
@@ -642,7 +643,8 @@ export class EnrichmentService {
             } catch (error) {
                 const message = errorText(error);
                 failures.push({ pluginId, message });
-                this.logger.warn('album enrichment plugin failed', { pluginId, album: ref.name, artist: ref.artist, error: message });
+                // At debug, for the lyrics pass's reason: the invoker has already warned about this one.
+                this.logger.debug('album enrichment plugin failed', { pluginId, album: ref.name, artist: ref.artist, error: message });
             }
         }
 

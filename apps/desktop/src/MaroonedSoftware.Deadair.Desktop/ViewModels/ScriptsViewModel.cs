@@ -273,7 +273,7 @@ public sealed partial class ScriptsViewModel(OperatorActions actions, HttpClient
         }
         else
         {
-            lines.Add("The prompt was not kept. Turn on llm.captureWrites to keep it for the attempts after this one.");
+            lines.Add("The prompt was not kept. Turn on \"Keep the prompt and the raw answer\" under Words in Settings to keep it for the attempts after this one.");
         }
 
         return string.Join('\n', lines);

@@ -12,7 +12,7 @@ import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import type { PickBroadcast, PickResolver } from './pick.resolver.js';
 import { estimateStartOffsets } from './air.estimate.js';
-import { artistKey, songKey } from './rotation.keys.js';
+import { songKey, spacingKeys } from './rotation.keys.js';
 import type { ResolvedRules } from './rotation.rules.js';
 import type { SetGenerator, TrackPick } from './set.generator.js';
 import { isTrackItem, type StationLineupItem } from './station.lineup.js';
@@ -253,9 +253,12 @@ export const songKeysOf = (items: readonly StationLineupItem[]): Set<string> =>
  * it is the key a cooldown, a cap and `play_history` all agree on. Callers pass a WINDOW here rather
  * than the whole order — see {@link PlanRequest.avoidArtistKeys} for why the whole order is the
  * wrong scope for an artist exclusion.
+ *
+ * Each lead's `spacingKeys`, so a joined credit ("Yusuf / Cat Stevens") holds the acts inside it as
+ * well; the rules ask the set through `isArtistHeld`.
  */
 export const artistKeysOf = (items: readonly StationLineupItem[]): Set<string> =>
-    new Set(items.filter(isTrackItem).map(item => artistKey([item.track.artist])));
+    new Set(items.filter(isTrackItem).flatMap(item => spacingKeys(item.track.artist)));
 
 /**
  * The artists queued to start inside the cooldown of where the next batch begins.
@@ -279,7 +282,7 @@ export const artistsQueuedWithin = (items: readonly StationLineupItem[], cooldow
     const batchStartsAt = offsets[items.length]!;
     const queued = new Set<string>();
     items.forEach((item, index) => {
-        if (isTrackItem(item) && batchStartsAt - offsets[index]! < cooldownMs) queued.add(artistKey([item.track.artist]));
+        if (isTrackItem(item) && batchStartsAt - offsets[index]! < cooldownMs) for (const key of spacingKeys(item.track.artist)) queued.add(key);
     });
     return queued;
 };

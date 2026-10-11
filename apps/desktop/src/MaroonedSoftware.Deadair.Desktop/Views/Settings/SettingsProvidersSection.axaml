@@ -74,11 +74,13 @@
                                                                    TextTrimming="CharacterEllipsis" />
                                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right">
                                                             <Button Classes="icon small" IsEnabled="{Binding CanRaise}" ToolTip.Tip="Ask it sooner"
+                                                                    AutomationProperties.Name="Ask it sooner"
                                                                     Command="{Binding $parent[ItemsControl;1].((vm:ProviderCapabilityViewModel)DataContext).RaiseCommand}"
                                                                     CommandParameter="{Binding}">
                                                                 <PathIcon Data="{DynamicResource DaIconChevronUp}" Width="12" Height="12" />
                                                             </Button>
                                                             <Button Classes="icon small" IsEnabled="{Binding CanLower}" ToolTip.Tip="Ask it later"
+                                                                    AutomationProperties.Name="Ask it later"
                                                                     Command="{Binding $parent[ItemsControl;1].((vm:ProviderCapabilityViewModel)DataContext).LowerCommand}"
                                                                     CommandParameter="{Binding}">
                                                                 <PathIcon Data="{DynamicResource DaIconChevronDown}" Width="12" Height="12" />

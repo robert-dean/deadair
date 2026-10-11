@@ -174,7 +174,8 @@ describe('the speech cap', () => {
     });
 
     it("leaves somebody else's programme under the record cap, since that is a mastered level", () => {
-        expect(programmeGainFor({ loudnessLufs: -40 }, DEFAULT_TARGET_LUFS, 0)).toBe(MAX_GAIN_DB);
+        expect(programmeGainFor({ loudnessLufs: -40, truePeakDb: -30 }, DEFAULT_TARGET_LUFS, 0)).toBe(MAX_GAIN_DB);
+        expect(programmeGainFor({ loudnessLufs: -40 }, DEFAULT_TARGET_LUFS, 0, 'station')).toBe(MAX_GAIN_DB);
     });
 });
 
@@ -220,18 +221,62 @@ describe('resolveSpeechTrimDb', () => {
 // but mastered, so it is not assumed to be as quiet as a speech engine.
 describe('programmeGainFor', () => {
     it("assumes a mastered level for an unmeasured episode, not the speech engine's", () => {
-        expect(programmeGainFor({}, TARGET, TRIM)).toBe(TARGET - TRIM - ASSUMED_PROGRAMME_LUFS);
-        // At the station's own default target an unmeasured episode is turned DOWN a little, where
-        // the speech-engine assumption would have turned it up by more than eleven decibels.
+        // A cut needs no peak, so an aim under the assumed level is reached in full.
+        const LOW_TARGET = -20;
+        expect(programmeGainFor({}, LOW_TARGET, TRIM)).toBe(LOW_TARGET - TRIM - ASSUMED_PROGRAMME_LUFS);
+        // Where the speech-engine assumption would have turned it up by more than eleven decibels.
         expect(programmeGainFor({}, DEFAULT_TARGET_LUFS, TRIM)).toBeLessThan(speechGainFor({}, DEFAULT_TARGET_LUFS, TRIM) - 10);
     });
 
-    it('uses the measurement once there is one, exactly as a break does', () => {
-        expect(programmeGainFor({ loudnessLufs: -24 }, TARGET, TRIM)).toBe(speechGainFor({ loudnessLufs: -24 }, TARGET, TRIM));
+    it('uses the measurement once there is one, exactly as a break does, where the headroom allows', () => {
+        expect(programmeGainFor({ loudnessLufs: -24, truePeakDb: -12 }, TARGET, TRIM)).toBe(speechGainFor({ loudnessLufs: -24 }, TARGET, TRIM));
     });
 
     it('is bounded by the same cap', () => {
-        expect(programmeGainFor({ loudnessLufs: -70 }, TARGET, TRIM)).toBe(MAX_GAIN_DB);
+        expect(programmeGainFor({ loudnessLufs: -70, truePeakDb: -60 }, TARGET, TRIM)).toBe(MAX_GAIN_DB);
+    });
+
+    // Somebody else's master, so a boost is held under its peak exactly as a record's is. Without this
+    // a quiet episode was lifted up to the record cap into the limiter, for its whole length.
+    describe("somebody else's programme", () => {
+        it('caps a boost at the headroom the measured true peak leaves', () => {
+            // Aim -18, measured -28: ten wanted, but a true peak of -5 leaves four under the ceiling.
+            expect(programmeGainFor({ loudnessLufs: -28, truePeakDb: -5 }, TARGET, TRIM)).toBe(CEILING_DBTP - -5);
+        });
+
+        it('treats a sample peak as optimistic when no true peak was measured', () => {
+            expect(programmeGainFor({ loudnessLufs: -28, samplePeakDb: -5 }, TARGET, TRIM)).toBe(CEILING_DBTP - (-5 + TRUE_PEAK_ALLOWANCE_DB));
+        });
+
+        it('refuses any boost when the peak is unknown', () => {
+            expect(programmeGainFor({ loudnessLufs: -28 }, TARGET, TRIM)).toBe(0);
+            // The unmeasured episode at the station's own default: the assumed level sits under the
+            // aim, and with no peak there is nothing to spend.
+            expect(DEFAULT_TARGET_LUFS - DEFAULT_SPEECH_TRIM_DB - ASSUMED_PROGRAMME_LUFS).toBeGreaterThan(0);
+            expect(programmeGainFor({}, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB)).toBe(0);
+        });
+
+        it('refuses a boost to a master already over the ceiling, and never pulls it down for that', () => {
+            expect(programmeGainFor({ loudnessLufs: -28, truePeakDb: 0.5 }, TARGET, TRIM)).toBe(0);
+        });
+
+        it('always allows a cut, peak or no peak', () => {
+            expect(programmeGainFor({ loudnessLufs: -10 }, TARGET, TRIM)).toBe(TARGET - TRIM + 10);
+            expect(programmeGainFor({ loudnessLufs: -10, truePeakDb: 2 }, TARGET, TRIM)).toBe(TARGET - TRIM + 10);
+        });
+
+        it('is the default, so a programme that does not say whose audio it is gets the cap', () => {
+            expect(programmeGainFor({ loudnessLufs: -28 }, TARGET, TRIM)).toBe(programmeGainFor({ loudnessLufs: -28 }, TARGET, TRIM, 'mastered'));
+        });
+    });
+
+    // A narration the station read itself is a programme to the mount, and its own voice to the mixer:
+    // its peaks are plosives the bus limiter is for, on `speechGainFor`'s argument.
+    describe('a programme the station spoke', () => {
+        it('is lifted without a peak, as a break is, up to the record cap', () => {
+            expect(programmeGainFor({ loudnessLufs: -26.5 }, TARGET, TRIM, 'station')).toBe(TARGET - TRIM + 26.5);
+            expect(programmeGainFor({ loudnessLufs: -26.5, truePeakDb: -2 }, TARGET, TRIM, 'station')).toBe(TARGET - TRIM + 26.5);
+        });
     });
 });
 

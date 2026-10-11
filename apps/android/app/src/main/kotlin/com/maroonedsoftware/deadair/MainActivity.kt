@@ -307,6 +307,7 @@ private fun Listener(
                                     wallpaperColorSource = loaded.wallpaperColorSource,
                                     wallpaperColor = loaded.wallpaperColor,
                                     playOnOpen = loaded.playOnOpen,
+                                    keepAwake = loaded.keepAwake,
                                     onAddressChange = model::onAddressChange,
                                     onCheck = model::check,
                                     // Keeping a station is the end of the errand, so the app goes back to
@@ -324,6 +325,7 @@ private fun Listener(
                                     onColorSource = model::setColorSource,
                                     onWallpaperColor = model::setWallpaperColor,
                                     onPlayOnOpen = model::setPlayOnOpen,
+                                    onKeepAwake = model::setKeepAwake,
                                     onOpenSignIn = openSignIn,
                                     onSignOut = model::signOut,
                                     // The operator's, and drawn only for them: the rest of this

@@ -28,7 +28,7 @@ describe('a failure under HTTP 200, which is how most of them arrive', () => {
         const failing = client(200, { error: LASTFM_ERROR.invalidParameters, message: 'Track not found' });
 
         await expect(failing.get('track.getInfo')).rejects.toMatchObject({
-            apiError: LASTFM_ERROR.invalidParameters,
+            upstreamCode: LASTFM_ERROR.invalidParameters,
             code: 'not_found',
         });
     });
@@ -57,7 +57,7 @@ describe('a failure with an HTTP status, which is how album.getInfo says it', ()
         const error = await failing.get('album.getInfo').catch((thrown: unknown) => thrown);
 
         expect(error).toBeInstanceOf(LastfmRequestError);
-        expect(error).toMatchObject({ status: 404, apiError: LASTFM_ERROR.invalidParameters, code: 'not_found' });
+        expect(error).toMatchObject({ status: 404, upstreamCode: LASTFM_ERROR.invalidParameters, code: 'not_found' });
     });
 
     it("quotes the service's own reason, so a log line says why", async () => {
@@ -72,7 +72,7 @@ describe('a failure with an HTTP status, which is how album.getInfo says it', ()
         const error = await failing.get('album.getInfo').catch((thrown: unknown) => thrown);
 
         expect(error).toMatchObject({ status: 404 });
-        expect((error as LastfmRequestError).apiError).toBeUndefined();
+        expect((error as LastfmRequestError).upstreamCode).toBeUndefined();
     });
 
     it('reports a 500 as the service being down rather than a miss', async () => {

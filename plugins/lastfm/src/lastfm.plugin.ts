@@ -198,7 +198,7 @@ export class LastfmPlugin extends Plugin implements EnrichmentProvider, ChartsPr
             // live either way.
             return { ok: true, message: `Connected. ${this.summarise(await this.scrobbleState())}` };
         } catch (error) {
-            if (error instanceof LastfmRequestError && error.apiError === LASTFM_ERROR.invalidApiKey) {
+            if (error instanceof LastfmRequestError && error.upstreamCode === LASTFM_ERROR.invalidApiKey) {
                 return { ok: false, message: 'Last.fm rejected that API key.' };
             }
             return { ok: false, message: errorText(error) };
@@ -699,7 +699,7 @@ export class LastfmPlugin extends Plugin implements EnrichmentProvider, ChartsPr
      */
     private isNotFound(error: unknown): boolean {
         if (!(error instanceof LastfmRequestError)) return false;
-        return error.apiError === LASTFM_ERROR.invalidParameters || error.status === 404;
+        return error.upstreamCode === LASTFM_ERROR.invalidParameters || error.status === 404;
     }
 }
 

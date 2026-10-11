@@ -69,7 +69,7 @@ ever asks.
 This page is about the rights to PLAY a record. There is a second question about the software that
 fetches one, and it is worth keeping separate because it is answered differently for each provider.
 
-**Spotify and Navidrome** talk to a published API, on terms their operators publish.
+**Spotify, Navidrome, Jellyfin and Plex** talk to a published API, on terms their operators publish.
 
 **Deezer** is read for suggestions and never for audio: the plugin asks which artists resemble one
 another and what to play by them, and every record it names is then fetched from whichever provider
@@ -95,6 +95,19 @@ a cookie copied from a browser, and the audio is resolved by `ytaudio/`, a bundl
 
 The plugin ships disabled and is switched on deliberately, which is the point at which that decision
 gets made.
+
+**Pandora** has no published API either. The plugin signs in with your email and password the way
+Pandora's own Android app does, using that app's partner profile from the unofficial API
+documentation, and then talks to the web app's API. The same three things follow:
+
+- **Playing a chosen record takes Pandora Premium.** The station only ever plays chosen records, so a
+  free or Plus account gives you search and playlists and nothing on air.
+- **Signing in and fetching this way is not something Pandora's terms contemplate**, and Pandora can
+  notice an account that does it. Whether that matters to you and the account you use is your call.
+- **It works only from the US**, and it stops for everyone at once if Pandora retires that partner
+  profile.
+
+It too ships disabled.
 
 ## What deadair itself does about all this
 

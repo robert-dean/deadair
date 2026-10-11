@@ -23,6 +23,7 @@ describe('worthRetrying', () => {
             'invented-year',
             'invented-figure',
             'quoted-lyric',
+            'invented-home',
         ] as WriteFault[]) {
             expect(worthRetrying(fault), fault).toBe(true);
         }

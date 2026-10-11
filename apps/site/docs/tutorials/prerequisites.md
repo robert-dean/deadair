@@ -15,8 +15,9 @@ off for something.
   Applications, or any Linux host with Docker and the Compose plugin ([with Docker
   Compose](./install-compose.md)). Docker Desktop on a Mac or a PC works for trying it out.
 - **Somewhere the music comes from.** Either a Spotify account, which has to be Premium because the
-  station fetches the audio, or a Subsonic server such as Navidrome. Have the server's address and an
-  account on it to hand. The station holds no music of its own.
+  station fetches the audio, or a media server of your own: Navidrome or another Subsonic server,
+  Jellyfin, or Plex. Have the server's address to hand, and an account on it (Navidrome), an API key
+  and a user name (Jellyfin) or your Plex token (Plex). The station holds no music of its own.
 - **Internet access on the first boot**, for the image itself and for the speech model's weights.
   The weights are downloaded the first time the station speaks, not when the image is pulled.
 

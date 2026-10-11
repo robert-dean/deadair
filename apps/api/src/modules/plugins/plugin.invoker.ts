@@ -574,6 +574,7 @@ export class PluginInvoker {
 
         if (pluginError.retryAfterMs !== undefined) wrapped.withRetry(pluginError.retryAfterMs);
         if (pluginError.upstreamStatus !== undefined) wrapped.withUpstreamStatus(pluginError.upstreamStatus);
+        if (pluginError.upstreamCode !== undefined) wrapped.withUpstreamCode(pluginError.upstreamCode);
 
         return wrapped;
     }

@@ -1,0 +1,171 @@
+{
+  "status": 200,
+  "body": {
+    "item": {
+      "index": 0,
+      "type": "Track",
+      "pandoraId": "TR:47605",
+      "sourceId": "ST:0:100000000000000001",
+      "itemId": "TR:47605",
+      "audioUrl": "https://audio-usc-mp1-t1-1-v4v6.pandora.com/access/?version=5&lid=1000&token=REDACTED",
+      "encoding": "aacplus",
+      "fileGain": "-1.32",
+      "artId": "images/e4/a0/a8/90/b1544c6e803f3cc761ba4f0e/",
+      "rating": 0,
+      "interactions": [
+        "SKIP",
+        "THUMB"
+      ],
+      "playerStyle": "NON_INTERACTIVE",
+      "songName": "High and Dry",
+      "albumName": "The Bends",
+      "artistName": "Radiohead",
+      "duration": 257,
+      "trackToken": "TRACK-TOKEN",
+      "currentProgress": 0,
+      "audioUrlMap": {
+        "lowQuality": {
+          "bitrate": 32,
+          "encoding": "aacplus",
+          "audioUrl": "https://t1-3.p-cdn.us/access/?version=5&lid=1000&token=REDACTED"
+        },
+        "mediumQuality": {
+          "bitrate": 64,
+          "encoding": "aacplus",
+          "audioUrl": "https://t1-1.p-cdn.us/access/?version=5&lid=1000&token=REDACTED"
+        },
+        "highQuality": {
+          "bitrate": 64,
+          "encoding": "aacplus",
+          "audioUrl": "https://t1-5.p-cdn.us/access/?version=5&lid=1000&token=REDACTED"
+        }
+      },
+      "artUrl": "https://content-images.p-cdn.com/images/e4/a0/a8/90/b1544c6e803f3cc761ba4f0e/_500W_500H.jpg",
+      "allowDisplayAd": true,
+      "mode": {
+        "modeId": "MO:0"
+      }
+    },
+    "annotations": {
+      "AL:3806": {
+        "name": "The Bends",
+        "sortableName": "Bends, The",
+        "releaseDate": "1995-03-13T00:00:00.000-08:00",
+        "duration": 2919,
+        "trackCount": 12,
+        "isCompilation": false,
+        "icon": {
+          "dominantColor": "e10612",
+          "artId": "images/e4/a0/a8/90/b1544c6e803f3cc761ba4f0e/",
+          "artUrl": "images/e4/a0/a8/90/b1544c6e803f3cc761ba4f0e/_500W_500H.jpg"
+        },
+        "rightsInfo": {
+          "hasInteractive": true,
+          "hasOffline": false,
+          "hasNonInteractive": true,
+          "hasStatutory": true,
+          "hasRadioRights": true,
+          "expirationTime": 1791743157528
+        },
+        "tracks": [
+          "TR:47607",
+          "TR:47606",
+          "TR:47605",
+          "TR:47604",
+          "TR:47603",
+          "TR:47602",
+          "TR:47601",
+          "TR:47600",
+          "TR:47599",
+          "TR:47598",
+          "TR:47596",
+          "TR:47594"
+        ],
+        "artistId": "AR:17534",
+        "artistName": "Radiohead",
+        "explicitness": "NONE",
+        "shareableUrlPath": "/artist/radiohead/the-bends/AL6V5kh2Vgw4zVc",
+        "modificationTime": 1712689607811,
+        "slugPlusPandoraId": "/radiohead/the-bends/AL:3806",
+        "hasRadio": true,
+        "releaseType": "OriginalAlbum",
+        "listenerReleaseType": "Album",
+        "rawReleaseDate": "1995-03-13T00:00:00.000-08:00",
+        "originalReleaseDate": "1995-03-13T00:00:00.000-08:00",
+        "pandoraId": "AL:3806",
+        "type": "AL",
+        "scope": "core"
+      },
+      "TR:47605": {
+        "name": "High and Dry",
+        "sortableName": "High and Dry",
+        "duration": 257,
+        "durationMillis": 257480,
+        "trackNumber": 3,
+        "icon": {
+          "dominantColor": "e10612",
+          "artId": "images/e4/a0/a8/90/b1544c6e803f3cc761ba4f0e/",
+          "artUrl": "images/e4/a0/a8/90/b1544c6e803f3cc761ba4f0e/_500W_500H.jpg"
+        },
+        "rightsInfo": {
+          "hasInteractive": true,
+          "hasOffline": false,
+          "hasNonInteractive": true,
+          "hasStatutory": true,
+          "hasRadioRights": true,
+          "expirationTime": 1791743157528
+        },
+        "albumId": "AL:3806",
+        "albumName": "The Bends",
+        "artistId": "AR:17534",
+        "artistName": "Radiohead",
+        "explicitness": "NONE",
+        "shareableUrlPath": "/artist/radiohead/the-bends/high-and-dry/TR3Pwzbb5d559kg",
+        "hasRadio": true,
+        "modificationTime": 1790815755805,
+        "slugPlusPandoraId": "/radiohead/the-bends/high-and-dry/TR:47605",
+        "stationFactoryId": "SF:21586:47605",
+        "isrc": "GBAYE9400055",
+        "pandoraId": "TR:47605",
+        "type": "TR",
+        "scope": "core"
+      },
+      "AR:17534": {
+        "collaboration": false,
+        "primaryArtists": [],
+        "variousArtist": false,
+        "megastar": true,
+        "hasTakeoverModes": false,
+        "stationFactoryId": "SF:16722:17534",
+        "name": "Radiohead",
+        "sortableName": "Radiohead",
+        "icon": {
+          "dominantColor": "ce4c07",
+          "artId": "images/97/a9/93/a9/f4674becb5d66d5f4d3f3bbc/",
+          "artUrl": "images/97/a9/93/a9/f4674becb5d66d5f4d3f3bbc/_500W_500H.jpg"
+        },
+        "hasRadio": true,
+        "albumCount": 56,
+        "trackCount": 261,
+        "shareableUrlPath": "/artist/radiohead/ARXVw3lpmftxp2w",
+        "slugPlusPandoraId": "/radiohead/AR:17534",
+        "twitterHandle": "radiohead",
+        "modificationTime": 1791669665507,
+        "pandoraId": "AR:17534",
+        "type": "AR",
+        "scope": "core"
+      }
+    },
+    "source": {
+      "type": "Station",
+      "pandoraId": "ST:0:100000000000000001",
+      "stationFactory": "SF:16722:17534",
+      "currentIndex": 0,
+      "sourceName": "Radiohead Radio",
+      "mode": {
+        "modeId": "MO:0",
+        "modeName": "My Station"
+      }
+    }
+  }
+}

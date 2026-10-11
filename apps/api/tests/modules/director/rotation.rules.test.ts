@@ -7,7 +7,7 @@
 import { settingsConfig } from '../../utils/settings.config.js';
 import { describe, expect, it } from 'vitest';
 
-import { albumKey, artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
+import { albumKey, artistKey, creditKey, songKey, spacingKeys } from '../../../src/modules/director/rotation.keys.js';
 import {
     applyRules,
     applyRulesHoldingQueue,
@@ -37,6 +37,13 @@ const candidate = (title: string, artists: string[], rating?: number, album?: st
     artistKey: artistKey(artists),
     ...(rating === undefined ? {} : { rating }),
     ...(album === undefined ? {} : { albumKey: albumKey(artists, album) }),
+});
+
+/** A candidate whose lead is credited as written, joins and all, as the catalog and the resolver build one. */
+const credited = (title: string, artist: string): RotationCandidate => ({
+    songKey: songKey(title, [artist]),
+    artistKey: artistKey([artist]),
+    creditKey: creditKey(artist),
 });
 
 const none = { songKeys: new Set<string>(), artistKeys: new Set<string>() };
@@ -387,6 +394,24 @@ describe('filterByHistory', () => {
         expect(filterByHistory([candidate('A', ['One']), candidate('B', ['One'])], recent)).toEqual([]);
     });
 
+    it('holds an act inside a joined credit that aired, and the joined credit after the act', () => {
+        // The live fault: "Yusuf / Cat Stevens" and "Cat Stevens" are two keys, so each walked
+        // straight past the other's cooldown.
+        const joined = { songKeys: new Set<string>(), artistKeys: new Set(spacingKeys('Yusuf / Cat Stevens')) };
+        expect(filterByHistory([credited('Wild World', 'Cat Stevens'), credited('Other', 'Air Supply')], joined).map(c => c.artistKey)).toEqual([
+            artistKey(['Air Supply']),
+        ]);
+
+        const act = { songKeys: new Set<string>(), artistKeys: new Set(spacingKeys('Cat Stevens')) };
+        expect(filterByHistory([credited('Peace Train', 'Yusuf / Cat Stevens')], act)).toEqual([]);
+    });
+
+    it('does not hold a name that merely starts with an aired one', () => {
+        const recent = { songKeys: new Set<string>(), artistKeys: new Set([...spacingKeys('Air'), ...spacingKeys('Sly & Robbie')]) };
+
+        expect(filterByHistory([credited('A', 'Air Supply'), credited('B', 'Sly & the Family Stone')], recent)).toHaveLength(2);
+    });
+
     it('suppresses nothing when the windows are empty', () => {
         // Which is also what a disabled rule produces, so `0` costs no query rather
         // than needing a branch at the call site.
@@ -572,6 +597,22 @@ describe('spaceArtists', () => {
         expect(spaced.map(c => c.artistKey)).toEqual([artistKey(['Two']), artistKey(['One'])]);
     });
 
+    it('keeps an act off the heels of a joined credit naming it', () => {
+        const spaced = spaceArtists([credited('A', 'Cat Stevens'), credited('B', 'Yusuf / Cat Stevens'), credited('C', 'Air Supply')]);
+
+        expect(spaced.map(c => c.songKey)).toEqual([
+            songKey('A', ['Cat Stevens']),
+            songKey('C', ['Air Supply']),
+            songKey('B', ['Yusuf / Cat Stevens']),
+        ]);
+    });
+
+    it('will not open with an act inside the seed’s joined credit', () => {
+        const spaced = spaceArtists([credited('A', 'Cat Stevens'), credited('B', 'Two')], creditKey('Yusuf / Cat Stevens'));
+
+        expect(spaced.map(c => c.artistKey)).toEqual([artistKey(['Two']), artistKey(['Cat Stevens'])]);
+    });
+
     it('ignores a seed that is not among the candidates', () => {
         // The seed is a comparison, not a member of the batch, so a seed that matches nothing here
         // changes nothing about the ordering.
@@ -628,6 +669,18 @@ describe('holdArtistCooldown', () => {
         expect(held.filter(c => c.artistKey === artistKey(['X']))).toHaveLength(1);
     });
 
+    it('holds a joined credit inside the cooldown of an act it names', () => {
+        const batch = [
+            credited('X1', 'Cat Stevens'),
+            credited('A', 'A'),
+            credited('X2', 'Yusuf / Cat Stevens'),
+            credited('Air', 'Air Supply'),
+            credited('Air2', 'Air'),
+        ];
+
+        expect(titles(holdArtistCooldown(batch, 40, length))).toEqual(titles([batch[0]!, batch[1]!, batch[3]!, batch[4]!]));
+    });
+
     it('changes nothing with the cooldown off', () => {
         const batch = [candidate('X1', ['X']), candidate('A', ['A']), candidate('X2', ['X'])];
 
@@ -674,6 +727,14 @@ describe('applyRulesHoldingQueue', () => {
         const kept = applyRulesHoldingQueue(more, DEFAULT_RULES, none, queued, 3);
 
         expect(kept.map(c => c.songKey)).toEqual([songKey('Q', ['Queued']), songKey('A', ['One']), songKey('B', ['Two'])]);
+    });
+
+    it('holds an act whose joined credit is queued, and lets it back in the same way', () => {
+        const joined = new Set(spacingKeys('Yusuf / Cat Stevens'));
+        const batch = [credited('Wild World', 'Cat Stevens'), credited('A', 'One'), credited('B', 'Two')];
+
+        expect(applyRulesHoldingQueue(batch, DEFAULT_RULES, none, joined, 2).map(c => c.artistKey)).toEqual([artistKey(['One']), artistKey(['Two'])]);
+        expect(applyRulesHoldingQueue(batch, DEFAULT_RULES, none, joined, 3)).toHaveLength(3);
     });
 
     it('is exactly applyRules with nothing queued', () => {

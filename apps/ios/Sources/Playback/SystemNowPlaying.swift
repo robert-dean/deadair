@@ -7,7 +7,13 @@ import MediaPlayer
 ///
 /// **Play and stop are the only verbs.** Pause, stop and the toggle all stop, because a paused
 /// connection is still a listener and the station would stay on air for five minutes for nobody.
-/// Previous, seeking and scrubbing are withdrawn: a live stream has no position.
+/// Previous, seeking and scrubbing are withdrawn: a live stream has no position to move to.
+///
+/// **A record's progress is shown, and never dragged.** While a record with a length is playing the
+/// tile is told how far through it the listener is (`LockScreenProgress`), and is told the item is
+/// NOT live, because the lock screen draws a live stream as a LIVE badge with no bar at all,
+/// whatever elapsed time it is given. A break, or anything without a length, stays the live stream
+/// it is. `changePlaybackPositionCommand` stays disabled either way, so the bar is not a scrubber.
 ///
 /// **Next is the OPERATOR's Skip, offered only while the account is the operator, and that is the
 /// whole of the safety**, as on Android. A listener's lock screen draws nothing rather than a button
@@ -49,15 +55,14 @@ final class SystemNowPlaying {
     }
 
     /// What the system shows for a reading. Which line says what is `lockScreenLines`'s decision.
-    func show(station: String, reading: NowPlaying?, artwork: PlatformImage?, playing: Bool) {
+    func show(station: String, reading: NowPlaying?, artwork: PlatformImage?, playing: Bool, progress: LockScreenProgress?) {
         let lines = lockScreenLines(station: station, reading: reading)
         var info: [String: Any] = [
-            MPNowPlayingInfoPropertyIsLiveStream: true,
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue,
-            MPNowPlayingInfoPropertyPlaybackRate: playing ? 1.0 : 0.0,
             MPMediaItemPropertyTitle: lines.title.words,
             MPMediaItemPropertyArtist: lines.artist.words,
         ]
+        Self.apply(progress, playing: playing, to: &info)
         if let album = lines.album { info[MPMediaItemPropertyAlbumTitle] = album }
         if let artwork {
             let held = HeldImage(image: artwork)
@@ -66,6 +71,34 @@ final class SystemNowPlaying {
             info[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: artwork.size) { @Sendable _ in held.image }
         }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    /// Move the bar, or start or stop it, without touching anything else the tile says.
+    ///
+    /// The system runs the bar on by itself from the elapsed time, the moment it was set and the
+    /// rate, so this is needed only when that would go wrong: a new record, a bar appearing or
+    /// going, and the rate changing as the audio stops or starts. `LockScreenProgressState` decides.
+    func update(progress: LockScreenProgress?, playing: Bool) {
+        let centre = MPNowPlayingInfoCenter.default()
+        guard var info = centre.nowPlayingInfo else { return }
+        Self.apply(progress, playing: playing, to: &info)
+        centre.nowPlayingInfo = info
+    }
+
+    /// The live flag, the rate and, for a record, where it is and how long it is.
+    private static func apply(_ progress: LockScreenProgress?, playing: Bool, to info: inout [String: Any]) {
+        info[MPNowPlayingInfoPropertyPlaybackRate] = playing ? 1.0 : 0.0
+        if let progress {
+            info[MPNowPlayingInfoPropertyIsLiveStream] = false
+            info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = 1.0
+            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = progress.elapsedSeconds
+            info[MPMediaItemPropertyPlaybackDuration] = progress.durationSeconds
+        } else {
+            info[MPNowPlayingInfoPropertyIsLiveStream] = true
+            info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = nil
+            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = nil
+            info[MPMediaItemPropertyPlaybackDuration] = nil
+        }
     }
 
     /// Nothing is playing and nothing will be: take the tile down.

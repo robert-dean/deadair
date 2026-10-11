@@ -191,7 +191,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 ARG WITH_TTS
 ARG WITH_DB
-ARG WITH_APPLE
 ARG NODE_VERSION
 ARG S6_OVERLAY_VERSION
 ARG DBMATE_VERSION
@@ -341,6 +340,14 @@ RUN set -eux; \
 # Google's Chrome and not Debian's Chromium, because only Google's build carries the Widevine CDM.
 # Its shared libraries are resolved by apt from the `.deb` rather than listed here, so a base bump
 # re-resolves them instead of breaking on a renamed one.
+#
+# The argument is DECLARED here and not with the others at the top of the stage, for `REVISION`'s
+# reason further down: every RUN after a declaration carries the argument in its cache key, so declared
+# at the top it gave every layer above this one a different key in `apple` than in `latest`. The Apple
+# twins then shared no cache with the variants they are a layer away from, rebuilt the voice, the
+# database and the base packages from nothing, and pushed their own copies of all of it. Declared here,
+# everything above is the same layer in both, which CI reads from the twin's cache (see images.yml).
+ARG WITH_APPLE
 RUN set -eux; \
     if [ "${WITH_APPLE}" = "1" ]; then \
         apt-get update; \

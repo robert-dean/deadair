@@ -27,6 +27,8 @@ import { SpeechService } from '#modules/render/speech.service.js';
 import { speakableScript } from '#modules/render/speakable.script.js';
 import { STREAM_DEFAULTS, STREAM_KEYS, stationLanguage } from '#modules/stream/stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { stationLocation } from '#modules/shared/station.home.js';
+import { WEATHER_KEYS } from '#modules/weather/weather.keys.js';
 import { checkBeat, correctionNote } from './production.checks.js';
 import { callSubjectOf, isDialogue, isVisitor, speakerOrder, turnWeights, type CastMember, type ProductionCast } from './production.cast.js';
 import { ProductionCaster } from './production.caster.js';
@@ -431,6 +433,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 dayPart: airs.words,
                 cleanLanguage: speaksClean(advisoryPolicy(this.config)),
                 ...this.language(),
+                ...this.home(),
             });
 
             const ask = async () =>
@@ -640,6 +643,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         correction: correctionNote(problems),
                         cleanLanguage: speaksClean(advisoryPolicy(this.config)),
                         ...this.language(),
+                        ...this.home(),
                     }),
                     maxOutputTokens: BEAT_OUTPUT_TOKENS,
                     reasoningEffort: 'low',
@@ -1022,6 +1026,15 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
     private language(): { language?: string } {
         const language = stationLanguage(this.config);
         return language === undefined ? {} : { language };
+    }
+
+    /**
+     * Where the station broadcasts from, as a request field, or nothing when none is set. Read per
+     * call for {@link language}'s reason. See `homeRule`.
+     */
+    private home(): { location?: string } {
+        const location = stationLocation(String(this.config.get(WEATHER_KEYS.location, '') ?? ''));
+        return location === undefined ? {} : { location };
     }
 
     private priorityOf(production: Production) {

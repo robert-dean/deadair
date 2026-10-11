@@ -16,7 +16,8 @@
                     <ComboBox ItemsSource="{Binding Sorts}" SelectedItem="{Binding Sort}" MinWidth="110"
                               ToolTip.Tip="Sort by" VerticalAlignment="Center" />
                     <Button Classes="icon small" Command="{Binding TurnSortCommand}"
-                            ToolTip.Tip="Turn the order around" VerticalAlignment="Center">
+                            ToolTip.Tip="Turn the order around" AutomationProperties.Name="Turn the order around"
+                            VerticalAlignment="Center">
                         <Panel>
                             <PathIcon Data="{DynamicResource DaIconChevronUp}" Width="12" Height="12"
                                       IsVisible="{Binding !Descending}" />

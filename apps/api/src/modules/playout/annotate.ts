@@ -426,11 +426,12 @@ function gainAnnotations(item: RundownItem, { targetLufs, speechTrimDb, leveling
     // somebody else mastered: see `speechGainFor`, and {@link voiceAnnotations} for the other
     // path the same audio can take to the player. Unaffected by `levelingEnabled`, which is a
     // record-only knob — see the field's own doc comment for why.
-    // Somebody else's programme is spoken word too, and levelled like the station's voice, but from a
-    // mastered level rather than a speech engine's: see `programmeGainFor`.
+    // A programme is spoken word too, and levelled like the station's voice, but from a mastered level
+    // rather than a speech engine's, and with a fetched episode's boost held under its peak as a
+    // record's is: see `programmeGainFor`.
     if (isRenderItem(item) && item.programme === true) {
         return {
-            liq_amplify: `${programmeGainFor(item, targetLufs, speechTrimDb)} dB`,
+            liq_amplify: `${programmeGainFor(item, targetLufs, speechTrimDb, item.stationVoiced === true ? 'station' : 'mastered')} dB`,
             [VOICE_AIM_KEY]: String(speechAimLufs(targetLufs, speechTrimDb)),
         };
     }

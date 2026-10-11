@@ -158,7 +158,11 @@ history and scrobbling, and the empty `artist` that keeps it out of the song key
 - **Its gain assumes a mastered level.** `speechGainFor` assumes -26.5 LUFS for anything unmeasured,
   which is the station's speech engine; applied to a podcast at -16 it added 11.5 dB, for an hour, into
   the limiter. `programmeGainFor` assumes -16 and keeps the speech trim, since spoken word belongs a
-  little under the music.
+  little under the music. **And its boost is held under its peak, as a record's is**: an episode is
+  somebody else's master, so a cut is always allowed and a boost only as far as the headroom its true
+  peak leaves under -1 dBTP, and not at all with no peak. It was the record cap of twelve decibels with
+  no peak check. A reading the station spoke itself (`narrations.md`) is a programme too, but its own
+  voice to the mixer, so `RundownTrack.stationVoiced` keeps it on the boost a break gets.
 
 **The aired mark is written on the aired edge** (`DirectorService.remember`), keeping the first airing,
 and is what stops the band carrying the episode again tomorrow.
@@ -189,7 +193,9 @@ because the words go to somebody else's directory, and nothing is sent until som
 - **The segment audio route reads the whole file into memory.** `getSegmentAudio` answers a `Buffer`,
   so an 80 MB episode is 80 MB of heap per fetch of it. A streamed body is a contract change.
 - **An episode is never measured.** The sidecar decodes 30 minutes at most, so the gain rests on the
-  assumed level. A streaming loudness pass would make it a measurement.
+  assumed level, and with no peak it is never a boost. A streaming loudness pass would make it a
+  measurement; the item already carries `truePeakDb` and `samplePeakDb`, so recording the peak on the
+  segment row beside `loudness_lufs` is all a measured episode would need to be boosted within it.
 - **Only the newest episode.** A serial worked through in order, oldest first, would be an option on
   the topic, and the table already keeps what it would need. `narration_pieces` does exactly that for
   the things the station reads ITSELF (`narrations.md`), so the shape is written down; what is not

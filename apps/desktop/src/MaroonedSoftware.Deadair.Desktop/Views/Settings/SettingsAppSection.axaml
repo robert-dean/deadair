@@ -169,6 +169,25 @@
                         <TextBlock Classes="dimmed" TextWrapping="Wrap" Text="{Binding SleepNote}" />
                     </StackPanel>
 
+                    <!-- Studio's alone: it is the screen made to be looked at from across a room. -->
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="dimmed" Text="Keep the display awake" />
+                        <Border CornerRadius="{DynamicResource DaCorner}" Padding="3"
+                                HorizontalAlignment="Left"
+                                Background="{DynamicResource DaRaisedBrush}">
+                            <StackPanel Orientation="Horizontal" Spacing="2">
+                                <RadioButton Classes="segment" GroupName="keepAwake" Content="Never"
+                                             IsChecked="{Binding KeepAwake, Converter={x:Static conv:KeepAwakeConverter.Never}}" />
+                                <RadioButton Classes="segment" GroupName="keepAwake" Content="While charging"
+                                             IsChecked="{Binding KeepAwake, Converter={x:Static conv:KeepAwakeConverter.WhileCharging}}" />
+                                <RadioButton Classes="segment" GroupName="keepAwake" Content="Always"
+                                             IsChecked="{Binding KeepAwake, Converter={x:Static conv:KeepAwakeConverter.Always}}" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                   Text="While Studio is up and the station is playing. While charging means on mains power, which a desktop Mac always is." />
+                    </StackPanel>
+
                     <!-- The one request this app makes to anybody but the station, said in full. -->
                     <StackPanel Spacing="6">
                         <TextBlock Classes="dimmed" Text="Updates" />

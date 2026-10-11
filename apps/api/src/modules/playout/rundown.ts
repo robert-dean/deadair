@@ -116,11 +116,22 @@ export interface RundownItem {
      * mixer (never faded into, the speech compressor) and still out of the play history. What differs
      * is everything a listener sees and the level it is corrected to: its title is the episode's own
      * and its artist the show's rather than the station's name, and its gain assumes a programme
-     * somebody MASTERED rather than the station's quiet speech engine. See `programmeGainFor`.
+     * somebody MASTERED rather than the station's quiet speech engine, and holds a boost under its
+     * peak as a record's is (unless {@link stationVoiced}). See `programmeGainFor`.
      *
      * Absent on every other item, which is every item there was before this existed.
      */
     programme?: boolean;
+    /**
+     * A programme the station SPOKE, through its own speech engine, rather than one it fetched: a
+     * narration. Set only beside `programme`, and only by `programmeRundownTrack`.
+     *
+     * It changes one thing, the peak cap on the gain. Somebody else's programme is a master and its
+     * boost is held to the headroom its peak leaves, as a record's is; the station's own voice is not,
+     * on `speechGainFor`'s argument. See `programmeGainFor`. Absent means mastered, the safe reading,
+     * so a new kind of programme that forgets it is capped rather than boosted blind.
+     */
+    stationVoiced?: boolean;
     /**
      * What a LISTENER may be told this break is, where its writer was willing to say.
      *

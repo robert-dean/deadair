@@ -1,0 +1,119 @@
+// The spacing rules compare a joined lead credit ("Yusuf / Cat Stevens") with the acts inside it.
+// The guard rails are the point: a rule that reads "Air" inside "Air Supply" holds a station's
+// records against strangers, and nothing on air says why.
+
+import { describe, expect, it } from 'vitest';
+
+import {
+    artistActs,
+    artistCreditsOverlap,
+    artistKey,
+    creditKey,
+    isArtistHeld,
+    sameAct,
+    spacingKeys,
+} from '../../../src/modules/director/rotation.keys.js';
+
+describe('artistActs', () => {
+    it('splits where a joining mark stands with a space beside it', () => {
+        expect(artistActs('Yusuf / Cat Stevens')).toEqual(['yusuf', 'cat stevens']);
+        expect(artistActs('Pixies • Black Francis')).toEqual(['pixies', 'black francis']);
+        expect(artistActs('Sly & Robbie')).toEqual(['sly', 'robbie']);
+        expect(artistActs('M / Robin Scott')).toEqual(['m', 'robin scott']);
+        expect(artistActs('USHER, Lil Jon, Ludacris')).toEqual(['usher', 'lil jon', 'ludacris']);
+    });
+
+    it('keeps a name whole where the mark has no space, or the space no mark', () => {
+        expect(artistActs('Jay-Z')).toEqual(['jay z']);
+        expect(artistActs('AC/DC')).toEqual(['ac dc']);
+        expect(artistActs('Air Supply')).toEqual(['air supply']);
+    });
+
+    it('never splits on a full stop, a quote or a bracket', () => {
+        expect(artistActs('Mr. Big')).toEqual(['mr big']);
+        expect(artistActs("Guns N' Roses")).toEqual(['guns n roses']);
+        expect(artistActs('Nirvana (UK)')).toEqual(['nirvana uk']);
+    });
+
+    it('answers nothing for a credit with no letters or digits', () => {
+        expect(artistActs('')).toEqual([]);
+        expect(artistActs(' / ')).toEqual([]);
+    });
+});
+
+describe('creditKey', () => {
+    it('is the artist key itself for a credit naming one act', () => {
+        for (const name of ['Cat Stevens', 'Jay-Z', 'Beyoncé', 'AC/DC']) expect(creditKey(name)).toBe(artistKey([name]));
+    });
+
+    it('keeps the joins of a joined credit, and answers itself when fed back in', () => {
+        expect(creditKey('Yusuf / Cat Stevens')).toBe('yusuf / cat stevens');
+        expect(creditKey(creditKey('Pixies • Black Francis'))).toBe(creditKey('Pixies • Black Francis'));
+    });
+});
+
+describe('artistCreditsOverlap', () => {
+    it('finds an act inside a joined credit, either way round', () => {
+        expect(artistCreditsOverlap('cat stevens', 'yusuf / cat stevens')).toBe(true);
+        expect(artistCreditsOverlap('Yusuf / Cat Stevens', 'Cat Stevens')).toBe(true);
+        expect(artistCreditsOverlap('pixies', 'pixies • black francis')).toBe(true);
+        expect(artistCreditsOverlap('M', 'M / Robin Scott')).toBe(true);
+    });
+
+    it('is true of two spellings of the same credit', () => {
+        expect(artistCreditsOverlap('Beyoncé', 'beyonce')).toBe(true);
+        expect(artistCreditsOverlap('Yusuf / Cat Stevens', 'yusuf / cat stevens')).toBe(true);
+    });
+
+    it('does not read a word of a name as an act', () => {
+        expect(artistCreditsOverlap('air', 'air supply')).toBe(false);
+        expect(artistCreditsOverlap('jay', 'jay-z')).toBe(false);
+        expect(artistCreditsOverlap('cat', 'yusuf / cat stevens')).toBe(false);
+    });
+
+    it('does not join two credits that only share an act', () => {
+        expect(artistCreditsOverlap('sly & robbie', 'sly & the family stone')).toBe(false);
+    });
+
+    it('wants the inner credit whole and in order', () => {
+        expect(artistCreditsOverlap('Sly & Robbie', 'Sly & Robbie, Grace Jones')).toBe(true);
+        expect(artistCreditsOverlap('Robbie & Sly', 'Sly & Robbie, Grace Jones')).toBe(false);
+    });
+
+    it('overlaps nothing with an empty credit', () => {
+        expect(artistCreditsOverlap('', '')).toBe(false);
+        expect(artistCreditsOverlap('', 'Cat Stevens')).toBe(false);
+    });
+});
+
+describe('spacingKeys and isArtistHeld', () => {
+    it('holds the key alone for one act, and the credit beside it for a joined one', () => {
+        expect(spacingKeys('Cat Stevens')).toEqual(['cat stevens']);
+        expect(spacingKeys('Yusuf / Cat Stevens')).toEqual(['yusuf cat stevens', 'yusuf / cat stevens']);
+    });
+
+    it('holds an act inside a joined credit that aired, and the joined credit after the act', () => {
+        const joined = new Set(spacingKeys('Yusuf / Cat Stevens'));
+        expect(isArtistHeld(joined, artistKey(['Cat Stevens']), creditKey('Cat Stevens'))).toBe(true);
+        expect(isArtistHeld(joined, artistKey(['Cat Stevens']))).toBe(true);
+
+        const act = new Set(spacingKeys('Cat Stevens'));
+        expect(isArtistHeld(act, artistKey(['Yusuf / Cat Stevens']), creditKey('Yusuf / Cat Stevens'))).toBe(true);
+    });
+
+    it('holds nothing it should not', () => {
+        const held = new Set([...spacingKeys('Air'), ...spacingKeys('Sly & Robbie')]);
+        expect(isArtistHeld(held, artistKey(['Air Supply']), creditKey('Air Supply'))).toBe(false);
+        expect(isArtistHeld(held, artistKey(['Sly & the Family Stone']), creditKey('Sly & the Family Stone'))).toBe(false);
+        expect(isArtistHeld(held, '', '')).toBe(false);
+    });
+});
+
+describe('sameAct', () => {
+    it('is the key, or overlapping credits', () => {
+        const act = (name: string) => ({ artistKey: artistKey([name]), creditKey: creditKey(name) });
+        expect(sameAct(act('Cat Stevens'), act('Yusuf / Cat Stevens'))).toBe(true);
+        expect(sameAct(act('Air'), act('Air Supply'))).toBe(false);
+        expect(sameAct({ artistKey: artistKey(['Cat Stevens']) }, { artistKey: 'yusuf / cat stevens' })).toBe(true);
+    });
+});

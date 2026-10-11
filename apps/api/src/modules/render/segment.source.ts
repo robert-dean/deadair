@@ -93,6 +93,9 @@ function programmeRundownTrack(segment: Segment): RundownTrack {
         artists: show === undefined ? [] : [show],
         artist: '',
         programme: true,
+        // A reading the station spoke is its own voice to the gain, where a fetched episode is somebody
+        // else's master: see `RundownTrack.stationVoiced`.
+        ...(segment.source === SYNDICATED_SOURCE ? {} : { stationVoiced: true }),
         ...(segment.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
         ...(artworkUrl === undefined ? {} : { artworkUrl }),
         ...(segment.loudnessLufs === undefined ? {} : { loudnessLufs: segment.loudnessLufs }),

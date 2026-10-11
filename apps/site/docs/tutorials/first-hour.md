@@ -8,9 +8,9 @@ description: From an empty console to a station playing your music and talking b
 Both install tutorials end on an empty Desk. This page goes from there to a station playing your
 music, with a presenter talking between the records. It is the same whichever way you installed.
 
-**You need:** a station you are signed in to as the administrator, and either a Spotify Premium
-account or a Subsonic server such as Navidrome. Spotify has to be Premium because the station fetches
-the audio itself.
+**You need:** a station you are signed in to as the administrator, and somewhere the music comes
+from: a Spotify Premium account, or a media server of your own (Navidrome or another Subsonic server,
+Jellyfin, or Plex). Spotify has to be Premium because the station fetches the audio itself.
 
 ## 1. Give it music
 
@@ -20,6 +20,25 @@ Open **Settings → Plugins**.
 
 1. Open the Navidrome plugin and switch it on.
 2. Enter the server's address and an account on it, and save.
+
+**On Jellyfin:**
+
+1. In Jellyfin's dashboard, open **API Keys** and make a new key for deadair.
+2. Open the Jellyfin plugin in deadair and switch it on.
+3. Enter the server's address, the API key, and the name of the Jellyfin user to read the library as,
+   and save. The user decides which libraries and playlists the station can see.
+
+**On Plex:**
+
+1. Find your Plex token. The quickest way: in Plex Web, open your browser's developer console and run
+   `localStorage.myPlexAccessToken`. **Get Info → View XML** on an album also shows it, after
+   `X-Plex-Token=` in the address of the page that opens.
+2. Open the Plex plugin in deadair and switch it on.
+3. Enter the address of the Plex server itself, port included (`http://your-server:32400`), not
+   app.plex.tv, and the token, and save.
+
+Jellyfin, Plex and Navidrome each add a playlist called **Everything** after your own: the whole
+library, so a library with no playlists is still a complete setup.
 
 **On Spotify:**
 

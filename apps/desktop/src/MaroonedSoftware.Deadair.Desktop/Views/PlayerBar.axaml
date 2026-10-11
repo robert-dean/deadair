@@ -101,6 +101,7 @@
                      to a station not playing. -->
                 <StackPanel Orientation="Horizontal" Spacing="16" HorizontalAlignment="Center">
                     <Button Classes="icon" ToolTip.Tip="Shuffle what is coming up"
+                            AutomationProperties.Name="Shuffle what is coming up"
                             Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Order.ShuffleCommand}"
                             IsEnabled="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport.StreamUp}"
                             IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport.IsOperator}">
@@ -108,12 +109,14 @@
                     </Button>
 
                     <Button Classes="play" Command="{Binding ToggleCommand}"
-                            ToolTip.Tip="{Binding PlayLabel, StringFormat='{}{0} (Space)'}">
+                            ToolTip.Tip="{Binding PlayLabel, StringFormat='{}{0} (Space)'}"
+                            AutomationProperties.Name="{Binding PlayLabel}">
                         <PathIcon Width="14" Height="14"
                                   Data="{Binding Playing, Converter={x:Static conv:PlayIconConverter.Instance}}" />
                     </Button>
 
                     <Button Classes="icon" ToolTip.Tip="Skip this record"
+                            AutomationProperties.Name="Skip this record"
                             Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport.SkipCommand}"
                             IsEnabled="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport.StreamUp}"
                             IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport.IsOperator}">
@@ -132,6 +135,7 @@
                              which drew the line under its neighbours. -->
                         <ProgressBar Grid.Column="1" Minimum="0" Maximum="{Binding Duration}"
                                      Value="{Binding Position}" Height="4" MinWidth="0"
+                                     AutomationProperties.Name="How far into the record"
                                      VerticalAlignment="Center"
                                      Foreground="{DynamicResource DaTextBrush}"
                                      Background="{DynamicResource DaBorderStrongBrush}" />
@@ -185,7 +189,7 @@
                              slider sitting at zero reads as silence rather than as a question nobody
                              has answered. -->
                         <Slider Classes="volume" Width="72" Minimum="0" Maximum="1" Value="{Binding Volume, Mode=TwoWay}"
-                                IsEnabled="{Binding VolumeKnown}"
+                                IsEnabled="{Binding VolumeKnown}" AutomationProperties.Name="Volume"
                                 VerticalAlignment="Center" />
                     </StackPanel>
 
@@ -199,6 +203,7 @@
                     <Button x:Name="OutputButton" Classes="icon"
                             Classes.active="{Binding OnDevice}"
                             ToolTip.Tip="{Binding OutputName}"
+                            AutomationProperties.Name="{Binding OutputName}"
                             IsVisible="{Binding Outputs, Converter={x:Static ObjectConverters.IsNotNull}}">
                         <PathIcon Data="{DynamicResource DaIconSpeaker}" />
                         <Button.Flyout>
@@ -209,19 +214,19 @@
                     </Button>
 
                     <!-- The Now playing panel, shown or put away, and lit while it is shown. -->
-                    <Button Classes="icon" ToolTip.Tip="Now playing"
+                    <Button Classes="icon" ToolTip.Tip="Now playing" AutomationProperties.Name="Now playing"
                             Classes.active="{Binding $parent[Window].((vm:ShellViewModel)DataContext).ShowNowPlaying}"
                             Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).ToggleNowPlayingCommand}">
                         <PathIcon Data="{DynamicResource DaIconPanelRight}" />
                     </Button>
 
                     <!-- Studio: the record on air across the whole screen. -->
-                    <Button Classes="icon" ToolTip.Tip="Studio (F)"
+                    <Button Classes="icon" ToolTip.Tip="Studio (F)" AutomationProperties.Name="Studio"
                             Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).ToggleStudioCommand}">
                         <PathIcon Data="{DynamicResource DaIconTv}" />
                     </Button>
 
-                    <Button Classes="icon" ToolTip.Tip="Open the desk"
+                    <Button Classes="icon" ToolTip.Tip="Open the desk" AutomationProperties.Name="Open the desk"
                             IsVisible="{Binding !$parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsDesk}"
                             Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).ShowDeskCommand}">
                         <PathIcon Data="{DynamicResource DaIconExpand}" />

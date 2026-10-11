@@ -302,6 +302,7 @@ fun HomeRoute(
                     // It draws under the tabs and keeps their height clear, so they come and go
                     // without the screen moving; a touch anywhere on it brings them back.
                     bottomReserve = TabBarHeight,
+                    keepAwake = settings.keepAwake,
                     modifier = Modifier.noticesTouch(tabsAway),
                 )
             }

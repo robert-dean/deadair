@@ -18,26 +18,37 @@ public struct ListenerSettings: Equatable, Sendable {
     /// station plays. On by default: it is the lock screen's own player made larger, and it ends with
     /// the audio.
     public var showOnLockScreen: Bool
+    /// When Now playing keeps the screen on. Never by default; see `KeepAwake`.
+    public var keepAwake: KeepAwake
 
-    public init(station: StationUrl? = nil, stationName: String? = nil, format: StreamFormat? = nil, playOnOpen: Bool = false, showOnLockScreen: Bool = true) {
+    public init(
+        station: StationUrl? = nil, stationName: String? = nil, format: StreamFormat? = nil, playOnOpen: Bool = false, showOnLockScreen: Bool = true,
+        keepAwake: KeepAwake = .never
+    ) {
         self.station = station
         self.stationName = stationName
         self.format = format
         self.playOnOpen = playOnOpen
         self.showOnLockScreen = showOnLockScreen
+        self.keepAwake = keepAwake
     }
 
     /// Read the stored text. An address that no longer parses is treated as absent, so the app goes
     /// back to Setup rather than polling something it cannot reach; a format this build does not
     /// know is Automatic, as for somebody who never chose. Play-on-open is on only for the word `on`, so
     /// anything else, including nothing at all, is the default. Show-on-the-Lock-Screen is the other
-    /// way round, off only for the word `off`, because its default is on.
-    public init(stationText: String?, nameText: String?, formatText: String?, playOnOpenText: String? = nil, showOnLockScreenText: String? = nil) {
+    /// way round, off only for the word `off`, because its default is on. A keep-awake this build does
+    /// not know is Never, the default, on the format's argument.
+    public init(
+        stationText: String?, nameText: String?, formatText: String?, playOnOpenText: String? = nil, showOnLockScreenText: String? = nil,
+        keepAwakeText: String? = nil
+    ) {
         station = stationText.flatMap { try? StationUrl.parse($0).get() }
         stationName = station == nil ? nil : nameText
         format = formatText.flatMap(StreamFormat.init(rawValue:))
         playOnOpen = playOnOpenText == "on"
         showOnLockScreen = showOnLockScreenText != "off"
+        keepAwake = keepAwakeText.flatMap(KeepAwake.init(rawValue:)) ?? .never
     }
 
     public var stationText: String? { station?.origin }
@@ -57,4 +68,5 @@ public struct ListenerSettings: Equatable, Sendable {
     }
     public var playOnOpenText: String { playOnOpen ? "on" : "off" }
     public var showOnLockScreenText: String { showOnLockScreen ? "on" : "off" }
+    public var keepAwakeText: String { keepAwake.rawValue }
 }

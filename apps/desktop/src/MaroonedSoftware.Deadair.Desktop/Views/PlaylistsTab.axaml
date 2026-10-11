@@ -27,7 +27,8 @@
                         Command="{Binding $parent[UserControl].((vm:PlaylistsViewModel)DataContext).PlayCommand}"
                         CommandParameter="{Binding}" />
                 <Button Grid.Column="4" Classes="icon small reveal" VerticalAlignment="Center"
-                        ToolTip.Tip="{Binding Name, StringFormat='More about {0}'}">
+                        ToolTip.Tip="{Binding Name, StringFormat='More about {0}'}"
+                        AutomationProperties.Name="{Binding Name, StringFormat='More about {0}'}">
                     <PathIcon Data="{DynamicResource DaIconChevronDown}" Width="12" Height="12" />
                     <Button.Flyout>
                         <MenuFlyout Placement="BottomEdgeAlignedRight" ItemsSource="{Binding Menu}">

@@ -22,6 +22,7 @@ import { SaidLog } from '../../../src/modules/director/almanac.source.js';
 import { DEFAULT_MAX_WORDS } from '../../../src/modules/director/break.prompt.js';
 import { patienceFor, WAIT } from '../../../src/modules/director/break.writer.js';
 import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
+import { WEATHER_KEYS } from '../../../src/modules/weather/weather.keys.js';
 
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
 const next = { title: 'Pink Moon', artist: 'Nick Drake' };
@@ -690,5 +691,44 @@ describe('ModelTalkBreakWriter and a date it was offered', () => {
         const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, almanac, clock });
 
         expect(written?.claimsTime).toEqual({ from: clock.validFrom, until: clock.validUntil });
+    });
+});
+
+// The scenario the location rule exists for, end to end through the writer: the prompt says where
+// the station is, and an answer that calls somewhere else here is refused with a fault the registry
+// can put back to the model once.
+describe('where the station is', () => {
+    const glaswegian = {
+        id: 'p1',
+        key: 'nightowl',
+        kind: 'host' as const,
+        label: 'Night owl',
+        style: 'a Glaswegian night owl',
+        defaultHost: true,
+    } as never;
+
+    it('tells the model the station location and refuses a presenter calling Glasgow here', async () => {
+        const { writer, converse } = build({
+            values: { [WEATHER_KEYS.location]: 'Atlanta, GA' },
+            answer: 'Here in Glasgow tonight, that was Solid Air. Coming up, Pink Moon.',
+        });
+
+        await expect(writer.write({ kind: TALK_BREAK_KIND, previous, next, persona: glaswegian })).resolves.toBeUndefined();
+
+        const asked = converse.mock.calls[0]?.[0] as unknown as { messages: { content: string }[] };
+        const system = asked.messages[0]?.content ?? '';
+        expect(system).toContain('The station broadcasts from Atlanta, GA, and that is the only place you may call here');
+        expect(writer.detailOfLastWrite()?.fault).toBe('invented-home');
+    });
+
+    it('keeps a presenter saying where the station really is', async () => {
+        const { writer } = build({
+            values: { [WEATHER_KEYS.location]: 'Atlanta, GA' },
+            answer: 'Here in Atlanta tonight, that was Solid Air. Coming up, Pink Moon.',
+        });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, persona: glaswegian });
+
+        expect(written?.script).toBe('Here in Atlanta tonight, that was Solid Air. Coming up, Pink Moon.');
     });
 });

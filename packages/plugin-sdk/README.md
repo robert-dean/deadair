@@ -1105,6 +1105,20 @@ ones it implements in `manifest.capabilities`:
     sibling container, so a URL it can fetch is zero copies and a stream through
     here is two.
 
+    `reportPlayback` is the optional other half, for a service that expects
+    the client that fetched a record to say it is being played. The host calls
+    it with `started` when one of your records goes to air and `ended`, with the
+    `elapsedMs` heard, when the next item does, from a job: late, retried on a
+    thrown `PluginError`, and not guaranteed in order. Leave it out unless your
+    upstream wants it. It is not a scrobble, which reports to somebody's
+    listening history by title and artist; this carries the id you served.
+
+    A refusal that belongs to the ACCOUNT rather than the record, such as a
+    stream already playing on another device or a spent quota, should be
+    thrown as `unavailable` or `rate_limited` (with `retryAfterMs` when you
+    know it). The host then puts that fetch off without counting it against
+    the copy, where any other failure counts toward benching it.
+
 - **`steer`** — `enqueue`, `play`, `pause`, `skip`, `getPlaybackState`. The
   provider owns the audio output and deadair only tells it what to do. Named
   from the plugin's side on purpose: deadair's own `playout` module is the

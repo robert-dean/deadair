@@ -215,6 +215,17 @@ const key = (headline: string): string =>
         .replace(/[^\p{L}\p{N}]+/gu, ' ')
         .trim();
 
+/** The first of each headline, in order, keyed exactly as {@link ReadLog} keys them. */
+const distinct = (stories: readonly BreakStory[]): BreakStory[] => {
+    const seen = new Set<string>();
+    return stories.filter(story => {
+        const heard = key(story.headline);
+        if (seen.has(heard)) return false;
+        seen.add(heard);
+        return true;
+    });
+};
+
 /**
  * Says out loud when a category the clock asks for has nothing in it.
  *
@@ -374,7 +385,10 @@ export class BulletinSource {
             // what stops one category taking all of it. A briefed bulletin has had its variety
             // decided for it either way.
             const eligible = roster.length === 0 ? (asked === undefined ? spread(eligibleBy[0] ?? []) : (eligibleBy[0] ?? [])) : inTurn(eligibleBy);
-            const stories = eligible.slice(0, wanted);
+            // One story carried by two feeds is two items with one headline, and `ReadLog` only
+            // stops it airing in a LATER bulletin. Both copies went into one on 10 October, and the
+            // floor read the same story twice in a row. Before the cut, so the count is still met.
+            const stories = distinct(eligible).slice(0, wanted);
 
             // The category is empty. DECLINED rather than filled with general news, which is the
             // whole point of asking for one: a listener cannot tell a technology bulletin that is

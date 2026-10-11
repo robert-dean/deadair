@@ -104,6 +104,24 @@ which one that is or whether it is the one selected. The station settings that u
 per-writer model keys, and what makes them worth filling from the plugin rather than typing is that a
 model name now carries which provider it lives on.
 
+**A secret that goes to an address the operator types names that address with `sentTo`, and keeping it
+while the address moves is refused.** The partial-update rule (an omitted secret is kept) is what lets an
+operator save one setting without retyping every key, and it was also the whole of an exfiltration: anybody
+with `configure` on a plugin, or an API key scoped as widely, could repoint `baseUrl` at their own host and
+have the station send it a key the console never shows. The obvious fixes were both wrong. Clearing the
+secret whenever the address changes destroys a credential on a typo, and refusing ANY change to the address
+makes a path edit (`/v1` to `/v2`) cost a re-entry. So the host compares ORIGINS (scheme, host, port) and
+refuses only a save that keeps the secret across a change of origin, with the error on the secret's own
+field, or on its list for a cell (`movedSecretFields` and `splitRowSecrets` in
+`apps/api/src/modules/shared/config.rows.ts`). A row is compared with the same row by `$id` as stored, and an
+address cell that does not apply to its row (`dependsOn`) counts as no address, so a stale cell cannot be
+switched on underneath a kept key. The manifest schema refuses a `sentTo` naming nothing (`sentToProblems`),
+because one that did would compare an empty address with itself forever. Bundled pairs: llm `providers`
+(`apiKey` and `headers`), jellyfin, plex, navidrome, kokoro and chatterbox. NOT websearch's key, which goes
+to Brave or Tavily and never to the SearXNG address beside it, nor musicbrainz's ListenBrainz token or
+ytmusic's cookie, which go to fixed hosts too. The station's own settings use the same declaration:
+`mail.password` names `mail.host`, and a sign-in provider's client secret names its issuer.
+
 **A CELL's choices can also come from the plugin, which is the second of those three ways reaching one column
 rather than one field.** `suggestConfigOptions()` publishes under `columnSuggestionKey(fieldKey, columnKey)` —
 `voices.engine`, a dot-joined pair that cannot collide with a field key because a column key may not contain

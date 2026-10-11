@@ -56,6 +56,12 @@ setting is READ — each module keeps its typed resolver (`resolveStreamSettings
 `stationRules`) and shares the registry's defaults so the two cannot disagree. A row nobody declared is left
 alone rather than deleted.
 
+**A secret setting that is sent somewhere says where, with the SDK's `sentTo`**, and `SettingsService.write`
+refuses a save that keeps it while that address moves to another origin, exactly as a plugin's config does
+(`mail.password` names `mail.host`; a sign-in provider's client secret names its issuer). Without it, anybody
+allowed to save the mail settings could point the station at their own SMTP server and be handed the
+password. The reasoning is in `packages/plugin-sdk/CLAUDE.md` under "Config fields".
+
 **A `number` shares its RANGE for the same reason it shares its default, and the two sides of that range
 answer differently on purpose**: the resolver CLAMPS, because it is reading a row that is already stored and a
 setting that refuses to load stops the walk behind it, while `serializeSetting` REFUSES, because that is

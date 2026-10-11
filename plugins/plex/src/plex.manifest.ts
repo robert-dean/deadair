@@ -94,6 +94,8 @@ export const plexManifest: PluginManifest = {
             key: 'token',
             label: 'Plex token',
             type: 'secret',
+            // Sent to that server, so moving the address means typing this again. See the SDK's `sentTo`.
+            sentTo: 'baseUrl',
             required: true,
             help: "Your X-Plex-Token. In Plex Web, open the browser's developer console and run localStorage.myPlexAccessToken, or open an album's Get Info, then View XML, and copy the value after X-Plex-Token= in the address. It is sent with every request, and it is part of the address the station fetches each record from.",
         },

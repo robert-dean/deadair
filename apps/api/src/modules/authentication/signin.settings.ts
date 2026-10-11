@@ -51,7 +51,9 @@ export const SIGNIN_PROVIDER_COLUMNS: ConfigFieldColumn[] = [
     { key: SIGNIN_PROVIDER_CELLS.label, label: 'Button', type: 'string', required: true, placeholder: 'Authelia' },
     { key: SIGNIN_PROVIDER_CELLS.issuer, label: 'Issuer', type: 'url', required: true, placeholder: 'https://auth.example.com' },
     { key: SIGNIN_PROVIDER_CELLS.clientId, label: 'Client id', type: 'string', required: true },
-    { key: SIGNIN_PROVIDER_CELLS.clientSecret, label: 'Client secret', type: 'secret' },
+    // Sent to the issuer's token endpoint, so a row whose issuer moves to another server has to have
+    // its secret typed again rather than hand the stored one to whatever the new issuer names.
+    { key: SIGNIN_PROVIDER_CELLS.clientSecret, label: 'Client secret', type: 'secret', sentTo: SIGNIN_PROVIDER_CELLS.issuer },
     { key: SIGNIN_PROVIDER_CELLS.scopes, label: 'Scopes', type: 'string', placeholder: DEFAULT_SIGNIN_SCOPES.join(' ') },
     { key: SIGNIN_PROVIDER_CELLS.authorizeParams, label: 'Extra parameters', type: 'string', placeholder: 'prompt=select_account' },
 ];

@@ -198,6 +198,33 @@ describe('SettingsService.write', () => {
         expect(written).toEqual([{ key: MAIL_KEYS.password, value: null }]);
     });
 
+    it('refuses to keep the mail password when the server it is sent to moves, and writes nothing', async () => {
+        // Otherwise anybody allowed to save the mail settings could point the station at their own
+        // SMTP server and be handed a password the console never shows them.
+        const { service, written } = build({ [MAIL_KEYS.host]: 'smtp.home.example', [MAIL_KEYS.password]: encryption.encrypt('hunter2') });
+
+        await expect(service.write({ [MAIL_KEYS.host]: 'smtp.attacker.example' })).rejects.toMatchObject({ statusCode: 422 });
+        expect(written).toEqual([]);
+    });
+
+    it('moves the mail server when the password is typed again beside it', async () => {
+        const { service, written } = build({ [MAIL_KEYS.host]: 'smtp.home.example', [MAIL_KEYS.password]: encryption.encrypt('hunter2') });
+
+        await service.write({ [MAIL_KEYS.host]: 'smtp.elsewhere.example', [MAIL_KEYS.password]: 'new-password' });
+
+        expect(written.map(write => write.key).sort()).toEqual([MAIL_KEYS.host, MAIL_KEYS.password].sort());
+    });
+
+    it('keeps the mail password when the server is saved unchanged, or no password is stored', async () => {
+        const stored = build({ [MAIL_KEYS.host]: 'smtp.home.example', [MAIL_KEYS.password]: encryption.encrypt('hunter2') });
+        await stored.service.write({ [MAIL_KEYS.host]: 'SMTP.home.example' });
+        expect(stored.written).toEqual([{ key: MAIL_KEYS.host, value: 'SMTP.home.example' }]);
+
+        const none = build({ [MAIL_KEYS.host]: 'smtp.home.example' });
+        await none.service.write({ [MAIL_KEYS.host]: 'smtp.elsewhere.example' });
+        expect(none.written).toEqual([{ key: MAIL_KEYS.host, value: 'smtp.elsewhere.example' }]);
+    });
+
     it('refuses to change a secret the stream seeds for itself', async () => {
         // A changed one is adopted by Icecast and Liquidsoap only on their next restart, and a
         // cleared one stops the stream config rendering at all, so neither is on offer.

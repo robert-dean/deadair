@@ -293,6 +293,10 @@ export const llmManifest: PluginManifest = {
                     label: 'API key',
                     type: 'secret',
                     placeholder: 'For a hosted provider',
+                    // Sent to the row's Address where it has one. An Address that moves to another
+                    // server, or one that starts applying because the Kind changed, means typing the
+                    // key again rather than handing the stored one to whatever answers there.
+                    sentTo: 'baseUrl',
                 },
                 // For a gateway sitting in front of the real endpoint that insists on a header of
                 // its own (an internal proxy's auth token, a routing hint) which is not the
@@ -306,6 +310,7 @@ export const llmManifest: PluginManifest = {
                     label: 'Extra headers',
                     type: 'secret',
                     placeholder: 'X-Gateway-Key: value',
+                    sentTo: 'baseUrl',
                     dependsOn: 'kind',
                     dependsOnValues: ['openai-compat'],
                 },

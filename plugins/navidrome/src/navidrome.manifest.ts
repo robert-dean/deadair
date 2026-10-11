@@ -136,6 +136,8 @@ export const navidromeManifest: PluginManifest = {
             key: 'password',
             label: 'Password',
             type: 'secret',
+            // Sent to that server, so moving the address means typing this again. See the SDK's `sentTo`.
+            sentTo: 'baseUrl',
             required: true,
             help: "That account's password. It is never sent as-is: each request carries a salted hash of it.",
         },

@@ -7,7 +7,16 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { parseRows, ROW_ID_KEY, rowSecretKey, type ConfigField } from '@deadair/plugin-sdk';
 
-import { configuredCells, formAsItWillBe, holdsRowSecrets, splitRowSecrets } from '../../../src/modules/shared/config.rows.js';
+import {
+    configuredCells,
+    formAsItWillBe,
+    holdsRowSecrets,
+    MOVED_SECRET_MESSAGE,
+    movedSecretFields,
+    originOf,
+    secretFieldIntent,
+    splitRowSecrets,
+} from '../../../src/modules/shared/config.rows.js';
 
 const PROVIDERS: ConfigField = {
     key: 'providers',
@@ -217,6 +226,16 @@ describe('the form as a schema should judge it', () => {
         expect(formAsItWillBe(fields, stored, secrets, { apiKey: null }).apiKey).toBeUndefined();
     });
 
+    it("reads a secret field sent as '' as cleared, which is what the save does with it", () => {
+        // It used to read as "keep", so a required secret submitted blank passed the plugin's schema
+        // and was then deleted by the save it had just approved.
+        expect(formAsItWillBe(fields, stored, secrets, { apiKey: '' }).apiKey).toBeUndefined();
+        expect(formAsItWillBe(fields, stored, secrets, { apiKey: '   ' }).apiKey).toBeUndefined();
+        expect(secretFieldIntent('')).toBe('clear');
+        expect(secretFieldIntent(null)).toBe('clear');
+        expect(secretFieldIntent(' sk-new ')).toEqual({ set: 'sk-new' });
+    });
+
     it('takes a plain field the submission blanked out of the form, so an optional schema accepts it', () => {
         // The console sends `null` for a number box emptied after it had a value. Handed through,
         // `z.number().optional()` refused it with nothing but "Invalid input" under the field.
@@ -225,5 +244,162 @@ describe('the form as a schema should judge it', () => {
 
         expect(Object.hasOwn(effective, 'keepAlive')).toBe(false);
         expect(z.object({ keepAlive: z.number().optional() }).safeParse(effective).success).toBe(true);
+    });
+});
+
+/** The same table, with the credentials declaring the address they are sent to. */
+const PAIRED: ConfigField = {
+    key: 'providers',
+    label: 'Providers',
+    type: 'list',
+    columns: [
+        { key: 'kind', label: 'Kind', type: 'select' },
+        { key: 'baseUrl', label: 'Address', type: 'url', dependsOn: 'kind', dependsOnValues: ['server'] },
+        { key: 'apiKey', label: 'API key', type: 'secret', sentTo: 'baseUrl' },
+        { key: 'note', label: 'Note', type: 'secret' },
+    ],
+};
+
+describe('a kept credential and the address it is sent to', () => {
+    const stored = rows({ [ROW_ID_KEY]: 'r1', kind: 'server', baseUrl: 'https://llm.home.example:8443/v1' });
+    const secrets = { 'providers/r1/apiKey': 'enc(sk-stored)', 'providers/r1/note': 'enc(note)' };
+    const split = (...submitted: Record<string, unknown>[]) => splitRowSecrets(PAIRED, rows(...submitted), secrets, encrypt, stored);
+
+    it('refuses to keep it when the row points somewhere else', () => {
+        const result = split({ [ROW_ID_KEY]: 'r1', kind: 'server', baseUrl: 'https://attacker.example/v1' });
+
+        expect(result.refused).toContain('API key');
+    });
+
+    it('refuses a change of scheme or port as much as one of host', () => {
+        expect(split({ [ROW_ID_KEY]: 'r1', kind: 'server', baseUrl: 'http://llm.home.example:8443/v1' }).refused).toBeDefined();
+        expect(split({ [ROW_ID_KEY]: 'r1', kind: 'server', baseUrl: 'https://llm.home.example:9443/v1' }).refused).toBeDefined();
+    });
+
+    it('keeps it when only the path changed, or the host was written in another case', () => {
+        const result = split({ [ROW_ID_KEY]: 'r1', kind: 'server', baseUrl: 'https://LLM.home.example:8443/v2/' });
+
+        expect(result.refused).toBeUndefined();
+        expect(result.secrets['providers/r1/apiKey']).toBe('enc(sk-stored)');
+    });
+
+    it('saves a credential typed again beside the new address', () => {
+        const result = split({ [ROW_ID_KEY]: 'r1', kind: 'server', baseUrl: 'https://elsewhere.example/v1', apiKey: 'sk-new' });
+
+        expect(result.refused).toBeUndefined();
+        expect(result.secrets['providers/r1/apiKey']).toBe('enc(sk-new)');
+    });
+
+    it('lets a cleared credential go with the old address', () => {
+        const result = split({ [ROW_ID_KEY]: 'r1', kind: 'server', baseUrl: 'https://elsewhere.example/v1', apiKey: null });
+
+        expect(result.refused).toBeUndefined();
+        expect(result.secrets['providers/r1/apiKey']).toBeUndefined();
+    });
+
+    it('leaves a credential that declares no address alone, whatever moved', () => {
+        const result = split({ [ROW_ID_KEY]: 'r1', kind: 'server', baseUrl: 'https://elsewhere.example/v1', apiKey: 'sk-new' });
+
+        expect(result.secrets['providers/r1/note']).toBe('enc(note)');
+    });
+
+    it('has nothing to refuse on a row that holds no credential yet', () => {
+        expect(split({ [ROW_ID_KEY]: 'fresh', kind: 'server', baseUrl: 'https://anywhere.example' }).refused).toBeUndefined();
+    });
+
+    it('compares a second row sent under the same id with the stored one, not with the first', () => {
+        const result = split(
+            { [ROW_ID_KEY]: 'r1', kind: 'server', baseUrl: 'https://llm.home.example:8443/v1' },
+            { [ROW_ID_KEY]: 'r1', kind: 'server', baseUrl: 'https://attacker.example' },
+        );
+
+        expect(result.refused).toBeDefined();
+    });
+
+    it('counts an address that does not apply to its row as no address at all', () => {
+        // A row reached where its vendor lives, with an address left behind from before its kind
+        // changed. Switching the kind back would switch that address on underneath the kept key.
+        const vendor = rows({ [ROW_ID_KEY]: 'r1', kind: 'vendor', baseUrl: 'https://attacker.example' });
+        const result = splitRowSecrets(
+            PAIRED,
+            rows({ [ROW_ID_KEY]: 'r1', kind: 'server', baseUrl: 'https://attacker.example' }),
+            secrets,
+            encrypt,
+            vendor,
+        );
+
+        expect(result.refused).toBeDefined();
+    });
+
+    it('refuses an address appearing where there was none', () => {
+        const none = rows({ [ROW_ID_KEY]: 'r1', kind: 'server' });
+        const result = splitRowSecrets(
+            PAIRED,
+            rows({ [ROW_ID_KEY]: 'r1', kind: 'server', baseUrl: 'https://attacker.example' }),
+            secrets,
+            encrypt,
+            none,
+        );
+
+        expect(result.refused).toBeDefined();
+    });
+});
+
+describe('a kept secret field and the address it is sent to', () => {
+    const fields: ConfigField[] = [
+        { key: 'baseUrl', label: 'Server', type: 'url', default: 'http://localhost:8880' },
+        { key: 'apiKey', label: 'API key', type: 'secret', sentTo: 'baseUrl' },
+        { key: 'other', label: 'Other', type: 'secret' },
+    ];
+    const stored = { baseUrl: 'https://tts.home.example' };
+    const held = () => true;
+
+    it('refuses to keep it when the address moves to another origin', () => {
+        expect(movedSecretFields(fields, stored, held, { baseUrl: 'https://attacker.example' })).toEqual({ apiKey: MOVED_SECRET_MESSAGE });
+    });
+
+    it('keeps it across a path change', () => {
+        expect(movedSecretFields(fields, stored, held, { baseUrl: 'https://tts.home.example/v1' })).toEqual({});
+    });
+
+    it('lets a secret typed or cleared in the same save through', () => {
+        expect(movedSecretFields(fields, stored, held, { baseUrl: 'https://attacker.example', apiKey: 'sk-new' })).toEqual({});
+        expect(movedSecretFields(fields, stored, held, { baseUrl: 'https://attacker.example', apiKey: null })).toEqual({});
+    });
+
+    it('has nothing to refuse when no secret is stored', () => {
+        expect(movedSecretFields(fields, stored, () => false, { baseUrl: 'https://attacker.example' })).toEqual({});
+    });
+
+    it('leaves a secret alone when its address was not submitted', () => {
+        expect(movedSecretFields(fields, stored, held, { other: 'x' })).toEqual({});
+    });
+
+    it("reads an empty address as the field's default", () => {
+        // Nothing stored means the plugin is talking to its default, so typing the default in is not
+        // a move, and typing anything else is.
+        expect(movedSecretFields(fields, {}, held, { baseUrl: 'http://localhost:8880/v1' })).toEqual({});
+        expect(movedSecretFields(fields, {}, held, { baseUrl: 'https://attacker.example' })).toEqual({ apiKey: MOVED_SECRET_MESSAGE });
+        expect(movedSecretFields(fields, stored, held, { baseUrl: null })).toEqual({ apiKey: MOVED_SECRET_MESSAGE });
+    });
+});
+
+describe('originOf', () => {
+    it('is the origin of a URL, with the default port and case normalised away', () => {
+        expect(originOf('https://Example.com:443/a/b?c')).toBe('https://example.com');
+        expect(originOf('http://example.com:8080/')).toBe('http://example.com:8080');
+    });
+
+    it('compares anything that is not a URL as its own text, never as one opaque origin', () => {
+        // `new URL('smtp.example.com:587')` parses with a scheme of `smtp.example.com:` and an origin
+        // of "null", so two different mail servers would otherwise compare equal.
+        expect(originOf('smtp.example.com:587')).toBe('smtp.example.com:587');
+        expect(originOf('smtp.example.com:587')).not.toBe(originOf('attacker.example:587'));
+        expect(originOf('Mail.Example.com')).toBe('mail.example.com');
+    });
+
+    it('is empty for no address', () => {
+        expect(originOf(undefined)).toBe('');
+        expect(originOf('  ')).toBe('');
     });
 });

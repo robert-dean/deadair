@@ -20,7 +20,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
@@ -31,7 +38,9 @@ import com.maroonedsoftware.deadair.ui.theme.Gutter
  * The words of the record being heard, over Now playing.
  *
  * Timed lines light the one being sung and keep it in view, a couple of lines from the top so what
- * comes next is visible beneath it. The scroll waits while the listener is dragging, so reading ahead
+ * comes next is visible beneath it. When the source timed its words, the part of that line already
+ * sung is painted in the accent with a soft glow, word by word; a line timed only as a line is lit
+ * whole, as it always was. The scroll waits while the listener is dragging, so reading ahead
  * is not snatched back. The words are the station's, shown exactly as they came; only the title and
  * the credit under them are this app's.
  */
@@ -72,15 +81,33 @@ private fun SyncedLines(state: LyricsUiState.Synced) {
                 if (lit) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 label = "lyric",
             )
-            Text(
-                line.text,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = if (lit) FontWeight.SemiBold else FontWeight.Normal,
-                color = color,
-            )
+            val sung = state.sung?.takeIf { lit }
+            if (sung == null) {
+                Text(
+                    line.text,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = if (lit) FontWeight.SemiBold else FontWeight.Normal,
+                    color = color,
+                )
+            } else {
+                Text(sungText(line.text, sung, MaterialTheme.colorScheme.primary), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = color)
+            }
         }
     }
 }
+
+/**
+ * A line with its first [sung] characters in [accent] and a soft glow of the same colour, the rest in
+ * the line's own colour. The glow is a blurred shadow with no offset, so it reads as light around the
+ * letters rather than as depth.
+ */
+private fun sungText(text: String, sung: Int, accent: Color): AnnotatedString =
+    buildAnnotatedString {
+        withStyle(SpanStyle(color = accent, shadow = Shadow(color = accent.copy(alpha = GlowAlpha), offset = Offset.Zero, blurRadius = GlowRadius))) {
+            append(text.take(sung))
+        }
+        append(text.drop(sung))
+    }
 
 private fun provider(state: LyricsUiState): String? =
     when (state) {
@@ -94,3 +121,7 @@ private val SheetTextHeight = 460.dp
 
 /** How many lines stay above the lit one as it is scrolled to. */
 private const val LinesAbove = 2
+
+/** How strong the glow behind the sung words is, and how far it spreads in pixels. */
+private const val GlowAlpha = 0.55f
+private const val GlowRadius = 14f

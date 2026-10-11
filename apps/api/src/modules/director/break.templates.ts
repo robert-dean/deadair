@@ -271,6 +271,39 @@ const VALUES: Record<string, Resolver> = {
 };
 
 /**
+ * Whether `name` is one of the station's own placeholders.
+ *
+ * OWN properties only. {@link VALUES} is a plain object, so `'toString' in VALUES` is true and
+ * `VALUES.constructor` is a function: `{{toString}}` passed as a known placeholder and aired as
+ * "[object Object]", and `{{constructor}}` or `{{__proto__}}` threw out of the renderer, on a line an
+ * operator typed and the console had already accepted.
+ */
+const isPlaceholder = (name: string): boolean => Object.hasOwn(VALUES, name);
+
+/**
+ * What one placeholder comes to on this break, or `undefined` when it cannot be filled.
+ *
+ * Blank counts as unfilled, because "rock out to  by !" is the sentence that rule exists to prevent.
+ */
+function valueOf(name: string, inputs: TemplateInputs): string | undefined {
+    if (!isPlaceholder(name)) return undefined;
+
+    const value = VALUES[name]!(inputs);
+    return value === undefined || value.trim().length === 0 ? undefined : value;
+}
+
+/**
+ * A placeholder, with the period straight after it.
+ *
+ * The period is taken with it so a value that already ends a sentence can absorb it: "from
+ * {{previous.artist}}." over R.E.M. aired as "R.E.M..", and over "Where Is My Mind?" as "?.".
+ */
+const PLACEHOLDER = /\{\{\s*([^}]*?)\s*\}\}(\.?)/g;
+
+/** An optional chunk, and what is inside it. */
+const CHUNK = /\[\[(.*?)\]\]/gs;
+
+/**
  * The placeholders the station fills with its OWN words, which arrive lowercase.
  *
  * "good morning" and "just after nine" are phrases, written to sit mid-sentence, and the phrasings
@@ -367,8 +400,8 @@ export function phrasingLines(raw: string | undefined): string[] {
  * looks from the console exactly like a phrasing the station has simply never picked.
  */
 export function unknownPlaceholders(template: string): string[] {
-    const named = [...template.matchAll(/\{\{\s*([^}]*?)\s*\}\}/g)].map(match => match[1] ?? '');
-    return [...new Set(named.filter(name => !(name in VALUES)))];
+    const named = [...template.matchAll(PLACEHOLDER)].map(match => match[1] ?? '');
+    return [...new Set(named.filter(name => !isPlaceholder(name)))];
 }
 
 /**
@@ -458,62 +491,64 @@ export function unwrapTemplate(template: string): string {
  * It does not fit when a placeholder OUTSIDE an optional chunk cannot be filled. Never filled with
  * a blank: "rock out to  by !" is worse than a phrasing that fits, and there is always another
  * phrasing or, failing that, no break at all — which the station is built to absorb.
+ *
+ * ## One pass, over the template's own text
+ *
+ * Which chunks survive is decided first, from the template alone, and then every placeholder is
+ * filled in ONE `replace` over the template with its dropped chunks gone and its kept ones unwrapped.
+ * A value, once inserted, is never read again. It used to be: the chunks were filled first and the
+ * required pass then ran over the result, values included, so a record titled
+ * `Song {{station.name}}` named inside a chunk aired as the station's name, and one titled
+ * `Song {{station}}` silently ruled out every phrasing that named it inside a chunk. A title is
+ * somebody else's text, and the only placeholders a phrasing may fill are the ones its author wrote.
+ *
+ * Done over the assembled text rather than chunk by chunk because the period a placeholder absorbs
+ * can sit on the far side of a chunk: `This is {{station.name}}[[, with {{dj.name}}]].` drops its
+ * chunk and leaves the name in front of the full stop.
  */
 export function renderTemplate(template: string, inputs: TemplateInputs, spoken: (text: string) => string): RenderedTemplate | undefined {
     if (unknownPlaceholders(template).length > 0) return undefined;
 
+    const fills = (text: string): boolean => [...text.matchAll(PLACEHOLDER)].every(match => valueOf(match[1] ?? '', inputs) !== undefined);
+
+    // Outside the chunks, every placeholder has to be fillable or the phrasing does not apply. Split
+    // on the chunks rather than cutting them out, so the text either side of one is never read as a
+    // single piece.
+    if (!template.split(CHUNK).every((piece, at) => at % 2 === 1 || fills(piece))) return undefined;
+
+    // A chunk mentioning a record the break does not have is the whole reason chunks exist, so its
+    // placeholders going unfilled is not a failure of the template. A dropped chunk leaves nothing at
+    // all, including its own spacing, and nothing in it counts toward what the script mentions.
+    const kept = template.replace(CHUNK, (_, inner: string) => (fills(inner) ? inner : ''));
+
     let saysPrevious = false;
     let saysNext = false;
-    let missingRequired = false;
+    let unfilled = false;
 
-    const fill = (text: string, optional: boolean): string | undefined => {
-        let unfilled = false;
+    const filled = kept.replace(PLACEHOLDER, (_, name: string, period: string) => {
+        const value = valueOf(name, inputs);
+        // Only reachable through a template that spells a placeholder ACROSS a chunk's brackets,
+        // which no reading of the syntax means. Refused rather than filled, because it is not a
+        // placeholder the author wrote.
+        if (value === undefined) {
+            unfilled = true;
+            return '';
+        }
 
-        // The period straight after a placeholder is taken with it, so a value that already ends a
-        // sentence can absorb it: "from {{previous.artist}}." over R.E.M. aired as "R.E.M..", and
-        // over "Where Is My Mind?" as "?.".
-        const filled = text.replace(/\{\{\s*([^}]*?)\s*\}\}(\.?)/g, (_, name: string, period: string) => {
-            const value = VALUES[name]?.(inputs);
-            if (value === undefined || value.trim().length === 0) {
-                unfilled = true;
-                return '';
-            }
-
-            if (name.startsWith('previous.')) saysPrevious = true;
-            if (name.startsWith('next.')) saysNext = true;
-            const said = SPOKEN_VALUES.has(name) ? spoken(value) : value;
-            return /[.?!…]$/.test(said) ? said : said + period;
-        });
-
-        if (!unfilled) return filled;
-        if (optional) return undefined;
-
-        missingRequired = true;
-        return undefined;
-    };
-
-    // Optional chunks first, so what survives them is what the required pass has to fill. A chunk
-    // that could not be filled leaves nothing at all, including its own spacing.
-    const withChunks = template.replace(/\[\[(.*?)\]\]/gs, (_, inner: string) => {
-        // A chunk mentioning a record the break does not have is the whole reason chunks exist, so
-        // its placeholders going unfilled is not a failure of the template.
-        const before = { saysPrevious, saysNext };
-        const filled = fill(inner, true);
-        if (filled !== undefined) return filled;
-
-        // Nothing in a dropped chunk was said, so it cannot count toward what the script mentions.
-        saysPrevious = before.saysPrevious;
-        saysNext = before.saysNext;
-        return '';
+        if (name.startsWith('previous.')) saysPrevious = true;
+        if (name.startsWith('next.')) saysNext = true;
+        const said = SPOKEN_VALUES.has(name) ? spoken(value) : value;
+        return /[.?!…]$/.test(said) ? said : said + period;
     });
+    if (unfilled) return undefined;
 
-    const script = sentenceCase((fill(withChunks, false) ?? '').replace(/\s{2,}/g, ' ').trim(), inputs);
+    const script = sentenceCase(filled.replace(/\s{2,}/g, ' ').trim(), inputs);
     // Empty is refused, and so is a script with nothing in it but punctuation — which is not the
     // same check and is reachable in one obvious way: a phrasing whose every part is optional. Drop
     // all of its chunks and what is left is the joinery, so `[[{{station.name}}]] — [[{{next.title}}]].`
     // airs as "—." A template like that is legal to write, comes back from a model that bracketed
     // everything to be safe, and produces a segment that renders, speaks and sounds like a fault.
-    if (missingRequired || !/[\p{L}\p{N}]/u.test(script)) return undefined;
+    if (!/[\p{L}\p{N}]/u.test(script)) return undefined;
 
     // Only where there is no opening to be recognised by, so the two fields together say exactly how
     // this phrasing is matched rather than leaving one of them as a run nothing ever reads.

@@ -22,11 +22,35 @@
                 <Setter Property="IsVisible" Value="False" />
             </Style>
         </ContainerQuery>
+
+        <!-- The Playing on strip: the accent, solid, with the words on it in the accent's own text
+             colour, and a shade darker under the pointer so it reads as something to press. -->
+        <Style Selector="Button.playingon">
+            <Setter Property="Background" Value="{DynamicResource DaAccentBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource DaOnAccentBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.playingon /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource DaAccentBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource DaOnAccentBrush}" />
+        </Style>
+        <Style Selector="Button.playingon:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource DaAccentBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource DaOnAccentBrush}" />
+            <Setter Property="Opacity" Value="0.88" />
+        </Style>
     </UserControl.Styles>
 
     <!-- The shell: a title row, then the sidebar, the page and Now playing as rounded panels with
          the window showing between them, then the bar on the window itself. -->
-    <Grid RowDefinitions="38,*,Auto">
+    <Grid RowDefinitions="38,Auto,*,Auto">
 
         <!-- The window's client area runs under the title bar, so this row is where the traffic
              lights sit and is the region the window is dragged by. 80px of padding is the room
@@ -45,7 +69,28 @@
              column spacing stays whether or not the column has anything in it. A container, so the
              Now playing panel stands down on its own below 1060 (see the query above) and the page
              keeps enough room to be a page; that hides it without touching what was chosen. -->
-        <DockPanel Grid.Row="1" Margin="8,0,8,0" Container.Name="Shell" Container.Sizing="Width">
+        <!-- Where the sound is going, while it is going somewhere other than this Mac: the speaker's
+             name in words across the top, so somebody across the room can see it without hovering
+             over the bar's icon. A click opens the same picker the bar's speaker button does. It
+             says nothing on its own, never moves playback, and a speaker missing from the last scan
+             is said to be missing (PlayingOnStrip). -->
+        <Button x:Name="PlayingOnStrip" Grid.Row="1" Classes="playingon" Margin="8,0,8,8"
+                IsVisible="{Binding Listener.PlayingOnCaption, Converter={x:Static ObjectConverters.IsNotNull}}"
+                AutomationProperties.Name="{Binding Listener.PlayingOnCaption}"
+                ToolTip.Tip="Choose where the station plays">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <PathIcon Data="{DynamicResource DaIconSpeaker}" Width="12" Height="12" />
+                <TextBlock Text="{Binding Listener.PlayingOnCaption}" FontSize="12" FontWeight="SemiBold"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <Button.Flyout>
+                <Flyout Placement="Bottom" ShowMode="Standard">
+                    <views:OutputPicker Width="268" DataContext="{Binding Listener.Outputs}" />
+                </Flyout>
+            </Button.Flyout>
+        </Button>
+
+        <DockPanel Grid.Row="2" Margin="8,0,8,0" Container.Name="Shell" Container.Sizing="Width">
             <!-- Given the shell rather than the navigation: the sidebar draws the account too, and a
                  control that needs two view models is better handed the one that owns both than made
                  to hop back up through the window for the second. -->
@@ -107,15 +152,15 @@
 
         <!-- On every page, because what is playing is not a page. On the window rather than in
              a panel of its own, as a player's bar is. -->
-        <views:PlayerBar Grid.Row="2" DataContext="{Binding Listener}" />
+        <views:PlayerBar Grid.Row="3" DataContext="{Binding Listener}" />
 
         <!-- Studio, over the whole window, bar included: it is the record on air and nothing else.
              Under the dialogs, so a question asked while it is up is still seen. -->
-        <views:StudioView Grid.RowSpan="3" IsVisible="{Binding IsStudio}" />
+        <views:StudioView Grid.RowSpan="4" IsVisible="{Binding IsStudio}" />
 
         <!-- Over everything, bar included: a question about a playlist is not answered by pressing
              Skip underneath it. -->
-        <views:DialogHost Grid.RowSpan="3" DataContext="{Binding Dialogs}" />
+        <views:DialogHost Grid.RowSpan="4" DataContext="{Binding Dialogs}" />
     </Grid>
 
 </UserControl>

@@ -10,7 +10,7 @@ music, with a presenter talking between the records. It is the same whichever wa
 
 **You need:** a station you are signed in to as the administrator, and somewhere the music comes
 from: a Spotify Premium account, or a media server of your own (Navidrome or another Subsonic server,
-Jellyfin, or Plex). Spotify has to be Premium because the station fetches the audio itself.
+Jellyfin, Emby, or Plex). Spotify has to be Premium because the station fetches the audio itself.
 
 ## 1. Give it music
 
@@ -28,6 +28,14 @@ Open **Settings → Plugins**.
 3. Enter the server's address, the API key, and the name of the Jellyfin user to read the library as,
    and save. The user decides which libraries and playlists the station can see.
 
+**On Emby:**
+
+1. In Emby's server settings, open **Advanced → API Keys** and make a new key for deadair.
+2. Open the Emby plugin in deadair and switch it on.
+3. Enter the server's address, the API key, and the name of the Emby user to read the library as,
+   and save. Every playlist that user can see comes across; Emby cannot tell the station which are
+   audio, so a video playlist simply brings no records.
+
 **On Plex:**
 
 1. Find your Plex token. The quickest way: in Plex Web, open your browser's developer console and run
@@ -37,7 +45,7 @@ Open **Settings → Plugins**.
 3. Enter the address of the Plex server itself, port included (`http://your-server:32400`), not
    app.plex.tv, and the token, and save.
 
-Jellyfin, Plex and Navidrome each add a playlist called **Everything** after your own: the whole
+Jellyfin, Emby, Plex and Navidrome each add a playlist called **Everything** after your own: the whole
 library, so a library with no playlists is still a complete setup.
 
 **On Spotify:**

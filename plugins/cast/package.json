@@ -1,6 +1,6 @@
 {
     "name": "@deadair/plugin-cast",
-    "version": "0.52.2",
+    "version": "0.53.0",
     "private": true,
     "type": "module",
     "main": "./dist/index.js",

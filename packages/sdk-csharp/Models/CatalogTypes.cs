@@ -247,25 +247,26 @@ public sealed record VocalMarkersDetail
 /// </summary>
 public sealed record VocalMarkersDetailInput;
 
-/// <summary>One timed line of a record's lyrics. Times are milliseconds from the start of the file.</summary>
-public sealed record LyricLineDetail
+/// <summary>
+/// One timed piece of a lyric line: a word, or a syllable, and when it starts being sung. Milliseconds
+/// from the start of the file, as the line's own start is.
+/// </summary>
+public sealed record LyricWordDetail
 {
-    /// <summary>Where the line starts</summary>
+    /// <summary>Where this piece starts being sung</summary>
     [JsonPropertyName("atMs")]
     public required long AtMs { get; init; }
 
-    /// <summary>Where the line ends, when the source published one. Absent rather than guessed</summary>
-    [JsonPropertyName("endMs")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public long? EndMs { get; init; }
-
-    /// <summary>The words of the line. Empty for a gap the source marked between lines</summary>
+    /// <summary>The piece, with any space after it, so a line's pieces joined are its text exactly</summary>
     [JsonPropertyName("text")]
     public required string Text { get; init; }
 }
 
-/// <summary>One timed line of a record's lyrics. Times are milliseconds from the start of the file.</summary>
-public sealed record LyricLineDetailInput;
+/// <summary>
+/// One timed piece of a lyric line: a word, or a syllable, and when it starts being sung. Milliseconds
+/// from the start of the file, as the line's own start is.
+/// </summary>
+public sealed record LyricWordDetailInput;
 
 /// <summary>An operator's correction: either the record is instrumental, or the singing starts at `onsetMs`.</summary>
 public sealed record VocalMarkersInput
@@ -729,82 +730,30 @@ public sealed record TrackInput
     public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
 }
 
-/// <summary>
-/// The station's answer for one record's lyrics: the words from the source it believes, or that nobody
-/// sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
-/// player following along adds the record's cue-in to how long it has been on air.
-/// </summary>
-public sealed record TrackLyrics
+/// <summary>One timed line of a record's lyrics. Times are milliseconds from the start of the file.</summary>
+public sealed record LyricLineDetail
 {
-    [JsonPropertyName("trackId")]
-    public required Guid TrackId { get; init; }
+    /// <summary>Where the line starts</summary>
+    [JsonPropertyName("atMs")]
+    public required long AtMs { get; init; }
 
-    /// <summary>The words are here; a source says nobody sings on it; or no source has an answer yet</summary>
-    [JsonPropertyName("kind")]
-    public required TrackLyricsKind Kind { get; init; }
-
-    /// <summary>The plugin whose answer this is, when kind is words or instrumental</summary>
-    [JsonPropertyName("provider")]
+    /// <summary>Where the line ends, when the source published one. Absent rather than guessed</summary>
+    [JsonPropertyName("endMs")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Provider { get; init; }
+    public long? EndMs { get; init; }
 
-    /// <summary>The words without timings, when that source has them</summary>
-    [JsonPropertyName("plain")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Plain { get; init; }
+    /// <summary>The words of the line. Empty for a gap the source marked between lines</summary>
+    [JsonPropertyName("text")]
+    public required string Text { get; init; }
 
-    /// <summary>The timed lines, when that source has them. Preferred over plain when choosing a source</summary>
-    [JsonPropertyName("synced")]
+    /// <summary>The line cut where its source timed each word, in order, when the source times words. Joined, the pieces are text</summary>
+    [JsonPropertyName("words")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<LyricLineDetail>? Synced { get; init; }
-
-    /// <summary>A BCP 47 tag, when the source stated one</summary>
-    [JsonPropertyName("language")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Language { get; init; }
+    public List<LyricWordDetail>? Words { get; init; }
 }
 
-/// <summary>
-/// The station's answer for one record's lyrics: the words from the source it believes, or that nobody
-/// sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
-/// player following along adds the record's cue-in to how long it has been on air.
-/// </summary>
-public sealed record TrackLyricsInput;
-
-/// <summary>One lyrics source's answer for one record. A source that was asked and had nothing is not listed.</summary>
-public sealed record TrackLyricsSource
-{
-    /// <summary>The plugin that answered</summary>
-    [JsonPropertyName("provider")]
-    public required string Provider { get; init; }
-
-    /// <summary>The source's own id for what it matched</summary>
-    [JsonPropertyName("providerRef")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? ProviderRef { get; init; }
-
-    [JsonPropertyName("plain")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Plain { get; init; }
-
-    [JsonPropertyName("synced")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<LyricLineDetail>? Synced { get; init; }
-
-    [JsonPropertyName("language")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Language { get; init; }
-
-    /// <summary>The source says nobody sings on this record, so it holds no words</summary>
-    [JsonPropertyName("instrumental")]
-    public required bool Instrumental { get; init; }
-
-    [JsonPropertyName("fetchedAt")]
-    public required DateTimeOffset FetchedAt { get; init; }
-}
-
-/// <summary>One lyrics source's answer for one record. A source that was asked and had nothing is not listed.</summary>
-public sealed record TrackLyricsSourceInput;
+/// <summary>One timed line of a record's lyrics. Times are milliseconds from the start of the file.</summary>
+public sealed record LyricLineDetailInput;
 
 /// <summary>
 /// Pagination plus a name filter. Every list operation here takes it, so the console's search box
@@ -1287,18 +1236,82 @@ public sealed record TrackRowInput
     public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
 }
 
-/// <summary>Every lyrics source's answer for one record, in the order the station believes them.</summary>
-public sealed record TrackLyricsSources
+/// <summary>
+/// The station's answer for one record's lyrics: the words from the source it believes, or that nobody
+/// sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
+/// player following along adds the record's cue-in to how long it has been on air.
+/// </summary>
+public sealed record TrackLyrics
 {
     [JsonPropertyName("trackId")]
     public required Guid TrackId { get; init; }
 
-    [JsonPropertyName("sources")]
-    public required List<TrackLyricsSource> Sources { get; init; }
+    /// <summary>The words are here; a source says nobody sings on it; or no source has an answer yet</summary>
+    [JsonPropertyName("kind")]
+    public required TrackLyricsKind Kind { get; init; }
+
+    /// <summary>The plugin whose answer this is, when kind is words or instrumental</summary>
+    [JsonPropertyName("provider")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Provider { get; init; }
+
+    /// <summary>The words without timings, when that source has them</summary>
+    [JsonPropertyName("plain")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Plain { get; init; }
+
+    /// <summary>The timed lines, when that source has them. Preferred over plain when choosing a source</summary>
+    [JsonPropertyName("synced")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<LyricLineDetail>? Synced { get; init; }
+
+    /// <summary>A BCP 47 tag, when the source stated one</summary>
+    [JsonPropertyName("language")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Language { get; init; }
 }
 
-/// <summary>Every lyrics source's answer for one record, in the order the station believes them.</summary>
-public sealed record TrackLyricsSourcesInput;
+/// <summary>
+/// The station's answer for one record's lyrics: the words from the source it believes, or that nobody
+/// sings on it, or nothing. Timings count from the start of the file, as the vocal markers' do, so a
+/// player following along adds the record's cue-in to how long it has been on air.
+/// </summary>
+public sealed record TrackLyricsInput;
+
+/// <summary>One lyrics source's answer for one record. A source that was asked and had nothing is not listed.</summary>
+public sealed record TrackLyricsSource
+{
+    /// <summary>The plugin that answered</summary>
+    [JsonPropertyName("provider")]
+    public required string Provider { get; init; }
+
+    /// <summary>The source's own id for what it matched</summary>
+    [JsonPropertyName("providerRef")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProviderRef { get; init; }
+
+    [JsonPropertyName("plain")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Plain { get; init; }
+
+    [JsonPropertyName("synced")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<LyricLineDetail>? Synced { get; init; }
+
+    [JsonPropertyName("language")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Language { get; init; }
+
+    /// <summary>The source says nobody sings on this record, so it holds no words</summary>
+    [JsonPropertyName("instrumental")]
+    public required bool Instrumental { get; init; }
+
+    [JsonPropertyName("fetchedAt")]
+    public required DateTimeOffset FetchedAt { get; init; }
+}
+
+/// <summary>One lyrics source's answer for one record. A source that was asked and had nothing is not listed.</summary>
+public sealed record TrackLyricsSourceInput;
 
 /// <summary>
 /// A track list, narrowed by what the station has of each record as well as by name.
@@ -1515,6 +1528,19 @@ public sealed record TrackPageInput
     [JsonPropertyName("states")]
     public required TrackStateCountsInput States { get; init; }
 }
+
+/// <summary>Every lyrics source's answer for one record, in the order the station believes them.</summary>
+public sealed record TrackLyricsSources
+{
+    [JsonPropertyName("trackId")]
+    public required Guid TrackId { get; init; }
+
+    [JsonPropertyName("sources")]
+    public required List<TrackLyricsSource> Sources { get; init; }
+}
+
+/// <summary>Every lyrics source's answer for one record, in the order the station believes them.</summary>
+public sealed record TrackLyricsSourcesInput;
 
 /// <summary>
 /// Every provider's answer, plus the same merge the promotion step used, so the console and the

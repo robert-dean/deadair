@@ -59,6 +59,9 @@ has these, all of which belong to the account and none to this tree:
 
 - an Apple Developer Program membership, with its current agreement accepted in App Store Connect;
 - the App ID `com.maroonedsoftware.deadair`, and an app record in App Store Connect under it;
+- the App ID `com.maroonedsoftware.deadair.widget` for the widget extension, and the App Group
+  `group.com.maroonedsoftware.deadair`, enabled on both App IDs (the app and its widget share a file
+  through it, and a build naming a group the profile lacks fails to sign);
 - an App Store Connect API key with the **Admin** role, which cloud-managed signing needs;
 - in the repository's Actions settings, the secrets `APP_STORE_CONNECT_KEY_ID`,
   `APP_STORE_CONNECT_ISSUER_ID` and `APP_STORE_CONNECT_KEY_P8` (the `.p8` file, base64-encoded),

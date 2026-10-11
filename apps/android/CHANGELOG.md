@@ -8,6 +8,11 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.16.0] — 2026-10-11
+
+- Now playing can keep the screen on. A new setting under Listening, Keep the screen on, has three answers: Never (the default), While charging and Always. The screen stays on only while this phone is playing the station and Now playing is in front, so the phone still sleeps as usual everywhere else.
+- The lock screen, the notification shade and a car's screen now show how far through the record you are, with its length, following the audio you are hearing rather than running ahead of it. The bar is for looking at: a live station cannot be scrubbed, so it cannot be dragged. During a break, or a programme the station cannot give a length for, they show the live stream as before.
+
 ## [0.15.6] — 2026-10-10
 
 - Signed in, Now playing has a Lyrics button whenever the record you are hearing has words. It opens the lyrics with the line being sung lit and kept in view, timed to what you hear rather than to what the station has just sent, and shows the words as they came when the source has no timings. Signed out, or on an instrumental or a talk break, there is no button.
@@ -219,7 +224,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.15.6...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.16.0...HEAD
+[0.16.0]: https://github.com/robert-dean/deadair/compare/android-v0.15.6...android-v0.16.0
 [0.15.6]: https://github.com/robert-dean/deadair/compare/android-v0.15.5...android-v0.15.6
 [0.15.5]: https://github.com/robert-dean/deadair/compare/android-v0.15.4...android-v0.15.5
 [0.15.4]: https://github.com/robert-dean/deadair/compare/android-v0.15.3...android-v0.15.4

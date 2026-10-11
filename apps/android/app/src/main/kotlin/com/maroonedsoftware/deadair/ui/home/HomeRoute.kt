@@ -53,6 +53,11 @@ import com.maroonedsoftware.deadair.director.OrderState
 import com.maroonedsoftware.deadair.sdk.models.StationOrderItemKind
 import com.maroonedsoftware.deadair.ui.order.RunningOrderScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingScreen
+import com.maroonedsoftware.deadair.ui.nowplaying.OutputControl
+import com.maroonedsoftware.deadair.ui.nowplaying.chooseOutput
+import com.maroonedsoftware.deadair.ui.nowplaying.rememberOutputRoute
+import com.maroonedsoftware.deadair.playback.playingOn
+import androidx.compose.ui.platform.LocalContext
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingUiState
 import com.maroonedsoftware.deadair.ui.nowplaying.SkipControl
 import com.maroonedsoftware.deadair.ui.nowplaying.ShuffleControl
@@ -276,15 +281,22 @@ fun HomeRoute(
                 val like = if (isOperator && onAirTrackId != null) rememberLike(graph, onAirTrackId) else null
                 // Frozen while the station is unreachable: a bar still sweeping from a reading
                 // minutes old is a moving, confident lie about where the record is.
-                val playhead = rememberPlayhead(reading.takeIf { nowPlaying is NowPlayingState.Answered }, ticking = !rest.resting)
+                var lyricsOpen by rememberSaveable { mutableStateOf(false) }
+                // Faster while the words are open, so the word being sung is lit when it is sung.
+                val playhead =
+                    rememberPlayhead(reading.takeIf { nowPlaying is NowPlayingState.Answered }, ticking = !rest.resting || lyricsOpen, fast = lyricsOpen)
                 // The words of what this listener is HEARING: keyed on the reading the screen draws,
                 // which while playing is the gate's delayed copy, and lit from the same playhead.
                 val heardStartedAt = reading?.nowPlaying?.track?.startedAt
                 val lyricsAnswer = rememberLyrics(graph, signedIn = session is SessionState.SignedIn, heardStartedAt = heardStartedAt)
                 val lyrics = lyricsUiState(lyricsAnswer, heardStartedAt, playhead)
-                var lyricsOpen by rememberSaveable { mutableStateOf(false) }
                 if (lyricsOpen && lyrics != LyricsUiState.Hidden) LyricsSheet(lyrics, onDismiss = { lyricsOpen = false })
+                // The system switcher moves this app's one player, so the station keeps one
+                // listener; nothing here casts or starts a second connection.
+                val outputRoute = rememberOutputRoute()
+                val context = LocalContext.current
                 NowPlayingScreen(
+                    output = OutputControl(playingOn = playingOn(outputRoute, playing = nowState.playing), onChoose = { chooseOutput(context) }),
                     state = nowState,
                     artworkUrl = artworkUrl,
                     hostPortraitUrl = hostPortraitUrl,

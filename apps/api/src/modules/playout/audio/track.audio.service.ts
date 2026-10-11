@@ -22,6 +22,28 @@ import { TRACK_CONTENT_TYPES, TRACK_SOURCE_TYPES, TrackContentType, TrackExtensi
 const FETCH_TIMEOUT_MS = 90_000;
 
 /**
+ * The most a provider may ask for, when it says its audio takes longer than a download.
+ *
+ * A ceiling on the ceiling, because `fetchBudgetMs` crosses the plugin boundary and a provider that
+ * sends a silly number would otherwise pin one fetch open for as long as it liked. Twenty minutes is
+ * chosen against the case it exists for: a source that plays in real time needs a record's own
+ * duration plus a little, and nothing the station will air is twenty minutes long — a record that
+ * genuinely is has bigger problems than this timeout.
+ */
+const MAX_FETCH_BUDGET_MS = 20 * 60_000;
+
+/**
+ * How long this particular record may take, given what its provider said.
+ *
+ * Never shorter than {@link FETCH_TIMEOUT_MS}: a provider asking for less would be tightening a bound
+ * the station set for its own protection, and the plugin boundary is not where that belongs.
+ */
+export function fetchBudgetFor(requested: number | undefined): number {
+    if (requested === undefined || !Number.isFinite(requested)) return FETCH_TIMEOUT_MS;
+    return Math.min(Math.max(Math.floor(requested), FETCH_TIMEOUT_MS), MAX_FETCH_BUDGET_MS);
+}
+
+/**
  * The most bytes one record may be.
  *
  * A lossless album track runs to 40MB and an outlier further, so this is a guard against a mistake — a
@@ -778,10 +800,15 @@ export class TrackAudioService {
         // Asked of the plugin rather than read off `track_sources.uri`, because the URL is usually
         // minted per call — signed, tokenised, or pointed at a station-side helper — and the resolver is
         // the one thing that knows how each provider answers.
-        const url = await this.resolver.resolveBinding(source.pluginId, source.externalId);
-        if (url === undefined) throw new Error('no provider would give a url for this binding');
+        const resolved = await this.resolver.resolveStream(source.pluginId, source.externalId);
+        if (resolved === undefined) throw new Error('no provider would give a url for this binding');
+        const url = resolved.url;
 
-        const timeout = AbortSignal.timeout(FETCH_TIMEOUT_MS);
+        // The provider's own number, clamped. One constant for every source was right for as long as
+        // every source was a download; a source that plays its audio in real time needs a record's
+        // duration to hand one over, and cutting it off at 90 seconds looks exactly like an upstream
+        // that hung. See `fetchBudgetFor` and `ProviderStream.fetchBudgetMs`.
+        const timeout = AbortSignal.timeout(fetchBudgetFor(resolved.fetchBudgetMs));
         const aborted = signal ? AbortSignal.any([signal, timeout]) : timeout;
 
         let address = parseTrackAddress(url);
@@ -838,7 +865,8 @@ export class TrackAudioService {
             throw new Error(`${address.hostname} could not be resolved (${causeText(error)})`, { cause: error });
         }
 
-        if (behind !== undefined) throw new Error(`a copy of this record redirected to ${address.hostname}, a private address the station will not follow`);
+        if (behind !== undefined)
+            throw new Error(`a copy of this record redirected to ${address.hostname}, a private address the station will not follow`);
     }
 
     /**

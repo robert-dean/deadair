@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.ui.settings
 
+import com.maroonedsoftware.deadair.nowplaying.KeepAwake
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -37,6 +38,7 @@ private fun Settings(entry: StationEntryState, session: SessionState) {
                 wallpaperColorSource = ColorSource.CUSTOM,
                 wallpaperColor = STATION_PALETTE.accent,
                 playOnOpen = false,
+                keepAwake = KeepAwake.WHILE_CHARGING,
                 onAddressChange = {},
                 onCheck = {},
                 onConfirm = {},
@@ -49,6 +51,7 @@ private fun Settings(entry: StationEntryState, session: SessionState) {
                 onColorSource = {},
                 onWallpaperColor = {},
                 onPlayOnOpen = {},
+                onKeepAwake = {},
                 onOpenSignIn = {},
                 onSignOut = {},
             )

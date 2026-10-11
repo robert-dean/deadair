@@ -59,7 +59,7 @@
                         <TextBlock Classes="eyebrow" Text="OPERATOR"
                                    Foreground="{DynamicResource DaAccentBrush}" />
                     </StackPanel>
-                    <Button Grid.Column="2" Classes="icon" ToolTip.Tip="Sign out"
+                    <Button Grid.Column="2" Classes="icon" ToolTip.Tip="Sign out" AutomationProperties.Name="Sign out"
                             Command="{Binding SignOutCommand}">
                         <PathIcon Data="{DynamicResource DaIconSignOut}" />
                     </Button>

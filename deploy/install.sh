@@ -75,8 +75,9 @@ main() {
         say ""
         say "Which tag: full brings its own database and cache (nothing else needed),"
         say "latest expects your own PostgreSQL and Redis, slim brings no voice either."
+        say "Add -apple to any of them (apple for latest) for the Apple Music player, most of a gigabyte more."
         variant=$(ask "Tag" "${DEADAIR_VARIANT:-full}")
-        case "$variant" in full | latest | slim) ;; *) fail "the tag is full, latest or slim, not '$variant'." ;; esac
+        case "$variant" in full | latest | slim | full-apple | apple | slim-apple) ;; *) fail "the tag is full, latest or slim, or full-apple, apple or slim-apple, not '$variant'." ;; esac
         port=$(ask "Port to publish it on" "${DEADAIR_PORT:-8080}")
 
         # The address a browser types, guessed from the machine's own: the first address `hostname

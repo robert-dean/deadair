@@ -19,6 +19,9 @@ public partial class App : Application
 {
     private ServiceProvider? _services;
 
+    /// <summary>Kept for the life of the app; it holds the display awake while Studio is up.</summary>
+    private StudioWake? _studioWake;
+
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
@@ -45,6 +48,7 @@ public partial class App : Application
 
             var window = new MainWindow { DataContext = shell };
             window.RememberFrame(settings);
+            _studioWake = new StudioWake(shell, settings, _services.GetRequiredService<IDisplayAwake>(), _services.GetRequiredService<IScreenFacts>(), window);
             desktop.MainWindow = window;
 
             // Before StartAsync, so the Dock's reopen and a link that launched the app are heard from

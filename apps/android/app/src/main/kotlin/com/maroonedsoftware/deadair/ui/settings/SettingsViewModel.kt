@@ -7,6 +7,7 @@ import com.maroonedsoftware.deadair.wallpaper.CoverPlacement
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 import com.maroonedsoftware.deadair.widget.WidgetFollows
+import com.maroonedsoftware.deadair.nowplaying.KeepAwake
 import com.maroonedsoftware.deadair.auth.SessionManager
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.settings.SettingsStore
@@ -173,6 +174,10 @@ class SettingsViewModel(
 
     fun setPlayOnOpen(on: Boolean) {
         viewModelScope.launch { store.setPlayOnOpen(on) }
+    }
+
+    fun setKeepAwake(keepAwake: KeepAwake) {
+        viewModelScope.launch { store.setKeepAwake(keepAwake) }
     }
 
     fun onEmailChange(email: String) {

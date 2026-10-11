@@ -9,6 +9,12 @@ cd /app/apps/api || exit 1
 . /etc/s6-overlay/scripts/storage-env
 # shellcheck source=/dev/null
 . /etc/s6-overlay/scripts/station-secrets
+# The Apple Music player, where this variant has one. Said here rather than as an image ENV because an
+# unset address is the API's signal that there is no player, and an ENV cannot be set in one variant
+# and absent in another. An operator's own value wins.
+if [ "${WITH_APPLE:-0}" = "1" ]; then
+    export APPLE_PLAYER_URL="${APPLE_PLAYER_URL:-http://apple-player:3680}"
+fi
 # Compiled output rather than source: the `#src/*` specifiers it emits are answered by this
 # package's own imports map, which points at `dist/` unless asked for the development condition.
 exec s6-setuidgid deadair node dist/index.js

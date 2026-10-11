@@ -4,6 +4,8 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { AnalysisRepository } from '#modules/analysis/analysis.repository.js';
+import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
+import { streamCapableIds } from '#modules/plugins/plugin.capabilities.js';
 import { CatalogResolverService } from '#modules/catalog/ingest/catalog.resolver.service.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
@@ -169,6 +171,9 @@ export class PickResolver {
         private readonly history: PlayHistoryRepository,
         private readonly lookup: ProviderTrackLookup,
         private readonly ingest: CatalogResolverService,
+        // For one question: which providers can actually be asked for audio. A binding whose plugin
+        // cannot is excluded from the delivery choice rather than chosen and then skipped on air.
+        private readonly plugins: PluginRegistry,
         private readonly activity: ActivityRecorder,
         private readonly identity: StationIdentity,
         private readonly config: AppConfig,
@@ -261,7 +266,7 @@ export class PickResolver {
             // or an operator's request hands over records nothing has judged. Under `clean-only` a
             // work with no clean copy gets no binding and falls into the drop below, which is the
             // existing "nothing can play this" path rather than a second mechanism.
-            this.candidates.bindingsFor(trackIds, preference, policy),
+            this.candidates.bindingsFor(trackIds, preference, policy, streamCapableIds(this.plugins.list())),
             this.tracks.findByIds(trackIds),
             this.analysis.trustedAnalysisFor(trackIds, ANALYSIS_SCHEMA_VERSION),
         ]);
@@ -381,7 +386,7 @@ export class PickResolver {
             this.neverPlay.blocked(trackIds, broadcast),
             this.candidates.ratingsFor(trackIds),
             bindsAnything(era) ? this.candidates.yearsFor(trackIds) : Promise.resolve(new Map<string, number>()),
-            this.candidates.bindingsFor(trackIds, preference, policy),
+            this.candidates.bindingsFor(trackIds, preference, policy, streamCapableIds(this.plugins.list())),
         ]);
 
         // Built only so `rejectDisliked` can be reused rather than reimplemented: it reads nothing

@@ -18,9 +18,16 @@ import { defineConfig } from 'vitest/config';
 // matches on the CONFIG rather than the directory, because a package with no vitest config is a
 // package with no tests, and naming it here makes vitest report an empty project rather than say
 // nothing. Adding a package with tests means adding a config, which this then finds on its own.
-// `scripts/` is not a workspace member and is named by hand: the release scripts' tests live there.
+// `scripts/` and `stream/apple-player/` are not workspace members and are named by hand: the release
+// scripts' tests live in the one, and the player container's in the other.
 export default defineConfig({
     test: {
-        projects: ['apps/*/vitest.config.ts', 'packages/*/vitest.config.ts', 'plugins/*/vitest.config.ts', 'scripts/vitest.config.ts'],
+        projects: [
+            'apps/*/vitest.config.ts',
+            'packages/*/vitest.config.ts',
+            'plugins/*/vitest.config.ts',
+            'scripts/vitest.config.ts',
+            'stream/apple-player/vitest.config.ts',
+        ],
     },
 });

@@ -129,9 +129,10 @@ apps/streamdeck   the Elgato Stream Deck plugin (TypeScript, on packages/sdk): N
 packages/error-codes  shared error code constants
 packages/config-*     shared eslint / tsconfig
 plugins/*             bundled plugins: spotify, navidrome, jellyfin, plex, ytmusic (YouTube Music; the audio
-                      resolves signed out through ytaudio/), pandora (unofficial, US only; airs
-                      records with Premium, signed in the way Pandora's Android app is), musicbrainz,
-                      lastfm,
+                      resolves signed out through ytaudio/), apple-music (searchable with no
+                      developer key at all; its audio is CAPTURED from Apple's own web player by
+                      stream/apple-player), pandora (unofficial, US only; airs records with Premium,
+                      signed in the way Pandora's Android app is), musicbrainz, lastfm,
                       deezer (who sounds like whom, with no API key, so a fresh install has a
                       similarity source at all),
                       wikipedia (the prose the station's facts are extracted from, and what happened
@@ -152,7 +153,11 @@ analysis/             the measurement sidecar: a Python service that decodes a r
                       with its cue points and its loudness. No decoding happens in Node
 ytaudio/              the audio-url resolver: a Python service on yt-dlp that turns a YouTube id
                       into a URL the station fetches itself. No audio passes through it
-stream/, nginx/, docker-compose*.yml   Icecast, Liquidsoap and friends (DEV)
+stream/, nginx/, docker-compose*.yml   Icecast, Liquidsoap and friends (DEV). stream/spotify-shim
+                      re-serves a Spotify track over HTTP; stream/apple-player does the same for an
+                      Apple Music record by playing it in Chrome and recording the sink, behind a
+                      compose profile because it is a gigabyte of browser, and in the image only on
+                      the -apple tags for the same reason
 Dockerfile, docker/               the production image: the whole station in one container
 deploy/, unraid/                  how somebody else installs it
 ```

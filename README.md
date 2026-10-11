@@ -16,9 +16,9 @@ notes and the API reference, with the API also described as an OpenAPI 3.1 docum
 [deadair.radio/openapi.yaml](https://deadair.radio/openapi.yaml) for anyone generating a client.
 
 > **It plays your music, not its own.** deadair holds no catalogue. It programmes what your provider
-> already gives you (a Spotify account, or a Navidrome, Jellyfin, Emby or Plex server), and it grants you no
-> rights to broadcast any of it. Read [docs/licensing.md](docs/licensing.md) before you publish an
-> address.
+> already gives you (Spotify, YouTube Music, Apple Music or Pandora, or a Navidrome, Jellyfin, Emby
+> or Plex server), and it grants you no rights to broadcast any of it. Read
+> [docs/licensing.md](docs/licensing.md) before you publish an address.
 
 ---
 
@@ -59,8 +59,10 @@ station's own event log, so "why was it silent at three in the morning" is a que
 
 ```
                   your provider                    a model             a voice
-              (Spotify / Navidrome              (local or hosted)   (Kokoro / Rhapsode
-               / Jellyfin / Emby / Plex)                             / ElevenLabs)
+            (Spotify / YouTube Music /          (local or hosted)   (Kokoro / Chatterbox
+             Apple Music / Pandora /                                 / Rhapsode / ElevenLabs)
+             Navidrome / Jellyfin /
+             Emby / Plex)
                        │                               │                    │
                        └───────────── plugins ─────────┴────────────────────┘
                                          │
@@ -99,11 +101,19 @@ library.
 | `deadair/deadair:latest` | a voice | PostgreSQL, Redis |
 | `deadair/deadair:full` | a voice, PostgreSQL, Redis | nothing |
 | `deadair/deadair:slim` | — | PostgreSQL, Redis, a speech server |
+| `deadair/deadair:apple` | `latest`, plus an Apple Music player | PostgreSQL, Redis |
+| `deadair/deadair:full-apple` | `full`, plus an Apple Music player | nothing |
+| `deadair/deadair:slim-apple` | `slim`, plus an Apple Music player | PostgreSQL, Redis, a speech server |
 
-Those three tags follow `main`, so they move on every push that changes the station; a push that
+The last three are the Apple Music twins of the first three: the same image plus a player that plays
+Apple Music records in Google Chrome and records them for the station. Each is most of a gigabyte
+bigger, so take one only if you have an Apple Music subscription to play from; the install guide says
+what else it needs.
+
+All six tags follow `main`, so they move on every push that changes the station; a push that
 touches only the docs, the website or a listener app leaves them where they are. A release publishes
-`0.1.0` and `0.1` alongside them, once its tests pass, and is tagged `v0.1.0` with a GitHub release
-of its changelog entry: **pin `deadair/deadair:0.1` to track releases only**, and read
+`0.1.0` and `0.1` alongside each of them (with the variant in front, as in `full-0.1`), once its
+tests pass, and is tagged `v0.1.0` with a GitHub release of its changelog entry: **pin `deadair/deadair:0.1` to track releases only**, and read
 [CHANGELOG.md](CHANGELOG.md) for what changed between them. How a release is cut is in
 [CONTRIBUTING.md](CONTRIBUTING.md). Images are `linux/amd64`.
 
@@ -122,11 +132,12 @@ station fetch audio. With only the first, your playlists list correctly and ever
 A broadcast desk rather than a player. It deliberately does not play the mount: the listener surface
 is the mount itself, plus the Android app (on
 [Google Play](https://play.google.com/store/apps/details?id=com.maroonedsoftware.deadair), or built
-from `apps/android`), and the iPhone app (`apps/ios`) and the desktop app (`apps/desktop`) if you
-build and run one. The desk also comes as hardware: the Stream Deck plugin (on the
+from `apps/android`), the iPhone app (`apps/ios`, if you build and run it), and the macOS desktop app
+(`apps/desktop`), which is cut by hand as a `desktop-v…` GitHub release for Apple silicon, signed
+only ad hoc so macOS asks you to allow it on the first launch, or which you can build yourself. The desk also comes as hardware: the Stream Deck plugin (on the
 [Elgato Marketplace](https://marketplace.elgato.com/product/deadair-67841f42-616f-45f3-9708-341017359656), or built
 from `apps/streamdeck`) puts
-what is on air, Skip and Stop on keys, with an API key from Settings, Sign-in and security.
+what is on air, Skip, Like, Dislike and Stop or start on keys, with an API key from Settings, Sign-in and security.
 
 A rail down the left carries four destinations, with a key each: D, P, L and V. **Desk** is the
 running order, live, with the playhead, every item's state and whatever needs you. **Programme** is
@@ -229,14 +240,19 @@ the inbox.
 apps/api               the station: Koa, ContractKit routers, dbmate migrations
 apps/web               the console: React, Vite, TanStack Router, Mantine
 apps/site              the website at deadair.radio: Docusaurus
+apps/android           the Android listener app: Kotlin, Compose, Media3
+apps/ios               the iPhone listener app: SwiftUI, AVFoundation
+apps/desktop           the macOS listener and operator desk: Avalonia, .NET
+apps/streamdeck        the Elgato Stream Deck plugin
 packages/plugin-sdk    the plugin contract and the host capabilities
 packages/sdk           a typed client, generated from the contracts
 plugins/*              spotify, navidrome, jellyfin, emby, plex, ytmusic, pandora,
-                       musicbrainz, lastfm, deezer, wikipedia, lrclib, rss, websearch,
+                       apple-music, musicbrainz, lastfm, deezer, wikipedia, lrclib, rss, websearch,
                        weather, podcast, telegram, discord, slack, kokoro, chatterbox,
                        rhapsode, elevenlabs, llm, analyzer, cast
 examples/plugins/*     a plugin built from outside the workspace, as anybody else's is
 analysis/              the measurement sidecar (Python): cue points and loudness
+ytaudio/               the audio-url resolver (Python, on yt-dlp) behind YouTube Music
 stream/, nginx/        the audio chain (radio.liq), the stream server and the edge
 ```
 

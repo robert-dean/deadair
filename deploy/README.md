@@ -97,6 +97,25 @@ CREATE ROLE app_user NOLOGIN;
 If you would rather the station made `app_user` itself, run `ALTER ROLE deadair CREATEROLE` in
 place of the last line.
 
+**Then tell the station where it is.** On `latest` and `slim`, `DATABASE_HOST`, `DATABASE_USER` and
+`DATABASE_NAME` are required, and the container stops at boot with a message naming them when one is
+missing. On `full` leave them all empty: it fills in its own database on loopback, and only a value
+you set yourself overrides that.
+
+| Variable                | Default                    | What it is                                                                                |
+| ----------------------- | -------------------------- | ----------------------------------------------------------------------------------------- |
+| `DATABASE_HOST`         | `127.0.0.1` on `full`      | where PostgreSQL is                                                                       |
+| `DATABASE_PORT`         | `5432` on `full`           | its port. The compose `.env` and the Unraid template both fill in `5432`; keep it set     |
+| `DATABASE_NAME`         | `deadair` on `full`        | the database, which must already exist; the station makes its schema inside it           |
+| `DATABASE_USER`         | `deadair` on `full`        | the owner described above. Migrations run as this user at every start                    |
+| `DATABASE_PASSWORD`     | `deadair` on `full`        | its password                                                                              |
+| `DATABASE_APP_USER`     | empty                      | optional: a second, non-owner role for everything the station does while running, holding read and write grants only, so a request cannot alter the schema. Empty runs everything as the owner |
+| `DATABASE_APP_PASSWORD` | empty                      | that role's password, read only when `DATABASE_APP_USER` is set                           |
+| `MIGRATE_ON_BOOT`       | `true`                     | brings the schema up to date before the station starts. Turn it off only if you apply migrations yourself: an out-of-date schema degrades quietly rather than failing |
+
+The migrations wait about a minute for the database to answer rather than giving up at once, so a
+database that starts a few seconds after the station is not a problem.
+
 ## Bringing your own cache
 
 **Any Redis, and it may be one you are already using.** Sessions and refresh-token families live
@@ -272,7 +291,26 @@ question, and the console's **Check-up** page answers that one.
 
 Publish the one port through whatever you already use — a reverse proxy or a tunnel. It carries
 the console, the API and `/live.mp3`, which is the stream itself. Terminate TLS out there; the
-container speaks plain HTTP and trusts the forwarded headers.
+container speaks plain HTTP.
+
+**Tell it what is in front of it.** Out of the box the container believes no forwarded address at
+all, so every caller is whatever connected to the port. Behind a proxy or a tunnel that is the proxy,
+identically for everyone: the whole internet shares one rate limit, and the listener count collapses
+to however many different players are tuned in. Naming the proxy lets the station read the real
+address out of a header instead:
+
+| Variable         | Default           | What it is                                                                                     |
+| ---------------- | ----------------- | ---------------------------------------------------------------------------------------------- |
+| `REAL_IP_FROM`   | empty             | the proxy's address or CIDR, or several separated by commas or spaces; `172.16.0.0/12` covers another container on the same box. Empty trusts nobody |
+| `REAL_IP_HEADER` | `X-Forwarded-For` | the header that proxy puts the caller's address in. A Cloudflare tunnel also sends `CF-Connecting-IP`. Ignored while `REAL_IP_FROM` is empty |
+
+It is opt-in because a forwarded address is only a header, and believing one from something that is
+not your proxy lets anybody who can reach the port be a different caller on every request, which is
+no rate limit at all. So name only something you put there yourself. With `X-Forwarded-For` the
+station takes the rightmost address that is not itself a trusted proxy, which resolves a chain of two
+(a CDN in front of a reverse proxy) to the listener. A value nginx cannot parse is dropped at boot
+with a line in the container log saying so, rather than stopping the station, and the log says
+`trusting … for the caller's address` when it took.
 
 The mount is not authenticated. Anybody who can reach that address can listen, which for a radio
 station is usually the point, but it is worth knowing before you publish it.

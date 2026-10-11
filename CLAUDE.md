@@ -93,11 +93,8 @@ pointing at something that has never existed:
   subscriber on opposite sides of the module list): `apps/api/CLAUDE.md` § "How work is dispatched".
 - `apps/api/README.md` for the boot sequence, DI scoping convention and middleware. Its module and
   route tables were checked against `src/modules/modules.ts` and `src/routes/routes.setup.ts` on
-  2026-09-09 and listed all 37 modules and all 29 routers in registration order then. On 2026-09-15
-  the API keys router was added to the one and Podcasts to both; `MailModule`, registered since the
-  check, is in neither yet, and `AlmanacModule` (2026-09-20) is in the module table but owns no
-  router. Those two files stay the source of truth: verify against them before
-  relying on an entry.
+  2026-10-11 and listed all 48 modules and all 44 routers in registration order then. Those two
+  files stay the source of truth: verify against them before relying on an entry.
 - `README.md` and `docs/licensing.md` are written for whoever RUNS this rather than for whoever
   works on it. Keep them true.
 
@@ -124,7 +121,7 @@ apps/ios          SwiftUI listener app (AVFoundation). Its own Xcode project and
 packages/sdk-swift    the same contracts as a Swift/Codable client, for the iOS app. Generated,
                       save for Package.swift; no package.json
 apps/streamdeck   the Elgato Stream Deck plugin (TypeScript, on packages/sdk): Now Playing, Skip,
-                  Stop or start. A workspace member for real, built by turbo and tested in the root
+                  Like, Dislike, Stop or start. A workspace member for real, built by turbo and tested in the root
                   suite, with a CI job and a release unit of its own. Never in the image
 packages/error-codes  shared error code constants
 packages/config-*     shared eslint / tsconfig
@@ -163,11 +160,11 @@ deploy/, unraid/                  how somebody else installs it
 ```
 
 `apps/api` modules, in registration order: `logging`, `dataConnections`, `health`, `data`, `crypto`,
-`authentication`, `permissions`, `policy`, `art`, `catalog`, `onboarding`, `settings`, `languages`, `stream`, `mail`,
+`authentication`, `permissions`, `policy`, `oauth`, `art`, `catalog`, `onboarding`, `settings`, `languages`, `stream`, `mail`,
 `plugins`, `jobs`, `playlists`, `charts`, `similarity`, `news`, `search`, `weather`, `almanac`,
 `podcasts`, `narrations`, `topics`, `scrobble`, `llm`, `personas`, `schedule`, `render`, `playout`,
 `nowplaying`, `analysis`, `lyrics`, `director`, `storage`, `activity`, `history`, `enrichment`, `productions`,
-`station`, `requests`, `messaging`. **`src/modules/modules.ts` is the source of
+`station`, `requests`, `messaging`, `outputs`, `mcp`. **`src/modules/modules.ts` is the source of
 truth and the order is load-bearing** — see [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md). Check it
 before assuming a subsystem exists.
 

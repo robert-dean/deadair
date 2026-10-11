@@ -131,6 +131,24 @@ the next boundary prepares nothing, and one that lapses before it is preparing f
 lapses into. Chart and provider-playlist slots are not prepared: their opening is known only by reading
 the source, which the changeover does anyway, and a chart reads by looking up every entry.
 
+**A show that comes into force with no warning is prepared before it changes over, and the show going
+off stays on while it is** (`ScheduleTickJob.holdForOpening`, `schedule/opening.wait.ts`). The look-ahead
+only helps a show the clock can see coming. After it shipped, every empty changeover on the live station
+was a slot an operator had ADDED over the present a minute before: Neon Drive at 11:12 and Throwback
+Thursday at 18:56 on 2026-10-08, Saturday Requests at 15:55 on 2026-10-10, each silent for about two
+minutes while the refill came back. A set that was asked for and never arrived (the model busy, the job
+out of time) is the same case reached the slow way. So when a brief-only slot is in force with no set for
+tonight, the tick sends `schedule.prepare_slot` and does not change over, and the first tick that finds
+the set changes over onto it. That looks like the first refused fix above and is not: `putOnAir` still
+retracts first and builds a new order, nothing of the outgoing broadcast is kept past its changeover, and
+what moves is only WHEN the tick asks, which is the promptness the tick was always allowed to cost. It
+holds only while there is something to hold (an order with records planned on a station that is on air),
+because holding a station that ran out would be holding silence; it gives up after `OPENING_WAIT_MS`
+(five minutes, about two refills on the live model) and opens empty as before; and a set it cannot read
+or ask for is never waited on. The clock is in memory, on `ScheduleNotices`' argument: a restart costs
+one more wait, and nothing the tick can read says when a wait began, since a slot added at 11:55 that
+starts at 10:00 has a start in the past.
+
 **A broadcast has an IDENTITY, and everything written while it runs carries it.**
 `station_lineup.broadcast_id` is minted when a running order is built and kept for as long as it
 airs, so `play_history`, `segment_events`, `script_history` and `station_events` can all answer "what

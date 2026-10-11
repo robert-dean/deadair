@@ -4,7 +4,7 @@
 // left to be noticed the first time a schedule changes a station over at three in the morning for no
 // reason.
 
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { httpError } from '@maroonedsoftware/errors';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { Container } from 'injectkit';
@@ -14,6 +14,7 @@ import type { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { ScheduleTickJob } from '../../../src/modules/schedule/schedule.tick.job.js';
 import type { ScheduleService, SustainingSource } from '../../../src/modules/schedule/schedule.service.js';
 import { ScheduleNotices } from '../../../src/modules/schedule/schedule.notices.js';
+import { OPENING_WAIT_MS, OpeningWait } from '../../../src/modules/schedule/opening.wait.js';
 import type { PreparedSetRepository } from '../../../src/modules/schedule/prepared.set.repository.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { DirectorConsoleService } from '../../../src/modules/director/director.console.service.js';
@@ -72,6 +73,10 @@ interface Options {
     ahead?: ScheduleSlot;
     /** The night the slot ahead begins on. */
     aheadDate?: string;
+    /** Records the order on air still has planned. Absent is none, so nothing is held for an opening. */
+    remaining?: number;
+    /** What asking the queue does. Absent is a send that lands. */
+    send?: () => Promise<string>;
 }
 
 function build(options: Options = {}) {
@@ -98,7 +103,7 @@ function build(options: Options = {}) {
     } as unknown as ScheduleService;
 
     const director = {
-        status: vi.fn(() => ({ active: options.active ?? true, airMode: 'audience' as const, remaining: 0 })),
+        status: vi.fn(() => ({ active: options.active ?? true, airMode: 'audience' as const, remaining: options.remaining ?? 0 })),
         order: vi.fn(() =>
             options.airing === undefined
                 ? { items: [] }
@@ -116,7 +121,7 @@ function build(options: Options = {}) {
 
     const activity = { record: vi.fn(async (_event?: Record<string, unknown>) => undefined) };
 
-    const jobs = { send: vi.fn(async () => 'job-1') };
+    const jobs = { send: vi.fn(options.send ?? (async () => 'job-1')) };
 
     const prepared = {
         forNight: vi.fn(options.forNight ?? (async () => undefined)),
@@ -136,6 +141,7 @@ function build(options: Options = {}) {
         notices,
         prepared as unknown as PreparedSetRepository,
         jobs as unknown as PgBossJobBroker,
+        new OpeningWait(),
         {} as JobContext,
         {} as Container,
         logger,
@@ -904,6 +910,134 @@ describe('ScheduleTickJob', () => {
 
             expect(console.putOnAir).toHaveBeenCalledTimes(1);
             expect(vi.mocked(console.putOnAir).mock.calls[0]?.[3]).not.toHaveProperty('prepared');
+        });
+    });
+
+    // The look-ahead cannot help a show that comes into force with no warning. On the live station every
+    // empty changeover after it shipped was a slot an operator had added over the present a minute
+    // earlier, and each was silent for about two minutes while the refill came back.
+    describe('a show that comes into force with nothing chosen', () => {
+        const record: RundownTrack = {
+            pluginId: 'deadair.spotify',
+            externalId: 'sp_2',
+            title: 'Ziggy Stardust',
+            artists: ['David Bowie'],
+            artist: 'David Bowie',
+        };
+        const briefOnly = slot('throwback', { source: undefined, brief: 'nineties hits', label: 'Throwback Thursday' });
+        const recordedKinds = (activity: { record: { mock: { calls: unknown[][] } } }) =>
+            activity.record.mock.calls.map(call => (call[0] as { kind?: string }).kind);
+
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        it('keeps the show going off on air and asks for the opening, rather than opening empty', async () => {
+            const { tick, console, jobs, activity } = build({ inForce: briefOnly, airing: 'morning', remaining: 6 });
+
+            await tick();
+
+            expect(console.putOnAir).not.toHaveBeenCalled();
+            expect(jobs.send).toHaveBeenCalledWith('schedule.prepare_slot', { slotId: 'throwback', occurrence: '2026-10-09' });
+            expect(recordedKinds(activity)).toEqual(['schedule.waiting']);
+        });
+
+        it('says so once, however many minutes it waits', async () => {
+            const { tick, activity } = build({ inForce: briefOnly, airing: 'morning', remaining: 6 });
+
+            await tick();
+            await tick();
+            await tick();
+
+            expect(recordedKinds(activity)).toEqual(['schedule.waiting']);
+        });
+
+        it('changes over onto the opening on the first tick that finds it', async () => {
+            let ready: RundownTrack[] | undefined;
+            const { tick, console, prepared } = build({ inForce: briefOnly, airing: 'morning', remaining: 6, forNight: async () => ready });
+
+            await tick();
+            expect(console.putOnAir).not.toHaveBeenCalled();
+
+            ready = [record];
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledTimes(1);
+            expect(console.putOnAir).toHaveBeenCalledWith(expect.anything(), briefOnly, false, expect.objectContaining({ prepared: [record] }));
+            expect(prepared.discard).toHaveBeenCalledWith('throwback');
+        });
+
+        it('stops waiting after a few minutes and opens without one, as it always did', async () => {
+            vi.useFakeTimers({ now: new Date('2026-10-09T18:58:00Z'), toFake: ['Date'] });
+            const { tick, console } = build({ inForce: briefOnly, airing: 'morning', remaining: 6 });
+
+            await tick();
+            vi.setSystemTime(Date.now() + OPENING_WAIT_MS - 1);
+            await tick();
+            expect(console.putOnAir).not.toHaveBeenCalled();
+
+            vi.setSystemTime(Date.now() + 1);
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledTimes(1);
+            expect(vi.mocked(console.putOnAir).mock.calls[0]?.[3]).not.toHaveProperty('prepared');
+        });
+
+        it('changes over at once when the show going off has nothing left to play', async () => {
+            // Holding it would be holding silence, which is the thing this exists to avoid.
+            const { tick, console, jobs } = build({ inForce: briefOnly, airing: 'morning', remaining: 0 });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledTimes(1);
+            expect(jobs.send).not.toHaveBeenCalledWith('schedule.prepare_slot', expect.anything());
+        });
+
+        it('changes over at once from a programme that ran out', async () => {
+            const { tick, console } = build({ active: false, ranOut: true, inForce: briefOnly, airing: 'morning', remaining: 6 });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledTimes(1);
+        });
+
+        it('does not wait on a set it cannot read', async () => {
+            // Failing open, as the changeover does: an unread set costs the head start, never the show.
+            const { tick, console } = build({
+                inForce: briefOnly,
+                airing: 'morning',
+                remaining: 6,
+                forNight: async () => {
+                    throw new Error('connection reset');
+                },
+            });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledTimes(1);
+        });
+
+        it('does not wait when it cannot ask for the set', async () => {
+            const { tick, console } = build({
+                inForce: briefOnly,
+                airing: 'morning',
+                remaining: 6,
+                send: async () => {
+                    throw new Error('queue down');
+                },
+            });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledTimes(1);
+        });
+
+        it('never holds a show with a source of its own, whose records are read at the boundary', async () => {
+            const { tick, console } = build({ inForce: slot('evening'), airing: 'morning', remaining: 6 });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledTimes(1);
         });
     });
 

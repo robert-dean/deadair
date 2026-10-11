@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
-import type { TrackAnalysis, TrackCuePoints } from '@deadair/plugin-sdk';
+import type { AnalysisFailureCode, TrackAnalysis, TrackCuePoints } from '@deadair/plugin-sdk';
 import { DataRepository } from '../data/data.repository.js';
 import { toJsonb } from '../data/jsonb.js';
 
@@ -13,12 +13,25 @@ import { toJsonb } from '../data/jsonb.js';
  * download and decode, so retrying it on the ordinary walk means paying for the
  * same undecodable file every pass forever.
  *
- * Most of what lands here is permanent — a track whose provider serves something
- * that is not audio, or a format the analyzer does not know — so the retry
- * exists for the minority case where the cause was transient (the analyzer was
- * down, the URL had expired) and a day is soon enough for that.
+ * This is the wait for a file that would not DECODE, and for a failure that
+ * carries no code at all: most of what lands here is permanent — a track whose
+ * provider serves something that is not audio, or a format the analyzer does
+ * not know. A fetch that failed waits {@link ANALYSIS_REFETCH_AFTER_MS} instead.
  */
 export const ANALYSIS_RETRY_AFTER_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * How long a track whose audio could not be FETCHED waits before anything tries
+ * again: `unfetchable`, and `truncated`, which is a fetch that happened to
+ * deliver some bytes.
+ *
+ * That is a fact about the binding or the moment rather than the file (a
+ * provider was down, a signed url expired), and a day is longer than that
+ * usually lasts. It cannot become a loop on a dead binding, because
+ * `TrackAudioService` marks a binding that keeps failing `missing_at` and the
+ * walk skips it. An hour is a first figure, not a measured one.
+ */
+export const ANALYSIS_REFETCH_AFTER_MS = 60 * 60 * 1000;
 
 /** A track the walk picked up, and the binding that can actually serve its audio. */
 export interface AnalysableTrack {
@@ -134,7 +147,10 @@ export class AnalysisRepository extends DataRepository {
                and (
                    a.track_id is null
                    or (a.analyzed_at is not null and a.schema_version < ${schemaVersion})
-                   or (a.failed_at is not null and a.failed_at < now() - make_interval(secs => ${ANALYSIS_RETRY_AFTER_MS / 1000}))
+                   or (a.failed_at is not null
+                       and a.failed_at < now() - make_interval(secs => case when a.failure_code in ('unfetchable', 'truncated')
+                                                                             then ${ANALYSIS_REFETCH_AFTER_MS / 1000}::double precision
+                                                                             else ${ANALYSIS_RETRY_AFTER_MS / 1000}::double precision end))
                )
              order by src.is_local desc, t.created_at asc
              limit ${limit}
@@ -171,6 +187,7 @@ export class AnalysisRepository extends DataRepository {
             analyzedAt: sql<never>`now()`,
             failedAt: null,
             failureReason: null,
+            failureCode: null,
         };
 
         await this.db
@@ -189,8 +206,12 @@ export class AnalysisRepository extends DataRepository {
      * them eventually reads the numbers. A track that once measured and now
      * fails is a track whose audio changed, which makes the old figures wrong
      * rather than merely old.
+     *
+     * `code` is the analyzer's own name for the failure, which decides how soon
+     * the walk tries again (see {@link ANALYSIS_REFETCH_AFTER_MS}); absent, the
+     * failure waits the long way.
      */
-    async recordFailure(trackId: string, analyzerPluginId: string, reason: string): Promise<void> {
+    async recordFailure(trackId: string, analyzerPluginId: string, reason: string, code?: AnalysisFailureCode): Promise<void> {
         const row = {
             trackId,
             analyzerPluginId,
@@ -204,6 +225,7 @@ export class AnalysisRepository extends DataRepository {
             failedAt: sql<never>`now()`,
             // Bounded, because this is an upstream's error text and ends up on a console.
             failureReason: reason.slice(0, 500),
+            failureCode: code ?? null,
         };
 
         await this.db

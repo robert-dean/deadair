@@ -166,6 +166,19 @@ export class PluginError extends Error {
      * Diagnostic only: the host never forwards it as its own response status.
      */
     upstreamStatus?: number;
+    /**
+     * The upstream's own code for what went wrong, as it sent it: Last.fm's
+     * error number, Spotify's `reason`, an analyzer's `unfetchable` against
+     * `undecodable`. Finer than {@link code}, which is the host's vocabulary
+     * and the only thing the host maps to a response.
+     *
+     * This is the one place for it. A subclass that wants to branch on its
+     * upstream's code reads it here rather than declaring a field of its own,
+     * so the code survives the invoker's wrapping and reaches the host's logs.
+     * A capability that reads it says which values it knows, and the host
+     * ignores one it does not.
+     */
+    upstreamCode?: string | number;
 
     constructor(message: string, options?: { cause?: unknown }) {
         super(message, options);
@@ -198,6 +211,11 @@ export class PluginError extends Error {
 
     withUpstreamStatus(upstreamStatus: number) {
         this.upstreamStatus = upstreamStatus;
+        return this;
+    }
+
+    withUpstreamCode(upstreamCode: string | number) {
+        this.upstreamCode = upstreamCode;
         return this;
     }
 }
@@ -265,6 +283,8 @@ export function toPluginError(error: unknown, fallback: PluginErrorCode = 'inter
 
         if (typeof error.retryAfterMs === 'number' && Number.isFinite(error.retryAfterMs)) adopted.withRetry(error.retryAfterMs);
         if (typeof error.upstreamStatus === 'number' && Number.isFinite(error.upstreamStatus)) adopted.withUpstreamStatus(error.upstreamStatus);
+        if (typeof error.upstreamCode === 'string' && error.upstreamCode.length > 0) adopted.withUpstreamCode(error.upstreamCode.slice(0, 64));
+        if (typeof error.upstreamCode === 'number' && Number.isFinite(error.upstreamCode)) adopted.withUpstreamCode(error.upstreamCode);
 
         return adopted;
     }

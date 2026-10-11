@@ -236,8 +236,32 @@ describe('when a track cannot be measured', () => {
         const summary = await service.analysePending(50, undefined);
 
         expect(recordAnalysis).not.toHaveBeenCalled();
-        expect(recordFailure).toHaveBeenCalledWith('track-1', 'deadair.analyzer', expect.stringContaining('moov atom'));
+        expect(recordFailure).toHaveBeenCalledWith('track-1', 'deadair.analyzer', expect.stringContaining('moov atom'), undefined);
         expect(summary).toMatchObject({ scanned: 1, failed: 1, measured: 0 });
+    });
+
+    it("records the analyzer's own code, which decides how soon the walk tries again", async () => {
+        const { service, recordFailure } = build({
+            analyze: async () => {
+                throw new PluginError('HTTP 404 from the audio url').withCode('upstream').withUpstreamCode('unfetchable');
+            },
+        });
+
+        await service.analysePending(50, undefined);
+
+        expect(recordFailure).toHaveBeenCalledWith('track-1', 'deadair.analyzer', expect.any(String), 'unfetchable');
+    });
+
+    it('records no code for one this station does not retry on', async () => {
+        const { service, recordFailure } = build({
+            analyze: async () => {
+                throw new PluginError('odd').withCode('upstream').withUpstreamCode('something_new');
+            },
+        });
+
+        await service.analysePending(50, undefined);
+
+        expect(recordFailure).toHaveBeenCalledWith('track-1', 'deadair.analyzer', expect.any(String), undefined);
     });
 
     it('does NOT record a failure when there is simply no audio url', async () => {

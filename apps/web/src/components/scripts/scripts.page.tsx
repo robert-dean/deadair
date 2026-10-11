@@ -90,7 +90,7 @@ export interface ScriptsPageProps {
  * a station that never had a model. The API unions nothing here and this page decides nothing; the
  * rows were written by the writers themselves as they ran.
  *
- * The prompt and the raw answer appear only for rows written while `llm.captureWrites` was on,
+ * The prompt and the raw answer appear only for rows written while "Keep the prompt and the raw answer" (`llm.captureWrites`) was on,
  * which is a switch for an evening of prompt tuning rather than a default. A row without them is
  * the ordinary case and says so.
  *
@@ -346,7 +346,11 @@ function AttemptDetail({ attempt }: { attempt: ScriptAttempt }) {
 
             {attempt.prompt === undefined ? (
                 <Text size="xs" c="dimmed">
-                    <Trans t={t} i18nKey="detail.promptNotKept" components={{ code: <Code /> }} />
+                    <Trans
+                        t={t}
+                        i18nKey="detail.promptNotKept"
+                        components={{ settings: <Anchor size="xs" renderRoot={(props: object) => <Link to="/settings/llm" {...props} />} /> }}
+                    />
                 </Text>
             ) : (
                 <Stack gap="xxs">

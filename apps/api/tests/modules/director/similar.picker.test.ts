@@ -236,3 +236,50 @@ describe('SimilarPicker.pickSeveralLike', () => {
         expect(similarTo).not.toHaveBeenCalled();
     });
 });
+
+// For a caller that already knows which acts it wants: the brief's own, longest off air first.
+describe('SimilarPicker.pickFromArtists', () => {
+    it('names one record by each artist itself, in the order given, up to what was asked for', async () => {
+        const { picker, similarTo } = build();
+
+        const picks = await picker.pickFromArtists(['Kreator', 'Sodom', 'Behemoth'], 2, walk());
+
+        expect(picks).toEqual([
+            { title: 'Kreator Song', artist: 'Kreator' },
+            { title: 'Sodom Song', artist: 'Sodom' },
+        ]);
+        expect(similarTo).not.toHaveBeenCalled();
+    });
+
+    it('takes the freshest of an artist’s top tracks, and skips an artist the walk already gave a record', async () => {
+        const { picker } = build({
+            tracks: {
+                Kreator: [
+                    { title: 'Pleasure to Kill', artist: 'Kreator' },
+                    { title: 'Phobia', artist: 'Kreator' },
+                ],
+            },
+        });
+        const taken = walk({
+            takenArtists: new Set([artistKey(['Sodom'])]),
+            freshness: song => (song === songKey('Pleasure to Kill', ['Kreator']) ? 0.1 : 1),
+        });
+
+        const picks = await picker.pickFromArtists(['Sodom', 'Kreator'], 5, taken);
+
+        expect(picks).toEqual([{ title: 'Phobia', artist: 'Kreator' }]);
+    });
+
+    it('applies the period, and moves on from an artist with nothing in it', async () => {
+        const { picker } = build({
+            tracks: {
+                Mastodon: [{ title: 'Blood and Thunder', artist: 'Mastodon', year: 2004 }],
+                Kreator: [{ title: 'Pleasure to Kill', artist: 'Kreator', year: 1986 }],
+            },
+        });
+
+        const picks = await picker.pickFromArtists(['Mastodon', 'Kreator'], 2, walk({ era: { to: 1999 } }));
+
+        expect(picks).toEqual([{ title: 'Pleasure to Kill', artist: 'Kreator' }]);
+    });
+});

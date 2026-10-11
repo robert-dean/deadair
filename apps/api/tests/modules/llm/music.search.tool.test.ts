@@ -22,7 +22,14 @@ import { LYRIC_SUBJECT_KEYS } from '../../../src/modules/lyrics/lyrics.keys.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
-type LibraryRow = { title: string; artistName: string; albumName?: string | null; year?: number | null; genre?: string | null };
+type LibraryRow = {
+    title: string;
+    artistName: string;
+    albumName?: string | null;
+    year?: number | null;
+    genre?: string | null;
+    matchesWords?: boolean;
+};
 
 const key = (title: string, artist: string) => catalogKey(normalizeKey(title), normalizeKey(artist));
 
@@ -500,9 +507,55 @@ describe('MusicSearchTool', () => {
         await run(tool, { query: 'Mitch Murder' });
 
         expect(searched.all()).toEqual([
-            { title: 'Miami Nights', artist: 'Mitch Murder' },
-            { title: 'Accelerated', artist: 'Lost Years' },
+            { title: 'Miami Nights', artist: 'Mitch Murder', matches: true },
+            { title: 'Accelerated', artist: 'Lost Years', matches: false },
         ]);
+    });
+
+    // The library answered `Dio` by containment with every "Radio Edit" it held, and a refill whose
+    // model went quiet aired them. Whether a library row matched is the library's own answer, read in
+    // SQL where the record's styles are in reach, and the model never sees it.
+    it('remembers which library rows matched the search as whole words, and never shows the model that', async () => {
+        const library = [
+            { title: 'Holy Diver', artistName: 'Dio', matchesWords: true },
+            { title: 'Mr. Vain - Original Radio Edit', artistName: 'Culture Beat', matchesWords: false },
+            { title: 'Raining Blood', artistName: 'Slayer', genre: 'thrash metal', matchesWords: true },
+        ];
+        const { tool, searched } = build({ library });
+
+        const result = await run(tool, { query: 'Dio' });
+
+        expect(searched.matching()).toEqual([
+            { title: 'Holy Diver', artist: 'Dio' },
+            { title: 'Raining Blood', artist: 'Slayer' },
+        ]);
+        expect(result.tracks.every(row => !('matchesWords' in row) && !('matches' in row))).toBe(true);
+    });
+
+    // A provider row carries no tags, so it is judged on its own words. A streaming search for
+    // `Slayer` answers with "slayr", which is not Slayer; a credit that names the act is.
+    it('judges a provider row on its title and credits', async () => {
+        const { tool, searched } = build({
+            reached: [
+                found('keep me going (BIRDBRAIN)', 'slayr'),
+                found('The Game (Triple H)', 'WWE, Motörhead'),
+                found('Ace of Spades', 'Motörhead'),
+                found('Killed by Death', 'Somebody', { featuring: ['Motörhead'] }),
+            ],
+        });
+
+        await run(tool, { query: 'Motörhead' });
+        await run(tool, { query: 'Slayer' });
+
+        expect(searched.matching().map(row => row.title)).toEqual(['The Game (Triple H)', 'Ace of Spades', 'Killed by Death']);
+    });
+
+    it('counts every row of a search with no text as matching, since there was no text to miss', async () => {
+        const { tool, searched } = build({ library: [{ title: 'Paranoid', artistName: 'Black Sabbath' }] });
+
+        await run(tool, { yearFrom: 1970 });
+
+        expect(searched.matching()).toEqual([{ title: 'Paranoid', artist: 'Black Sabbath' }]);
     });
 
     it('counts a record answered by two searches once', async () => {

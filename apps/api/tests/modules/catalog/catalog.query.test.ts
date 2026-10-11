@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { columnFor, likeContains } from '../../../src/modules/catalog/catalog.query.js';
+import { columnFor, hasWholeWords, likeContains, regexWholeWords } from '../../../src/modules/catalog/catalog.query.js';
 
 describe('likeContains', () => {
     it('wraps an ordinary term so it matches anywhere in the value', () => {
@@ -31,6 +31,44 @@ describe('likeContains', () => {
 // here is the fall-back: an ordering a list cannot serve has to open in its ordinary order rather
 // than fail. The SQL these column names go into is covered by `scripts/catalog.sort.smoke.ts`,
 // against the real database, on the rule the rating and era expressions already follow.
+// Measured on the live station, 2026-10-11: a search for `Dio` answered by containment with every
+// "Radio Edit" in the library, and a refill aired them in a heavy-metal hour.
+describe('hasWholeWords', () => {
+    it('finds a name as a whole word and not inside another word', () => {
+        expect(hasWholeWords('Dio', 'Dio')).toBe(true);
+        expect(hasWholeWords('Ronnie James Dio', 'dio')).toBe(true);
+        expect(hasWholeWords('Mr. Vain - Original Radio Edit', 'Dio')).toBe(false);
+        expect(hasWholeWords('head space - Denham Audio Remix', 'Dio')).toBe(false);
+        expect(hasWholeWords('Diopter (Hior Remix)', 'Dio')).toBe(false);
+        expect(hasWholeWords('Dior', 'Dio')).toBe(false);
+    });
+
+    it('keeps what containment was for: a style inside a longer one', () => {
+        expect(hasWholeWords('heavy metal', 'metal')).toBe(true);
+        expect(hasWholeWords('pop/rock', 'rock')).toBe(true);
+        expect(hasWholeWords('WWE, Motörhead', 'Motörhead')).toBe(true);
+    });
+
+    it('reads punctuation in the term as itself, and spaces as any run of space', () => {
+        expect(hasWholeWords('AC/DC', 'ac/dc')).toBe(true);
+        expect(hasWholeWords('Sunn O)))', 'Sunn O)))')).toBe(true);
+        expect(hasWholeWords('Sunn O)))', 'O.')).toBe(false);
+        expect(hasWholeWords('Lamb  of God', 'lamb of god')).toBe(true);
+    });
+
+    it('lets an empty term match anything', () => {
+        expect(hasWholeWords('anything', '  ')).toBe(true);
+    });
+});
+
+// Only `library.search.smoke.ts` runs the Postgres side; this pins the shape it is handed.
+describe('regexWholeWords', () => {
+    it('bounds the term by anything that is not a letter or digit, and escapes it', () => {
+        expect(regexWholeWords('Dio')).toBe('(^|[^[:alnum:]])Dio([^[:alnum:]]|$)');
+        expect(regexWholeWords(' Sunn  O))) ')).toBe('(^|[^[:alnum:]])Sunn\\s+O\\)\\)\\)([^[:alnum:]]|$)');
+    });
+});
+
 describe('columnFor', () => {
     const ARTIST_SORTS = { name: 'artists.name', albums: 'albumCount', tracks: 'trackCount' } as const;
 

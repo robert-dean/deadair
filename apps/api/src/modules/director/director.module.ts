@@ -42,6 +42,8 @@ import { EraWatch } from './era.watch.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { ChartSetGenerator } from './chart.set.generator.js';
 import { ModelSetGenerator } from './model.set.generator.js';
+import { BriefArtists } from './brief.artists.js';
+import { BriefArtistSetGenerator } from './brief.artist.set.generator.js';
 import { SimilarPicker } from './similar.picker.js';
 import { SimilarSetGenerator } from './similar.set.generator.js';
 import { DirectorConsoleService } from './director.console.service.js';
@@ -92,10 +94,13 @@ export const DirectorModule: ServerKitModule = {
         // preference order, and the deterministic draw stays the floor by being the final entry.
         // The one difference is that the chain TOPS UP rather than falling through — a generator
         // that named six of fifteen has done most of the job — which is why a set is not a break.
+        // The acts a brief names, longest off air first. Scoped with the two repositories it reads.
+        registry.register(BriefArtists).useClass(BriefArtists).asScoped();
         registry.register(ModelSetGenerator).useClass(ModelSetGenerator).asScoped();
         registry.register(ChartSetGenerator).useClass(ChartSetGenerator).asScoped();
         registry.register(SimilarPicker).useClass(SimilarPicker).asScoped();
         registry.register(SimilarSetGenerator).useClass(SimilarSetGenerator).asScoped();
+        registry.register(BriefArtistSetGenerator).useClass(BriefArtistSetGenerator).asScoped();
         // A SINGLETON among scoped generators, and only because it holds one boolean. The draw
         // below discovers that the advisory policy has left the station nothing to play, and a feed
         // producer writes on edges — so the flag saying "already said this" has to outlive the
@@ -135,8 +140,16 @@ export const DirectorModule: ServerKitModule = {
                     // that happened to air is an inference from the station's own recent history.
                     // Both take only their configured share, so the order between them decides who
                     // gets the good slots rather than who gets any.
+                    //
+                    // The brief's own acts go FIRST, ahead of the model, and only for their share.
+                    // A slow model works down a brief from the top and runs out of time near it, so
+                    // behind the model the acts at the far end of the brief would get whatever the
+                    // model left, which on a model that answers in full is nothing. Ahead of it they
+                    // get their share every refill and the model is asked for fewer records. See
+                    // `BriefArtistSetGenerator`.
                     new SetGeneratorChain(
                         [
+                            container.get(BriefArtistSetGenerator),
                             container.get(ModelSetGenerator),
                             container.get(ChartSetGenerator),
                             container.get(SimilarSetGenerator),

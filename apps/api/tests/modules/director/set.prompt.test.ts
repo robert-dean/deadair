@@ -541,3 +541,30 @@ describe('a genre steer in the set prompt', () => {
         expect(user).not.toContain('leaning toward');
     });
 });
+
+// Measured on the live station, 2026-10-11: a brief naming twenty-four acts was searched from the top
+// three refills running, and the six acts at the end of it never once.
+describe("the brief's own acts in the set prompt", () => {
+    it('lists them in the order given, saying when each last aired, and says to search in that order', () => {
+        const user = userOf(
+            setPrompt({
+                count: 5,
+                avoid: [],
+                brief: 'Thrash: Metallica, Kreator, Slayer',
+                namedArtists: [{ name: 'Kreator' }, { name: 'Slayer', daysAgo: 3 }, { name: 'Metallica', daysAgo: 0 }],
+            }),
+        );
+
+        expect(user).toContain('Kreator (not played lately); Slayer (played 3 days ago); Metallica (played today)');
+        expect(user).toMatch(/in THIS order/);
+    });
+
+    it('says yesterday rather than one day ago', () => {
+        expect(userOf(setPrompt({ count: 5, avoid: [], namedArtists: [{ name: 'Dio', daysAgo: 1 }] }))).toContain('Dio (played yesterday)');
+    });
+
+    it('says nothing when the brief names nobody', () => {
+        expect(userOf(setPrompt({ count: 5, avoid: [], brief: 'loud', namedArtists: [] }))).not.toMatch(/brief names these artists/);
+        expect(userOf(setPrompt({ count: 5, avoid: [], brief: 'loud' }))).not.toMatch(/brief names these artists/);
+    });
+});

@@ -168,7 +168,7 @@ try {
 
         check('a style promoted onto the row is still found', await found('promoted'), ['from-artist-tag']);
         check("a style only in the artist's payload is found", await found(STYLE), ['from-artist-tag']);
-        check('a longer style containing the search is found too', await found(`${STYLE} rev`), ['from-artist-tag']);
+        check('a fragment of a longer style finds nothing', await found(`${STYLE} rev`), []);
 
         // A record tagged under a style its artist is not known for. This is the half that would be
         // lost if the exists only looked at the artist.
@@ -206,6 +206,40 @@ try {
         check('a title still matches', await found('from-artist-tag'), ['from-artist-tag']);
         check('an artist still matches', (await found(`${TAG} plain`)).includes('from-track-tag'), true);
         check('a style nothing carries finds nothing', await found('zzzznope'), []);
+
+        // ── a word, against a fragment of another word ──
+        // Measured on the live station, 2026-10-11: `Dio` answered by containment with every "Radio
+        // Edit" in the library, and a refill whose model went quiet aired them in a heavy-metal hour.
+        say('telling a word from a fragment of one');
+
+        /** Each fixture row a search found, with whether it matched as whole words. */
+        const matched = async (query: string): Promise<[string, boolean][]> =>
+            (await tracks.searchPlayable(query, LIMIT, false))
+                .filter(row => row.title.startsWith(TAG))
+                .map((row): [string, boolean] => [row.title.slice(TAG.length + 1), row.matchesWords === true])
+                .sort(([a], [b]) => a.localeCompare(b));
+
+        // Untagged, so the vocabulary counted further down is the fixture it always was.
+        const zzdio = await artist('zzdio', undefined);
+        const other = await artist('other', undefined);
+        await track(zzdio, 'holy');
+        await track(other, 'the xzzdiox edit');
+        await track(other, 'zzdio, live');
+
+        check('the artist and a title holding the word are found, and a fragment is not', await matched('zzdio'), [
+            ['holy', true],
+            ['zzdio, live', true],
+        ]);
+        check(
+            'a style is a whole word inside a longer tag',
+            (await matched(STYLE)).find(([title]) => title === 'from-artist-tag'),
+            ['from-artist-tag', true],
+        );
+        check(
+            'a search with no text matches every row it answers',
+            (await tracks.searchPlayable('', 5, false)).every(row => row.matchesWords === true),
+            true,
+        );
 
         // ── a period, which narrows this half now and used to narrow only the providers ──
         say('narrowing to a period');
@@ -296,7 +330,8 @@ try {
             'umbrella-tag',
             `${EXACT}s of black`,
         ]);
-        check('a style only ever spelled inside a longer one is still found', (await found(`${EXACT}/ro`)).length, 2);
+        check('a style only ever spelled inside a longer one is still found', (await found(`${EXACT}/rock`)).length, 2);
+        check('a fragment of one is not', await found(`${EXACT}/ro`), []);
 
         // ── the vocabulary, which is a promise about the search above ─────────
         say('the words the library answers to');

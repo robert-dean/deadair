@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { sql, type ExpressionBuilder } from 'kysely';
 import { DataRepository } from '../data/data.repository.js';
 import type { DB } from '../data/db.js';
-import { CatalogListQuery, columnFor, directionFor, likeContains, likeExactly } from './catalog.query.js';
+import { CatalogListQuery, columnFor, directionFor, likeContains, likeExactly, regexWholeWords } from './catalog.query.js';
 import { catalogKey, normalizeKey } from './catalog.keys.js';
 import { artUrl } from './catalog.art.js';
 import { stationCover, withStationCover } from '#modules/art/art.source.token.js';
@@ -265,14 +265,14 @@ function stateFilter(eb: TrackScope, state: TrackState, schemaVersion: number) {
  * before `WHERE` is applied — so a payload whose `genres` is not an array would throw past a
  * coalesce, and this is data written by plugins.
  */
-function taggedWith(pattern: string) {
+function taggedWith(pattern: string, match: 'ilike' | '~*' = 'ilike') {
     const tags = (table: string, column: string, id: string) => sql`
         select 1
         from deadair.${sql.raw(table)} e
         cross join lateral jsonb_array_elements_text(
             case when jsonb_typeof(e.data -> 'genres') = 'array' then e.data -> 'genres' else '[]'::jsonb end
         ) tag
-        where e.${sql.raw(column)} = deadair.tracks.${sql.raw(id)} and tag ilike ${pattern}
+        where e.${sql.raw(column)} = deadair.tracks.${sql.raw(id)} and tag ${sql.raw(match)} ${pattern}
     `;
 
     return sql<boolean>`exists (
@@ -286,7 +286,7 @@ function taggedWith(pattern: string) {
  * Whether the search is the WHOLE of a record's title, its artist's name or one of its styles,
  * rather than part of one.
  *
- * The same four places {@link TracksRepository.searchPlayable} matches by containment, asked the
+ * The same four places {@link TracksRepository.searchPlayable} matches as whole words, asked the
  * stricter question, and only ever used to order that answer. Raw for the reason {@link taggedWith}
  * is, and correlated on the same outer `deadair.tracks` and `deadair.artists`.
  */
@@ -296,6 +296,26 @@ function isExactly(pattern: string) {
         or deadair.artists.name ilike ${pattern}
         or deadair.tracks.genre ilike ${pattern}
         or ${taggedWith(pattern)}
+    )`;
+}
+
+/**
+ * Whether the search appears as whole WORDS in a record's title, its artist's name or one of its
+ * styles, which is the question `search_music` cares about and containment answers badly.
+ *
+ * The same four places as {@link isExactly}, asked through {@link regexWholeWords}. Selected as
+ * `matchesWords` by {@link TracksRepository.searchPlayable}, and since that search filters on it too,
+ * every library row it answers with reads true. The column stays because the search tool reads it
+ * per row beside provider rows that answer it in TypeScript. `coalesce`
+ * on the genre because a null under `~*` is null rather than false, and a column read back as null
+ * would be a third answer to a yes-or-no question.
+ */
+function hasWholeWords(pattern: string) {
+    return sql<boolean>`(
+        deadair.tracks.title ~* ${pattern}
+        or deadair.artists.name ~* ${pattern}
+        or coalesce(deadair.tracks.genre, '') ~* ${pattern}
+        or ${taggedWith(pattern, '~*')}
     )`;
 }
 
@@ -644,9 +664,9 @@ export class TracksRepository extends DataRepository {
     }
 
     async searchPlayable(search: string, limit: number, cleanOnly = false, options: PlayableSearchOptions = {}) {
-        const pattern = likeContains(search);
+        const words = regexWholeWords(search);
         // A period alone is a complete search: `search_music` may be called with nothing but a pair
-        // of years, and matching every title against '%%' is what makes that mean "the whole library,
+        // of years, and skipping the text match entirely is what makes that mean "the whole library,
         // narrowed to these years" rather than nothing at all.
         const matchesText = search.trim().length > 0;
         const released = releasedYear;
@@ -663,6 +683,9 @@ export class TracksRepository extends DataRepository {
                 'deadair.artists.name as artistName',
                 'deadair.albums.name as albumName',
             ])
+            // True of every row now that the filter below is the same question, and kept because the
+            // search tool reads it per row and a provider row beside these still needs the answer.
+            .select(matchesText ? hasWholeWords(words).as('matchesWords') : sql<boolean>`true`.as('matchesWords'))
             .where('deadair.tracks.mergedIntoId', 'is', null)
             // Title, artist, genre OR any genre a plugin found.
             //
@@ -683,16 +706,15 @@ export class TracksRepository extends DataRepository {
             // metal` is findable under whichever of those happened to come first and invisible under
             // the other three. Measured when this was written: `heavy metal` reached 58 records
             // through the column and 241 through the tags, on a library of 948.
-            .$if(matchesText, qb =>
-                qb.where(eb =>
-                    eb.or([
-                        eb('deadair.tracks.title', 'ilike', pattern),
-                        eb('deadair.artists.name', 'ilike', pattern),
-                        eb('deadair.tracks.genre', 'ilike', pattern),
-                        taggedWith(pattern),
-                    ]),
-                ),
-            )
+            //
+            // All four as WHOLE WORDS ({@link hasWholeWords}), never containment. `metal` still finds
+            // `heavy metal` and `rock` still finds `pop/rock`; what is lost is a fragment of another
+            // word, and that loss is the point. Measured on the live station, 2026-10-11: briefed for
+            // heavy metal, the model searched `Dio`, and `ilike '%Dio%'` filled the page with "Radio
+            // Edit", "Audio Remix", "Diopter" and "Dior". A model that timed out then had them rescued
+            // onto the air. The cost is a search for part of a word ("Metalli"), which the model does
+            // not make: it searches names and styles, whole.
+            .$if(matchesText, qb => qb.where(hasWholeWords(words)))
             // Null passes both bounds. See the note above on why an undated record is offered for
             // every period rather than for none.
             //
@@ -756,10 +778,10 @@ export class TracksRepository extends DataRepository {
             // over the whole candidate set on the same argument about a station's scale.
             //
             // **What IS the search comes before what merely contains it**, and the hash only orders
-            // within each half. The match above is containment, which is right as a filter (`metal`
-            // has to reach `heavy metal`) and was wrong as the whole answer: `pop` is contained in
-            // `pop/rock`, the umbrella one source hangs on every rock record, and `soul` is contained
-            // in a title. Measured on the live station, 2026-09-30: briefed `billboard top 100 across
+            // within each half. The match above is whole words, which is right as a filter (`metal`
+            // has to reach `heavy metal`) and is still wrong as the whole answer: `pop` is a word in
+            // `pop/rock`, the umbrella one source hangs on every rock record. (It used to be
+            // containment, and `soul` reached "Souls" in a title as well.) Measured on the live station, 2026-09-30: briefed `billboard top 100 across
             // the decades`, the model searched `pop` and `soul`, the hash put Anthrax's "Caught In A
             // Mosh" and Testament's "Souls of Black" in the ten owned rows of each, and both were
             // named. 588 records were tagged exactly `pop` and 122 exactly `soul` at the time, so a

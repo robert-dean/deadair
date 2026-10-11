@@ -85,3 +85,27 @@ describe('PlayHistoryRepository.lastAiredSince', () => {
         expect(captured.queries[0]!.sql).toContain("now() - '7 days'::interval");
     });
 });
+
+describe('PlayHistoryRepository.lastAiredByArtist', () => {
+    it("answers each artist's newest airing, scoped to the station and keyed on the lead", async () => {
+        const captured: Captured = { queries: [] };
+        const lastWeek = DateTime.utc().minus({ days: 7 });
+        const repository = new PlayHistoryRepository(fakeDb([{ artist_key: 'kreator', last_aired_at: lastWeek }], captured));
+
+        const lastAired = await repository.lastAiredByArtist(['kreator', 'sodom'], 'main');
+
+        expect(lastAired).toEqual(new Map([['kreator', lastWeek]]));
+        const [query] = captured.queries;
+        expect(query!.sql).toMatch(/group by "artist_key"/);
+        expect(query!.sql).toMatch(/"station_key" = \$1/);
+        expect(query!.parameters).toEqual(['main', 'kreator', 'sodom']);
+    });
+
+    it('asks nothing for no artists', async () => {
+        const captured: Captured = { queries: [] };
+        const repository = new PlayHistoryRepository(fakeDb([], captured));
+
+        expect(await repository.lastAiredByArtist([], 'main')).toEqual(new Map());
+        expect(captured.queries).toHaveLength(0);
+    });
+});

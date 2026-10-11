@@ -32,6 +32,57 @@ middle bindings filter on one themselves — see the period rule in `director.md
 cost records says so on the activity feed, because a station that ran dry with a full library is otherwise two
 facts with nothing connecting them.
 
+**A refill whose model goes quiet plays what its searches were FOR, and nothing else they touched.**
+`ModelSetGenerator` keeps every row `search_music` answered with (`SearchedRecords`), and when the model
+names nothing (a throw, a `length` finish, the refill's time running out) `rescue` spreads across those rows
+one artist at a time. A search answers wider than its query, and the model reading it skips the strays, but
+the rescue gives every artist in an answer a turn, so a stray is worth exactly as much as a record the model
+asked for. Measured on the live station, 2026-10-11: briefed for heavy metal, gemma4 ran out of time after
+seventeen on-brief searches, the library had answered `Dio` with every "Radio Edit", "Audio Remix",
+"Diopter" and "Dior" it held, and the Boneyard aired Culture Beat, Pop Smoke and a run of house remixes.
+So the search tool remembers each row with `matches`, whether it answered the query as whole words, and
+the rescue reads only `matching()`. A library row's answer is the SQL's (`matchesWords`, the same four
+places `searchPlayable` searches, through `regexWholeWords`), because a style search finds a record by a
+tag the row itself does not carry; a provider row has no tags and is judged on its title and credits by
+`hasWholeWords`, the same rule in TypeScript, which is what turns away "slayr" for `Slayer`. A search with
+no text matches every row. Nothing matching is an empty answer, and the chain carries on exactly as it
+did before the rescue existed, so under `rotation.briefOnly` a short refill beats an off-brief one.
+
+**A brief that names its acts is read in the order the station has neglected them, not the order it was written.**
+A model works down a brief's list from the top, and a slow one runs out of time near it. Measured on the live
+station, 2026-10-11: The Boneyard's brief names twenty-four acts, all in the library, and three refills
+searched the first five, the first five again and the first seventeen; Kreator, Sodom, Cannibal Corpse,
+Behemoth, Mastodon and Queensrÿche were never searched, and six acts took 39 of the show's 86 plays.
+`BriefArtists` answers which library artists the brief names (`ArtistsRepository.namedIn`: `strpos` narrows,
+then `hasWholeWords` case-sensitively, so "Sabbat" inside "Sabbath" and "Queen" inside "Queensrÿche" fall
+away and "loud" is not an act called "Loud"), ordered by `PlayHistoryRepository.lastAiredByArtist`, never
+aired first and ties in the brief's own order. Library artists found IN the brief rather than the brief
+parsed, because a brief is prose and the punctuation is one operator's; an act the library has never held
+is missed, and nothing downstream could look it up by name anyway. The model's user turn lists them in that
+order with how long ago each aired, and is told to search them in THAT order. A read that fails lists
+nothing, which is the prompt as it was.
+
+**`BriefArtistSetGenerator` plays the brief's neglected acts with no model in the room, and sits AHEAD of the
+model for its share.** The prompt line above only helps a model that finishes. This binding takes
+`BriefArtists`' list, skips any act the cooldown holds (aired or queued inside it, or one the caller said to
+avoid, since the resolver would drop its record), and asks `SimilarPicker.pickFromArtists` for the freshest
+of each remaining act's provider top tracks, one per act, until it has `rotation.briefArtistMix` of the batch
+(0.4). Provider top tracks rather than the library, because the neglected acts are the ones the library is
+thinnest on (that day Behemoth, Morbid Angel, Mastodon and Queensrÿche held one playable record each, which
+the repeat window rules out after a single airing). It is the one binding registered ahead of
+`ModelSetGenerator`: behind it, it would fill only what the model left, which on a model that answers in full
+is nothing, and the neglected acts would starve again. Ahead of it, the model is asked for the rest, with
+these records in its avoid list, and is likelier to finish inside its time. No brief, a share of 0, a brief
+naming nobody free to air, or no plugin able to name an artist's records (said once) all step aside. It does
+not declare `ignoresBrief`: everything it names is in the brief.
+
+**Under a brief that names its acts, the similarity walk seeds from the four off air longest.** It used to seed
+from this broadcast's four most recent artists, which is safe (they are the brief's own results) and was a rut:
+a brief read from the top airs the same few big names, so on The Boneyard the seeds were always four of the
+same six and their neighbours were each other. `SimilarSetGenerator.seeds` now asks `BriefArtists` first and
+walks from Kreator's and Behemoth's neighbours instead. A brief naming nobody the library holds ("Loud and
+fast") keeps the broadcast-scoped seeds, and a briefed hour with no broadcast still seeds nothing.
+
 **A pick is judged where it becomes a track, never inside the generator that named it.** A `SetGenerator` pick is a NAME, so any binding that is not the catalog draw hands over titles nothing has judged, and a dislike is an INSTRUCTION no lineup may turn off, so a generator able to route around it airs a record the operator forbade. The rules therefore run in `PickResolver.resolve(picks, rules)`, the one step every pick from every source passes through. `CatalogSetGenerator` still filters before its own draw and that is NOT redundancy: filtering early keeps the draw from spending its weight on candidates that cannot air, filtering at the resolver makes the rules true for a generator that never read the catalog, and neither is safe to delete because the other exists. `applyRules` composes the four that decide whether a candidate may air; `spaceArtists` runs last and separately, because a batch spaced before its unplayable tracks are dropped closes the gap back up and puts one artist back on its own heels. The album cap (`rotation.maxPerAlbum`, `capPerAlbum`) is one BATCH's worth of variety, same as the per-artist cap beside it. Nothing here stops the record after it from picking the same release again, which is the cross-batch seam `avoidArtistKeys` and `queuedArtistKeys` already close for artists and a release has not needed yet.
 
 **The artist cooldown holds against the queue, not only against what aired.** `rotation.artistCooldownMinutes` (forty by default) was read from `play_history` alone, and nothing queued has aired, so it had nothing to say about the two places an artist actually came round too soon. Inside one batch the per-artist cap lets two records by one act through and `spaceArtists` only keeps them off each other's heels: `[A, X, X, B, ...]` comes out `X A X B ...`, two X records about eight minutes apart against a forty-minute setting. Across refills only the last `maxPerArtist + 1` items of the order were held back, a handful of records, so an artist six records from the end was free to be chosen again with half the cooldown still to run. Both are judged by WHEN now, from `air.estimate.ts`, which gives each queued item an estimated start and counts an unmeasured record as `NOMINAL_TRACK_MS` (four and a half minutes, the figure the break planner already spaced with, moved there so the two rules agree; deliberately not `air.clock.ts`'s zero, which is for breaks that must never land early). A refill passes `artistsQueuedWithin` the queue (`upcoming()`, or for a replan only the records the player holds) and every artist whose record starts less than the cooldown before the batch begins joins the aired ones in `filterByHistory`, through `applyRulesHoldingQueue`, in the catalog draw and again at the resolver. After `spaceArtists`, `holdArtistCooldown` walks the batch in airing order and drops a record that would start inside the cooldown of the same artist's earlier one; the oversample is what makes that good, as it is for every other drop. Start to start, which is how the history measures it. Only the spaced path: a request, a countdown and a mixed-in record keep their order and are only vetted, and a cooldown of `0` changes nothing.
@@ -380,7 +431,7 @@ an answer, and a script gets nothing out of the providers. The row carries
 the provider's own id (`FoundTrack.externalId`, which the model's tool never shows it), and asking for it
 goes through `ProviderCopyResolver`, the ladder the playlist fill uses.
 
-**The library half matches by containment and ranks by equality, and the two are different jobs.** `searchPlayable` finds a record whose title, artist, promoted genre or any tag CONTAINS the search, which is what lets `metal` reach `heavy metal`. Until 2026-09-30 that was also the whole ordering, a per-broadcast hash over every match, and under `ModelSetGenerator` the search is the draw: briefed `billboard top 100 across the decades`, the model searched `pop` and `soul`, and was handed Anthrax's "Caught In A Mosh" (tagged `pop/rock`, the umbrella one source hangs on every rock record) and Testament's "Souls of Black" (a title) among the ten owned rows of each. It named both. 588 records were tagged exactly `pop` and 122 exactly `soul`, so a page of the real thing existed and was drawn against 369 and 39 that were not. Rows where the search IS the title, the artist, the genre or a tag now come first (`isExactly`), and the hash orders within each half. A rank and never a filter: narrowing the match to whole tags would lose `metal` every record tagged only `heavy metal`, and a title searched by one of its words still has to answer. What it does not fix is a style with fewer exact records than the page, where the tail is still whatever contains the word, each row carrying the `genre` that says so.
+**The library half matches by whole words and ranks by equality, and the two are different jobs.** `searchPlayable` finds a record whose title, artist, promoted genre or any tag holds the search as WHOLE WORDS (`regexWholeWords`, a letter or digit on one side and anything else or the end of the text on the other), which is what lets `metal` reach `heavy metal` and `rock` reach `pop/rock`. It was containment until 2026-10-11, when a heavy-metal refill searched `Dio` and `ilike '%Dio%'` filled the page with "Radio Edit", "Audio Remix", "Diopter" and "Dior", which a timed-out model then had rescued onto the air (see the rescue above). The price is a search for part of a word, "Metalli" or `heavy met`, which finds nothing now; the model searches names and styles whole, and the console's own catalog filters and the request search, which a person types fragments into, still use containment. Until 2026-09-30 that was also the whole ordering, a per-broadcast hash over every match, and under `ModelSetGenerator` the search is the draw: briefed `billboard top 100 across the decades`, the model searched `pop` and `soul`, and was handed Anthrax's "Caught In A Mosh" (tagged `pop/rock`, the umbrella one source hangs on every rock record) and Testament's "Souls of Black" (a title) among the ten owned rows of each. It named both. 588 records were tagged exactly `pop` and 122 exactly `soul`, so a page of the real thing existed and was drawn against 369 and 39 that were not. Rows where the search IS the title, the artist, the genre or a tag now come first (`isExactly`), and the hash orders within each half. A rank and never a filter: narrowing the match to whole tags would lose `metal` every record tagged only `heavy metal`, and a title searched by one of its words still has to answer. What it does not fix is a style with fewer exact records than the page, where the tail is still whatever holds the word, each row carrying the `genre` that says so. Whole words cured the "Souls of Black" half of that measurement and not the `pop/rock` half, which is why the rank stays.
 
 **The search answers with the LEAD artist, never a credit line, and that is a correctness rule rather than a formatting one.** The model is told to copy a title and artist back exactly, because `ProviderTrackLookup` is strict — and the two steps that then judge the pick both match on the lead artist alone: `PickResolver.identify` keys it off the MATCHED ROW's title and lead (`songKey(found.title, [found.artist])`, so the keys are the ones `play_history` will be written with rather than the words that went looking) and the lookup compares `normalizeKey(track.artists[0])`. The provider fan-out answered `artists.join(', ')` for as long as it existed, so every collaboration it returned was named correctly by the model and then dropped as "not in the catalog" — a live run resolved every solo credit and lost every duet. The other credits ride in `featuring`, which is shown and never copied. Anything new that hands a model a record to name owes the same shape. The related bound is that it must offer enough rows to fill an OVERSAMPLED batch (`MAX_RESULTS` is 25): a model shown ten records and asked for two dozen pads the answer with repeats, `SetGeneratorChain` discards them, and `CatalogSetGenerator` — which cannot act on a brief — quietly fills half the hour.
 

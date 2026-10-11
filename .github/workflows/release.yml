@@ -235,8 +235,9 @@ jobs:
     # station reports as its revision. Waiting on `changes` costs seconds. A release run always
     # builds them, for the reason `build` above gives: the push retrying a failed release may change
     # nothing the image is built from, and a release with no images to promote would never publish.
-    # All six variants, always, by passing no `variants`: `promote` moves a tag onto each of them,
-    # and a pull request is the only caller that may build fewer.
+    # The three the station follows, always, by passing no `variants`: `promote` moves a tag onto
+    # each of them, and a pull request is the only caller that may build fewer. Their Apple Music
+    # twins are `images-apple`, below `promote`.
     images:
         needs: [version, changes]
         if: needs.version.outputs.value != '' || needs.changes.outputs.image == 'true'
@@ -266,113 +267,69 @@ jobs:
             # Keep in step with `env.IMAGE` in images.yml.
             IMAGE: deadair/deadair
         steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
             - name: Log in to the registry
               uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
               with:
                   username: ${{ secrets.DOCKERHUB_USERNAME }}
                   password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-            # Never BACKWARDS. A run can get here for a commit older than the one the tags already
-            # name, when its push arrived late and a newer commit's run promoted first (see `head`
-            # above). Moving the tags then rewinds every station that follows them, which is what
-            # 758b932a's run did to 0.27.2 on 2026-09-23. So each tag moves only if this commit is
-            # not behind the one the tag names. That commit is read from the image's own revision
-            # label, and the API compares the two.
-            #
-            # "Not behind" rather than "is main's head", deliberately. A head that changed nothing in
-            # the image builds and promotes nothing, so the head rule would leave this commit's image
-            # unpromoted behind a README typo merged after it, whether the typo landed while this ran
-            # or ahead of a late push. Ahead of the tag, this is the newest image there is, and a newer
-            # one queued behind it moves the tags on again when its run comes. Identical moves: a
-            # manual run rebuilding the same commit for a base image's fix is exactly the run meant to
-            # move them, and the price is that a duplicate run redeploys the same code. A tag naming a
-            # commit this one has not got in its history (diverged, or unknown to GitHub) means main
-            # was rewritten, and main wins. A tag with no label, or none at all, has nothing to protect.
-            #
-            # From main only. A manual run pointed at a branch is usually AHEAD of what the tags name,
-            # and would move `latest` onto a commit main never had. Its sha tags are published anyway.
-            #
-            # None of this touches a release run's own work. The version tags and the release line
-            # below, and `publish` after this job, run as before: this step skips a tag, it never fails
-            # the job for being late.
-            - name: Move the mutable tags onto this commit, unless they name a newer one
+            # The mutable tags, then the version and the release line on a release run. What each one
+            # is, and why a tag never moves backwards, is in the script.
+            - name: Move the tags onto this commit, unless they name a newer one
               env:
                   GH_TOKEN: ${{ github.token }}
-              run: |
-                  set -euo pipefail
-                  if [ "${GITHUB_REF}" != refs/heads/main ]; then
-                      echo "::notice::Not main, so the mutable tags stay where they are."
-                      exit 0
-                  fi
-
-                  move() {
-                      local tag="$1" source="$2" config named status=""
-                      # `.Image` is one config for a single-platform image and a map of them by
-                      # platform otherwise. All the platforms carry the same revision.
-                      if config="$(docker buildx imagetools inspect "${IMAGE}:${tag}" --format '{{json .Image}}')"; then
-                          named="$(printf '%s' "$config" | jq -r 'if has("config") then . else first(.[]) end | .config.Labels["org.opencontainers.image.revision"] // ""')"
-                      else
-                          echo "::warning::Could not read ${IMAGE}:${tag}, so there is nothing to compare against and it moves."
-                          named=""
-                      fi
-
-                      if [ -n "$named" ]; then
-                          if ! status="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${named}...${GITHUB_SHA}" --jq .status 2> "${RUNNER_TEMP}/compare.err")"; then
-                              if ! grep -q 'HTTP 404' "${RUNNER_TEMP}/compare.err"; then
-                                  cat "${RUNNER_TEMP}/compare.err" >&2
-                                  return 1
-                              fi
-                              status=unknown
-                          fi
-                      fi
-
-                      if [ "$status" = behind ]; then
-                          echo "::notice::${IMAGE}:${tag} names ${named}, which is newer than ${GITHUB_SHA}, so it stays. This run is late, and a newer run owns the tag."
-                          return 0
-                      fi
-                      echo "Moving ${IMAGE}:${tag} from ${named:-nothing} (${status:-no revision}) onto ${source}."
-                      docker buildx imagetools create --tag "${IMAGE}:${tag}" "${IMAGE}:${source}"
-                  }
-
-                  move latest "${GITHUB_SHA}"
-                  move slim "slim-${GITHUB_SHA}"
-                  move full "full-${GITHUB_SHA}"
-                  move apple "apple-${GITHUB_SHA}"
-                  move slim-apple "slim-apple-${GITHUB_SHA}"
-                  move full-apple "full-apple-${GITHUB_SHA}"
-
-            # The exact version — `0.1.0`, `slim-0.1.0`, `full-0.1.0` and the three `-apple` twins —
-            # on a release run. Here rather
-            # than in the images job because a release whose tests fail is retried at the same
-            # version by the next push, so a version tag published before the tests could name an
-            # image that never passed them. See the tags step in images.yml.
-            - name: Publish the version
-              if: needs.version.outputs.value != ''
-              env:
                   VERSION: ${{ needs.version.outputs.value }}
-              run: |
-                  set -eux
-                  docker buildx imagetools create --tag "${IMAGE}:${VERSION}" "${IMAGE}:${GITHUB_SHA}"
-                  docker buildx imagetools create --tag "${IMAGE}:slim-${VERSION}" "${IMAGE}:slim-${GITHUB_SHA}"
-                  docker buildx imagetools create --tag "${IMAGE}:full-${VERSION}" "${IMAGE}:full-${GITHUB_SHA}"
-                  docker buildx imagetools create --tag "${IMAGE}:apple-${VERSION}" "${IMAGE}:apple-${GITHUB_SHA}"
-                  docker buildx imagetools create --tag "${IMAGE}:slim-apple-${VERSION}" "${IMAGE}:slim-apple-${GITHUB_SHA}"
-                  docker buildx imagetools create --tag "${IMAGE}:full-apple-${VERSION}" "${IMAGE}:full-apple-${GITHUB_SHA}"
-
-            # The release LINE — `0.1`, `slim-0.1`, `full-0.1` — which is the tag to pin to follow
-            # releases without pinning one. It moves, so it waits for the tests too.
-            - name: Move the release line onto this commit
-              if: needs.version.outputs.line != ''
-              env:
                   LINE: ${{ needs.version.outputs.line }}
-              run: |
-                  set -eux
-                  docker buildx imagetools create --tag "${IMAGE}:${LINE}" "${IMAGE}:${GITHUB_SHA}"
-                  docker buildx imagetools create --tag "${IMAGE}:slim-${LINE}" "${IMAGE}:slim-${GITHUB_SHA}"
-                  docker buildx imagetools create --tag "${IMAGE}:full-${LINE}" "${IMAGE}:full-${GITHUB_SHA}"
-                  docker buildx imagetools create --tag "${IMAGE}:apple-${LINE}" "${IMAGE}:apple-${GITHUB_SHA}"
-                  docker buildx imagetools create --tag "${IMAGE}:slim-apple-${LINE}" "${IMAGE}:slim-apple-${GITHUB_SHA}"
-                  docker buildx imagetools create --tag "${IMAGE}:full-apple-${LINE}" "${IMAGE}:full-apple-${GITHUB_SHA}"
+              run: .github/scripts/promote.sh latest slim full
+
+    # The Apple Music twins, built and promoted beside the three above rather than with them, so that
+    # nothing the station deploys from waits on them. `latest` is what a running station follows, and
+    # `publish` cuts the release once `promote` is done; neither needs `apple`, `slim-apple` or
+    # `full-apple`, and a slow or failed Apple build should not hold either back. The twins start
+    # with the others and run in parallel, and each reads its twin's build cache, so on a warm
+    # cache they finish with them. The price of keeping them off the path: a release whose Apple build
+    # fails still publishes, and its Apple version tags are missing until a later release.
+    images-apple:
+        needs: [version, changes]
+        if: needs.version.outputs.value != '' || needs.changes.outputs.image == 'true'
+        uses: ./.github/workflows/images.yml
+        with:
+            push: true
+            version: ${{ needs.version.outputs.value }}
+            variants: '["slim-apple", "apple", "full-apple"]'
+        secrets: inherit
+
+    # `promote`'s twin, and the same script. Behind the tests for the reason `promote` is.
+    promote-apple:
+        needs: [version, build, images-apple]
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        env:
+            # Keep in step with `env.IMAGE` in images.yml.
+            IMAGE: deadair/deadair
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Log in to the registry
+              uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+            - name: Move the tags onto this commit, unless they name a newer one
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  VERSION: ${{ needs.version.outputs.value }}
+                  LINE: ${{ needs.version.outputs.line }}
+              run: .github/scripts/promote.sh apple slim-apple full-apple
 
     # The tag and the GitHub release, on a release run only. Last, because a release entry pointing
     # at images that failed their tests would be worse than no entry at all, and because the tag is

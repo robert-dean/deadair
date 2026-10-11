@@ -17,12 +17,13 @@ on:
                 default: ''
             variants:
                 description: >-
-                    Which variants to build, as a JSON list of names. All six by default, which is
-                    what every push to main builds; a pull request that changed nothing that could
-                    build in one variant and break in another asks for `slim` alone (see `variants`
-                    in `.github/scripts/changes.sh`).
+                    Which variants to build, as a JSON list of names. The three the station follows
+                    by default; the Apple Music twins are asked for by name, by a caller of their own
+                    in release.yml, so the station's own tags never wait on them. A pull request that
+                    changed nothing that could build in one variant and break in another asks for
+                    `slim` alone (see `variants` in `.github/scripts/changes.sh`).
                 type: string
-                default: '["slim", "latest", "full", "slim-apple", "apple", "full-apple"]'
+                default: '["slim", "latest", "full"]'
 permissions:
     contents: read
 

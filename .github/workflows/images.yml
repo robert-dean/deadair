@@ -32,11 +32,21 @@ env:
     # it as a workflow output was tried and cannot work: the registry username is a secret and is
     # a substring of this, so Actions drops the output rather than leaking it.
     IMAGE: deadair/deadair
+    # The GHCR copy `mirror` in release.yml keeps of the Docker Hub images this builds from, and the
+    # one of them that is not in the Dockerfile: the builder `setup-buildx-action` starts. Keep both in
+    # step with release.yml.
+    MIRROR: ghcr.io/robert-dean/deadair-mirror
+    BUILDKIT_IMAGE: moby/buildkit:buildx-stable-1
 
 jobs:
     image:
         runs-on: ubuntu-latest
         timeout-minutes: 90
+        # `packages` to read the mirror. A caller has to grant it too, since a called workflow gets no
+        # more than its caller's job holds.
+        permissions:
+            contents: read
+            packages: read
         strategy:
             # One variant failing should not hide the state of the others.
             fail-fast: false
@@ -91,12 +101,56 @@ jobs:
                   wait
                   df -h /
 
+            # The workflow token, which every run has, a pull request from a fork included, and which
+            # can read packages this repository's own workflows pushed. Allowed to fail, because the
+            # step after it treats a mirror it cannot read as one that is not there.
+            - name: Log in to GHCR
+              continue-on-error: true
+              uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ github.token }}
+
+            # The mirror when it holds every base, Docker Hub otherwise, and never a mix: a pull request
+            # bumping a base the mirror has not copied yet (it copies on the push to main), or the first
+            # run after the mirror was added, should build as it always did rather than fail. All or
+            # nothing so that the answer is one word in the log. The check is a GET against GHCR, which
+            # does not ration them, and asked before Buildx because the builder image is one of the
+            # bases. Why the mirror exists at all is `mirror` in release.yml.
+            - name: Choose where the bases come from
+              id: base
+              run: |
+                  set -euo pipefail
+                  registry="$MIRROR"
+                  while read -r ref; do
+                      if ! docker buildx imagetools inspect "$MIRROR/${ref#docker.io/}" > /dev/null 2>&1; then
+                          echo "::warning::The mirror has no ${ref}, so this build takes every base from Docker Hub."
+                          registry=docker.io
+                          break
+                      fi
+                  done < <(.github/scripts/base-images.sh "$BUILDKIT_IMAGE")
+                  echo "Bases from ${registry}."
+                  # `BUILDKIT_SYNTAX` only from the mirror: set at all, even empty, it overrides the
+                  # Dockerfile's own directive, and an empty one names no frontend.
+                  {
+                      echo "args<<ARGS"
+                      echo "BASE_REGISTRY=${registry}"
+                      if [ "$registry" = "$MIRROR" ]; then
+                          syntax="$(.github/scripts/base-images.sh --syntax)"
+                          if [ -n "$syntax" ]; then echo "BUILDKIT_SYNTAX=${MIRROR}/${syntax#docker.io/}"; fi
+                      fi
+                      echo "ARGS"
+                      if [ "$registry" = "$MIRROR" ]; then echo "buildkit=image=${MIRROR}/${BUILDKIT_IMAGE}"; fi
+                  } >> "$GITHUB_OUTPUT"
+
             # No teardown: the builder is removed with the runner, and the action's own post step
             # spent ten seconds removing it first.
             - name: Set up Buildx
               uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
               with:
                   cleanup: false
+                  driver-opts: ${{ steps.base.outputs.buildkit }}
 
             # Asked before the build rather than discovered at the login step, so that a release
             # with no credentials says the one useful sentence instead of failing somewhere in
@@ -205,12 +259,14 @@ jobs:
                   # publishing or not, and nothing downstream needs the image on disk.
                   outputs: ${{ !inputs.push && 'type=cacheonly' || '' }}
                   platforms: linux/amd64
-                  # The variant's own three arguments, plus the commit, which every variant gets and
-                  # so is not in the table. It is the same sha the tag above is built from — the
+                  # The variant's own three arguments, where the bases come from (the step above),
+                  # plus the commit, which every variant gets and so is not in the table. It is the
+                  # same sha the tag above is built from — the
                   # point of putting it INSIDE the image is that a running station can be asked
                   # what it is without anybody having to know which tag it was pulled from.
                   build-args: |
                       ${{ steps.variant.outputs.args }}
+                      ${{ steps.base.outputs.args }}
                       REVISION=${{ github.sha }}
                       VERSION=${{ inputs.version }}
                   tags: ${{ steps.variant.outputs.tags }}

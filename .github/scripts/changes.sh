@@ -112,8 +112,9 @@ flag ios "^(apps/ios/|packages/sdk-swift/)|${build_yml}"
 flag streamdeck "^apps/streamdeck/|${build_yml}"
 
 # What the Dockerfile copies in, less what `.dockerignore` keeps out: the station's workspace, the
-# audio chain, the sidecar, the pads and the image's own config. Tests and prose change nothing in it.
-flag image "^(Dockerfile$|\.dockerignore$|docker/|stream/|nginx/snippets/|analysis/|assets/|apps/api/|apps/web/|plugins/|packages/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|turbo\.json$|\.github/workflows/images\.yml$)" "${listener_sdks}|/tests/|\.md$"
+# audio chain, the sidecar, the pads and the image's own config, and the workflow and the script that
+# choose where its bases come from. Tests and prose change nothing in it.
+flag image "^(Dockerfile$|\.dockerignore$|docker/|stream/|nginx/snippets/|analysis/|assets/|apps/api/|apps/web/|plugins/|packages/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|turbo\.json$|\.github/workflows/images\.yml$|\.github/scripts/base-images\.sh$)" "${listener_sdks}|/tests/|\.md$"
 
 # Whether a pull request builds all three variants or `slim` alone. The variants differ only in what
 # the Dockerfile lays down around the station's own tree: the speech server and the database, and the
@@ -121,10 +122,10 @@ flag image "^(Dockerfile$|\.dockerignore$|docker/|stream/|nginx/snippets/|analys
 # in one variant and break in another, so `slim` proves a change to them and the other two are
 # builds nobody learns anything from. This names what could: the Dockerfile and its ignore file, the
 # image's own config and rootfs, the audio chain and the sidecar, which the final stage copies in,
-# and the workflow that builds them. It is wider than strictly needed on purpose, because building
+# and the workflow that builds them, with the script naming their bases. It is wider than strictly needed on purpose, because building
 # two images too many costs minutes and building one too few merges a variant that does not build.
 # Every push to main builds all three whatever this says.
-flag variants "^(Dockerfile$|\.dockerignore$|docker/|stream/|nginx/snippets/|analysis/|\.github/workflows/images\.yml$)" "/tests/|\.md$"
+flag variants "^(Dockerfile$|\.dockerignore$|docker/|stream/|nginx/snippets/|analysis/|\.github/workflows/images\.yml$|\.github/scripts/base-images\.sh$)" "/tests/|\.md$"
 
 # Whether a pull request also builds `slim-apple`, the one Apple Music twin that proves all three. The
 # twins differ from their base variants only in the Chrome layer and the player's service, so what

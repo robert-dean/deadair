@@ -288,12 +288,11 @@ jobs:
               run: .github/scripts/promote.sh latest slim full
 
     # The Apple Music twins, built and promoted beside the three above rather than with them, so that
-    # nothing the station deploys from waits on them. `latest` is what a running station follows, and
-    # `publish` cuts the release once `promote` is done; neither needs `apple`, `slim-apple` or
-    # `full-apple`, and a slow or failed Apple build should not hold either back. The twins start
-    # with the others and run in parallel, and each reads its twin's build cache, so on a warm
-    # cache they finish with them. The price of keeping them off the path: a release whose Apple build
-    # fails still publishes, and its Apple version tags are missing until a later release.
+    # the station's own deploy never waits on a browser: `promote` moves `latest`, which a running
+    # station follows, as soon as the three it needs are built. The RELEASE does wait on them, in
+    # `publish`, so a failed Apple build blocks the version exactly as a failed station build does and
+    # the next push retries it. That wait is short because the twins start with the others, run in
+    # parallel, and read their twin's build cache, so on a warm cache they finish with them.
     images-apple:
         needs: [version, changes]
         if: needs.version.outputs.value != '' || needs.changes.outputs.image == 'true'
@@ -348,7 +347,9 @@ jobs:
     # Without the App configured it falls back to the workflow token, which works whenever main has
     # not moved, and says so. Setting the App up is under "Releasing" in docs/internals/deployment.md.
     publish:
-        needs: [version, promote]
+        # `promote-apple` as well: a release is all six images or none. The station's deploy is not
+        # behind this, so the only thing an Apple build can slow is the tag and the release entry.
+        needs: [version, promote, promote-apple]
         if: needs.version.outputs.value != ''
         runs-on: ubuntu-latest
         timeout-minutes: 10

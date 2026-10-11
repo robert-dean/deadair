@@ -213,10 +213,11 @@ browser. One Apple twin is enough: `WITH_APPLE` adds one layer of Chrome, a fram
 and one service, and none of it touches the voice or the database, so it builds in all three twins or in
 none. Every push to main builds all six whatever it says.
 
-**The Apple twins are kept off the station's path, in three ways.** They build in `images-apple` and are
-retagged by `promote-apple`, beside `images` and `promote` rather than inside them, so `latest` (which a
-running station follows) and `publish` never wait on a browser. A release whose Apple build fails still
-publishes; its Apple version tags are the cost. They start with the other image jobs and run in parallel,
+**The Apple twins are kept off the station's path, in three ways, and on the release's.** They build in
+`images-apple` and are retagged by `promote-apple`, beside `images` and `promote` rather than inside them,
+so `latest` (which a running station follows) never waits on a browser. `publish` does wait on
+`promote-apple`, so a failed Apple build blocks the version and the next push retries it, as a failed
+station build would. They start with the other image jobs and run in parallel,
 and each one READS its twin's registry cache as well as its own (`buildcache-latest` for `apple`, and so
 on), so a twin whose own cache is cold still takes the voice, the database and the base packages from the
 variant that built them. That only works because the Dockerfile declares `WITH_APPLE` immediately above the

@@ -20,6 +20,8 @@
         deadair/deadair:full brings everything: PostgreSQL, Redis and a voice. Nothing else needed.
         deadair/deadair:latest includes a voice. Point it at your own PostgreSQL and Redis.
         deadair/deadair:slim is the station alone, for pointing at a speech server on another machine.
+        Each has an Apple Music twin (apple, full-apple, slim-apple) that adds a player for an Apple Music
+        subscription. It is most of a gigabyte bigger; add --shm-size=1g under Extra Parameters with it.
 
         Everything it keeps lives under one path, so backing it up is backing up one share.
 
@@ -48,6 +50,18 @@
     <Branch>
         <Tag>slim</Tag>
         <TagDescription>No voice. For pointing the speech plugin at a speech server on another machine.</TagDescription>
+    </Branch>
+    <Branch>
+        <Tag>apple</Tag>
+        <TagDescription>The default tag plus the Apple Music player. Add --shm-size=1g under Extra Parameters.</TagDescription>
+    </Branch>
+    <Branch>
+        <Tag>full-apple</Tag>
+        <TagDescription>The full tag plus the Apple Music player. Add --shm-size=1g under Extra Parameters.</TagDescription>
+    </Branch>
+    <Branch>
+        <Tag>slim-apple</Tag>
+        <TagDescription>The slim tag plus the Apple Music player. Add --shm-size=1g under Extra Parameters.</TagDescription>
     </Branch>
     <WebUI>http://[IP]:[PORT:80]/</WebUI>
     <Icon>https://raw.githubusercontent.com/robert-dean/deadair/main/apps/web/public/logo-mark.png</Icon>

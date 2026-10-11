@@ -155,7 +155,8 @@ ytaudio/              the audio-url resolver: a Python service on yt-dlp that tu
 stream/, nginx/, docker-compose*.yml   Icecast, Liquidsoap and friends (DEV). stream/spotify-shim
                       re-serves a Spotify track over HTTP; stream/apple-player does the same for an
                       Apple Music record by playing it in Chrome and recording the sink, behind a
-                      compose profile because it is a gigabyte of browser
+                      compose profile because it is a gigabyte of browser, and in the image only on
+                      the -apple tags for the same reason
 Dockerfile, docker/               the production image: the whole station in one container
 deploy/, unraid/                  how somebody else installs it
 ```

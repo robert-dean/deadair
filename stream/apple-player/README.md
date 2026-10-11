@@ -130,6 +130,25 @@ a published port to reach it at all (`-localhost` binds the container's own loop
 port forwarding does not arrive on), so an unauthenticated door would let anything else on the
 container network drive the browser that holds the operator's Apple Music session.
 
+### In the one-container image
+
+The `apple`, `slim-apple` and `full-apple` tags run this same player inside the station's own
+container, as an s6 service beside the others, so there is no profile and no second container. The
+profile lives at `/data/appleplayer/profile`, so the sign-in is backed up with everything else, and
+the player listens on the container's loopback alone. The door is the same two variables, with the
+port published on the host's loopback for as long as the sign-in takes:
+
+```bash
+docker run ... -p 127.0.0.1:5900:5900 \
+    -e APPLE_PLAYER_VNC=1 -e APPLE_PLAYER_VNC_PASSWORD='something' deadair/deadair:apple
+# connect to 127.0.0.1:5900, sign in to Apple Music, then confirm from inside the container:
+docker exec deadair curl -s 127.0.0.1:3680/health    # → "authorized": true
+# then recreate the container without the port and the two variables.
+```
+
+Give the container `--shm-size=1g` (`shm_size: 1gb` under Compose), for the renderer's reason in
+`docker-compose.yml`.
+
 The alternative, for a developer in a hurry: drop a Chrome profile that is already signed in onto
 `/state/profile`. Fast, and fragile across Chrome versions.
 

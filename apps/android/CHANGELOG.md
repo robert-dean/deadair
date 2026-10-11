@@ -8,6 +8,17 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.17.0] — 2026-10-11
+
+- When a record's lyrics time each word, the lyrics sheet lights the words as they are sung: the sung part of the current line turns the accent colour with a soft glow. Lines timed only as lines are lit whole as before. While the sheet is open the playhead moves ten times a second rather than twice, so the lit word keeps up.
+- Now playing has an output button under the controls. It opens the phone's own output switcher, so the station can play through Bluetooth earbuds or a speaker the phone can send sound to, and while it does a line under the controls says which one. Phones without a switcher open Bluetooth settings instead.
+- When the audio drops, the app now writes why to the phone's log under `deadair.playback`: the player's
+  error and what caused it, or a stall and how long it lasted. Read it with
+  `adb logcat -s deadair.playback`.
+- The live wallpaper and the home-screen widget no longer keep the playback service running after they
+  let go of it. Letting go before the connection had finished (the wallpaper hiding again as the lock
+  screen flickered, or a widget press giving up) used to leave that connection open for good.
+
 ## [0.16.0] — 2026-10-11
 
 - Now playing can keep the screen on. A new setting under Listening, Keep the screen on, has three answers: Never (the default), While charging and Always. The screen stays on only while this phone is playing the station and Now playing is in front, so the phone still sleeps as usual everywhere else.
@@ -224,7 +235,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.16.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.17.0...HEAD
+[0.17.0]: https://github.com/robert-dean/deadair/compare/android-v0.16.0...android-v0.17.0
 [0.16.0]: https://github.com/robert-dean/deadair/compare/android-v0.15.6...android-v0.16.0
 [0.15.6]: https://github.com/robert-dean/deadair/compare/android-v0.15.5...android-v0.15.6
 [0.15.5]: https://github.com/robert-dean/deadair/compare/android-v0.15.4...android-v0.15.5

@@ -8,6 +8,13 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-10-11
+
+- When a record's lyrics time each word, the Now playing panel and Studio light the words as they are sung: the sung part of the current line turns the accent colour with a soft glow. Lines timed only as lines are lit whole as before. While such words are showing, the playhead moves ten times a second rather than twice.
+- The Now playing panel shows the words of the record you are hearing, when the station has them and you are signed in. Timed lyrics light the line being sung and scroll to keep it in view, following the audio rather than the station's clock; lyrics without timings are shown whole. The Lyrics heading folds the section away.
+- Studio can show the words in place of the cover. When the record has lyrics, a button beside play swaps the cover for a large column of them, the line being sung lit and kept in view, and pressing it again brings the cover back. The button fades with Studio's other controls, and the cover returns by itself whenever there are no words to show.
+- While the station is playing on a speaker rather than this Mac, a strip across the top of the window says which one ("Playing on Kitchen"), so it can be read from across the room. Clicking it opens the output picker. A speaker that did not answer the last look is still named, and the strip says it is not on the network; nothing moves the sound on its own.
+
 ## [0.8.0] — 2026-10-11
 
 - Studio can keep the display awake. A new setting on the Settings page, Keep the display awake, has three answers: Never (the default), While charging and Always. The display stays awake only while Studio is up where it can be seen and the station is playing, and goes back to sleeping as usual the moment you leave Studio, stop or quit.
@@ -111,7 +118,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.8.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.9.0...HEAD
+[0.9.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.8.0...desktop-v0.9.0
 [0.8.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.3...desktop-v0.8.0
 [0.7.3]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.2...desktop-v0.7.3
 [0.7.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.1...desktop-v0.7.2

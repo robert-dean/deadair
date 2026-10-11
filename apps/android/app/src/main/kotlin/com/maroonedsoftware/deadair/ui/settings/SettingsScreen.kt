@@ -41,6 +41,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.auth.SessionState
+import com.maroonedsoftware.deadair.nowplaying.KeepAwake
 import com.maroonedsoftware.deadair.playback.SleepRequest
 import com.maroonedsoftware.deadair.playback.SleepState
 import com.maroonedsoftware.deadair.station.StreamFormat
@@ -85,6 +86,8 @@ fun SettingsScreen(
     wallpaperColorSource: ColorSource,
     wallpaperColor: Int,
     playOnOpen: Boolean,
+    /** When Now playing keeps the screen on. */
+    keepAwake: KeepAwake,
     onAddressChange: (String) -> Unit,
     onCheck: () -> Unit,
     onConfirm: () -> Unit,
@@ -97,6 +100,7 @@ fun SettingsScreen(
     onColorSource: (ColorSource) -> Unit,
     onWallpaperColor: (Int) -> Unit,
     onPlayOnOpen: (Boolean) -> Unit,
+    onKeepAwake: (KeepAwake) -> Unit,
     /** Open the sign-in page. */
     onOpenSignIn: () -> Unit,
     onSignOut: () -> Unit,
@@ -204,6 +208,30 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth().selectable(selected = playOnOpen, role = Role.Switch, onClick = { onPlayOnOpen(!playOnOpen) }),
             )
 
+            // Three answers rather than a switch, because "while charging" is the one most people
+            // want: the phone on the counter or in the car is on power, and one in a hand is not.
+            Text(
+                stringResource(R.string.keep_awake),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            Text(
+                stringResource(R.string.keep_awake_detail),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Column(Modifier.selectableGroup()) {
+                KeepAwake.entries.forEach { option ->
+                    ListItem(
+                        headlineContent = { Text(stringResource(labelOf(option))) },
+                        leadingContent = { RadioButton(selected = option == keepAwake, onClick = null) },
+                        modifier = Modifier.fillMaxWidth().selectable(selected = option == keepAwake, role = Role.RadioButton, onClick = { onKeepAwake(option) }),
+                    )
+                }
+            }
+
             // Only while the station is playing: there is nothing to put to sleep otherwise, and a
             // timer set on a stopped player would fire into whatever play came next. Here rather
             // than under the play button, which now has nothing under it that can come and go.
@@ -267,6 +295,14 @@ fun SettingsScreen(
         }
     }
 }
+
+@StringRes
+private fun labelOf(keepAwake: KeepAwake): Int =
+    when (keepAwake) {
+        KeepAwake.NEVER -> R.string.keep_awake_never
+        KeepAwake.WHILE_CHARGING -> R.string.keep_awake_while_charging
+        KeepAwake.ALWAYS -> R.string.keep_awake_always
+    }
 
 /** One line on what choosing each format buys, so the five rows are the same height and the same shape. */
 @StringRes

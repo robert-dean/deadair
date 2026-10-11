@@ -265,6 +265,21 @@ the listener is a buffer behind at every moment, however old the reading), and `
 lets `nowMs` fall before `readAtMs`. It used to clamp that gap to nothing, which on a stamp a
 buffer ahead held the bar still until the next reading re-anchored it, for ever.
 
+**The lock screen's bar is the record's, and getting it drawn meant saying the item is not live.**
+Media3 reads `isCurrentMediaItemLive` before any other getter and, for a live item, publishes no
+position, no duration and a speed of nothing, so an Icecast mount or a live HLS playlist showed no
+progress whatever `getDuration` said. `LivePlayer.setHeard` takes the same released reading
+`AppGraph.aired` does, and while it describes a record with a length (`sessionPlayhead`: never a
+break, never something `project` cannot measure) the player answers not-live, with the record's
+length and the projected position; otherwise every answer is the stream's own, as before. Seeking
+stays withdrawn, so the bar is drawn but cannot be dragged (no `ACTION_SEEK_TO` in the session's
+actions). Media3 re-reads the position every three seconds while playing, which absorbs a poll's
+re-anchoring; a new record is not absorbed (the bar ran on past the old length until that read), so
+`progressJumped` announces it: a metadata change for a new length, because that is what makes Media3
+re-read the duration, and a position discontinuity, because that is what makes it republish the
+position at once. Checked on the emulator (API 36, 2026-10-11): the shade drew the bar on a record,
+reset it at the next one, and the session read position `-1` once stopped.
+
 **Three things about Glance that a Compose UI habit gets wrong, each measured on the emulator.** A
 composition runs inside a WorkManager job, so a suspend in `provideGlance` that never returns is an
 ANR (`No response to onStartJob`) rather than a blank widget: it waits for this app's own state with

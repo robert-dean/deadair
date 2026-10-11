@@ -15,6 +15,7 @@ import { PlayoutControlClient } from './liquidsoap.control.js';
 import { CompositeTrackResolver, TrackResolver } from './playout.capability.js';
 import { resolvePlayoutBaseUrl } from './playout.urls.js';
 import { PluginTrackResolver } from './providers/plugin.resolver.js';
+import { ProviderPlaybackReporter } from './providers/provider.playback.reporter.js';
 import { TrackAudioResolver } from './providers/track.audio.resolver.js';
 import { SegmentTrackResolver } from './providers/segment.resolver.js';
 import { PlayoutPusher } from './playout.pusher.js';
@@ -134,6 +135,10 @@ export const PlayoutModule: ServerKitModule = {
         // copy would poll Icecast once per call and answer from a window of its own.
         registry.register(AudienceWatch).useClass(AudienceWatch).asSingleton();
 
+        // Singleton because it holds the one record on air between two aired edges, which a scoped copy
+        // would forget before the second edge arrived.
+        registry.register(ProviderPlaybackReporter).useClass(ProviderPlaybackReporter).asSingleton();
+
         // Scoped, unlike the rest: it is the request-facing surface, and it only
         // holds references to the singletons above.
         registry.register(PlayoutService).useClass(PlayoutService).asScoped();
@@ -167,11 +172,15 @@ export const PlayoutModule: ServerKitModule = {
         // on its reading: the mount it watches was pushed into the stats client by
         // StreamModule.ready, which has already run.
         container.get(AudienceWatch).start();
+
+        // After the plugins have loaded, which is all it reads on the edge.
+        container.get(ProviderPlaybackReporter).start();
     },
 
     shutdown: async (container: Container) => {
         container.get(AudioChainWatch).stop();
         container.get(PlayoutPusher).stop();
         container.get(AudienceWatch).stop();
+        container.get(ProviderPlaybackReporter).stop();
     },
 };

@@ -4,6 +4,9 @@
 // who is gone. Everything else the middleware does (shaping the Actor union) is exercised through
 // the services that consume it.
 
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 import { AuthenticationSessionService, invalidAuthenticationSession } from '@maroonedsoftware/authentication';
 import { IsHttpError } from '@maroonedsoftware/errors';
@@ -165,6 +168,16 @@ describe('authorizationContextMiddleware', () => {
         expect(h.next).toHaveBeenCalledOnce();
         expect(h.existsActive).not.toHaveBeenCalled();
         expect((h.overrides.get(AuthorizationContext) as AuthorizationContext).actor.kind).toBe('system');
+    });
+
+    it('does not make an unauthenticated /webhooks/ request a vendor, since a path prefix is not a credential', async () => {
+        const h = harness({ path: '/webhooks/stripe' });
+        h.ctx.authenticationSession = invalidAuthenticationSession;
+
+        await authorizationContextMiddleware()(h.ctx, h.next);
+
+        const actor = (h.overrides.get(AuthorizationContext) as AuthorizationContext).actor;
+        expect(actor).toEqual(expect.objectContaining({ kind: 'system', source: 'http' }));
     });
 
     describe('a party guest', () => {
@@ -408,5 +421,32 @@ describe('authorizationContextMiddleware', () => {
             expect(h.next).not.toHaveBeenCalled();
             expect(currentTrace()).toBeUndefined();
         });
+    });
+});
+
+/**
+ * A guard on the route table rather than on the middleware. Nothing verifies a vendor's signature
+ * yet, so the first `/webhooks/*` route has to arrive with that mechanism, not before it. When one
+ * is written, this test is the reminder: build the verifying middleware, mint the vendor actor
+ * there, and only then delete this.
+ */
+describe('the webhook routes', () => {
+    const api = join(import.meta.dirname, '../../..');
+
+    const filesUnder = (dir: string, extension: string): string[] =>
+        readdirSync(dir, { recursive: true, encoding: 'utf8' })
+            .filter(file => file.endsWith(extension))
+            .map(file => join(dir, file));
+
+    it('do not exist until something verifies a vendor signature', () => {
+        const sources = [
+            ...filesUnder(join(api, 'data/contracts'), '.ck'),
+            ...filesUnder(join(api, 'src/routes'), '.ts'),
+            ...filesUnder(join(api, 'src/mcp'), '.ts'),
+        ];
+        const declaring = sources.filter(file => /['"`\s]\/webhooks\//.test(readFileSync(file, 'utf8')));
+
+        expect(sources.length).toBeGreaterThan(0);
+        expect(declaring).toEqual([]);
     });
 });

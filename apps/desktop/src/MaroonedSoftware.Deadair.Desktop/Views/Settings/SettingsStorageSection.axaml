@@ -35,7 +35,8 @@
                                         <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0" IsVisible="{Binding HasShare}"
                                                     ToolTip.Tip="Share of the limit in use">
                                             <ProgressBar Width="120" MinWidth="0" Height="4" Minimum="0" Maximum="100"
-                                                         Value="{Binding Share}" VerticalAlignment="Center" />
+                                                         Value="{Binding Share}" VerticalAlignment="Center"
+                                                         AutomationProperties.Name="Share of the limit in use" />
                                             <TextBlock Classes="mono dimmed" FontSize="11" Text="{Binding ShareNote}" />
                                         </StackPanel>
                                     </StackPanel>

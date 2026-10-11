@@ -951,6 +951,15 @@ the bar's TV button, the Window menu's Studio, or F, and it is left by its close
   raised when the animation ends; a Show while a hide is waiting cancels it. Checked against the
   window server's own list of on-screen windows, since System Events lists a hidden window too.
 - **Stopping does not leave Studio.** A station on a spare screen should stay up saying Listen.
+- **It can keep the display awake, and only it** (`Core/Settings/KeepAwakeRule`, `Views/StudioWake`,
+  `Player.Mac/MacDisplayAwake`). Never by default, While charging or Always, the phones' setting. The
+  display is held only while Studio is up, the window is seen (`IScreenFacts`) and this app is playing;
+  a page of the desk is somewhere somebody is working, and they will touch it. The hold is a
+  `PreventUserIdleDisplaySleep` assertion and the power source is `IOPSGetProvidingPowerSourceType`,
+  both P/Invoke as `MacScreenFacts` is. Neither raises anything this app hears, so a Studio that is up
+  decides again every five seconds; leaving Studio, stopping and quitting (the container disposes it)
+  each let the display go. The IOKit half was checked on 2026-10-11 with `pmset -g assertions`, which
+  listed the assertion by name while held and not after.
 - **The close and play buttons fade after three seconds of a still pointer**, and the pointer goes
   with them; they are not pressable while faded, so the first click after a rest wakes them rather
   than pressing a button nobody could see. A pointer resting on a button keeps them up.
@@ -1880,6 +1889,16 @@ on air, a timetable edit) is to be tried only with the operator watching, never 
 Four-space indent, file-scoped namespaces, `TreatWarningsAsErrors` everywhere. Tests are xunit v3 in
 `tests/`, mirroring the source namespaces; the pure layer carries the coverage and there are no UI
 tests, exactly as on Android.
+
+**A control that draws no words carries `AutomationProperties.Name`** (2026-10-11). A button whose
+content is a `PathIcon` and nothing else is "button" to VoiceOver and no more, because the tooltip is
+not what it reads; a `Slider` or a `ProgressBar` has no words at all. Until then there was not one
+`AutomationProperties` in the tree, so the player bar was a row of identical buttons to anybody who
+could not see it. The name is the tooltip's text, bound to the same property when the tooltip is
+bound, less a shortcut in brackets (`Studio`, not `Studio (F)`); a tooltip that is a sentence gives the
+name its first clause and `AutomationProperties.HelpText` the rest. `IconButtonNamesTests` reads every
+view as XML and fails on one without a name, which is how an icon button added later is caught
+without a UI test.
 
 **Words: pure state returns a `Message`, never a sentence — DESIGNED, not built.** There is no
 `Message` type, no `Strings.resx` and no resolver in the tree yet; view models still carry their own

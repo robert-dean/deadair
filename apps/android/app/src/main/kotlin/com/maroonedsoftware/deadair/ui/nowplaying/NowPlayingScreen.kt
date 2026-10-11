@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.nowplaying.AirState
+import com.maroonedsoftware.deadair.nowplaying.KeepAwake
 import com.maroonedsoftware.deadair.nowplaying.Playhead
 import com.maroonedsoftware.deadair.nowplaying.clockOf
 import com.maroonedsoftware.deadair.ui.text.resolve
@@ -128,7 +129,10 @@ fun NowPlayingScreen(
     onLyrics: (() -> Unit)? = null,
     /** The output button under the controls, and where the sound is going. `null` draws neither (the previews). */
     output: OutputControl? = null,
+    /** When the screen stays on while this phone is playing and this is in front. */
+    keepAwake: KeepAwake = KeepAwake.NEVER,
 ) {
+    KeepScreenOn(keepAwake, playing = state.playing)
     val palette = rememberCoverPalette(artworkUrl, darkPage = MaterialTheme.colorScheme.background.luminance() < 0.5f)
     CoverColored(palette?.accent) {
         BoxWithConstraints(modifier = modifier.fillMaxSize()) {

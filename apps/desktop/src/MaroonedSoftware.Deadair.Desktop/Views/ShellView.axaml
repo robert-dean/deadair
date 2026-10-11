@@ -120,7 +120,7 @@
                                 Margin="20,12,0,-20" Padding="6,3" FontSize="12"
                                 IsVisible="{Binding Navigation.CanGoBack}"
                                 Command="{Binding Navigation.BackCommand}"
-                                ToolTip.Tip="Back (⌘[)">
+                                ToolTip.Tip="Back (⌘[)" AutomationProperties.Name="Back">
                             <StackPanel Orientation="Horizontal" Spacing="4">
                                 <PathIcon Data="{DynamicResource DaIconChevronRight}" Width="12" Height="12">
                                     <PathIcon.RenderTransform>
@@ -138,7 +138,7 @@
                                            VerticalAlignment="Center"
                                            Foreground="{DynamicResource DaToneFaultBrush}" />
                                 <Button Grid.Column="1" Classes="icon ghost" Width="24" Height="24" Padding="4"
-                                        BorderThickness="0" ToolTip.Tip="Dismiss"
+                                        BorderThickness="0" ToolTip.Tip="Dismiss" AutomationProperties.Name="Dismiss"
                                         Command="{Binding Dialogs.DismissNoticeCommand}">
                                     <PathIcon Data="{DynamicResource DaIconClose}" Width="12" Height="12" />
                                 </Button>

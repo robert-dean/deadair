@@ -10,7 +10,7 @@ import { AdvisoryWatch } from './advisory.watch.js';
 import { EraWatch } from './era.watch.js';
 import { CandidatesRepository, bindsAnything, sampleSize, type CandidateTrack, type EraWindow } from './candidates.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
-import { albumKey, artistKey, songKey } from './rotation.keys.js';
+import { albumKey, artistKey, creditKey, songKey } from './rotation.keys.js';
 import { applyRulesHoldingQueue, spaceArtists, weightOf, type RotationCandidate } from './rotation.rules.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { freshnessOf, historyDaysFor, resolveSmartShuffle } from './smart.shuffle.js';
@@ -370,6 +370,7 @@ const toRotationCandidate = (track: CandidateTrack, freshness?: Freshness): Scor
     return {
         songKey: key,
         artistKey: artistKey([track.artist]),
+        creditKey: creditKey(track.artist),
         ...(track.album === undefined ? {} : { albumKey: albumKey([track.artist], track.album) }),
         rating: track.rating,
         ...(freshness === undefined ? {} : { freshness: freshnessOf(freshness.lastAired.get(key), freshness.now, freshness.horizonDays) }),

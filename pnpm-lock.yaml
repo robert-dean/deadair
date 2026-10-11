@@ -669,6 +669,24 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
 
+  plugins/jellyfin:
+    devDependencies:
+      '@deadair/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
+      '@repo/config-eslint':
+        specifier: workspace:*
+        version: link:../../packages/config-eslint
+      '@repo/config-typescript':
+        specifier: workspace:*
+        version: link:../../packages/config-typescript
+      vitest:
+        specifier: ^5.0.3
+        version: 5.0.3(@opentelemetry/api@1.9.0)(@types/node@26.6.4)(jsdom@30.1.2(@noble/hashes@2.4.0))(vite@8.3.4(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.29))(terser@5.51.2)(yaml@2.9.1))
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
   plugins/kokoro:
     devDependencies:
       '@deadair/plugin-sdk':
@@ -790,6 +808,42 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
 
+  plugins/pandora:
+    devDependencies:
+      '@deadair/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
+      '@repo/config-eslint':
+        specifier: workspace:*
+        version: link:../../packages/config-eslint
+      '@repo/config-typescript':
+        specifier: workspace:*
+        version: link:../../packages/config-typescript
+      vitest:
+        specifier: ^5.0.3
+        version: 5.0.3(@opentelemetry/api@1.9.0)(@types/node@26.6.4)(jsdom@30.1.2(@noble/hashes@2.4.0))(vite@8.3.4(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.29))(terser@5.51.2)(yaml@2.9.1))
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
+  plugins/plex:
+    devDependencies:
+      '@deadair/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
+      '@repo/config-eslint':
+        specifier: workspace:*
+        version: link:../../packages/config-eslint
+      '@repo/config-typescript':
+        specifier: workspace:*
+        version: link:../../packages/config-typescript
+      vitest:
+        specifier: ^5.0.3
+        version: 5.0.3(@opentelemetry/api@1.9.0)(@types/node@26.6.4)(jsdom@30.1.2(@noble/hashes@2.4.0))(vite@8.3.4(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.29))(terser@5.51.2)(yaml@2.9.1))
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
   plugins/podcast:
     devDependencies:
       '@deadair/plugin-sdk':
@@ -814,8 +868,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@maroonedsoftware/rhapsode-sdk':
-        specifier: ^0.1.23
-        version: 0.1.23
+        specifier: ^0.1.26
+        version: 0.1.26
       '@repo/config-eslint':
         specifier: workspace:*
         version: link:../../packages/config-eslint
@@ -3308,8 +3362,8 @@ packages:
     resolution: {integrity: sha512-mfIj55Fdntdw6PrUIKBTeIT2bLIGtOsEnBpvK/BH6kCnhpduWHDWMqKRrQoO1HwqpArVPLsSaFHkfl1UoELdEA==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/rhapsode-sdk@0.1.23':
-    resolution: {integrity: sha512-HibiEzIjtzh/8Zo/bIsKHP6IxydFlNpC8RCVuKV5w+3C/Mqb/p2wmNbEop0bA8limiCHKPv7EGlHckzcBFVDXA==}
+  '@maroonedsoftware/rhapsode-sdk@0.1.26':
+    resolution: {integrity: sha512-LC4Z5ZBlGftfMrctN5ThFjEfDWkh1On6l1MIIMIxKIWFTmpGgFHavR+5LGL2HrBFLp0r6HAdrrwDETxXGpudBw==}
 
   '@maroonedsoftware/servercore@0.3.0':
     resolution: {integrity: sha512-wz4BWzw65BbdAds7KCD06HbawmCPgqxHAfXxdQ5BlrScjCGN+3PG4/cZcN35DJ297uP5V8WTkBWCbPOSZ5hCDA==}
@@ -14314,7 +14368,7 @@ snapshots:
       injectkit: 1.7.1
       luxon: 3.7.2
 
-  '@maroonedsoftware/rhapsode-sdk@0.1.23': {}
+  '@maroonedsoftware/rhapsode-sdk@0.1.26': {}
 
   '@maroonedsoftware/servercore@0.3.0(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(pg@8.23.1)(yaml@2.9.0)':
     dependencies:
@@ -18161,7 +18215,7 @@ snapshots:
 
   history@4.10.1:
     dependencies:
-      '@babel/runtime': 7.29.7
+      '@babel/runtime': 7.29.10
       loose-envify: 1.4.0
       resolve-pathname: 3.0.0
       tiny-invariant: 1.3.3

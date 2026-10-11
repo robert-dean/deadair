@@ -3,7 +3,7 @@ import { sql } from 'kysely';
 import type { DateTime } from 'luxon';
 import { DataRepository } from '#modules/data/data.repository.js';
 import type { RundownItem } from '#modules/playout/rundown.js';
-import { artistKey, songKey } from './rotation.keys.js';
+import { artistKey, songKey, spacingKeys } from './rotation.keys.js';
 
 /** One track that actually aired, as the director hands it over. */
 export interface PlayHistoryEntry {
@@ -162,19 +162,27 @@ export class PlayHistoryRepository extends DataRepository {
         return new Map(rows.map(row => [row.songKey, row.lastAiredAt]));
     }
 
-    /** Artists aired within the last `minutes` — the cooldown. `0` disables it, as above. */
+    /**
+     * Artists aired within the last `minutes` — the cooldown. `0` disables it, as above.
+     *
+     * Each lead's `spacingKeys`: the key, and for a lead joining several acts ("Yusuf / Cat Stevens")
+     * its credit key as well, read off `artist`, the lead as written, since the key has lost the
+     * joins. That is what lets the spacing rules hold "Cat Stevens" against it, comparing in memory
+     * over this window's rows rather than asking the index a pattern question. The extra entry can
+     * never equal a key, so a caller asking `.has(key)` gets exactly the answer it always did.
+     */
     async artistKeysSince(minutes: number, stationKey: string): Promise<Set<string>> {
         if (minutes <= 0) return new Set();
 
         const rows = await this.db
             .selectFrom('deadair.playHistory')
-            .select('artistKey')
+            .select(['artistKey', 'artist'])
             .distinct()
             .where('stationKey', '=', stationKey)
             .where('airedAt', '>', sql<DateTime>`now() - ${sql.lit(`${Math.floor(minutes)} minutes`)}::interval`)
             .execute();
 
-        return new Set(rows.map(row => row.artistKey));
+        return new Set(rows.flatMap(row => [row.artistKey, ...(row.artist ? spacingKeys(row.artist) : [])]));
     }
 
     /**

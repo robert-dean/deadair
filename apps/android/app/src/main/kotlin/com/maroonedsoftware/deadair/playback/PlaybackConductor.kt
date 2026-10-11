@@ -65,6 +65,11 @@ class PlaybackConductor(
     publishSleep: (SleepState) -> Unit = {},
     /** Called after the sleep timer has stopped the station, for the service to tidy itself away. */
     private val onSlept: () -> Unit = {},
+    /**
+     * The reading the listener is hearing, for the media session's progress bar: `LivePlayer.setHeard`.
+     * Told exactly what the app's screens are told, so the lock screen's bar and Now playing's agree.
+     */
+    private val onHeard: (Reading?) -> Unit = {},
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
@@ -122,8 +127,9 @@ class PlaybackConductor(
                 if (!playWhenReady) {
                     sleep.onStopped()
                     // Nothing is reaching anybody's ears here any more, so the screens go back to
-                    // the poll; a record released a session ago must not greet the next one.
-                    graph.onAired(null)
+                    // the poll and the lock screen loses its bar; a record released a session ago
+                    // must not greet the next one.
+                    aired(null)
                 }
                 reportPlayback()
             }
@@ -152,7 +158,13 @@ class PlaybackConductor(
      * from `onMetadata`, kept separate from `policy` because the two listeners answer unrelated
      * questions.
      */
-    private val gate = NowPlayingGate(schedule = ::schedule, push = ::pushMetadata, refresh = graph.nowPlaying::retry, aired = graph::onAired)
+    private val gate = NowPlayingGate(schedule = ::schedule, push = ::pushMetadata, refresh = graph.nowPlaying::retry, aired = ::aired)
+
+    /** What reached the listener, to the screens and the media session alike. */
+    private fun aired(reading: Reading?) {
+        graph.onAired(reading)
+        onHeard(reading)
+    }
     private val metadataListener =
         object : Player.Listener {
             override fun onMetadata(metadata: Metadata) {
@@ -226,7 +238,7 @@ class PlaybackConductor(
 
     fun stop() {
         graph.widget.onPlayback(WidgetPlayback.STOPPED)
-        graph.onAired(null)
+        aired(null)
         player.removeListener(policy)
         player.removeListener(playWhenReadyListener)
         player.removeListener(metadataListener)

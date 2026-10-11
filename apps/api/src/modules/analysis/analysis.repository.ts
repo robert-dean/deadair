@@ -23,7 +23,9 @@ export const ANALYSIS_RETRY_AFTER_MS = 24 * 60 * 60 * 1000;
 /**
  * How long a track whose audio could not be FETCHED waits before anything tries
  * again: `unfetchable`, and `truncated`, which is a fetch that happened to
- * deliver some bytes.
+ * deliver some bytes. It is also the first wait for a measurement the analyzer
+ * marked incomplete, which is usually the same cut transfer answered as a
+ * success (see `listTracksNeedingAnalysis`).
  *
  * That is a fact about the binding or the moment rather than the file (a
  * provider was down, a signed url expired), and a day is longer than that
@@ -66,14 +68,39 @@ export interface StoredAnalysis {
 @Injectable()
 export class AnalysisRepository extends DataRepository {
     /**
-     * Tracks that have never been measured, or were measured by something older.
+     * Tracks with no measurement a reader would use, and due another go.
      *
-     * Three states are all "needs work" and only one of them is the obvious one:
-     * no row at all, a row below `schemaVersion`, and a row that failed long
-     * enough ago to be worth another go. Folding them into one query is what
-     * makes reanalysis after a detector upgrade an ordinary pass rather than a
-     * migration — bump the version, and every stale row rejoins the queue on its
-     * own.
+     * Four states are all "needs work" and only one of them is the obvious one:
+     * no row at all, a row below `schemaVersion`, a row that failed long enough
+     * ago to be worth another go, and a row measured from PART of a file long
+     * enough ago. Folding them into one query is what makes reanalysis after a
+     * detector upgrade an ordinary pass rather than a migration — bump the
+     * version, and every stale row rejoins the queue on its own.
+     *
+     * **INCOMPLETE. A measurement of part of a file is retried, on a doubling
+     * wait capped at a day.** The analyzer reports a short transfer (fewer bytes
+     * than `Content-Length` promised, or a decode much shorter than the catalog's
+     * duration) as a SUCCESSFUL answer with `complete = false`, not as a failure,
+     * so the row carries `analyzed_at` and no `failed_at`. Without this branch
+     * that row matched none of the other three, and since
+     * {@link trustedAnalysisFor} ignores it, the record aired with no levelling
+     * and no cue points for as long as it stayed in the library. A cut transfer
+     * is a fact about the moment, so the first retry waits
+     * {@link ANALYSIS_REFETCH_AFTER_MS}, the same as `truncated`.
+     *
+     * The other cause does not go away: a provider whose claimed duration is
+     * simply wrong (a preview clip, a different edit) answers incomplete on every
+     * attempt. The table keeps no attempt count, so the wait is derived from what
+     * it does keep: each retry waits as long as the row has existed
+     * (`analyzed_at - created_at`), which doubles it (an hour, an hour, two, four)
+     * without a column to count with. It is capped at
+     * {@link ANALYSIS_RETRY_AFTER_MS}, for two reasons. A permanently short
+     * record then costs exactly what an undecodable one already does, one
+     * attempt a day, and by then its bytes are usually local, so that attempt is
+     * a decode rather than a provider download. And `created_at` is when the row
+     * FIRST appeared, which for a record measured whole months ago and short
+     * today is months before this trouble began: uncapped, its first retry would
+     * wait months.
      *
      * **A binding is required, not merely preferred**, and it is returned rather
      * than merely tested for. A canonical track no provider still serves has no
@@ -151,6 +178,12 @@ export class AnalysisRepository extends DataRepository {
                        and a.failed_at < now() - make_interval(secs => case when a.failure_code in ('unfetchable', 'truncated')
                                                                              then ${ANALYSIS_REFETCH_AFTER_MS / 1000}::double precision
                                                                              else ${ANALYSIS_RETRY_AFTER_MS / 1000}::double precision end))
+                   -- A measurement of part of a file: see INCOMPLETE above for the doubling wait and its cap.
+                   or (a.analyzed_at is not null
+                       and not a.complete
+                       and a.analyzed_at < now() - least(greatest(make_interval(secs => ${ANALYSIS_REFETCH_AFTER_MS / 1000}::double precision),
+                                                                  a.analyzed_at - a.created_at),
+                                                         make_interval(secs => ${ANALYSIS_RETRY_AFTER_MS / 1000}::double precision)))
                )
              order by src.is_local desc, t.created_at asc
              limit ${limit}
@@ -236,23 +269,6 @@ export class AnalysisRepository extends DataRepository {
     }
 
     /**
-     * The measurements for a batch of tracks, for the callers that act on them.
-     *
-     * **Filters to rows that can be trusted, rather than returning everything and
-     * leaving the checks to the caller.** Three states are excluded and each one
-     * would otherwise become a subtly wrong decision somewhere downstream:
-     *
-     * - a failure, which carries no measurements at all;
-     * - `complete = false`, where the analyzer saw part of a file and its outro
-     *   is a description of where the download stopped;
-     * - a row below `schemaVersion`, whose fields may have changed meaning.
-     *
-     * The absence of a row and the presence of an untrustworthy one are the same
-     * answer to every consumer — no opinion, degrade to the defined behaviour —
-     * so collapsing them here is what stops each caller from re-deriving the
-     * rule and one of them getting it wrong.
-     */
-    /**
      * The measurement row as it stands, trustworthy or not.
      *
      * The opposite of {@link trustedAnalysisFor}, deliberately: that one collapses "no row", "failed"
@@ -276,9 +292,11 @@ export class AnalysisRepository extends DataRepository {
     /**
      * Forget a record's measurement, so the walk takes it again.
      *
-     * A delete rather than a flag, because the walk's queue is "everything with no trustworthy row"
-     * and the absence of a row is exactly that state — the same one every track starts in. Nothing
-     * else has to know this happened.
+     * A delete rather than a flag, because the absence of a row is the one state the walk takes on
+     * its very next pass, with no wait: the same state every track starts in. A row that failed or
+     * measured only part of a file is in the queue too, but each waits its retry interval first (see
+     * {@link listTracksNeedingAnalysis}), and the point of clearing is not to wait. Nothing else has
+     * to know this happened.
      *
      * The cheapest of the clears to get right and the most useful: a detector that turns out to have
      * been wrong about a class of records is what `analyzer_plugin_id` exists to attribute, and this
@@ -290,6 +308,23 @@ export class AnalysisRepository extends DataRepository {
         return Number(result.numDeletedRows ?? 0n);
     }
 
+    /**
+     * The measurements for a batch of tracks, for the callers that act on them.
+     *
+     * **Filters to rows that can be trusted, rather than returning everything and
+     * leaving the checks to the caller.** Three states are excluded and each one
+     * would otherwise become a subtly wrong decision somewhere downstream:
+     *
+     * - a failure, which carries no measurements at all;
+     * - `complete = false`, where the analyzer saw part of a file and its outro
+     *   is a description of where the download stopped;
+     * - a row below `schemaVersion`, whose fields may have changed meaning.
+     *
+     * The absence of a row and the presence of an untrustworthy one are the same
+     * answer to every consumer — no opinion, degrade to the defined behaviour —
+     * so collapsing them here is what stops each caller from re-deriving the
+     * rule and one of them getting it wrong.
+     */
     async trustedAnalysisFor(trackIds: readonly string[], schemaVersion: number): Promise<Map<string, StoredAnalysis>> {
         const found = new Map<string, StoredAnalysis>();
         if (trackIds.length === 0) return found;

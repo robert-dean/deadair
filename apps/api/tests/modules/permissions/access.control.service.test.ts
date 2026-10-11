@@ -119,23 +119,25 @@ describe('AccessControlService: untrusted system actor (source=http)', () => {
 });
 
 describe('AccessControlService: vendor actor', () => {
-    it('require resolves without consulting PermissionsService', async () => {
+    // Nothing verifies a vendor's signature yet, so a vendor actor is denied everything rather than
+    // trusted on the word of whatever minted it.
+    it('require rejects with 403 without consulting PermissionsService', async () => {
         const { service, permissions } = build(vendorActor);
-        await expect(service.require(OBJECT, 'view')).resolves.toBeUndefined();
+        const error = await service.require(OBJECT, 'view').catch((e: unknown) => e);
+        expect(IsHttpError(error) && error.statusCode).toBe(403);
         expect(permissions.checkSubject).not.toHaveBeenCalled();
     });
 
-    it('canAccess is true', async () => {
-        await expect(build(vendorActor).service.canAccess(OBJECT, 'view')).resolves.toBe(true);
+    it('canAccess is false', async () => {
+        await expect(build(vendorActor).service.canAccess(OBJECT, 'view')).resolves.toBe(false);
     });
 
-    it('listVisibleIds returns { all: true }', async () => {
-        await expect(build(vendorActor).service.listVisibleIds('plugin', 'view')).resolves.toEqual({ all: true });
+    it('listVisibleIds sees nothing', async () => {
+        await expect(build(vendorActor).service.listVisibleIds('plugin', 'view')).resolves.toEqual({ ids: [], truncated: false });
     });
 
-    it('permissionsForResource returns every candidate for the namespace', async () => {
-        const result = await build(vendorActor).service.permissionsForResource(OBJECT);
-        expect(result.sort()).toEqual([...PLUGIN_PERMISSIONS].sort());
+    it('permissionsForResource returns nothing', async () => {
+        await expect(build(vendorActor).service.permissionsForResource(OBJECT)).resolves.toEqual([]);
     });
 });
 

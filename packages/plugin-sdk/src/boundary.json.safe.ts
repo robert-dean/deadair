@@ -90,6 +90,7 @@ import type {
 import type {
     GetPlaylistTracksOptions,
     ListPlaylistsOptions,
+    PlaybackReport,
     PlaybackState,
     ProviderPlaylist,
     ProviderStream,
@@ -204,6 +205,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     SearchTracksOptions: IsJsonSafe<SearchTracksOptions>;
     ListPlaylistsOptions: IsJsonSafe<ListPlaylistsOptions>;
     GetPlaylistTracksOptions: IsJsonSafe<GetPlaylistTracksOptions>;
+    PlaybackReport: IsJsonSafe<PlaybackReport>;
     PlaybackState: IsJsonSafe<PlaybackState>;
     TrackRef: IsJsonSafe<TrackRef>;
     ArtistRef: IsJsonSafe<ArtistRef>;
@@ -313,6 +315,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'SearchTracksOptions',
     'ListPlaylistsOptions',
     'GetPlaylistTracksOptions',
+    'PlaybackReport',
     'PlaybackState',
     'TrackRef',
     'ArtistRef',

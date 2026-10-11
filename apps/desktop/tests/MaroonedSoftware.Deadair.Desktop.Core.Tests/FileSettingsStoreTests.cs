@@ -45,6 +45,24 @@ public class FileSettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task WritesKeepAwakeAsANameAndReadsItBack()
+    {
+        using var store = new FileSettingsStore(_directory);
+
+        await store.SaveAsync(new DesktopSettings { KeepAwake = KeepAwake.WhileCharging }, TestContext.Current.CancellationToken);
+
+        var text = await File.ReadAllTextAsync(
+            Path.Combine(_directory, "settings.json"),
+            TestContext.Current.CancellationToken);
+
+        using var reopened = new FileSettingsStore(_directory);
+        await reopened.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Contains("\"WhileCharging\"", text, StringComparison.Ordinal);
+        Assert.Equal(KeepAwake.WhileCharging, reopened.Current.KeepAwake);
+    }
+
+    [Fact]
     public async Task ReadsAFileSomebodyWroteByHand()
     {
         Directory.CreateDirectory(_directory);

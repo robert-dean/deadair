@@ -44,6 +44,16 @@ ARG NODE_VERSION=26.7.0
 ARG S6_OVERLAY_VERSION=3.2.3.2
 ARG GO_LIBRESPOT_VERSION=v0.7.4
 ARG DBMATE_VERSION=v2.35.0
+# Where the Docker Hub bases below are pulled from. Docker Hub by default, so a hand build needs
+# nothing set up. Each release also copies them to a GHCR mirror (`mirror` in
+# `.github/workflows/release.yml`), because Docker Hub counts every manifest a build fetches against
+# the account's pull limit and six variants a push, a few bases each, ran it out: every image job of
+# run 38161469967 failed on a 429 with the code fine. The mirror holds the same digests, so the cache
+# does not notice which one a layer was built on. Every base from Docker Hub goes through this argument, and
+# is written out in full (`library/` included) because the mirror keeps Docker Hub's paths:
+# `.github/scripts/base-images.sh` reads these lines to know what to copy, so one written any other
+# way is one the mirror never holds.
+ARG BASE_REGISTRY=docker.io
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 # The manifests, and nothing else.
@@ -54,7 +64,7 @@ ARG DBMATE_VERSION=v2.35.0
 # This stage exists to answer that: it takes the whole context and throws away everything that is
 # not a manifest, and its OUTPUT is unchanged by an ordinary commit, so the install downstream of
 # it stays cached. The copy is cheap; it is the install that is not.
-FROM node:26-trixie-slim AS manifests
+FROM ${BASE_REGISTRY}/library/node:26-trixie-slim AS manifests
 WORKDIR /src
 COPY . .
 # The member list is the WORKSPACE'S OWN GLOBS rather than a list of paths, on `link-peers.mjs`'s
@@ -80,7 +90,7 @@ RUN set -eux; \
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 # Trixie to match the runtime, because a prod dependency with a native binding is compiled here
 # and loaded there.
-FROM node:26-trixie-slim AS workspace
+FROM ${BASE_REGISTRY}/library/node:26-trixie-slim AS workspace
 
 # pnpm comes from npm rather than from corepack: Node 25 and later do not ship a corepack binary
 # at all, so `corepack enable` is a command that is not there. Installed this way it still reads
@@ -145,7 +155,7 @@ RUN node docker/link-peers.mjs
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 # The track shim.
 # ─────────────────────────────────────────────────────────────────────────────────────────────
-FROM golang:1-trixie AS shim
+FROM ${BASE_REGISTRY}/library/golang:1-trixie AS shim
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git \
  && rm -rf /var/lib/apt/lists/*
@@ -161,7 +171,7 @@ RUN cd /src && CGO_ENABLED=0 go build -v -o /out/deadair-shim ./cmd/deadair-shim
 # on 2.4 the station falls back to a once-a-minute poll, and both edges of "somebody is listening"
 # arrive up to a minute late — which for a station that only airs while somebody is there is the
 # difference between tuning in and waiting.
-FROM libretime/icecast:2.5.0 AS icecast
+FROM ${BASE_REGISTRY}/libretime/icecast:2.5.0 AS icecast
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 # The station's voice, when this variant has one.
@@ -184,7 +194,7 @@ FROM tts-${WITH_TTS} AS tts
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 # The station.
 # ─────────────────────────────────────────────────────────────────────────────────────────────
-FROM savonet/liquidsoap:v2.4.5
+FROM ${BASE_REGISTRY}/savonet/liquidsoap:v2.4.5
 
 USER root
 ENV DEBIAN_FRONTEND=noninteractive

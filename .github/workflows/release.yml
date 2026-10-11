@@ -222,6 +222,69 @@ jobs:
             draft: false
         secrets: inherit
 
+    # The Docker Hub images the station is built from, copied to GHCR where upstream moved them, so
+    # that the builds can pull from a registry that does not ration them. Docker Hub counts every
+    # manifest a build fetches against the account's limit, and six variants a push, a few bases
+    # each, ran it out: run 38161469967 failed all six image jobs on a 429 with the code fine.
+    #
+    # Ahead of the images rather than beside them, so a manual run for a base image's security fix
+    # builds on the fixed base and not on last week's copy of it. It costs seconds when nothing moved,
+    # which is most runs, because it compares digests with HEAD requests Docker Hub does not count.
+    #
+    # It cannot hold a release up. The script warns rather than fails over a base it cannot read or
+    # copy, and `continue-on-error` covers the rest (a login, the download), because a mirror a week
+    # stale is still a mirror and a missing one only sends the build back to Docker Hub. What gets
+    # copied, and how, is in `.github/scripts/mirror.sh`.
+    mirror:
+        needs: [version, changes]
+        if: needs.version.outputs.value != '' || needs.changes.outputs.image == 'true'
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        continue-on-error: true
+        permissions:
+            contents: read
+            packages: write
+        env:
+            MIRROR: ghcr.io/robert-dean/deadair-mirror
+            CRANE_VERSION: v0.22.1
+            CRANE_SHA256: 0ab7a1d6932a213aed964ce97666c3077fe691c8606413674a8b3e0b9ec4cda0
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            # A release binary checked against its published sum, rather than an action, so the
+            # version and the bytes are both pinned here.
+            - name: Install crane
+              run: |
+                  curl -fsSL -o "$RUNNER_TEMP/crane.tgz" \
+                      "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz"
+                  echo "${CRANE_SHA256}  ${RUNNER_TEMP}/crane.tgz" | sha256sum -c -
+                  tar -xzf "$RUNNER_TEMP/crane.tgz" -C "$RUNNER_TEMP" crane
+                  echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+            # Logged in for the larger limit on the copies; the HEADs are free either way.
+            - name: Log in to Docker Hub
+              uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+            # The workflow token, so the packages it creates belong to this repository and every
+            # workflow in it can read them back without a token of its own.
+            - name: Log in to GHCR
+              uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ github.token }}
+
+            # The extra is the builder `setup-buildx-action` starts, which is pulled from Docker Hub
+            # too and is not in the Dockerfile.
+            - name: Copy what moved
+              run: .github/scripts/mirror.sh moby/buildkit:buildx-stable-1
+
     # Deliberately NOT `needs: [build]`. It was, and the cost was the whole of the build job on
     # the critical path of every release — four minutes thirty-nine on the run that prompted this,
     # against a total of fourteen forty-five, for work the image build does not consume. What the
@@ -239,7 +302,7 @@ jobs:
     # each of them, and a pull request is the only caller that may build fewer. Their Apple Music
     # twins are `images-apple`, below `promote`.
     images:
-        needs: [version, changes]
+        needs: [version, changes, mirror]
         if: needs.version.outputs.value != '' || needs.changes.outputs.image == 'true'
         uses: ./.github/workflows/images.yml
         with:
@@ -294,7 +357,7 @@ jobs:
     # the next push retries it. That wait is short because the twins start with the others, run in
     # parallel, and read their twin's build cache, so on a warm cache they finish with them.
     images-apple:
-        needs: [version, changes]
+        needs: [version, changes, mirror]
         if: needs.version.outputs.value != '' || needs.changes.outputs.image == 'true'
         uses: ./.github/workflows/images.yml
         with:

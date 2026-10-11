@@ -1,7 +1,7 @@
 ---
 title: 'Release the station to the schedule'
 sidebar_label: 'Release the station to the schedule'
-sidebar_position: 14
+sidebar_position: 15
 mdx:
     format: 'md'
 ---

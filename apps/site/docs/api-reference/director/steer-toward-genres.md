@@ -1,7 +1,7 @@
 ---
 title: 'Steer toward genres'
 sidebar_label: 'Steer toward genres'
-sidebar_position: 24
+sidebar_position: 25
 mdx:
     format: 'md'
 ---

@@ -2509,3 +2509,63 @@ describe('DirectorConsoleService marking a change of programme', () => {
         expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { name: 'Afternoons' } });
     });
 });
+
+describe('DirectorConsoleService.requestBreak', () => {
+    it('asks the director for the break as the operator, and answers with where it went', async () => {
+        const { service, director } = build();
+        vi.mocked(director.requestBreak).mockResolvedValue({ accepted: true, requestId: 'req-9', segmentId: 'seg-9' });
+
+        const answer = await service.requestBreak({ kind: 'news', urgency: 'next' });
+
+        expect(director.requestBreak).toHaveBeenCalledWith(expect.objectContaining({ kind: 'news', urgency: 'next', source: 'operator' }));
+        expect(answer).toEqual({ accepted: true, requestId: 'req-9', segmentId: 'seg-9' });
+    });
+
+    it('passes a topic through as the context a clock band would have set', async () => {
+        const { service, director } = build();
+
+        await service.requestBreak({ kind: 'news', urgency: 'soon', topic: 'sport' });
+
+        expect(director.requestBreak).toHaveBeenCalledWith(expect.objectContaining({ context: { topic: 'sport' } }));
+    });
+
+    it('sends no context at all when nothing was named', async () => {
+        const { service, director } = build();
+
+        await service.requestBreak({ kind: 'weather', urgency: 'next' });
+
+        expect(vi.mocked(director.requestBreak).mock.calls[0]![0]).not.toHaveProperty('context');
+    });
+
+    it('answers a decline with the station’s reason rather than throwing', async () => {
+        const { service, director } = build();
+        vi.mocked(director.requestBreak).mockResolvedValue({ accepted: false, reason: 'the station has been told not to interrupt itself' });
+
+        await expect(service.requestBreak({ kind: 'news', urgency: 'interrupt' })).resolves.toEqual({
+            accepted: false,
+            reason: 'the station has been told not to interrupt itself',
+        });
+    });
+
+    it('asks twice in a row under one key with a cooldown, so a double press is one request', async () => {
+        const { service, director } = build();
+
+        await service.requestBreak({ kind: 'news', urgency: 'next' });
+        await service.requestBreak({ kind: 'news', urgency: 'next' });
+
+        const [first, second] = vi.mocked(director.requestBreak).mock.calls.map(([request]) => request);
+        expect(first!.key).toBe(second!.key);
+        expect(first!.cooldownMs).toBeGreaterThan(0);
+    });
+
+    it('keeps different kinds and topics under different keys, so one never absorbs the other', async () => {
+        const { service, director } = build();
+
+        await service.requestBreak({ kind: 'news', urgency: 'next' });
+        await service.requestBreak({ kind: 'news', urgency: 'next', topic: 'sport' });
+        await service.requestBreak({ kind: 'weather', urgency: 'next' });
+
+        const keys = vi.mocked(director.requestBreak).mock.calls.map(([request]) => request.key);
+        expect(new Set(keys).size).toBe(3);
+    });
+});

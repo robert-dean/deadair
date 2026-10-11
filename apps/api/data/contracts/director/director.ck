@@ -135,6 +135,24 @@ operation /director/air/replan: {
     }
 }
 
+operation /director/air/breaks: {
+    post: { # Asks the station to say something now rather than when the format clock next calls for it: the news, the weather, a word from the host. The director decides where it goes. A decline is answered rather than thrown, with the station's reason, because "breaks are off" and "it was asked for a moment ago" are things the person pressing the button needs to read
+        name: Request a break
+        service: DirectorConsoleService.requestBreak
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: RequestStationBreakInput
+        }
+        response: {
+            200: {
+                application/json: StationBreakRequest
+            }
+        }
+    }
+}
+
 operation /director/route/preview: {
     post: { # Finds a route from one artist to another through artists the library holds, and says how each stop connects to the one before. Nothing goes on air: this is what a route would be
         name: Preview an artist route

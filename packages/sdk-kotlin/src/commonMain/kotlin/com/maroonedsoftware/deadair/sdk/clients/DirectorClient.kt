@@ -9,10 +9,12 @@ import com.maroonedsoftware.deadair.sdk.models.HoldStationInput
 import com.maroonedsoftware.deadair.sdk.models.MoveStationItemInput
 import com.maroonedsoftware.deadair.sdk.models.PutOnAirInput
 import com.maroonedsoftware.deadair.sdk.models.ReplanStationInput
+import com.maroonedsoftware.deadair.sdk.models.RequestStationBreakInput
 import com.maroonedsoftware.deadair.sdk.models.RoutePreviewInput
 import com.maroonedsoftware.deadair.sdk.models.SetStationAirInput
 import com.maroonedsoftware.deadair.sdk.models.SetStationHostInput
 import com.maroonedsoftware.deadair.sdk.models.StationAir
+import com.maroonedsoftware.deadair.sdk.models.StationBreakRequest
 import com.maroonedsoftware.deadair.sdk.models.StationOrder
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 import io.ktor.http.HttpMethod
@@ -97,6 +99,18 @@ class DirectorClient(private val http: SdkHttp) {
             path("director", "air", "replan")
             jsonBody(body, "application/json")
         }
+    }
+
+    /**
+     * Request a break
+     * Asks the station to say something now rather than when the format clock next calls for it: the news, the weather, a word from the host. The director decides where it goes. A decline is answered rather than thrown, with the station's reason, because "breaks are off" and "it was asked for a moment ago" are things the person pressing the button needs to read
+     */
+    suspend fun requestABreak(body: RequestStationBreakInput): StationBreakRequest {
+        val response = http.execute(HttpMethod.Post) {
+            path("director", "air", "breaks")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
     }
 
     /**

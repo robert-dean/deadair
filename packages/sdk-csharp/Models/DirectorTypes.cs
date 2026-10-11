@@ -169,6 +169,74 @@ public sealed record ReplanStationInput
     public string? Brief { get; init; }
 }
 
+/// <summary>A kind of break an operator can ask for by name. Only the kinds that need nothing but a moment to be written: a welcome, a changeover or a dedication is ABOUT something that happened, and the station asks for those itself</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<RequestableBreakKind>))]
+public enum RequestableBreakKind
+{
+    [JsonStringEnumMemberName("news")]
+    News,
+
+    [JsonStringEnumMemberName("weather")]
+    Weather,
+
+    [JsonStringEnumMemberName("almanac")]
+    Almanac,
+
+    [JsonStringEnumMemberName("talkbreak")]
+    Talkbreak,
+
+    [JsonStringEnumMemberName("story")]
+    Story,
+
+    [JsonStringEnumMemberName("jingle")]
+    Jingle,
+}
+
+/// <summary>How soon a requested break wants to be heard. `interrupt` and `next` are written and spoken before they take a place in the running order, so they cannot reach their slot unready; `interrupt` lands at the first boundary that leaves time to write and speak it, `next` between the record on air and the one after. `soon` and `whenever` are planted like a break the station planned for itself, within a few records or at the next ordinary slot</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<BreakUrgency>))]
+public enum BreakUrgency
+{
+    [JsonStringEnumMemberName("interrupt")]
+    Interrupt,
+
+    [JsonStringEnumMemberName("next")]
+    Next,
+
+    [JsonStringEnumMemberName("soon")]
+    Soon,
+
+    [JsonStringEnumMemberName("whenever")]
+    Whenever,
+}
+
+/// <summary>What the station made of a request to say something</summary>
+public sealed record StationBreakRequest
+{
+    /// <summary>False is an ordinary answer rather than a failure: breaks are off, there is no voice, nothing on this station writes that kind, the same request was taken moments ago, or the running order has no room</summary>
+    [JsonPropertyName("accepted")]
+    public required bool Accepted { get; init; }
+
+    /// <summary>The request as it was written down. Present whenever accepted</summary>
+    [JsonPropertyName("requestId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RequestId { get; init; }
+
+    /// <summary>The break it became. Present whenever accepted. Accepted is not aired: a bulletin with no story left unread is still passed over when it is written</summary>
+    [JsonPropertyName("segmentId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SegmentId { get; init; }
+
+    /// <summary>Where it went in the running order. Absent for `interrupt` and `next`, which take a place only once their audio exists</summary>
+    [JsonPropertyName("atIndex")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? AtIndex { get; init; }
+
+    /// <summary>Why it was declined, in the station's own words</summary>
+    [JsonPropertyName("reason")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Reason { get; init; }
+}
+
 /// <summary>Where a route starts and where it ends, as artist names</summary>
 public sealed record RoutePreviewInput
 {
@@ -492,6 +560,21 @@ public sealed record StationOrderItem
     [JsonPropertyName("overAtMs")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? OverAtMs { get; init; }
+}
+
+/// <summary>Ask the station to say something. The station decides where it goes, and may decline</summary>
+public sealed record RequestStationBreakInput
+{
+    [JsonPropertyName("kind")]
+    public required RequestableBreakKind Kind { get; init; }
+
+    [JsonPropertyName("urgency")]
+    public BreakUrgency Urgency { get; init; } = BreakUrgency.Next;
+
+    /// <summary>What it is about, as a format clock band names it: a news category's key for a bulletin, a place's key for a forecast. A key that matches nothing is passed over when the break is written rather than read out under the wrong name</summary>
+    [JsonPropertyName("topic")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Topic { get; init; }
 }
 
 /// <summary>A route between two artists, or the news that there is none</summary>

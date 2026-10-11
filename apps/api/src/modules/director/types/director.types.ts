@@ -136,6 +136,45 @@ export const ReplanStationInput = z.strictObject({
 export type ReplanStationInput = z.infer<typeof ReplanStationInput>;
 
 /**
+ * A kind of break an operator can ask for by name. Only the kinds that need nothing but a moment to be written: a welcome, a changeover or a dedication is ABOUT something that happened, and the station asks for those itself
+ * generated from [RequestableBreakKind](../../../../data/contracts/director/director.types.ck)
+ */
+export const RequestableBreakKind = z.enum(['news', 'weather', 'almanac', 'talkbreak', 'story', 'jingle']);
+export type RequestableBreakKind = z.infer<typeof RequestableBreakKind>;
+
+/**
+ * How soon a requested break wants to be heard. `interrupt` and `next` are written and spoken before they take a place in the running order, so they cannot reach their slot unready; `interrupt` lands at the first boundary that leaves time to write and speak it, `next` between the record on air and the one after. `soon` and `whenever` are planted like a break the station planned for itself, within a few records or at the next ordinary slot
+ * generated from [BreakUrgency](../../../../data/contracts/director/director.types.ck)
+ */
+export const BreakUrgency = z.enum(['interrupt', 'next', 'soon', 'whenever']);
+export type BreakUrgency = z.infer<typeof BreakUrgency>;
+
+/**
+ * What the station made of a request to say something
+ * generated from [StationBreakRequest](../../../../data/contracts/director/director.types.ck)
+ */
+export const StationBreakRequest = z.strictObject({
+    accepted: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe(
+            'False is an ordinary answer rather than a failure: breaks are off, there is no voice, nothing on this station writes that kind, the same request was taken moments ago, or the running order has no room',
+        ),
+    requestId: z.string().optional().describe('The request as it was written down. Present whenever accepted'),
+    segmentId: z
+        .string()
+        .optional()
+        .describe(
+            'The break it became. Present whenever accepted. Accepted is not aired: a bulletin with no story left unread is still passed over when it is written',
+        ),
+    atIndex: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .optional()
+        .describe('Where it went in the running order. Absent for `interrupt` and `next`, which take a place only once their audio exists'),
+    reason: z.string().optional().describe("Why it was declined, in the station's own words"),
+});
+export type StationBreakRequest = z.infer<typeof StationBreakRequest>;
+
+/**
  * Where a route starts and where it ends, as artist names
  * generated from [RoutePreviewInput](../../../../data/contracts/director/director.types.ck)
  */
@@ -420,6 +459,24 @@ export const StationOrderItem = z.strictObject({
         ),
 });
 export type StationOrderItem = z.infer<typeof StationOrderItem>;
+
+/**
+ * Ask the station to say something. The station decides where it goes, and may decline
+ * generated from [RequestStationBreakInput](../../../../data/contracts/director/director.types.ck)
+ */
+export const RequestStationBreakInput = z.strictObject({
+    kind: RequestableBreakKind,
+    urgency: BreakUrgency.default('next'),
+    topic: z
+        .string()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe(
+            "What it is about, as a format clock band names it: a news category's key for a bulletin, a place's key for a forecast. A key that matches nothing is passed over when the break is written rather than read out under the wrong name",
+        ),
+});
+export type RequestStationBreakInput = z.infer<typeof RequestStationBreakInput>;
 
 /**
  * A route between two artists, or the news that there is none

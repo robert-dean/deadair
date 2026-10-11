@@ -68,6 +68,15 @@ public final class DirectorClient: Sendable {
         _ = try await http.execute(request)
     }
 
+    /// Request a break
+    /// Asks the station to say something now rather than when the format clock next calls for it: the news, the weather, a word from the host. The director decides where it goes. A decline is answered rather than thrown, with the station's reason, because "breaks are off" and "it was asked for a moment ago" are things the person pressing the button needs to read
+    public func requestABreak(body: RequestStationBreakInput) async throws -> StationBreakRequest {
+        var request = SdkRequest(method: "POST", path: ["director", "air", "breaks"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(StationBreakRequest.self, from: response)
+    }
+
     /// Preview an artist route
     /// Finds a route from one artist to another through artists the library holds, and says how each stop connects to the one before. Nothing goes on air: this is what a route would be
     public func previewAnArtistRoute(body: RoutePreviewInput) async throws -> ArtistRoute {

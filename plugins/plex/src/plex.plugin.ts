@@ -1,7 +1,14 @@
 import {
     Plugin,
     PluginError,
+    baseForm,
     errorText,
+    type AlbumEnrichment,
+    type AlbumRef,
+    type ArtistEnrichment,
+    type ArtistRef,
+    type EnrichmentMatchKey,
+    type EnrichmentProvider,
     type GetPlaylistTracksOptions,
     type ListPlaylistsOptions,
     type MusicProviderPluginInstance,
@@ -10,9 +17,12 @@ import {
     type ProviderStream,
     type ProviderTrack,
     type SearchTracksOptions,
+    type TrackEnrichment,
+    type TrackRef,
 } from '@deadair/plugin-sdk';
 
 import { PlexClient, isMissing } from './plex.client.js';
+import { mapAlbumEnrichment, mapArtistEnrichment, mapTrackEnrichment, musicBrainzId } from './plex.enrichment.js';
 import { RATING_KEY, mapPlaylist, mapTracks, partKey, plexPlaylistIdFromUrl, text, trackYear } from './plex.mapping.js';
 import {
     ARTIST_PROBE_LIMIT,
@@ -23,6 +33,7 @@ import {
     SECTIONS_TTL_MS,
     type PlexConfig,
 } from './plex.manifest.js';
+import { selectAlbum, selectArtist, selectTrack } from './plex.match.js';
 import { artistProbe, artistReadings, inPeriod, titleMatches, type ArtistReading } from './plex.search.js';
 import type { PlexDirectory, PlexMetadata } from './plex.types.js';
 
@@ -33,7 +44,11 @@ const DEFAULT_SEARCH_LIMIT = 50;
 
 /** Plex's item type numbers, as its filters take them. */
 const TYPE_ARTIST = 8;
+const TYPE_ALBUM = 9;
 const TYPE_TRACK = 10;
+
+/** Candidates an enrichment lookup reads before deciding which, if any, is the one asked about. */
+const ENRICHMENT_CANDIDATES = 20;
 
 /** A caller's requested page size, kept inside {@link MAX_PAGE_SIZE}. `undefined` means the caller did not say. */
 const clampCount = (limit: number | undefined): number | undefined => {
@@ -65,7 +80,7 @@ interface Section {
  *
  * Nothing here plays audio, so it never declares `steer`.
  */
-export class PlexPlugin extends Plugin implements MusicProviderPluginInstance {
+export class PlexPlugin extends Plugin implements MusicProviderPluginInstance, EnrichmentProvider {
     private client?: PlexClient;
     /** The music libraries, read once and trusted for {@link SECTIONS_TTL_MS}. A promise, so concurrent first calls share one read. */
     private sections?: { list: Promise<Section[]>; at: number };
@@ -246,6 +261,113 @@ export class PlexPlugin extends Plugin implements MusicProviderPluginInstance {
         );
     }
 
+    // --- enrichment ----------------------------------------------------------
+
+    /**
+     * Supplementary, not canonical. MusicBrainz at 100 decides a spelling or a
+     * year when both have one. Plex's agents are a curated source rather than a
+     * guess, which is why this sits at the SDK's supplementary 500 rather than
+     * with the file-tag sources after it.
+     */
+    readonly priority = 500;
+
+    /**
+     * Plex exposes no ISRC, and the MusicBrainz id a `TrackRef` may carry is a
+     * RECORDING id where Plex holds TRACK ids (see `plex.enrichment.ts`), so the
+     * two never meet: artist-and-title is the only key there is.
+     */
+    readonly matchKeys: EnrichmentMatchKey[] = ['artist-title'];
+
+    /**
+     * What the server knows about a recording, for a track found by artist and
+     * title and then read whole for the fields a listing leaves out.
+     *
+     * `{}` for a track this library does not have, which the host records as a
+     * miss on a short clock. No `enrichTracks`: Plex has no bulk lookup by name,
+     * so a batch would only be the same searches under one deadline.
+     */
+    async enrichTrack(ref: TrackRef): Promise<Partial<TrackEnrichment>> {
+        const found = await this.findTrack(ref);
+        const item = found?.ratingKey ? await this.metadata(found.ratingKey) : undefined;
+        return item?.type === 'track' ? mapTrackEnrichment(item, this.imageUrl(item.parentThumb ?? item.thumb)) : {};
+    }
+
+    /**
+     * What the server knows about an artist. `ref.providerRef` is this plugin's
+     * rating key from last time, so a second pass is a lookup; a key that no
+     * longer answers (Plex removed and re-added the artist) falls back to a search
+     * by id and name rather than giving up, which is how a renumbered library
+     * heals.
+     */
+    async enrichArtist(ref: ArtistRef): Promise<Partial<ArtistEnrichment>> {
+        const known = ref.providerRef ? await this.metadata(ref.providerRef) : undefined;
+        const item = known?.type === 'artist' ? known : await this.findArtist(ref);
+        return item ? mapArtistEnrichment(item, this.imageUrl(item.thumb)) : {};
+    }
+
+    /** What the server knows about a record. Same `providerRef`-first shape, the same fallback. */
+    async enrichAlbum(ref: AlbumRef): Promise<Partial<AlbumEnrichment>> {
+        const known = ref.providerRef ? await this.metadata(ref.providerRef) : undefined;
+        const item = known?.type === 'album' ? known : await this.findAlbum(ref);
+        return item ? mapAlbumEnrichment(item, this.imageUrl(item.thumb)) : {};
+    }
+
+    /**
+     * The track that is the one asked about, if this library has it. Searched by
+     * title in every music library, then by the title without its decorations if
+     * that found nothing convincing: a catalog's "Roads (2011 Remaster)" is a
+     * library's "Roads".
+     */
+    private async findTrack(ref: TrackRef): Promise<PlexMetadata | undefined> {
+        const titles = [...new Set([ref.title, baseForm(ref.title)].filter(title => title.trim().length > 0))];
+        for (const title of titles) {
+            const candidates = await this.inSections(TYPE_TRACK, title);
+            const found = selectTrack(candidates, { artist: ref.artist, title: ref.title, album: ref.album });
+            if (found) return found;
+        }
+        return undefined;
+    }
+
+    /** The artist the ref names, by MusicBrainz id when it carries one and by an unambiguous name otherwise. */
+    private async findArtist(ref: ArtistRef): Promise<PlexMetadata | undefined> {
+        const found = selectArtist(await this.inSections(TYPE_ARTIST, ref.name), ref.name, ref.mbid, musicBrainzId);
+        return found?.ratingKey ? await this.metadata(found.ratingKey) : undefined;
+    }
+
+    /** The record the ref names, matched on title and artist so a same-named record by somebody else is not it. */
+    private async findAlbum(ref: AlbumRef): Promise<PlexMetadata | undefined> {
+        const found = selectAlbum(await this.inSections(TYPE_ALBUM, ref.name), ref.name, ref.artist);
+        return found?.ratingKey ? await this.metadata(found.ratingKey) : undefined;
+    }
+
+    /** Items of one type whose title matches, from every music library, with their GUIDs. */
+    private async inSections(type: number, title: string): Promise<PlexMetadata[]> {
+        const client = this.require();
+        const answers = await Promise.all(
+            (await this.musicSections()).map(section =>
+                client.get(`/library/sections/${section.key}/all`, { type, title, includeGuids: 1, ...page(0, ENRICHMENT_CANDIDATES) }),
+            ),
+        );
+        return answers.flatMap(answer => answer.Metadata ?? []);
+    }
+
+    /**
+     * One item read whole, GUIDs included, or nothing for a key that is malformed
+     * or gone. A listing leaves out the label, the moods and the biography, which
+     * are most of what enrichment is for.
+     */
+    private async metadata(ratingKey: string): Promise<PlexMetadata | undefined> {
+        if (!RATING_KEY.test(ratingKey)) return undefined;
+
+        const client = this.require();
+        try {
+            return (await client.get(`/library/metadata/${ratingKey}`, { includeGuids: 1 })).Metadata?.[0];
+        } catch (error) {
+            if (isMissing(error)) return undefined;
+            throw error;
+        }
+    }
+
     // --- stream --------------------------------------------------------------
 
     /**
@@ -290,16 +412,8 @@ export class PlexPlugin extends Plugin implements MusicProviderPluginInstance {
 
     /** One track's full metadata, or nothing for a key that is malformed, gone, or not a track. */
     private async track(trackId: string): Promise<PlexMetadata | undefined> {
-        if (!RATING_KEY.test(trackId)) return undefined;
-
-        const client = this.require();
-        try {
-            const item = (await client.get(`/library/metadata/${trackId}`)).Metadata?.[0];
-            return item?.type === 'track' ? item : undefined;
-        } catch (error) {
-            if (isMissing(error)) return undefined;
-            throw error;
-        }
+        const item = await this.metadata(trackId);
+        return item?.type === 'track' ? item : undefined;
     }
 
     /**

@@ -290,3 +290,114 @@ describe('the library list', () => {
         expect(callsTo(host, '/library/sections')).toHaveLength(1);
     });
 });
+
+describe('enrichment', () => {
+    const full = track('6971', 'Crimson Rider', 'Masterplan', {
+        parentTitle: 'Aeronautics',
+        parentStudio: 'AFM Records',
+        parentThumb: '/library/metadata/6970/thumb/1',
+        Guid: [{ id: 'mbid://6715e4cf-f5ad-35e1-8aa4-c7180c64ee78' }],
+    });
+
+    it('finds a track by title, then reads it whole for the label and the ids a listing leaves out', async () => {
+        const { host, plugin } = await build([
+            url => (url.pathname === '/library/sections/1/all' ? { body: metadata(track('6971', 'Crimson Rider', 'Masterplan')) } : undefined),
+            url => (url.pathname === '/library/metadata/6971' ? { body: metadata(full) } : undefined),
+        ]);
+
+        const enrichment = await plugin.enrichTrack({ artist: 'Masterplan', title: 'Crimson Rider' });
+
+        expect(enrichment).toMatchObject({
+            providerRef: '6971',
+            label: 'AFM Records',
+            artworkUrl: `${BASE_URL}/library/metadata/6970/thumb/1?X-Plex-Token=${TOKEN}`,
+        });
+        expect(callsTo(host, '/library/sections/1/all')[0]!.searchParams.get('title')).toBe('Crimson Rider');
+        expect(callsTo(host, '/library/metadata/6971')[0]!.searchParams.get('includeGuids')).toBe('1');
+    });
+
+    it('searches again without a decoration that the library does not carry (Plex compares without regard to case)', async () => {
+        const { host, plugin } = await build([
+            url =>
+                url.pathname === '/library/sections/1/all'
+                    ? {
+                          body:
+                              url.searchParams.get('title')?.toLowerCase() === 'crimson rider'
+                                  ? metadata(track('6971', 'Crimson Rider', 'Masterplan'))
+                                  : metadata(),
+                      }
+                    : undefined,
+            url => (url.pathname === '/library/metadata/6971' ? { body: metadata(full) } : undefined),
+        ]);
+
+        await expect(plugin.enrichTrack({ artist: 'Masterplan', title: 'Crimson Rider (2011 Remaster)' })).resolves.toMatchObject({
+            providerRef: '6971',
+        });
+        expect(callsTo(host, '/library/sections/1/all').map(url => url.searchParams.get('title'))).toEqual([
+            'Crimson Rider (2011 Remaster)',
+            'crimson rider',
+        ]);
+    });
+
+    it('answers nothing for a track the library does not have', async () => {
+        const { plugin } = await build([
+            url => (url.pathname === '/library/sections/1/all' ? { body: metadata(track('1', 'Crimson Rider', 'Somebody')) } : undefined),
+        ]);
+
+        await expect(plugin.enrichTrack({ artist: 'Masterplan', title: 'Crimson Rider' })).resolves.toEqual({});
+    });
+
+    it('looks an artist up by the key it answered with last time', async () => {
+        const { host, plugin } = await build([
+            url =>
+                url.pathname === '/library/metadata/6928'
+                    ? { body: metadata({ ratingKey: '6928', type: 'artist', title: 'Masterplan', summary: 'Bio.' }) }
+                    : undefined,
+        ]);
+
+        await expect(plugin.enrichArtist({ name: 'Masterplan', providerRef: '6928' })).resolves.toMatchObject({
+            providerRef: '6928',
+            biography: 'Bio.',
+        });
+        expect(callsTo(host, '/library/sections/1/all')).toHaveLength(0);
+    });
+
+    it('heals a key Plex no longer answers to by searching again, which is what a renumbered library needs', async () => {
+        const { plugin } = await build([
+            url => (url.pathname === '/library/metadata/111' ? { status: 404, body: '' } : undefined),
+            url =>
+                url.pathname === '/library/sections/1/all'
+                    ? { body: metadata({ ratingKey: '6928', type: 'artist', title: 'Masterplan' }) }
+                    : undefined,
+            url =>
+                url.pathname === '/library/metadata/6928'
+                    ? { body: metadata({ ratingKey: '6928', type: 'artist', title: 'Masterplan' }) }
+                    : undefined,
+        ]);
+
+        await expect(plugin.enrichArtist({ name: 'Masterplan', providerRef: '111' })).resolves.toMatchObject({ providerRef: '6928' });
+    });
+
+    it('does not take an album for the artist a stale key now names', async () => {
+        const { plugin } = await build([
+            url => (url.pathname === '/library/metadata/5' ? { body: metadata({ ratingKey: '5', type: 'album', title: 'Aeronautics' }) } : undefined),
+            url => (url.pathname === '/library/sections/1/all' ? { body: metadata() } : undefined),
+        ]);
+
+        await expect(plugin.enrichArtist({ name: 'Masterplan', providerRef: '5' })).resolves.toEqual({});
+    });
+
+    it('finds a record by title and artist', async () => {
+        const album = { ratingKey: '6970', type: 'album', title: 'Aeronautics', parentTitle: 'Masterplan', studio: 'AFM Records' };
+        const { host, plugin } = await build([
+            url => (url.pathname === '/library/sections/1/all' ? { body: metadata(album) } : undefined),
+            url => (url.pathname === '/library/metadata/6970' ? { body: metadata(album) } : undefined),
+        ]);
+
+        await expect(plugin.enrichAlbum({ name: 'Aeronautics', artist: 'Masterplan' })).resolves.toMatchObject({
+            providerRef: '6970',
+            label: 'AFM Records',
+        });
+        expect(callsTo(host, '/library/sections/1/all')[0]!.searchParams.get('type')).toBe('9');
+    });
+});

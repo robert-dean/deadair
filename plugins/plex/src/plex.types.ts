@@ -23,10 +23,32 @@ export interface PlexGuid {
     id?: string;
 }
 
+/** One entry of a tag list: a genre, a style, a mood. */
+export interface PlexTag {
+    tag?: string;
+}
+
 /** A track, an artist, an album or a playlist. */
 export interface PlexMetadata {
     /** The item's id on this server: a number, written as a string. */
     ratingKey?: string;
+    /** Plex's own id for the thing (`plex://track/…`), the same on every server and kept across a rescan. */
+    guid?: string;
+    /** On a track: the album's artist's rating key. */
+    grandparentRatingKey?: string;
+    /** On a track: the album's rating key. On an album: the artist's. */
+    parentRatingKey?: string;
+    /** On an album: its label. */
+    studio?: string;
+    /** On a track: its album's label. */
+    parentStudio?: string;
+    /** On an album: its release date, `YYYY-MM-DD`. */
+    originallyAvailableAt?: string;
+    /** The broad genre, such as `Pop/Rock`. */
+    Genre?: PlexTag[];
+    /** The narrower genres, such as `Power Metal`. Albums and artists only. */
+    Style?: PlexTag[];
+    Mood?: PlexTag[];
     /** `track`, `artist`, `album`, `playlist`. */
     type?: string;
     title?: string;
@@ -54,7 +76,7 @@ export interface PlexMetadata {
     composite?: string;
     /** On a playlist: how many items it holds. */
     leafCount?: number;
-    /** On a playlist: its description. */
+    /** On a playlist: its description. On an artist: a biography. On an album: a review. */
     summary?: string;
     /** On a playlist: `audio`, `video` or `photo`. */
     playlistType?: string;

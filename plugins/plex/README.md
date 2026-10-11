@@ -72,16 +72,46 @@ A Plex Web link to a playlist names the server by its machine id, so a link is
 only claimed once the plugin has learnt this server's id, which it does on the
 first playlist walk after it is enabled.
 
-## What it does not do yet
+## It also enriches
+
+The same plugin is an enrichment source, because Plex's metadata agents fill a
+music library with more than its files carry: each record's label and release
+date, styles narrower than a genre ("Power Metal" beside "Pop/Rock"), moods, an
+artist's biography and picture, and MusicBrainz ids for nearly everything.
+
+It sorts at priority **500**, supplementary: MusicBrainz at 100 wins when both
+have an opinion, and this fills the gaps. A track is found by artist and title
+(and again without a decoration like "(2011 Remaster)" if that found nothing),
+then read whole, because a listing leaves out the label and the moods. A match
+needs both the artist and the title to agree; a near miss is no answer, which
+the station asks about again later, rather than a wrong one it keeps.
+
+### Which MusicBrainz ids these are
+
+Checked against MusicBrainz itself rather than assumed from where they sit:
+
+| on a   | Plex's `mbid://` is a | filed as              | promoted by the station |
+| ------ | --------------------- | --------------------- | ----------------------- |
+| artist | artist id             | `musicbrainz-artist`  | yes, onto the artist    |
+| album  | **release** id        | `musicbrainz-release` | no                      |
+| track  | **track** id          | `musicbrainz-track`   | no                      |
+
+The station's album and track columns hold a release GROUP and a RECORDING, so
+the last two are kept beside the other ids and written into neither: filed under
+the names those columns promote, they would record the wrong thing.
+
+### When Plex renumbers
+
+A track's id is its rating key, which changes when Plex removes something and
+adds it back (a moved folder, a re-created library). An artist or a record whose
+remembered key no longer answers is searched for again by MusicBrainz id and
+name, and the new key is remembered. Each answer also carries Plex's own id
+(`plex://…`, filed as `plex-guid`), which survives such a rescan.
+
+## What it does not do
 
 No transcoding. Plex transcodes through a session-based endpoint built for its
 own players, and the station's decoder reads every format a music library
 normally holds, so the original file is always what is aired.
-
-No enrichment. Plex carries MusicBrainz ids as `mbid://` GUIDs, and reading them
-is the next change. They also matter for a known Plex behaviour: a track's id is
-its rating key, which changes when Plex removes a track and adds it back (a
-moved folder, a re-created library). The station then holds an id Plex no
-longer answers to, and the record is found again by name.
 
 No `steer`. deadair owns the running order on purpose.

@@ -9,6 +9,57 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.53.0] — 2026-10-11
+
+- A record whose audio could not be fetched for measuring is now tried again after an hour instead of a day. A file that would not decode still waits a day, because retrying it means downloading and decoding the same bytes again. The analyzer's own reason is stored with the failure (`track_analysis.failure_code`). `PluginError` gains an optional `upstreamCode` (`withUpstreamCode`) for an upstream's own name for a failure, and the analysis capability exports `ANALYSIS_FAILURE_CODES`, the three values it understands.
+- Image: three more tags, `apple`, `slim-apple` and `full-apple`, which are `latest`, `slim` and `full` with the Apple Music player running inside the station's own container. Each publishes its release and release-line tags beside it (`apple-0.53.0`, `apple-0.53` and so on). The other three tags are unchanged and do not carry Chrome.
+- Apple Music: a catalog plugin that searches Apple Music with no developer key, and `stream/apple-player`, a container that plays a record in Apple's own web player and serves the capture over the same signed `GET /track/{id}` contract the Spotify shim answers. The plugin host gains `trackFetcher.servePlayer`, a provider may ask for a longer fetch budget for audio that arrives in real time, and the director no longer chooses a binding to deliver a record when its plugin cannot produce audio.
+- The Jellyfin plugin is now an enrichment source too. It passes on what Jellyfin knows about the
+  library: genres, years and release dates from your files' tags, and the biographies and pictures its
+  own online lookups found. It sits behind MusicBrainz, filling gaps rather than overruling it.
+
+  Jellyfin labels each MusicBrainz id it reads, so a recording, release group or artist id from your
+  tags now reaches the station's own records, and an id the station already holds confirms or rules
+  out a match.
+- A Jellyfin music provider, bundled. Point it at your server with an API key from the Jellyfin
+  dashboard and the user to read the library as, and the station can search the library, sync its
+  audio playlists (plus an Everything playlist that is the whole library), and air the original files
+  or an MP3 or Opus transcode.
+
+  Jellyfin's own search matches track names only, so a query is also read as an artist followed by a
+  title, and titles are compared without regard to punctuation. A search for a period uses Jellyfin's
+  year filter, which leaves out tracks whose files carry no year.
+- Plugins: a new bundled Pandora plugin. With a Pandora account it searches Pandora's catalog (ISRCs included, so its records match copies the station already has), describes a record, lists the account's playlists and imports a pasted Pandora playlist link. Unofficial: it signs in the way Pandora's Android app does, and works only from the US.
+- Plugins: Pandora can now air its records on a Pandora Premium account. The station asks for a chosen record, downloads Pandora's audio ahead of air like any other provider's, and tells Pandora when each record starts and ends, the way Pandora's own player does. On an account without Premium, Pandora refuses each record and the station plays from its other providers.
+- Guests at a party can ask for records without an account. Start a party and the station gives you a pass to show as a QR code; whoever scans it can search, request a record with a dedication, and follow their own requests, held to the same one-at-a-time, cooldown and approval rules as any listener, and nothing else. The pass lasts as long as you choose (six hours by default), and ending the party turns every guest away at once.
+- The Plex plugin is now an enrichment source too. It passes on what Plex's metadata agents know about
+  the library: each record's label, release date and styles, each track's moods, and each artist's
+  biography, picture and MusicBrainz id. It sits behind MusicBrainz, filling gaps rather than
+  overruling it.
+
+  Plex's album and track MusicBrainz ids are a release and a track, not the release group and recording
+  the station keeps on its records, so they are kept alongside the other ids without being written
+  over either. An artist or record whose Plex id changed after a rescan is found again by name.
+- A Plex music provider, bundled. Point it at your Plex Media Server with your Plex token and the
+  station can search its music libraries, sync its audio playlists (smart ones included, plus an
+  Everything playlist for each music library), and air the original files.
+
+  Plex's own search matches track titles only, so a query is also read as an artist followed by a
+  title. A search for a period leaves out tracks whose year Plex does not know.
+- Plugins: a stream provider can now implement the optional `reportPlayback(trackId, report)` to hear when one of its records goes to air (`started`) and when the next item takes over (`ended`, with the time heard). The station sends these as background jobs off the moment each record airs, and only to providers that implement it, for services that expect the client that fetched a record to say it is being played.
+- An artist inside a joined credit now counts against that credit's spacing. A record credited "Yusuf / Cat Stevens" and one credited "Cat Stevens" were two different artists to the cooldown, the queued-artist hold and the rule that keeps one act off its own heels, so each could follow the other within minutes. The spacing rules now treat two credits as one act when one, whole, is inside the other at a join (a slash, a bullet, an ampersand or a comma with a space beside it), so "Air" stays apart from "Air Supply" and "Jay" from "Jay-Z". Identity is unchanged: a dislike, a veto, a never-play rule and the play history still match the lead artist exactly.
+- The presenter is now told where the station is. Every model-written break (talk, welcome, news, weather, the date, story, changeover, dedication) and every production turn spoken from the studio states that Station location is the only place the presenter may call "here", "home" or "our city", and that a persona's home town or the station's own description never changes that. With no location set, the presenter is told not to claim one at all. A presenter styled as being from somewhere else no longer says "here in" that place on a station broadcasting from another. A break that does it anyway is refused and asked once more without the claim, falling back to the station's own phrasings if it repeats it (English stations only).
+- The history page no longer tells an operator to turn on `llm.captureWrites` when a prompt was not kept. It names the setting the way the console shows it, "Keep the prompt and the raw answer", and links to the Words page in Settings where it lives. Two station errors that told an operator to set `stream.publicUrl` or `stream.speakerUrl` now name "Public URL" and "Address for speakers" under Stream in Settings.
+- A record whose measurement was cut short is now measured again. The analyzer answers a transfer that stopped early as a successful but incomplete measurement, which the walk never retried and every reader ignores, so the record aired with no levelling and no cue points for good. It is now retried after an hour, then on a doubling wait capped at a day, so a record whose provider's claimed length is simply wrong costs one attempt a day rather than one an hour.
+
+  A podcast episode is no longer turned up past what its peak allows. Its level was corrected with the record cap of twelve decibels but none of the peak check a record gets, so a quiet master could be lifted into the limiter for the length of an episode. A cut is still always made; a boost now goes only as far as the headroom under the measured true peak, and not at all when no peak was measured, which today is every episode. A book or column the station reads out itself keeps the boost the station's own voice gets.
+- An unauthenticated request under `/webhooks/` is no longer treated as a fully trusted vendor. Nothing verifies a vendor's signature yet, so a vendor actor is now denied everything instead of granted it.
+- The bundled Pandora plugin is now actually loaded by the station. It shipped in the image and the docs called it bundled, but the API never listed it among its bundled plugin directories, so a station never discovered it.
+- A plugin error now carries its upstream's own failure code in one place, `PluginError.upstreamCode`, which takes a number or a string. The Deezer, Last.fm, Navidrome and Spotify plugins each kept that code in a field of their own (`apiError`, `subsonicCode`, `reason`), where it was lost when the host wrapped the error. They now set it with `withUpstreamCode`. The host logs it beside the upstream status when a plugin call fails a request, and never sends it to a client.
+- Playout: when a provider refuses a record's audio because the account is busy (`unavailable` or `rate_limited`: a stream playing on another device, a spent quota, a plugin mid-reload), the station puts the fetch off and asks again later instead of counting it toward writing that copy off. Before, an hour of a shared account in use elsewhere could bench every record the station tried in that hour.
+- Analysis: the measurement sidecar fetches only `http` and `https` urls, and refuses a redirect that leads to a private address unless it stays on the origin it was asked for or is named in `ANALYSIS_ALLOWED_ORIGINS`. The station's own audio and segment urls are fetched as before.
+- The presenter now says weather units as words. `12°C`, `41°F`, `15 km/h` and `20 mph` used to reach the speech engine as written, so each engine read them its own way or skipped them. They are now said as "12 degrees Celsius", "15 kilometres per hour" and so on (singular after exactly 1). A unit with no figure in front of it is left alone. This applies to English stations only, like the other symbols.
+
 ## [0.52.2] — 2026-10-10
 
 - A listener's dedication now airs directly in front of the record it was for, or not at all. Removing or moving the request, a dislike, or the record turning out to have no audio used to leave the dedication in the running order, where it was written again about whatever came next and aired in front of the wrong record. Now an insert aimed between the two lands outside them, moving either one moves both, and a dedication whose record has gone is dropped.
@@ -1239,7 +1290,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.52.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.53.0...HEAD
+[0.53.0]: https://github.com/robert-dean/deadair/compare/v0.52.2...v0.53.0
 [0.52.2]: https://github.com/robert-dean/deadair/compare/v0.52.1...v0.52.2
 [0.52.1]: https://github.com/robert-dean/deadair/compare/v0.52.0...v0.52.1
 [0.52.0]: https://github.com/robert-dean/deadair/compare/v0.51.0...v0.52.0

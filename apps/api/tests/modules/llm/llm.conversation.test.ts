@@ -9,13 +9,13 @@
 //    content is a request nobody will run, which reads downstream as the model having said nothing.
 
 import { describe, expect, it, vi } from 'vitest';
-import { isPluginError, type LlmMessage, type LlmRequest, type LlmResult, type LlmToolCall } from '@deadair/plugin-sdk';
+import { isPluginError, PluginError, type LlmMessage, type LlmRequest, type LlmResult, type LlmToolCall } from '@deadair/plugin-sdk';
 
 import type { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 import { LlmGate } from '../../../src/modules/llm/llm.gate.js';
-import { LlmService } from '../../../src/modules/llm/llm.service.js';
+import { LlmService, usageSpentBefore } from '../../../src/modules/llm/llm.service.js';
 import { ToolRegistry, type StationTool, type ToolSource } from '../../../src/modules/llm/llm.tools.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
@@ -245,6 +245,71 @@ describe('a conversation that uses a tool', () => {
         const result = await service.converse(ask());
 
         expect(result.usage).toEqual({ inputTokens: 250, outputTokens: 30, totalTokens: 280 });
+    });
+});
+
+// A conversation that throws used to take its running total with it, so the record of an attempt that
+// searched twice and then hit a provider error read as an attempt that cost nothing. The error is
+// thrown as it came, which is the half that keeps every catch site classifying it as before, and the
+// spend is readable beside it.
+describe('a conversation that fails part-way', () => {
+    const searchCall: LlmToolCall = { id: 'call_1', name: 'search', arguments: { query: 'boc' } };
+
+    /** Answers with `turns` in order and then throws `failure` on the next generation. */
+    function failingAfter(turns: Turn[], failure: Error) {
+        const { record } = scriptedPlugin(turns);
+        const scripted = (record.instance as unknown as { generate: (request: LlmRequest) => Promise<unknown> }).generate;
+        let calls = 0;
+        (record.instance as unknown as { generate: unknown }).generate = async (request: LlmRequest) => {
+            calls += 1;
+            if (calls > turns.length) throw failure;
+            return await scripted(request);
+        };
+        return record;
+    }
+
+    it('carries what every finished step spent on the error it throws', async () => {
+        const failure = new PluginError('the provider fell over').withCode('upstream');
+        const record = failingAfter(
+            [
+                { toolCalls: [searchCall], usage: { inputTokens: 100, outputTokens: 10, totalTokens: 110 } },
+                { toolCalls: [{ ...searchCall, id: 'call_2' }], usage: { inputTokens: 150, outputTokens: 20, totalTokens: 170 } },
+            ],
+            failure,
+        );
+        const { service } = serviceFor(record, [tool('search', async () => 'found')]);
+
+        const thrown = await service.converse(ask()).catch((error: unknown) => error);
+
+        expect(usageSpentBefore(thrown)).toEqual({ inputTokens: 250, outputTokens: 30, totalTokens: 280 });
+    });
+
+    it('throws the error it was given, so nothing reading its code has to change', async () => {
+        const failure = new PluginError('the provider fell over').withCode('upstream');
+        const record = failingAfter([{ toolCalls: [searchCall], usage: { totalTokens: 110 } }], failure);
+        const { service } = serviceFor(record, [tool('search', async () => 'found')]);
+
+        const thrown = await service.converse(ask()).catch((error: unknown) => error);
+
+        expect(thrown).toBe(failure);
+        expect(isPluginError(thrown) && thrown.code).toBe('upstream');
+    });
+
+    it('claims nothing for a conversation that failed on its first step', async () => {
+        // Zero would be a claim. What the failed generation itself cost is never known here.
+        const record = failingAfter([], new Error('the model refused'));
+        const { service } = serviceFor(record);
+
+        const thrown = await service.converse(ask()).catch((error: unknown) => error);
+
+        expect(thrown).toBeInstanceOf(Error);
+        expect(usageSpentBefore(thrown)).toBeUndefined();
+    });
+
+    it('answers nothing for an error no conversation threw', () => {
+        expect(usageSpentBefore(new Error('somewhere else'))).toBeUndefined();
+        expect(usageSpentBefore('a string')).toBeUndefined();
+        expect(usageSpentBefore(undefined)).toBeUndefined();
     });
 });
 

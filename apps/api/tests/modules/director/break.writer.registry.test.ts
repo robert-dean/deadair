@@ -7,11 +7,20 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { PluginError } from '@deadair/plugin-sdk';
+import { PluginError, type LlmResult } from '@deadair/plugin-sdk';
 
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from '../../../src/modules/director/break.writer.js';
 import type { WriteFault } from '../../../src/modules/director/break.prompt.js';
 import { BreakWriterRegistry, isWritten } from '../../../src/modules/director/break.writer.registry.js';
+import { MODEL_WRITER_KEYS, ModelTalkBreakWriter } from '../../../src/modules/director/model.talk.break.writer.js';
+import { SaidLog } from '../../../src/modules/director/almanac.source.js';
+import { LlmGate } from '../../../src/modules/llm/llm.gate.js';
+import { LlmService } from '../../../src/modules/llm/llm.service.js';
+import { ToolRegistry } from '../../../src/modules/llm/llm.tools.js';
+import type { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
+import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
+import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
+import { settingsConfig } from '../../utils/settings.config.js';
 
 class StubWriter extends BreakWriter {
     constructor(
@@ -429,5 +438,95 @@ describe('BreakWriterRegistry asking a second time', () => {
         await registry.write({ kind: 'talkbreak' });
 
         expect(writer.asked).toHaveLength(1);
+    });
+});
+
+// What reaches `script_history.usage` for an attempt that FAILED. A model writer records its usage
+// only once the conversation returns, so a conversation that spent a generation and then threw left
+// the row blank, and the Scripts page read the attempt as free. Built from the real service and the
+// real talk writer, because the claim is about the seam between them: the service notes the spend
+// beside the error, and the registry is where every writer's failure lands.
+describe('BreakWriterRegistry: what a failed model attempt spent', () => {
+    /** A model that says nothing once, at a price, and then fails on the ask that follows. */
+    function stallsThenFails(failure: Error) {
+        let calls = 0;
+        const record = {
+            id: 'deadair.llm',
+            dir: '/plugins/llm',
+            status: 'active',
+            manifest: { capabilities: ['llm'] },
+            instance: {
+                generate: vi.fn(async () => {
+                    calls += 1;
+                    if (calls > 1) throw failure;
+
+                    const result: LlmResult = {
+                        text: '',
+                        toolCalls: [],
+                        usage: { inputTokens: 900, outputTokens: 800, totalTokens: 1700 },
+                        finishReason: 'length',
+                    };
+                    return {
+                        text: new ReadableStream<string>({ start: controller => controller.close() }),
+                        result: Promise.resolve(result),
+                    };
+                }),
+                listModels: async () => [{ id: 'the-model', label: 'the-model', default: true }],
+            },
+        } as unknown as PluginRecord;
+
+        const invoker = { invoke: vi.fn(async (_id: string, _op: string, work: () => Promise<unknown>) => work()) } as unknown as PluginInvoker;
+        const { config } = settingsConfig({ [MODEL_WRITER_KEYS.enabled]: 'true' });
+        const llm = new LlmService(
+            { list: () => [record] } as unknown as PluginRegistry,
+            invoker,
+            new LlmGate(logger() as never),
+            new ToolRegistry([], logger() as never),
+            config,
+            logger() as never,
+        );
+
+        return new ModelTalkBreakWriter(llm, new SaidLog(), config, logger() as never);
+    }
+
+    const request = {
+        kind: 'talkbreak',
+        previous: { title: 'Solid Air', artist: 'John Martyn' },
+        next: { title: 'Pink Moon', artist: 'Nick Drake' },
+    };
+
+    it('keeps what the steps before the failure cost on the failed attempt', async () => {
+        const registry = new BreakWriterRegistry(
+            [stallsThenFails(new PluginError('the provider fell over').withCode('upstream'))],
+            logger() as never,
+        );
+
+        const result = await registry.write(request);
+
+        const [attempt] = result.attempts;
+        expect(attempt?.outcome).toBe('failed');
+        expect(attempt?.detail?.usage).toEqual({ inputTokens: 900, outputTokens: 800, totalTokens: 1700 });
+        // And the failure is classified exactly as it was before the spend rode along with it.
+        expect(attempt?.code).toBe('upstream');
+    });
+
+    it('still falls through to the floor', async () => {
+        const registry = new BreakWriterRegistry(
+            [stallsThenFails(new Error('the model refused')), new StubWriter('talkbreak', 'floor', words('the floor'))],
+            logger() as never,
+        );
+
+        const result = await registry.write(request);
+
+        expect(isWritten(result) && result.written.script).toBe('the floor');
+        expect(result.attempts[0]?.detail?.usage?.totalTokens).toBe(1700);
+    });
+
+    it('leaves a writer that throws with nothing spent without a figure', async () => {
+        const registry = new BreakWriterRegistry([new StubWriter('talkbreak', 'model', throws('no model'))], logger() as never);
+
+        const result = await registry.write({ kind: 'talkbreak' });
+
+        expect(result.attempts[0]?.detail).toBeUndefined();
     });
 });

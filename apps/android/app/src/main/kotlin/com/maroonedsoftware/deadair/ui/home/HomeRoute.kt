@@ -276,13 +276,15 @@ fun HomeRoute(
                 val like = if (isOperator && onAirTrackId != null) rememberLike(graph, onAirTrackId) else null
                 // Frozen while the station is unreachable: a bar still sweeping from a reading
                 // minutes old is a moving, confident lie about where the record is.
-                val playhead = rememberPlayhead(reading.takeIf { nowPlaying is NowPlayingState.Answered }, ticking = !rest.resting)
+                var lyricsOpen by rememberSaveable { mutableStateOf(false) }
+                // Faster while the words are open, so the word being sung is lit when it is sung.
+                val playhead =
+                    rememberPlayhead(reading.takeIf { nowPlaying is NowPlayingState.Answered }, ticking = !rest.resting || lyricsOpen, fast = lyricsOpen)
                 // The words of what this listener is HEARING: keyed on the reading the screen draws,
                 // which while playing is the gate's delayed copy, and lit from the same playhead.
                 val heardStartedAt = reading?.nowPlaying?.track?.startedAt
                 val lyricsAnswer = rememberLyrics(graph, signedIn = session is SessionState.SignedIn, heardStartedAt = heardStartedAt)
                 val lyrics = lyricsUiState(lyricsAnswer, heardStartedAt, playhead)
-                var lyricsOpen by rememberSaveable { mutableStateOf(false) }
                 if (lyricsOpen && lyrics != LyricsUiState.Hidden) LyricsSheet(lyrics, onDismiss = { lyricsOpen = false })
                 NowPlayingScreen(
                     state = nowState,

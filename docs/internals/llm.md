@@ -85,6 +85,18 @@ through. But "the model is self-hosted so nothing is billed" stopped being true 
 a paid API, which is exactly the trigger that section named. The retrofit surface is unchanged; what changed is
 that a runaway refill now costs money rather than a warm GPU.
 
+**A failed attempt still says what it spent, and the figure is a floor.** The one spend an operator
+sees is `script_history.usage` (the Scripts page's Tokens column), and a model writer records usage
+only once `converse` returns. A conversation that ran two billed steps and then hit a provider error
+used to throw its running total away with it, so the row read as free. `runConversation` now notes
+what the finished steps cost BESIDE the error (`usageSpentBefore`, a side table keyed by the error)
+rather than wrapping it, because every catch site already classifies a failure by what it is: the
+break registry keeps `error.code`, fact extraction backs off on `timeout`, and a wrapper that missed a
+field would turn a gate timeout into a writer bug. `BreakWriterRegistry` reads it where every
+writer's failure lands. The failing generation's own tokens are never in it, since one abandoned
+mid-stream is cancelled without a result, and a conversation that failed on its first step reports
+nothing rather than zero.
+
 **How hard the break model thinks, and how much room it has, are settings, because they belong to the
 model.** Every model-written break used to send `reasoningEffort: 'low'` and an 800-token ceiling, sized
 against gpt-oss, which thought briefly and answered in about 200 tokens. gemma4 on the same host thought for

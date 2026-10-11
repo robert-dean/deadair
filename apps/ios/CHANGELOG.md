@@ -8,6 +8,12 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-10-11
+
+- Now playing can keep the screen on. A new setting under Listening, Keep the screen on, has three answers: Never (the default), While charging and Always. The screen stays on only while this phone is playing the station and Now playing is in front, so the phone still locks as usual everywhere else.
+- The lock screen, Control Center and CarPlay now show how far through the record you are, with its length, following the audio you are hearing rather than running ahead of it. The bar is for looking at: a live station cannot be scrubbed, so it cannot be dragged. During a break, or a programme the station cannot give a length for, they say LIVE as before.
+- The iPhone app turns on its side. Now playing puts the cover beside the title and the controls, the words scroll beside the cover when they do not fit, and turning the phone brings the tabs back. The page only rests (everything but the cover fading away) while the phone is upright. Upside down stays off.
+
 ## [0.8.3] — 2026-10-10
 
 - Signed in, Now playing has a Lyrics button whenever the record you are hearing has words. It opens the lyrics with the line being sung lit and kept in view, timed to what you hear rather than to what the station has just sent, and shows the words as they came when the source has no timings. Signed out, or on an instrumental or a talk break, there is no button.

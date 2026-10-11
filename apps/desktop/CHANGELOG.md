@@ -8,6 +8,13 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-10-11
+
+- Studio can keep the display awake. A new setting on the Settings page, Keep the display awake, has three answers: Never (the default), While charging and Always. The display stays awake only while Studio is up where it can be seen and the station is playing, and goes back to sleeping as usual the moment you leave Studio, stop or quit.
+- The history view no longer tells an operator to turn on `llm.captureWrites` when a prompt was not kept. It names the setting the way the console shows it, "Keep the prompt and the raw answer" under Words in Settings.
+- VoiceOver names every button that shows only an icon. Moving and dropping records in the running order, the rating thumbs, the sort direction on Acts, Albums and Records, a playlist's menu, Back on setup, showing the password, dismissing a refusal and signing out each said "button" and nothing more, and now say what they do. The running order's move up, move down and drop buttons also gain the tooltips they were missing, and the progress bars and sliders elsewhere in the app are named too.
+- VoiceOver names the player bar's and Studio's controls. Play and Stop, Skip, Shuffle, the speaker picker, Now playing, Studio, Open the desk, Leave Studio and Back were each read out as "button" and nothing more, and the volume slider and the progress bar under the record had no name at all. Each one now says what it does, in the same words as its tooltip.
+
 ## [0.7.3] — 2026-10-10
 
 - The progress bar now follows the record whose title it is drawn under. For a few seconds after every record change it was counting down the next record while the previous one's title was still showing, and the rest of the time it ran a few seconds ahead of what you could hear, reaching the end while the music was still playing. The bar and the position in the system's Now Playing now follow the audio, as the title already did.
@@ -104,7 +111,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.8.0...HEAD
+[0.8.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.3...desktop-v0.8.0
 [0.7.3]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.2...desktop-v0.7.3
 [0.7.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.1...desktop-v0.7.2
 [0.7.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.0...desktop-v0.7.1

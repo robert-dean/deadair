@@ -6,7 +6,9 @@ import android.os.Bundle
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
+import java.util.concurrent.ExecutionException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,6 +33,15 @@ data class PlayerUiState(
  * outlives the activity, which is the whole point of it.
  */
 class PlayerConnection(private val context: Context) {
+    /**
+     * The bind, from `connect` until `release`, whether or not it has finished.
+     *
+     * Held rather than only the controller it produces, because `release` can come first: the
+     * wallpaper hides again within the bind as the lock screen flickers, and a press gives up
+     * waiting after five seconds. Releasing only `controller` then released nothing, and the bind
+     * finished afterwards into a connection nobody held, keeping `PlaybackService` bound for good.
+     */
+    private var pending: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
     private val _state = MutableStateFlow(PlayerUiState())
     val state: StateFlow<PlayerUiState> = _state.asStateFlow()
@@ -57,12 +68,24 @@ class PlayerConnection(private val context: Context) {
         }
 
     fun connect() {
-        if (controller != null) return
+        if (pending != null) return
         val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
         val future = MediaController.Builder(context, token).setListener(sessionListener).buildAsync()
+        pending = future
         future.addListener(
             {
-                controller = future.get().also { it.addListener(listener) }
+                // Released before the bind finished: `release` has already handed this future to
+                // Media3, which releases whatever it produces.
+                if (pending !== future) return@addListener
+                val bound =
+                    try {
+                        future.get()
+                    } catch (e: ExecutionException) {
+                        // The session refused the connection. Nothing is bound, so there is nothing to release.
+                        pending = null
+                        return@addListener
+                    }
+                controller = bound.also { it.addListener(listener) }
                 _state.value =
                     _state.value.copy(
                         connected = true,
@@ -83,12 +106,15 @@ class PlayerConnection(private val context: Context) {
         controller?.sendCustomCommand(SleepCommands.CLEAR, Bundle.EMPTY)
     }
 
+    /** Let go of the service, bound or still binding. */
     fun release() {
-        controller?.let {
-            it.removeListener(listener)
-            it.release()
-        }
+        val future = pending ?: return
+        pending = null
+        controller?.removeListener(listener)
         controller = null
+        // Cancels a bind still in flight (Media3 then releases the controller it produces) or
+        // releases the bound controller, whichever this future has got to.
+        MediaController.releaseFuture(future)
     }
 
     fun play() {

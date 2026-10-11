@@ -91,6 +91,8 @@ class PlaybackConductor(
             },
             publish = publishSleep,
         )
+    /** Says why the audio stopped, which `policy` acts on without recording. */
+    private val playbackLog = PlaybackLog(player)
     private val policy =
         ReconnectPolicy(
             backoff = Backoff(),
@@ -189,6 +191,7 @@ class PlaybackConductor(
     fun start() {
         reportPlayback()
         player.addListener(policy)
+        player.addListener(playbackLog)
         player.addListener(playWhenReadyListener)
         player.addListener(metadataListener)
         network.onEach(policy::onNetwork).launchIn(scope)
@@ -240,6 +243,7 @@ class PlaybackConductor(
         graph.widget.onPlayback(WidgetPlayback.STOPPED)
         aired(null)
         player.removeListener(policy)
+        player.removeListener(playbackLog)
         player.removeListener(playWhenReadyListener)
         player.removeListener(metadataListener)
         policy.cancel()

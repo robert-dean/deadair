@@ -39,17 +39,35 @@ import type { TrackRef } from './enrichment.js';
  */
 
 /**
+ * One timed word, or syllable, inside a line: the stretch of the line that
+ * starts being sung at `atMs`, in milliseconds from the start of the recording.
+ */
+export interface LyricWord {
+    atMs: number;
+    text: string;
+}
+
+/**
  * One timed line.
  *
  * `atMs` is the line's start, in milliseconds from the start of the recording.
  * `endMs` is its end when the source publishes one; leave it unset rather than
  * guessing, because the host derives an end from the next line's start and a
  * guessed one would be believed.
+ *
+ * `words` is the line cut where the source timed it, when the source times
+ * words at all, and unset when it does not. The pieces are in order, their
+ * `atMs` never goes backwards, and their texts JOINED are exactly `text`,
+ * spaces included: a piece may be a whole word with the space after it, or a
+ * syllable with none, so a reader lights a prefix of the line rather than
+ * guessing where one word ends. The host drops a line's words whole when they
+ * break that rule, and the line is shown as a line.
  */
 export interface LyricLine {
     atMs: number;
     endMs?: number;
     text: string;
+    words?: LyricWord[];
 }
 
 /**

@@ -159,7 +159,7 @@ struct NowPlayingScreen: View {
             await readLyrics(startedAt: reading?.value.track?.startedAt)
         }
         .sheet(isPresented: $lyricsOpen) {
-            LyricsSheet(answer: lyrics)
+            LyricsSheet(answer: lyrics, accent: cover.palette?.accent.map { Color(rgb: $0.accent) } ?? .accentColor)
         }
         .onAppear { shown = true }
         .onDisappear {

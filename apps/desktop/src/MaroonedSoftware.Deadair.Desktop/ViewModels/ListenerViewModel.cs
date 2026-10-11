@@ -13,7 +13,9 @@ using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
 using MaroonedSoftware.Deadair.Desktop.PluginSdk.Playback;
 using MaroonedSoftware.Deadair.Desktop.Services;
+using MaroonedSoftware.Deadair.Sdk;
 using MaroonedSoftware.Deadair.Sdk.Models;
+using MaroonedSoftware.Deadair.Sdk.Runtime;
 using NowPlayingReading = MaroonedSoftware.Deadair.Sdk.Models.NowPlaying;
 
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
@@ -82,6 +84,17 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     /// <summary>Which station attachment is current, so work begun for an earlier one can tell. See <see cref="DetachAsync"/>.</summary>
     private int _attachment;
 
+    /// <summary>Whether there is a session to read the lyrics with: the route is <c>platform.view</c>.</summary>
+    private bool _signedIn;
+
+    /// <summary>The station's last lyrics answer. Kept while the next airing's is read: see <see cref="ReadLyricsIfDue"/>.</summary>
+    private NowPlayingLyrics? _lyricsAnswer;
+
+    /// <summary>The airing (its <c>startedAt</c>) the lyrics were last asked for, so each is asked once.</summary>
+    private long? _lyricsAskedFor;
+
+    private CancellationTokenSource? _lyricsRead;
+
     public ListenerViewModel(
         OutputSwitch player,
         ISystemNowPlaying systemNowPlaying,
@@ -119,8 +132,9 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _systemNowPlaying.Commanded += command => _dispatcher.Post(() => _ = OnCommandedAsync(command));
 
         // Half a second, counted from the reading rather than from a wall clock, so the playhead
-        // moves smoothly between polls and is re-anchored whenever a real answer arrives.
-        _ticker = new DispatcherTicker(TimeSpan.FromMilliseconds(500), Tick);
+        // moves smoothly between polls and is re-anchored whenever a real answer arrives. A tenth of a
+        // second while words timed one by one are on screen (Tick, LyricsViewModel.FollowsWords).
+        _ticker = new DispatcherTicker(SlowTick, Tick);
 
         _volumeSettles = new DispatcherTicker(TimeSpan.FromMilliseconds(400), SaveVolume);
 
@@ -182,6 +196,9 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
     [ObservableProperty]
     private string _stationName = "deadair";
+
+    /// <summary>The words of the record being heard, for the Now playing panel and Studio.</summary>
+    public LyricsViewModel Lyrics { get; } = new();
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(NowPlayingLine))]
@@ -477,6 +494,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _artworkShowing = null;
         _artworkBytes = null;
         _heldReading = null;
+        ForgetLyrics();
 
         Title = null;
         Artist = null;
@@ -716,6 +734,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         OnPropertyChanged(nameof(Initial));
 
         Duration = Playhead.Duration(track)?.TotalSeconds ?? 0;
+        ReadLyricsIfDue();
         Tick();
 
         var itemKey = ItemKey(now);
@@ -732,11 +751,19 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _ = LoadArtworkAsync(Core.NowPlaying.HostPortrait.Cover(track, now.Show));
     }
 
+    /// <summary>The playhead's tick, and the faster one while the words being sung are lit one by one.</summary>
+    private static readonly TimeSpan SlowTick = TimeSpan.FromMilliseconds(500);
+
+    private static readonly TimeSpan FastTick = TimeSpan.FromMilliseconds(100);
+
     private void Tick()
     {
         var track = _heldReading?.Reading.Track;
         var position = Playhead.Position(track, _heldReading?.HeardAt, DateTimeOffset.UtcNow);
         var duration = Playhead.Duration(track);
+        ShowLyrics();
+        // A word lasts a few hundred milliseconds, so a half-second tick lights it late or skips it.
+        _ticker.Interval = Lyrics.FollowsWords ? FastTick : SlowTick;
 
         if (position is null || duration is null)
         {
@@ -753,6 +780,111 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         Position = position.Value.TotalSeconds;
         Elapsed = ClockFormat.Elapsed(position.Value);
         Remaining = ClockFormat.Remaining(duration.Value - position.Value);
+    }
+
+    /// <summary>
+    /// Says whether there is a session to read the lyrics with. Called as the session changes, like
+    /// <see cref="SetCanSkip"/>.
+    /// </summary>
+    /// <remarks>
+    /// Signing out forgets the answer at once, since the words were read under an account that has
+    /// gone; signing in asks for the airing being heard rather than waiting for the next one.
+    /// </remarks>
+    public void SetSignedIn(bool signedIn)
+    {
+        if (signedIn == _signedIn)
+        {
+            return;
+        }
+
+        _signedIn = signedIn;
+        if (signedIn)
+        {
+            ReadLyricsIfDue();
+        }
+        else
+        {
+            ForgetLyrics();
+        }
+    }
+
+    /// <summary>
+    /// Asks for the lyrics once per airing of a record, keyed on its <c>startedAt</c> as the hold keys
+    /// a new item, and only with a session.
+    /// </summary>
+    /// <remarks>
+    /// The old answer is not cleared before the read, as on the phone: it is for a different airing,
+    /// which <c>Lyrics.State</c> already refuses to show, and clearing it would only flicker the
+    /// section. A break is not asked about, since the station answers a break with no words. A read
+    /// that fails is the same as no words: lyrics are a nicety, and a sentence about an unreachable
+    /// station there would repeat the one the desk already gives.
+    /// </remarks>
+    private void ReadLyricsIfDue()
+    {
+        if (!_signedIn || _station == default || _heldReading?.Reading.Track is not { Kind: NowPlayingTrackKind.Record } track)
+        {
+            return;
+        }
+
+        if (track.StartedAt == _lyricsAskedFor)
+        {
+            return;
+        }
+
+        _lyricsAskedFor = track.StartedAt;
+        _lyricsRead?.Cancel();
+        _lyricsRead?.Dispose();
+        _lyricsRead = new CancellationTokenSource();
+        _ = ReadLyricsAsync(_attachment, _lyricsRead.Token);
+    }
+
+    private async Task ReadLyricsAsync(int attachment, CancellationToken cancellationToken)
+    {
+        NowPlayingLyrics? answer;
+        try
+        {
+            using var sdk = new DeadairSdk(new SdkOptions { BaseUrl = _station.ApiBase, HttpClient = _http });
+            answer = await sdk.Nowplaying.GetNowPlayingLyricsAsync(cancellationToken).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (Exception exception)
+        {
+            Trace.WriteLine($"lyrics: not read ({exception.GetType().Name})");
+            answer = null;
+        }
+
+        // Read for a station, or a session, the app has since let go of.
+        if (cancellationToken.IsCancellationRequested || attachment != _attachment || !_signedIn)
+        {
+            return;
+        }
+
+        _lyricsAnswer = answer;
+        ShowLyrics();
+    }
+
+    private void ForgetLyrics()
+    {
+        _lyricsRead?.Cancel();
+        _lyricsRead?.Dispose();
+        _lyricsRead = null;
+        _lyricsAnswer = null;
+        _lyricsAskedFor = null;
+        ShowLyrics();
+    }
+
+    /// <summary>
+    /// Lights the line being heard, projected from the HELD reading as the bar is: the latest poll is
+    /// a new record's countdown for the whole of the lead while this one's title is still up.
+    /// </summary>
+    private void ShowLyrics()
+    {
+        var track = _heldReading?.Reading.Track;
+        var playhead = HeardPlayhead.From(track, _heldReading?.HeardAt, DateTimeOffset.UtcNow);
+        Lyrics.Show(Core.NowPlaying.Lyrics.State(_lyricsAnswer, track?.StartedAt, playhead));
     }
 
     /// <summary>The bitrate, when the chosen mount has one to give.</summary>
@@ -878,6 +1010,8 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _ticker.Stop();
         _volumeSettles.Stop();
         _sleep.Dispose();
+        _lyricsRead?.Cancel();
+        _lyricsRead?.Dispose();
         _systemNowPlaying.Clear();
         _lease?.Dispose();
 

@@ -14,6 +14,7 @@ import { FactExtractionJob } from '#modules/enrichment/fact.extraction.job.js';
 import { ArtCacheJob } from '#modules/art/art.cache.job.js';
 import { AnalysisJob } from '#modules/analysis/analysis.job.js';
 import { CacheTrackJob } from '#modules/playout/audio/cache.track.job.js';
+import { ReportPlaybackJob } from '#modules/playout/providers/report.playback.job.js';
 import { FETCH_PER_PASS } from '#modules/playout/audio/track.cache.planner.js';
 import { AirChartJob } from '#modules/director/air.chart.job.js';
 import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
@@ -300,6 +301,20 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         job: SweepTrackCacheJob,
         cron: '3-59/15 * * * *',
         policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
+    },
+
+    // Telling a provider that one of its copies aired or came off, off the rundown's aired edge. Twice,
+    // a few seconds apart and backing off, because the plugin rethrows only what it calls retryable
+    // and a report is worth something only while it is still roughly true. A minute covers one
+    // request to somebody else's API.
+    'playout.report_playback': {
+        job: ReportPlaybackJob,
+        policy: {
+            retryLimit: 2,
+            retryDelay: Duration.fromObject({ seconds: 10 }),
+            retryBackoff: true,
+            expiresIn: Duration.fromObject({ minutes: 1 }),
+        },
     },
 
     // No cron: the director sends this when a lineup it is airing runs short, which

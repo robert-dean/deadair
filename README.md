@@ -112,13 +112,11 @@ what else it needs.
 
 All six tags follow `main`, so they move on every push that changes the station; a push that
 touches only the docs, the website or a listener app leaves them where they are. A release publishes
-`0.1.0` and `0.1` alongside each of them (with the variant in front, as in `full-0.1`), once its
-tests pass, and is tagged `v0.1.0` with a GitHub release of its changelog entry: **pin `deadair/deadair:0.1` to track releases only**, and read
+`0.55.0` and `0.55` alongside each of them (with the variant in front, as in `full-0.55`), once its
+tests pass, and is tagged `v0.55.0` with a GitHub release of its changelog entry: **pin `deadair/deadair:0.55` to track releases only**, and read
 [CHANGELOG.md](CHANGELOG.md) for what changed between them. How a release is cut is in
 [CONTRIBUTING.md](CONTRIBUTING.md). Images are `linux/amd64`.
 
-On Unraid, install the template in [`unraid/deadair.xml`](unraid/deadair.xml). Anywhere else,
-[`deploy/docker-compose.yml`](deploy/docker-compose.yml) is the same container written for Compose.
 One published port carries the console, the API and the stream, so whatever you already put in front
 of a port carries the station too.
 
@@ -126,6 +124,55 @@ of a port carries the station too.
 that looks perfect and plays nothing: on Spotify there are **two** authorizations and you need both.
 The connection lets the plugin read your library; the playback authorization below it lets the
 station fetch audio. With only the first, your playlists list correctly and every record is dropped.
+
+### On Unraid
+
+The whole install is one form. You need an `amd64` server with Community Applications installed, so
+the **Apps** tab exists.
+
+1. **Apps**, search for `deadair`, and choose **Install**. Unraid opens the container's settings form
+   with the template's defaults filled in.
+2. **Pick the tag.** The template installs `latest`, which expects a PostgreSQL and a Redis you
+   already run. On a server with nothing else on it, choose `full` when Unraid asks, or change the end
+   of **Repository** from `:latest` to `:full`. Left on `latest` with the database fields empty, the
+   first boot stops at `deadair: no database.` On an Apple Music tag, add `--shm-size=1g` under
+   **Extra Parameters**.
+3. **Fill in the Basic view.** Leave **WebUI** at `8080` and **Data** at
+   `/mnt/user/appdata/deadair` (on `full`, `/mnt/cache/appdata/deadair` is better: the database lives
+   there, and PostgreSQL is slow over Unraid's `/mnt/user` layer). Set **Public address** and
+   **Console address** to the same thing, the address you type into a browser with nothing after the
+   port, such as `http://192.168.1.10:8080`. Set **Timezone**. Leave **Secret key** and **Session
+   key** empty, and the station makes both on its first boot. On `full`, leave every database and
+   cache field empty too.
+4. **Apply**, then open the container's log from the **Docker** tab and wait for `Boot complete`.
+   The first boot applies the schema and takes a few minutes. There is no permissions step: the
+   container runs as 99:100, which already owns the appdata share.
+5. Open the public address and create the administrator on **Set up deadair**.
+
+**Get the two addresses right.** A wrong one still lets the console load, so the mistake hides until a
+sign-in link or a Spotify authorization sends your browser somewhere that does not answer. If
+anything looks off, `docker exec deadair deadair-doctor` in the Unraid terminal checks the share,
+the keys, the database, the cache and both addresses, one line each.
+
+Optionally point **Media** at a share on the array: it holds what the station can produce again
+(downloaded records, art, rendered speech), grows to roughly the size of the library you play, and
+belongs outside your backups. Updates are the button Unraid shows when a new image is out.
+[Install on Unraid](https://deadair.radio/docs/tutorials/install-unraid) walks the same path with
+screenshots, and [On Unraid](https://deadair.radio/docs/unraid) covers every field, the Advanced
+view and a proxy in front. The template itself is [`unraid/deadair.xml`](unraid/deadair.xml); if
+Apps does not find it, save that file into `/boot/config/plugins/dockerMan/templates-user/` and it
+appears under **Docker → Add Container**.
+
+### Anywhere else
+
+[`deploy/docker-compose.yml`](deploy/docker-compose.yml) is the same container written for Compose,
+and one command sets it up on any machine with Docker and the Compose plugin:
+
+```bash
+curl -fsSL https://deadair.radio/install.sh | sh
+```
+
+[deploy/README.md](deploy/README.md) has the rest, including doing it by hand.
 
 ## The console
 

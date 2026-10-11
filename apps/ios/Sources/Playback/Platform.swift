@@ -240,6 +240,22 @@ extension Platform {
     }
 }
 
+extension Platform {
+    /// A cover made small enough for the widget and the Live Activity to read off disk: 240 pixels
+    /// on its longer side, as a JPEG.
+    ///
+    /// The extension that draws them runs in a few tens of megabytes, and a full-size cover decoded
+    /// there is a widget that silently draws nothing. Shrunk here, once per record, by the app.
+    static func widgetCover(_ image: PlatformImage, side: CGFloat = 240) -> Data? {
+        let scale = min(1, side / max(image.size.width, image.size.height, 1))
+        let size = CGSize(width: (image.size.width * scale).rounded(), height: (image.size.height * scale).rounded())
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let small = UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+        return small.jpegData(compressionQuality: 0.8)
+    }
+}
+
 extension Image {
     init(platformImage: PlatformImage) {
         self.init(uiImage: platformImage)

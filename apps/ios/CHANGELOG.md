@@ -8,6 +8,13 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-10-11
+
+- While the station plays, what is on shows as a Live Activity on the Lock Screen and in the Dynamic Island: the record and its artist, or who is on the mic, the station and its presenter, a bar for how far through the record it is when the station says, and a Stop button. It starts when you press play in the app, follows the record you are hearing, and goes when you stop, when the sleep timer ends, or when you choose another station. Settings, Listening has a "Show on the Lock Screen" switch to turn it off.
+- When a record's lyrics time each word, the lyrics sheet lights the words as they are sung: the sung part of the current line turns Now playing's accent colour with a soft glow. Lines timed only as lines are lit whole as before. The sheet follows the playhead ten times a second while it is open; everything else keeps its half-second tick.
+- A Now playing widget for the Home Screen, in small and medium sizes. It shows the record you are hearing with its cover, or who is on the mic during a break, with the station's name and a Play or Stop button that works without opening the app. It changes record when the lock screen does, and it asks the station nothing of its own: what it shows is what the app last heard, with the time it heard it once that is more than a couple of minutes ago.
+- Now playing has an AirPlay button under the controls. It opens the system's list of speakers, so the station can play on an AirPlay speaker or a Bluetooth device, and while it does a line under the controls says which one. Choosing a speaker moves the sound rather than stopping it; headphones coming out, or a speaker going away, still stop the station.
+
 ## [0.9.0] — 2026-10-11
 
 - Now playing can keep the screen on. A new setting under Listening, Keep the screen on, has three answers: Never (the default), While charging and Always. The screen stays on only while this phone is playing the station and Now playing is in front, so the phone still locks as usual everywhere else.

@@ -130,7 +130,9 @@ export class LyricsService {
             } catch (error) {
                 outcome.failed++;
                 const message = errorText(error);
-                this.logger.warn('lyrics plugin failed', { pluginId, artist: ref.artist, title: ref.title, error: message });
+                // At debug: `PluginInvoker` has already warned about this failure, with the op and the
+                // count, and a busy upstream answering 503 for an hour put every failure in the log twice.
+                this.logger.debug('lyrics plugin failed', { pluginId, artist: ref.artist, title: ref.title, error: message });
                 await this.write(() =>
                     this.repository.recordFailure(track.id, pluginId, message, LYRICS_FAILURE_RETRY_MS, LYRICS_FAILURE_MAX_RETRY_MS),
                 );

@@ -36,6 +36,9 @@ list here. **Directory country** chooses which country's directory is searched, 
 Open **Library → Podcasts**. Under **Find a show**, type the show's name, its publisher or its
 subject, and press **Search**. Press **Subscribe** beside the show you want.
 
+![Library, Podcasts, with no shows yet and the Find a show search](/img/console/podcasts.webp)
+*Fig. 1. **Library → Podcasts** on a station that carries no shows yet.*
+
 The result now says **Subscribed**, and the show is added to the plugin's **Shows** list.
 
 The station reads every feed every half hour. Press **Read the feeds now** to do it straight away. A

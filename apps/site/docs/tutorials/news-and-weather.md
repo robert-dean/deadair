@@ -41,6 +41,9 @@ newest first. These are what a bulletin is written from.
 
 Open **Settings → Bulletins**.
 
+![Settings, Bulletins: headlines, the feeds a bulletin reads, and the weather settings](/img/console/settings.bulletins.webp)
+*Fig. 1. **Settings → Bulletins**. The weather settings from step 4 are on the same page.*
+
 **The feeds a bulletin reads** is empty to begin with, which means every feed, newest first. That is
 fine with one or two feeds. With more, a newsroom that posts twenty times a day crowds out one that
 posts three times, so list them: press **Add**, pick a **Feed**, and repeat in the order you want them

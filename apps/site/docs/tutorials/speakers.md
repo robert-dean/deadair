@@ -26,6 +26,9 @@ Open **Settings → Plugins** and open **Speakers**.
    without being told their addresses.
 3. Press **Save configuration**.
 
+![The Speakers plugin's settings: the discovery switch and an empty list of speakers](/img/console/plugins.cast.webp)
+*Fig. 1. **Settings → Plugins → Speakers**, before it is switched on and before any speaker is added.*
+
 **You should see** the plugin's status turn to **Active**.
 
 ## 2. Make sure it can find your speakers
@@ -80,6 +83,10 @@ On the **Desk**, press **Play on a speaker** under the transport. The menu says 
 and then lists them under **Speakers**, each with its kind, such as **Chromecast** or **UPnP**, and its
 model. A speaker that can play more than one of the station's streams is listed once for each, with
 the format beside it (**MP3**, **AAC** and so on).
+
+![The Desk with the Play on a speaker menu open](/img/console/desk.cast.webp)
+*Fig. 2. The menu under **Play on a speaker**. Until the station finds a speaker, or you add one, it
+says so here.*
 
 Choose one. **You should see** the button change to **Playing on 1 speaker**, and in the menu the speaker
 moves under **Playing on**, going from **Starting** through **Buffering** to **Playing**. The speaker

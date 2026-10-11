@@ -20,13 +20,13 @@ import { DEEZER_CODE_NO_DATA, type DeezerErrorResponse } from './deezer.types.js
 export class DeezerRequestError extends PluginError {
     readonly status: number;
     /** Deezer's own error code, where the failure came back inside a 200. */
-    readonly upstreamCode?: number;
+    readonly deezerCode?: number;
 
-    constructor(status: number, message: string, options: { upstreamCode?: number; retryMs?: number } = {}) {
+    constructor(status: number, message: string, options: { deezerCode?: number; retryMs?: number } = {}) {
         super(message);
         this.name = 'DeezerRequestError';
         this.status = status;
-        if (options.upstreamCode !== undefined) this.upstreamCode = options.upstreamCode;
+        if (options.deezerCode !== undefined) this.deezerCode = options.deezerCode;
 
         this.withCode(pluginCodeForStatus(status)).withUpstreamStatus(status);
         if (options.retryMs !== undefined) this.withRetry(options.retryMs);
@@ -34,7 +34,7 @@ export class DeezerRequestError extends PluginError {
 
     /** Whether this is Deezer's way of saying "nothing here", which is data rather than a fault. */
     get isNoData(): boolean {
-        return this.upstreamCode === DEEZER_CODE_NO_DATA;
+        return this.deezerCode === DEEZER_CODE_NO_DATA;
     }
 }
 
@@ -91,7 +91,7 @@ export class DeezerClient {
         if (error) {
             const reason = truncateUpstreamMessage([error.type, error.message].filter(part => part).join(': '));
             throw new DeezerRequestError(response.status, `Deezer request failed: ${reason || 'unspecified error'}`, {
-                ...(error.code === undefined ? {} : { upstreamCode: error.code }),
+                ...(error.code === undefined ? {} : { deezerCode: error.code }),
             });
         }
 

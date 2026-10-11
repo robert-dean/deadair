@@ -151,6 +151,11 @@
     <string name="section_appearance">Appearance</string>
     <string name="section_listening">Listening</string>
     <string name="play_on_open">Play when the app opens</string>
+    <string name="keep_awake">Keep the screen on</string>
+    <string name="keep_awake_detail">While this phone is playing the station and Now playing is up.</string>
+    <string name="keep_awake_never">Never</string>
+    <string name="keep_awake_while_charging">While charging</string>
+    <string name="keep_awake_always">Always</string>
     <string name="play_on_open_detail">Starts the station as the app opens, unless it is already playing. The first seconds are quiet while the station comes on air.</string>
     <string name="use_wallpaper_colors">Use wallpaper colors</string>
     <string name="use_wallpaper_colors_detail">Off, and the app wears the station\'s own green on carbon</string>

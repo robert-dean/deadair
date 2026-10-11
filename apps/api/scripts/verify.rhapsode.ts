@@ -140,6 +140,7 @@ const factory = new PluginHostFactory(
     container,
     { for: () => consoleLogger } as never,
     {} as never,
+    {} as never,
     { isUnrestricted: () => false } as never,
 );
 

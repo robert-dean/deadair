@@ -1,0 +1,31 @@
+#!/bin/sh
+# The Apple Music player: Chrome playing Apple's own web player into a sink nobody listens to, and the
+# capture of it served as `GET /track/{id}` (see stream/apple-player/README.md). Only in the `apple`
+# variants; the Dockerfile cuts it from the bundle everywhere else.
+#
+# The launcher is the compose service's own entrypoint, unchanged, rather than three services here.
+# Its framebuffer, sound server and player are one unit: the order they start in is the thing that
+# makes a capture audible, and a sound server restarted under a running Chrome is silence that looks
+# like a working file. So the supervisor sees one process and the launcher keeps its own loop for the
+# player alone, the one part that is safe to restart by itself.
+exec 2>&1
+
+# Loopback only, as the resolver beside it is: the signed URL is what authorizes a fetch, and nothing
+# outside this container has a reason to ask. `apple-player` resolves here (see `init-station`).
+#
+# The profile is under `/data` because it IS the sign-in: the operator signs in to Apple Music once,
+# through the VNC door the launcher opens when `APPLE_PLAYER_VNC=1`, and losing the profile is doing
+# that again. The captures are in flight rather than kept, so they stay off the volume.
+#
+# The launcher reads `radio.env` itself, for the bridge secret, and as the station's user for the
+# reason every other run script here does: the app writes that file and `.` executes it.
+exec s6-setuidgid deadair env \
+    APPLE_PLAYER_HOST=127.0.0.1 \
+    APPLE_PLAYER_CONFIG=/data/streamconfig/radio.env \
+    APPLE_PLAYER_SRC=/opt/apple-player/src \
+    APPLE_PLAYER_PROFILE=/data/appleplayer/profile \
+    APPLE_PLAYER_CAPTURE_DIR=/tmp/apple-player/captures \
+    XDG_RUNTIME_DIR=/tmp/apple-player/xdg \
+    DISPLAY=:99 \
+    HOME=/data/appleplayer \
+    /opt/apple-player/run.sh

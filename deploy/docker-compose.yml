@@ -17,6 +17,9 @@ services:
         image: deadair/deadair:${VARIANT:-latest}
         container_name: deadair
         restart: unless-stopped
+        # For the Apple Music tags, whose Chrome renderer dies mid-record on Docker's 64MB default. A
+        # ceiling rather than a reservation, so it costs the other tags nothing.
+        shm_size: 1gb
         env_file:
             - .env
         environment:

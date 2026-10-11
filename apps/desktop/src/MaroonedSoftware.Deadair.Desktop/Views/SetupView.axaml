@@ -84,6 +84,7 @@
             <Button
                 Classes="icon"
                 ToolTip.Tip="Back"
+                AutomationProperties.Name="Back"
                 Command="{Binding BackCommand}"
                 IsVisible="{Binding CanGoBack}"
                 Margin="-8,0,0,0"
@@ -197,6 +198,7 @@
             <Button
                 Classes="icon"
                 ToolTip.Tip="{Binding DeclineLabel}"
+                AutomationProperties.Name="{Binding DeclineLabel}"
                 Command="{Binding BackCommand}"
                 Margin="-8,0,0,0"
                 HorizontalAlignment="Left">

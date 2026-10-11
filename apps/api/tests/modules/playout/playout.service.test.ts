@@ -36,6 +36,8 @@ const activity = { record: vi.fn(async () => undefined) } as unknown as Activity
 const BRIDGE_SECRET = 'bridge-secret';
 
 interface Options {
+    /** Whether the stream's last reading said the lease was waiting on its first record. */
+    warming?: boolean;
     bridgeSecret?: string;
     markAired?: boolean;
     /** What the import throws, if anything: the plugin narrowing lives inside it. */
@@ -117,6 +119,7 @@ function build(options: Options = {}) {
     const control = {
         isUp: vi.fn(() => options.streamUp ?? true),
         isOnAir: vi.fn(() => options.onAir ?? true),
+        isWarming: vi.fn(() => options.warming ?? false),
         noteStarve: vi.fn(),
         starvedSince: vi.fn(() => undefined),
         downSince: vi.fn(() => options.downSince),
@@ -389,6 +392,17 @@ describe('PlayoutService.getStatus', () => {
 
             expect((await service.getStatus()).silence.cause).toBe('warmingUp');
             expect(director.warmingRecords).toHaveBeenCalled();
+        });
+
+        it('calls a lease waiting on its first record a station warming up, not one on air', async () => {
+            // The stream's half of the warm-up: the record is handed over and the lease held on silence
+            // while it downloads, so `driving` and `hasProgramme` both say airing and only the reading
+            // says nothing is going out yet.
+            const { service } = build({ listeners: 1, warming: true });
+
+            const status = await service.getStatus();
+            expect(status.silence.cause).toBe('warmingUp');
+            expect(status.silence.audible).toBe(false);
         });
 
         it('still calls an order that ran out an order that ran out', async () => {

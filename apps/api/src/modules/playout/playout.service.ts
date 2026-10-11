@@ -222,6 +222,8 @@ export class PlayoutService {
             // Liquidsoap is up, not that Icecast is carrying what it sends.
             ...(audience.sourceMissingSince === undefined ? {} : { sourceMissingForMs: now - audience.sourceMissingSince }),
             driving: this.control.isOnAir(),
+            // Held on silence while the first record downloads: driving, and nothing going out yet.
+            ...(this.control.isWarming() ? { playerWarming: true } : {}),
             staleConfig: this.staleness.warnings(),
             active: air.active,
             hasProgramme: this.rundown.hasProgramme(),

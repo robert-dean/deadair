@@ -65,6 +65,10 @@ const LEAD = PLAYOUT_LEAD;
  * So the queue stays empty until somebody is there, and the fetch happens in
  * front of the first listener. Freezing it instead would take a change in
  * `radio.liq` (a separate clock, or `source.dynamic`), not a constant here.
+ * What `radio.liq` does instead is hold a lease taken from nothing on silence
+ * until that first fetch is ready (its warm-up, reported as `warming`), so the
+ * listener waits a few seconds for the record rather than hearing the bed in
+ * front of it.
  */
 const WARM_LEAD = 0;
 

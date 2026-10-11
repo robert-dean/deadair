@@ -131,6 +131,14 @@ export interface QueueStatus {
      */
     driving?: boolean;
     /**
+     * Whether the lease is held and the mount is on SILENCE while the first request downloads.
+     *
+     * A lease taken from nothing waits for its first record rather than airing the bed in front of
+     * it (the warm-up block in `radio.liq`), so for those seconds {@link driving} is true and nothing
+     * is going out. Absent means an older script, which aired the bed instead and never warms.
+     */
+    warming?: boolean;
+    /**
      * What the armed talk-over cue is doing.
      *
      *   `idle`   nothing armed
@@ -165,6 +173,8 @@ export class PlayoutControlClient {
     private up = false;
     /** Whether the last reading said the station was on air. See {@link isOnAir}. */
     private onAir = false;
+    /** Whether the last reading said the lease is waiting on its first record. See {@link isWarming}. */
+    private warming = false;
     /** When the stream stopped answering, while it is still not answering. See {@link downSince}. */
     private downAt?: number;
     /** When the running order stopped producing, while it is still stopped. See {@link starvedSince}. */
@@ -215,6 +225,17 @@ export class PlayoutControlClient {
      */
     isOnAir(): boolean {
         return this.onAir;
+    }
+
+    /**
+     * Whether the lease was held on silence, waiting for its first record, as of the last reading.
+     *
+     * {@link isOnAir} is true through that warm-up, so this is what stops a console calling the
+     * station audible for those seconds. False before the first reading, after a failed call and
+     * against a script too old to warm, all of which have nothing to say about it.
+     */
+    isWarming(): boolean {
+        return this.warming;
     }
 
     /**
@@ -454,6 +475,7 @@ export class PlayoutControlClient {
     private read(body: unknown): QueueStatus | undefined {
         const reading = parseReading(body);
         this.onAir = reading?.driving ?? false;
+        this.warming = reading?.warming ?? false;
         if (reading !== undefined) this.reading = reading;
         // A call that produced no reading hands over `undefined` rather than a default:
         // a stream nobody could reach has not told us anything about its config, and the
@@ -585,6 +607,7 @@ export function parseReading(body: unknown): QueueStatus | undefined {
     if (raw.resolving !== undefined && Number.isInteger(resolving) && resolving >= 0) status.resolving = resolving;
     if (typeof raw.ready === 'boolean') status.ready = raw.ready;
     if (typeof raw.driving === 'boolean') status.driving = raw.driving;
+    if (typeof raw.warming === 'boolean') status.warming = raw.warming;
     // "" is radio.liq's "nothing on air", not an id.
     if (typeof raw.onAir === 'string' && raw.onAir !== '') status.onAir = raw.onAir;
     // radio.liq sends -1 for "cannot say". A 0 would mean an item with no time left,

@@ -309,6 +309,18 @@ no dev stack:
 python3 stream/duck.check.py
 ```
 
+`warmup.check.liq` checks what a first listener hears while the first record downloads. The lease is
+taken with nothing ready, the record arrives two seconds later, and a second tone stands in for the
+ident bed under the programme: the mount should be silent until the record is ready and then carry
+it, with no bed in front of it and no gap reported. A second run delivers the record after a
+two-second allowance has gone, where the bed airs and the gap is reported, as it did before the
+warm-up existed. Run against the old gate it fails on exactly the symptom the live station logged
+ten times between 2026-10-08 and 2026-10-10. Built like the fadeskip check, with no dev stack:
+
+```
+python3 stream/warmup.check.py
+```
+
 `voice.check.liq` measures where the voice leaves the compressor. It levels speech to an aim the way
 the stamp does, runs the shared compressor at two aims, and checks that the voice comes out at its aim
 both times. The speech is synthesised unless you pass a real segment, which is how the makeup was

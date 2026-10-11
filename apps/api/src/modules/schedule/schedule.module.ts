@@ -3,6 +3,7 @@ import { ServerKitModule } from '@maroonedsoftware/koa';
 import { PreparedSetRepository } from './prepared.set.repository.js';
 import { ScheduleRepository } from './schedule.repository.js';
 import { ScheduleNotices } from './schedule.notices.js';
+import { OpeningWait } from './opening.wait.js';
 import { ScheduleService } from './schedule.service.js';
 
 /**
@@ -36,6 +37,8 @@ export const ScheduleModule: ServerKitModule = {
         // A SINGLETON, unlike everything else here, and that is the point of it: the tick is rebuilt
         // on every run, so the mark saying "I have already reported this" has to outlive it.
         registry.register(ScheduleNotices).useClass(ScheduleNotices).asSingleton();
+        // The same, for when the tick started holding a changeover for its opening.
+        registry.register(OpeningWait).useClass(OpeningWait).asSingleton();
         // `ScheduleTickJob` is deliberately NOT registered here. `JobsModule` walks `JobMappings` and
         // registers every job class itself, so a second registration is not redundancy, it throws at
         // boot: "Registration for ScheduleTickJob already exists".

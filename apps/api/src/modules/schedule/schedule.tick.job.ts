@@ -14,6 +14,7 @@ import type { RundownTrack } from '#modules/playout/rundown.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { hasOverrun } from './changeover.overrun.js';
+import { OPENING_WAIT_MS, OpeningWait } from './opening.wait.js';
 import { PREPARE_AHEAD_MS, airsNight, type PrepareSlotPayload } from './prepare.slot.job.js';
 import { PreparedSetRepository } from './prepared.set.repository.js';
 import { ScheduleNotices } from './schedule.notices.js';
@@ -93,6 +94,8 @@ export class ScheduleTickJob extends PlainJob {
         private readonly prepared: PreparedSetRepository,
         // For asking for the next show's set: see {@link prepareAhead}.
         private readonly jobs: PgBossJobBroker,
+        // When a changeover started waiting for its opening: see {@link holdForOpening}.
+        private readonly openingWait: OpeningWait,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -151,7 +154,7 @@ export class ScheduleTickJob extends PlainJob {
             return;
         }
 
-        await this.changeOver(slot, airing);
+        await this.changeOver(slot, airing, active);
     }
 
     /**
@@ -329,13 +332,15 @@ export class ScheduleTickJob extends PlainJob {
      * block: the order is stamped with this slot, so the tick has nothing to reconcile until the
      * next one, and a retry would need state the tick deliberately does not hold.
      */
-    private async changeOver(slot: ScheduleSlot, from: string | undefined): Promise<void> {
+    private async changeOver(slot: ScheduleSlot, from: string | undefined, active: boolean): Promise<void> {
         // Which night this is and who presents it, read once for both attempts below so the order
         // cannot be built for one host and stamped for another.
         const { date, host, coHosts } = this.schedule.nightOf(slot);
         // Only a slot with no source is prepared for: one with a playlist or a chart has its records
         // at the boundary already. See `PreparedSetRepository`.
-        const prepared = slot.source === undefined ? await this.preparedFor(slot, date) : undefined;
+        const opening = slot.source === undefined ? await this.preparedFor(slot, date) : undefined;
+        if (opening !== undefined && (await this.holdForOpening(slot, date, opening, active))) return;
+        const prepared = opening?.tracks;
         const night: ScheduledNight = {
             date,
             guest: host.guest,
@@ -363,6 +368,7 @@ export class ScheduleTickJob extends PlainJob {
         }
 
         this.notices.settled();
+        this.openingWait.clear();
         this.logger.info('schedule: the station changed over', { slot: slot.id, label: slot.label, from, prepared: prepared?.length ?? 0 });
         // Aired, so it is spent. Kept when the changeover was declined, since the next minute's tick
         // tries the same night again.
@@ -419,17 +425,81 @@ export class ScheduleTickJob extends PlainJob {
     }
 
     /**
-     * Tonight's prepared set, or nothing. A read that fails is nothing too: the show opens empty and
-     * refills, which is what every brief-only show did before anything was prepared, and is far
-     * better than a changeover that does not happen.
+     * Tonight's prepared set, if there is one, and whether the read worked at all. A read that fails
+     * is no set: the show opens empty and refills, which is what every brief-only show did before
+     * anything was prepared, and is far better than a changeover that does not happen. It is also no
+     * reason to wait for one (see {@link holdForOpening}), which is why the two are told apart.
      */
-    private async preparedFor(slot: ScheduleSlot, date: string): Promise<RundownTrack[] | undefined> {
+    private async preparedFor(slot: ScheduleSlot, date: string): Promise<{ read: boolean; tracks?: RundownTrack[] }> {
         try {
-            return await this.prepared.forNight(slot.id, date);
+            const tracks = await this.prepared.forNight(slot.id, date);
+            return tracks === undefined ? { read: true } : { read: true, tracks };
         } catch (error) {
             this.logger.warn(`schedule: could not read the set prepared for "${slot.label}", so it opens without one (${errorText(error)})`);
-            return undefined;
+            return { read: false };
         }
+    }
+
+    /**
+     * Keep the show going off on air for a few minutes while the one coming on has its opening chosen,
+     * when nothing was chosen ahead of it.
+     *
+     * {@link prepareAhead} chooses a brief-only show's first records ten minutes before it starts, and
+     * at a boundary on the clock that is enough. It cannot help a show that comes into force WITHOUT
+     * that warning: one an operator adds or moves over the present, which on the live station was every
+     * empty changeover after the look-ahead shipped (Neon Drive at 11:12 and Throwback Thursday at
+     * 18:56 on 2026-10-08, Saturday Requests at 15:55 on 2026-10-10, each changed over within a minute
+     * of being added). Each went on air with an empty order and was silent until the refill came back,
+     * about two minutes every time. A set that was asked for and never arrived (a model too busy, a job
+     * that ran out of time) is the same case reached the slow way.
+     *
+     * So the changeover is held and the set asked for now, and the next tick that finds it changes over
+     * onto it. **This is not the refused fix of keeping the outgoing show's queue** (director.md, "Who
+     * owns the running order"): `putOnAir` still retracts first and builds a new order, and nothing
+     * about the outgoing broadcast is kept past its changeover. What moves is only WHEN the tick asks,
+     * which is the one thing the tick was always allowed to cost.
+     *
+     * Only while there is something to hold: an order with records still planned, on a station that is
+     * on air. A station that ran out, or an order with nothing left, changes over at once, since holding
+     * it would be holding silence. Bounded by {@link OPENING_WAIT_MS}, after which it changes over
+     * without a set as it always did, and a set that cannot be read or asked for is never waited on.
+     */
+    private async holdForOpening(
+        slot: ScheduleSlot,
+        date: string,
+        opening: { read: boolean; tracks?: RundownTrack[] },
+        active: boolean,
+    ): Promise<boolean> {
+        if (!opening.read || opening.tracks !== undefined) return false;
+        if (!active || this.director.status().remaining === 0) return false;
+
+        const heldFor = this.openingWait.heldFor(`${slot.id}:${date}`, Date.now());
+        if (heldFor >= OPENING_WAIT_MS) {
+            this.logger.warn(`schedule: "${slot.label}" was not ready after waiting for its opening, so it starts without one`, {
+                slot: slot.id,
+                heldForMs: heldFor,
+            });
+            return false;
+        }
+
+        try {
+            // Every minute of the wait, for `prepareAhead`'s reason: a lost send or a failed run costs
+            // nothing, and a run behind the one that prepared it finds the set and returns.
+            await this.jobs.send('schedule.prepare_slot', { slotId: slot.id, occurrence: date } satisfies PrepareSlotPayload);
+        } catch (error) {
+            this.logger.warn(`schedule: could not ask for "${slot.label}" to be prepared, so it starts without an opening (${errorText(error)})`);
+            return false;
+        }
+
+        if (heldFor === 0) {
+            this.logger.info('schedule: holding the changeover while the next show has its opening chosen', { slot: slot.id, label: slot.label });
+        }
+        this.say(`opening:${slot.id}:${date}`, {
+            kind: 'schedule.waiting',
+            detail: `${named(slot)} has no records chosen yet, so the station is choosing them before it changes over rather than going quiet while it does.`,
+            data: { slot: slot.id, label: slot.label },
+        });
+        return true;
     }
 
     /**

@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-10-11
+
+- Importing a persona file no longer replaces a character you already have. A character in the file whose key matches one on this station is now skipped by default, and the import dialog in the console and the desktop app says so and offers Replace on that row. In the API, `POST /personas/import` and `/personas/import/preview` take an optional `replace` list of keys to rewrite, a plan entry's `outcome` can be `skip`, and the result counts `skipped`. A caller that relied on an import overwriting a matching character now has to name it in `replace`.
+
 ## [0.10.0] — 2026-10-11
 
 - A persona's quirks are rows now, each with how often it applies: Always, Often, Occasionally or Rarely. Every existing quirk is Always, so nothing a station says changes yet. In the API a quirk is `{ text, cadence }` rather than a string, and persona files are `deadair.persona/2`; the console still imports a `/1` file, upgrading its quirks as it reads it.
@@ -123,7 +127,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.10.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.11.0...HEAD
+[0.11.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.10.0...desktop-v0.11.0
 [0.10.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.9.0...desktop-v0.10.0
 [0.9.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.8.0...desktop-v0.9.0
 [0.8.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.7.3...desktop-v0.8.0

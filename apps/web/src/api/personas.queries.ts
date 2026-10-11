@@ -267,10 +267,16 @@ export const usePreviewPersonaImport = () =>
         mutationFn: (file: PersonaFile) => sdk.personas.previewPersonaImport(file),
     });
 
+/**
+ * Write a file into the station. `replace` names the characters this station already holds that the
+ * operator chose to rewrite; every other one already here is skipped, which is the API's default and
+ * not only this console's, so no caller can overwrite somebody's character by forgetting to ask.
+ */
 export function useImportPersonas() {
     const queryClient = useQueryClient();
-    return useMutation<PersonaImportResult, Error, PersonaFile>({
-        mutationFn: (file: PersonaFile) => sdk.personas.importPersonas(file),
+    return useMutation<PersonaImportResult, Error, { file: PersonaFile; replace: string[] }>({
+        mutationFn: ({ file, replace }: { file: PersonaFile; replace: string[] }) =>
+            sdk.personas.importPersonas(file, replace.length === 0 ? undefined : { replace }),
         onSuccess: (result: PersonaImportResult) => {
             queryClient.setQueryData(queryKeys.personas.list(), result.personas);
         },

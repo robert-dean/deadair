@@ -13,8 +13,10 @@
         <TextBlock Text="{Binding Name}" Classes="mono" FontSize="11" TextTrimming="CharacterEllipsis" />
         <TextBlock Text="{Binding Notices}" TextWrapping="Wrap" Classes="dimmed" FontSize="12"
                    IsVisible="{Binding HasNotices}" />
+        <TextBlock Text="{Binding HeldNotice}" TextWrapping="Wrap" FontSize="12"
+                   IsVisible="{Binding HasHeldNotice}" />
 
-        <Grid ColumnDefinitions="*,70,150" ColumnSpacing="12">
+        <Grid ColumnDefinitions="*,90,150" ColumnSpacing="12">
             <TextBlock Classes="eyebrow" Text="Character" />
             <TextBlock Grid.Column="1" Classes="eyebrow" Text="Lands as" />
             <TextBlock Grid.Column="2" Classes="eyebrow" Text="Stories" />
@@ -24,7 +26,7 @@
             <ItemsControl ItemsSource="{Binding Rows}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:PersonaImportRowViewModel">
-                        <Grid ColumnDefinitions="*,70,150" ColumnSpacing="12" Margin="0,0,0,8">
+                        <Grid ColumnDefinitions="*,90,150" ColumnSpacing="12" Margin="0,0,0,8">
                             <StackPanel Spacing="2">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
@@ -33,7 +35,11 @@
                                 <TextBlock Text="{Binding Notices}" TextWrapping="Wrap" FontSize="11" Classes="dimmed"
                                            IsVisible="{Binding HasNotices}" />
                             </StackPanel>
-                            <TextBlock Grid.Column="1" Text="{Binding LandsAs}" FontSize="12" Classes="secondary" />
+                            <!-- Only a character already here offers the choice, and it starts on Skip. -->
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock Text="{Binding LandsAs}" FontSize="12" Classes="secondary" />
+                                <CheckBox IsChecked="{Binding Replace}" Content="Replace" FontSize="12" IsVisible="{Binding IsHeld}" />
+                            </StackPanel>
                             <TextBlock Grid.Column="2" Text="{Binding Stories}" FontSize="12" TextWrapping="Wrap" Classes="secondary" />
                         </Grid>
                     </DataTemplate>

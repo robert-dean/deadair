@@ -109,11 +109,12 @@ public sealed class PersonasClient(SdkHttp http)
     /// Preview persona import
     /// Reads a file and reports what importing it would create, rewrite and skip. Writes nothing
     /// </summary>
-    public async Task<PersonaImportPlan> PreviewPersonaImportAsync(PersonaFile body, CancellationToken cancellationToken = default)
+    public async Task<PersonaImportPlan> PreviewPersonaImportAsync(PersonaFile body, PreviewPersonaImportQuery? query = null, CancellationToken cancellationToken = default)
     {
         var response = await http.ExecuteAsync(
             HttpMethod.Post,
             http.Path("personas", "import", "preview"),
+            query: http.Params(query),
             content: http.JsonContent(body, "application/json"),
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<PersonaImportPlan>(response);
@@ -121,13 +122,14 @@ public sealed class PersonasClient(SdkHttp http)
 
     /// <summary>
     /// Import personas
-    /// Writes a file into this station, merging by key, and answers with what it did
+    /// Writes a file into this station: creates what is new, rewrites only the characters named in `replace`, and answers with what it did
     /// </summary>
-    public async Task<PersonaImportResult> ImportPersonasAsync(PersonaFile body, CancellationToken cancellationToken = default)
+    public async Task<PersonaImportResult> ImportPersonasAsync(PersonaFile body, ImportPersonasQuery? query = null, CancellationToken cancellationToken = default)
     {
         var response = await http.ExecuteAsync(
             HttpMethod.Post,
             http.Path("personas", "import"),
+            query: http.Params(query),
             content: http.JsonContent(body, "application/json"),
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<PersonaImportResult>(response);
@@ -485,6 +487,22 @@ public sealed record ExportPersonaHeaders(string? ContentDisposition);
 
 /// <summary>The body of GET /personas/{id}/export, with the response headers the contract declares.</summary>
 public sealed record ExportPersonaResult(PersonaFile Data, ExportPersonaHeaders Headers);
+
+/// <summary>The query parameters declared on POST /personas/import/preview.</summary>
+public sealed record PreviewPersonaImportQuery
+{
+    [JsonPropertyName("replace")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Replace { get; init; }
+}
+
+/// <summary>The query parameters declared on POST /personas/import.</summary>
+public sealed record ImportPersonasQuery
+{
+    [JsonPropertyName("replace")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Replace { get; init; }
+}
 
 /// <summary>The query parameters declared on GET /personas/{id}/memory/preview.</summary>
 public sealed record PreviewPersonaMemoryRollbackQuery

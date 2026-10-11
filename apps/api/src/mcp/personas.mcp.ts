@@ -45,8 +45,30 @@ const CreatePersonaArgs = z.object({ body: PersonaInput });
 const RestoreStationPersonasArgs = z.object({});
 const ExportPersonasArgs = z.object({});
 const ExportPersonaArgs = z.object({ id: z.string().min(1).max(100) });
-const PreviewPersonaImportArgs = z.object({ body: PersonaFile });
-const ImportPersonasArgs = z.object({ body: PersonaFile });
+const PreviewPersonaImportArgs = z.object({
+    body: PersonaFile,
+    query: z
+        .object({
+            replace: z
+                .array(z.string().min(1).max(100))
+                .optional()
+                .describe('Keys of characters this station already holds that the import should rewrite. Every other one it holds is skipped'),
+        })
+        .optional(),
+});
+const ImportPersonasArgs = z.object({
+    body: PersonaFile,
+    query: z
+        .object({
+            replace: z
+                .array(z.string().min(1).max(100))
+                .optional()
+                .describe(
+                    'Keys of characters this station already holds that the file should rewrite. Every other one it holds is left exactly as it is',
+                ),
+        })
+        .optional(),
+});
 const UpdatePersonaArgs = z.object({ id: z.string().min(1).max(100), body: PersonaInput });
 const DeletePersonaArgs = z.object({ id: z.string().min(1).max(100) });
 const SetTheStationHostArgs = z.object({ id: z.string().min(1).max(100) });
@@ -241,8 +263,11 @@ export class PreviewPersonaImportMcpTool implements McpToolHandler {
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
         const container = requireMcpContainer(context);
         await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
-        const { body } = await parseAndValidate(args, PreviewPersonaImportArgs);
-        const result = await container.get(PersonaImportService).preview(body);
+        const { body, query = await parseAndValidate({}, PreviewPersonaImportArgs.shape.query.unwrap()) } = await parseAndValidate(
+            args,
+            PreviewPersonaImportArgs,
+        );
+        const result = await container.get(PersonaImportService).preview(body, query);
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     }
 }
@@ -254,7 +279,8 @@ export class PreviewPersonaImportMcpTool implements McpToolHandler {
 export class ImportPersonasMcpTool implements McpToolHandler {
     readonly definition: Tool = {
         name: 'import_personas',
-        description: 'Writes a file into this station, merging by key, and answers with what it did',
+        description:
+            'Writes a file into this station: creates what is new, rewrites only the characters named in `replace`, and answers with what it did',
         inputSchema: z.toJSONSchema(ImportPersonasArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PersonaImportResult, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
@@ -264,8 +290,11 @@ export class ImportPersonasMcpTool implements McpToolHandler {
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
         const container = requireMcpContainer(context);
         await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
-        const { body } = await parseAndValidate(args, ImportPersonasArgs);
-        const result = await container.get(PersonaImportService).import(body);
+        const { body, query = await parseAndValidate({}, ImportPersonasArgs.shape.query.unwrap()) } = await parseAndValidate(
+            args,
+            ImportPersonasArgs,
+        );
+        const result = await container.get(PersonaImportService).import(body, query);
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     }
 }

@@ -68,17 +68,19 @@ public final class PersonasClient: Sendable {
 
     /// Preview persona import
     /// Reads a file and reports what importing it would create, rewrite and skip. Writes nothing
-    public func previewPersonaImport(body: PersonaFile) async throws -> PersonaImportPlan {
+    public func previewPersonaImport(body: PersonaFile, query: PreviewPersonaImportQuery? = nil) async throws -> PersonaImportPlan {
         var request = SdkRequest(method: "POST", path: ["personas", "import", "preview"])
+        try http.addQuery(&request, query)
         try http.setJSONBody(&request, body, contentType: "application/json")
         let response = try await http.execute(request)
         return try http.decodeJSON(PersonaImportPlan.self, from: response)
     }
 
     /// Import personas
-    /// Writes a file into this station, merging by key, and answers with what it did
-    public func importPersonas(body: PersonaFile) async throws -> PersonaImportResult {
+    /// Writes a file into this station: creates what is new, rewrites only the characters named in `replace`, and answers with what it did
+    public func importPersonas(body: PersonaFile, query: ImportPersonasQuery? = nil) async throws -> PersonaImportResult {
         var request = SdkRequest(method: "POST", path: ["personas", "import"])
+        try http.addQuery(&request, query)
         try http.setJSONBody(&request, body, contentType: "application/json")
         let response = try await http.execute(request)
         return try http.decodeJSON(PersonaImportResult.self, from: response)
@@ -337,6 +339,32 @@ public struct ExportPersonaResult: Equatable, Sendable {
     public init(data: PersonaFile, headers: ExportPersonaHeaders) {
         self.data = data
         self.headers = headers
+    }
+}
+
+/// Query parameters for POST /personas/import/preview.
+public struct PreviewPersonaImportQuery: Encodable, Equatable, Sendable {
+    public var replace: [String]?
+
+    public init(replace: [String]? = nil) {
+        self.replace = replace
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case replace = "replace"
+    }
+}
+
+/// Query parameters for POST /personas/import.
+public struct ImportPersonasQuery: Encodable, Equatable, Sendable {
+    public var replace: [String]?
+
+    public init(replace: [String]? = nil) {
+        self.replace = replace
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case replace = "replace"
     }
 }
 

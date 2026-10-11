@@ -539,7 +539,7 @@ data class PersonaImportEntry(
     val key: String,
     val label: String,
     val kind: PersonaImportEntryKind? = null,
-    /** Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote */
+    /** Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again */
     val outcome: PersonaImportEntryOutcome,
     val storiesNew: Long,
     /** Already here under the same handle, so importing would skip them */
@@ -807,6 +807,8 @@ data class PersonaImportResult(
     val created: Long,
     /** Characters whose sheet was rewritten. An update replaces the sheet and ADDS stories; it never deletes one the operator here wrote */
     val updated: Long,
+    /** Characters this station already held and was not asked to replace, left exactly as they were */
+    val skipped: Long,
     val storiesWritten: Long,
     val detailsWritten: Long,
     /** The roster as it now stands, on this file's own rule: every mutation answers the whole list, because more than the named row can change */
@@ -1152,13 +1154,15 @@ enum class PersonaImportEntryKind {
     GUEST,
 }
 
-/** Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote */
+/** Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again */
 @Serializable
 enum class PersonaImportEntryOutcome {
     @SerialName("create")
     CREATE,
     @SerialName("update")
     UPDATE,
+    @SerialName("skip")
+    SKIP,
 }
 
 /** Which sort, so a console can group or ignore by it rather than parsing the sentence */

@@ -147,7 +147,7 @@ operation /personas/{id}/export: {
 # of writing.
 #
 # What the preview is FOR is the half a file cannot answer for itself. Which characters are new here
-# and which would be rewritten is one; the other is the four things this station may not be able to
+# and which are already here, and so skipped unless named in `replace`, is one; the other is the four things this station may not be able to
 # honour — a voice its engine does not map, a soundboard it does not hold, a phrasing naming a value
 # it cannot fill, and markers the character's own sample lines never use. None of them refuses an
 # import, and every one of them is otherwise found out by putting the character on air.
@@ -155,6 +155,9 @@ operation /personas/import/preview: {
     post: { # Reads a file and reports what importing it would create, rewrite and skip. Writes nothing
         name: Preview persona import
         service: PersonaImportService.preview
+        query: {
+            replace?: array(string(min=1, max=100)) # Keys of characters this station already holds that the import should rewrite. Every other one it holds is skipped
+        }
         request: {
             application/json: PersonaFile
         }
@@ -166,9 +169,14 @@ operation /personas/import/preview: {
     }
 }
 
-# Takes a file in. MERGE: a character this station holds under the same key has its sheet rewritten
-# and its stories added to, and one it does not is created. Nothing is ever deleted — a story the
-# operator here wrote and the file has never heard of stays exactly where it is.
+# Takes a file in. A character this station does not hold is created. One it DOES hold is skipped,
+# untouched, unless its key is named in `replace`: then its sheet is rewritten and its stories added
+# to. Nothing is ever deleted — a story the operator here wrote and the file has never heard of stays
+# exactly where it is.
+#
+# Skipping is the default because a key match is not consent. Two operators can both have written a
+# character called `newsreader`, and a file shared between them must not quietly replace one with the
+# other.
 #
 # It puts NOBODY on air, and needs no way to: `PUT /personas/{id}/default-host` is the one path, and it
 # already tells the show that is running. So an imported character arrives beside the others and
@@ -177,9 +185,12 @@ operation /personas/import/preview: {
 # All or nothing. The preview above is what stands between an operator and a surprise, so a file that
 # landed half way would be the one outcome nothing had described.
 operation /personas/import: {
-    post: { # Writes a file into this station, merging by key, and answers with what it did
+    post: { # Writes a file into this station: creates what is new, rewrites only the characters named in `replace`, and answers with what it did
         name: Import personas
         service: PersonaImportService.import
+        query: {
+            replace?: array(string(min=1, max=100)) # Keys of characters this station already holds that the file should rewrite. Every other one it holds is left exactly as it is
+        }
         request: {
             application/json: PersonaFile
         }

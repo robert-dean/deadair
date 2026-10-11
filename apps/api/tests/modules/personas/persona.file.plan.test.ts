@@ -63,10 +63,38 @@ describe('what would happen to each character', () => {
         expect(plan.personas[0]).toMatchObject({ key: 'overnight', label: 'The overnight host', outcome: 'create' });
     });
 
-    it('updates a key it does', () => {
+    it('updates a key it does when asked to replace it', () => {
         const station = empty({ personas: new Map([['overnight', holding('Whoever this is')]]) });
 
-        expect(planImport(file([entry()]), station).personas[0]?.outcome).toBe('update');
+        expect(planImport(file([entry()]), station, new Set(['overnight'])).personas[0]?.outcome).toBe('update');
+    });
+
+    // A key match is not consent: somebody else's `overnight` is not a newer copy of this station's.
+    it('skips a key it holds unless asked to replace it', () => {
+        const station = empty({ personas: new Map([['overnight', holding('Whoever this is')]]) });
+
+        expect(planImport(file([entry()]), station).personas[0]?.outcome).toBe('skip');
+        expect(planImport(file([entry()]), station, new Set(['elsewhere'])).personas[0]?.outcome).toBe('skip');
+    });
+
+    it('creates a key it does not hold even when the replace list names it', () => {
+        expect(planImport(file([entry()]), empty(), new Set(['overnight'])).personas[0]?.outcome).toBe('create');
+    });
+
+    // So a console can offer Replace from the one preview rather than asking again per row.
+    it('gives a skip the same counts and notices a replace would get', () => {
+        const station = empty({
+            personas: new Map([['overnight', holding('The overnight host', true, ['background'])]]),
+            stories: new Map([['overnight', new Map([['the barstow lights', new Set<string>()]])]]),
+        });
+        const sheet = file([entry({ stories: [story('The Barstow lights'), story('Something new')] })]);
+
+        const { outcome: skipped, ...skip } = planImport(sheet, station).personas[0]!;
+        const { outcome: replaced, ...replace } = planImport(sheet, station, new Set(['overnight'])).personas[0]!;
+
+        expect([skipped, replaced]).toEqual(['skip', 'update']);
+        expect(skip).toEqual(replace);
+        expect(kinds(skip.notices)).toEqual(['clears', 'on-air']);
     });
 
     // The counts are what an operator reads to decide whether a file is worth importing, and the

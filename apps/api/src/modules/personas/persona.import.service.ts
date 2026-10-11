@@ -50,14 +50,15 @@ export class PersonaImportService {
      * The same {@link planImport} the import itself runs, so this is the decision rather than a
      * forecast of it — the property [backup-and-restore](https://github.com/robert-dean/deadair/discussions/6) asks for in as many words.
      */
-    async preview(file: PersonaFile): Promise<PersonaImportPlan> {
-        const plan = planImport(file, await this.snapshot(file));
+    async preview(file: PersonaFile, query: { replace?: string[] } = {}): Promise<PersonaImportPlan> {
+        const plan = planImport(file, await this.snapshot(file), new Set(query.replace));
 
         this.logger.info('personas: previewed a persona file', {
             format: file.format,
             from: file.station,
             characters: plan.personas.length,
             creates: plan.personas.filter(entry => entry.outcome === 'create').length,
+            skips: plan.personas.filter(entry => entry.outcome === 'skip').length,
             notices: plan.notices.length + plan.personas.reduce((total, entry) => total + entry.notices.length, 0),
         });
 
@@ -67,10 +68,11 @@ export class PersonaImportService {
     /**
      * Write a file into this station.
      *
-     * MERGE, and the word is doing work: a character held under the same key has its SHEET rewritten
-     * and its stories ADDED to, and nothing is ever deleted. A story the operator here wrote and the
-     * file has never heard of stays exactly where it is, which is what makes importing somebody's
-     * character safe to do on top of your own edits to it.
+     * A character this station does not hold is created. One it DOES hold is skipped, sheet, stories
+     * and all, unless its key is in `replace`: a key match is not consent, and somebody else's
+     * `newsreader` is not a newer copy of yours. A replaced character is a MERGE, and the word is
+     * doing work: its SHEET is rewritten and its stories ADDED to, and nothing is ever deleted. A
+     * story the operator here wrote and the file has never heard of stays exactly where it is.
      *
      * ## Why this writes through the repositories rather than `PersonasService`
      *
@@ -99,11 +101,13 @@ export class PersonaImportService {
      * path and it already tells the show that is running, through a `recast` posted after the commit.
      * An imported character arrives beside the others and takes over when somebody says so.
      */
-    async import(file: PersonaFile): Promise<PersonaImportResult> {
-        const plan = planImport(file, await this.snapshot(file));
+    async import(file: PersonaFile, query: { replace?: string[] } = {}): Promise<PersonaImportResult> {
+        const replace = new Set(query.replace);
+        const plan = planImport(file, await this.snapshot(file), replace);
 
         let created = 0;
         let updated = 0;
+        let skipped = 0;
         let storiesWritten = 0;
         let detailsWritten = 0;
 
@@ -113,6 +117,12 @@ export class PersonaImportService {
 
         for (const persona of file.personas) {
             const id = held.get(persona.key);
+            // The plan's own rule, asked of the same set, so what lands is what the preview showed.
+            if (id !== undefined && !replace.has(persona.key)) {
+                skipped += 1;
+                continue;
+            }
+
             // Through the repository, so a caller's ties to hosts (`deadair.caller_hosts`) are neither
             // read nor cleared: they name this station's own persona ids, a file carries none, and an
             // import rewriting a caller's sheet must not quietly untie it from the hosts it rings.
@@ -135,11 +145,12 @@ export class PersonaImportService {
             from: file.station,
             created,
             updated,
+            skipped,
             stories: storiesWritten,
             details: detailsWritten,
         });
 
-        return { plan, created, updated, storiesWritten, detailsWritten, personas: await this.roster.list() };
+        return { plan, created, updated, skipped, storiesWritten, detailsWritten, personas: await this.roster.list() };
     }
 
     /**

@@ -977,7 +977,7 @@ public sealed record PersonaImportEntry
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PersonaImportEntryKind? Kind { get; init; }
 
-    /// <summary>Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote</summary>
+    /// <summary>Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again</summary>
     [JsonPropertyName("outcome")]
     public required PersonaImportEntryOutcome Outcome { get; init; }
 
@@ -1460,6 +1460,10 @@ public sealed record PersonaImportResult
     [JsonPropertyName("updated")]
     public required long Updated { get; init; }
 
+    /// <summary>Characters this station already held and was not asked to replace, left exactly as they were</summary>
+    [JsonPropertyName("skipped")]
+    public required long Skipped { get; init; }
+
     [JsonPropertyName("storiesWritten")]
     public required long StoriesWritten { get; init; }
 
@@ -1898,7 +1902,7 @@ public enum PersonaImportEntryKind
     Guest,
 }
 
-/// <summary>Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote</summary>
+/// <summary>Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<PersonaImportEntryOutcome>))]
 public enum PersonaImportEntryOutcome
 {
@@ -1907,6 +1911,9 @@ public enum PersonaImportEntryOutcome
 
     [JsonStringEnumMemberName("update")]
     Update,
+
+    [JsonStringEnumMemberName("skip")]
+    Skip,
 }
 
 /// <summary>Which sort, so a console can group or ignore by it rather than parsing the sentence</summary>

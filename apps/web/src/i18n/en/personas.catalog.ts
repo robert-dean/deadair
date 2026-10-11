@@ -394,7 +394,17 @@ export const personas = {
     },
     import: {
         title: 'Import personas',
-        intro: "A file saved by this page, or by somebody else's station. Characters are matched by their key: one this station already has is rewritten and its stories are added to, and one it does not is created. Nothing is ever deleted, and nobody is put on air.",
+        intro: "A file saved by this page, or by somebody else's station. Characters are matched by their key. One this station does not have is created. One it already has is skipped unless you choose Replace, which rewrites its sheet and adds its stories. Nothing is ever deleted, and nobody is put on air.",
+        held: {
+            title_one: '{{count}} of these is already here',
+            title_other: '{{count}} of these are already here',
+            body: 'This station already has a character with the same key. Skipping leaves yours exactly as it is. Replace rewrites it with the one in this file.',
+        },
+        choice: {
+            label: 'What to do with {{label}}',
+            skip: 'Skip',
+            replace: 'Replace',
+        },
         choose: 'Choose a file',
         chooseAnother: 'Choose another file',
         unreadable: '"{{name}}" is not a file this can read. A persona file is the JSON one of these pages saved.',
@@ -411,6 +421,8 @@ export const personas = {
             title: 'Imported',
             summary: '{{characters}} written, {{sheets}} rewritten, {{stories}} and {{details}} added.',
             onAir: "Nobody was put on air. Use <strong>Make station host</strong> on a character's card when you want it presenting.",
+            skipped_one: '{{count}} character was already here and was left exactly as it was.',
+            skipped_other: '{{count}} characters were already here and were left exactly as they were.',
         },
         characters_one: '{{count}} character',
         characters_other: '{{count}} characters',
@@ -431,11 +443,13 @@ export const personas = {
         outcome: {
             create: 'New',
             update: 'Rewrite',
+            skip: 'Skipped',
         },
         button: {
             create: 'Import {{characters}}',
             update: 'Rewrite {{characters}}',
             both: 'Import {{creates}}, rewrite {{updates}}',
+            nothing: 'Nothing to import',
         },
         storyLine: {
             added: '{{added}} new',

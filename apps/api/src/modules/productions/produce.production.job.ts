@@ -8,7 +8,7 @@ import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { advisoryPolicy, speaksClean } from '#modules/director/advisory.policy.js';
 import { dayPart, stationZone, type RoughTime } from '#modules/director/clock.words.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
-import { LlmService, type LlmConversation } from '#modules/llm/llm.service.js';
+import { LlmService, usageSpentBefore, type LlmConversation } from '#modules/llm/llm.service.js';
 import { PersonaNotesRepository } from '#modules/personas/persona.notes.repository.js';
 import { PersonaStoriesRepository } from '#modules/personas/persona.stories.repository.js';
 import { PersonaTellingRepository } from '#modules/personas/persona.telling.repository.js';
@@ -452,28 +452,32 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             // `beat.answer.ts` for why an empty answer and a preempted one are not the same thing.
             // Failing here throws away every beat already written, since a production cannot air
             // with a hole in it, which is why neither is given up on at the first refusal.
-            const outcome = await askForBeat(
-                ask,
-                // Speakable, which a beat has never been. The engine reads what it is given, so a
-                // stage direction is a word in the audio — the first live call-in aired an album
-                // title with the asterisks still round it. The strip spares exactly the cues this
-                // speaker was offered.
-                answer => speakable(answer.text, reactions, board.names, this.language().language, casting),
-                {
-                    onEmpty: (_empties, outOfTime) =>
-                        this.logger.info(
-                            outOfTime
-                                ? 'productions: a beat ran out of time, so it is being asked again'
-                                : 'productions: a beat came back empty, so it is being asked again',
-                            { production: claimed.id, beat: beat.ordinal },
-                        ),
-                    onPreempted: preemptions =>
-                        this.logger.info('productions: a break took the model back mid-beat; it is being asked again', {
-                            production: claimed.id,
-                            beat: beat.ordinal,
-                            preemptions,
-                        }),
-                },
+            const outcome = await this.askRecordingFailure(
+                { production: claimed, speaker, messages: prompt },
+                async () =>
+                    await askForBeat(
+                        ask,
+                        // Speakable, which a beat has never been. The engine reads what it is given, so a
+                        // stage direction is a word in the audio — the first live call-in aired an album
+                        // title with the asterisks still round it. The strip spares exactly the cues this
+                        // speaker was offered.
+                        answer => speakable(answer.text, reactions, board.names, this.language().language, casting),
+                        {
+                            onEmpty: (_empties, outOfTime) =>
+                                this.logger.info(
+                                    outOfTime
+                                        ? 'productions: a beat ran out of time, so it is being asked again'
+                                        : 'productions: a beat came back empty, so it is being asked again',
+                                    { production: claimed.id, beat: beat.ordinal },
+                                ),
+                            onPreempted: preemptions =>
+                                this.logger.info('productions: a break took the model back mid-beat; it is being asked again', {
+                                    production: claimed.id,
+                                    beat: beat.ordinal,
+                                    preemptions,
+                                }),
+                        },
+                    ),
             );
             // One row per ATTEMPT, which is `script_history`'s own rule: an empty answer and the
             // retry after it are two things that happened, and a store that kept only the winner
@@ -743,6 +747,41 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             // An evening of prompt tuning rather than a default, exactly as the break path has it.
             ...(captureWrites(this.config) ? { prompt: beat.messages, raw: beat.answer.text } : {}),
         };
+    }
+
+    /**
+     * Ask for a beat, and when the ask THROWS, write the attempt down before letting it go.
+     *
+     * The throw itself is untouched: it still reaches `run`'s catch and fails the production exactly
+     * as before. What this adds is the row. A beat whose conversation threw used to leave no row at
+     * all, so a model that searched, spent a generation and then hit a provider error cost the
+     * station tokens nothing recorded, and `/scripts` showed a programme that failed with no attempt
+     * behind it. The row is `failed`, worded the way a break's thrown writer is, and carries what the
+     * finished steps spent when the conversation knew (`usageSpentBefore`, a floor: the failing
+     * generation's own tokens are never known).
+     */
+    private async askRecordingFailure<T>(
+        beat: { production: Production; speaker?: CastMember; messages: LlmMessage[] },
+        work: () => Promise<T>,
+    ): Promise<T> {
+        try {
+            return await work();
+        } catch (error) {
+            const spent = usageSpentBefore(error);
+            await this.remember([
+                {
+                    kind: beat.production.kind,
+                    writer: 'model',
+                    outcome: 'failed',
+                    reason: `the model writer failed: ${errorText(error)}`,
+                    ...(beat.speaker?.personaKey === undefined ? {} : { personaKey: beat.speaker.personaKey }),
+                    ...(spent === undefined ? {} : { usage: spent as Record<string, number> }),
+                    // The prompt and nothing else: there is no answer to keep, which is what failed.
+                    ...(captureWrites(this.config) ? { prompt: beat.messages } : {}),
+                },
+            ]);
+            throw error;
+        }
     }
 
     /**

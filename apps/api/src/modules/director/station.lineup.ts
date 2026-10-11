@@ -2,7 +2,7 @@ import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import { randomUUID } from 'node:crypto';
 import type { AiringResult, LiveOrder } from '#modules/playout/live.order.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
-import { artistKey, songKey } from './rotation.keys.js';
+import { artistKey, creditKey, songKey } from './rotation.keys.js';
 import { spaceArtists } from './rotation.rules.js';
 import { MEASUREMENT_FIELDS, type TrackMeasurement } from './track.measurement.js';
 
@@ -2047,6 +2047,7 @@ const programmeShuffled = (tail: readonly StationLineupTrackItem[], smart: Smart
         item,
         songKey: songKey(item.track.title, [item.track.artist]),
         artistKey: artistKey([item.track.artist]),
+        creditKey: creditKey(item.track.artist),
     }));
     const fresh = spaceArtists(
         keyed.filter(entry => !smart.recentSongKeys.has(entry.songKey)),
@@ -2054,7 +2055,7 @@ const programmeShuffled = (tail: readonly StationLineupTrackItem[], smart: Smart
     );
     const stale = spaceArtists(
         keyed.filter(entry => smart.recentSongKeys.has(entry.songKey)),
-        fresh.at(-1)?.artistKey ?? seed,
+        fresh.at(-1)?.creditKey ?? seed,
     );
     return [...fresh, ...stale].map(entry => entry.item);
 };
@@ -2069,5 +2070,5 @@ const lastAiredArtistOf = (head: readonly StationLineupItem[]): string | undefin
         .filter(isTrackItem)
         .filter(item => item.state === 'handed' || item.state === 'airing' || item.state === 'played')
         .at(-1);
-    return last === undefined ? undefined : artistKey([last.track.artist]);
+    return last === undefined ? undefined : creditKey(last.track.artist);
 };

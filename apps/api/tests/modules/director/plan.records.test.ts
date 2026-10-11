@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { NOMINAL_TRACK_MS } from '../../../src/modules/director/air.estimate.js';
 import { artistsQueuedWithin, ranOutOfTime } from '../../../src/modules/director/plan.records.js';
-import { artistKey } from '../../../src/modules/director/rotation.keys.js';
+import { artistKey, creditKey, isArtistHeld } from '../../../src/modules/director/rotation.keys.js';
 import type { StationLineupItem } from '../../../src/modules/director/station.lineup.js';
 
 let next = 0;
@@ -39,6 +39,14 @@ describe('artistsQueuedWithin', () => {
 
         expect(held.has(artistKey(['Artist0']))).toBe(false);
         expect(held).toEqual(new Set(Array.from({ length: 9 }, (_, index) => artistKey([`Artist${index + 1}`]))));
+    });
+
+    it('holds the acts inside a joined credit as well as the credit', () => {
+        const held = artistsQueuedWithin([record('Yusuf / Cat Stevens', FOUR_MINUTES)], 40);
+
+        expect(held.has(artistKey(['Yusuf / Cat Stevens']))).toBe(true);
+        expect(isArtistHeld(held, artistKey(['Cat Stevens']), creditKey('Cat Stevens'))).toBe(true);
+        expect(isArtistHeld(held, artistKey(['Cat']), creditKey('Cat'))).toBe(false);
     });
 
     it('reaches further back than the last few items, which is all the tail window covered', () => {

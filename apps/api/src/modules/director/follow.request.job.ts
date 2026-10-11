@@ -13,7 +13,7 @@ import { DirectorService } from './director.service.js';
 import { PickResolver } from './pick.resolver.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { artistKeysOf, songKeysOf } from './plan.records.js';
-import { artistKey } from './rotation.keys.js';
+import { spacingKeys } from './rotation.keys.js';
 import { resolveRules, stationRules } from './rotation.rules.js';
 import { followOnFor } from './request.show.js';
 import type { TrackPick } from './set.generator.js';
@@ -203,7 +203,7 @@ export class FollowRequestJob extends PlainJob<FollowRequestPayload> {
         const upTo = lineup.all().slice(0, requestIndex + 1);
         const takenArtists = artistKeysOf(upTo.filter(item => item.state === 'handed' || item.state === 'planned'));
         const request = upTo[requestIndex];
-        if (request !== undefined && isTrackItem(request)) takenArtists.add(artistKey([request.track.artist]));
+        if (request !== undefined && isTrackItem(request)) for (const key of spacingKeys(request.track.artist)) takenArtists.add(key);
 
         return {
             takenSongs: songKeysOf(lineup.all()),

@@ -218,6 +218,8 @@ export interface ConfigFieldColumn {
     dependsOn?: string;
     /** The values of the `dependsOn` cell this one applies to. Omitted means any non-empty value; ignored without a target */
     dependsOnValues?: string[];
+    /** `secret` only: key of the address column in the same list this credential is sent to. A save that keeps the stored credential while that row's address moves to another origin is refused */
+    sentTo?: string;
 }
 
 /**
@@ -325,6 +327,8 @@ export interface ConfigFieldDescriptor {
     dependsOn?: string;
     /** Key of the `number` field that is the upper end of the range this one opens, declared on the lower end only. Still two settings, each validated by name; the console draws them as one control whose handles cannot cross */
     rangeWith?: string;
+    /** `secret` only: key of the address field this credential is sent to. A save that keeps the stored credential while that address moves to another origin is refused */
+    sentTo?: string;
 }
 
 /**

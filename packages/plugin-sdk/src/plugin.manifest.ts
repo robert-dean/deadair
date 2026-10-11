@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { configFieldSchema, type ConfigField } from './plugin.config.fields.js';
+import { configFieldSchema, sentToProblems, type ConfigField } from './plugin.config.fields.js';
 import { pluginPermissionsSchema, type PluginPermissions } from './plugin.permissions.js';
 
 /**
@@ -339,6 +339,9 @@ export const pluginManifestSchema = z.object({
     homepage: z.string().optional(),
     icon: z.string().optional(),
     permissions: pluginPermissionsSchema,
-    configFields: z.array(configFieldSchema),
+    // A `sentTo` naming nothing is refused here rather than ignored: see `sentToProblems`.
+    configFields: z.array(configFieldSchema).superRefine((fields, ctx) => {
+        for (const message of sentToProblems(fields)) ctx.addIssue({ code: 'custom', message });
+    }),
     configSchema: z.custom<PluginConfigSchema>(isZodSchema, { message: 'configSchema must be a zod schema' }),
 });

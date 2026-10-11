@@ -433,8 +433,10 @@ public struct ConfigFieldColumn: Codable, Equatable, Sendable {
     public var dependsOn: String?
     /// The values of the `dependsOn` cell this one applies to. Omitted means any non-empty value; ignored without a target
     public var dependsOnValues: [String]?
+    /// `secret` only: key of the address column in the same list this credential is sent to. A save that keeps the stored credential while that row's address moves to another origin is refused
+    public var sentTo: String?
 
-    public init(key: String, label: String, type: ConfigFieldColumnType, required: Bool? = nil, placeholder: String? = nil, options: [ConfigFieldOption]? = nil, optionsFrom: ConfigFieldOptionSource? = nil, dependsOn: String? = nil, dependsOnValues: [String]? = nil) {
+    public init(key: String, label: String, type: ConfigFieldColumnType, required: Bool? = nil, placeholder: String? = nil, options: [ConfigFieldOption]? = nil, optionsFrom: ConfigFieldOptionSource? = nil, dependsOn: String? = nil, dependsOnValues: [String]? = nil, sentTo: String? = nil) {
         self.key = key
         self.label = label
         self.type = type
@@ -444,6 +446,7 @@ public struct ConfigFieldColumn: Codable, Equatable, Sendable {
         self.optionsFrom = optionsFrom
         self.dependsOn = dependsOn
         self.dependsOnValues = dependsOnValues
+        self.sentTo = sentTo
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -456,6 +459,7 @@ public struct ConfigFieldColumn: Codable, Equatable, Sendable {
         case optionsFrom = "optionsFrom"
         case dependsOn = "dependsOn"
         case dependsOnValues = "dependsOnValues"
+        case sentTo = "sentTo"
     }
 
     public init(from decoder: Decoder) throws {
@@ -469,6 +473,7 @@ public struct ConfigFieldColumn: Codable, Equatable, Sendable {
         self.optionsFrom = try container.decodeIfPresent(ConfigFieldOptionSource.self, forKey: .optionsFrom)
         self.dependsOn = try container.decodeIfPresent(String.self, forKey: .dependsOn)
         self.dependsOnValues = try container.decodeIfPresent([String].self, forKey: .dependsOnValues)
+        self.sentTo = try container.decodeIfPresent(String.self, forKey: .sentTo)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -482,6 +487,7 @@ public struct ConfigFieldColumn: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.optionsFrom, forKey: .optionsFrom)
         try container.encodeIfPresent(self.dependsOn, forKey: .dependsOn)
         try container.encodeIfPresent(self.dependsOnValues, forKey: .dependsOnValues)
+        try container.encodeIfPresent(self.sentTo, forKey: .sentTo)
     }
 }
 
@@ -741,8 +747,10 @@ public struct ConfigFieldDescriptor: Codable, Equatable, Sendable {
     public var dependsOn: String?
     /// Key of the `number` field that is the upper end of the range this one opens, declared on the lower end only. Still two settings, each validated by name; the console draws them as one control whose handles cannot cross
     public var rangeWith: String?
+    /// `secret` only: key of the address field this credential is sent to. A save that keeps the stored credential while that address moves to another origin is refused
+    public var sentTo: String?
 
-    public init(key: String, label: String, type: ConfigFieldType, required: Bool? = nil, `default`: ConfigFieldDescriptorDefault? = nil, unit: ConfigFieldUnit? = nil, control: ConfigFieldControl? = nil, step: Double? = nil, min: Double? = nil, max: Double? = nil, placeholder: String? = nil, help: String? = nil, options: [ConfigFieldOption]? = nil, optionsFrom: ConfigFieldOptionSource? = nil, columns: [ConfigFieldColumn]? = nil, presets: [ConfigFieldPreset]? = nil, dependsOn: String? = nil, rangeWith: String? = nil) {
+    public init(key: String, label: String, type: ConfigFieldType, required: Bool? = nil, `default`: ConfigFieldDescriptorDefault? = nil, unit: ConfigFieldUnit? = nil, control: ConfigFieldControl? = nil, step: Double? = nil, min: Double? = nil, max: Double? = nil, placeholder: String? = nil, help: String? = nil, options: [ConfigFieldOption]? = nil, optionsFrom: ConfigFieldOptionSource? = nil, columns: [ConfigFieldColumn]? = nil, presets: [ConfigFieldPreset]? = nil, dependsOn: String? = nil, rangeWith: String? = nil, sentTo: String? = nil) {
         self.key = key
         self.label = label
         self.type = type
@@ -761,6 +769,7 @@ public struct ConfigFieldDescriptor: Codable, Equatable, Sendable {
         self.presets = presets
         self.dependsOn = dependsOn
         self.rangeWith = rangeWith
+        self.sentTo = sentTo
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -782,6 +791,7 @@ public struct ConfigFieldDescriptor: Codable, Equatable, Sendable {
         case presets = "presets"
         case dependsOn = "dependsOn"
         case rangeWith = "rangeWith"
+        case sentTo = "sentTo"
     }
 
     public init(from decoder: Decoder) throws {
@@ -804,6 +814,7 @@ public struct ConfigFieldDescriptor: Codable, Equatable, Sendable {
         self.presets = try container.decodeIfPresent([ConfigFieldPreset].self, forKey: .presets)
         self.dependsOn = try container.decodeIfPresent(String.self, forKey: .dependsOn)
         self.rangeWith = try container.decodeIfPresent(String.self, forKey: .rangeWith)
+        self.sentTo = try container.decodeIfPresent(String.self, forKey: .sentTo)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -826,6 +837,7 @@ public struct ConfigFieldDescriptor: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.presets, forKey: .presets)
         try container.encodeIfPresent(self.dependsOn, forKey: .dependsOn)
         try container.encodeIfPresent(self.rangeWith, forKey: .rangeWith)
+        try container.encodeIfPresent(self.sentTo, forKey: .sentTo)
     }
 }
 

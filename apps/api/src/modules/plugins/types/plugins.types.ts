@@ -256,6 +256,14 @@ export const ConfigFieldColumn = z.strictObject({
         .array(z.string().min(1).max(200))
         .optional()
         .describe('The values of the `dependsOn` cell this one applies to. Omitted means any non-empty value; ignored without a target'),
+    sentTo: z
+        .string()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe(
+            "`secret` only: key of the address column in the same list this credential is sent to. A save that keeps the stored credential while that row's address moves to another origin is refused",
+        ),
 });
 export type ConfigFieldColumn = z.infer<typeof ConfigFieldColumn>;
 
@@ -385,6 +393,14 @@ export const ConfigFieldDescriptor = z.strictObject({
         .optional()
         .describe(
             'Key of the `number` field that is the upper end of the range this one opens, declared on the lower end only. Still two settings, each validated by name; the console draws them as one control whose handles cannot cross',
+        ),
+    sentTo: z
+        .string()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe(
+            '`secret` only: key of the address field this credential is sent to. A save that keeps the stored credential while that address moves to another origin is refused',
         ),
 });
 export type ConfigFieldDescriptor = z.infer<typeof ConfigFieldDescriptor>;

@@ -12013,6 +12013,11 @@ components:
                         minLength: 1
                         maxLength: 200
                     description: 'The values of the `dependsOn` cell this one applies to. Omitted means any non-empty value; ignored without a target'
+                sentTo:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: "`secret` only: key of the address column in the same list this credential is sent to. A save that keeps the stored credential while that row's address moves to another origin is refused"
             required: [key, label, type]
             description: "One column of a `list` field. Every ordinary cell is stored as a string in the row, so this describes the\ncontrol rather than the value; a `secret` cell is encrypted on its own and is never in the row at all"
         ConfigFieldPreset:
@@ -12099,6 +12104,11 @@ components:
                     minLength: 1
                     maxLength: 200
                     description: 'Key of the `number` field that is the upper end of the range this one opens, declared on the lower end only. Still two settings, each validated by name; the console draws them as one control whose handles cannot cross'
+                sentTo:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: '`secret` only: key of the address field this credential is sent to. A save that keeps the stored credential while that address moves to another origin is refused'
             required: [key, label, type]
             description: "Mirrors the plugin SDK's `ConfigField`: enough for a console to render the settings form with no per-plugin code"
         PluginSummary:

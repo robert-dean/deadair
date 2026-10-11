@@ -76,4 +76,43 @@ struct LyricsTests {
         #expect(LyricsUiState(answer: answer(kind: .instrumental, synced: .some(nil)), heardStartedAt: started, playhead: at(1_000)) == .hidden)
         #expect(LyricsUiState(answer: answer(synced: .some([]), plain: " "), heardStartedAt: started, playhead: at(1_000)) == .hidden)
     }
+
+    private let worded = LyricLineDetail(
+        atMs: 10_000,
+        text: "So beautiful",
+        words: [
+            LyricWordDetail(atMs: 10_000, text: "So "),
+            LyricWordDetail(atMs: 10_400, text: "beau"),
+            LyricWordDetail(atMs: 10_700, text: "tiful"),
+        ]
+    )
+
+    @Test func theCurrentWordIsTheLastPieceThatHasStarted() {
+        #expect(currentWord(worded, positionMs: 9_999) == nil)
+        #expect(currentWord(worded, positionMs: 10_000) == 0)
+        #expect(currentWord(worded, positionMs: 10_699) == 1)
+        #expect(currentWord(worded, positionMs: 60_000) == 2)
+    }
+
+    @Test func aLineTimedOnlyAsALineHasNoCurrentWord() {
+        #expect(currentWord(lines[0], positionMs: 12_000) == nil)
+    }
+
+    @Test func theSungPartIsThePiecesSoFarJoined() {
+        #expect(sungLength(worded, word: 0) == 3)
+        #expect(sungLength(worded, word: 1) == 7)
+        #expect(sungLength(worded, word: 2) == worded.text.count)
+    }
+
+    @Test func theSheetLightsTheSungPartOfAWordedLineAndNoneOfAPlainOne() {
+        let wordedLines = [worded, lines[1]]
+        #expect(
+            LyricsUiState(answer: answer(synced: wordedLines), heardStartedAt: started, playhead: at(10_500))
+                == .synced(lines: wordedLines, current: 0, provider: "deadair.lrclib", sung: 7)
+        )
+        #expect(
+            LyricsUiState(answer: answer(), heardStartedAt: started, playhead: at(15_000))
+                == .synced(lines: lines, current: 1, provider: "deadair.lrclib", sung: nil)
+        )
+    }
 }

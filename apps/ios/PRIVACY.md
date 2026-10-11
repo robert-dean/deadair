@@ -1,6 +1,6 @@
 # Privacy policy for deadair for iPhone
 
-Last updated: 11 September 2026
+Last updated: 11 October 2026
 
 deadair for iPhone is published by Marooned Software. It is a listening app for a deadair radio
 station, which is server software that its users run themselves.
@@ -22,6 +22,17 @@ A handful of settings, in the app's own storage on the device:
 - which audio format you picked
 
 These are part of the device's own backup, like any app's settings, and go nowhere else.
+
+If you add the deadair widget to your Home Screen, the app also keeps a small file for it in a
+storage area on the device that only the app and its widget can read:
+
+- the station's name, whether it was on air and answering, and what it was playing when the app last
+  heard from it (the record's title and artist, or who was talking), with the time it heard that
+- the address of that record's cover picture, and a small copy of the picture itself
+- whether the app was playing the station
+
+The widget draws from that file and connects to nothing. The file is rewritten while the app is
+playing or open, cleared when you choose a different station, and removed with the app.
 
 And, only if you sign in, the session that station issued, kept in the iPhone's Keychain:
 

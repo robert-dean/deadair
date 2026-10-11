@@ -14,7 +14,7 @@ arguments live in the repository rather than here, because they change with the 
 ```
                   your provider                    a model             a voice
               (Spotify / Navidrome              (local or hosted)   (Kokoro / Rhapsode
-               / Jellyfin / Plex)                                    / ElevenLabs)
+               / Jellyfin / Emby / Plex)                             / ElevenLabs)
                        │                               │                    │
                        └───────────── plugins ─────────┴────────────────────┘
                                          │

@@ -235,6 +235,11 @@
     <!-- Under the words: which lyrics source they came from, by its plugin id -->
     <string name="lyrics_from">From %1$s</string>
 
+    <!-- Now playing's output button, which opens the system's output switcher. Spoken only: the button is an icon -->
+    <string name="choose_output">Choose where the station plays</string>
+    <!-- Under the controls while the station is coming out of a Bluetooth device or a network speaker, by the name the system gives it -->
+    <string name="playing_on">Playing on %1$s</string>
+
     <!-- The operator's transport. Drawn only for the account the station calls its operator -->
     <string name="skip">Skip</string>
     <!-- Now playing's operator controls, as spoken. Shuffle reorders what has not aired yet, as Up next's menu does. -->

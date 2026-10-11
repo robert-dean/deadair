@@ -159,7 +159,7 @@ struct NowPlayingScreen: View {
             await readLyrics(startedAt: reading?.value.track?.startedAt)
         }
         .sheet(isPresented: $lyricsOpen) {
-            LyricsSheet(answer: lyrics)
+            LyricsSheet(answer: lyrics, accent: cover.palette?.accent.map { Color(rgb: $0.accent) } ?? .accentColor)
         }
         .onAppear { shown = true }
         .onDisappear {
@@ -185,6 +185,11 @@ struct NowPlayingScreen: View {
 
     private var holdsScreen: Bool {
         keepAwake.holdsScreen(charging: charging, playing: model.listening.wantsToPlay, inFront: inFront)
+    }
+
+    /// The AirPlay speaker or Bluetooth device the station is coming out of, while it is playing.
+    private var playingOnName: String? {
+        model.listening.wantsToPlay ? playingOn(model.listening.outputs) : nil
     }
 
     /// Whether there are words to offer for what this listener is hearing. The sheet works out which
@@ -247,7 +252,7 @@ struct NowPlayingScreen: View {
     private func fullBleed(ui: NowPlayingUiState, reading: Reading<NowPlaying>?, artwork: URL?, transport: TransportUiState?, size: CGSize) -> some View {
         // As wide as the screen allows, and no taller than leaves the words and the controls their
         // room: on a short phone the cover gives way, never the controls.
-        let side = max(min(size.width, Self.artworkMaxWidth * 2, size.height - Self.belowCover - (hasLyrics ? Self.lyricsRoom : 0)), Self.minCover)
+        let side = max(min(size.width, Self.artworkMaxWidth * 2, size.height - Self.belowCover - Self.underRowRoom - (playingOnName != nil ? Self.playingOnRoom : 0)), Self.minCover)
 
         return VStack(spacing: 0) {
             cover(ui: ui, artwork: artwork, transport: transport)
@@ -438,15 +443,35 @@ struct NowPlayingScreen: View {
 
             // Under the row rather than in it: the row's places are spoken for, each paired with one on
             // the other side so the play button stays centred, and another would crowd a narrow phone.
-            if hasLyrics {
-                Button {
-                    lyricsOpen = true
-                } label: {
-                    Label("Lyrics", systemImage: "quote.bubble")
-                        .font(.subheadline.weight(.medium))
+            // The route picker is here for the same reason, and is always drawn: where the sound goes is
+            // worth choosing before play as well as during it.
+            HStack(spacing: 20) {
+                if hasLyrics {
+                    Button {
+                        lyricsOpen = true
+                    } label: {
+                        Label("Lyrics", systemImage: "quote.bubble")
+                            .font(.subheadline.weight(.medium))
+                    }
+                    .buttonStyle(.borderless)
                 }
-                .buttonStyle(.borderless)
-                .padding(.top, 12)
+                RoutePicker(tint: cover.palette?.accent.map { Color(rgb: $0.accent) } ?? .accentColor)
+                    .frame(width: 44, height: 44)
+            }
+            .padding(.top, 4)
+
+            // Where the sound went, when it went somewhere a listener might not be able to see: an
+            // AirPlay speaker across the house, or a Bluetooth device. Nothing for the phone itself.
+            if let name = playingOnName {
+                Label {
+                    Text("Playing on \(name)")
+                } icon: {
+                    Image(systemName: "speaker.wave.2")
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .padding(.top, 2)
             }
 
             // Only when the player has something to say that the spinner does not: it is reconnecting,
@@ -463,8 +488,11 @@ struct NowPlayingScreen: View {
     private static let coverGap: CGFloat = 16
     /// What the words, the line and the controls take under the cover, at most.
     private static let belowCover: CGFloat = 300
-    /// What the Lyrics button takes under the controls, given back by the cover when there is one.
-    private static let lyricsRoom: CGFloat = 44
+    /// What the row under the controls takes (Lyrics and the route picker), given back by the cover.
+    /// Always, since the route picker is always there.
+    private static let underRowRoom: CGFloat = 44
+    /// What the "Playing on" line takes under that row, given back by the cover while it shows.
+    private static let playingOnRoom: CGFloat = 24
     /// The smallest the cover gets on a short phone before the stack is allowed to crowd.
     private static let minCover: CGFloat = 180
     private static let artworkMaxWidth: CGFloat = 360

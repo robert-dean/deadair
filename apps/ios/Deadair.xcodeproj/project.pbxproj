@@ -9,7 +9,34 @@
 /* Begin PBXBuildFile section */
 		DA0000000000000000000101 /* DeadairCore in Frameworks */ = {isa = PBXBuildFile; productRef = DA0000000000000000000301 /* DeadairCore */; };
 		DA0000000000000000000102 /* DeadairSdk in Frameworks */ = {isa = PBXBuildFile; productRef = DA0000000000000000000302 /* DeadairSdk */; };
+		DA0000000000000000000103 /* DeadairCore in Frameworks */ = {isa = PBXBuildFile; productRef = DA0000000000000000000303 /* DeadairCore */; };
+		DA0000000000000000000104 /* DeadairWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DA0000000000000000000206 /* DeadairWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		DA0000000000000000000105 /* DeadairSdk in Frameworks */ = {isa = PBXBuildFile; productRef = DA0000000000000000000304 /* DeadairSdk */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		DA0000000000000000000A01 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DA0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DA0000000000000000000802;
+			remoteInfo = DeadairWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		DA0000000000000000000704 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				DA0000000000000000000104 /* DeadairWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		DA0000000000000000000201 /* Deadair.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Deadair.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -17,12 +44,26 @@
 		DA0000000000000000000203 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		DA0000000000000000000204 /* ExportOptions.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = ExportOptions.plist; sourceTree = "<group>"; };
 		DA0000000000000000000205 /* Deadair.carplay.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Deadair.carplay.entitlements; sourceTree = "<group>"; };
+		DA0000000000000000000206 /* DeadairWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DeadairWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA0000000000000000000207 /* Deadair.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Deadair.entitlements; sourceTree = "<group>"; };
+		DA0000000000000000000208 /* DeadairWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DeadairWidget.entitlements; sourceTree = "<group>"; };
+		DA0000000000000000000209 /* DeadairWidget-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "DeadairWidget-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		DA0000000000000000000401 /* Sources */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Sources;
+			sourceTree = "<group>";
+		};
+		DA0000000000000000000402 /* Widget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Widget;
+			sourceTree = "<group>";
+		};
+		DA0000000000000000000403 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -37,6 +78,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		DA0000000000000000000706 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DA0000000000000000000103 /* DeadairCore in Frameworks */,
+				DA0000000000000000000105 /* DeadairSdk in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -44,6 +94,8 @@
 			isa = PBXGroup;
 			children = (
 				DA0000000000000000000401 /* Sources */,
+				DA0000000000000000000403 /* Shared */,
+				DA0000000000000000000402 /* Widget */,
 				DA0000000000000000000502 /* Config */,
 				DA0000000000000000000503 /* Products */,
 			);
@@ -56,6 +108,9 @@
 				DA0000000000000000000203 /* Info.plist */,
 				DA0000000000000000000204 /* ExportOptions.plist */,
 				DA0000000000000000000205 /* Deadair.carplay.entitlements */,
+				DA0000000000000000000207 /* Deadair.entitlements */,
+				DA0000000000000000000208 /* DeadairWidget.entitlements */,
+				DA0000000000000000000209 /* DeadairWidget-Info.plist */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -64,6 +119,7 @@
 			isa = PBXGroup;
 			children = (
 				DA0000000000000000000201 /* Deadair.app */,
+				DA0000000000000000000206 /* DeadairWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -78,13 +134,16 @@
 				DA0000000000000000000702 /* Sources */,
 				DA0000000000000000000701 /* Frameworks */,
 				DA0000000000000000000703 /* Resources */,
+				DA0000000000000000000704 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				DA0000000000000000000A02 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				DA0000000000000000000401 /* Sources */,
+				DA0000000000000000000403 /* Shared */,
 			);
 			name = Deadair;
 			packageProductDependencies = (
@@ -94,6 +153,31 @@
 			productName = Deadair;
 			productReference = DA0000000000000000000201 /* Deadair.app */;
 			productType = "com.apple.product-type.application";
+		};
+		DA0000000000000000000802 /* DeadairWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DA0000000000000000000903 /* Build configuration list for PBXNativeTarget "DeadairWidget" */;
+			buildPhases = (
+				DA0000000000000000000705 /* Sources */,
+				DA0000000000000000000706 /* Frameworks */,
+				DA0000000000000000000707 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				DA0000000000000000000402 /* Widget */,
+				DA0000000000000000000403 /* Shared */,
+			);
+			name = DeadairWidget;
+			packageProductDependencies = (
+				DA0000000000000000000303 /* DeadairCore */,
+				DA0000000000000000000304 /* DeadairSdk */,
+			);
+			productName = DeadairWidget;
+			productReference = DA0000000000000000000206 /* DeadairWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -106,6 +190,9 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					DA0000000000000000000801 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					DA0000000000000000000802 = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
@@ -129,12 +216,20 @@
 			projectRoot = "";
 			targets = (
 				DA0000000000000000000801 /* Deadair */,
+				DA0000000000000000000802 /* DeadairWidget */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		DA0000000000000000000703 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA0000000000000000000707 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -151,7 +246,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		DA0000000000000000000705 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		DA0000000000000000000A02 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DA0000000000000000000802 /* DeadairWidget */;
+			targetProxy = DA0000000000000000000A01 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		DA0000000000000000000B01 /* Debug */ = {
@@ -211,6 +321,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/Deadair.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Config/Deadair.carplay.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_PREVIEWS = YES;
@@ -237,6 +348,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/Deadair.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Config/Deadair.carplay.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_PREVIEWS = YES;
@@ -254,6 +366,48 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.maroonedsoftware.deadair;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		DA0000000000000000000B05 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/DeadairWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/DeadairWidget-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = deadair;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.maroonedsoftware.deadair.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		DA0000000000000000000B06 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/DeadairWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/DeadairWidget-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = deadair;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.maroonedsoftware.deadair.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -279,6 +433,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		DA0000000000000000000903 /* Build configuration list for PBXNativeTarget "DeadairWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DA0000000000000000000B05 /* Debug */,
+				DA0000000000000000000B06 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -298,6 +461,14 @@
 			productName = DeadairCore;
 		};
 		DA0000000000000000000302 /* DeadairSdk */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DeadairSdk;
+		};
+		DA0000000000000000000303 /* DeadairCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DeadairCore;
+		};
+		DA0000000000000000000304 /* DeadairSdk */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = DeadairSdk;
 		};

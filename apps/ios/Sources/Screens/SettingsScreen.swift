@@ -35,6 +35,14 @@ struct SettingsScreen: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                Toggle(isOn: Binding(get: { model.settings.settings.showOnLockScreen }, set: { model.settings.setShowOnLockScreen($0) })) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Show on the Lock Screen")
+                        Text("While the station plays, shows what is on and a Stop button on the Lock Screen and in the Dynamic Island.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 // Three answers rather than a switch, because "while charging" is the one most people
                 // want: the phone on the counter or in the car is on power, and one in a hand is not.
                 Picker(

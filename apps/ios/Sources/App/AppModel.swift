@@ -104,22 +104,40 @@ final class AppModel {
         // Absent in a build signed without the App Group, which then writes nothing for a widget
         // that could not read it anyway.
         widget = WidgetStore.shared().map { store in
-            WidgetFeed(store: store, artwork: artwork) { [weak self] in
-                guard let self else { return WidgetFeed.Inputs(heard: .loading, requested: false, playing: false, station: nil, stationName: nil) }
-                return WidgetFeed.Inputs(
-                    heard: heardState,
-                    requested: listening.wantsToPlay,
-                    playing: listening.conductor.state == .playing,
-                    station: settings.settings.station,
-                    stationName: settings.settings.stationName
-                )
-            }
+            WidgetFeed(store: store, artwork: artwork) { [weak self] in self?.widgetInputs ?? .none }
         }
         widget?.start()
+        #if os(iOS)
+        activity = StationActivityFeed { [weak self] in
+            guard let self else { return StationActivityFeed.Inputs(widget: .none, enabled: false, playhead: nil) }
+            let latest = heardState.latest
+            return StationActivityFeed.Inputs(
+                widget: widgetInputs,
+                enabled: settings.settings.showOnLockScreen,
+                playhead: latest.flatMap { Playhead.project($0.value.track, readAt: $0.readAt, now: .now) }
+            )
+        }
+        activity?.start()
+        #endif
     }
 
     /// Keeps the home-screen widget's file current from what the app already knows. See `WidgetFeed`.
     @ObservationIgnored private var widget: WidgetFeed?
+    #if os(iOS)
+    /// The Live Activity while the station plays. See `StationActivityFeed`.
+    @ObservationIgnored private var activity: StationActivityFeed?
+    #endif
+
+    /// What the widget and the Live Activity are made from: the heard reading, never the raw poll.
+    private var widgetInputs: WidgetFeed.Inputs {
+        WidgetFeed.Inputs(
+            heard: heardState,
+            requested: listening.wantsToPlay,
+            playing: listening.conductor.state == .playing,
+            station: settings.settings.station,
+            stationName: settings.settings.stationName
+        )
+    }
 
     /// The lock screen's next button follows the role for as long as the app lives, foreground or not:
     /// a role taken away while the phone is locked takes the button with it.

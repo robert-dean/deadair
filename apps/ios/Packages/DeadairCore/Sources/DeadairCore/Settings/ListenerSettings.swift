@@ -14,23 +14,30 @@ public struct ListenerSettings: Equatable, Sendable {
     /// Start the station when the app opens. Off by default: opening an app is not always wanting
     /// to hear it.
     public var playOnOpen: Bool
+    /// Show what is playing as a Live Activity on the Lock Screen and in the Dynamic Island while the
+    /// station plays. On by default: it is the lock screen's own player made larger, and it ends with
+    /// the audio.
+    public var showOnLockScreen: Bool
 
-    public init(station: StationUrl? = nil, stationName: String? = nil, format: StreamFormat? = nil, playOnOpen: Bool = false) {
+    public init(station: StationUrl? = nil, stationName: String? = nil, format: StreamFormat? = nil, playOnOpen: Bool = false, showOnLockScreen: Bool = true) {
         self.station = station
         self.stationName = stationName
         self.format = format
         self.playOnOpen = playOnOpen
+        self.showOnLockScreen = showOnLockScreen
     }
 
     /// Read the stored text. An address that no longer parses is treated as absent, so the app goes
     /// back to Setup rather than polling something it cannot reach; a format this build does not
     /// know is Automatic, as for somebody who never chose. Play-on-open is on only for the word `on`, so
-    /// anything else, including nothing at all, is the default.
-    public init(stationText: String?, nameText: String?, formatText: String?, playOnOpenText: String? = nil) {
+    /// anything else, including nothing at all, is the default. Show-on-the-Lock-Screen is the other
+    /// way round, off only for the word `off`, because its default is on.
+    public init(stationText: String?, nameText: String?, formatText: String?, playOnOpenText: String? = nil, showOnLockScreenText: String? = nil) {
         station = stationText.flatMap { try? StationUrl.parse($0).get() }
         stationName = station == nil ? nil : nameText
         format = formatText.flatMap(StreamFormat.init(rawValue:))
         playOnOpen = playOnOpenText == "on"
+        showOnLockScreen = showOnLockScreenText != "off"
     }
 
     public var stationText: String? { station?.origin }
@@ -49,4 +56,5 @@ public struct ListenerSettings: Equatable, Sendable {
         stored == StreamFormat.mp3.rawValue ? nil : stored
     }
     public var playOnOpenText: String { playOnOpen ? "on" : "off" }
+    public var showOnLockScreenText: String { showOnLockScreen ? "on" : "off" }
 }

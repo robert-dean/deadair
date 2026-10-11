@@ -139,32 +139,32 @@ struct StationWidgetView: View {
         }
     }
 
-    private var isSpoken: Bool {
-        if case .spoken = reading { return true }
-        return false
-    }
+    private var isSpoken: Bool { reading.isSpoken }
 }
 
-private struct ControlFace: View {
+/// The round Play or Stop face, in the app's green.
+struct ControlFace: View {
     let symbol: String
+    var size: CGFloat = 40
 
     var body: some View {
         Image(systemName: symbol)
-            .font(.system(size: 17, weight: .semibold))
+            .font(.system(size: size * 0.42, weight: .semibold))
             .foregroundStyle(.white)
-            .frame(width: 40, height: 40)
+            .frame(width: size, height: size)
             .background(Circle().fill(Color("AccentColor")))
     }
 }
 
 /// The cover read off disk, or the radio (the mic during a break) when there is none.
-private struct CoverTile: View {
+struct CoverTile: View {
     let cover: URL?
     let spoken: Bool
+    var cornerRadius: CGFloat = 10
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 10).fill(.quaternary)
+            RoundedRectangle(cornerRadius: cornerRadius).fill(.quaternary)
             if let cover, let image = UIImage(contentsOfFile: cover.path()) {
                 Image(uiImage: image).resizable().scaledToFill()
             } else {
@@ -172,7 +172,7 @@ private struct CoverTile: View {
             }
         }
         .aspectRatio(1, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .accessibilityHidden(true)
     }
 }

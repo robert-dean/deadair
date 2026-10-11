@@ -6,7 +6,7 @@ import Foundation
 /// Three states rather than two, for the reason `apps/android`'s `WidgetPlayback` gives: the seconds
 /// after a press are warm-up, and a widget that sat at "stopped" through them would look like the
 /// press had not landed.
-public enum WidgetPlayback: String, Codable, Sendable {
+public enum WidgetPlayback: String, Codable, Hashable, Sendable {
     case stopped
     /// Asked for, and nothing coming out yet.
     case warmingUp
@@ -27,7 +27,7 @@ public func widgetPlayback(requested: Bool, playing: Bool) -> WidgetPlayback {
 /// has to be in the file. A process that died writes nothing, which leaves a Stop button on a widget
 /// whose audio has gone with it; pressing it runs `StopStationIntent` in a fresh app process, which
 /// stops nothing and rewrites the file as stopped. That is the safe way round.
-public struct WidgetState: Codable, Equatable, Sendable {
+public struct WidgetState: Codable, Hashable, Sendable {
     public var snapshot: WidgetSnapshot
     public var playback: WidgetPlayback
     /// False until a station has been kept. The widget then says to choose one in the app.

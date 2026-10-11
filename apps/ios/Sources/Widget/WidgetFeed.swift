@@ -25,13 +25,14 @@ final class WidgetFeed {
         let playing: Bool
         let station: StationUrl?
         let stationName: String?
+
+        /// Nothing known and nothing kept, for a graph that has gone away.
+        static let none = Inputs(heard: .loading, requested: false, playing: false, station: nil, stationName: nil)
     }
 
     private let store: WidgetStore
     private let artwork: ArtworkLoader
     private let read: @MainActor () -> Inputs
-    /// Told about every state that was written, for the Live Activity, which follows the same reading.
-    var onWritten: (@MainActor (WidgetState) -> Void)?
 
     /// What is on disk, hydrated before the first reading so an unchanged one writes nothing.
     private(set) var last: WidgetState
@@ -85,7 +86,6 @@ final class WidgetFeed {
         last = next
         cover(next.snapshot)
         reload()
-        onWritten?(next)
     }
 
     /// Fetch the cover for a snapshot, if it names one the file does not already hold.

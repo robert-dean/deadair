@@ -4,12 +4,20 @@ import Testing
 /// What an install remembers, read back from text.
 struct ListenerSettingsTests {
     @Test func readsBackWhatItWrote() {
-        let settings = ListenerSettings(station: station("http://192.168.1.20:8080"), stationName: "Static", format: .hls, playOnOpen: true)
+        let settings = ListenerSettings(station: station("http://192.168.1.20:8080"), stationName: "Static", format: .hls, playOnOpen: true, showOnLockScreen: false)
 
         let read = ListenerSettings(
-            stationText: settings.stationText, nameText: settings.stationName, formatText: settings.formatText, playOnOpenText: settings.playOnOpenText)
+            stationText: settings.stationText, nameText: settings.stationName, formatText: settings.formatText, playOnOpenText: settings.playOnOpenText,
+            showOnLockScreenText: settings.showOnLockScreenText)
 
         #expect(read == settings)
+    }
+
+    @Test func showsOnTheLockScreenUnlessTurnedOff() {
+        #expect(ListenerSettings().showOnLockScreen)
+        #expect(ListenerSettings(stationText: nil, nameText: nil, formatText: nil, showOnLockScreenText: nil).showOnLockScreen)
+        #expect(ListenerSettings(stationText: nil, nameText: nil, formatText: nil, showOnLockScreenText: "on").showOnLockScreen)
+        #expect(!ListenerSettings(stationText: nil, nameText: nil, formatText: nil, showOnLockScreenText: "off").showOnLockScreen)
     }
 
     @Test func readsAnythingButOnAsPlayOnOpenOff() {

@@ -35,6 +35,14 @@ struct SettingsScreen: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                Toggle(isOn: Binding(get: { model.settings.settings.showOnLockScreen }, set: { model.settings.setShowOnLockScreen($0) })) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Show on the Lock Screen")
+                        Text("While the station plays, shows what is on and a Stop button on the Lock Screen and in the Dynamic Island.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 // Here rather than on Now playing, as on Android, and only while the station is
                 // playing: there is nothing to put to sleep otherwise.
                 if model.listening.wantsToPlay {

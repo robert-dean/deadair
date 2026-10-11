@@ -11,7 +11,7 @@ import Foundation
 /// Deliberately smaller than the reading it comes from: no mounts, no listener count, no playhead.
 /// A widget shows none of them, and what is written to the shared container is what `PRIVACY.md`
 /// has to account for.
-public struct WidgetSnapshot: Codable, Equatable, Sendable {
+public struct WidgetSnapshot: Codable, Hashable, Sendable {
     /// What the station calls itself, which is drawn before any reading has arrived and while it is unreachable.
     public var stationName: String?
     public var onAir: Bool

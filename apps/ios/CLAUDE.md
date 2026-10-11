@@ -320,7 +320,7 @@ policy.
 setter** (`set: entry.type`). An explicit closure (`set: { entry.type($0) }`) compiles, and the
 screens use that form throughout.
 
-## The widget
+## The widget and the Live Activity
 
 **The widget draws a file the app writes, and never asks the station anything.** Android's rule
 (`apps/android/CLAUDE.md`, "The home-screen widget is four rules") with the platform's own reason on
@@ -371,6 +371,28 @@ archive fails to sign, and `ios-release.yml` checks after archiving that both bu
 A build signed without the group (CI's, with signing off) finds no container: `WidgetStore.shared()`
 is `nil`, the app writes nothing, and the widget says to choose a station in the app. A personal-team
 build needs the group registered under that team too.
+
+**The Live Activity lives exactly while this phone asks for audio, and only with "Show on the Lock
+Screen" on** (Settings, Listening; on by default, stored as `show_on_lock_screen` beside
+`play_on_open`). `DeadairCore`'s `stationActivityStep` decides start, update and end, and
+`StationActivityFeed` (app) carries it out. Stop, the sleep timer and a change of station all go
+through `Listening.stop()`, so they all end it; an activity left by a killed process is ended at the
+next launch. It reads `AppModel.heardState` like the widget and draws the widget's words, so the
+Lock Screen, the tile and the widget never name different records. Its content is the widget's state
+without the age (which would be an update a minute for nothing) plus the playhead as two
+wall-clock dates for `ProgressView(timerInterval:)`, present only when the station said how much is
+left; a playhead re-anchored by under two seconds is not an update.
+
+**Local updates only, no APNs.** The activity exists only while background audio keeps the app
+running, so nothing outside the app ever needs to move it, and there is no push token to account for.
+**A start from the background is refused by iOS**, so a play from the lock-screen tile, the widget or
+Siri with the app in the background starts no activity; the next change after the app comes forward
+asks again. Measured on the simulator (2026-10-11, against a stand-in station on 127.0.0.1, never the
+live one): play in the app started it, the Lock Screen and expanded Dynamic Island drew the cover,
+words, Stop and a moving bar, its Stop ran `StopStationIntent` in the app and ended it, and the
+widget's Play from the Home Screen started the station with no activity. The compact island draws a
+symbol rather than the cover, which drew there as an empty tile. `ActivityKit` code is `#if os(iOS)`,
+for the macOS type-check.
 
 ## The session
 

@@ -93,7 +93,7 @@
                                            VerticalAlignment="Center"
                                            Foreground="{DynamicResource DaToneFaultBrush}" />
                                 <Button Grid.Column="1" Classes="icon ghost" Width="24" Height="24" Padding="4"
-                                        BorderThickness="0" ToolTip.Tip="Dismiss"
+                                        BorderThickness="0" ToolTip.Tip="Dismiss" AutomationProperties.Name="Dismiss"
                                         Command="{Binding Dialogs.DismissNoticeCommand}">
                                     <PathIcon Data="{DynamicResource DaIconClose}" Width="12" Height="12" />
                                 </Button>

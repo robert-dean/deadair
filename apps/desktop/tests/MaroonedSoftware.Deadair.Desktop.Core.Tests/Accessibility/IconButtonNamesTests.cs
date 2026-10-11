@@ -26,75 +26,25 @@ public class IconButtonNamesTests
 
     private static readonly HashSet<string> Words = ["TextBlock", "SelectableTextBlock", "AccessText", "Run"];
 
-    /// <summary>
-    /// The controls that had no name when this test was written. The list only ever shrinks: a new
-    /// control without a name fails, and so does one named without being taken off the list, so it
-    /// cannot go stale and hide the next one.
-    /// </summary>
-    private static readonly string[] KnownUnnamed =
-    [
-        "Views/ActsTab.axaml: Button 'Turn the order around'",
-        "Views/AlbumsTab.axaml: Button 'Turn the order around'",
-        "Views/FormFieldView.axaml: Slider '{Binding Value}'",
-        "Views/LoginView.axaml: ToggleButton 'Show the password'",
-        "Views/MachineryTab.axaml: ProgressBar '{Binding MeasuredPercent}'",
-        "Views/PlaylistsTab.axaml: Button '{Binding Name, StringFormat='More about {0}'}'",
-        "Views/RatingStrip.axaml: Button '{Binding DislikeHint}'",
-        "Views/RatingStrip.axaml: Button '{Binding NeutralHint}'",
-        "Views/RatingStrip.axaml: Button '{Binding LikeHint}'",
-        "Views/RecordsTab.axaml: Button 'Turn the order around'",
-        "Views/RunningOrderView.axaml: Button 'Skip straight to this record. Everything in front of it is passed over and what is on air is cut.'",
-        "Views/RunningOrderView.axaml: Button '{Binding $parent[ListBox].((vm:RunningOrderViewModel)DataContext).MoveUpCommand}'",
-        "Views/RunningOrderView.axaml: Button '{Binding $parent[ListBox].((vm:RunningOrderViewModel)DataContext).MoveDownCommand}'",
-        "Views/RunningOrderView.axaml: Button '{Binding $parent[ListBox].((vm:RunningOrderViewModel)DataContext).DropCommand}'",
-        "Views/Settings/SettingsProvidersSection.axaml: Button 'Ask it sooner'",
-        "Views/Settings/SettingsProvidersSection.axaml: Button 'Ask it later'",
-        "Views/Settings/SettingsStorageSection.axaml: ProgressBar '{Binding Share}'",
-        "Views/SetupView.axaml: Button 'Back'",
-        "Views/SetupView.axaml: Button '{Binding DeclineLabel}'",
-        "Views/ShellView.axaml: Button 'Dismiss'",
-        "Views/Sidebar.axaml: Button 'Sign out'",
-        "Views/StationAirView.axaml: Button 'Dislike it: the station stops choosing it.'",
-        "Views/StationAirView.axaml: Button 'No opinion: it plays as often as anything else.'",
-        "Views/StationAirView.axaml: Button 'Like it: the station chooses it more often.'",
-        "Views/TodayTab.axaml: ProgressBar '{Binding ProgressValue}'",
-        "Views/TodayTab.axaml: Button 'Move up'",
-        "Views/TodayTab.axaml: Button 'Move down'",
-    ];
-
     [Fact]
-    public void NoNewControlGoesUnnamed()
+    public void EveryWordlessControlHasAName()
     {
-        var found = Unnamed().ToList();
-        var known = new HashSet<string>(KnownUnnamed, StringComparer.Ordinal);
+        var unnamed = Unnamed().ToList();
 
-        var added = found.Where(control => !known.Contains(control.Key)).Select(control => control.Where).ToList();
-
-        Assert.True(added.Count == 0,
+        Assert.True(unnamed.Count == 0,
             "These controls draw no words and have no AutomationProperties.Name, so VoiceOver calls them \"button\" "
-            + "and nothing more. Bind the name to the same text as the tooltip:\n" + string.Join("\n", added));
-    }
-
-    [Fact]
-    public void TheKnownListOnlyShrinks()
-    {
-        var found = Unnamed().Select(control => control.Key).ToHashSet(StringComparer.Ordinal);
-
-        var named = KnownUnnamed.Where(key => !found.Contains(key)).ToList();
-
-        Assert.True(named.Count == 0,
-            "These have a name now (or are gone), so take them off KnownUnnamed:\n" + string.Join("\n", named));
+            + "and nothing more. Bind the name to the same text as the tooltip, less any shortcut:\n" + string.Join("\n", unnamed));
     }
 
     [Fact]
     public void TheViewsAreFound()
     {
-        // A walk that found no files would pass both tests above while checking nothing.
+        // A walk that found no files would pass the test above while checking nothing.
         Assert.True(Markup().Count() > 50);
     }
 
     /// <summary>Every control in the app's markup that draws no words and has no name.</summary>
-    private static IEnumerable<(string Key, string Where)> Unnamed()
+    private static IEnumerable<string> Unnamed()
     {
         foreach (var (relative, document) in Markup())
         {
@@ -110,10 +60,9 @@ public class IconButtonNamesTests
 
                 var label = Attribute(element, "ToolTip.Tip") ?? Attribute(element, "Command") ?? Attribute(element, "Value")
                     ?? Attribute(element, "Name") ?? "";
-                var key = $"{relative}: {kind} '{label}'";
                 var line = ((IXmlLineInfo)element).LineNumber;
 
-                yield return (key, $"{relative}:{line} {kind} '{label}'");
+                yield return $"{relative}:{line} {kind} '{label}'";
             }
         }
     }

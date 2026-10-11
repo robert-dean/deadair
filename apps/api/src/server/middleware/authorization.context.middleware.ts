@@ -32,10 +32,16 @@ import type { ServerKitContext } from '@maroonedsoftware/koa';
 // `@maroonedsoftware/authentication` exposes a flat `AuthenticationContext`:
 // `{ actorId, actorType, claims, roles, factors, ... }`. We collapse it into
 // our Actor union here. The JWT issuer emits `actorType: 'user'` for human
-// logins; everything else (jobs, CLI, webhooks) goes through the
-// unauthenticated branch and is classified as system or vendor.
-
-const isWebhookPath = (p: string) => p.startsWith('/webhooks/');
+// logins; an unauthenticated request is an `http` system actor, which
+// `isTrustedSystemActor` refuses, so it reaches only routes whose policy is
+// `security: none`.
+//
+// Nothing here mints a `vendor` actor. A path prefix is not a credential: when
+// this classified every `/webhooks/*` request as one, and access control
+// granted vendors everything, the first webhook route written with the natural
+// `security: none` would have handed a full-access actor to anybody who could
+// reach it. A vendor actor belongs to the middleware that verifies the
+// vendor's signature, and that middleware does not exist yet.
 
 // Routes whose whole job is to establish or tear down a session. A stale token presented to one of
 // them must not be fatal: the browser attaches whatever it still holds to every request, so failing
@@ -168,14 +174,7 @@ export const authorizationContextMiddleware: () => ServerKitMiddleware = () => {
         // is the canonical way to detect "unauthenticated"; a truthiness check
         // would never fire because the sentinel is a populated object.
         if (auth === invalidAuthenticationSession) {
-            actor = isWebhookPath(ctx.path)
-                ? {
-                      kind: 'vendor',
-                      sessionToken,
-                      vendor: ctx.path.split('/')[2] ?? 'unknown',
-                      eventId: ctx.requestId ?? '',
-                  }
-                : { kind: 'system', sessionToken, source: 'http' };
+            actor = { kind: 'system', sessionToken, source: 'http' };
         } else if (apiKeyClaim && apiKeyClaim.owner.kind === 'user') {
             actor = await apiKeyActor(container, ctx, apiKeyClaim, sessionToken);
         } else if (auth.claims.actorType === 'user') {

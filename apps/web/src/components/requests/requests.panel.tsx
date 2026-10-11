@@ -5,6 +5,7 @@ import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
 import { useDeclineRequest, useGrantRequest, useRequests } from '../../api/requests.queries';
+import { PartyCard } from './party.card';
 import { sdkError } from '../../api/sdk.error';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { EmptyState } from '../shared/empty.state';
@@ -56,6 +57,7 @@ export function RequestsPanel() {
 
     return (
         <Stack gap="md">
+            <PartyCard />
             {requests.error ? <ErrorAlert title={t('error.title')} error={requests.error} fallback={t('error.fallback')} /> : undefined}
             <Group justify="space-between">
                 <Text size="sm" c="dimmed">
@@ -120,7 +122,9 @@ function RequestRow({ request }: { request: ListenerRequest }) {
             <Table.Td>
                 <Text size="sm">{request.requesterName}</Text>
                 <Text size="xs" c="dimmed">
-                    {t(request.source === 'chat' ? 'row.fromChat' : 'row.fromApp', { date: formatDate(request.createdAt) })}
+                    {t(request.source === 'chat' ? 'row.fromChat' : request.fromParty === true ? 'row.fromParty' : 'row.fromApp', {
+                        date: formatDate(request.createdAt),
+                    })}
                 </Text>
             </Table.Td>
             <Table.Td>

@@ -18,6 +18,7 @@ vi.mock('../../../src/api/client', () => ({
             listRequests: (...args: unknown[]) => listRequests(...args),
             grantRequest: (...args: unknown[]) => grantRequest(...args),
             declineRequest: (...args: unknown[]) => declineRequest(...args),
+            party: { getParty: async () => ({}) },
         },
     },
 }));
@@ -49,6 +50,14 @@ describe('RequestsPanel', () => {
         expect(screen.getByText(/From a chat/)).toBeInTheDocument();
         // Played is not open, so it waits behind Recent.
         expect(screen.queryByText('Angel')).not.toBeInTheDocument();
+    });
+
+    it('says a request came from a guest at the party, rather than from an app', async () => {
+        listRequests.mockResolvedValue({ requests: [request({ source: 'app', fromParty: true })] });
+        render(<RequestsPanel />);
+
+        expect(await screen.findByText(/At the party/)).toBeInTheDocument();
+        expect(screen.queryByText(/From an app/)).not.toBeInTheDocument();
     });
 
     it('shows everything recent on asking', async () => {

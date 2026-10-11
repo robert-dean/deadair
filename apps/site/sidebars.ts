@@ -65,6 +65,12 @@ const sidebars: SidebarsConfig = {
         },
         {
             type: 'category',
+            label: 'Grow the station',
+            collapsed: false,
+            items: ['tutorials/speakers', 'tutorials/chat-platforms'],
+        },
+        {
+            type: 'category',
             label: 'More',
             collapsed: false,
             items: ['tutorials/produce-a-segment', 'tutorials/throw-a-party'],

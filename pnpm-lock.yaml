@@ -814,8 +814,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@maroonedsoftware/rhapsode-sdk':
-        specifier: ^0.1.23
-        version: 0.1.23
+        specifier: ^0.1.26
+        version: 0.1.26
       '@repo/config-eslint':
         specifier: workspace:*
         version: link:../../packages/config-eslint
@@ -3308,8 +3308,8 @@ packages:
     resolution: {integrity: sha512-mfIj55Fdntdw6PrUIKBTeIT2bLIGtOsEnBpvK/BH6kCnhpduWHDWMqKRrQoO1HwqpArVPLsSaFHkfl1UoELdEA==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/rhapsode-sdk@0.1.23':
-    resolution: {integrity: sha512-HibiEzIjtzh/8Zo/bIsKHP6IxydFlNpC8RCVuKV5w+3C/Mqb/p2wmNbEop0bA8limiCHKPv7EGlHckzcBFVDXA==}
+  '@maroonedsoftware/rhapsode-sdk@0.1.26':
+    resolution: {integrity: sha512-LC4Z5ZBlGftfMrctN5ThFjEfDWkh1On6l1MIIMIxKIWFTmpGgFHavR+5LGL2HrBFLp0r6HAdrrwDETxXGpudBw==}
 
   '@maroonedsoftware/servercore@0.3.0':
     resolution: {integrity: sha512-wz4BWzw65BbdAds7KCD06HbawmCPgqxHAfXxdQ5BlrScjCGN+3PG4/cZcN35DJ297uP5V8WTkBWCbPOSZ5hCDA==}
@@ -14314,7 +14314,7 @@ snapshots:
       injectkit: 1.7.1
       luxon: 3.7.2
 
-  '@maroonedsoftware/rhapsode-sdk@0.1.23': {}
+  '@maroonedsoftware/rhapsode-sdk@0.1.26': {}
 
   '@maroonedsoftware/servercore@0.3.0(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(pg@8.23.1)(yaml@2.9.0)':
     dependencies:

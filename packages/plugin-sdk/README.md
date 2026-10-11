@@ -1085,6 +1085,17 @@ ones it implements in `manifest.capabilities`:
     fetcher a login and return the URL it gives you back; see _When your audio
     needs a helper to fetch it_ above.
 
+    **If fetching that URL takes longer than a download, say so with
+    `fetchBudgetMs`.** The host allows 90 seconds, which suits every provider whose
+    audio transfers — the Spotify shim measures a 320kbps Ogg at 664ms. It does not
+    suit a source whose audio is PERFORMED rather than transferred: a record
+    captured in real time takes its own duration to arrive, and cut off at 90
+    seconds it looks like an upstream that hung. Send the worst honest case, in
+    integer milliseconds; the host clamps it, never shortens its own floor, and a
+    fetch that finishes early costs nothing. Do not reach for it because a provider
+    is merely slow — a large number there only delays the retry that would have
+    fixed it.
+
     This capability is a URL, not bytes. Audio that reaches the station as bytes
     through Node is the exceptional path and always was, even now that
     `response.body` makes it trivial: the audio consumer is Liquidsoap in a

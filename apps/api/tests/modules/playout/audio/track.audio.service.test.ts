@@ -11,7 +11,7 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { MAX_TRACK_BYTES, TrackAudioService } from '../../../../src/modules/playout/audio/track.audio.service.js';
+import { fetchBudgetFor, MAX_TRACK_BYTES, TrackAudioService } from '../../../../src/modules/playout/audio/track.audio.service.js';
 import { TrackAudioRepository, type CachedFile, type SourceAudio } from '../../../../src/modules/playout/audio/track.audio.repository.js';
 import { TrackStore } from '../../../../src/modules/playout/audio/track.store.js';
 import type { PluginTrackResolver } from '../../../../src/modules/playout/providers/plugin.resolver.js';
@@ -48,7 +48,14 @@ afterEach(async () => {
  * No default on `source`, because "the catalog does not know this binding" is one of the cases here
  * and a default would quietly turn it into the happy path.
  */
-const build = (options: { source: SourceAudio | undefined; url?: string; capBytes?: number; cached?: CachedFile[]; resolve?: AddressResolver }) => {
+const build = (options: {
+    source: SourceAudio | undefined;
+    url?: string;
+    capBytes?: number;
+    cached?: CachedFile[];
+    resolve?: AddressResolver;
+    fetchBudgetMs?: number;
+}) => {
     const findForSource = vi.fn(async () => options.source);
     // The bulk read `readyFor` goes through. Defaults to answering with whatever `source` is, since
     // the window and the single binding are the same record in every test here that uses both.
@@ -105,8 +112,14 @@ const build = (options: { source: SourceAudio | undefined; url?: string; capByte
         }),
     } as unknown as Container;
 
-    const resolveBinding = vi.fn(async () => options.url ?? AUDIO_URL);
-    const resolver = { resolveBinding } as unknown as PluginTrackResolver;
+    // `resolveStream` rather than `resolveBinding`: the service asks for the URL and the provider's own
+    // fetch budget together, because a source that plays in real time cannot be fetched inside a
+    // timeout sized for a download. See `fetchBudgetFor`.
+    const resolveStream = vi.fn(async () => ({
+        url: options.url ?? AUDIO_URL,
+        ...(options.fetchBudgetMs === undefined ? {} : { fetchBudgetMs: options.fetchBudgetMs }),
+    }));
+    const resolver = { resolveStream } as unknown as PluginTrackResolver;
     const config = { get: vi.fn((_key: string, fallback: unknown) => options.capBytes ?? fallback) } as unknown as AppConfig;
 
     return {
@@ -118,7 +131,7 @@ const build = (options: { source: SourceAudio | undefined; url?: string; capByte
         markServed,
         markBindingMissing,
         markBindingUnplayable,
-        resolveBinding,
+        resolveStream,
         totalCachedBytes,
         leastRecentlyServed,
         clearBytes,
@@ -208,11 +221,11 @@ describe('TrackAudioService.readyFor', () => {
 describe('TrackAudioService.ensure', () => {
     it('serves the file when the station already holds the record', async () => {
         const checksum = await store.write(RECORD, 'ogg');
-        const { service, resolveBinding } = build({ source: { ...BINDING, checksum, ext: 'ogg' } });
+        const { service, resolveStream } = build({ source: { ...BINDING, checksum, ext: 'ogg' } });
         respondWith(RECORD, { contentType: 'audio/ogg' });
 
         expect(await service.ensure(SOURCE_ID)).toEqual({ contentType: 'audio/ogg', body: RECORD, checksum });
-        expect(resolveBinding).not.toHaveBeenCalled();
+        expect(resolveStream).not.toHaveBeenCalled();
     });
 
     // The point of the reshape: a record nobody has fetched is still playable, on the spot.
@@ -245,14 +258,14 @@ describe('TrackAudioService.ensure', () => {
     // Two things wanting one record at once: a MAX_HAND_OVERS retry landing mid-download, or the
     // ripener racing the request it was meant to spare. One download, both callers served.
     it('coalesces concurrent requests into one provider fetch', async () => {
-        const { service, resolveBinding } = build({ source: BINDING });
+        const { service, resolveStream } = build({ source: BINDING });
         respondWith(RECORD, { contentType: 'audio/ogg' });
 
         const [first, second] = await Promise.all([service.ensure(SOURCE_ID), service.ensure(SOURCE_ID)]);
 
         expect(first?.body).toEqual(RECORD);
         expect(second?.body).toEqual(RECORD);
-        expect(resolveBinding).toHaveBeenCalledTimes(1);
+        expect(resolveStream).toHaveBeenCalledTimes(1);
     });
 
     it('reports a fetch in flight, so the ripener does not queue a second', async () => {
@@ -269,13 +282,13 @@ describe('TrackAudioService.ensure', () => {
     // A row claiming bytes the disk does not have — an emptied TRACKS_DIR, a half-restored backup.
     // Re-fetching repairs it; a 404 would skip a record the station can perfectly well fetch again.
     it('re-fetches when the row claims a file that is gone', async () => {
-        const { service, resolveBinding } = build({ source: { ...BINDING, checksum: 'a'.repeat(64), ext: 'ogg' } });
+        const { service, resolveStream } = build({ source: { ...BINDING, checksum: 'a'.repeat(64), ext: 'ogg' } });
         respondWith(RECORD, { contentType: 'audio/ogg' });
 
         const served = await service.ensure(SOURCE_ID);
 
         expect(served?.body).toEqual(RECORD);
-        expect(resolveBinding).toHaveBeenCalledTimes(1);
+        expect(resolveStream).toHaveBeenCalledTimes(1);
     });
 
     it('has nothing to serve when the catalog does not know the binding', async () => {
@@ -691,5 +704,33 @@ describe('TrackAudioService.ensure redirect handling', () => {
 
         expect(await service.ensure(SOURCE_ID)).toBeUndefined();
         expect(stub).toHaveBeenCalledTimes(1);
+    });
+});
+
+// How long one record may take to arrive stopped being one constant when a source appeared whose audio
+// is performed rather than transferred: `stream/apple-player` captures an Apple Music record in real
+// time, so a four-minute record takes four minutes and the 90 seconds that suited a download cut it off
+// mid-record. The provider says how long it needs; this is the clamp around what it says.
+describe('fetchBudgetFor', () => {
+    it('allows the station its own 90 seconds when the provider says nothing', () => {
+        // Which is every provider that was here before this existed, so the default has to be unchanged.
+        expect(fetchBudgetFor(undefined)).toBe(90_000);
+    });
+
+    it('honours a longer budget, because only the provider knows its audio is real time', () => {
+        expect(fetchBudgetFor(5 * 60_000)).toBe(5 * 60_000);
+    });
+
+    it('refuses to be talked DOWN, because the floor is the station protecting itself', () => {
+        expect(fetchBudgetFor(1_000)).toBe(90_000);
+        expect(fetchBudgetFor(0)).toBe(90_000);
+        expect(fetchBudgetFor(-1)).toBe(90_000);
+    });
+
+    it('clamps a silly number rather than pinning a fetch open for as long as a plugin likes', () => {
+        // The value crosses the plugin boundary, so it is a request and not an instruction.
+        expect(fetchBudgetFor(24 * 60 * 60_000)).toBe(20 * 60_000);
+        expect(fetchBudgetFor(Number.POSITIVE_INFINITY)).toBe(90_000);
+        expect(fetchBudgetFor(Number.NaN)).toBe(90_000);
     });
 });

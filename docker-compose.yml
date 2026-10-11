@@ -357,3 +357,93 @@ services:
             # and liquidsoap's output.icecast retries the source connection on its own.
             icecast:
                 condition: service_started
+
+    # ── Apple Music, through a player of Apple's own ────────────────────────────
+    # A browser, a screen nobody looks at, a sink nobody listens to and ffmpeg: the app asks for one
+    # record, this plays it in Apple's own web player and hands back what came out. It is the Spotify
+    # shim's shape with a browser where go-librespot is — see stream/apple-player/README.md, which also
+    # says which parts of it are proven and which need a subscription to exercise.
+    #
+    # BEHIND A PROFILE, deliberately. It is a gigabyte of Chrome that most stations will never want, so
+    # `docker compose up` does not start it and `docker compose --profile apple up` does. That is also
+    # why it is not inside the Liquidsoap image the way the shim is: the audio chain must not be
+    # restarted because a browser needed to be, and config-watch.sh restarts that container on every
+    # config change.
+    apple-player:
+        profiles: ['apple']
+        build:
+            context: .
+            dockerfile: stream/apple-player/Dockerfile
+        image: deadair-apple-player
+        container_name: deadair-apple-player
+        restart: unless-stopped
+        # An init as PID 1 for the Liquidsoap container's reason, doubled: this one supervises a
+        # browser, a display and a sound daemon, and a Chrome that will not die otherwise outlives the
+        # container that was told to stop.
+        init: true
+        environment:
+            # Signs /track/{id}, and it is the SAME secret the Spotify shim verifies — one bridge
+            # secret for every fetch the app makes with no headers. Sourced from the app-rendered
+            # radio.env in a full stack; named here so a dev stack can run the player on its own.
+            APPLE_PLAYER_PORT: '3680'
+            # The address the APP reaches this container on, set here rather than defaulted in the app:
+            # a station with no player must answer "cannot resolve this item" and skip it, not mint a URL
+            # at an address nothing answers on and bench the binding after four failed fetches.
+            APPLE_PLAYER_URL: http://apple-player:3680
+            # The once-per-install sign-in door, shut. Set both of these (and publish 5900 below) for
+            # as long as it takes to sign in to Apple Music in this container's Chrome, then unset them
+            # and restart: the session lives in the profile on /state afterwards and the door is not
+            # needed again. The player refuses to start VNC with an empty password rather than opening
+            # an unauthenticated one. See stream/apple-player/README.md.
+            APPLE_PLAYER_VNC: ${APPLE_PLAYER_VNC:-0}
+            APPLE_PLAYER_VNC_PASSWORD: ${APPLE_PLAYER_VNC_PASSWORD:-}
+        ports:
+            # localhost only, and for two reasons rather than one. It holds the operator's signed-in
+            # Apple Music session, and it will capture anything it is handed. The DevTools port is not
+            # published at all — Chrome is told to listen on 127.0.0.1 inside the container.
+            - '127.0.0.1:3680:3680'
+            # Uncomment only while signing in, alongside APPLE_PLAYER_VNC above. Host loopback, so it
+            # is reachable from this machine and an SSH tunnel and nothing else.
+            # - '127.0.0.1:5900:5900'
+        volumes:
+            # The signed-in Chrome profile, and the whole auth story for this container: the operator
+            # signs in once and this keeps it. Writable, and deliberately not /streamconfig, for the
+            # reason the shim's credentials file is not either — the app cannot reproduce it.
+            - ./.docvol/appleplayer:/state
+            # The player's own source over the image's copy, so editing a capture is a restart rather
+            # than a rebuild. DEV ONLY and read-only, exactly as the analysis and ytaudio mounts are.
+            - ./stream/apple-player/src:/app/src:ro
+            # Mounted (not just baked) for the reason spotify-shim-run.sh is: the launcher is where the
+            # display and the sound daemon are started, and tuning that should not be a rebuild.
+            - ./stream/apple-player/docker-entrypoint.sh:/usr/local/bin/apple-player-run.sh:ro
+            # Where PLAYOUT_BRIDGE_SECRET comes from: the app renders radio.env onto this volume and the
+            # entrypoint sources it, exactly as the Liquidsoap container does before starting the Spotify
+            # shim. Read-only, because the app owns the file. Without it this container would depend on
+            # the secret being exported into `docker compose` by hand.
+            - ./.docvol/streamconfig:/streamconfig:ro
+            # The committed static default, read when the app has never rendered one — same fallback the
+            # Liquidsoap entrypoint takes.
+            - ./stream/radio.default.env:/defaults/radio.env:ro
+        # Captures are written here and deleted as they are served. A tmpfs because they are in flight
+        # rather than kept: the app is the thing that caches a record, and a disk-backed copy here
+        # would be a second cache nobody sweeps.
+        tmpfs:
+            - /tmp/captures:size=512m
+        # Chrome wants more than the default 64MB of shared memory even with --disable-dev-shm-usage,
+        # and the failure without it is a renderer that dies mid-record.
+        shm_size: '1gb'
+        healthcheck:
+            # /widevine rather than /health: this asks the one question that decides whether the
+            # container can ever work, and it answers it without a subscription or a signed-in session.
+            test:
+                [
+                    'CMD',
+                    'node',
+                    '-e',
+                    "fetch('http://127.0.0.1:3680/widevine').then(r=>r.json()).then(b=>process.exit(b.available?0:1)).catch(()=>process.exit(1))",
+                ]
+            interval: 60s
+            timeout: 10s
+            retries: 3
+            # Chrome, Xvfb and PulseAudio all have to come up first, and the CDM probe needs a page.
+            start_period: 60s

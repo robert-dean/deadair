@@ -25,6 +25,7 @@ import type { TracksRepository } from '../../../src/modules/catalog/tracks.repos
 import type { AnalysisRepository, StoredAnalysis } from '../../../src/modules/analysis/analysis.repository.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
+import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -49,6 +50,13 @@ interface Options {
     /** Each track's genres, as `tagsFor` answers them. */
     tags?: Record<string, string[]>;
     bindings?: Record<string, TrackBinding>;
+    /**
+     * Plugin ids the registry should report as able to deliver audio.
+     *
+     * Absent leaves the registry empty, which `streamCapableIds` answers as `undefined` — "do not
+     * filter" — so every other test here is about the ranking rather than the capability.
+     */
+    streamCapable?: string[];
     metadata?: Record<string, { title: string; credit: string; album?: string; year?: number; artworkUrl?: string }>;
     /**
      * What the catalog answers for a name, keyed `Artist — Title`.
@@ -178,6 +186,21 @@ function build(options: Options = {}) {
     const values: Record<string, unknown> = { [DISCOVER_KEY]: options.discover ?? true, ...options.settings };
     const config = { get: (key: string, fallback: unknown) => values[key] ?? fallback } as unknown as AppConfig;
 
+    // `list()` empty means `streamCapableIds` answers undefined, so bindings are not filtered and every
+    // assertion below is about the ranking rather than about the capability. The filtering itself is
+    // tested in candidates.repository.test.ts, where the rows are.
+    // Only `list()` is reached, and only to ask which plugins can be asked for audio. The records are
+    // shaped just enough for `asStreamPlugin` to say yes: active, a manifest declaring `stream`, and a
+    // `resolveStreamUrl` to call.
+    const plugins = {
+        list: () =>
+            (options.streamCapable ?? []).map(id => ({
+                status: 'active',
+                manifest: { id, capabilities: ['catalog', 'stream'] },
+                instance: { resolveStreamUrl: async () => undefined },
+            })),
+    } as unknown as PluginRegistry;
+
     return {
         resolver: new PickResolver(
             candidates,
@@ -187,6 +210,7 @@ function build(options: Options = {}) {
             history,
             lookup,
             ingest,
+            plugins,
             activity,
             new StationIdentity(),
             config,
@@ -356,7 +380,10 @@ describe('PickResolver', () => {
 
         // The advisory policy rides alongside it, because the copy a work resolves to is decided by
         // both: the policy chooses the VERSION and the preference chooses where it comes from.
-        expect(candidates.bindingsFor).toHaveBeenCalledWith(['track-1'], ['deadair.navidrome'], 'prefer-explicit');
+        // The fourth argument is which providers can actually deliver audio; `undefined` here because
+        // this build's registry is empty, which deliberately means "do not filter" rather than "nothing
+        // can play" — see `streamCapableIds`.
+        expect(candidates.bindingsFor).toHaveBeenCalledWith(['track-1'], ['deadair.navidrome'], 'prefer-explicit', undefined);
     });
 
     it('hands the station advisory policy to the binding choice', async () => {
@@ -368,7 +395,23 @@ describe('PickResolver', () => {
 
         await resolve(resolver, [{ title: 'A', artist: 'One', trackId: 'track-1' }]);
 
-        expect(candidates.bindingsFor).toHaveBeenCalledWith(['track-1'], [], 'prefer-clean');
+        expect(candidates.bindingsFor).toHaveBeenCalledWith(['track-1'], [], 'prefer-clean', undefined);
+    });
+
+    it('tells the binding choice which providers can deliver audio', async () => {
+        // The reason this argument exists: a provider can be in the catalog and unable to hand over a
+        // record (Apple Music before its player container is wired, any catalog-only source), and
+        // choosing it to deliver means the item is skipped on air instead of resolved to the copy that
+        // would have played.
+        const { resolver, candidates } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: {},
+            streamCapable: ['deadair.navidrome'],
+        });
+
+        await resolve(resolver, [{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(candidates.bindingsFor).toHaveBeenCalledWith(['track-1'], [], 'prefer-explicit', new Set(['deadair.navidrome']));
     });
 
     it('answers an empty batch without touching the database', async () => {
@@ -1188,6 +1231,22 @@ describe('PickResolver.vet', () => {
         const vetted = await resolver.vet([uncatalogued], {});
 
         expect(vetted).toEqual([uncatalogued]);
+    });
+
+    it('tells the binding choice which providers can deliver audio', async () => {
+        // The reason this argument exists: a provider can be in the catalog and unable to hand over a
+        // record (Apple Music before its player container is wired, any catalog-only source), and
+        // choosing it to deliver means the item is skipped on air instead of resolved to the copy that
+        // would have played.
+        const { resolver, candidates } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: {},
+            streamCapable: ['deadair.navidrome'],
+        });
+
+        await resolve(resolver, [{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(candidates.bindingsFor).toHaveBeenCalledWith(['track-1'], [], 'prefer-explicit', new Set(['deadair.navidrome']));
     });
 
     it('answers an empty batch without touching the database', async () => {

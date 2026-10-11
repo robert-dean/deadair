@@ -7,6 +7,13 @@ import { TrackResolver } from '../playout.capability.js';
 import type { RundownItem } from '../rundown.js';
 import { errorText } from '#modules/shared/error.text.js';
 
+/** Where a record's audio is, and what the provider said about getting it. */
+export interface ResolvedStream {
+    url: string;
+    /** {@link ProviderStream.fetchBudgetMs}, as the provider sent it. Clamped by whoever fetches. */
+    fetchBudgetMs?: number;
+}
+
 /**
  * The generic path: ask the plugin that owns the track for a stream URL.
  *
@@ -51,6 +58,19 @@ export class PluginTrackResolver extends TrackResolver {
      * the natural shape of the question in the first place.
      */
     async resolveBinding(pluginId: string, externalId: string): Promise<string | undefined> {
+        return (await this.resolveStream(pluginId, externalId))?.url;
+    }
+
+    /**
+     * The same question, keeping what the provider said about the fetch as well as where it is.
+     *
+     * Split from {@link resolveBinding} rather than replacing it because the two callers want
+     * different amounts: everything on the transport path wants a URL, and `TrackAudioService` wants
+     * the URL plus how long it is allowed to take, which only the provider knows. A source that plays
+     * in real time cannot be fetched inside a timeout sized for a download, and the host has no way to
+     * tell one from the other by looking.
+     */
+    async resolveStream(pluginId: string, externalId: string): Promise<ResolvedStream | undefined> {
         const record = this.registry.get(pluginId);
         const plugin = record ? asStreamPlugin(record) : undefined;
         if (!plugin) return undefined;
@@ -60,7 +80,8 @@ export class PluginTrackResolver extends TrackResolver {
 
         try {
             const stream = await this.invoker.invoke(pluginId, 'stream.resolveStreamUrl', async () => instance.resolveStreamUrl!(externalId));
-            return stream?.url;
+            if (stream?.url === undefined) return undefined;
+            return { url: stream.url, ...(stream.fetchBudgetMs === undefined ? {} : { fetchBudgetMs: stream.fetchBudgetMs }) };
         } catch (error) {
             // One item's worth of failure. Returning undefined lets the next resolver
             // try, and a track nothing can resolve is skipped rather than aired as silence.

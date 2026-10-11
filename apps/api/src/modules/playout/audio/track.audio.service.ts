@@ -3,7 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
-import { PluginTrackResolver } from '../providers/plugin.resolver.js';
+import { PluginTrackResolver, ProviderBusy } from '../providers/plugin.resolver.js';
 import { causeText } from '#modules/shared/error.text.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 import { privateAddressBehind, resolveAddresses as systemResolveAddresses, type AddressResolver } from '#modules/plugins/plugin.grants.js';
@@ -54,6 +54,12 @@ const TRACK_REDIRECTS = new Set([301, 302, 303, 307, 308]);
 /** First retry after five minutes, doubling per attempt up to a day. The art cache's ladder. */
 const BASE_RETRY_MS = 5 * 60 * 1000;
 const MAX_RETRY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * How long to wait before asking a busy provider again, when it did not say. Fixed rather than a ladder:
+ * a busy account is not a streak against the record, so there is nothing to double off.
+ */
+const BUSY_RETRY_MS = 5 * 60 * 1000;
 
 /**
  * How many failures in a row before the station stops offering the copy at all.
@@ -567,6 +573,22 @@ export class TrackAudioService {
             return served;
         } catch (error) {
             const reason = causeText(error);
+
+            // The provider's account was busy rather than this copy refused, so the copy is neither
+            // counted toward a bench nor written off: it is tried again after the wait, and the director's
+            // bytes-before-air gate routes around it meanwhile, exactly as for any record not yet here.
+            // Info rather than warn, because a shared account in use elsewhere is expected to say this
+            // once per record for as long as it is in use.
+            if (error instanceof ProviderBusy) {
+                await this.inScope(repository => repository.recordDeferral(source.sourceId, reason, error.retryAfterMs ?? BUSY_RETRY_MS));
+                this.logger.info('playout: provider busy, will fetch this record later', {
+                    plugin: source.pluginId,
+                    track: source.externalId,
+                    reason,
+                });
+                return undefined;
+            }
+
             await this.inScope(repository => repository.recordFailure(source.sourceId, reason, BASE_RETRY_MS, MAX_RETRY_MS));
 
             // A copy the provider will never serve does not get the ladder. Written off here rather

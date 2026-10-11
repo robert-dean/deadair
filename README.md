@@ -231,9 +231,9 @@ apps/web               the console: React, Vite, TanStack Router, Mantine
 apps/site              the website at deadair.radio: Docusaurus
 packages/plugin-sdk    the plugin contract and the host capabilities
 packages/sdk           a typed client, generated from the contracts
-plugins/*              spotify, navidrome, jellyfin, plex, ytmusic, musicbrainz,
-                       lastfm, deezer, wikipedia, lrclib, rss, websearch, weather,
-                       podcast, telegram, discord, slack, kokoro, chatterbox,
+plugins/*              spotify, navidrome, jellyfin, plex, ytmusic, pandora,
+                       musicbrainz, lastfm, deezer, wikipedia, lrclib, rss, websearch,
+                       weather, podcast, telegram, discord, slack, kokoro, chatterbox,
                        rhapsode, elevenlabs, llm, analyzer, cast
 examples/plugins/*     a plugin built from outside the workspace, as anybody else's is
 analysis/              the measurement sidecar (Python): cue points and loudness

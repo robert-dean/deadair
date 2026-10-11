@@ -129,7 +129,9 @@ apps/streamdeck   the Elgato Stream Deck plugin (TypeScript, on packages/sdk): N
 packages/error-codes  shared error code constants
 packages/config-*     shared eslint / tsconfig
 plugins/*             bundled plugins: spotify, navidrome, jellyfin, plex, ytmusic (YouTube Music; the audio
-                      resolves signed out through ytaudio/), musicbrainz, lastfm,
+                      resolves signed out through ytaudio/), pandora (unofficial, US only; airs
+                      records with Premium, signed in the way Pandora's Android app is), musicbrainz,
+                      lastfm,
                       deezer (who sounds like whom, with no API key, so a fresh install has a
                       similarity source at all),
                       wikipedia (the prose the station's facts are extracted from, and what happened

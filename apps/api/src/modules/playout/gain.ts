@@ -141,8 +141,8 @@ export const MAX_GAIN_DB = 12;
  * anybody has measured with room for a lower target, and still refuses the tens of decibels a
  * measurement of the wrong file asks for.
  *
- * Not applied to somebody else's programme ({@link programmeGainFor}), which is a mastered level and
- * the case {@link MAX_GAIN_DB} was written for.
+ * Not applied to a programme ({@link programmeGainFor}), which is held to {@link MAX_GAIN_DB}, and
+ * somebody else's programme is a mastered level, the case that cap was written for.
  */
 export const MAX_SPEECH_GAIN_DB = 18;
 
@@ -358,20 +358,45 @@ export function speechAimLufs(targetLufs: number, trimDb: number): number {
 export const ASSUMED_PROGRAMME_LUFS = -16;
 
 /**
- * The gain for an episode of somebody else's programme, in dB, and never nothing.
+ * Whose audio a programme is, which decides whether its boost is capped by its peak.
  *
- * {@link speechGainFor}'s shape exactly — the same target less the same trim, the same cap, always an
- * answer — with one difference, which is the level assumed when there is no measurement. An episode is
- * spoken word and belongs where the station's voice belongs against the music, a little under it,
- * which is why the trim applies; what it is NOT is the output of a speech engine, so it is not
- * assumed to be as quiet as one.
+ * `mastered` is somebody else's programme, carried whole: a podcast episode the station fetched.
+ * `station` is a programme the station spoke itself through its own speech engine (a narration), which
+ * is a programme to the mount and the presenter but the station's own voice to the mixer.
  */
-export function programmeGainFor(measured: MeasuredLoudness, targetLufs: number, trimDb: number): number {
+export type ProgrammeVoice = 'mastered' | 'station';
+
+/**
+ * The gain for a programme, in dB, and never nothing.
+ *
+ * {@link speechGainFor}'s shape (the same target less the same trim, always an answer) with two
+ * differences. The level assumed when there is no measurement is {@link ASSUMED_PROGRAMME_LUFS}: an
+ * episode is spoken word and belongs where the station's voice belongs against the music, a little
+ * under it, which is why the trim applies, but it is NOT the output of a speech engine, so it is not
+ * assumed to be as quiet as one. And the bound is {@link MAX_GAIN_DB}, the record cap.
+ *
+ * **Somebody else's programme is a master, so its boost is capped by its peak exactly as a record's
+ * is**: a cut is always allowed, a boost only as far as the headroom under {@link CEILING_DBTP} the
+ * measured peak leaves, and no boost at all when the peak is unknown. This was the record cap with no
+ * peak check, which let a quiet master be lifted up to twelve decibels into the bus limiter for the
+ * whole length of an episode. {@link speechGainFor}'s reason for skipping the peak, that the audio IS
+ * the station and its peaks are plosives, is true of a narration and false of a fetched episode, so a
+ * `station` programme keeps the boost with no peak check and a `mastered` one does not. A fetched
+ * episode is never measured today (the sidecar decodes thirty minutes at most), so in practice it is
+ * never boosted, only cut when the station's aim sits under the assumed level.
+ *
+ * `mastered` is the default because it is the safe one: a new kind of programme that forgets to say
+ * whose audio it is gets the peak cap rather than an unchecked boost.
+ */
+export function programmeGainFor(measured: MeasuredLoudness, targetLufs: number, trimDb: number, voice: ProgrammeVoice = 'mastered'): number {
     const trim = isFinite(trimDb) ? trimDb : DEFAULT_SPEECH_TRIM_DB;
     const target = (isFinite(targetLufs) ? targetLufs : DEFAULT_TARGET_LUFS) - trim;
     const level = isFinite(measured.loudnessLufs) ? measured.loudnessLufs : ASSUMED_PROGRAMME_LUFS;
 
-    return round(clamp(target - level, MAX_GAIN_DB));
+    const wanted = clamp(target - level, MAX_GAIN_DB);
+    if (voice === 'station' || wanted <= 0) return round(wanted);
+
+    return round(Math.min(wanted, boostCeiling(measured)));
 }
 
 /**

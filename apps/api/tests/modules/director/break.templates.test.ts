@@ -20,6 +20,9 @@ import {
     usable,
     wasHeard,
 } from '../../../src/modules/director/break.templates.js';
+import { ALMANAC_TEMPLATES } from '../../../src/modules/director/almanac.break.writer.js';
+import { CHANGEOVER_TEMPLATES } from '../../../src/modules/director/changeover.writer.js';
+import { JINGLE_TEMPLATES } from '../../../src/modules/director/jingle.writer.js';
 import { NEWS_TEMPLATES } from '../../../src/modules/director/news.break.writer.js';
 import { WARMUP_TEMPLATES } from '../../../src/modules/director/warmup.writer.js';
 import { WEATHER_TEMPLATES } from '../../../src/modules/director/weather.break.writer.js';
@@ -322,4 +325,73 @@ describe('a chart position', () => {
     it('does not use a phrasing that cannot do without one', () => {
         expect(renderTemplate('Number {{next.chart.rank}}: {{next.title}}.', { previous, next }, spoken)).toBeUndefined();
     });
+});
+
+// Every phrasing the station ships, rendered against every shape of break it can meet, and pinned
+// word for word. Written against the renderer BEFORE it was restructured to fill in one pass, so the
+// snapshot beside this file is the proof that the restructure changed nothing a listener hears from
+// the station's own lines. A change here is a change on air: read the diff before updating it.
+describe('the shipped pools, word for word', () => {
+    const pools: Record<string, readonly string[]> = {
+        talk: DEFAULT_TEMPLATES,
+        welcome: WELCOME_TEMPLATES,
+        warmup: WARMUP_TEMPLATES,
+        jingle: JINGLE_TEMPLATES,
+        changeover: CHANGEOVER_TEMPLATES,
+        news: NEWS_TEMPLATES,
+        weather: WEATHER_TEMPLATES,
+        almanac: ALMANAC_TEMPLATES,
+    };
+
+    // Everything a phrasing can be filled from, so every chunk survives somewhere.
+    const everything: TemplateInputs = {
+        previous: { title: 'Domination', artist: 'Pantera' },
+        next: { title: 'Hangar 18', artist: 'Megadeth', chart: { rank: 4, name: 'the Top 40' } },
+        station: 'The Far Frequency',
+        dj: 'Sam',
+        clock: 'just after nine',
+        news: 'A bridge reopened.',
+        weather: 'Rain later.',
+        weatherPlace: 'Atlanta',
+        almanac: 'On this day the bridge opened.',
+        almanacDate: '20 September',
+        subject: 'Technology',
+        greeting: 'good morning',
+        outgoing: 'Alex',
+        outgoingShow: 'The Late Shift',
+        show: 'Breakfast',
+    };
+
+    const without = (...keys: (keyof TemplateInputs)[]): TemplateInputs =>
+        Object.fromEntries(Object.entries(everything).filter(([key]) => !keys.includes(key as keyof TemplateInputs))) as TemplateInputs;
+
+    const scenarios: Record<string, TemplateInputs> = {
+        everything,
+        'no record just finished': without('previous'),
+        'no record coming up': without('next'),
+        'no records at all': without('previous', 'next'),
+        'nothing the station writes itself': without('clock', 'greeting', 'subject', 'dj', 'outgoing', 'outgoingShow', 'show'),
+        // Values that already end a sentence, catalogue furniture for `spoken` to strip, and a
+        // lowercase phrase opening a sentence: the three things the filler does beyond substitution.
+        'values with their own punctuation and furniture': {
+            ...everything,
+            previous: { title: 'Where Is My Mind?', artist: 'R.E.M.' },
+            next: { title: 'Paranoid - 2012 - Remaster', artist: 'Black Sabbath' },
+            station: 'Deadair (Deluxe Edition)',
+            clock: 'nearly ten',
+        },
+    };
+
+    for (const [pool, templates] of Object.entries(pools)) {
+        it(`renders the ${pool} pool exactly as it always has`, () => {
+            const rendered = Object.fromEntries(
+                Object.entries(scenarios).map(([scenario, inputs]) => [
+                    scenario,
+                    templates.map(template => ({ template, rendered: renderTemplate(template, inputs, spoken) ?? 'not used' })),
+                ]),
+            );
+
+            expect(rendered).toMatchSnapshot();
+        });
+    }
 });

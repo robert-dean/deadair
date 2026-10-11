@@ -911,6 +911,62 @@ def driving() =
   lease_left() > 0.
 end
 
+# ── Warming up ───────────────────────────────────────────────────────────────────────────────
+# A lease taken from nothing goes on air when its first request is READY, not the moment it is
+# taken.
+#
+# Off air the app hands over nothing (see WARM_LEAD in playout.pusher.ts), so a listener arriving
+# is the moment the first record is pushed AND the moment the lease is taken, in the same pass.
+# The request then downloads from the app, and until it is ready the queue is unavailable and the
+# bed fallback inside `programme` puts the station ident on the mount. Measured on the live
+# station between 2026-10-08 and 2026-10-10: every first listener heard 5 to 12 seconds of the
+# ident looping before the first record, and the app logged each one as the station airing the
+# local bed instead of its running order.
+#
+# So a fresh lease holds the programme off the mount, on the silence underneath it, until the
+# queue can produce. That is what a listener pressing play already expects — the first seconds of
+# an audience-gated station are warm-up (docs/internals/playout.md) — and it starts the station on
+# its own first record rather than on a bed nothing chose.
+#
+# Bounded, because a request that never resolves must not hold the station silent for as long as
+# the lease is renewed: after PLAYOUT_WARMUP_S the programme is let through whatever the queue
+# says, and the bed and the starve report take over exactly as they did before this existed.
+# Once warm, it stays warm until the lease lapses, so a gap later in the programme still falls
+# through to the bed: this is about the first record and nothing else.
+#
+# The flag is moved on the lease tick (see watch_starve below), while the gate itself reads the
+# queue directly, so the record goes to air in the frame it becomes ready rather than up to a tick
+# later.
+playout_warmup = max(0., env_float("PLAYOUT_WARMUP_S", 15.))
+warmed = ref(false)
+warming_for = ref(0.)
+
+# Whether the programme is what the mount carries: the lease is held, and the station is either
+# warm already or has its first request ready to play.
+def on_programme() =
+  driving() and (warmed() or playout_queue.is_ready())
+end
+
+# Holding the lease and waiting on the first request: the state the reading reports as `warming`.
+def warming() =
+  driving() and not warmed() and not playout_queue.is_ready()
+end
+
+# One step of the warm-up clock, on the lease tick. A lapsed lease is cold again, so the next
+# listener after a stand-down waits for their first record too.
+def warm_up_step() =
+  if not driving() then
+    warmed := false
+    warming_for := 0.
+  elsif not warmed() then
+    if playout_queue.is_ready() or warming_for() >= playout_warmup then
+      warmed := true
+    else
+      warming_for := warming_for() + lease_tick
+    end
+  end
+end
+
 # ── Starve reporting ─────────────────────────────────────────────────────────────────────────
 # Tell the app the moment its running order stops producing audio, and the moment it starts again.
 #
@@ -975,8 +1031,13 @@ end
 # reported the same way. That is deliberate: an operator stopping a starving station has ended the
 # gap, and the alternative is a starve that stays open forever because the thing it was waiting for
 # never happened.
+#
+# A warm-up is not a gap: the mount is on silence rather than the bed, and nothing has stopped
+# producing because nothing has started. So the gap is counted only once the station is warm, and a
+# warm-up that runs out its allowance becomes one then, which is when the bed starts.
 def watch_starve() =
-  gap = driving() and not playout_queue.is_ready()
+  warm_up_step()
+  gap = driving() and warmed() and not playout_queue.is_ready()
   if gap == in_gap() then
     gap_state_for := gap_state_for() + lease_tick
   else
@@ -1004,6 +1065,8 @@ thread.run(every=lease_tick, watch_starve)
 #                cannot say (an endless stream). Never 0 — see below.
 #   driving      whether deadair's lease is unexpired, i.e. whether ANY of this is reaching the
 #                mount. The others describe the queue; this one describes the station.
+#   warming      the lease is held and the mount is on silence while the first request downloads.
+#                See the warm-up block beside the lease.
 #
 # Reported unconditionally. There is one playout path — the app pushes an item, this queue fetches
 # and plays it — for every source, so this reading always describes the running order rather than
@@ -1060,6 +1123,9 @@ def playout_reading() =
   # field "the queue is playing" and "the station is on air" are indistinguishable from outside,
   # and the console can only guess which one it is looking at.
   driving_json = if driving() then "true" else "false" end
+  # Holding the lease while the first request downloads, on silence rather than the bed. See the
+  # warm-up block beside the lease. `driving` stays true through it, because the lease IS held.
+  warming_json = if warming() then "true" else "false" end
   # What the armed voice cue is doing. Reported for the same reason `onAir` is: the app would
   # otherwise have to infer it, and the one state worth seeing — a cue that expired because its
   # record ended first — is invisible from outside by construction. Every /control/* handler
@@ -1073,7 +1139,7 @@ def playout_reading() =
   # `dB` on the way here is applied as a linear factor and looks like nothing at all from the app
   # side, which is a difference of ten decibels reported as a difference of none.
   speech_json = if on_air_speech() then "true" else "false" end
-  '"queued": #{playout_queue.length()}, "resolving": #{playout_resolving()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}, "voice": "#{voice_state()}", "speech": #{speech_json}, "gain": "#{on_air_gain()}", "configStamp": "#{config_stamp}"'
+  '"queued": #{playout_queue.length()}, "resolving": #{playout_resolving()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}, "warming": #{warming_json}, "voice": "#{voice_state()}", "speech": #{speech_json}, "gain": "#{on_air_gain()}", "configStamp": "#{config_stamp}"'
 end
 
 def control_status(req) =
@@ -1592,11 +1658,13 @@ programme =
 # back rather than having to reconnect to a mount that 404'd; and the output stays INFALLIBLE,
 # which is what lets it be declared without `fallible=true`.
 #
-# Note what this deliberately does NOT do: it does not check whether the queue has anything in
-# it. Silence while deadair is driving is deadair's business (an item still resolving, a gap it
-# meant to leave). Silence because nothing is driving is a different fact, and only this gate
-# can tell them apart.
-radio = fallback(track_sensitive=false, [switch(track_sensitive=false, [({driving()}, programme)]), blank()])
+# What it checks beyond the lease is the warm-up and nothing else (`on_programme`, beside the
+# lease): a lease taken from nothing waits here, on silence, for its first request to be ready,
+# rather than putting the bed on the mount for the length of the download. Once warm it does not
+# look at the queue again. Silence or the bed while deadair is driving is deadair's business (an
+# item still resolving, a gap it meant to leave). Silence because nothing is driving is a
+# different fact, and only this gate can tell them apart.
+radio = fallback(track_sensitive=false, [switch(track_sensitive=false, [({on_programme()}, programme)]), blank()])
 
 # The label, when the station is not saying anything.
 #

@@ -373,6 +373,21 @@ playout queue whether or not `driving()` selects it (measured: `remainingMs` fal
 cost the gate exists to avoid. A warm queue is therefore not available from the app side; it would take a
 clock change in `radio.liq`.
 
+**So the first record is fetched in front of the first listener, and the lease waits for it on silence.**
+The rising edge pushes the record and takes the lease in the same pass, and the download from this app
+takes seconds (5 to 12 on the live station, measured from Liquidsoap's own log). Until it was
+ready the queue was unavailable and the bed inside `programme` put the station ident on the mount, so
+every first listener between 2026-10-08 and 2026-10-10 heard the ident loop and the app logged it as
+the station airing the local bed instead of its running order. `radio.liq`'s gate now reads
+`on_programme()` rather than `driving()`: a lease taken from nothing stays on `blank()` until
+`playout_queue.is_ready()`, in the frame it becomes ready, and reports `warming` on the reading
+meanwhile. It is bounded by `PLAYOUT_WARMUP_S` (15s), after which the bed and the starve report take
+over exactly as before, and once warm it never looks at the queue again, so a gap mid-programme still
+falls through to the bed. Silence rather than the ident was chosen deliberately: those seconds are
+warm-up, which is what the listener-client paragraph below already tells every client to expect, and
+the station then starts on its own first record. `stream/warmup.check.py` is the measurement, and fails
+against the old gate on exactly that symptom.
+
 **The console does not play the mount**, deliberately: it used to carry a `StreamMonitor`, and the console is
 the wrong place to listen to a radio station. The consequence is worth knowing rather than working around — an
 operator with the console open is no longer an audience, so in `audience` mode a station with nobody actually

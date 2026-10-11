@@ -79,22 +79,26 @@ export const NEWS_KEYS = {
  * than a station that announces a bulletin and reads nothing — the same rule the other two pools
  * follow, and the way to stop the station reading the news is to take `news` off the clock.
  *
+ * Every one of them names the reader, because a newsreader says who they are before the
+ * headlines ("This is Walter, here's the news"), and every one of them names them inside an
+ * optional chunk, because a station with no `station.djName` and no persona has nobody to name.
+ *
  * Every one of them puts `{{news.headlines}}` outside an optional chunk, which is not a style
  * choice: a phrasing that could drop the read is a phrasing that can produce "Now the news. Next
  * up, The Cure." Everything else is optional, so a station with no name, no clock and nothing
  * coming up still has all four available.
  */
 export const NEWS_TEMPLATES: readonly string[] = [
-    'Now the news. {{news.headlines}}[[ Next up, {{next.artist}} with {{next.title}}.]]',
-    "Here's the news[[ on {{station.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
-    '[[{{greeting}}. ]]Time for the headlines. {{news.headlines}}[[ Then, {{next.artist}}.]]',
-    "It's {{clock.rough}}, and this is the news[[ on {{station.name}}]]. {{news.headlines}}",
+    'Now the news[[ with {{dj.name}}]]. {{news.headlines}}[[ Next up, {{next.artist}} with {{next.title}}.]]',
+    "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+    "[[{{greeting}}. ]][[I'm {{dj.name}}. ]]Time for the headlines. {{news.headlines}}[[ Then, {{next.artist}}.]]",
+    "It's {{clock.rough}}, and this is the news[[ on {{station.name}}]][[ with {{dj.name}}]]. {{news.headlines}}",
     // The two that say what this bulletin is ABOUT, which is what makes a categorised band sound
     // like one. Both name `{{news.topic}}` OUTSIDE an optional chunk, so `usable` drops them on an
     // ordinary bulletin rather than the station announcing "the news" twice in different words —
     // that is the same rule every phrasing here follows about `{{news.headlines}}`.
-    'Now the {{news.topic}} news. {{news.headlines}}[[ Next up, {{next.artist}}.]]',
-    "Here's what's happening in {{news.topic}}[[ on {{station.name}}]]. {{news.headlines}}",
+    'This is the {{news.topic}} news[[ with {{dj.name}}]]. {{news.headlines}}[[ Next up, {{next.artist}}.]]',
+    "Here's what's happening in {{news.topic}}[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}",
 ];
 
 /**

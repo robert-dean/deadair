@@ -617,6 +617,22 @@ is stated in three places because it was previously contradicted in three: the o
 story's opening sentence where it has a usable one (`openingSentence` in `news.break.writer.ts`), which is what a
 writer that cannot rephrase is for; a bulletin that falls through is a plainer bulletin, not a wrong one.
 
+**The reader says who they are.** A newsreader opens with their name ("This is Walter, here's the news"), and
+the station's bulletins went out anonymous for as long as the role sentence was the only place the name
+appeared: being told your name is not being asked to say it. `NEWS_SHAPE.opening` now asks for it, and only when
+`PromptSettings.dj` is set, because a model asked to introduce itself with no name invents one. Every default
+phrasing in `NEWS_TEMPLATES` names `{{dj.name}}` inside an optional chunk, so the floor does the same and a station
+with nobody to name reads exactly what it did before. The name is the persona's `djName` where the newsreader has
+one, then `station.djName`.
+
+The close has the same gap at the other end. The stop rule said the handover was the last thing a bulletin
+says, so a newsreader whose sheet closes on a sign-off ("And that's the way it is") was told two things and the
+rule won. It now allows the reader's own sign-off by name, bounded to one line before the handover, which is a
+different thing from the twelve sentences of atmosphere the rule exists for. **Put a sign-off or an opener in
+the sheet's `quirks`, never its `samples`:** `characterFault` refuses a script sharing six words in a row with
+a sample (`quoted-sample`), so a fixed line the reader is MEANT to repeat would decline every bulletin that
+said it, while a quirk is described rather than quoted and nothing checks a script against it.
+
 **A guard would have made this worse, which is why there is not one.** Every other measured failure here is
 refused, but the only thing a refusal can do is drop to `NewsBreakWriter`, and what the floor reads is headlines
 and their opening sentences, so declining a bulletin for sounding like a list of headlines hands the listener a

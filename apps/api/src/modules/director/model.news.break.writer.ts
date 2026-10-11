@@ -88,12 +88,17 @@ export const NEWS_SHAPE: BreakPromptShape = {
     // no closing reminder to speak "every sentence" in it. The prompt half of `dialect: 'optional'`
     // below, which the guard had applied alone. See `BreakPromptShape.voice`.
     voice: 'lean',
-    opening: request =>
+    opening: (request, settings) =>
         // What it is ABOUT, when a band asked for one. Said in the opening rather than as a rule
         // because it changes what the bulletin IS rather than constraining how it is written — and
         // it is only a description: the stories below have already been cut to the category, so a
         // model that ignored this sentence would still be reading the right ones.
         (request.subject === undefined ? 'This is the news.' : `This is the ${request.subject.label} news, so say so as you introduce it.`) +
+        // Who is reading it, said in the introduction the way a newsreader does ("This is Walter,
+        // here's the news"). The role sentence already gives the name, and knowing it was never the
+        // same as saying it: bulletins went out anonymous. Only when there IS a name, because a
+        // model asked to introduce itself with none will make one up.
+        (settings.dj?.trim() ? ' Say who you are, by name, as you introduce it.' : '') +
         ' Introduce it in a sentence, report the stories below in the order they are given, and then hand back to the music. ' +
         'You are an anchor reading a bulletin, not a page of headlines being read out: tell each story in your own spoken sentences, ' +
         'from the text you are given and nowhere else. ' +
@@ -126,8 +131,14 @@ export const NEWS_SHAPE: BreakPromptShape = {
             'reaching for a definition is filling a gap the story left, and a gap in the news is better left open.',
         'Never read a headline out and then say the same thing again in your own words. A headline is written to be seen, not heard: ' +
             'it drops the words a person would say and packs the story into a line. Find out what happened from it, say that once, and move on.',
-        'Stop when the stories stop. The last thing you say is the handover to the record coming up, in one line, and then you are done. ' +
-            'No sign-off about the night, no scene-setting, nothing about the sound of the station.',
+        // The one exception is the reader's own sign-off, which the sheet carries and this rule used to
+        // forbid by omission: a newsreader whose quirk is "closes with 'And that's the way it is'" was
+        // told in the same prompt that the handover was the last thing it said, and the rule won. A
+        // sign-off is one fixed line that closes the bulletin, not the twelve sentences of atmosphere
+        // above, so it is allowed by name and bounded to a line.
+        'Stop when the stories stop. After the last story you may give your own sign-off, if your character has one, in one short line; ' +
+            'then hand back to the record coming up, in one line, and you are done. ' +
+            'Nothing else: no remarks about the night, no scene-setting, nothing about the sound of the station.',
     ],
 };
 

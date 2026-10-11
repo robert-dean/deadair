@@ -413,6 +413,16 @@ describe('breakPrompt', () => {
         expect(said).not.toMatch(/identifies the station and nothing more/i);
     });
 
+    it('asks a bulletin to say who is reading it, only when the reader has a name', () => {
+        // "This is Walter, here's the news." The role sentence gave the name and bulletins still went
+        // out anonymous; asked of a reader with no name, a model would invent one.
+        const bulletin = { kind: 'news', stories: [{ headline: 'Bridge reopens.' }] };
+
+        expect(user(breakPrompt(bulletin, { dj: 'Walter' }, NEWS_SHAPE))).toMatch(/say who you are, by name/i);
+        expect(user(breakPrompt(bulletin, {}, NEWS_SHAPE))).not.toMatch(/say who you are/i);
+        expect(user(breakPrompt(bulletin, { dj: '  ' }, NEWS_SHAPE))).not.toMatch(/say who you are/i);
+    });
+
     it('passes the recent scripts through as an avoid-list', () => {
         const said = user(prompt({ kind: 'talkbreak', previous, recent: ['That was Solid Air.'] }));
 
@@ -2336,7 +2346,11 @@ describe('readAnswer, against a record credited to its own title', () => {
     });
 
     it('takes the record the right way round, or with no "by" at all', () => {
-        for (const script of ['That was War Pigs by Black Sabbath.', 'Black Sabbath, War Pigs. Up next, Bible Black.', "Black Sabbath's War Pigs, still loud."]) {
+        for (const script of [
+            'That was War Pigs by Black Sabbath.',
+            'Black Sabbath, War Pigs. Up next, Bible Black.',
+            "Black Sabbath's War Pigs, still loud.",
+        ]) {
             expect(readAnswer(script, { names }), script).toBe(script);
         }
     });

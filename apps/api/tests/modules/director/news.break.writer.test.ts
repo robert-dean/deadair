@@ -153,6 +153,27 @@ describe('the phrasings an operator owns', () => {
         expect(written?.script.startsWith('And now, the news.')).toBe(true);
     });
 
+    it('names the reader in every default phrasing, and in none when there is nobody to name', async () => {
+        const named = new NewsBreakWriter(config({ 'station.djName': 'Walter' }), logger);
+        const anonymous = new NewsBreakWriter(config(), logger);
+
+        for (let i = 0; i < 20; i++) {
+            expect((await named.write(request()))?.script).toContain('Walter');
+            expect((await named.write(request({ subject: { key: 'technology', label: 'Technology' } })))?.script).toContain('Walter');
+            expect((await anonymous.write(request()))?.script).not.toMatch(/with \.|I'm \.|This is \./);
+        }
+    });
+
+    it("names the persona reading the news over the station's presenter", async () => {
+        const named = new NewsBreakWriter(config({ 'station.djName': 'Walter' }), logger);
+        const persona = { djName: 'Edna' } as BreakWriteRequest['persona'];
+
+        const written = await named.write(request({ persona }));
+
+        expect(written?.script).toContain('Edna');
+        expect(written?.script).not.toContain('Walter');
+    });
+
     it('restores the station default when the box is cleared', async () => {
         const written = await new NewsBreakWriter(config({ [NEWS_KEYS.templates]: '   ' }), logger).write(request());
 
@@ -197,7 +218,9 @@ describe('the phrasings an operator owns', () => {
 
         expect(await new NewsBreakWriter(greets, logger).write(request({ greeting }))).toMatchObject({ claimsTime: { from: 1_000, until: 5_000 } });
         // Both said, so the window both hold true in.
-        expect(await new NewsBreakWriter(both, logger).write(request({ greeting, clock }))).toMatchObject({ claimsTime: { from: 2_000, until: 3_000 } });
+        expect(await new NewsBreakWriter(both, logger).write(request({ greeting, clock }))).toMatchObject({
+            claimsTime: { from: 2_000, until: 3_000 },
+        });
         expect((await new NewsBreakWriter(plain, logger).write(request({ greeting })))?.claimsTime).toBeUndefined();
     });
 

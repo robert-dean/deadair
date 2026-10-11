@@ -17,16 +17,16 @@
          the station holds. -->
     <StackPanel Orientation="Horizontal" Spacing="2" IsEnabled="{Binding !Busy}">
         <Button Classes="icon small" Classes.never="{Binding IsDisliked}"
-                ToolTip.Tip="{Binding DislikeHint}"
+                ToolTip.Tip="{Binding DislikeHint}" AutomationProperties.Name="{Binding DislikeHint}"
                 Command="{Binding SetCommand}" CommandParameter="disliked">
             <PathIcon Data="{DynamicResource DaIconThumbDown}" Width="12" Height="12" />
         </Button>
-        <Button Classes="icon small" ToolTip.Tip="{Binding NeutralHint}"
+        <Button Classes="icon small" ToolTip.Tip="{Binding NeutralHint}" AutomationProperties.Name="{Binding NeutralHint}"
                 Command="{Binding SetCommand}" CommandParameter="neutral">
             <PathIcon Data="{DynamicResource DaIconMinus}" Width="12" Height="12" />
         </Button>
         <Button Classes="icon small" Classes.active="{Binding IsLiked}"
-                ToolTip.Tip="{Binding LikeHint}"
+                ToolTip.Tip="{Binding LikeHint}" AutomationProperties.Name="{Binding LikeHint}"
                 Command="{Binding SetCommand}" CommandParameter="liked">
             <PathIcon Data="{DynamicResource DaIconThumbUp}" Width="12" Height="12" />
         </Button>

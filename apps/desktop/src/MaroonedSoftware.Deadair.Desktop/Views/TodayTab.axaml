@@ -60,6 +60,7 @@
                                            TextTrimming="CharacterEllipsis" />
                                 <ProgressBar Minimum="0" Maximum="1" Value="{Binding ProgressValue}"
                                              MinWidth="0" Height="3" Margin="0,3"
+                                             AutomationProperties.Name="{Binding Name, StringFormat='How far into {0}'}"
                                              IsVisible="{Binding HasProgress}" />
                                 <TextBlock Classes="mono" FontSize="11" Text="{Binding Aside}"
                                            Foreground="{DynamicResource DaTextSecondaryBrush}" />
@@ -126,13 +127,13 @@
                                         </Border>
                                         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2"
                                                     HorizontalAlignment="Right">
-                                            <Button Classes="icon small" ToolTip.Tip="Move up"
+                                            <Button Classes="icon small" ToolTip.Tip="Move up" AutomationProperties.Name="Move up"
                                                     IsEnabled="{Binding CanMoveUp}"
                                                     Command="{Binding $parent[ListBox].((vm:TodayViewModel)DataContext).MoveUpCommand}"
                                                     CommandParameter="{Binding}">
                                                 <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconChevronUp}" />
                                             </Button>
-                                            <Button Classes="icon small" ToolTip.Tip="Move down"
+                                            <Button Classes="icon small" ToolTip.Tip="Move down" AutomationProperties.Name="Move down"
                                                     IsEnabled="{Binding CanMoveDown}"
                                                     Command="{Binding $parent[ListBox].((vm:TodayViewModel)DataContext).MoveDownCommand}"
                                                     CommandParameter="{Binding}">

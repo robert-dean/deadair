@@ -1876,6 +1876,16 @@ Four-space indent, file-scoped namespaces, `TreatWarningsAsErrors` everywhere. T
 `tests/`, mirroring the source namespaces; the pure layer carries the coverage and there are no UI
 tests, exactly as on Android.
 
+**A control that draws no words carries `AutomationProperties.Name`** (2026-10-11). A button whose
+content is a `PathIcon` and nothing else is "button" to VoiceOver and no more, because the tooltip is
+not what it reads; a `Slider` or a `ProgressBar` has no words at all. Until then there was not one
+`AutomationProperties` in the tree, so the player bar was a row of identical buttons to anybody who
+could not see it. The name is the tooltip's text, bound to the same property when the tooltip is
+bound, less a shortcut in brackets (`Studio`, not `Studio (F)`); a tooltip that is a sentence gives the
+name its first clause and `AutomationProperties.HelpText` the rest. `IconButtonNamesTests` reads every
+view as XML and fails on one without a name, which is how an icon button added later is caught
+without a UI test.
+
 **Words: pure state returns a `Message`, never a sentence — DESIGNED, not built.** There is no
 `Message` type, no `Strings.resx` and no resolver in the tree yet; view models still carry their own
 text. The intent, when the strings are pulled out: strings live in a resource file and are resolved

@@ -82,9 +82,9 @@ export const pandoraManifest: PluginManifest = {
     name: 'Pandora',
     version: PLUGIN_VERSION,
     // Grows with the methods that make each one true, never ahead of them.
-    capabilities: ['catalog'],
+    capabilities: ['catalog', 'stream'],
     apiVersion: '^1.0.0',
-    description: 'Search Pandora and import its playlists. Unofficial: Pandora publishes no API, and this works only from the US.',
+    description: 'Search Pandora, import its playlists, and air its records with Pandora Premium. Unofficial: Pandora publishes no API, and this works only from the US.',
     homepage: 'https://www.pandora.com',
     permissions: {
         network: [

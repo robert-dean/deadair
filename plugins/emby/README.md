@@ -83,10 +83,44 @@ whose file carries no year is left out of it.
 | some ids it does not hold answer with the library's folder        | the user's top-level folders           | keeps only an answer that is the id asked for                           |
 | search ignores punctuation                                        | compares it literally                  | matches titles locally either way                                       |
 
-## What it does not do yet
+## It also enriches
 
-No enrichment. Emby carries MusicBrainz ids, genres and years from the files'
-tags, and reading them is the next change.
+The same plugin is an enrichment source, because your files carry facts no
+external service has: a bootleg, a self-release, a local band. It passes on what
+Emby read from them (genres, years, release dates, a label when Emby read one),
+and an artist's biography and picture when Emby has one.
+
+It sorts at priority **600**, beside the Navidrome and Jellyfin plugins:
+MusicBrainz at 100 wins when both have an opinion, and this fills the gaps. A
+track is looked for among its artist's tracks, then by title across the library;
+a match needs both the artist and the title to agree, and a near miss is no
+answer rather than a wrong one. An artist or record whose remembered id no
+longer answers is searched for again.
+
+### MusicBrainz ids
+
+Emby names each id for what it is, but keeps one fewer than Jellyfin. On a file
+tagged by MusicBrainz Picard with both a recording id and a release-track id,
+Emby 4.10.1 reported:
+
+| Emby's key                | is a               | filed as                    | promoted by the station |
+| ------------------------- | ------------------ | --------------------------- | ----------------------- |
+| `MusicBrainzTrack`        | track on a release | `musicbrainz-track`         | no                      |
+| `MusicBrainzArtist`       | artist             | `musicbrainz-artist`        | yes, onto the artist    |
+| `MusicBrainzReleaseGroup` | release group      | `musicbrainz-release-group` | yes, onto the album     |
+| `MusicBrainzAlbum`        | release            | `musicbrainz-release`       | no                      |
+
+There is no recording id, so a track's recording is left for MusicBrainz itself
+to resolve. Jellyfin reads the same file's `musicbrainz_trackid` as
+`MusicBrainzRecording`; Emby drops it.
+
+When the station already knows an id, it decides: an equal id confirms a
+candidate, and a different one rules it out however well it is named. Emby
+cannot be asked for an item by id (`AnyProviderIdEquals` answered nothing even
+for an id a track carried), so candidates are found by name and their ids
+checked here.
+
+## What it does not do
 
 No `steer`. That capability is for a provider that owns its own audio output,
 which is the Spotify Connect shape; deadair owns the running order on purpose.

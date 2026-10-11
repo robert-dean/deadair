@@ -49,8 +49,19 @@ export interface EmbyItem {
     ImageTags?: Record<string, string> | null;
     /** Only on a playlist, and only when `Fields=ChildCount` asked for it. */
     ChildCount?: number | null;
-    /** Only when `Fields=Overview` asked for it. */
+    /** Only when `Fields=Overview` asked for it. On an artist, a biography; on an album, a review. */
     Overview?: string | null;
+    /** Only when `Fields=Genres` asked for it. */
+    Genres?: string[] | null;
+    /** On an album: its label, when the server read one. Only when `Fields=Studios` asked for it. */
+    Studios?: EmbyNameId[] | null;
+    /** A release date as an ISO-8601 instant. Only when `Fields=PremiereDate` asked for it. */
+    PremiereDate?: string | null;
+    /**
+     * Ids elsewhere, keyed by Emby's own provider names (`MusicBrainzRecording`,
+     * `MusicBrainzReleaseGroup` and so on). Only when `Fields=ProviderIds` asked for it.
+     */
+    ProviderIds?: Record<string, string | null> | null;
 }
 
 /** Every list endpoint's envelope. */

@@ -22,7 +22,7 @@ With no model the station writes its own breaks from its phrasings. With no voic
 - **Pandora.** Search and your playlists with any account, and the audio with Pandora Premium. Unofficial and US only: it signs in with your email and password the way Pandora's own app does, which Pandora's terms do not contemplate. See [the music licensing notes](../licensing.md).
 - **Navidrome**, or any Subsonic server. Your own library and playlists. It also reads the facts in your files' tags, the only description that exists for a bootleg or a local band.
 - **Jellyfin.** Your own library and playlists on a Jellyfin server, read as one Jellyfin user with an API key from its dashboard. It also passes on what Jellyfin knows about each record, from your files' tags and its own online lookups, MusicBrainz ids included.
-- **Emby.** Your own library and playlists on an Emby server, read as one Emby user with an API key from its server settings.
+- **Emby.** Your own library and playlists on an Emby server, read as one Emby user with an API key from its server settings. It also passes on what Emby knows about each record from your files' tags, MusicBrainz ids included.
 - **Plex.** The music libraries and audio playlists on your Plex Media Server, reached directly with your Plex token. It airs the original files, and it also passes on what Plex knows about them: each record's label, styles and moods, and each artist's biography and picture.
 
 **Facts about records**

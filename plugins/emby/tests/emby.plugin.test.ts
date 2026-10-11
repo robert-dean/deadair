@@ -312,6 +312,92 @@ describe('the user lookup', () => {
     });
 });
 
+describe('enrichment', () => {
+    const ARTIST_ID = '22';
+    const ALBUM_ID = '23';
+    const artistRoute: Route = url =>
+        url.pathname === '/Artists' ? { body: items({ Id: ARTIST_ID, Type: 'MusicArtist', Name: 'Masterplan' }) } : undefined;
+
+    it("finds a track among its artist's tracks, asking for the fields enrichment reads", async () => {
+        const { host, plugin } = await build([
+            artistRoute,
+            url =>
+                url.pathname === '/Items' && url.searchParams.get('ArtistIds') === ARTIST_ID
+                    ? {
+                          body: items({
+                              ...track(TRACK, 'Crimson Rider', 'Masterplan'),
+                              ProviderIds: { MusicBrainzRecording: 'ebce4b79-3a33-43b7-96c4-1eda0820c06e' },
+                          }),
+                      }
+                    : undefined,
+        ]);
+
+        const enrichment = await plugin.enrichTrack({ artist: 'Masterplan', title: 'Crimson Rider' });
+
+        expect(enrichment).toMatchObject({
+            providerRef: TRACK,
+            externalIds: expect.arrayContaining([{ source: 'musicbrainz', id: 'ebce4b79-3a33-43b7-96c4-1eda0820c06e' }]),
+        });
+        const scoped = callsTo(host, '/Items').find(url => url.searchParams.has('ArtistIds'))!;
+        expect(scoped.searchParams.get('Fields')).toContain('ProviderIds');
+        expect(callsTo(host, '/Artists')[0]!.searchParams.get('searchTerm')).toBe('Masterplan');
+    });
+
+    it('falls back to a title search when the artist list does not hold the credit', async () => {
+        const { plugin } = await build([
+            url => (url.pathname === '/Artists' ? { body: items() } : undefined),
+            url =>
+                url.pathname === '/Items' && url.searchParams.get('searchTerm') === 'Roads'
+                    ? { body: items(track(TRACK, 'Roads', 'Portishead')) }
+                    : undefined,
+        ]);
+
+        await expect(plugin.enrichTrack({ artist: 'Portishead', title: 'Roads' })).resolves.toMatchObject({ providerRef: TRACK });
+    });
+
+    it('answers nothing for a track the library does not have', async () => {
+        const { plugin } = await build([
+            artistRoute,
+            url => (url.pathname === '/Items' ? { body: items(track(TRACK, 'Other Song', 'Masterplan')) } : undefined),
+        ]);
+
+        await expect(plugin.enrichTrack({ artist: 'Masterplan', title: 'Crimson Rider' })).resolves.toEqual({});
+    });
+
+    it('looks an artist up by the id it answered with last time, and searches again when that id is gone', async () => {
+        const { host, plugin } = await build([
+            url =>
+                url.pathname === '/Items' && url.searchParams.get('ids') === ARTIST_ID
+                    ? { body: items({ Id: ARTIST_ID, Type: 'MusicArtist', Name: 'Masterplan', Overview: 'Bio.' }) }
+                    : undefined,
+            url => (url.pathname === '/Items' && url.searchParams.has('ids') ? { body: items() } : undefined),
+            artistRoute,
+        ]);
+
+        await expect(plugin.enrichArtist({ name: 'Masterplan', providerRef: ARTIST_ID })).resolves.toMatchObject({ biography: 'Bio.' });
+        expect(callsTo(host, '/Artists')).toHaveLength(0);
+        await expect(plugin.enrichArtist({ name: 'Masterplan', providerRef: '99999' })).resolves.toMatchObject({
+            providerRef: ARTIST_ID,
+        });
+    });
+
+    it("finds a record among its artist's records", async () => {
+        const { host, plugin } = await build([
+            artistRoute,
+            url =>
+                url.pathname === '/Items' && url.searchParams.get('AlbumArtistIds') === ARTIST_ID
+                    ? { body: items({ Id: ALBUM_ID, Type: 'MusicAlbum', Name: 'Aeronautics', AlbumArtist: 'Masterplan' }) }
+                    : undefined,
+        ]);
+
+        await expect(plugin.enrichAlbum({ name: 'Aeronautics', artist: 'Masterplan' })).resolves.toMatchObject({
+            providerRef: ALBUM_ID,
+            name: 'Aeronautics',
+        });
+        expect(callsTo(host, '/Items')[0]!.searchParams.get('IncludeItemTypes')).toBe('MusicAlbum');
+    });
+});
+
 describe('a playlist Emby answers with a 500', () => {
     it('is not_found when the item is gone or is not a playlist, since Emby answers both with a 500 rather than a 404', async () => {
         const { plugin } = await build([

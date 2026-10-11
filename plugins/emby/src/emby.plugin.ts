@@ -3,6 +3,12 @@ import {
     PluginError,
     errorText,
     normalize,
+    type AlbumEnrichment,
+    type AlbumRef,
+    type ArtistEnrichment,
+    type ArtistRef,
+    type EnrichmentMatchKey,
+    type EnrichmentProvider,
     type GetPlaylistTracksOptions,
     type ListPlaylistsOptions,
     type MusicProviderPluginInstance,
@@ -11,9 +17,12 @@ import {
     type ProviderStream,
     type ProviderTrack,
     type SearchTracksOptions,
+    type TrackEnrichment,
+    type TrackRef,
 } from '@deadair/plugin-sdk';
 
 import { EmbyClient, EmbyRequestError, isMissing, type EmbyParams } from './emby.client.js';
+import { mapAlbumEnrichment, mapArtistEnrichment, mapTrackEnrichment } from './emby.enrichment.js';
 import { ITEM_ID, embyPlaylistIdFromUrl, mapPlaylist, mapTracks, text } from './emby.mapping.js';
 import {
     ARTIST_PROBE_LIMIT,
@@ -24,6 +33,7 @@ import {
     MAX_PAGE_SIZE,
     type EmbyConfig,
 } from './emby.manifest.js';
+import { selectAlbum, selectArtist, selectTrack } from './emby.match.js';
 import { artistProbe, artistReadings, longestWord, titleMatches, yearsFilter, type ArtistReading } from './emby.search.js';
 import type { EmbyItem, EmbyQueryResult, EmbySystemInfo, EmbyUser } from './emby.types.js';
 
@@ -34,6 +44,9 @@ export { embyManifest } from './emby.manifest.js';
  * on 4.10.1: absent without it, 2005 with it), where Jellyfin sends it unasked.
  */
 const TRACK_FIELDS = 'ProductionYear';
+
+/** The fields an enrichment answer is read from, which a listing leaves out unless asked. */
+const ENRICHMENT_FIELDS = `${TRACK_FIELDS},ProviderIds,Genres,Overview,Studios,PremiereDate`;
 
 /** How many tracks a search answers when the caller did not say. */
 const DEFAULT_SEARCH_LIMIT = 50;
@@ -68,7 +81,7 @@ const AUDIO: EmbyParams = { IncludeItemTypes: 'Audio', Recursive: 'true', Enable
  * belongs to no user, and the user's library access decides what the station
  * sees.
  */
-export class EmbyPlugin extends Plugin implements MusicProviderPluginInstance {
+export class EmbyPlugin extends Plugin implements MusicProviderPluginInstance, EnrichmentProvider {
     private client?: EmbyClient;
     private config?: EmbyConfig;
     /** The configured user's id, looked up once per load. A promise, so concurrent first calls share one lookup. */
@@ -300,6 +313,104 @@ export class EmbyPlugin extends Plugin implements MusicProviderPluginInstance {
             Limit: clampCount(options?.limit) ?? MAX_PAGE_SIZE,
         });
         return this.toTracks(body.Items);
+    }
+
+    // --- enrichment ----------------------------------------------------------
+
+    /**
+     * Supplementary, the same as the Navidrome plugin: what Emby knows is
+     * mostly the files' own tags. MusicBrainz at 100 decides a spelling or a year
+     * when both have one; this fills the gaps, and for a record MusicBrainz never
+     * heard of it is the only description there is.
+     */
+    readonly priority = 600;
+
+    /**
+     * Artist and title. A `TrackRef`'s MusicBrainz recording id is used when it
+     * has one, but only to confirm or rule out candidates found by name, since
+     * Emby cannot be asked for an id (see `emby.match.ts`).
+     */
+    readonly matchKeys: EnrichmentMatchKey[] = ['artist-title'];
+
+    /**
+     * What the tags say about a recording: the artist's tracks searched by
+     * title, then the whole library by title for a track credited in a way the
+     * artist list does not show. `{}` for a track this library does not have,
+     * which the host records as a miss on a short clock.
+     */
+    async enrichTrack(ref: TrackRef): Promise<Partial<TrackEnrichment>> {
+        const client = this.require();
+        const userId = await this.userId();
+        const wanted = { artist: ref.artist, title: ref.title, album: ref.album, mbid: ref.mbid };
+        const base: EmbyParams = { ...AUDIO, userId, Fields: ENRICHMENT_FIELDS };
+
+        const artist = await this.findArtist({ name: ref.artist });
+        if (artist?.Id) {
+            const theirs = (await client.get<EmbyQueryResult>('/Items', { ...base, ArtistIds: artist.Id, Limit: MAX_PAGE_SIZE })).Items ?? [];
+            const found = selectTrack(theirs, wanted);
+            if (found) return mapTrackEnrichment(found, this.trackArt(found));
+        }
+
+        const byTitle = (await client.get<EmbyQueryResult>('/Items', { ...base, searchTerm: ref.title, Limit: MAX_PAGE_SIZE })).Items ?? [];
+        const found = selectTrack(byTitle, wanted);
+        return found ? mapTrackEnrichment(found, this.trackArt(found)) : {};
+    }
+
+    /**
+     * What the server says about an artist. `ref.providerRef` is this plugin's
+     * own id from last time, so a second pass is a lookup; an id that no longer
+     * answers falls back to a search.
+     */
+    async enrichArtist(ref: ArtistRef): Promise<Partial<ArtistEnrichment>> {
+        const known = ref.providerRef ? await this.item(ref.providerRef) : undefined;
+        const artist = known?.Type === 'MusicArtist' ? known : await this.findArtist(ref);
+        return artist ? mapArtistEnrichment(artist, this.imageUrl(artist.Id, artist.ImageTags?.Primary)) : {};
+    }
+
+    /** What the tags say about a record, looked for among its artist's records. Same `providerRef`-first shape. */
+    async enrichAlbum(ref: AlbumRef): Promise<Partial<AlbumEnrichment>> {
+        const known = ref.providerRef ? await this.item(ref.providerRef) : undefined;
+        if (known?.Type === 'MusicAlbum') return mapAlbumEnrichment(known, this.imageUrl(known.Id, known.ImageTags?.Primary));
+
+        const artist = await this.findArtist({ name: ref.artist });
+        if (!artist?.Id) return {};
+        const client = this.require();
+        const records = await client.get<EmbyQueryResult>('/Items', {
+            userId: await this.userId(),
+            IncludeItemTypes: 'MusicAlbum',
+            Recursive: 'true',
+            AlbumArtistIds: artist.Id,
+            Fields: ENRICHMENT_FIELDS,
+            Limit: MAX_PAGE_SIZE,
+        });
+        const album = selectAlbum(records.Items ?? [], ref.name, ref.mbid);
+        return album ? mapAlbumEnrichment(album, this.imageUrl(album.Id, album.ImageTags?.Primary)) : {};
+    }
+
+    /**
+     * The artist a name (and id, when known) describes. Asked for by one word of
+     * the name, the same probe a search uses, because the artist search compares
+     * punctuation literally and a word of the name is enough to find it.
+     */
+    private async findArtist(ref: { name: string; mbid?: string }): Promise<EmbyItem | undefined> {
+        const probe = artistProbe(`${ref.name} _`) ?? ref.name;
+        const client = this.require();
+        const body = await client.get<EmbyQueryResult>('/Artists', {
+            userId: await this.userId(),
+            searchTerm: probe,
+            Fields: ENRICHMENT_FIELDS,
+            Limit: ARTIST_PROBE_LIMIT,
+            EnableTotalRecordCount: 'false',
+        });
+        return selectArtist(body.Items ?? [], ref.name, ref.mbid);
+    }
+
+    /** One item read with the enrichment fields, or nothing for an id that is malformed or gone. */
+    private async item(id: string): Promise<EmbyItem | undefined> {
+        if (!ITEM_ID.test(id)) return undefined;
+        const client = this.require();
+        const body = await client.get<EmbyQueryResult>('/Items', { userId: await this.userId(), ids: id, Fields: ENRICHMENT_FIELDS });
+        return (body.Items ?? []).find(candidate => candidate.Id?.toLowerCase() === id.toLowerCase());
     }
 
     /** A track's picture: its own, else its album's. */

@@ -463,6 +463,46 @@ describe('ProduceProductionJob drafting a beat whose model fails', () => {
         expect(rows[0]).not.toHaveProperty('prompt');
     });
 
+    it('records an empty answer that was asked again before the retry threw, without counting anything twice', async () => {
+        // Two conversations, each with its own bill: the empty one (500) and the retry, which spent
+        // 1700 on a step and then failed. Each row carries its own, and neither carries the other's.
+        const failure = await spentFailure();
+        let calls = 0;
+
+        const { thrown, rows } = await draftWith(
+            async () => {
+                calls += 1;
+                if (calls > 1) throw failure;
+                return {
+                    text: '',
+                    toolCalls: [],
+                    finishReason: 'stop',
+                    usage: { totalTokens: 500 },
+                    model: 'the-model',
+                    toolCallsMade: 0,
+                    transcript: [],
+                };
+            },
+            { [SCRIPT_HISTORY_KEYS.capture]: 'true' },
+        );
+
+        expect(thrown).toBe(failure);
+        expect(rows).toHaveLength(2);
+        expect(rows[0]).toMatchObject({
+            outcome: 'failed',
+            reason: 'the model answered with nothing that could be spoken',
+            personaKey: 'max',
+            usage: { totalTokens: 500 },
+            raw: '',
+        });
+        expect(rows[0]?.prompt).toEqual(expect.any(Array));
+        expect(rows[1]).toMatchObject({
+            outcome: 'failed',
+            reason: 'the model writer failed: the provider fell over',
+            usage: { inputTokens: 900, totalTokens: 1700 },
+        });
+    });
+
     it('leaves a failed row with no figure when nothing was billed before the throw', async () => {
         const { rows } = await draftWith(async () => {
             throw new Error('the model refused');

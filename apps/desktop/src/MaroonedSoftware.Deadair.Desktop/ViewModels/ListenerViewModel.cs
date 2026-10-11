@@ -132,8 +132,9 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _systemNowPlaying.Commanded += command => _dispatcher.Post(() => _ = OnCommandedAsync(command));
 
         // Half a second, counted from the reading rather than from a wall clock, so the playhead
-        // moves smoothly between polls and is re-anchored whenever a real answer arrives.
-        _ticker = new DispatcherTicker(TimeSpan.FromMilliseconds(500), Tick);
+        // moves smoothly between polls and is re-anchored whenever a real answer arrives. A tenth of a
+        // second while words timed one by one are on screen (Tick, LyricsViewModel.FollowsWords).
+        _ticker = new DispatcherTicker(SlowTick, Tick);
 
         _volumeSettles = new DispatcherTicker(TimeSpan.FromMilliseconds(400), SaveVolume);
 
@@ -750,12 +751,19 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _ = LoadArtworkAsync(Core.NowPlaying.HostPortrait.Cover(track, now.Show));
     }
 
+    /// <summary>The playhead's tick, and the faster one while the words being sung are lit one by one.</summary>
+    private static readonly TimeSpan SlowTick = TimeSpan.FromMilliseconds(500);
+
+    private static readonly TimeSpan FastTick = TimeSpan.FromMilliseconds(100);
+
     private void Tick()
     {
         var track = _heldReading?.Reading.Track;
         var position = Playhead.Position(track, _heldReading?.HeardAt, DateTimeOffset.UtcNow);
         var duration = Playhead.Duration(track);
         ShowLyrics();
+        // A word lasts a few hundred milliseconds, so a half-second tick lights it late or skips it.
+        _ticker.Interval = Lyrics.FollowsWords ? FastTick : SlowTick;
 
         if (position is null || duration is null)
         {

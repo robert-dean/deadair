@@ -1,6 +1,7 @@
 package com.maroonedsoftware.deadair.nowplaying
 
 import com.maroonedsoftware.deadair.sdk.models.LyricLineDetail
+import com.maroonedsoftware.deadair.sdk.models.LyricWordDetail
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingLyrics
 import com.maroonedsoftware.deadair.sdk.models.TrackLyrics
 import com.maroonedsoftware.deadair.sdk.models.TrackLyricsKind
@@ -90,5 +91,41 @@ class LyricsTest {
         assertEquals(LyricsUiState.Hidden, lyricsUiState(answer(kind = TrackLyricsKind.NONE, synced = null), started, at(1_000)))
         assertEquals(LyricsUiState.Hidden, lyricsUiState(answer(kind = TrackLyricsKind.INSTRUMENTAL, synced = null), started, at(1_000)))
         assertEquals(LyricsUiState.Hidden, lyricsUiState(answer(synced = emptyList(), plain = " "), started, at(1_000)))
+    }
+
+    private val worded =
+        LyricLineDetail(
+            atMs = 10_000,
+            text = "So beautiful",
+            words = listOf(LyricWordDetail(atMs = 10_000, text = "So "), LyricWordDetail(atMs = 10_400, text = "beau"), LyricWordDetail(atMs = 10_700, text = "tiful")),
+        )
+
+    @Test
+    fun `the current word is the last piece that has started`() {
+        assertNull(currentWord(worded, 9_999))
+        assertEquals(0, currentWord(worded, 10_000))
+        assertEquals(1, currentWord(worded, 10_699))
+        assertEquals(2, currentWord(worded, 60_000))
+    }
+
+    @Test
+    fun `a line timed only as a line has no current word`() {
+        assertNull(currentWord(lines[0], 12_000))
+    }
+
+    @Test
+    fun `the sung part is the pieces so far, joined`() {
+        assertEquals(3, sungLength(worded, 0))
+        assertEquals(7, sungLength(worded, 1))
+        assertEquals(worded.text.length, sungLength(worded, 2))
+    }
+
+    @Test
+    fun `the sheet lights the sung part of a worded line, and none of a plain one`() {
+        val state = lyricsUiState(answer(synced = listOf(worded, lines[1])), started, at(10_500)) as LyricsUiState.Synced
+        assertEquals(0, state.current)
+        assertEquals(7, state.sung)
+        val plainLine = lyricsUiState(answer(), started, at(15_000)) as LyricsUiState.Synced
+        assertNull(plainLine.sung)
     }
 }

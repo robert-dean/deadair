@@ -992,6 +992,12 @@ end from the next line's start, and a blank timed line (which LRC uses to mark
 where singing stops) is kept as one. An `instrumental` answer is an answer: the
 host stops asking and treats the record as one nobody sings on.
 
+**Set `words` on a line only when your source times its words.** Each piece is
+a word or syllable with the time it starts being sung, in order, and the pieces'
+texts joined must be the line's `text` exactly, spaces included: a reader lights
+a prefix of the line, so the host drops a line's words whole when they do not
+join up, go back in time, or number more than 200, and shows it as a line.
+
 ## Playing the station on a speaker
 
 An `output` plugin puts the station on a Chromecast, a Sonos, a BluOS player or

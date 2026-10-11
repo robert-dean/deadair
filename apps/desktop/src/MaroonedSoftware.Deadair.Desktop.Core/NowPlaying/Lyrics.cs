@@ -73,6 +73,66 @@ public static class Lyrics
     }
 
     /// <summary>
+    /// The word being sung on <paramref name="line"/> at <paramref name="positionMs"/>: the index of the
+    /// last timed piece of it that has started. Null on a line its source did not time word by word,
+    /// which is shown as a line exactly as before, and before the line's first piece.
+    /// </summary>
+    public static int? CurrentWord(LyricLineDetail line, long positionMs)
+    {
+        if (line.Words is not { } words)
+        {
+            return null;
+        }
+
+        int? current = null;
+        for (var index = 0; index < words.Count; index++)
+        {
+            if (words[index].AtMs > positionMs)
+            {
+                break;
+            }
+
+            current = index;
+        }
+
+        return current;
+    }
+
+    /// <summary>
+    /// How many characters of <paramref name="line"/>'s text have been sung once piece
+    /// <paramref name="word"/> has started: the pieces up to and including it, joined.
+    /// </summary>
+    /// <remarks>
+    /// The station guarantees the pieces join to the text, so this is a prefix of it; clamped anyway, so
+    /// a line that broke that promise lights too little rather than throwing.
+    /// </remarks>
+    public static int SungLength(LyricLineDetail line, int word)
+    {
+        var sung = 0;
+        var words = line.Words ?? [];
+        for (var index = 0; index <= word && index < words.Count; index++)
+        {
+            sung += words[index].Text.Length;
+        }
+
+        return Math.Min(sung, line.Text.Length);
+    }
+
+    /// <summary>Whether any of <paramref name="lines"/> was timed word by word.</summary>
+    public static bool HasWordTimings(IReadOnlyList<LyricLineDetail> lines)
+    {
+        foreach (var line in lines)
+        {
+            if (line.Words is { Count: > 0 })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// What the lyrics section, and the button that opens them, have to show.
     /// </summary>
     /// <remarks>
@@ -96,8 +156,12 @@ public static class Lyrics
 
         if (lyrics.Synced is { Count: > 0 } lines)
         {
-            var current = playhead is { } at ? CurrentLine(lines, PositionMs(at, answer.CueOutMs)) : null;
-            return new LyricsUiState.Synced(lines, current, lyrics.Provider);
+            long? position = playhead is { } at ? PositionMs(at, answer.CueOutMs) : null;
+            var current = position is { } fileMs ? CurrentLine(lines, fileMs) : null;
+            int? sung = current is { } line && position is { } now && CurrentWord(lines[line], now) is { } word
+                ? SungLength(lines[line], word)
+                : null;
+            return new LyricsUiState.Synced(lines, current, lyrics.Provider, sung);
         }
 
         if (!string.IsNullOrWhiteSpace(lyrics.Plain))
@@ -135,7 +199,9 @@ public abstract record LyricsUiState
 
     /// <summary>
     /// Timed lines. <paramref name="Current"/> is the line being heard, or null when none is: before the
-    /// singing, in a gap, or while the decoder cannot say where the record is.
+    /// singing, in a gap, or while the decoder cannot say where the record is. <paramref name="Sung"/> is
+    /// how many characters of that line have been sung, when its source timed the words, and null when
+    /// it did not or none has started yet, which lights the line whole as before.
     /// </summary>
-    public sealed record Synced(IReadOnlyList<LyricLineDetail> Lines, int? Current, string? Provider) : LyricsUiState;
+    public sealed record Synced(IReadOnlyList<LyricLineDetail> Lines, int? Current, string? Provider, int? Sung = null) : LyricsUiState;
 }

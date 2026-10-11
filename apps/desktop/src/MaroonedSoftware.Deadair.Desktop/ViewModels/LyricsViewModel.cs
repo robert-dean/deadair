@@ -6,13 +6,32 @@ using MaroonedSoftware.Deadair.Sdk.Models;
 
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
-/// <summary>One timed line, and whether it is the one being sung.</summary>
+/// <summary>One timed line, whether it is the one being sung, and how much of it has been.</summary>
+/// <remarks>
+/// The row draws <see cref="Sung"/> then <see cref="Rest"/>, which together are always
+/// <see cref="Text"/>: a line that is not being sung, or whose source did not time its words, has
+/// nothing sung and is drawn exactly as a plain line was.
+/// </remarks>
 public sealed partial class LyricLineViewModel(string text) : ObservableObject
 {
     public string Text { get; } = text;
 
     [ObservableProperty]
     private bool _isCurrent;
+
+    /// <summary>The part of the line already sung, lit in the accent. Empty when nothing is.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Rest), nameof(IsSinging))]
+    private string _sung = string.Empty;
+
+    /// <summary>The rest of the line, after <see cref="Sung"/>.</summary>
+    public string Rest => Text[Sung.Length..];
+
+    /// <summary>Whether part of the line is lit, which is what draws the glow behind it.</summary>
+    public bool IsSinging => Sung.Length > 0;
+
+    /// <summary>Lights the first <paramref name="length"/> characters, or none for null.</summary>
+    public void Sing(int? length) => Sung = length is { } count && count > 0 ? Text[..Math.Min(count, Text.Length)] : string.Empty;
 }
 
 /// <summary>
@@ -23,7 +42,7 @@ public sealed partial class LyricLineViewModel(string text) : ObservableObject
 /// A projection of <see cref="LyricsUiState"/> (Core's <c>Lyrics.State</c>), which is where every
 /// decision is made: whether there is anything to show, and which line is lit. This only turns that
 /// answer into rows a list can bind to, and keeps the rows when only the lit line moved, so the
-/// half-second tick re-lights one line rather than redrawing the song.
+/// tick re-lights one line rather than redrawing the song.
 /// </para>
 /// </remarks>
 public sealed partial class LyricsViewModel : ObservableObject
@@ -66,6 +85,16 @@ public sealed partial class LyricsViewModel : ObservableObject
 
     public string StudioHint => WordsInStudio ? "Show the cover" : "Show the lyrics";
 
+    /// <summary>
+    /// Whether the words on screen are timed word by word, so the playhead should move finely enough to
+    /// light each one: ten times a second rather than twice. Only while the lyrics are showing (the
+    /// panel's section open, or Studio showing the words), and only for a song whose source timed its
+    /// words, because a line lit whole gains nothing from the faster tick.
+    /// </summary>
+    public bool FollowsWords => _hasWordTimings && (IsOpen || StudioShowsWords);
+
+    private bool _hasWordTimings;
+
     /// <summary>False draws no section and no Studio button.</summary>
     public bool HasLyrics => State is not LyricsUiState.Hidden;
 
@@ -97,6 +126,7 @@ public sealed partial class LyricsViewModel : ObservableObject
             if (!ReferenceEquals(synced.Lines, _shownLines))
             {
                 _shownLines = synced.Lines;
+                _hasWordTimings = Core.NowPlaying.Lyrics.HasWordTimings(synced.Lines);
                 Current = -1;
                 Lines.Clear();
                 foreach (var line in synced.Lines)
@@ -105,13 +135,14 @@ public sealed partial class LyricsViewModel : ObservableObject
                 }
             }
 
-            Light(synced.Current ?? -1);
+            Light(synced.Current ?? -1, synced.Sung);
         }
         else
         {
             if (_shownLines is not null)
             {
                 _shownLines = null;
+                _hasWordTimings = false;
                 Lines.Clear();
             }
 
@@ -124,23 +155,27 @@ public sealed partial class LyricsViewModel : ObservableObject
         }
     }
 
-    private void Light(int index)
+    private void Light(int index, int? sung)
     {
-        if (index == Current)
+        if (index != Current)
         {
-            return;
-        }
+            if (Current >= 0 && Current < Lines.Count)
+            {
+                Lines[Current].IsCurrent = false;
+                Lines[Current].Sing(null);
+            }
 
-        if (Current >= 0 && Current < Lines.Count)
-        {
-            Lines[Current].IsCurrent = false;
+            if (index >= 0 && index < Lines.Count)
+            {
+                Lines[index].IsCurrent = true;
+            }
+
+            Current = index;
         }
 
         if (index >= 0 && index < Lines.Count)
         {
-            Lines[index].IsCurrent = true;
+            Lines[index].Sing(sung);
         }
-
-        Current = index;
     }
 }

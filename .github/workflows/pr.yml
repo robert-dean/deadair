@@ -38,6 +38,10 @@ jobs:
     images:
         needs: [changes]
         if: needs.changes.outputs.image == 'true'
+        # `packages` for the mirror the image job reads its bases from; see images.yml.
+        permissions:
+            contents: read
+            packages: read
         uses: ./.github/workflows/images.yml
         with:
             push: false

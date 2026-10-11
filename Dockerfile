@@ -45,8 +45,8 @@ ARG S6_OVERLAY_VERSION=3.2.3.2
 ARG GO_LIBRESPOT_VERSION=v0.7.4
 ARG DBMATE_VERSION=v2.35.0
 # Where the Docker Hub bases below are pulled from. Docker Hub by default, so a hand build needs
-# nothing set up. Each release also copies them to a GHCR mirror (`mirror` in
-# `.github/workflows/release.yml`), because Docker Hub counts every manifest a build fetches against
+# nothing set up. CI passes the GHCR mirror each release keeps of them (`mirror` in
+# `.github/workflows/release.yml`, read by `images.yml`), because Docker Hub counts every manifest a build fetches against
 # the account's pull limit and six variants a push, a few bases each, ran it out: every image job of
 # run 38161469967 failed on a 429 with the code fine. The mirror holds the same digests, so the cache
 # does not notice which one a layer was built on. Every base from Docker Hub goes through this argument, and

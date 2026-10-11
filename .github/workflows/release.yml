@@ -223,7 +223,8 @@ jobs:
         secrets: inherit
 
     # The Docker Hub images the station is built from, copied to GHCR where upstream moved them, so
-    # that the builds can pull from a registry that does not ration them. Docker Hub counts every
+    # that the builds pull from a registry that does not ration them (`images.yml` takes them from
+    # here whenever every one is present). Docker Hub counts every
     # manifest a build fetches against the account's limit, and six variants a push, a few bases
     # each, ran it out: run 38161469967 failed all six image jobs on a 429 with the code fine.
     #
@@ -281,7 +282,7 @@ jobs:
                   password: ${{ github.token }}
 
             # The extra is the builder `setup-buildx-action` starts, which is pulled from Docker Hub
-            # too and is not in the Dockerfile.
+            # too and is not in the Dockerfile. Keep it, and MIRROR, in step with images.yml.
             - name: Copy what moved
               run: .github/scripts/mirror.sh moby/buildkit:buildx-stable-1
 
@@ -304,6 +305,10 @@ jobs:
     images:
         needs: [version, changes, mirror]
         if: needs.version.outputs.value != '' || needs.changes.outputs.image == 'true'
+        # `packages` for the mirror the image job reads its bases from; see images.yml.
+        permissions:
+            contents: read
+            packages: read
         uses: ./.github/workflows/images.yml
         with:
             push: true
@@ -359,6 +364,10 @@ jobs:
     images-apple:
         needs: [version, changes, mirror]
         if: needs.version.outputs.value != '' || needs.changes.outputs.image == 'true'
+        # `packages` for the mirror the image job reads its bases from; see images.yml.
+        permissions:
+            contents: read
+            packages: read
         uses: ./.github/workflows/images.yml
         with:
             push: true

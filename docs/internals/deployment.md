@@ -244,6 +244,23 @@ commit a station reports as its revision, which stays honest because it is the c
 image was built from. `release.yml`'s manual trigger rebuilds and republishes everything, for when
 the image should move although the tree did not (a base image's security fix).
 
+**CI builds from a GHCR copy of the Docker Hub bases, and falls back to Docker Hub when the copy is
+incomplete.** Docker Hub counts every manifest a build fetches against the account's pull limit, and
+six variants a push, each fetching a few bases, the `# syntax` frontend and the BuildKit builder, ran
+it out: run 38161469967 failed all six image jobs on a 429 with the code fine. So `mirror` in
+`release.yml`, ahead of the image jobs, copies each of them to `ghcr.io/robert-dean/deadair-mirror`
+under its Docker Hub path, and only when its digest moved. It compares with HEAD requests, which Docker
+Hub does not count, so a run where nothing moved costs no pulls. It warns and never fails, so a
+release is never held up by it. `images.yml` takes the bases from the mirror when it holds every one
+and from Docker Hub otherwise (a pull request bumping a base the mirror has not copied yet), never a
+mix, through the Dockerfile's `BASE_REGISTRY` argument, `BUILDKIT_SYNTAX` and the builder's
+`driver-opts`. **The list is the Dockerfile itself:** `.github/scripts/base-images.sh` reads its
+`# syntax=` line and every `FROM ${BASE_REGISTRY}/...` line, so a new Docker Hub base has to be
+written that way, with its full path (`library/` included), or the mirror never holds it and every
+build falls back. `BASE_REGISTRY` defaults to `docker.io`, so a hand build needs none of this. The
+packages are private and owned by this repository, which the workflow token can read; the image jobs
+still publish to Docker Hub as before, and so read its build cache from there.
+
 **It fails open, and that is the part not to weaken.** No usable base commit (a manual run, a new
 branch, a force push) turns every flag on. A release run turns them all on too, in `release.yml`
 rather than here: a release whose tests failed is retried by the next push to main at that version,

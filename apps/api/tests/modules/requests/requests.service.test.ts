@@ -33,10 +33,17 @@ interface World {
     /** Provider ids the copy resolver can take in, and the track each becomes. */
     copies?: Record<string, string>;
     settings?: Record<string, string>;
+    /** Why the desk would refuse this person whatever they asked for, if it would. */
+    refusal?: string;
 }
 
 function build(found?: RequestRow, world: World = {}, authz: AuthorizationContext = user) {
-    const desk = { submit: vi.fn(async (..._args: unknown[]) => row()), grant: vi.fn(async () => undefined), decline: vi.fn(async () => undefined) };
+    const desk = {
+        submit: vi.fn(async (..._args: unknown[]) => row()),
+        refusal: vi.fn(async (_requester: unknown) => world.refusal),
+        grant: vi.fn(async () => undefined),
+        decline: vi.fn(async () => undefined),
+    };
     const requestable = new Set(['t-1', ...Object.values(world.copies ?? {})]);
     const repository = {
         findRequestable: vi.fn(async (id: string) =>
@@ -167,6 +174,36 @@ describe('RequestsService', () => {
 
         expect(copies.resolve).toHaveBeenCalledWith('deadair.spotify', 'sp-1', 'requests.create.getTrack');
         expect(desk.submit.mock.calls[0]?.[1]).toMatchObject({ trackId: 't-new' });
+    });
+
+    it('refuses somebody the desk would refuse before taking a provider record in, so the library is not grown for a no', async () => {
+        const reason = 'You already have a request in: Angel by Massive Attack. One at a time.';
+        const { service, desk, copies } = build(undefined, { copies: { 'sp-1': 't-new' }, refusal: reason });
+
+        const answer = await service.create({ source: { pluginId: 'deadair.spotify', externalId: 'sp-1' }, name: 'Sam', dedicateTo: 'Alex' });
+
+        expect(copies.resolve).not.toHaveBeenCalled();
+        expect(desk.submit).not.toHaveBeenCalled();
+        expect(desk.refusal).toHaveBeenCalledWith({ key: 'user:a-1', name: 'Sam', actorId: 'a-1' });
+        expect(answer).toMatchObject({ status: 'declined', reason, requesterName: 'Sam', source: 'app', dedicateTo: 'Alex' });
+    });
+
+    it('marks a party guest refused before a take-in as from the party', async () => {
+        const { service, copies } = build(undefined, { copies: { 'sp-1': 't-new' }, refusal: 'The request line is full.' }, guest);
+
+        const answer = await service.create({ source: { pluginId: 'deadair.spotify', externalId: 'sp-1' } });
+
+        expect(copies.resolve).not.toHaveBeenCalled();
+        expect(answer).toMatchObject({ status: 'declined', source: 'app', fromParty: true });
+    });
+
+    it('leaves a library record to the desk, which refuses it with a row as it always has', async () => {
+        const { service, desk } = build(undefined, { refusal: 'The request line is full.' });
+
+        await service.create({ trackId: 't-1' });
+
+        expect(desk.refusal).not.toHaveBeenCalled();
+        expect(desk.submit).toHaveBeenCalled();
     });
 
     it('answers 400 for a request naming its record both ways, or neither', async () => {

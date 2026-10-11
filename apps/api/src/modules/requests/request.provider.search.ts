@@ -144,6 +144,19 @@ export class RequestProviderSearch {
         return tracks;
     }
 
+    /**
+     * What a provider record a recent search answered with is called, without asking anybody: a
+     * request refused before the record is taken in is still answered with what was asked for.
+     * Nothing once the search that found it has left the cache.
+     */
+    static named(pluginId: string, externalId: string): { title: string; artist: string } | undefined {
+        for (const { tracks } of RequestProviderSearch.cache.values()) {
+            const track = tracks.find(candidate => candidate.source === pluginId && candidate.externalId === externalId);
+            if (track !== undefined) return { title: track.title, artist: track.artist };
+        }
+        return undefined;
+    }
+
     /** For tests: forget every cached answer and every search in flight. */
     static forget(): void {
         RequestProviderSearch.cache.clear();

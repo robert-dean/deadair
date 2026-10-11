@@ -68,24 +68,24 @@ export class RequestsService {
      * A provider that cannot be reached costs its rows and nothing else.
      */
     async search(query: { q: string; limit?: number }): Promise<RequestableTrackList> {
-        const { actorId } = this.authz.requireUser();
+        const requester = this.authz.requireRequester();
         const limit = query.limit ?? DEFAULT_SEARCH_LIMIT;
         const library: RequestableTrack[] = await this.repository.search(query.q, limit);
         if (library.length >= limit || !this.providers.reaches()) return { tracks: library };
 
-        const reached = await this.providers.search(query.q, library, limit - library.length, `user:${actorId}`);
+        const reached = await this.providers.search(query.q, library, limit - library.length, requester.key);
         return { tracks: [...library, ...reached] };
     }
 
     async create(body: ListenerRequestCreate): Promise<ListenerRequest> {
-        const { actorId } = this.authz.requireUser();
+        const { key, actorId } = this.authz.requireRequester();
         const trackId = await this.trackFor(body);
         const record = await this.repository.findRequestable(trackId);
         if (record === undefined) throw httpError(404).withDetails({ message: 'the station has no record it could play by that id' });
 
         const name = tidyListenerText(body.name, MAX_REQUESTER_NAME) ?? UNNAMED_REQUESTER;
         const dedication = dedicationOf(body.dedicateTo, body.message);
-        const row = await this.desk.submit({ key: `user:${actorId}`, name, actorId }, record, dedication);
+        const row = await this.desk.submit({ key, name, actorId }, record, dedication);
         return toListenerRequest(row);
     }
 
@@ -110,8 +110,8 @@ export class RequestsService {
     }
 
     async mine(): Promise<ListenerRequestList> {
-        const { actorId } = this.authz.requireUser();
-        const rows = await this.repository.list(this.identity.stationKey, { requesterKey: `user:${actorId}`, limit: 20 });
+        const { key } = this.authz.requireRequester();
+        const rows = await this.repository.list(this.identity.stationKey, { requesterKey: key, limit: 20 });
         return { requests: rows.map(toListenerRequest) };
     }
 

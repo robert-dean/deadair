@@ -44,7 +44,7 @@ import { OAuthGrantPolicy, type OAuthGrantPolicyContext } from '#modules/oauth/o
  * A generated router opts a route in by naming one in its contract's
  * `security: { policy: ... }` block, which becomes `requirePolicy({ policy })`.
  */
-export type DeadairPolicyNames = 'platform.manage' | 'platform.view' | 'oauth.grant';
+export type DeadairPolicyNames = 'platform.manage' | 'platform.view' | 'requests.ask' | 'oauth.grant';
 
 /** `requirePolicy` always asserts with `{ session }`, whatever the policy needs. */
 export interface RequirePolicyContext {
@@ -117,9 +117,32 @@ export class PlatformViewPolicy extends PlatformPolicy {
     }
 }
 
+/**
+ * Gate for asking the station for a record: the request search, a request, and your own requests.
+ *
+ * Everybody `platform.view` admits, narrowed the same way (an API key or a connected app without
+ * `view` is refused with the same challenge), and one more caller: a guest who joined a party with its
+ * pass. That is the whole of what a guest may do, and this is the only gate that says so: a guest
+ * holds no platform role, so every `platform.*` route refuses it, and the middleware has already
+ * turned away a guest whose pass has ended. `tests/routes/guest.reach.test.ts` holds the other half,
+ * that no other route names this policy.
+ */
+@Injectable()
+export class RequestsAskPolicy extends PlatformPolicy {
+    async evaluate(_context: RequirePolicyContext, envelope: ServerPolicyEnvelope): Promise<PolicyResult> {
+        const actor = envelope.actor;
+        if (actor.kind === 'guest') return this.allow();
+        if (actor.kind === 'user' && rolesGrant(actor.platformRoles, PLATFORM_NAMESPACE, 'view')) {
+            return keyLacks(actor, 'view') ? this.insufficientScope('view') : this.allow();
+        }
+        return this.deny('requests_ask_required', { kind: 'permission_required', permission: 'platform:view' });
+    }
+}
+
 export const ServerPolicyMappings: Record<AuthenticationPolicyNames | DeadairPolicyNames, Constructor<Policy>> = {
     'platform.manage': PlatformManagePolicy,
     'platform.view': PlatformViewPolicy,
+    'requests.ask': RequestsAskPolicy,
     // The MCP endpoint's gate: a session an app was granted through OAuth for this station's MCP
     // resource. See the policy for why it is the second lock rather than the only one.
     'oauth.grant': OAuthGrantPolicy,
@@ -170,6 +193,7 @@ export const ServerPolicyMappings: Record<AuthenticationPolicyNames | DeadairPol
 export type ServerPolicyContexts = {
     'platform.manage': RequirePolicyContext;
     'platform.view': RequirePolicyContext;
+    'requests.ask': RequirePolicyContext;
     'oauth.grant': OAuthGrantPolicyContext;
     'auth.factor.email.allowed': EmailAllowedPolicyContext;
     'auth.factor.phone.allowed': PhoneAllowedPolicyContext;

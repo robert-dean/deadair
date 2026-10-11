@@ -70,6 +70,9 @@ export class AccessControlService {
                 return isTrustedSystemActor(actor);
             case 'vendor':
                 return true;
+            case 'guest':
+                // A party guest reaches the request routes through `requests.ask` and no object at all.
+                return false;
             case 'user':
                 if (!keyAllows(actor, permission)) return false;
                 if (
@@ -100,6 +103,8 @@ export class AccessControlService {
                 return isTrustedSystemActor(actor) ? { all: true } : { ids: [], truncated: false };
             case 'vendor':
                 return { all: true };
+            case 'guest':
+                return { ids: [], truncated: false };
             case 'user': {
                 if (!actor.actorId || !keyAllows(actor, permission)) return { ids: [], truncated: false };
                 // If a platform role would grant this permission across the
@@ -136,6 +141,13 @@ export class AccessControlService {
                 // Inbound webhooks carry their own signed authorization
                 // (validated by the route's signature middleware). Permission
                 // checks aren't meaningful here.
+                return;
+
+            case 'guest':
+                // A party guest holds no tuples and no role. It is denied here explicitly because
+                // falling out of this switch ALLOWS, which is the wrong default for a caller anyone
+                // in the room can become by scanning a code.
+                denied(object, permission);
                 return;
 
             case 'user': {
@@ -185,7 +197,7 @@ export class AccessControlService {
         if (actor.kind === 'vendor' || (actor.kind === 'system' && isTrustedSystemActor(actor))) {
             return candidates;
         }
-        if (actor.kind === 'system') {
+        if (actor.kind === 'system' || actor.kind === 'guest') {
             return [];
         }
 

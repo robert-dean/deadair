@@ -118,17 +118,18 @@ export const QUOTA_BACKOFF_MS = 30 * 60_000;
 export class SpotifyRequestError extends PluginError {
     readonly status: number;
     readonly body?: string;
-    /** Spotify's own machine-readable cause, when it sent one. {@link QUOTA_EXCEEDED_REASON} is the one that changes behaviour. */
-    readonly reason?: string;
 
     constructor(status: number, message: string, body?: string, retryAfterMs?: number) {
         super(message);
         this.name = 'SpotifyRequestError';
         this.status = status;
         this.body = body;
-        this.reason = upstreamCause(body);
 
         this.withCode(pluginCodeForStatus(status)).withUpstreamStatus(status);
+        // Spotify's own machine-readable cause, when it sent one. {@link QUOTA_EXCEEDED_REASON} is the
+        // one that changes behaviour.
+        const cause = upstreamCause(body);
+        if (cause !== undefined) this.withUpstreamCode(cause);
 
         // The quota hold wins over whatever `Retry-After` advised, including a
         // header that advised nothing: see {@link QUOTA_BACKOFF_MS}.
@@ -145,7 +146,7 @@ export class SpotifyRequestError extends PluginError {
      * so the status alone cannot tell an operator which one they have.
      */
     get quotaExhausted(): boolean {
-        return this.status === 429 && this.reason === QUOTA_EXCEEDED_REASON;
+        return this.status === 429 && this.upstreamCode === QUOTA_EXCEEDED_REASON;
     }
 }
 

@@ -55,32 +55,24 @@ const reason = (message: string | undefined): string | undefined => {
 /**
  * A Subsonic call that failed, either at the HTTP layer or inside the envelope.
  *
- * Carries `code` so this plugin can branch on it — a 70 from `getSong` means
+ * Carries Subsonic's own code as `upstreamCode` so this plugin can branch on it — a 70 from `getSong` means
  * "no such song" and becomes `undefined` rather than an error — while the
  * `PluginError` half says what the host should make of it.
  */
 export class SubsonicRequestError extends PluginError {
-    /**
-     * Subsonic's own numeric code, absent when the request failed before the
-     * envelope.
-     *
-     * Deliberately not `code`: that name belongs to `PluginError` and holds the
-     * host's vocabulary, so a subclass writing a number into it would silently
-     * overwrite the classification it had just set.
-     */
-    readonly subsonicCode?: number;
-
     /** HTTP status, absent when the failure was inside a 200. */
     readonly status?: number;
 
     constructor(message: string, options: { code?: number; status?: number } = {}) {
         super(message);
         this.name = 'SubsonicRequestError';
-        this.subsonicCode = options.code;
         this.status = options.status;
 
         this.withCode(options.status === undefined ? pluginCodeForSubsonic(options.code) : pluginCodeForStatus(options.status));
         if (options.status !== undefined) this.withUpstreamStatus(options.status);
+        // Subsonic's own numeric code, absent when the request failed before the envelope. Not
+        // `code`: that holds the host's vocabulary.
+        if (options.code !== undefined) this.withUpstreamCode(options.code);
     }
 }
 
@@ -163,4 +155,4 @@ function subsonicFailure(error: SubsonicError | undefined): SubsonicRequestError
 }
 
 /** Whether an error is Subsonic's "no such thing", which several callers treat as data. */
-export const isNotFound = (error: unknown): boolean => error instanceof SubsonicRequestError && error.subsonicCode === 70;
+export const isNotFound = (error: unknown): boolean => error instanceof SubsonicRequestError && error.upstreamCode === 70;

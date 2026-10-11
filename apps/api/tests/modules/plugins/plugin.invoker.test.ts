@@ -839,6 +839,20 @@ describe('PluginInvoker error classification', () => {
             });
     });
 
+    it("keeps the upstream's own failure code, which is what the analysis retry reads", async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+
+        const error = await invoker
+            .invoke('p', 'op', () => {
+                throw new PluginError('could not fetch').withCode('upstream').withUpstreamCode('unfetchable');
+            })
+            .catch((thrown: unknown) => thrown);
+
+        expect((error as PluginError).upstreamCode).toBe('unfetchable');
+    });
+
     it('classifies a bare Error as internal', async () => {
         const registry = new PluginRegistry();
         registry.upsert(record());

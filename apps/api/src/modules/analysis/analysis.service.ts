@@ -427,5 +427,5 @@ export class AnalysisService {
 /** The analyzer's own name for a failure, when it gave one this station retries on. */
 function failureCodeOf(error: unknown): AnalysisFailureCode | undefined {
     const code = isPluginError(error) ? error.upstreamCode : undefined;
-    return (ANALYSIS_FAILURE_CODES as readonly string[]).includes(code ?? '') ? (code as AnalysisFailureCode) : undefined;
+    return typeof code === 'string' && (ANALYSIS_FAILURE_CODES as readonly string[]).includes(code) ? (code as AnalysisFailureCode) : undefined;
 }

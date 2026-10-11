@@ -204,7 +204,7 @@ export class DeezerPlugin extends Plugin implements SimilarityPluginInstance {
     /** The short reason for a connection message. */
     private reasonFor(error: unknown): string {
         if (error instanceof DeezerRequestError) {
-            return error.deezerCode === undefined ? `HTTP ${error.status}` : `Deezer error ${error.deezerCode}`;
+            return error.upstreamCode === undefined ? `HTTP ${error.status}` : `Deezer error ${error.upstreamCode}`;
         }
         return 'the request failed';
     }

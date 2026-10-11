@@ -71,6 +71,13 @@ describe('pluginHttpError', () => {
         expect(failure.internalDetails).toMatchObject({ plugin: 'spotify', pluginErrorCode: 'not_found', upstreamStatus: 404 });
     });
 
+    it("keeps the upstream's own code in internal details, and off the response", () => {
+        const failure = pluginHttpError('lastfm', new PluginError('invalid key').withCode('config').withUpstreamCode(10));
+
+        expect(failure.details).not.toHaveProperty('upstreamCode');
+        expect(failure.internalDetails).toMatchObject({ plugin: 'lastfm', pluginErrorCode: 'config', upstreamCode: 10 });
+    });
+
     it('treats a plugin that threw a bare Error as a 500, exactly as before PluginError existed', () => {
         const failure = pluginHttpError('spotify', new Error('boom'));
 

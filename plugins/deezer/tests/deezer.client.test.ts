@@ -40,7 +40,7 @@ describe('DeezerClient', () => {
         const error = await deezer.get('artist/0/related').catch((thrown: unknown) => thrown);
 
         expect(error).toBeInstanceOf(DeezerRequestError);
-        expect((error as DeezerRequestError).deezerCode).toBe(800);
+        expect((error as DeezerRequestError).upstreamCode).toBe(800);
         expect((error as DeezerRequestError).isNoData).toBe(true);
         expect((error as DeezerRequestError).message).toContain('no data');
     });

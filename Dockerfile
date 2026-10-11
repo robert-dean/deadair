@@ -15,6 +15,11 @@
 #   latest  WITH_TTS=1 WITH_DB=0   the default. A voice is included; the database is yours.
 #   full    WITH_TTS=1 WITH_DB=1   everything, for a host with nothing on it.
 #
+# and each of the three again with WITH_APPLE=1 (`slim-apple`, `apple`, `full-apple`), which adds the
+# Apple Music player: Google Chrome, a framebuffer, a sound server and the capture service from
+# `stream/apple-player`. Its own variants rather than part of every image because it is most of a
+# gigabyte that a station without an Apple Music subscription would carry for nothing.
+#
 # The base is the Liquidsoap image rather than a bare Debian one, because Liquidsoap is the one
 # component here that is genuinely hard to install and easy to install WRONGLY — its codec set is
 # what the station's audio chain is. It is Debian trixie, which is what makes everything else
@@ -24,6 +29,7 @@
 
 ARG WITH_TTS=1
 ARG WITH_DB=0
+ARG WITH_APPLE=0
 # The commit this image was built from. Empty by default, and deliberately: a hand-built image was
 # built from a working tree, not from a commit, and an empty answer is the honest one. CI passes the
 # sha (see `.github/workflows/images.yml`), which is what makes "is the station running what I
@@ -323,6 +329,39 @@ RUN set -eux; \
         rm -rf /var/lib/apt/lists/*; \
     fi
 
+# The Apple Music player, for the variants that carry it. What it is and why each piece is needed is
+# in `stream/apple-player/Dockerfile`, which installs the same set for the compose service; ffmpeg is
+# missing from this list only because the layer at the top of this stage already put it here.
+#
+# Up here with the other heavy, rarely-moving layers rather than down with the player's own source,
+# for the reason the speech server is: a layer below one that changes on every commit is rebuilt and
+# re-pushed on every commit, and this one is the size of a browser.
+#
+# Google's Chrome and not Debian's Chromium, because only Google's build carries the Widevine CDM.
+# Its shared libraries are resolved by apt from the `.deb` rather than listed here, so a base bump
+# re-resolves them instead of breaking on a renamed one.
+#
+# The argument is DECLARED here and not with the others at the top of the stage, for `REVISION`'s
+# reason further down: every RUN after a declaration carries the argument in its cache key, so declared
+# at the top it gave every layer above this one a different key in `apple` than in `latest`. The Apple
+# twins then shared no cache with the variants they are a layer away from, rebuilt the voice, the
+# database and the base packages from nothing, and pushed their own copies of all of it. Declared here,
+# everything above is the same layer in both, which CI reads from the twin's cache (see images.yml).
+ARG WITH_APPLE
+RUN set -eux; \
+    if [ "${WITH_APPLE}" = "1" ]; then \
+        apt-get update; \
+        apt-get install -y --no-install-recommends xvfb pulseaudio pulseaudio-utils fonts-liberation x11vnc; \
+        install -d -m 0755 /etc/apt/keyrings; \
+        curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg; \
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
+            > /etc/apt/sources.list.d/google-chrome.list; \
+        apt-get update; \
+        apt-get install -y --no-install-recommends google-chrome-stable; \
+        rm -rf /var/lib/apt/lists/*; \
+        google-chrome-stable --version; \
+    fi
+
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 # Everything below here comes out of this repository, and so changes on an ordinary commit.
 # ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -452,7 +491,17 @@ RUN set -eux; \
     done; \
     chmod +x /etc/s6-overlay/scripts/* /etc/s6-overlay/s6-rc.d/*/run; \
     if [ "${WITH_TTS}" != "1" ]; then rm -f /etc/s6-overlay/user-bundles.d/user/contents.d/tts /etc/s6-overlay/user-bundles.d/user/contents.d/init-tts; fi; \
-    if [ "${WITH_DB}" != "1" ]; then rm -f /etc/s6-overlay/user-bundles.d/user/contents.d/postgres /etc/s6-overlay/user-bundles.d/user/contents.d/redis /etc/s6-overlay/user-bundles.d/user/contents.d/init-database; fi
+    if [ "${WITH_DB}" != "1" ]; then rm -f /etc/s6-overlay/user-bundles.d/user/contents.d/postgres /etc/s6-overlay/user-bundles.d/user/contents.d/redis /etc/s6-overlay/user-bundles.d/user/contents.d/init-database; fi; \
+    if [ "${WITH_APPLE}" != "1" ]; then rm -f /etc/s6-overlay/user-bundles.d/user/contents.d/apple-player; fi
+
+# The Apple Music player's own source, in every variant: it is a few hundred lines of TypeScript that
+# Node runs as it is, and copying it unconditionally costs nothing where a variant-shaped COPY would
+# need a stage of its own. Inert where there is no Chrome, because the service that runs it is cut
+# from the bundle above. The sound server's config goes where PulseAudio reads it, which is equally
+# inert in a variant with no PulseAudio.
+COPY stream/apple-player/src /opt/apple-player/src
+COPY --chmod=0755 stream/apple-player/docker-entrypoint.sh /opt/apple-player/run.sh
+COPY stream/apple-player/pulse-default.pa /etc/pulse/default.pa
 
 # The station's own tree, in the shape the plugin loader expects to find: pnpm-workspace.yaml at
 # the root is the marker it walks up to, and `plugins/<name>/dist` is where it looks next. Last of
@@ -533,6 +582,10 @@ ENV NODE_ENV=production \
     REAL_IP_HEADER=X-Forwarded-For \
     MIGRATE_ON_BOOT=true \
     WITH_DB=${WITH_DB} \
+    # Read by the API's run script, which points the station at the player only where there is one:
+    # an unset `APPLE_PLAYER_URL` is how the API knows there is no player, and an Apple record is then
+    # skipped rather than fetched from an address nothing answers on.
+    WITH_APPLE=${WITH_APPLE} \
     S6_KEEP_ENV=1 \
     S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
     S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0

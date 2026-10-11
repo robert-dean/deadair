@@ -1,0 +1,20 @@
+# PulseAudio for a container with no sound card: one sink, and its monitor is the point.
+#
+# `module-null-sink` is a device that accepts audio and discards it, while exposing `<name>.monitor` as
+# a capture source carrying a perfect copy of what was played. Chrome sees a normal default output and
+# plays into it; ffmpeg records the monitor. Nothing is decoded, decrypted or intercepted here — this
+# is the software equivalent of a cable from the line-out to the line-in.
+#
+# Deliberately NOT `module-detect` or any hardware module: a container that found a real card would
+# start playing the station's records into the host's speakers.
+load-module module-null-sink sink_name=deadair sink_properties=device.description="deadair-capture"
+set-default-sink deadair
+
+# The browser is a local client on the same Unix socket, so no network module is loaded and none
+# should be: an exposed PulseAudio is an open microphone-shaped hole in a container that has one job.
+load-module module-native-protocol-unix
+
+# `module-suspend-on-idle` is deliberately NOT loaded. It is in the stock default.pa, and it suspends
+# a sink with nothing playing — which here means the monitor ffmpeg is recording goes away in the gap
+# between starting the capture and starting the record. The capture is started first on purpose (see
+# capture.ts), so this module would break the one ordering that protects the start of every record.

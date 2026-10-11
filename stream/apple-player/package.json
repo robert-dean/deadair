@@ -1,0 +1,11 @@
+{
+    "name": "deadair-apple-player",
+    "version": "0.0.1",
+    "private": true,
+    "type": "module",
+    "description": "Serves one Apple Music record per HTTP request, captured in real time from Apple's own web player.",
+    "scripts": {
+        "start": "node src/main.ts",
+        "typecheck": "tsc --noEmit"
+    }
+}

@@ -3,6 +3,12 @@ import {
     PluginError,
     errorText,
     normalize,
+    type AlbumEnrichment,
+    type AlbumRef,
+    type ArtistEnrichment,
+    type ArtistRef,
+    type EnrichmentMatchKey,
+    type EnrichmentProvider,
     type GetPlaylistTracksOptions,
     type ListPlaylistsOptions,
     type MusicProviderPluginInstance,
@@ -11,9 +17,12 @@ import {
     type ProviderStream,
     type ProviderTrack,
     type SearchTracksOptions,
+    type TrackEnrichment,
+    type TrackRef,
 } from '@deadair/plugin-sdk';
 
 import { JellyfinClient, isMissing, type JellyfinParams } from './jellyfin.client.js';
+import { mapAlbumEnrichment, mapArtistEnrichment, mapTrackEnrichment } from './jellyfin.enrichment.js';
 import { ITEM_ID, jellyfinPlaylistIdFromUrl, mapPlaylist, mapTracks, text } from './jellyfin.mapping.js';
 import {
     ARTIST_PROBE_LIMIT,
@@ -24,10 +33,14 @@ import {
     MAX_PAGE_SIZE,
     type JellyfinConfig,
 } from './jellyfin.manifest.js';
+import { selectAlbum, selectArtist, selectTrack } from './jellyfin.match.js';
 import { artistProbe, artistReadings, longestWord, titleMatches, yearsFilter, type ArtistReading } from './jellyfin.search.js';
 import type { JellyfinItem, JellyfinQueryResult, JellyfinSystemInfo, JellyfinUser } from './jellyfin.types.js';
 
 export { jellyfinManifest } from './jellyfin.manifest.js';
+
+/** The fields an enrichment answer is read from, which a listing leaves out unless asked. */
+const ENRICHMENT_FIELDS = 'ProviderIds,Genres,Overview,Studios,PremiereDate';
 
 /** How many tracks a search answers when the caller did not say. */
 const DEFAULT_SEARCH_LIMIT = 50;
@@ -62,7 +75,7 @@ const AUDIO: JellyfinParams = { IncludeItemTypes: 'Audio', Recursive: 'true', En
  * belongs to no user, and Jellyfin refuses to list a playlist's contents
  * without one; the user's library access also decides what the station sees.
  */
-export class JellyfinPlugin extends Plugin implements MusicProviderPluginInstance {
+export class JellyfinPlugin extends Plugin implements MusicProviderPluginInstance, EnrichmentProvider {
     private client?: JellyfinClient;
     private config?: JellyfinConfig;
     /** The configured user's id, looked up once per load. A promise, so concurrent first calls share one lookup. */
@@ -275,6 +288,109 @@ export class JellyfinPlugin extends Plugin implements MusicProviderPluginInstanc
         return this.toTracks(body.Items);
     }
 
+    // --- enrichment ----------------------------------------------------------
+
+    /**
+     * Supplementary, the same as the Navidrome plugin: what Jellyfin knows is
+     * mostly the files' own tags. MusicBrainz at 100 decides a spelling or a year
+     * when both have one; this fills the gaps, and for a record MusicBrainz never
+     * heard of it is the only description there is.
+     */
+    readonly priority = 600;
+
+    /**
+     * Artist and title. A `TrackRef`'s MusicBrainz recording id is used when it
+     * has one, but only to confirm or rule out candidates found by name, since
+     * Jellyfin cannot be asked for an id (see `jellyfin.match.ts`).
+     */
+    readonly matchKeys: EnrichmentMatchKey[] = ['artist-title'];
+
+    /**
+     * What the tags say about a recording: the artist's tracks searched by
+     * title, then the whole library by title for a track credited in a way the
+     * artist list does not show. `{}` for a track this library does not have,
+     * which the host records as a miss on a short clock.
+     */
+    async enrichTrack(ref: TrackRef): Promise<Partial<TrackEnrichment>> {
+        const client = this.require();
+        const userId = await this.userId();
+        const wanted = { artist: ref.artist, title: ref.title, album: ref.album, mbid: ref.mbid };
+        const base: JellyfinParams = { ...AUDIO, userId, Fields: ENRICHMENT_FIELDS };
+
+        const artist = await this.findArtist({ name: ref.artist });
+        if (artist?.Id) {
+            const theirs = (await client.get<JellyfinQueryResult>('/Items', { ...base, ArtistIds: artist.Id, Limit: MAX_PAGE_SIZE })).Items ?? [];
+            const found = selectTrack(theirs, wanted);
+            if (found) return mapTrackEnrichment(found, this.trackArt(found));
+        }
+
+        const byTitle = (await client.get<JellyfinQueryResult>('/Items', { ...base, searchTerm: ref.title, Limit: MAX_PAGE_SIZE })).Items ?? [];
+        const found = selectTrack(byTitle, wanted);
+        return found ? mapTrackEnrichment(found, this.trackArt(found)) : {};
+    }
+
+    /**
+     * What the server says about an artist. `ref.providerRef` is this plugin's
+     * own id from last time, so a second pass is a lookup; an id that no longer
+     * answers falls back to a search.
+     */
+    async enrichArtist(ref: ArtistRef): Promise<Partial<ArtistEnrichment>> {
+        const known = ref.providerRef ? await this.item(ref.providerRef) : undefined;
+        const artist = known?.Type === 'MusicArtist' ? known : await this.findArtist(ref);
+        return artist ? mapArtistEnrichment(artist, this.imageUrl(artist.Id, artist.ImageTags?.Primary)) : {};
+    }
+
+    /** What the tags say about a record, looked for among its artist's records. Same `providerRef`-first shape. */
+    async enrichAlbum(ref: AlbumRef): Promise<Partial<AlbumEnrichment>> {
+        const known = ref.providerRef ? await this.item(ref.providerRef) : undefined;
+        if (known?.Type === 'MusicAlbum') return mapAlbumEnrichment(known, this.imageUrl(known.Id, known.ImageTags?.Primary));
+
+        const artist = await this.findArtist({ name: ref.artist });
+        if (!artist?.Id) return {};
+        const client = this.require();
+        const records = await client.get<JellyfinQueryResult>('/Items', {
+            userId: await this.userId(),
+            IncludeItemTypes: 'MusicAlbum',
+            Recursive: 'true',
+            AlbumArtistIds: artist.Id,
+            Fields: ENRICHMENT_FIELDS,
+            Limit: MAX_PAGE_SIZE,
+        });
+        const album = selectAlbum(records.Items ?? [], ref.name, ref.mbid);
+        return album ? mapAlbumEnrichment(album, this.imageUrl(album.Id, album.ImageTags?.Primary)) : {};
+    }
+
+    /**
+     * The artist a name (and id, when known) describes. Asked for by one word of
+     * the name, the same probe a search uses, because the artist search compares
+     * punctuation literally and a word of the name is enough to find it.
+     */
+    private async findArtist(ref: { name: string; mbid?: string }): Promise<JellyfinItem | undefined> {
+        const probe = artistProbe(`${ref.name} _`) ?? ref.name;
+        const client = this.require();
+        const body = await client.get<JellyfinQueryResult>('/Artists', {
+            userId: await this.userId(),
+            searchTerm: probe,
+            Fields: ENRICHMENT_FIELDS,
+            Limit: ARTIST_PROBE_LIMIT,
+            EnableTotalRecordCount: 'false',
+        });
+        return selectArtist(body.Items ?? [], ref.name, ref.mbid);
+    }
+
+    /** One item read with the enrichment fields, or nothing for an id that is malformed or gone. */
+    private async item(id: string): Promise<JellyfinItem | undefined> {
+        if (!ITEM_ID.test(id)) return undefined;
+        const client = this.require();
+        const body = await client.get<JellyfinQueryResult>('/Items', { userId: await this.userId(), ids: id, Fields: ENRICHMENT_FIELDS });
+        return (body.Items ?? []).find(candidate => candidate.Id?.toLowerCase() === id.toLowerCase());
+    }
+
+    /** A track's picture: its own, else its album's. */
+    private trackArt(item: JellyfinItem): string | undefined {
+        return this.imageUrl(item.Id, item.ImageTags?.Primary) ?? this.imageUrl(item.AlbumId ?? undefined, item.AlbumPrimaryImageTag ?? undefined);
+    }
+
     // --- stream --------------------------------------------------------------
 
     /**
@@ -339,11 +455,7 @@ export class JellyfinPlugin extends Plugin implements MusicProviderPluginInstanc
     }
 
     private toTracks(items: JellyfinItem[] | null | undefined): ProviderTrack[] {
-        return mapTracks(
-            items,
-            item =>
-                this.imageUrl(item.Id, item.ImageTags?.Primary) ?? this.imageUrl(item.AlbumId ?? undefined, item.AlbumPrimaryImageTag ?? undefined),
-        );
+        return mapTracks(items, item => this.trackArt(item));
     }
 
     /**

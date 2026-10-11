@@ -5,7 +5,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { isRowSecretKey } from '@deadair/plugin-sdk';
 import { AfterCommit } from '#modules/data/after.commit.js';
 import { LlmService } from '#modules/llm/llm.service.js';
-import { configuredCells, holdsRowSecrets, splitRowSecrets } from '#modules/shared/config.rows.js';
+import { configuredCells, holdsRowSecrets, movedSecretFields, splitRowSecrets } from '#modules/shared/config.rows.js';
 import { StreamService } from '#modules/stream/stream.service.js';
 import { isStreamSettingKey } from '#modules/stream/stream.settings.js';
 import { SettingsRepository } from './settings.repository.js';
@@ -130,12 +130,16 @@ export class SettingsService {
      * typo in a console silently writing a row nothing will ever read, which looks
      * exactly like a setting that does not work.
      *
+     * A stored secret is never kept across a change to the server it is sent to
+     * (`sentTo`, which `mail.password` declares for `mail.host`): that save is
+     * refused and the secret has to be typed again. See `shared/config.rows.ts`.
+     *
      * @throws 422 listing every value it refused, rather than the first: somebody
      * correcting a form should see all of it at once. Nothing is written when
      * anything is refused, so a rejected submission leaves the station as it was.
      */
     async write(submitted: Record<string, unknown>): Promise<StationSettings> {
-        const rejections: SettingRejection[] = [];
+        const rejections: SettingRejection[] = this.movedSecrets(submitted);
         const writes: { key: string; value: string | null }[] = [];
 
         for (const [key, submittedValue] of Object.entries(submitted)) {
@@ -305,7 +309,10 @@ export class SettingsService {
             return { rejected: { key: descriptor.key, message: `"${descriptor.label}" takes its rows as JSON text` } };
         }
 
-        const split = splitRowSecrets(descriptor, submitted, existing, plaintext => this.encryption.encrypt(plaintext));
+        // What a kept cell's address is compared with: the rows as the station holds them now.
+        const previous = this.config.has(descriptor.key) ? this.config.get(descriptor.key, '') : undefined;
+        const split = splitRowSecrets(descriptor, submitted, existing, plaintext => this.encryption.encrypt(plaintext), previous);
+        if (split.refused !== undefined) return { rejected: { key: descriptor.key, message: `"${descriptor.label}": ${split.refused}` } };
         const serialized = serializeSetting(descriptor, split.value);
         if ('rejected' in serialized) return serialized;
 
@@ -314,6 +321,28 @@ export class SettingsService {
             .map(([key, value]) => ({ key, value }));
 
         return { writes: [{ key: descriptor.key, value: serialized.value }, ...changed, ...orphans(split.secrets)] };
+    }
+
+    /**
+     * The secret settings this submission would keep while moving the address each is sent to.
+     *
+     * Read through the config, as {@link read} is, so "the address it is sent to now" is the one the
+     * station is running on.
+     */
+    private movedSecrets(submitted: Record<string, unknown>): SettingRejection[] {
+        const stored: Record<string, unknown> = {};
+        for (const descriptor of SETTING_DESCRIPTORS) {
+            const sentTo = descriptor.sentTo;
+            if (sentTo !== undefined && this.config.has(sentTo)) stored[sentTo] = this.config.get(sentTo, '');
+        }
+
+        const hasSecret = (key: string): boolean => this.config.has(key) && this.config.get(key, '') !== '';
+        const moved = movedSecretFields(SETTING_DESCRIPTORS, stored, hasSecret, submitted);
+
+        return Object.keys(moved).map(key => ({
+            key,
+            message: `"${findDescriptor(key)?.label ?? key}" has to be entered again, because the address it is sent to changed`,
+        }));
     }
 
     /** The cells a list setting currently holds, as the config sees them: key to ciphertext. */

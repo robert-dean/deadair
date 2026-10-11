@@ -162,6 +162,48 @@ describe('PluginConfigForm', () => {
         expect(screen.queryByText('Save failed')).not.toBeInTheDocument();
     });
 
+    it('puts a refused stored secret under the secret, when the address it is sent to moved', async () => {
+        // The API refuses to keep a stored key across a change of server and names the secret, not
+        // the address, because typing the key again is what the operator has to do next.
+        const plugin = pluginDetail({
+            configFields: [
+                { key: 'baseUrl', label: 'Server address', type: 'url' },
+                { key: 'apiKey', label: 'API key', type: 'secret', sentTo: 'baseUrl' },
+            ],
+            config: { baseUrl: 'https://jellyfin.home.example' },
+            secretsConfigured: { apiKey: true },
+        });
+        updatePluginConfiguration.mockRejectedValue(
+            new SdkError(
+                422,
+                'Unprocessable Entity',
+                {
+                    statusCode: 422,
+                    message: 'Unprocessable Entity',
+                    details: {
+                        apiKey: 'Enter it again: the address it is sent to changed.',
+                        message: 'a stored secret has to be entered again, because the address it is sent to changed',
+                    },
+                },
+                new Headers(),
+            ),
+        );
+        const user = setupUser();
+
+        render(<PluginConfigForm plugin={plugin} />);
+        const address = screen.getByLabelText('Server address');
+        await user.clear(address);
+        await user.type(address, 'https://elsewhere.example');
+        await save();
+
+        // The untouched secret was left out of the submission, which is what the API refused.
+        expect(submittedConfig()).toEqual({ baseUrl: 'https://elsewhere.example' });
+        expect(await screen.findByText('Enter it again: the address it is sent to changed.')).toBeInTheDocument();
+        // Described by the message, which is how the input itself carries it rather than the page.
+        expect(screen.getByLabelText('API key', { exact: false })).toHaveAccessibleDescription(expect.stringContaining('Enter it again'));
+        expect(screen.queryByText('Save failed')).not.toBeInTheDocument();
+    });
+
     it('will not submit an unanswered required field', async () => {
         const plugin = pluginDetail({ configFields: [{ key: 'clientId', label: 'Client ID', type: 'string', required: true }] });
 

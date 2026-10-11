@@ -6,6 +6,7 @@
 import { randomBytes } from 'node:crypto';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { describe, expect, it } from 'vitest';
+import { sentToProblems } from '@deadair/plugin-sdk';
 
 import { AIR_MODE_KEY, AIR_MODES, DEFAULT_AIR_MODE, parseAirMode } from '../../../src/modules/playout/air.mode.js';
 import {
@@ -501,5 +502,20 @@ describe('the settings registry', () => {
         // mixer knobs are the live example: constants in `stream.service.ts` today, and deferred
         // in [mixer-settings-in-db](https://github.com/robert-dean/deadair/discussions/20) until something can restart Liquidsoap.
         expect(findDescriptor('stream.duckGainDb')).toBeUndefined();
+    });
+});
+
+describe('the station secrets and the addresses they are sent to', () => {
+    it('names a real address for every secret that declares one', () => {
+        // A plugin manifest is refused at load for this; the station's own form is not loaded through
+        // that schema, so this is where the same question is asked of it. A `sentTo` naming nothing
+        // would leave the check silently off.
+        expect(sentToProblems(SETTING_DESCRIPTORS)).toEqual([]);
+    });
+
+    it('pairs the mail password with the mail server, and a sign-in secret with its issuer', () => {
+        expect(findDescriptor('mail.password')?.sentTo).toBe('mail.host');
+        const providers = SETTING_DESCRIPTORS.find(descriptor => descriptor.columns?.some(column => column.key === 'clientSecret'));
+        expect(providers?.columns?.find(column => column.key === 'clientSecret')?.sentTo).toBe('issuer');
     });
 });

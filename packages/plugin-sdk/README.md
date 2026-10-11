@@ -1533,6 +1533,40 @@ the whole row stays fillable until they say what kind of thing it is. A `secret`
 cell that stops applying keeps whatever is stored; nothing here deletes a
 credential.
 
+### A credential that goes to an address the operator types
+
+A secret is write-only, and a save that leaves one out keeps what is stored. That
+is what lets an operator change one setting without retyping every key, and it is
+also what would let anybody allowed to save the form point the address at a server
+of their own and collect the key the station sends there. So a secret names the
+address it is sent to:
+
+```ts
+{ key: 'baseUrl', label: 'Server address', type: 'url', required: true },
+{ key: 'apiKey', label: 'API key', type: 'secret', sentTo: 'baseUrl' },
+```
+
+and a column does the same inside its list:
+
+```ts
+{ key: 'baseUrl', label: 'Address', type: 'url' },
+{ key: 'apiKey', label: 'API key', type: 'secret', sentTo: 'baseUrl' },
+```
+
+With it declared, the host refuses a save that keeps the stored secret while
+moving that address to another origin (scheme, host or port), and the operator is
+asked to type the secret again. A changed path on the same server is not a move, a
+secret typed or cleared in the same save is never refused, and on a row the
+address is compared with the same row as it was stored. An empty field counts as
+its `default`.
+
+Declare it on every secret that goes to an address the operator supplies. Leave it
+off one that goes to a fixed vendor whatever the form says (a token for a public
+API whose host is in your manifest): there is no address to move. `sentTo` must
+name a `url` or `string` field, or a column in the same list; the manifest schema
+refuses one that names anything else, because a declaration pointing at nothing
+would be a protection that is silently off.
+
 ### Rows to start from
 
 Where most rows describe one of a few well-known things, `presets` offers them:

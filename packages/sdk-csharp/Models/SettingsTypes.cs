@@ -185,6 +185,11 @@ public sealed record StationSettingDescriptor
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? RangeWith { get; init; }
 
+    /// <summary>`secret` only: key of the address field this credential is sent to. A save that keeps the stored credential while that address moves to another origin is refused</summary>
+    [JsonPropertyName("sentTo")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SentTo { get; init; }
+
     [JsonPropertyName("group")]
     public required SettingGroup Group { get; init; }
 }

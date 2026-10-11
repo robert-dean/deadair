@@ -8,7 +8,7 @@ mdx:
 > Mirrors the plugin SDK's `ConfigField`: enough for a console to render the settings form with no per-plugin code
 
 <details>
-<summary>Attributes (18)</summary>
+<summary>Attributes (19)</summary>
 
 | Attribute     | Type                          | Required | Description                                                                                                                                                                                                               |
 | ------------- | ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -30,5 +30,6 @@ mdx:
 | `presets`     | `ConfigFieldPreset[]`         | No       | `list` only: rows the Add button offers to start from, beside an empty one                                                                                                                                                |
 | `dependsOn`   | `string`                      | No       | Key of the field this one is only relevant to                                                                                                                                                                             |
 | `rangeWith`   | `string`                      | No       | Key of the `number` field that is the upper end of the range this one opens, declared on the lower end only. Still two settings, each validated by name; the console draws them as one control whose handles cannot cross |
+| `sentTo`      | `string`                      | No       | `secret` only: key of the address field this credential is sent to. A save that keeps the stored credential while that address moves to another origin is refused                                                         |
 
 </details>

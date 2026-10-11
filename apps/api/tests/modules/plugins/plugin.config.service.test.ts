@@ -277,3 +277,88 @@ describe('PluginConfigService: a credential inside a row', () => {
         });
     });
 });
+
+/** What a refused save threw, for asserting on the sentence each field gets. */
+async function refusal(promise: Promise<unknown>): Promise<Record<string, unknown>> {
+    try {
+        await promise;
+    } catch (error) {
+        const caught = error as { statusCode?: number; details?: Record<string, unknown> };
+        expect(caught.statusCode).toBe(422);
+        return caught.details ?? {};
+    }
+    throw new Error('the save was not refused');
+}
+
+describe('PluginConfigService: a kept secret never follows a changed address', () => {
+    const paired: ConfigField[] = [
+        { key: 'baseUrl', label: 'Server', type: 'url' },
+        { key: 'apiKey', label: 'API key', type: 'secret', sentTo: 'baseUrl' },
+        { key: 'other', label: 'Other', type: 'secret' },
+    ];
+
+    it('refuses to keep the secret when the address moves to another server, and writes nothing', async () => {
+        const { service: svc, repo } = service();
+        await svc.saveConfig('plugin.a', paired, { baseUrl: 'https://jellyfin.home.example', apiKey: 'jf-key' });
+        const before = await repo.get('plugin.a');
+
+        const details = await refusal(svc.saveConfig('plugin.a', paired, { baseUrl: 'https://attacker.example' }));
+
+        // Under the secret's own key, which is where the console's form puts a server message.
+        expect(details.apiKey).toEqual(expect.stringContaining('Enter it again'));
+        expect((await repo.get('plugin.a'))?.config).toEqual(before?.config);
+        await expect(svc.getSecrets('plugin.a')).resolves.toEqual({ apiKey: 'jf-key' });
+    });
+
+    it('keeps the secret across a path change on the same server', async () => {
+        const { service: svc } = service();
+        await svc.saveConfig('plugin.a', paired, { baseUrl: 'https://jellyfin.home.example', apiKey: 'jf-key' });
+
+        await svc.saveConfig('plugin.a', paired, { baseUrl: 'https://jellyfin.home.example/jellyfin' });
+
+        await expect(svc.getSecrets('plugin.a')).resolves.toEqual({ apiKey: 'jf-key' });
+    });
+
+    it('saves a new address with a secret typed beside it', async () => {
+        const { service: svc } = service();
+        await svc.saveConfig('plugin.a', paired, { baseUrl: 'https://jellyfin.home.example', apiKey: 'jf-key' });
+
+        await svc.saveConfig('plugin.a', paired, { baseUrl: 'https://media.example', apiKey: 'new-key' });
+
+        await expect(svc.getSecrets('plugin.a')).resolves.toEqual({ apiKey: 'new-key' });
+    });
+
+    it('leaves a secret that declares no address alone', async () => {
+        const { service: svc } = service();
+        await svc.saveConfig('plugin.a', paired, { baseUrl: 'https://jellyfin.home.example', other: 'unpaired' });
+
+        await svc.saveConfig('plugin.a', paired, { baseUrl: 'https://attacker.example' });
+
+        await expect(svc.getSecrets('plugin.a')).resolves.toEqual({ other: 'unpaired' });
+    });
+
+    it('refuses a row that keeps its credential while its address moves, with the sentence on the list', async () => {
+        const providers: ConfigField[] = [
+            {
+                key: 'providers',
+                label: 'Providers',
+                type: 'list',
+                columns: [
+                    { key: 'baseUrl', label: 'Address', type: 'url' },
+                    { key: 'apiKey', label: 'API key', type: 'secret', sentTo: 'baseUrl' },
+                ],
+            },
+        ];
+        const { service: svc } = service();
+        await svc.saveConfig('plugin.a', providers, {
+            providers: JSON.stringify([{ $id: 'r1', baseUrl: 'http://ollama.local:11434/v1', apiKey: 'k' }]),
+        });
+
+        const details = await refusal(
+            svc.saveConfig('plugin.a', providers, { providers: JSON.stringify([{ $id: 'r1', baseUrl: 'https://attacker.example/v1' }]) }),
+        );
+
+        expect(details.providers).toEqual(expect.stringContaining('API key'));
+        await expect(svc.getSecrets('plugin.a')).resolves.toEqual({ 'providers/r1/apiKey': 'k' });
+    });
+});

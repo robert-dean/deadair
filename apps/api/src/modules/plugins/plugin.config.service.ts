@@ -1,9 +1,10 @@
 import { Injectable } from 'injectkit';
 import type { DateTime } from 'luxon';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
+import { httpError } from '@maroonedsoftware/errors';
 import { ConfigField } from '@deadair/plugin-sdk';
 import { PluginConfigRecord, PluginConfigRepository } from './plugin.config.repository.js';
-import { configuredCells, holdsRowSecrets, splitRowSecrets } from '#modules/shared/config.rows.js';
+import { configuredCells, holdsRowSecrets, movedSecretFields, secretFieldIntent, splitRowSecrets } from '#modules/shared/config.rows.js';
 import { PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginLogLevel } from './types/plugins.types.js';
 
@@ -38,9 +39,6 @@ const isStoredPlainField = (field: ConfigField): boolean => field.type !== 'secr
 
 const isSecretField = (field: ConfigField): boolean => field.type === 'secret';
 
-/** An explicitly blank submission clears a secret; an omitted one keeps it. */
-const isClearedSecret = (value: unknown): boolean => value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
-
 @Injectable()
 export class PluginConfigService {
     constructor(
@@ -61,19 +59,34 @@ export class PluginConfigService {
      *
      * A `list` whose columns include a `secret` splits the same three ways per CELL, which is why
      * `secrets` is built before the plain loop rather than after it.
+     *
+     * A secret that would be KEPT while the address it declares `sentTo` moves to another origin
+     * refuses the whole save, with the sentence under that secret (or under its list, for a cell):
+     * otherwise whoever may save this form could point the address at their own server and be sent
+     * a credential they cannot read. See `shared/config.rows.ts`.
+     *
+     * @throws 422 naming each secret that has to be typed again. Nothing is written.
      */
     async saveConfig(pluginId: string, fields: ConfigField[], submitted: Record<string, unknown>): Promise<PluginConfigReadModel> {
         const existing = await this.pluginConfigRepository.get(pluginId);
 
         const config: Record<string, unknown> = {};
         let secrets: Record<string, string> = { ...(existing?.secrets ?? {}) };
+        const refused = movedSecretFields(fields, existing?.config ?? {}, key => Boolean(existing?.secrets[key]), submitted);
 
         for (const field of fields.filter(isStoredPlainField)) {
             // A list holding credentials is the one field whose plain half and secret half are the
             // same submission, so it is split before either is written: the cells come out, the row
             // keeps an id so its ciphertext has something to belong to. See `shared/config.rows.ts`.
             if (holdsRowSecrets(field) && Object.hasOwn(submitted, field.key)) {
-                const split = splitRowSecrets(field, submitted[field.key], secrets, plaintext => this.encryptionProvider.encrypt(plaintext));
+                const split = splitRowSecrets(
+                    field,
+                    submitted[field.key],
+                    secrets,
+                    plaintext => this.encryptionProvider.encrypt(plaintext),
+                    existing?.config[field.key],
+                );
+                if (split.refused !== undefined) refused[field.key] = split.refused;
                 config[field.key] = split.value;
                 secrets = split.secrets;
                 continue;
@@ -88,14 +101,19 @@ export class PluginConfigService {
             }
         }
 
+        if (Object.keys(refused).length > 0) {
+            throw httpError(422).withDetails({
+                ...refused,
+                message: 'a stored secret has to be entered again, because the address it is sent to changed',
+            });
+        }
+
         for (const field of fields.filter(isSecretField)) {
             if (!Object.hasOwn(submitted, field.key)) continue;
-            const value = submitted[field.key];
-            if (isClearedSecret(value)) {
-                delete secrets[field.key];
-                continue;
-            }
-            secrets[field.key] = this.encryptionProvider.encrypt(String(value));
+            // `null` or blank clears; the form a plugin's schema judged first read it the same way.
+            const intent = secretFieldIntent(submitted[field.key]);
+            if (intent === 'clear') delete secrets[field.key];
+            else secrets[field.key] = this.encryptionProvider.encrypt(intent.set);
         }
 
         const saved = await this.pluginConfigRepository.upsert({ pluginId, config, secrets });

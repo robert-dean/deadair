@@ -1951,6 +1951,9 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Password',
         type: 'secret',
         dependsOn: MAIL_KEYS.host,
+        // Sent to that server, so a save moving the server elsewhere has to type it again rather
+        // than hand the stored one to whatever the new address answers with.
+        sentTo: MAIL_KEYS.host,
     },
     {
         group: 'mail',

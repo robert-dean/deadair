@@ -395,6 +395,11 @@ public sealed record ConfigFieldColumn
     [JsonPropertyName("dependsOnValues")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? DependsOnValues { get; init; }
+
+    /// <summary>`secret` only: key of the address column in the same list this credential is sent to. A save that keeps the stored credential while that row's address moves to another origin is refused</summary>
+    [JsonPropertyName("sentTo")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SentTo { get; init; }
 }
 
 public sealed record PluginLogEntry
@@ -580,6 +585,11 @@ public sealed record ConfigFieldDescriptor
     [JsonPropertyName("rangeWith")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? RangeWith { get; init; }
+
+    /// <summary>`secret` only: key of the address field this credential is sent to. A save that keeps the stored credential while that address moves to another origin is refused</summary>
+    [JsonPropertyName("sentTo")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SentTo { get; init; }
 }
 
 public sealed record PluginLogPage

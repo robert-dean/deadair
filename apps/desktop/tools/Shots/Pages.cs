@@ -51,6 +51,11 @@ internal static class Pages
         yield return ("studio", Studio(), 1180, 720);
         yield return ("studio-break", Studio(Fakes.OnTheMic), 1180, 720);
         yield return ("studio-off-air", Studio(Fakes.OffAir), 1180, 720);
+        yield return ("studio-lyrics-button", Studio(Words.Synced), 1180, 720);
+        yield return ("studio-lyrics", Studio(Words.InStudio), 1180, 720);
+        yield return ("studio-lyrics-plain", Studio(Words.PlainInStudio), 1180, 720);
+        yield return ("studio-lyrics-min", Studio(Words.InStudio), 820, 520);
+        yield return ("studio-lyrics-screen", Studio(Words.InStudio), 1728, 1117);
         yield return ("studio-min", Studio(), 820, 520);
         yield return ("studio-screen", Studio(), 1728, 1117);
         yield return ("studio-backdrop", Backdrop(), 1180, 720);

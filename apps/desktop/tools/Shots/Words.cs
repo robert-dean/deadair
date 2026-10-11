@@ -37,4 +37,18 @@ internal static class Words
     /// <summary>Words with no timings, shown whole.</summary>
     public static void Plain(ListenerViewModel listener) =>
         listener.Lyrics.Show(new LyricsUiState.Plain(string.Join('\n', Text.Take(8)), "deadair.lrclib"));
+
+    /// <summary>Studio with the words in the cover's place.</summary>
+    public static void InStudio(ListenerViewModel listener)
+    {
+        Synced(listener);
+        listener.Lyrics.WordsInStudio = true;
+    }
+
+    /// <summary>Studio with words that have no timings in the cover's place.</summary>
+    public static void PlainInStudio(ListenerViewModel listener)
+    {
+        Plain(listener);
+        listener.Lyrics.WordsInStudio = true;
+    }
 }

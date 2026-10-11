@@ -35,6 +35,7 @@ public sealed partial class LyricsViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasLyrics), nameof(IsSynced), nameof(IsPlain), nameof(PlainText), nameof(Credit))]
+    [NotifyPropertyChangedFor(nameof(StudioShowsWords), nameof(StudioShowsCover))]
     private LyricsUiState _state = LyricsUiState.Hidden.Instance;
 
     /// <summary>The line being sung, or -1 when none is: before the singing, in a gap, or unknown.</summary>
@@ -47,6 +48,23 @@ public sealed partial class LyricsViewModel : ObservableObject
     private bool _isOpen = true;
 
     public string ToggleHint => IsOpen ? "Hide the lyrics" : "Show the lyrics";
+
+    /// <summary>
+    /// Whether Studio was asked for the words in place of the cover. Per session, like Studio itself.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StudioShowsWords), nameof(StudioShowsCover), nameof(StudioHint))]
+    private bool _wordsInStudio;
+
+    /// <summary>
+    /// The words take the cover's place only while there are words: a record with none, or the next
+    /// airing before its answer arrives, puts the cover back without anybody pressing anything.
+    /// </summary>
+    public bool StudioShowsWords => WordsInStudio && HasLyrics;
+
+    public bool StudioShowsCover => !StudioShowsWords;
+
+    public string StudioHint => WordsInStudio ? "Show the cover" : "Show the lyrics";
 
     /// <summary>False draws no section and no Studio button.</summary>
     public bool HasLyrics => State is not LyricsUiState.Hidden;
@@ -67,6 +85,9 @@ public sealed partial class LyricsViewModel : ObservableObject
 
     [RelayCommand]
     private void ToggleOpen() => IsOpen = !IsOpen;
+
+    [RelayCommand]
+    private void ToggleStudio() => WordsInStudio = !WordsInStudio;
 
     /// <summary>Draws <paramref name="state"/>, keeping the rows when they are the same song's.</summary>
     public void Show(LyricsUiState state)

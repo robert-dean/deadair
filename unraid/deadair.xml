@@ -39,8 +39,8 @@
     <Requires>
         An x86-64 server: there is no arm64 image yet. On the latest and slim tags, a PostgreSQL 13 or newer database
         that already exists and a Redis server; the full tag brings both. On the slim tag, a speech server as well.
-        Music comes from your own Spotify account or Subsonic server, such as Navidrome, because the station
-        holds none of its own.
+        Music comes from your own Spotify account or your own media server (Navidrome or another Subsonic
+        server, Jellyfin, or Plex), because the station holds none of its own.
     </Requires>
     <DefaultTagDescription>A voice included. Bring your own PostgreSQL and Redis.</DefaultTagDescription>
     <Branch>

@@ -13,7 +13,7 @@ import { advisoryPolicy, demandsClean } from './advisory.policy.js';
 import { CandidatesRepository, bindsAnything, withinPeriod, type EraWindow } from './candidates.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { ProviderTrackLookup } from './provider.track.lookup.js';
-import { artistKey, songKey } from './rotation.keys.js';
+import { artistKey, creditKey, songKey } from './rotation.keys.js';
 import { recordSpacingLength } from './air.estimate.js';
 import {
     applyRulesHoldingQueue,
@@ -106,7 +106,7 @@ interface Identified extends RotationCandidate {
 type Airable = RundownTrack & RotationCandidate;
 
 /** Drop the keys again. They are a rotation concern and a rundown item has no business carrying them. */
-const toRundownTrack = ({ songKey: _song, artistKey: _artist, rating: _rating, ...track }: Airable): RundownTrack => track;
+const toRundownTrack = ({ songKey: _song, artistKey: _artist, creditKey: _credit, rating: _rating, ...track }: Airable): RundownTrack => track;
 
 /**
  * Turning a chosen track into something the station can actually air.
@@ -307,6 +307,7 @@ export class PickResolver {
             const row = metadata.get(trackId);
             resolved.push({
                 artistKey: entry.artistKey,
+                ...(entry.creditKey === undefined ? {} : { creditKey: entry.creditKey }),
                 songKey: entry.songKey,
                 pluginId: binding.pluginId,
                 externalId: binding.externalId,
@@ -609,6 +610,8 @@ export class PickResolver {
                 // artist is what identity is taken from, never the credit line.
                 songKey: songKey(found.title, [found.artist]),
                 artistKey: artistKey([found.artist]),
+                // The same lead with its joins kept, for the spacing rules alone: see `artistCreditsOverlap`.
+                creditKey: creditKey(found.artist),
             });
         }
 

@@ -1,6 +1,7 @@
 import { MOOD_BOOST } from './mood.lean.js';
 import { skipWeight } from './skip.lean.js';
 import { DEEP_CUT_LEAN, RETURN_LEAN } from './rediscover.js';
+import { isArtistHeld, sameAct } from './rotation.keys.js';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { StationLineupMode, StationLineupRules } from './station.lineup.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
@@ -434,6 +435,13 @@ export interface RotationCandidate {
     songKey: string;
     artistKey: string;
     /**
+     * The lead credit with the joins between its acts kept (`rotation.keys.ts` `creditKey`), which
+     * the SPACING rules compare by overlap so "Cat Stevens" is held by "Yusuf / Cat Stevens". Absent,
+     * {@link artistKey} stands for it, which is exact for every credit naming one act. Never identity:
+     * the caps, the dislike and the history all stay on the key.
+     */
+    creditKey?: string;
+    /**
      * The release this candidate came from, when one is known. Absent for anything the catalog set
      * generator did not draw from its own `albums` join (every `Identified` `PickResolver` judges,
      * for one, since a pick names a work rather than a row until it has been matched) and a
@@ -491,7 +499,11 @@ export interface RotationCandidate {
 export interface RecentlyAired {
     /** Songs inside the repeat window. Empty when the window is off. */
     songKeys: ReadonlySet<string>;
-    /** Artists inside the cooldown. Empty when the cooldown is off. */
+    /**
+     * Artists inside the cooldown. Empty when the cooldown is off. Each lead's `spacingKeys`: its key,
+     * and for a credit joining several acts its credit key as well, which {@link filterByHistory}
+     * compares by overlap.
+     */
     artistKeys: ReadonlySet<string>;
 }
 
@@ -504,7 +516,9 @@ export interface RecentlyAired {
  * here.
  */
 export const filterByHistory = <T extends RotationCandidate>(candidates: readonly T[], recent: RecentlyAired): T[] =>
-    candidates.filter(candidate => !recent.songKeys.has(candidate.songKey) && !recent.artistKeys.has(candidate.artistKey));
+    candidates.filter(
+        candidate => !recent.songKeys.has(candidate.songKey) && !isArtistHeld(recent.artistKeys, candidate.artistKey, candidate.creditKey),
+    );
 
 /**
  * Drop anything the operator has disliked.
@@ -660,10 +674,10 @@ export const applyRulesHoldingQueue = <T extends RotationCandidate>(
     if (held.length >= want) return held;
 
     // Only the queued artists' records, judged by every other rule. Their artists are disjoint from
-    // `held`'s, so the per-artist cap needs nothing more; the album cap is applied again over the
+    // `held`'s (an overlapping credit counts as queued, so it is held above and offered here), so the per-artist cap needs nothing more; the album cap is applied again over the
     // two together because a release can carry more than one artist.
     const reserve = applyRules(
-        candidates.filter(candidate => queued.has(candidate.artistKey)),
+        candidates.filter(candidate => isArtistHeld(queued, candidate.artistKey, candidate.creditKey)),
         rules,
         recent,
     );
@@ -696,7 +710,11 @@ export const applyRulesHoldingQueue = <T extends RotationCandidate>(
  * artist just placed — a batch that is entirely one act — it takes the head:
  * nothing can be done about it, and stalling would be worse.
  *
- * @param seed - The artist already at the tail of whatever this batch is joining, if any. Seeding
+ * Two records count as one act when their keys match or one's credit is inside the other's
+ * (`artistCreditsOverlap`): "Yusuf / Cat Stevens" is not placed straight after "Cat Stevens".
+ *
+ * @param seed - The artist already at the tail of whatever this batch is joining, if any, as a key
+ *   or (better, for a joined credit) a `creditKey`. Seeding
  *   `previous` with it rather than leaving the first placement uncompared is what stops a refill
  *   opening with the artist that just closed the running order — the same adjacency this function
  *   already refuses everywhere else in the batch.
@@ -707,13 +725,15 @@ export const spaceArtists = <T extends RotationCandidate>(candidates: readonly T
     for (const candidate of pending) remaining.set(candidate.artistKey, (remaining.get(candidate.artistKey) ?? 0) + 1);
 
     const spaced: T[] = [];
-    let previous: string | undefined = seed;
+    // The act just placed, compared by `sameAct` so a joined credit and an act inside it are kept
+    // apart as one artist is. Counting stays on the key: it only ranks who to spend first.
+    let previous: Pick<RotationCandidate, 'artistKey' | 'creditKey'> | undefined = seed === undefined ? undefined : { artistKey: seed };
 
     while (pending.length > 0) {
         let index = -1;
         let best = 0;
         pending.forEach((candidate, position) => {
-            if (candidate.artistKey === previous) return;
+            if (previous !== undefined && sameAct(candidate, previous)) return;
             const count = remaining.get(candidate.artistKey) ?? 0;
             if (count > best) {
                 best = count;
@@ -726,7 +746,7 @@ export const spaceArtists = <T extends RotationCandidate>(candidates: readonly T
         const [next] = pending.splice(index, 1);
         spaced.push(next!);
         remaining.set(next!.artistKey, (remaining.get(next!.artistKey) ?? 1) - 1);
-        previous = next!.artistKey;
+        previous = next!;
     }
     return spaced;
 };
@@ -761,16 +781,19 @@ export const holdArtistCooldown = <T extends RotationCandidate>(
     const cooldownMs = cooldownMinutes * 60_000;
     if (!(cooldownMs > 0)) return [...spaced];
 
-    const startedAt = new Map<string, number>();
+    // Every kept record and when it starts, scanned rather than keyed: an act inside a joined credit
+    // counts against the credit's cooldown (`sameAct`), which no map key can express. A batch is a
+    // couple of dozen records.
+    const started: { candidate: T; at: number }[] = [];
     const tooSoon = new Set<T>();
     let at = 0;
     for (const candidate of spaced) {
-        const previous = startedAt.get(candidate.artistKey);
-        if (previous !== undefined && at - previous < cooldownMs) {
+        // Any kept record by the same act that started inside the window holds this one.
+        if (started.some(entry => at - entry.at < cooldownMs && sameAct(entry.candidate, candidate))) {
             tooSoon.add(candidate);
             continue;
         }
-        startedAt.set(candidate.artistKey, at);
+        started.push({ candidate, at });
         at += lengthOf(candidate);
     }
     if (tooSoon.size === 0) return [...spaced];

@@ -9,6 +9,16 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.55.0] — 2026-10-11
+
+- A persona's quirks are rows now, each with how often it applies: Always, Often, Occasionally or Rarely. Every existing quirk is Always, so nothing a station says changes yet. In the API a quirk is `{ text, cadence }` rather than a string, and persona files are `deadair.persona/2`; the console still imports a `/1` file, upgrading its quirks as it reads it.
+- Writing a character from a description now also asks for up to three habits, things it does only now and then, and fills them in as quirks set to Occasionally rather than as rules sent on every break.
+- A quirk set to Often, Occasionally or Rarely is no longer sent with the rules on every break. The station draws for it on each talk break, about one break in two, four or ten, and when it comes up the writer is told this is one of those times; at most one such quirk reaches any break, and bulletins, welcomes and weather never get one. Auditions draw for it the same way, so you hear it before it airs. A quirk that said "once in a while" in its own words was written almost never, because a writer with no memory of the last break reads that as "not this time".
+- A news bulletin no longer reads the same story twice when two feeds carry it under the same headline. The repeat is dropped before the station counts out its stories, so the bulletin still reaches the length it rolled.
+- The newsreader now introduces themselves by name at the top of a bulletin ("This is Walter, here's the news"), in both the model-written bulletin and the station's own phrasings. A station with no presenter name set reads the news as before. A newsreader whose character has a sign-off may now say it after the last story, before handing back to the music.
+- The playlist import's link field now names every source a link can come from: Spotify, YouTube Music, Apple Music, Pandora, Navidrome, Jellyfin, Emby and Plex. The lyrics source setting no longer says the words are never shown, since the listener apps and the record page show them.
+- Two shipped characters' now-and-then quirks carry a cadence instead of saying "now and then" in a rule: the late-night host admitting what he is thinking about, and the conspiracy host's cold open of tabloid questions. This reaches a fresh station, or one restoring the shipped characters; a character already on your station keeps its sheet as it is.
+
 ## [0.54.0] — 2026-10-11
 
 - Apple Music playlists can be imported by pasting their link under Library, Playlists, Import. The plugin recognises the link its share button writes, an embed link and an old iTunes link, and reads the playlist in the station's own storefront. Reading one needs a MusicKit key: without one, the import says so instead of showing an empty playlist. A playlist the station's storefront does not carry is reported as not found, and neither refusal counts towards setting the plugin aside.
@@ -1329,7 +1339,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.54.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.55.0...HEAD
+[0.55.0]: https://github.com/robert-dean/deadair/compare/v0.54.0...v0.55.0
 [0.54.0]: https://github.com/robert-dean/deadair/compare/v0.53.0...v0.54.0
 [0.53.0]: https://github.com/robert-dean/deadair/compare/v0.52.2...v0.53.0
 [0.52.2]: https://github.com/robert-dean/deadair/compare/v0.52.1...v0.52.2

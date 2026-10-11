@@ -11,7 +11,7 @@ import { StationLineupRepository } from './station.lineup.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { PickResolver } from './pick.resolver.js';
 import { DEFAULT_COUNT, artistKeysOf, artistsQueuedWithin, planRecords, ranOutOfTime, songKeysOf } from './plan.records.js';
-import { artistKey } from './rotation.keys.js';
+import { creditKey } from './rotation.keys.js';
 import { resolveRules, stationRules } from './rotation.rules.js';
 import { SetGenerator } from './set.generator.js';
 import { isTrackItem } from './station.lineup.js';
@@ -192,7 +192,7 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
                     : {}),
                 // Always, whatever the cap says: seeding is about adjacency, not about the per-artist
                 // limit, so it applies even when that limit is switched off.
-                ...(seed ? { seedArtistKey: artistKey([seed.track.artist]) } : {}),
+                ...(seed ? { seedArtistKey: creditKey(seed.track.artist) } : {}),
                 // So a run pg-boss has stopped lets go of the model and resolves nothing.
                 ...(signal === undefined ? {} : { signal }),
             },

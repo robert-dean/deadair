@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import type { ArtistTrack } from '@deadair/plugin-sdk';
 import { SimilarityService } from '#modules/similarity/similarity.service.js';
 import { withinPeriod, type EraWindow } from './candidates.repository.js';
-import { artistKey, songKey } from './rotation.keys.js';
+import { artistKey, creditKey, isArtistHeld, songKey, spacingKeys } from './rotation.keys.js';
 import type { TrackPick } from './set.generator.js';
 
 /**
@@ -32,7 +32,10 @@ const TRACKS_PER_ARTIST = 3;
 export interface NeighbourWalk {
     /** Songs not to name: what the order already holds, plus everything this walk has named. */
     takenSongs: Set<string>;
-    /** Artists already given a record in this batch. One each, so a batch spreads. */
+    /**
+     * Artists already given a record in this batch. One each, so a batch spreads. Each artist's
+     * `spacingKeys`, and asked through `isArtistHeld`, so an act inside a joined credit counts as taken.
+     */
     takenArtists: Set<string>;
     /** The broadcast's period, when it has one with at least one end set. */
     era?: EraWindow;
@@ -63,9 +66,8 @@ export class SimilarPicker {
             // One record per artist within a batch. The per-artist cap downstream would catch this,
             // but spending the upstream calls first and having them rejected is the same batch for
             // more requests.
-            const neighbourKey = artistKey([neighbour.name]);
-            if (walk.takenArtists.has(neighbourKey)) continue;
-            walk.takenArtists.add(neighbourKey);
+            if (isArtistHeld(walk.takenArtists, artistKey([neighbour.name]), creditKey(neighbour.name))) continue;
+            for (const key of spacingKeys(neighbour.name)) walk.takenArtists.add(key);
 
             const tracks = await this.similarity.topTracks(
                 { name: neighbour.name, ...(neighbour.mbid === undefined ? {} : { mbid: neighbour.mbid }) },
@@ -120,12 +122,14 @@ export class SimilarPicker {
                 Math.max(SIMILAR_TRACKS_PER_RECORD, want * TRACKS_PER_ARTIST),
             );
             while (into.length < target) {
-                const eligible = eligibleOf(tracks, walk).filter(entry => !walk.takenArtists.has(artistKey([entry.track.artist])));
+                const eligible = eligibleOf(tracks, walk).filter(
+                    entry => !isArtistHeld(walk.takenArtists, artistKey([entry.track.artist]), creditKey(entry.track.artist)),
+                );
                 const chosen = freshestFirst(eligible, entry => walk.freshness(entry.song));
                 if (chosen === undefined) break;
 
                 walk.takenSongs.add(chosen.song);
-                walk.takenArtists.add(artistKey([chosen.track.artist]));
+                for (const key of spacingKeys(chosen.track.artist)) walk.takenArtists.add(key);
                 into.push({ title: chosen.track.title, artist: chosen.track.artist });
             }
         }

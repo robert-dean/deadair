@@ -17,7 +17,7 @@ import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { advisoryPolicy, demandsClean } from './advisory.policy.js';
-import { artistKey } from './rotation.keys.js';
+import { artistKey, creditKey, sameAct } from './rotation.keys.js';
 import { BlockRulesRepository } from './block.rules.repository.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { readPicks, setPrompt, type TastePrompt } from './set.prompt.js';
@@ -746,20 +746,26 @@ function describeAvoided(inputs: SetInputs): string[] {
  * has not happened — so this works on the picks themselves. `PickResolver` spaces again afterwards
  * on what actually survived, which is the pass that has the final word.
  */
+/** A pick's artist as the spacing rules compare it. */
+const actOf = (pick: TrackPick): { artistKey: string; creditKey: string } => ({
+    artistKey: artistKey([pick.artist]),
+    creditKey: creditKey(pick.artist),
+});
+
 function spaceOwnArtists(picks: readonly TrackPick[]): TrackPick[] {
     const pending = [...picks];
     const spaced: TrackPick[] = [];
-    let previous: string | undefined;
+    let previous: { artistKey: string; creditKey: string } | undefined;
 
     while (pending.length > 0) {
         // The first pick by anyone other than whoever was just placed; the head when every
         // remaining record is by them, because nothing can be done about that and stalling is
-        // worse.
-        const index = pending.findIndex(pick => artistKey([pick.artist]) !== previous);
+        // worse. "Whoever" by `sameAct`, so an act inside a joined credit is the same somebody.
+        const index = pending.findIndex(pick => previous === undefined || !sameAct(actOf(pick), previous));
         const [next] = pending.splice(index < 0 ? 0 : index, 1);
 
         spaced.push(next!);
-        previous = artistKey([next!.artist]);
+        previous = actOf(next!);
     }
     return spaced;
 }

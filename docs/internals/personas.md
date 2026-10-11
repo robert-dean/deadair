@@ -275,7 +275,14 @@ the reason it seeds no stories.
 And **the enrichment pass writes only PROPOSALS** (`llm.personaStories`, off, 04:11, after the notebook pass
 so the two do not queue for the one model slot): it is the only pass on the station that runs with tools ON,
 because a past is worth having only where it is grounded in records this station holds, and there is nothing
-to verify a story against — so `suggested` and the operator IS the check. Both word ceilings involved are
+to verify a story against — so `suggested` and the operator IS the check. **The tools are the station's own
+music and nothing else** (`STORY_PASS_TOOLS`: the library search, the taste, similar artists, the charts,
+passed as `onlyTools`). It used to be offered every source the registry held, because the registry offers
+everything to everybody and the web, the news, the weather and the almanac each arrived there with no change
+to this pass. That made it the one route by which text off an open web page could become something a
+presenter says, and under `self-directed` growth (see "Threads") be stored `active` with nobody reading it.
+The prompt's fence against claims about real artists was the only thing in the way, and a prompt is an
+instruction rather than an enforcement. Both word ceilings involved are
 settings now with a declared MINIMUM (`rotation.breakWords`, `rotation.storyWords`, `break.words.ts`), because
 a ceiling set too low does not make a terse station, it hands every model break to the phrasings in silence.
 
@@ -353,7 +360,8 @@ thing the field exists to make an operator opt into; and it reaches no prompt at
 
 **The one thing it does not relax** is what may be STORED unread. A model-written beat is spoken by
 the deterministic floor verbatim, and that floor runs no checks — under `self-directed` it is no
-longer speaking approved prose. So the pass puts its own output through `characterFault` first.
+longer speaking approved prose. So the pass puts its own output through `characterFault` first: stories,
+beats, and details, which skipped it until 2026-10-11 although every active detail is shown beside its story.
 There is no broadcast-clean CHECKER anywhere in this tree (`speaksClean` shapes a prompt and nothing
 reads an answer back against it), so a self-directed character inherits exactly the exposure a
 seeded story already has. That is stated rather than implied, because the obvious assumption is that

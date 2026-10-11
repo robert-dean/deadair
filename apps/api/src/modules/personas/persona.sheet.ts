@@ -348,8 +348,11 @@ export const DEFAULT_GROWTH: PersonaGrowth = 'proposes';
  *
  * A model-written beat under `self-directed` is spoken by the deterministic floor verbatim, and that
  * floor runs no checks at all — it speaks approved prose, which under this rung it no longer is. So
- * the pass puts its own output through `characterFault` and the station's clean-language rule before
- * storing it active. Autonomy is about who APPROVES, never about what may go out unchecked.
+ * the pass puts its own output (stories, details and beats alike) through `characterFault` before
+ * storing it active. That is the sheet's own prohibitions and nothing more: there is no
+ * broadcast-clean checker in this tree (`speaksClean` shapes a prompt and nothing reads an answer
+ * back against it), so a self-directed character carries the exposure a seeded story already has,
+ * and what makes that acceptable is the rollback above rather than a check.
  */
 export const growthOf = (sheet: PersonaSheet | undefined): PersonaGrowth =>
     sheet !== undefined && isPersonaGrowth(sheet.growth) ? sheet.growth : DEFAULT_GROWTH;

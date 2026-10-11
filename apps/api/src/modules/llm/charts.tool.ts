@@ -41,6 +41,9 @@ import type { StationTool, ToolSource } from './llm.tools.js';
  */
 const MAX_RESULTS = 25;
 
+/** The name this tool is offered under, so a caller narrowing a conversation with `onlyTools` names it from here. */
+export const BROWSE_CHARTS_TOOL = 'browse_charts';
+
 /** One chart on the menu, as the model reads it. Thin: a name and enough to choose between them. */
 interface ChartOption {
     id: string;
@@ -68,7 +71,7 @@ export class ChartsTool implements ToolSource {
                 // number one is still this week's number one twenty minutes later.
                 freshness: 'timeless',
                 declaration: {
-                    name: 'browse_charts',
+                    name: BROWSE_CHARTS_TOOL,
                     // Written for the model. It says that calling it without an id is the way to
                     // find out what the ids ARE, because a model that has to guess one guesses a
                     // chart name rather than an id and gets nothing back.

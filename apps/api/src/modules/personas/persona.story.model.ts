@@ -243,6 +243,9 @@ export function storyPrompt(
                 // it — so "may not claim" and "may not invent" were the same sentence. A pass with a
                 // search tool can now find a true thing and put it in a story, and every word of the
                 // rule above still permits that. See [tool-plugins](https://github.com/robert-dean/deadair/discussions/44).
+                // The pass is offered only the station's own music tools now (`STORY_PASS_TOOLS`), so
+                // the open web is out of reach whatever this says; the rule stays because similar
+                // artists and the charts are still facts about somebody else.
                 '- This holds for anything you looked up as well. A tool result is a fact about the world, and a story is fiction about one presenter: use what you find to choose what they might have been listening to, never to say what an artist did. If a story would be worse without the thing you looked up, it is the wrong story.',
                 '- Nothing famous happens to them. No celebrity, no scandal, no disaster, no illness, no politics. Small things: a room, a caller, a tape, a night nobody else remembers.',
                 '- Write it as a SCRIPT, out loud, in their own voice, with an ending. The station reads it exactly as you wrote it when no model is available.',

@@ -1649,7 +1649,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Let a model think of things your characters have lived through',
         type: 'boolean',
         default: PERSONA_STORIES_DEFAULT,
-        help: 'Once a night, a model looks at what your station actually plays and writes down something that might have happened to each of your characters — a new story, or one more thing they remember about a story they already have. Nothing it writes can ever be said on air until you have read it and kept it: a story is made up by definition, so there is nothing to check it against and you are the check. It runs in the background at the lowest priority.',
+        help: "Once a night, a model looks at what your station actually plays and writes down something that might have happened to each of your characters — a new story, or one more thing they remember about a story they already have. It only looks at your own music: the library, your ratings, similar artists and the charts. A story is made up by definition, so there is nothing to check it against. For a character that proposes, which is every character until you change it, you are the check: nothing it writes is said on air until you have read it and kept it. For a character you have let develop on its own, what it writes is kept and can be said on air straight away, once it passes that character's own sheet (no sample line repeated, no wording you told it to avoid), and the Memory menu on the character rolls it back. It runs in the background at the lowest priority.",
     },
     {
         group: 'llm',

@@ -16,7 +16,7 @@ notes and the API reference, with the API also described as an OpenAPI 3.1 docum
 [deadair.radio/openapi.yaml](https://deadair.radio/openapi.yaml) for anyone generating a client.
 
 > **It plays your music, not its own.** deadair holds no catalogue. It programmes what your provider
-> already gives you — a Spotify account or a Subsonic server such as Navidrome — and it grants you no
+> already gives you (a Spotify account, or a Navidrome, Jellyfin or Plex server), and it grants you no
 > rights to broadcast any of it. Read [docs/licensing.md](docs/licensing.md) before you publish an
 > address.
 
@@ -59,8 +59,8 @@ station's own event log, so "why was it silent at three in the morning" is a que
 
 ```
                   your provider                    a model             a voice
-              (Spotify / Navidrome)             (local or hosted)   (Kokoro / Rhapsode
-                                                                     / ElevenLabs)
+              (Spotify / Navidrome              (local or hosted)   (Kokoro / Rhapsode
+               / Jellyfin / Plex)                                    / ElevenLabs)
                        │                               │                    │
                        └───────────── plugins ─────────┴────────────────────┘
                                          │

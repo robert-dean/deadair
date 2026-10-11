@@ -4,7 +4,7 @@ sidebar_position: 7
 description: Where the station's music comes from, what it records about each record, how each one is measured, and why nothing airs until its audio is on the machine.
 ---
 
-deadair holds no catalogue of its own. It programmes the music your provider already gives you, a Spotify account, a YouTube Music account or a Subsonic server such as Navidrome, and it grants you no rights to broadcast any of it: read [the music licensing notes](../licensing.md) before you publish an address. What it keeps is a library: an entry for every record it has met, and what it has learned about each.
+deadair holds no catalogue of its own. It programmes the music your provider already gives you, a Spotify account, a YouTube Music account, or a media server you run (Navidrome or another Subsonic server, Jellyfin, or Plex), and it grants you no rights to broadcast any of it: read [the music licensing notes](../licensing.md) before you publish an address. What it keeps is a library: an entry for every record it has met, and what it has learned about each.
 
 ![The library: every record the station has taken in, with its state and your rating](/img/console/catalog.tracks.webp)
 *Fig. 1. The library's tracks.*
@@ -20,6 +20,10 @@ When a model chooses a record no playlist carries, the station looks it up at yo
 **YouTube Music signs in with a cookie you paste, and plays signed out.** There is no sign-in button to offer: Google withdrew that for this service, so the plugin's page asks for the Cookie header from a browser signed in to music.youtube.com, and says where to copy it from. It has no refresh and expires on the account's own schedule. When it does, the plugin's card says so rather than your library quietly thinning, because search goes on working signed out. If the browser is signed in to more than one Google account, **Google account** picks which one the playlists come from, and Test connection names the account it reached.
 
 The cookie is for search and your library only. The audio is found by a small program bundled beside the station, which turns each record into an address the station downloads from itself, and it asks **without** your cookie, because YouTube currently serves a signed-in request nothing the station can download, Music Premium included. So a record that only an account may play, age-gated or members-only, is skipped rather than aired. The plugin ships switched off: read [the music licensing notes](../licensing.md) on what fetching this way means before you switch it on.
+
+**Jellyfin reads the library as one of its users.** It asks for an API key, made under API Keys in Jellyfin's dashboard, and a user name, because Jellyfin will not list a playlist's contents to a key alone. That user's library access is what the station sees, so a user given only the music library keeps a film library's soundtracks out. The station airs the original file unless you ask the plugin for MP3 or Opus.
+
+**Plex is reached directly, with your Plex token.** Give it the address of the server itself, port included, rather than app.plex.tv. The token is your account's, and the plugin's page says where to find it. Your audio playlists come across, smart ones included, and the station always airs the original file. Plex also passes on what its own metadata agents know: each record's label and styles, each track's moods, each artist's biography and picture. Those sit behind MusicBrainz, filling its gaps rather than overruling it.
 
 ## What it records about each record
 

@@ -535,6 +535,46 @@ describe('what the station has already read', () => {
         );
     });
 
+    // One story carried by two feeds. The log only stops a LATER bulletin repeating it, so both copies
+    // went into one bulletin and the floor read the same story twice in a row.
+    it('reads a story two feeds both carried once, and still fills the count', async () => {
+        const { source } = build({
+            items: [
+                item('Kennedy Center names new artistic director', { id: 'npr-1' }),
+                item('Kennedy Center names new artistic director', { id: 'npr-2', feedId: 'deadair.rss:arts' }),
+                ...three,
+            ],
+        });
+
+        expect((await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories.map(story => story.headline)).toEqual([
+            'Kennedy Center names new artistic director.',
+            'Bridge reopens after four years.',
+            'Council votes on the harbour.',
+        ]);
+    });
+
+    it('reads it once when the station took turns between the two feeds that carried it', async () => {
+        const shared = 'Kennedy Center names new artistic director';
+        const { source } = build(
+            {
+                byFeed: {
+                    'deadair.rss:world': [item(shared), item('Bridge reopens after four years')],
+                    'deadair.rss:arts': [
+                        item(shared, { id: 'arts-1', feedId: 'deadair.rss:arts' }),
+                        item('Gallery opens a new wing', { feedId: 'deadair.rss:arts' }),
+                    ],
+                },
+            },
+            roster('deadair.rss:world', 'deadair.rss:arts'),
+        );
+
+        expect((await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories.map(story => story.headline)).toEqual([
+            'Kennedy Center names new artistic director.',
+            'Bridge reopens after four years.',
+            'Gallery opens a new wing.',
+        ]);
+    });
+
     it('declines the slot when everything in the window has been read', async () => {
         // Silence rather than a repeat, on the same argument the freshness window is on: a listener
         // cannot tell a station reading this morning's headlines again from one that is simply wrong.

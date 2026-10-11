@@ -56,9 +56,11 @@ records starts and ends (`reportPlayback`), and the plugin reports it against th
 was served from. Pandora accepted those reports even after the device had moved on to later
 records, which it always has, since the station fetches ahead.
 
-The search, annotation, playback and event answers in `tests/fixtures` were recorded from a live
-account on 2026-10-11, with its ids and tokens replaced. The two playlist endpoints' shapes come
-from pandora-tui's working client and have not been recorded yet.
+The search, annotation, playlist, playback and event answers in `tests/fixtures` were recorded from
+a live account on 2026-10-11, with its ids and tokens replaced. The one shape not yet recorded is the
+account's own playlist list (`getSortedPlaylists`), because that account had none; it follows
+pandora-tui's working client. The built plugin was also run against Pandora that day: sign-in,
+search, a record, a public playlist's records and the free-account refusal all behaved as tested.
 
 ## Setting it up
 

@@ -1,5 +1,5 @@
-// The catalog half of the plugin, against recorded Pandora answers where there are any. The playlist
-// endpoints' shapes come from a working client's code rather than a recording, and are said to be.
+// The catalog half of the plugin, against recorded Pandora answers where there are any. The account's
+// own playlist list is the one shape not yet recorded (the account had none), and is said to be.
 
 import { describe, expect, it } from 'vitest';
 import { createFakePluginHost } from '@deadair/plugin-sdk/testing';
@@ -112,7 +112,7 @@ describe('getTrack', () => {
     });
 });
 
-// Shapes from pandora-tui's working client, not from a recording: see the plugin README.
+// A shape from pandora-tui's working client, not from a recording: see the plugin README.
 describe('listPlaylists', () => {
     it("lists the account's playlists, keeping one it could not describe", async () => {
         const { fake, plugin } = await build();
@@ -132,6 +132,18 @@ describe('listPlaylists', () => {
 });
 
 describe('getPlaylistTracks', () => {
+    it('reads a recorded page of a public playlist, asking for every record its details', async () => {
+        const { fake, plugin } = await build();
+        const page = fixture('playlist.tracks').body as { tracks: Array<{ pandoraId: string }> };
+        fake.web['v7/playlists/getTracks'] = { body: page };
+        fake.web['v4/catalog/annotateObjects'] = body => ({ body: Object.assign({}, ...body.pandoraIds.map((id: string) => track(id))) });
+
+        const tracks = await plugin.getPlaylistTracks('PL:844424994606591:1745910464', { limit: 10 });
+
+        expect(tracks.map(t => t.id)).toEqual(page.tracks.map(entry => entry.pandoraId));
+        expect(fake.webCalls.find(call => call.endpoint === 'v4/catalog/annotateObjects')!.body.pandoraIds).toHaveLength(10);
+    });
+
     it("asks for the details Pandora's page left out, and keeps the playlist's order", async () => {
         const { fake, plugin } = await build();
         fake.web['v7/playlists/getTracks'] = { body: { tracks: [{ pandoraId: 'TR:2' }, { pandoraId: 'TR:1' }], totalTracks: 2, annotations: track('TR:2', 'Second') } };

@@ -72,7 +72,7 @@ import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
 import type { AlmanacEntry } from '@deadair/plugin-sdk';
 import { languageName, languageRule } from '#modules/shared/language.name.js';
-import { homeRule } from '#modules/shared/station.home.js';
+import { claimedHomeIn, homeRule } from '#modules/shared/station.home.js';
 import { inventedFigure, unofferedWeather } from './weather.figures.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest, SittingIn } from './break.writer.js';
 import type { ChartPlacing } from '#modules/playout/rundown.js';
@@ -2485,6 +2485,19 @@ export interface AnswerGuard {
      */
     weather?: SpokenWeather;
     /**
+     * The only places this break may call here: the station's location, its parts and the station's
+     * own name, normalised. Build it with `homeGuard`, from the same setting the prompt's `homeRule`
+     * was built from.
+     *
+     * {@link AnswerGuard.years}' doctrine pointed at the dateline. A model shown a persona whose style
+     * names a home town ("a Glaswegian night owl") says "here in Glasgow" on a station in Atlanta, in
+     * the voice the station uses for where it really is. Absent asks nothing, on every other field's
+     * bargain here; an EMPTY list is a station with no location, and then every claim of a here is one
+     * the model brought with it, which is the same sentence the prompt already sent. See
+     * `inventedHomeIn`.
+     */
+    homes?: readonly string[];
+    /**
      * The station's language when it is not English. Absent, every check reads the script as it
      * always has.
      *
@@ -2586,6 +2599,10 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // And weather from a break that was given none, beside the figure check and in the same position
     // `writeDecline` asks it. See `unofferedWeatherIn`.
     if (unofferedWeatherIn(words, guard) !== undefined) return undefined;
+
+    // And a break that called somewhere else here: the year's doctrine asked of the dateline, in the
+    // same position `writeDecline` asks it. See `inventedHomeIn`.
+    if (inventedHomeIn(words, guard) !== undefined) return undefined;
 
     // A break that read a line of a record's lyric aloud, which is somebody's copyrighted text and the
     // one thing the station must never say. After the factual checks and in the same position
@@ -3097,6 +3114,32 @@ const quotedLyricIn = (script: string, guard: AnswerGuard): string | undefined =
 const unofferedWeatherIn = (script: string, guard: AnswerGuard): string | undefined =>
     guard.weather === undefined ? unofferedWeather(withoutRecordNames(script, guard), guard.language) : undefined;
 
+/**
+ * The claim a script made that somewhere is here when the station is not there, or `undefined`.
+ *
+ * Only the explicit shapes ("here in", "our city of", "broadcasting from"; see `homeClaimsIn`), so a
+ * break naming a place it was handed (where a record was made, a dateline in the news, the town a
+ * weather band points at) is never read as claiming it. The claim is found in the script as written,
+ * because a capital is what tells "here in Glasgow" from "here in the studio", and then has to
+ * survive {@link withoutRecordNames}: "here in Paris" inside a title is the record, not the presenter.
+ *
+ * English only, like `overusedWords`: the frames are English words, so outside English this stands
+ * down as a decision rather than never firing by accident.
+ */
+const inventedHomeIn = (script: string, guard: AnswerGuard): string | undefined => {
+    if (guard.homes === undefined || guard.language !== undefined) return undefined;
+
+    const claim = claimedHomeIn(script, guard.homes);
+    if (claim === undefined) return undefined;
+
+    const spoken = withoutRecordNames(script, guard).toLowerCase().replace(/\s+/g, ' ');
+    const said = claim.said
+        .toLowerCase()
+        .replace(/[‘’ʼ′]/g, "'")
+        .replace(/\s+/g, ' ');
+    return spoken.includes(said) ? claim.said : undefined;
+};
+
 const inventedYearIn = (script: string, guard: AnswerGuard): string | undefined => {
     if (guard.years === undefined) return undefined;
 
@@ -3163,6 +3206,10 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     // here it had none and the model described the sky anyway, and the two send an operator to
     // different places (the service, against the prompt).
     'unoffered-weather': 'the model described the weather when it was given no reading, so whatever it said about the sky was made up',
+    // Its own row rather than folded into `invented-year`: that one sends an operator to the listing,
+    // and this one to the persona sheet or the station's own text, where a home town was planted.
+    'invented-home':
+        'the model called somewhere here that is not where the station is, which a listener there hears as the station not knowing its own town',
     'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
     'retold-verbatim': 'the model repeated what this character said the last time it picked up the same thread, rather than moving it on',
     'spent-catchphrase': 'the model reached for a signature the station had just used',
@@ -3199,6 +3246,7 @@ export type WriteFault =
     | 'invented-figure'
     | 'quoted-lyric'
     | 'unoffered-weather'
+    | 'invented-home'
     | 'character-trimmed';
 
 /** How {@link writeDecline} introduces the wording it caught, which {@link saidIn} reads back. */
@@ -3285,6 +3333,10 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     // figure follows the year.
     const sky = unofferedWeatherIn(speakable, guard);
     if (sky !== undefined) return reasoned('unoffered-weather', sky);
+    // Somewhere else called here, after the sky and with the phrase that did it, for the year's reason:
+    // an operator reading "called somewhere else here" wants to know where.
+    const home = inventedHomeIn(speakable, guard);
+    if (home !== undefined) return reasoned('invented-home', home);
     // Without the words that matched, unlike the two above: they are the lyric, and this sentence is
     // stored in `script_history.reason`, which is the second copy of the text the station must not keep.
     if (quotedLyricIn(speakable, guard) !== undefined) return reasoned('quoted-lyric');

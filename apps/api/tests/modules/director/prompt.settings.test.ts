@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { readAnswer } from '../../../src/modules/director/break.prompt.js';
 import { TEMPLATE_KEYS } from '../../../src/modules/director/break.templates.js';
 import {
+    homeGuard,
     speakerGuard,
     STATION_CONTEXT_KEY,
     STATION_IDENTITY_KEY,
@@ -76,6 +77,20 @@ describe('where the station is', () => {
         const { config } = settingsConfig({ [WEATHER_KEYS.location]: 'x'.repeat(500) });
 
         expect(stationPromptSettings(config, {}).location).toHaveLength(LOCATION_MAX);
+    });
+});
+
+describe('homeGuard', () => {
+    it('allows the location, its parts and the station name', () => {
+        const { config } = settingsConfig({ [WEATHER_KEYS.location]: 'Atlanta, GA', [STREAM_KEYS.title]: 'Night Owl' });
+
+        expect(homeGuard(config).homes).toEqual(['atlanta ga', 'atlanta', 'ga', 'night owl']);
+    });
+
+    it('asks the question even with no location, so any here is refused', () => {
+        const { config } = settingsConfig({ [STREAM_KEYS.title]: 'Night Owl' });
+
+        expect(homeGuard(config).homes).toEqual(['night owl']);
     });
 });
 

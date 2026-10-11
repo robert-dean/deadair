@@ -1,5 +1,5 @@
 import { AppConfig } from '@maroonedsoftware/appconfig';
-import { stationLocation } from '#modules/shared/station.home.js';
+import { homeNames, stationLocation } from '#modules/shared/station.home.js';
 import { WEATHER_KEYS } from '#modules/weather/weather.keys.js';
 import { STREAM_DEFAULTS, STREAM_KEYS, stationLanguage } from '#modules/stream/stream.settings.js';
 import { advisoryPolicy, speaksClean } from './advisory.policy.js';
@@ -113,4 +113,19 @@ export function speakerGuard(
         .filter(name => name !== '');
 
     return names.length === 0 ? {} : { speakers: [...new Set(names)] };
+}
+
+/**
+ * The places a script may call here, as a field on an answer guard: the station's location and its
+ * parts, and the station's own name, so "here in Deadair country" is not read as a town.
+ *
+ * Beside {@link stationPromptSettings} for {@link languageGuard}'s reason: the prompt's `homeRule` and
+ * this are read off the same setting, so a break is refused only for a here the prompt ruled out.
+ * Present always, and empty of places for a station with no location, which is the prompt's own "claim
+ * no here at all" read back.
+ */
+export function homeGuard(config: AppConfig): Pick<AnswerGuard, 'homes'> {
+    const location = stationLocation(String(config.get(WEATHER_KEYS.location, '') ?? ''));
+    const station = stationLocation(String(config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title) ?? ''));
+    return { homes: [...new Set([...homeNames(location), ...homeNames(station)])] };
 }

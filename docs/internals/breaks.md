@@ -392,6 +392,21 @@ in from somewhere else, and their "here" is fiction about them rather than the s
 is English with the place as the operator wrote it, on `languageRule`'s argument, and it changes every
 prompt, which the identity sentences above deliberately did not: the absence of a location is a rule too.
 
+**And the answer is held to it, as `invented-home`.** Stating it is necessary and not sufficient, the
+daypart's lesson, so `AnswerGuard.homes` (built by `homeGuard` off the same setting) is `invented-year`'s
+doctrine pointed at the dateline: the location, each comma-separated part of it (a station in "Atlanta, GA"
+may say "here in Atlanta") and the station's own name are the only places after the frame, and an EMPTY
+list, a station with no location, refuses every claim. Only the explicit shapes are read (`homeClaimsIn`):
+"here in X", "our city of X", "this town of X", "broadcasting from X", "coming to you from X", with X
+capitalised, because the capital is what tells "here in Glasgow" from "here in the studio". Left out on
+purpose: "back home in X", which says X is NOT here and is a presenter's own past; "live from X", which is
+as often a record's title or a venue in its notes; and a bare "in X", which is every fact about where a
+record was made. A month, a day, a season, a studio and a possessive ("here in Ray's kitchen") after the
+frame are not places, and a claim inside a record name is taken out first. English only, like
+`overusedWords`. Retryable on `invented-year`'s argument (one claim added to a sound break, and the fix is a
+deletion), with the phrase shown back through `saidIn`. Productions are told the rule and not checked for
+it: `checkBeat` runs only on `polished` productions, and that is a separate change.
+
 **What buys a character room is what the break does not have to say, never the word ceiling.** Measured before
 changing anything: 2 of 137 captured answers reached `DEFAULT_MAX_WORDS` and the median break came in at 28
 words, so the ceiling was never what bounded one — the model stops on its own, and the question is what it

@@ -36,6 +36,7 @@ import { DEDICATION_SHAPE } from '../../../src/modules/director/model.dedication
 import { STORY_SHAPE } from '../../../src/modules/director/story.break.writer.js';
 import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
 import { languageRule } from '../../../src/modules/shared/language.name.js';
+import { homeNames } from '../../../src/modules/shared/station.home.js';
 import {
     LATITUDE_INSTRUCTIONS,
     LATITUDE_LICENCE,
@@ -2963,5 +2964,81 @@ describe('where here is', () => {
         expect(rules).toContain('The station broadcasts from München');
         // The language rule is still the last word.
         expect(rules.trimEnd().endsWith(languageRule('de'))).toBe(true);
+    });
+});
+
+// The scenario this exists for: a persona styled as a Glaswegian night owl on a station whose location
+// is Atlanta, saying "here in Glasgow tonight". Only the explicit claim shapes, tested both ways.
+describe('readAnswer, against where the station is', () => {
+    const atlanta = { homes: homeNames('Atlanta, GA') };
+    const nowhere = { homes: [] };
+    const record = { title: 'Move On Up', artist: 'Curtis Mayfield' };
+
+    it('asks nothing of a guard that names no homes, like every other field here', () => {
+        const script = 'Here in Glasgow tonight, Move On Up from Curtis Mayfield.';
+
+        expect(readAnswer(script, {})).toBe(script);
+    });
+
+    it('declines a presenter calling somewhere else here', () => {
+        expect(readAnswer('Here in Glasgow tonight, Move On Up from Curtis Mayfield.', atlanta)).toBeUndefined();
+        expect(readAnswer('Curtis Mayfield, Move On Up, for everybody in our city of Glasgow.', atlanta)).toBeUndefined();
+        expect(readAnswer('Broadcasting from sunny Glasgow, that was Move On Up.', atlanta)).toBeUndefined();
+        expect(readAnswer('Right here in sunny Glasgow, Move On Up.', atlanta)).toBeUndefined();
+    });
+
+    it('keeps the station location, whole or by its first part, however it is spelled', () => {
+        for (const script of [
+            'Here in Atlanta tonight, Move On Up from Curtis Mayfield.',
+            'Move On Up, for everybody here in Atlanta, GA.',
+            'Our city of Atlanta deserves Move On Up.',
+            'Coming to you from Atlanta Georgia, that was Move On Up.',
+        ]) {
+            expect(readAnswer(script, atlanta), script).toBe(script);
+        }
+    });
+
+    it('keeps a place named as itself rather than as here', () => {
+        for (const script of [
+            'Curtis Mayfield cut Move On Up in Chicago, and it still moves.',
+            'My mum back home in Glasgow loved Move On Up.',
+            'Move On Up, which Curtis Mayfield once played to a full house in Glasgow.',
+            'Here in the studio, Move On Up from Curtis Mayfield.',
+            'Here in December, Move On Up from Curtis Mayfield.',
+            "Here in Ray's kitchen, Move On Up from Curtis Mayfield.",
+        ]) {
+            expect(readAnswer(script, atlanta), script).toBe(script);
+        }
+    });
+
+    it('refuses any here at all from a station with no location', () => {
+        expect(readAnswer('Here in Atlanta, Move On Up from Curtis Mayfield.', nowhere)).toBeUndefined();
+        expect(readAnswer('Move On Up from Curtis Mayfield, out of Chicago.', nowhere)).toBe('Move On Up from Curtis Mayfield, out of Chicago.');
+    });
+
+    it('lets the station say its own name after the frame', () => {
+        const script = 'Here in Deadair country, Move On Up from Curtis Mayfield.';
+
+        expect(readAnswer(script, { homes: [...homeNames('Atlanta'), ...homeNames('Deadair')] })).toBe(script);
+    });
+
+    it('takes the record names out first, so a title is not a claim', () => {
+        const titled = { title: 'Here In Paris', artist: 'Lumière' };
+        const script = 'That was Here In Paris, and Atlanta is still awake.';
+
+        expect(readAnswer(script, { ...atlanta, names: [titled] })).toBe(script);
+    });
+
+    it('stands down outside English', () => {
+        const script = 'Hier in Glasgow, Move On Up von Curtis Mayfield.';
+
+        expect(readAnswer(script, { ...atlanta, language: 'de', names: [record] })).toBe(script);
+    });
+
+    it('names the phrase it refused, so the second ask can show it', () => {
+        const declined = writeDecline('Here in Glasgow tonight, Move On Up from Curtis Mayfield.', atlanta);
+
+        expect(declined?.fault).toBe('invented-home');
+        expect(saidIn(declined?.reason ?? '')).toBe('Here in Glasgow');
     });
 });

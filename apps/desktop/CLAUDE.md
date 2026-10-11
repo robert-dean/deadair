@@ -523,8 +523,12 @@ half-second `Tick` re-lights it; never the wall clock since `startedAt`
 (`docs/internals/breaks.md`). A failed read is no words, said in the log and nowhere else. The panel
 draws them under the record, foldable for the session: timed lines in their own 200-unit column,
 scrolled so the sung line sits two below the top (`Controls/LyricColumn`, which jumps on a new song
-and glides after), plain words whole. The `shell-desk-lyrics` and `studio-lyrics` frames in
-`tools/Shots` pose them with words written for the purpose, never a real song's.
+and glides after), plain words whole. A line whose source timed its words lights word by word
+(`Lyrics.CurrentWord` and `SungLength`): the sung part in the accent over a blurred copy of itself
+for the glow, and the tick drops to 100ms while such words are showing (`LyricsViewModel.FollowsWords`)
+and goes back to 500ms otherwise. A line with no word timings is drawn exactly as before. The
+`shell-desk-lyrics` and `studio-lyrics` frames in `tools/Shots` pose them with words written for the
+purpose, never a real song's, with the lit line sung as far as its fourth word.
 
 **A failed poll keeps the last good reading and marks it stale.** Blanking a screen because one
 request timed out throws away something true and still useful. It is the station's own rule read from

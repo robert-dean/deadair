@@ -67,7 +67,7 @@ const sidebars: SidebarsConfig = {
             type: 'category',
             label: 'Grow the station',
             collapsed: false,
-            items: ['tutorials/speakers', 'tutorials/chat-platforms'],
+            items: ['tutorials/news-and-weather', 'tutorials/carry-a-podcast', 'tutorials/speakers', 'tutorials/chat-platforms'],
         },
         {
             type: 'category',

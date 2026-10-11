@@ -583,11 +583,19 @@ export class ModelSetGenerator extends SetGenerator {
      * Richard, of which the per-artist cap at the resolver keeps four. Nothing tops the batch back up after that, because the chain
      * counts names rather than survivors. So each artist gives one record in turn, at most the cap's
      * worth, and the searches the model made last count as much as the ones it made first.
+     *
+     * **Only the rows a search was FOR**, which is {@link SearchedRecords.matching}. Every artist in an
+     * answer gets a turn here, so a stray in one answer is as good as a record the model searched for,
+     * where the model itself would have skipped it. Measured on the live station, 2026-10-11: briefed
+     * for heavy metal, the search for `Dio` answered by containment with "Radio Edit", "Audio Remix",
+     * "Diopter" and "Dior", and the rescued hour aired Culture Beat, Pop Smoke and a run of house
+     * remixes. Nothing matching is an empty answer, and the chain carries on as it would have.
      */
     private rescue(inputs: SetInputs, why: string): TrackPick[] {
-        if (this.searched.size === 0) return [];
+        const matching = this.searched.matching();
+        if (matching.length === 0) return [];
 
-        const picks = spreadAcrossArtists(this.searched.all(), inputs.count, inputs.rules.maxPerArtist);
+        const picks = spreadAcrossArtists(matching, inputs.count, inputs.rules.maxPerArtist);
         if (picks.length === 0) return [];
 
         // Info rather than warn: something went wrong upstream and it has already been reported
@@ -597,6 +605,7 @@ export class ModelSetGenerator extends SetGenerator {
             ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
             why,
             shown: this.searched.size,
+            matching: matching.length,
             using: picks.length,
         });
 

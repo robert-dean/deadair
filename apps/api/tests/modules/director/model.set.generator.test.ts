@@ -58,8 +58,8 @@ interface Options {
     stylesFail?: boolean;
     /** What the model was shown, for the capture switch. */
     transcript?: LlmConversation['transcript'];
-    /** What the search tool handed the model, which a failed run falls back to. */
-    searched?: { title: string; artist: string }[];
+    /** What the search tool handed the model, which a failed run falls back to. A row matches its search unless it says not. */
+    searched?: { title: string; artist: string; matches?: boolean }[];
     /** When each song last aired, as the history answers inside the smart shuffle's horizon. */
     lastAired?: Map<string, DateTime>;
     /** A history that cannot be read. */
@@ -131,7 +131,7 @@ function build(options: Options = {}) {
     // What the search tool would have written during the conversation. Seeded directly here: this
     // suite drives `converse` through a double, so no tool ever runs.
     const searched = new SearchedRecords();
-    if (options.searched !== undefined) searched.remember(options.searched);
+    if (options.searched !== undefined) searched.remember(options.searched.map(row => ({ matches: true, ...row })));
 
     // Read for smart shuffle and handed to the search through `aired`. Nothing aired lately unless a
     // case says otherwise.
@@ -678,6 +678,40 @@ describe('when the model goes quiet, what its searches found', () => {
         const picked = await generator.generate(inputs(5));
 
         expect(picked.map(pick => pick.artist)).toEqual(['Mitch Murder', 'Lost Years', 'Kavinsky']);
+    });
+
+    // Measured on the live station, 2026-10-11: briefed for heavy metal, the search for `Dio` answered
+    // by containment with "Radio Edit" and "Diopter", and the rescue gave every artist a turn, so the
+    // Boneyard aired Culture Beat. The model reading the answer skips a stray; the rescue cannot.
+    it('plays only the rows its searches were for, never a stray a search dragged in', async () => {
+        const { generator } = build({
+            enabled: true,
+            text: '',
+            toolCallsMade: 1,
+            finishReason: 'budget',
+            searched: [
+                { title: 'Holy Diver', artist: 'Dio' },
+                { title: 'Mr. Vain - Original Radio Edit', artist: 'Culture Beat', matches: false },
+                { title: 'Diopter (Hior Remix)', artist: 'Rosa Anschütz', matches: false },
+                { title: 'Rainbow in the Dark', artist: 'Dio' },
+            ],
+        });
+
+        const picked = await generator.generate(inputs(5));
+
+        expect(picked.map(pick => pick.title)).toEqual(['Holy Diver', 'Rainbow in the Dark']);
+    });
+
+    it('names nothing when no row matched what was searched for, rather than airing the strays', async () => {
+        const { generator } = build({
+            enabled: true,
+            text: '',
+            toolCallsMade: 1,
+            finishReason: 'budget',
+            searched: [{ title: 'Mr. Vain - Original Radio Edit', artist: 'Culture Beat', matches: false }],
+        });
+
+        await expect(generator.generate(inputs(5))).resolves.toEqual([]);
     });
 
     it('never names more than it was asked for', async () => {

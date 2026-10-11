@@ -207,6 +207,41 @@ try {
         check('an artist still matches', (await found(`${TAG} plain`)).includes('from-track-tag'), true);
         check('a style nothing carries finds nothing', await found('zzzznope'), []);
 
+        // ── a word, against a fragment of another word ──
+        // Measured on the live station, 2026-10-11: `Dio` answered by containment with every "Radio
+        // Edit" in the library, and a refill whose model went quiet aired them in a heavy-metal hour.
+        say('telling a word from a fragment of one');
+
+        /** Each fixture row a search found, with whether it matched as whole words. */
+        const matched = async (query: string): Promise<[string, boolean][]> =>
+            (await tracks.searchPlayable(query, LIMIT, false))
+                .filter(row => row.title.startsWith(TAG))
+                .map((row): [string, boolean] => [row.title.slice(TAG.length + 1), row.matchesWords === true])
+                .sort(([a], [b]) => a.localeCompare(b));
+
+        // Untagged, so the vocabulary counted further down is the fixture it always was.
+        const zzdio = await artist('zzdio', undefined);
+        const other = await artist('other', undefined);
+        await track(zzdio, 'holy');
+        await track(other, 'the xzzdiox edit');
+        await track(other, 'zzdio, live');
+
+        check('the artist, a title holding the word and a fragment are told apart', await matched('zzdio'), [
+            ['holy', true],
+            ['the xzzdiox edit', false],
+            ['zzdio, live', true],
+        ]);
+        check(
+            'a style is a whole word inside a longer tag',
+            (await matched(STYLE)).find(([title]) => title === 'from-artist-tag'),
+            ['from-artist-tag', true],
+        );
+        check(
+            'a search with no text matches every row it answers',
+            (await tracks.searchPlayable('', 5, false)).every(row => row.matchesWords === true),
+            true,
+        );
+
         // ── a period, which narrows this half now and used to narrow only the providers ──
         say('narrowing to a period');
 

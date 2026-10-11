@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { sql, type ExpressionBuilder } from 'kysely';
 import { DataRepository } from '../data/data.repository.js';
 import type { DB } from '../data/db.js';
-import { CatalogListQuery, columnFor, directionFor, likeContains, likeExactly } from './catalog.query.js';
+import { CatalogListQuery, columnFor, directionFor, likeContains, likeExactly, regexWholeWords } from './catalog.query.js';
 import { catalogKey, normalizeKey } from './catalog.keys.js';
 import { artUrl } from './catalog.art.js';
 import { stationCover, withStationCover } from '#modules/art/art.source.token.js';
@@ -265,14 +265,14 @@ function stateFilter(eb: TrackScope, state: TrackState, schemaVersion: number) {
  * before `WHERE` is applied — so a payload whose `genres` is not an array would throw past a
  * coalesce, and this is data written by plugins.
  */
-function taggedWith(pattern: string) {
+function taggedWith(pattern: string, match: 'ilike' | '~*' = 'ilike') {
     const tags = (table: string, column: string, id: string) => sql`
         select 1
         from deadair.${sql.raw(table)} e
         cross join lateral jsonb_array_elements_text(
             case when jsonb_typeof(e.data -> 'genres') = 'array' then e.data -> 'genres' else '[]'::jsonb end
         ) tag
-        where e.${sql.raw(column)} = deadair.tracks.${sql.raw(id)} and tag ilike ${pattern}
+        where e.${sql.raw(column)} = deadair.tracks.${sql.raw(id)} and tag ${sql.raw(match)} ${pattern}
     `;
 
     return sql<boolean>`exists (
@@ -296,6 +296,25 @@ function isExactly(pattern: string) {
         or deadair.artists.name ilike ${pattern}
         or deadair.tracks.genre ilike ${pattern}
         or ${taggedWith(pattern)}
+    )`;
+}
+
+/**
+ * Whether the search appears as whole WORDS in a record's title, its artist's name or one of its
+ * styles, which is the question `search_music` cares about and containment answers badly.
+ *
+ * The same four places as {@link isExactly}, asked through {@link regexWholeWords}. Selected as
+ * `matchesWords` by {@link TracksRepository.searchPlayable} so a refill whose model never chose can
+ * tell the rows its searches were FOR from the ones a fragment of another word dragged in. `coalesce`
+ * on the genre because a null under `~*` is null rather than false, and a column read back as null
+ * would be a third answer to a yes-or-no question.
+ */
+function hasWholeWords(pattern: string) {
+    return sql<boolean>`(
+        deadair.tracks.title ~* ${pattern}
+        or deadair.artists.name ~* ${pattern}
+        or coalesce(deadair.tracks.genre, '') ~* ${pattern}
+        or ${taggedWith(pattern, '~*')}
     )`;
 }
 
@@ -663,6 +682,8 @@ export class TracksRepository extends DataRepository {
                 'deadair.artists.name as artistName',
                 'deadair.albums.name as albumName',
             ])
+            // Every row of a search with no text answers it, since there was no text to miss.
+            .select(matchesText ? hasWholeWords(regexWholeWords(search)).as('matchesWords') : sql<boolean>`true`.as('matchesWords'))
             .where('deadair.tracks.mergedIntoId', 'is', null)
             // Title, artist, genre OR any genre a plugin found.
             //

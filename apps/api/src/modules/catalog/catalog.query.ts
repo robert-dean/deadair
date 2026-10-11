@@ -83,3 +83,46 @@ export function likeContains(search: string): string {
 export function likeExactly(search: string): string {
     return search.trim().replace(/[\\%_]/g, character => `\\${character}`);
 }
+
+/**
+ * A search term as a case-insensitive regular expression (`~*`) that matches it as whole words.
+ *
+ * Containment is the wrong question for a name, and the live station measured it: asked for heavy
+ * metal, a refill searched `Dio`, and `ilike '%Dio%'` answered with "Radio Edit", "Audio Remix",
+ * "Diopter" and "Dior" alongside Dio's own records. Whole words keep what containment was for (`metal`
+ * still finds `heavy metal`, `rock` still finds `pop/rock`) and lose the fragments of other words.
+ *
+ * A word boundary here is a letter or digit on one side and anything else, or the end of the text, on
+ * the other. Spelled with `[[:alnum:]]` rather than `\m`/`\M`, because those demand a word character
+ * at the term's own edge and so could never match a name that starts or ends in punctuation
+ * ("Sunn O)))"). Runs of whitespace in the term match any run of whitespace in the text. Every
+ * regular-expression character in the term is escaped, so "AC/DC" and "Sunn O)))" are literals.
+ *
+ * {@link hasWholeWords} is the same rule in TypeScript, for rows that never pass through SQL.
+ */
+export function regexWholeWords(search: string): string {
+    return `(^|[^[:alnum:]])${wordsOf(search)}([^[:alnum:]]|$)`;
+}
+
+/**
+ * Whether `text` holds `search` as whole words. {@link regexWholeWords}, for text already in hand.
+ *
+ * `\p{L}\p{N}` is the Unicode spelling of `[[:alnum:]]`. Postgres reads that class through the
+ * database's locale, so the two can disagree about an accented letter beside a match, which is a
+ * difference of one record in an edge nobody searches for.
+ */
+export function hasWholeWords(text: string, search: string): boolean {
+    const words = wordsOf(search);
+    if (words.length === 0) return true;
+    return new RegExp(`(^|[^\\p{L}\\p{N}])${words}([^\\p{L}\\p{N}]|$)`, 'iu').test(text);
+}
+
+/** The term's words, each escaped, joined by "any run of whitespace". Shared so the two dialects cannot drift. */
+function wordsOf(search: string): string {
+    return search
+        .trim()
+        .split(/\s+/)
+        .filter(word => word.length > 0)
+        .map(word => word.replace(/[\\^$.|?*+()[\]{}]/g, character => `\\${character}`))
+        .join('\\s+');
+}

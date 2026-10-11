@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { catalogKey, normalizeKey } from '#modules/catalog/catalog.keys.js';
+import { hasWholeWords } from '#modules/catalog/catalog.query.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { advisoryPolicy, demandsClean } from '#modules/director/advisory.policy.js';
 import { songKey } from '#modules/director/rotation.keys.js';
@@ -307,7 +308,19 @@ export class MusicSearchTool implements ToolSource {
         // whose model never names anything uses these rather than nothing; see `SearchedRecords`
         // for the run that cost an hour and for why the transcript is the wrong place to read it
         // back from.
-        this.searched.remember(rows);
+        //
+        // Each with whether it matched the query as whole words, which the model never sees: it
+        // reads the strays and skips them, and only a refill falling back to these rows needs telling.
+        // The library answered that in SQL, where the styles a record is tagged with are in reach;
+        // a provider row carries no tags, so it is judged on its title and its credits here.
+        const libraryMatches = new Set(owned.filter(row => row.matchesWords === true).map(row => keyOf(row.title, row.artistName)));
+        this.searched.remember(
+            rows.map(row => ({
+                title: row.title,
+                artist: row.artist,
+                matches: libraryMatches.has(keyOf(row.title, row.artist)) || answersQuery(row, query),
+            })),
+        );
         this.logger.debug('llm: searched for music', {
             query,
             ...(about === undefined ? {} : { about }),
@@ -443,6 +456,16 @@ const ownedAllowance = (limit: number, reached: number): number => {
     if (reached === 0) return limit;
     return Math.max(limit - reached, Math.round((limit * OWNED_SHARE) / MAX_RESULTS));
 };
+
+/**
+ * Whether a row's own words answer the query: its title, its artist or anyone it features.
+ *
+ * The provider half's version of the library's `matchesWords`. No query is a search the row cannot
+ * have missed. A library row reaches here too, and is judged only on these words, which is why the
+ * caller asks the library's own answer first: that one also read the record's styles.
+ */
+const answersQuery = (row: MusicTrack, query: string): boolean =>
+    query.trim().length === 0 || [row.title, row.artist, ...(row.featuring ?? [])].some(text => hasWholeWords(text, query));
 
 /** The identity two halves of the answer are compared on, which is the resolver's own key. */
 const keyOf = (title: string, artist: string): string => catalogKey(normalizeKey(title), normalizeKey(artist));

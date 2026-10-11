@@ -188,6 +188,32 @@ describe('a carried programme, through itemAnnotations', () => {
     it("levels it whether or not record levelling is on, like the station's own voice", () => {
         expect(itemAnnotations(programme(-20), context(false)).liq_amplify).toBe(itemAnnotations(programme(-20), context(true)).liq_amplify);
     });
+
+    // A master the station has no editorial claim on: a boost needs a peak to be checked against, and
+    // is held under it, exactly as a record's is.
+    it('never boosts an episode past the headroom its peak leaves, nor at all with no peak', () => {
+        // Aim -15 at the defaults, measured -30: fifteen wanted, clamped to twelve, and a true peak of
+        // -6 leaves five.
+        expect(itemAnnotations({ ...programme(-30), truePeakDb: -6 }, context(true)).liq_amplify).toBe('5 dB');
+        expect(itemAnnotations(programme(-30), context(true)).liq_amplify).toBe('0 dB');
+        // The unmeasured episode at the defaults wants one decibel up and gets none.
+        expect(itemAnnotations(programme(), context(true)).liq_amplify).toBe('0 dB');
+    });
+
+    it('still cuts a loud episode with no peak to go on', () => {
+        expect(itemAnnotations(programme(-9), context(true)).liq_amplify).toBe('-6 dB');
+    });
+
+    // A narration is a programme to the mount but the station's own speech engine to the mixer, so it
+    // keeps the boost a break gets, with no peak.
+    it('lifts a reading the station spoke without a peak, as its own voice', () => {
+        const reading: RundownItem = { ...programme(-26.5), stationVoiced: true };
+
+        expect(itemAnnotations(reading, context(true)).liq_amplify).toBe(
+            `${programmeGainFor({ loudnessLufs: -26.5 }, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB, 'station')} dB`,
+        );
+        expect(itemAnnotations(reading, context(true)).liq_amplify).toBe('11.5 dB');
+    });
 });
 
 describe('what a break is CALLED on the mount', () => {

@@ -411,6 +411,16 @@ with animations off. A blurred, scaled copy of the cover was tried first and is 
 size the blur was weak, the cover's shapes showed through as bands and blotches, and an oversized layer
 under `wrapContentSize(unbounded = true)` is centred on its slot, which put it half its overhang too high.
 
+**Now playing's output button is the SYSTEM switcher, not the Cast SDK.** It calls
+`SystemOutputSwitcherDialogController.showDialog` (Bluetooth settings when that answers `false`), so the
+system moves this app's one player and the station keeps one listener, which is `docs/internals/playout.md`'s
+transfer-never-addition rule kept for free. "Playing on" under the controls reads the media router's
+selected route through a callback that asks for no discovery, and names only a Bluetooth device or a
+network speaker (`playingOn`, JVM-tested); iOS names AirPlay and Bluetooth for the same reason. The
+mediarouter dependency brings appcompat, and with it a `UseAppTint` lint error on the widget preview
+layout, which is suppressed there because the launcher inflating it does not map `app:tint`. Not yet
+seen with a Bluetooth device or a network speaker (2026-10-11).
+
 **A tab with no app bar must not carry the bar's scroll behaviour.** `HomeScreen` attaches
 `enterAlwaysScrollBehavior` only when `topBar` is true. The behaviour learns how far the bar may collapse
 from the bar itself; with none composed its limit stays unbounded and it swallowed every upward scroll,

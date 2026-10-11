@@ -53,6 +53,11 @@ import com.maroonedsoftware.deadair.director.OrderState
 import com.maroonedsoftware.deadair.sdk.models.StationOrderItemKind
 import com.maroonedsoftware.deadair.ui.order.RunningOrderScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingScreen
+import com.maroonedsoftware.deadair.ui.nowplaying.OutputControl
+import com.maroonedsoftware.deadair.ui.nowplaying.chooseOutput
+import com.maroonedsoftware.deadair.ui.nowplaying.rememberOutputRoute
+import com.maroonedsoftware.deadair.playback.playingOn
+import androidx.compose.ui.platform.LocalContext
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingUiState
 import com.maroonedsoftware.deadair.ui.nowplaying.SkipControl
 import com.maroonedsoftware.deadair.ui.nowplaying.ShuffleControl
@@ -284,7 +289,12 @@ fun HomeRoute(
                 val lyrics = lyricsUiState(lyricsAnswer, heardStartedAt, playhead)
                 var lyricsOpen by rememberSaveable { mutableStateOf(false) }
                 if (lyricsOpen && lyrics != LyricsUiState.Hidden) LyricsSheet(lyrics, onDismiss = { lyricsOpen = false })
+                // The system switcher moves this app's one player, so the station keeps one
+                // listener; nothing here casts or starts a second connection.
+                val outputRoute = rememberOutputRoute()
+                val context = LocalContext.current
                 NowPlayingScreen(
+                    output = OutputControl(playingOn = playingOn(outputRoute, playing = nowState.playing), onChoose = { chooseOutput(context) }),
                     state = nowState,
                     artworkUrl = artworkUrl,
                     hostPortraitUrl = hostPortraitUrl,

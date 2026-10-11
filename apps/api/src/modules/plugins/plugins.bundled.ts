@@ -37,6 +37,7 @@ export const bundledPluginDirs: string[] = [
     resolveBundledPluginDir('plugins/spotify'),
     resolveBundledPluginDir('plugins/navidrome'),
     resolveBundledPluginDir('plugins/jellyfin'),
+    resolveBundledPluginDir('plugins/plex'),
     resolveBundledPluginDir('plugins/ytmusic'),
     resolveBundledPluginDir('plugins/musicbrainz'),
     resolveBundledPluginDir('plugins/lastfm'),

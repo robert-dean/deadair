@@ -39,6 +39,7 @@ contract ListenerRequest: { # A record somebody asked the station to play, and w
     airedAt?: datetime # When it aired
     dedicateTo?: string(max=60) # Who the listener dedicated it to
     message?: string(max=200) # What the listener asked to have said with it, in their own words
+    fromParty?: boolean # True when a guest at a party asked for it, through the party pass. Absent otherwise
 }
 
 contract ListenerRequestList: { # Requests, newest first
@@ -55,4 +56,28 @@ contract ListenerRequestCreate: { # Ask the station to play a record
 
 contract ListenerRequestDecline: { # Turn a request down
     reason?: string(max=400) # What to tell the listener. Omit for a plain no
+}
+
+contract PartyPass: { # A party: the pass guests join with by scanning its QR code, for as long as it lasts
+    token: string(max=200) # The pass itself. Put it after `#` on the station's `/party` page, as `/party#<token>`, and that address is what the QR code holds. Anyone holding it can join until the party ends, so show it only to the room
+    createdAt: datetime # When the party started
+    expiresAt: datetime # When the pass stops letting guests in, and turns away every guest who joined with it
+    guests: int(min=0) # How many guests have joined with it
+}
+
+contract PartyState: { # The party, if one is on
+    party?: PartyPass # Absent when no party is on
+}
+
+contract PartyStart: { # Start a party
+    hours?: int(min=1, max=24) # How long the pass lasts. Six when omitted
+}
+
+contract PartyJoin: { # Join a party as a guest, with the pass from its QR code
+    token: string(min=1, max=200) # The pass, as it appears after `#` in the party page's address
+}
+
+contract PartyGuestSession: { # A guest's way in: send it as a bearer token on the request routes
+    accessToken: string # The bearer token. It lets a guest search for records, ask for one and see their own requests, and nothing else
+    expiresAt: datetime # When it stops working, which is when the party's pass does
 }

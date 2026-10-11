@@ -55,13 +55,15 @@ describe('the catalog', () => {
         // `policy.mappings.ts` maps `mfa.satisfied` to no real check, so an operation that declared no
         // security would be reachable by any grant. Every contract names its policy; this keeps it so.
         const policies = new Set(entries.map(entry => JSON.stringify(entry.definition._meta?.[SECURITY_META])));
-        expect([...policies].sort()).toEqual(['"none"', '{"policy":"platform.manage"}', '{"policy":"platform.view"}']);
+        expect([...policies].sort()).toEqual(['"none"', '{"policy":"platform.manage"}', '{"policy":"platform.view"}', '{"policy":"requests.ask"}']);
     });
 
     it('reads a policy as the tier it asks for', () => {
         expect(accessOf(byName.get('get_now_playing')!.definition)).toBe('anyone');
         expect(accessOf(byName.get('get_playout_status')!.definition)).toBe('view');
         expect(accessOf(byName.get('skip_the_current_item')!.definition)).toBe('manage');
+        // `platform.view` plus a party guest, who never reaches this endpoint: view, to a caller here.
+        expect(accessOf(byName.get('create_request')!.definition)).toBe('view');
     });
 
     describe('hints a model can trust', () => {

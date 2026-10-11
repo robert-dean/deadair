@@ -173,7 +173,7 @@ describe('authorizationContextMiddleware', () => {
             sessionToken: 'guest-session',
             subject: ACTOR_ID,
             claims,
-            factors: [{ method: 'partypass', kind: 'possession' }],
+            factors: [{ method: 'apikey', kind: 'possession' }],
         });
 
         it('builds a guest actor, with no roles to load, while its pass is live', async () => {

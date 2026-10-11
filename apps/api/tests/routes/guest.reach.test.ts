@@ -75,9 +75,13 @@ describe('what a party guest can reach', () => {
         expect(all.filter(r => r.policy === 'platform.view').length).toBeGreaterThan(50);
     });
 
-    it('lets nothing name requests.ask but the three routes a guest is for', () => {
+    it('names requests.ask on the three routes a guest is for, and nowhere else', () => {
         const asking = all.filter(r => r.policy === 'requests.ask').map(r => r.route);
-        expect(asking.filter(route => !GUEST_ROUTES.has(route))).toEqual([]);
+        expect(asking.sort()).toEqual([...GUEST_ROUTES].sort());
+    });
+
+    it('lets a guest join without a session, which is the one way a guest gets one', () => {
+        expect(all.find(r => r.route === 'POST /party/join')).toEqual({ route: 'POST /party/join' });
     });
 
     it('names a policy that refuses a guest on every other gated route', () => {

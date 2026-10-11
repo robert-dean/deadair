@@ -210,6 +210,13 @@ describe('RequestsService', () => {
         expect(toListenerRequest(row({ requesterKey: 'chat:deadair.telegram:7' })).source).toBe('chat');
     });
 
+    it('marks a party guest’s request fromParty and keeps its source an app, which every native app can decode', () => {
+        const guestRow = toListenerRequest(row({ requesterKey: 'guest:g-1' }));
+        expect(guestRow.source).toBe('app');
+        expect(guestRow.fromParty).toBe(true);
+        expect(toListenerRequest(row()).fromParty).toBeUndefined();
+    });
+
     it('passes a dedication on, tidied', async () => {
         const { service, desk } = build();
 

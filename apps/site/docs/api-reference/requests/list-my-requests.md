@@ -12,7 +12,7 @@ The signed-in account's own recent requests
 
 :::note
 SDK method: `listMyRequests`
-Security: authenticated (policy: platform.view)
+Security: authenticated (policy: requests.ask)
 :::
 
 ## Response

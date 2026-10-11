@@ -34,7 +34,10 @@ export function toListenerRequest(row: RequestRow): ListenerRequest {
         title: row.title,
         artist: row.artist,
         requesterName: row.requesterName,
+        // A party guest's request is `app`, and says where it came from in `fromParty` instead: a new
+        // value here would break every installed native app's decoding of the list, whose enums are strict.
         source: row.requesterKey.startsWith('chat:') ? 'chat' : 'app',
+        ...(row.requesterKey.startsWith('guest:') ? { fromParty: true } : {}),
         createdAt: row.createdAt,
         ...(row.reason === undefined ? {} : { reason: row.reason }),
         ...(row.airedAt === undefined ? {} : { airedAt: row.airedAt }),

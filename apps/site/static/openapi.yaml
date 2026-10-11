@@ -5292,6 +5292,61 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/ListenerRequest'
+    '/party':
+        get:
+            operationId: getParty
+            summary: 'Get party'
+            description: 'The party that is on, with its pass, so the console can show the QR code again'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PartyState'
+        post:
+            operationId: startParty
+            summary: 'Start party'
+            description: 'Start a party. A party already on is ended first, which turns its guests away, so there is only ever one pass to scan'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PartyStart'
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PartyPass'
+        delete:
+            operationId: end
+            summary: 'End party'
+            description: 'End the party. Its pass stops working and every guest who joined with it is turned away on their next request'
+            responses:
+                '204':
+                    description: 'No content'
+    '/party/join':
+        post:
+            operationId: join
+            summary: 'Join party'
+            description: 'Join the party as a guest. Answers 404 for a pass that is unknown, ended or run out, without saying which'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PartyJoin'
+            security: []
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PartyGuestSession'
     '/schedule':
         get:
             operationId: listSchedule
@@ -13616,6 +13671,9 @@ components:
                     type: string
                     maxLength: 200
                     description: 'What the listener asked to have said with it, in their own words'
+                fromParty:
+                    type: boolean
+                    description: 'True when a guest at a party asked for it, through the party pass. Absent otherwise'
             required: [id, status, title, artist, requesterName, source, createdAt]
             description: 'A record somebody asked the station to play, and what became of it'
         ListenerRequestList:
@@ -13661,6 +13719,65 @@ components:
                     maxLength: 400
                     description: 'What to tell the listener. Omit for a plain no'
             description: 'Turn a request down'
+        PartyPass:
+            type: object
+            properties:
+                token:
+                    type: string
+                    maxLength: 200
+                    description: "The pass itself. Put it after `#` on the station's `/party` page, as `/party#<token>`, and that address is what the QR code holds. Anyone holding it can join until the party ends, so show it only to the room"
+                createdAt:
+                    type: string
+                    format: date-time
+                    description: 'When the party started'
+                expiresAt:
+                    type: string
+                    format: date-time
+                    description: 'When the pass stops letting guests in, and turns away every guest who joined with it'
+                guests:
+                    type: integer
+                    minimum: 0
+                    description: 'How many guests have joined with it'
+            required: [token, createdAt, expiresAt, guests]
+            description: 'A party: the pass guests join with by scanning its QR code, for as long as it lasts'
+        PartyState:
+            type: object
+            properties:
+                party:
+                    '$ref': '#/components/schemas/PartyPass'
+                    description: 'Absent when no party is on'
+            description: 'The party, if one is on'
+        PartyStart:
+            type: object
+            properties:
+                hours:
+                    type: integer
+                    minimum: 1
+                    maximum: 24
+                    description: 'How long the pass lasts. Six when omitted'
+            description: 'Start a party'
+        PartyJoin:
+            type: object
+            properties:
+                token:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: "The pass, as it appears after `#` in the party page's address"
+            required: [token]
+            description: 'Join a party as a guest, with the pass from its QR code'
+        PartyGuestSession:
+            type: object
+            properties:
+                accessToken:
+                    type: string
+                    description: 'The bearer token. It lets a guest search for records, ask for one and see their own requests, and nothing else'
+                expiresAt:
+                    type: string
+                    format: date-time
+                    description: "When it stops working, which is when the party's pass does"
+            required: [accessToken, expiresAt]
+            description: "A guest's way in: send it as a bearer token on the request routes"
         ScheduleSlot:
             type: object
             properties:

@@ -3,7 +3,7 @@ import { DataRepository } from '#src/modules/data/data.repository.js';
 import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
 
-type ActorType = 'user' | 'system' | 'vendor';
+type ActorType = 'user' | 'system' | 'vendor' | 'guest';
 
 @Injectable()
 export class ActorsRepository extends DataRepository {

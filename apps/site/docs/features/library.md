@@ -4,7 +4,7 @@ sidebar_position: 7
 description: Where the station's music comes from, what it records about each record, how each one is measured, and why nothing airs until its audio is on the machine.
 ---
 
-deadair holds no catalogue of its own. It programmes the music your provider already gives you, a Spotify account, a YouTube Music account, or a media server you run (Navidrome or another Subsonic server, Jellyfin, Emby, or Plex), and it grants you no rights to broadcast any of it: read [the music licensing notes](../licensing.md) before you publish an address. What it keeps is a library: an entry for every record it has met, and what it has learned about each.
+deadair holds no catalogue of its own. It programmes the music your provider already gives you, a Spotify, YouTube Music, Pandora or Apple Music account, or a media server you run (Navidrome or another Subsonic server, Jellyfin, Emby, or Plex), and it grants you no rights to broadcast any of it: read [the music licensing notes](../licensing.md) before you publish an address. What it keeps is a library: an entry for every record it has met, and what it has learned about each.
 
 ![The library: every record the station has taken in, with its state and your rating](/img/console/catalog.tracks.webp)
 *Fig. 1. The library's tracks.*

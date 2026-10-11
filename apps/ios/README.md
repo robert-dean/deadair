@@ -1,8 +1,20 @@
 # deadair for iPhone
 
 Listening to the station on an iPhone: background playback, the lock screen and Control Center,
-what is on air, and a choice of how to receive it. Signing in with the station's operator account is
-optional, and the operator's remote that the Android app has is not built here yet.
+what is on air and what is coming up, the words of the record being heard, and a choice of how to
+receive it. It plays through AirPlay and Bluetooth like any audio app, and Now playing says which
+speaker it is "Playing on". A Now playing widget for the home screen and a Live Activity on the Lock
+Screen and in the Dynamic Island show what is on without opening the app, and Siri and Shortcuts can
+start it. A listener can sign in to ask for a record (Request).
+
+Signing in with the station's operator account is optional, and makes it the same remote the Android
+app is: Skip and Shuffle on Now playing and the lock screen, the running order to edit, and the Desk
+(everything that can take the station off air, and why it is or is not on), Manage (the station's
+controls in one place), Plan (replan this show or start a new one) and Scripts (what the station said
+between the records) screens.
+
+CarPlay is built (one row, the station, then the system's Now Playing screen) but is switched off in
+every device build until Apple grants the CarPlay audio entitlement; see [`CLAUDE.md`](CLAUDE.md).
 
 ## Building it
 

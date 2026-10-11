@@ -69,6 +69,9 @@ const themes = ['carbon', 'white', 'neon'];
  *
  * `ready` is for a page whose content is not covered by a skeleton while it loads, so "no
  * skeletons" would be true too early. `open` is for a page reached by clicking rather than by URL.
+ * `click` is for a menu or a dialog the picture is of: the controls named by their visible text,
+ * pressed in order once the page has settled. Only ever ones that open something, never one that
+ * saves, because the station being photographed is a real one.
  */
 const targets = [
     { id: 'desk', path: '/' },
@@ -86,6 +89,11 @@ const targets = [
     { id: 'settings.appearance', path: '/settings/appearance' },
     { id: 'news', path: '/news' },
     { id: 'charts', path: '/charts' },
+    { id: 'desk.cast', path: '/', click: ['Play on a speaker'] },
+    { id: 'plugins.cast', path: '/plugins/deadair.cast' },
+    { id: 'podcasts', path: '/podcasts' },
+    { id: 'settings.bulletins', path: '/settings/bulletins' },
+    { id: 'playlists.import', path: '/playlists', click: ['Import', 'Link'] },
 ];
 
 const { values, positionals } = parseArgs({
@@ -196,6 +204,7 @@ async function shoot() {
 
             if (target.open === 'track') await openTrack(page);
             await settleOn(page, target, settle);
+            for (const text of target.click ?? []) await pressNamed(page, target, text, settle);
             if (scrub.length > 0) await page.evaluate(scrubText, { needles: scrub, replacement: scrubbedAs });
             if (hide.length > 0) await page.evaluate(hideRows, hide);
             if (values['blur-art']) await page.addStyleTag({ content: 'img[src*="/api/"] { filter: blur(10px); }' });
@@ -254,6 +263,14 @@ async function settleOn(page, target, settle) {
     if (target.ready)
         await page.waitForSelector(target.ready, { timeout: 30_000 }).catch(() => console.warn(`${target.id}: ${target.ready} never appeared.`));
     await waitForQuiet(page);
+    await page.waitForTimeout(settle);
+}
+
+/** The button or tab whose own text is exactly `text`, then long enough for what it opens to draw. */
+async function pressNamed(page, target, text, settle) {
+    const control = page.locator('button, [role="tab"]').filter({ hasText: new RegExp(`^\\s*${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`) });
+    if ((await control.count()) === 0) throw new Error(`${target.id}: nothing to press says "${text}".`);
+    await control.first().click();
     await page.waitForTimeout(settle);
 }
 

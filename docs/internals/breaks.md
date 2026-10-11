@@ -808,15 +808,20 @@ marked, so a break that is declined, rewritten or dropped spends nothing. The mo
 back WHICH entry by the years its script named, and a script that named no year spends nothing at
 all rather than guessing.
 
-**The model's own check is `inventedFigure`'s argument one number over.** A historical claim's
-checkable part is its YEAR, and the set of true ones is known exactly, so `inventedYear` refuses a
-script naming one the station was never given — a model asked about a record released in 1977 will
-say 1976 in a sentence no listener can fault and no shape guard can catch. The permitted set is
-every entry's `year` AND every three- or four-digit run inside the entries' own text, because
+**The model's own check is `inventedFigure`'s argument one number over, and it is
+`AnswerGuard.years`.** A historical claim's checkable part is its YEAR, and the set of true ones is
+known exactly, so the guard refuses a script naming one the station was never given, with the
+`invented-year` fault (`break.retry.ts`): a model asked about a record released in 1977 will say 1976
+in a sentence no listener can fault and no shape guard can catch. The almanac writer fills it from
+`permittedYears`, which reads every year the PROMPT showed (minus the quoted "you said these
+recently" scripts, through `shownWithoutRecent`) plus the year the break airs. The entries are in the
+prompt, so that is every entry's `year` AND every year inside the entries' own text, because
 `Kathryn Crosby, American actress (born 1933)` carries a second year the station really was given.
-Two gaps are the weather guard's and are deliberate: a spelled-out year gets through, and a
-two-digit number is an age rather than a year — "turns sixty today" is arithmetic on a year the
-station holds, and it is most of what the model is here for.
+`yearsIn` reads both sides, and it reads a year in digits from 1800 to 2099 or spelled out in English
+("nineteen sixty-six"), so a spelled-out invention is caught too. A two-digit number is an age rather
+than a year and gets through on purpose: "turns sixty today" is arithmetic on a year the station
+holds, and it is most of what the model is here for. Why this is the shared guard and not one of
+this feature's own is two paragraphs down.
 
 **What the prompt withholds is the part the station actually knows.** `describeDay` sends the entry
 and its year and NOT the subjects' descriptions, although `AlmanacEntry.subjects` carries them and

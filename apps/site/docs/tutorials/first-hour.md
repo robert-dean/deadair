@@ -9,8 +9,10 @@ Both install tutorials end on an empty Desk. This page goes from there to a stat
 music, with a presenter talking between the records. It is the same whichever way you installed.
 
 **You need:** a station you are signed in to as the administrator, and somewhere the music comes
-from: a Spotify Premium account, or a media server of your own (Navidrome or another Subsonic server,
-Jellyfin, Emby, or Plex). Spotify has to be Premium because the station fetches the audio itself.
+from. This page walks through a Spotify Premium account or a media server of your own (Navidrome or
+another Subsonic server, Jellyfin, Emby, or Plex). Spotify has to be Premium because the station
+fetches the audio itself. YouTube Music, Pandora and Apple Music are set up as
+[the library](../features/library.md) describes.
 
 ## 1. Give it music
 

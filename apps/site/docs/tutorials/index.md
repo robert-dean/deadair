@@ -32,6 +32,21 @@ station can do the rest by being asked. Each page shows both where both exist.
 4. [Make a voice](./making-a-voice.md): design one in Claude with ElevenLabs, clone it, and give it to
    a character.
 
+## Grow the station
+
+Each of these adds one thing to a station that is already on air, and none depends on another.
+
+- [Add a second music source](./another-music-source.md): a second provider beside the first, and a
+  playlist brought in from either by its link.
+- [News and weather in the breaks](./news-and-weather.md): headlines from your own feeds, a forecast
+  for where the station is, and a bulletin at the top of the hour.
+- [Carry a podcast](./carry-a-podcast.md): subscribe to a show and give its newest episode a time on
+  the clock.
+- [Play the station on a speaker](./speakers.md): a Chromecast, a Sonos, a BluOS player or a UPnP renderer, started
+  from the Desk.
+- [Put the station on a chat platform](./chat-platforms.md): a bot on Telegram, Discord or Slack that
+  says what is playing, takes requests, and lets you run the station from a chat.
+
 ## More
 
 - [Produce a segment](./produce-a-segment.md): a short programme the station writes and voices itself,

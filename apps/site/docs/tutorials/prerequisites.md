@@ -14,10 +14,12 @@ off for something.
 - **Docker on a `linux/amd64` machine.** Either [Unraid](./install-unraid.md) with Community
   Applications, or any Linux host with Docker and the Compose plugin ([with Docker
   Compose](./install-compose.md)). Docker Desktop on a Mac or a PC works for trying it out.
-- **Somewhere the music comes from.** Either a Spotify account, which has to be Premium because the
-  station fetches the audio, or a media server of your own: Navidrome or another Subsonic server,
-  Jellyfin, Emby, or Plex. Have the server's address to hand, and an account on it (Navidrome), an API
-  key and a user name (Jellyfin and Emby) or your Plex token (Plex). The station holds no music of its own.
+- **Somewhere the music comes from.** These tutorials use a Spotify account, which has to be Premium
+  because the station fetches the audio, or a media server of your own: Navidrome or another Subsonic
+  server, Jellyfin, Emby, or Plex. Have the server's address to hand, and an account on it (Navidrome),
+  an API key and a user name (Jellyfin and Emby) or your Plex token (Plex). YouTube Music, Pandora and
+  Apple Music work too, as [the library](../features/library.md) describes. The station holds no music
+  of its own.
 - **Internet access on the first boot**, for the image itself and for the speech model's weights.
   The weights are downloaded the first time the station speaks, not when the image is pulled.
 

@@ -43,7 +43,7 @@
 
             <StackPanel Spacing="6" IsVisible="{Binding IsLink}">
                 <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap"
-                           Text="Copied from Spotify, YouTube Music or your Navidrome, as the browser or the app shows it." />
+                           Text="Copied from Spotify, YouTube Music, Apple Music or Pandora, or from your Navidrome, Jellyfin, Emby or Plex, as the browser or the app shows it." />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <TextBox Text="{Binding Link}" PlaceholderText="https://open.spotify.com/playlist/…" />
                     <Button Grid.Column="1" Classes="ghost" Content="Preview" Command="{Binding PreviewLinkCommand}" />

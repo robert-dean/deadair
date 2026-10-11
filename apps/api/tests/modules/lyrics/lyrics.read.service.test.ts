@@ -56,6 +56,20 @@ describe('pickLyrics', () => {
         expect(pickLyrics(TRACK, [row('a', { instrumental: true }), row('b', { plain: 'words' })]).kind).toBe('words');
     });
 
+    it("serves a line's timed words with it", () => {
+        const synced = [
+            {
+                atMs: 1_000,
+                text: 'la la',
+                words: [
+                    { atMs: 1_000, text: 'la ' },
+                    { atMs: 1_400, text: 'la' },
+                ],
+            },
+        ];
+        expect(pickLyrics(TRACK, [row('a', { synced })]).synced).toEqual(synced);
+    });
+
     it('answers none with nothing to go on', () => {
         expect(pickLyrics(TRACK, [])).toEqual({ trackId: TRACK, kind: 'none' });
     });

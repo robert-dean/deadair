@@ -28,11 +28,29 @@ internal static class Words
     ];
 
     private static readonly IReadOnlyList<LyricLineDetail> Lines =
-        [.. Text.Select((text, index) => new LyricLineDetail { AtMs = 12_000 + (index * 4_000), Text = text })];
+        [.. Text.Select((text, index) => new LyricLineDetail { AtMs = 12_000 + (index * 4_000), Text = text, Words = Pieces(text, 12_000 + (index * 4_000)) })];
 
-    /// <summary>Timed lines, the sixth lit, so two lines sit above it once the column has scrolled.</summary>
+    /// <summary>The lit line, the sixth.</summary>
+    private const int Lit = 5;
+
+    /// <summary>A line cut into words, each with the space after it and a third of a second apart.</summary>
+    private static List<LyricWordDetail>? Pieces(string text, long atMs)
+    {
+        if (text.Length == 0)
+        {
+            return null;
+        }
+
+        var words = text.Split(' ');
+        return [.. words.Select((word, index) => new LyricWordDetail { AtMs = atMs + (index * 330), Text = index < words.Length - 1 ? word + " " : word })];
+    }
+
+    /// <summary>
+    /// Timed lines, the sixth lit, so two lines sit above it once the column has scrolled, and sung as
+    /// far as its fourth word, so the frame shows a line lit part of the way.
+    /// </summary>
     public static void Synced(ListenerViewModel listener) =>
-        listener.Lyrics.Show(new LyricsUiState.Synced(Lines, 5, "deadair.lrclib"));
+        listener.Lyrics.Show(new LyricsUiState.Synced(Lines, Lit, "deadair.lrclib", MaroonedSoftware.Deadair.Desktop.Core.NowPlaying.Lyrics.SungLength(Lines[Lit], 3)));
 
     /// <summary>Words with no timings, shown whole.</summary>
     public static void Plain(ListenerViewModel listener) =>

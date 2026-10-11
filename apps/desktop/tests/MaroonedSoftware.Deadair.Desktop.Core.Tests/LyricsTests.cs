@@ -114,4 +114,61 @@ public class LyricsTests
         Assert.Equal(new HeardPlayhead(45_000, 240_000), HeardPlayhead.From(track, readAt, readAt.AddSeconds(5)));
         Assert.Null(HeardPlayhead.From(track with { RemainingMs = null }, readAt, readAt.AddSeconds(5)));
     }
+
+    private static readonly LyricLineDetail Worded = new()
+    {
+        AtMs = 10_000,
+        Text = "So beautiful",
+        Words =
+        [
+            new() { AtMs = 10_000, Text = "So " },
+            new() { AtMs = 10_400, Text = "beau" },
+            new() { AtMs = 10_700, Text = "tiful" },
+        ],
+    };
+
+    [Fact]
+    public void TheCurrentWord_IsTheLastPieceThatHasStarted()
+    {
+        Assert.Null(Lyrics.CurrentWord(Worded, 9_999));
+        Assert.Equal(0, Lyrics.CurrentWord(Worded, 10_000));
+        Assert.Equal(1, Lyrics.CurrentWord(Worded, 10_699));
+        Assert.Equal(2, Lyrics.CurrentWord(Worded, 60_000));
+    }
+
+    [Fact]
+    public void ALineTimedOnlyAsALine_HasNoCurrentWord() => Assert.Null(Lyrics.CurrentWord(Lines[0], 12_000));
+
+    [Fact]
+    public void TheSungPart_IsThePiecesSoFarJoined()
+    {
+        Assert.Equal(3, Lyrics.SungLength(Worded, 0));
+        Assert.Equal(7, Lyrics.SungLength(Worded, 1));
+        Assert.Equal(Worded.Text.Length, Lyrics.SungLength(Worded, 2));
+    }
+
+    [Fact]
+    public void TheSungPart_OfALineThatDoesNotJoinUp_IsClampedToTheLine()
+    {
+        var broken = Worded with { Text = "So" };
+        Assert.Equal(2, Lyrics.SungLength(broken, 2));
+    }
+
+    [Fact]
+    public void TheState_LightsTheSungPartOfAWordedLine_AndNoneOfAPlainOne()
+    {
+        var state = Assert.IsType<LyricsUiState.Synced>(Lyrics.State(Answer(synced: [Worded, Lines[1]]), Started, At(10_500)));
+        Assert.Equal(0, state.Current);
+        Assert.Equal(7, state.Sung);
+
+        var plainLine = Assert.IsType<LyricsUiState.Synced>(Lyrics.State(Answer(), Started, At(15_000)));
+        Assert.Null(plainLine.Sung);
+    }
+
+    [Fact]
+    public void WordTimings_AreFoundOnlyWhereASourceGaveThem()
+    {
+        Assert.True(Lyrics.HasWordTimings([Lines[0], Worded]));
+        Assert.False(Lyrics.HasWordTimings(Lines));
+    }
 }

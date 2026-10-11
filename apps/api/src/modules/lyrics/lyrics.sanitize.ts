@@ -1,4 +1,4 @@
-import type { LyricLine, TrackLyrics } from '@deadair/plugin-sdk';
+import type { LyricLine, LyricWord, TrackLyrics } from '@deadair/plugin-sdk';
 
 /**
  * The longest plain lyric kept, in characters.
@@ -14,6 +14,9 @@ export const MAX_LYRIC_LINES = 1_000;
 
 /** The longest single timed line kept, in characters. */
 export const MAX_LYRIC_LINE_TEXT = 500;
+
+/** The most timed words kept on one line. Past this a line's words are dropped whole and it is shown as a line. */
+export const MAX_LYRIC_LINE_WORDS = 200;
 
 /** A BCP 47 tag, loosely: a primary language and optional subtags. Anything else is dropped rather than stored. */
 const LANGUAGE_TAG = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8})*$/;
@@ -31,9 +34,33 @@ export type SanitizedLyrics =
 
 const isNonNegativeMs = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
+/**
+ * A line's timed words, or `undefined` when they cannot be trusted as a whole.
+ *
+ * All or nothing, because a reader lights a PREFIX of the line: the pieces must join to exactly the
+ * stored text and must not go back in time, so one bad piece (or a text the cap cut short) would
+ * light the wrong letters. Dropping them leaves the line shown as a line, which is what it was
+ * before words existed.
+ */
+function cleanWords(words: unknown, text: string): LyricWord[] | undefined {
+    if (!Array.isArray(words) || words.length === 0 || words.length > MAX_LYRIC_LINE_WORDS) return undefined;
+
+    const cleaned: LyricWord[] = [];
+    for (const word of words as unknown[]) {
+        if (typeof word !== 'object' || word === null) return undefined;
+        const { atMs, text: piece } = word as Partial<LyricWord>;
+        if (!isNonNegativeMs(atMs) || typeof piece !== 'string') return undefined;
+        const at = Math.round(atMs);
+        if (cleaned.length > 0 && at < cleaned[cleaned.length - 1]!.atMs) return undefined;
+        cleaned.push({ atMs: at, text: piece });
+    }
+
+    return cleaned.map(word => word.text).join('') === text ? cleaned : undefined;
+}
+
 function cleanLine(line: unknown): LyricLine | undefined {
     if (typeof line !== 'object' || line === null) return undefined;
-    const { atMs, endMs, text } = line as Partial<LyricLine>;
+    const { atMs, endMs, text, words } = line as Partial<LyricLine>;
     if (!isNonNegativeMs(atMs) || typeof text !== 'string') return undefined;
 
     const at = Math.round(atMs);
@@ -41,6 +68,8 @@ function cleanLine(line: unknown): LyricLine | undefined {
     // An end before the start is a source's mistake, and keeping it would be believed by whatever
     // derives a range from it. Dropped, so the host falls back to the next line's start.
     if (isNonNegativeMs(endMs) && endMs >= at) cleaned.endMs = Math.round(endMs);
+    const timedWords = cleanWords(words, cleaned.text);
+    if (timedWords) cleaned.words = timedWords;
     return cleaned;
 }
 

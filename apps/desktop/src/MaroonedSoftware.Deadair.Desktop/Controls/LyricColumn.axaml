@@ -1,0 +1,46 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Controls.LyricColumn">
+
+    <!--
+        Timed lines, the one being sung lit, scrolled so it sits two lines from the top. The Now
+        playing panel draws it small inside its own height and Studio draws it large; both are this.
+        The lines are dimmed by the theme's own dimmed brush, so Studio's re-declared dark brushes
+        reach it as they reach everything else there.
+    -->
+    <UserControl.Styles>
+        <Style Selector="TextBlock.lyric">
+            <Setter Property="Foreground" Value="{DynamicResource DaTextDimmedBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.25" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="TextBlock.lyric.lit">
+            <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
+        <ItemsControl x:Name="Items">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Spacing="{Binding $parent[controls:LyricColumn].LineSpacing}" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:LyricLineViewModel">
+                    <TextBlock Classes="lyric" Classes.lit="{Binding IsCurrent}" Text="{Binding Text}"
+                               TextAlignment="{Binding $parent[controls:LyricColumn].LineAlignment}" />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </ScrollViewer>
+
+</UserControl>

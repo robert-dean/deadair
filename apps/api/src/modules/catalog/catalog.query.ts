@@ -110,11 +110,14 @@ export function regexWholeWords(search: string): string {
  * `\p{L}\p{N}` is the Unicode spelling of `[[:alnum:]]`. Postgres reads that class through the
  * database's locale, so the two can disagree about an accented letter beside a match, which is a
  * difference of one record in an edge nobody searches for.
+ *
+ * `caseSensitive` is for finding NAMES in prose, where capitals are the only thing telling an artist
+ * called "Loud" from the word "loud" in a brief.
  */
-export function hasWholeWords(text: string, search: string): boolean {
+export function hasWholeWords(text: string, search: string, options: { caseSensitive?: boolean } = {}): boolean {
     const words = wordsOf(search);
     if (words.length === 0) return true;
-    return new RegExp(`(^|[^\\p{L}\\p{N}])${words}([^\\p{L}\\p{N}]|$)`, 'iu').test(text);
+    return new RegExp(`(^|[^\\p{L}\\p{N}])${words}([^\\p{L}\\p{N}]|$)`, options.caseSensitive === true ? 'u' : 'iu').test(text);
 }
 
 /** The term's words, each escaped, joined by "any run of whitespace". Shared so the two dialects cannot drift. */

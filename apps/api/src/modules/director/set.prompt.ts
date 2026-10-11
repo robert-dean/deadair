@@ -185,7 +185,21 @@ export interface SetPromptRequest {
      * the hour from a genre the library barely holds.
      */
     lean?: readonly string[];
+    /**
+     * The acts the brief names, longest off air first, from `BriefArtists`, with how many whole days
+     * ago each last aired (absent for none inside the history's retention).
+     *
+     * A model works down a brief in the order it was written, and a slow one runs out of time near
+     * the top: measured on the live station, 2026-10-11, three refills of a brief naming twenty-four
+     * acts searched the first five, the first five, and the first seventeen. This is the same list in
+     * the order the station needs it searched. Advice, like everything else here: the resolver still
+     * judges every record named.
+     */
+    namedArtists?: readonly { name: string; daysAgo?: number }[];
 }
+
+/** How many of the brief's own acts are listed. More than any brief names; a bound, not a budget. */
+const MAX_NAMED_ARTISTS = 40;
 
 /**
  * The conversation, oldest first.
@@ -485,6 +499,35 @@ function periodLine(era: { from?: number; to?: number } | undefined): string | u
     );
 }
 
+/**
+ * The brief's own acts in the order to search them, or nothing.
+ *
+ * One line, `; `-separated, for `styleLines`' reason: it is a list to work through in order, and the
+ * order is the instruction. Each act says when it last aired so the order explains itself; a model
+ * told only "search these first" with no reason reorders them back into the brief's.
+ */
+function namedArtistsLine(named: SetPromptRequest['namedArtists']): string | undefined {
+    if (named === undefined || named.length === 0) return undefined;
+
+    const when = (daysAgo: number | undefined): string =>
+        daysAgo === undefined
+            ? 'not played lately'
+            : daysAgo === 0
+              ? 'played today'
+              : daysAgo === 1
+                ? 'played yesterday'
+                : `played ${daysAgo} days ago`;
+
+    return (
+        'The brief names these artists. They are listed with the ones the station has neglected longest first: search for them ' +
+        'in THIS order, not the order the brief gives, and spread the records across as many of them as you can.\n' +
+        named
+            .slice(0, MAX_NAMED_ARTISTS)
+            .map(artist => `${artist.name} (${when(artist.daysAgo)})`)
+            .join('; ')
+    );
+}
+
 function userPrompt(request: SetPromptRequest): string {
     const lines = [`Choose ${request.count} records for the station to play next.`];
 
@@ -499,6 +542,9 @@ function userPrompt(request: SetPromptRequest): string {
     // instruction is actionable rather than a fact about the station to be borne in mind.
     const period = periodLine(request.era);
     if (period !== undefined) lines.push('', period);
+
+    const named = namedArtistsLine(request.namedArtists);
+    if (named !== undefined) lines.push('', named);
 
     if (request.lean !== undefined && request.lean.length > 0) {
         lines.push(

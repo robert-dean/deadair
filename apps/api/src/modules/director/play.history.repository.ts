@@ -163,6 +163,30 @@ export class PlayHistoryRepository extends DataRepository {
     }
 
     /**
+     * When each of these artists last aired, by lead artist key. An artist the history has no row
+     * for is absent, which is retention's answer as much as "never": rows past
+     * {@link PLAY_HISTORY_RETENTION_DAYS} are pruned.
+     *
+     * For ordering the acts a brief names by how long they have been off air. Keyed on the lead, as
+     * every history read is, so a guest spot does not count as the act having aired. No keys asks
+     * nothing.
+     */
+    async lastAiredByArtist(artistKeys: readonly string[], stationKey: string): Promise<Map<string, DateTime>> {
+        if (artistKeys.length === 0) return new Map();
+
+        const rows = await this.db
+            .selectFrom('deadair.playHistory')
+            .select(eb => ['artistKey', eb.fn.max('airedAt').as('lastAiredAt')])
+            // `play_history_artist_idx` leads with the station and then `artist_key`.
+            .where('stationKey', '=', stationKey)
+            .where('artistKey', 'in', [...artistKeys])
+            .groupBy('artistKey')
+            .execute();
+
+        return new Map(rows.map(row => [row.artistKey, row.lastAiredAt]));
+    }
+
+    /**
      * Artists aired within the last `minutes` — the cooldown. `0` disables it, as above.
      *
      * Each lead's `spacingKeys`: the key, and for a lead joining several acts ("Yusuf / Cat Stevens")

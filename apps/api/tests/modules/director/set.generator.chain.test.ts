@@ -317,7 +317,9 @@ describe('SetGeneratorChain with the real bindings', () => {
             {} as never,
             { get: (_key: string, fallback: unknown) => fallback, has: () => false } as never,
             logger,
-            // Nor are these: the smart shuffle's history read comes after the same config check.
+            // Nor are these: the smart shuffle's history read and the brief's acts come after the
+            // same config check.
+            {} as never,
             {} as never,
             {} as never,
             {} as never,

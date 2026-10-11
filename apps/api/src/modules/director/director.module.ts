@@ -42,6 +42,7 @@ import { EraWatch } from './era.watch.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { ChartSetGenerator } from './chart.set.generator.js';
 import { ModelSetGenerator } from './model.set.generator.js';
+import { BriefArtists } from './brief.artists.js';
 import { SimilarPicker } from './similar.picker.js';
 import { SimilarSetGenerator } from './similar.set.generator.js';
 import { DirectorConsoleService } from './director.console.service.js';
@@ -92,6 +93,8 @@ export const DirectorModule: ServerKitModule = {
         // preference order, and the deterministic draw stays the floor by being the final entry.
         // The one difference is that the chain TOPS UP rather than falling through — a generator
         // that named six of fifteen has done most of the job — which is why a set is not a break.
+        // The acts a brief names, longest off air first. Scoped with the two repositories it reads.
+        registry.register(BriefArtists).useClass(BriefArtists).asScoped();
         registry.register(ModelSetGenerator).useClass(ModelSetGenerator).asScoped();
         registry.register(ChartSetGenerator).useClass(ChartSetGenerator).asScoped();
         registry.register(SimilarPicker).useClass(SimilarPicker).asScoped();

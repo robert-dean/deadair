@@ -21,6 +21,7 @@ import {
 import { RefillPreemption } from '../../../src/modules/director/refill.preemption.js';
 import { QueuedRecords } from '../../../src/modules/shared/queued.records.js';
 import { SearchedRecords } from '../../../src/modules/shared/searched.records.js';
+import type { BriefArtist, BriefArtists } from '../../../src/modules/director/brief.artists.js';
 import { AiredRecords } from '../../../src/modules/shared/aired.records.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
@@ -64,6 +65,8 @@ interface Options {
     lastAired?: Map<string, DateTime>;
     /** A history that cannot be read. */
     historyFails?: boolean;
+    /** The acts the brief names, longest off air first. */
+    namedArtists?: BriefArtist[];
 }
 
 /** An empty side of the operator's taste: nothing said, and nothing hidden behind a limit. */
@@ -142,6 +145,9 @@ function build(options: Options = {}) {
     const history = { lastAiredSince } as unknown as PlayHistoryRepository;
     const aired = new AiredRecords();
 
+    // The brief names nobody unless a case says otherwise.
+    const briefArtists = { named: vi.fn(async () => options.namedArtists ?? []) };
+
     // No steer unless a case sets one, which is every station until an operator leans it.
     const rules = { steer: vi.fn(async () => undefined as { genres: string[]; endsAt: string } | undefined) };
 
@@ -159,6 +165,7 @@ function build(options: Options = {}) {
             history,
             new StationIdentity(),
             aired,
+            briefArtists as unknown as BriefArtists,
         ),
         rules,
         converse,
@@ -169,6 +176,7 @@ function build(options: Options = {}) {
         searched,
         lastAiredSince,
         aired,
+        briefArtists,
     };
 }
 
@@ -266,6 +274,23 @@ describe('ModelSetGenerator', () => {
         const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
         const user = request.messages.find(message => message.role === 'user')?.content ?? '';
         expect(user).toMatch(/"windowlicker" by aphex twin/);
+    });
+
+    it("hands the model the brief's own acts, longest off air first, with how long ago each aired", async () => {
+        const { generator, converse, briefArtists } = build({
+            enabled: true,
+            namedArtists: [
+                { name: 'Kreator', artistKey: 'kreator' },
+                { name: 'Metallica', artistKey: 'metallica', lastAiredAt: DateTime.utc().minus({ days: 2, hours: 1 }) },
+            ],
+        });
+
+        await generator.generate(inputs(5, { brief: 'Thrash: Metallica, Kreator' }));
+
+        expect(briefArtists.named).toHaveBeenCalledWith('Thrash: Metallica, Kreator');
+        const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+        const user = request.messages.find(message => message.role === 'user')?.content ?? '';
+        expect(user).toContain('Kreator (not played lately); Metallica (played 2 days ago)');
     });
 
     it('skips an avoid key it cannot split rather than showing it mangled', async () => {

@@ -21,6 +21,7 @@ import { artistKey, creditKey, sameAct } from './rotation.keys.js';
 import { BlockRulesRepository } from './block.rules.repository.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { readPicks, setPrompt, type TastePrompt } from './set.prompt.js';
+import { BriefArtists } from './brief.artists.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 
@@ -257,6 +258,9 @@ export class ModelSetGenerator extends SetGenerator {
         private readonly history: PlayHistoryRepository,
         private readonly identity: StationIdentity,
         private readonly aired: AiredRecords,
+        // The acts the brief names, longest off air first, so a model that runs out of time does so
+        // having searched the neglected ones rather than the top of the list. See `BriefArtists`.
+        private readonly briefArtists: BriefArtists,
     ) {
         super();
     }
@@ -299,6 +303,10 @@ export class ModelSetGenerator extends SetGenerator {
                 // The genre steer, read per refill like everything above. Advice to the model and a
                 // weight in the catalog draw, never a filter: see `genre.steer.ts`.
                 ...(steer === undefined ? {} : { lean: steer.genres }),
+                namedArtists: (await this.briefArtists.named(inputs.brief)).map(artist => ({
+                    name: artist.name,
+                    ...(artist.lastAiredAt === undefined ? {} : { daysAgo: Math.max(0, Math.floor(-artist.lastAiredAt.diffNow('days').days)) }),
+                })),
             },
             {
                 station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),

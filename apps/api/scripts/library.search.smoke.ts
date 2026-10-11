@@ -168,7 +168,7 @@ try {
 
         check('a style promoted onto the row is still found', await found('promoted'), ['from-artist-tag']);
         check("a style only in the artist's payload is found", await found(STYLE), ['from-artist-tag']);
-        check('a longer style containing the search is found too', await found(`${STYLE} rev`), ['from-artist-tag']);
+        check('a fragment of a longer style finds nothing', await found(`${STYLE} rev`), []);
 
         // A record tagged under a style its artist is not known for. This is the half that would be
         // lost if the exists only looked at the artist.
@@ -226,9 +226,8 @@ try {
         await track(other, 'the xzzdiox edit');
         await track(other, 'zzdio, live');
 
-        check('the artist, a title holding the word and a fragment are told apart', await matched('zzdio'), [
+        check('the artist and a title holding the word are found, and a fragment is not', await matched('zzdio'), [
             ['holy', true],
-            ['the xzzdiox edit', false],
             ['zzdio, live', true],
         ]);
         check(
@@ -331,7 +330,8 @@ try {
             'umbrella-tag',
             `${EXACT}s of black`,
         ]);
-        check('a style only ever spelled inside a longer one is still found', (await found(`${EXACT}/ro`)).length, 2);
+        check('a style only ever spelled inside a longer one is still found', (await found(`${EXACT}/rock`)).length, 2);
+        check('a fragment of one is not', await found(`${EXACT}/ro`), []);
 
         // ── the vocabulary, which is a promise about the search above ─────────
         say('the words the library answers to');

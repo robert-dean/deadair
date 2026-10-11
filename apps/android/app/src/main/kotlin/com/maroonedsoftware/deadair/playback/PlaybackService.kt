@@ -224,6 +224,7 @@ class PlaybackService : MediaLibraryService() {
                 // A timer that fires after the task was swiped away would otherwise leave an idle
                 // service and its notification behind: `onTaskRemoved` only stops one that is quiet.
                 onSlept = { if (taskGone) stopSelf() },
+                onHeard = live::setHeard,
             ).also { it.start() }
 
         scope.launch { graph.settings.settings.collect { kept.value = KeptStation.of(it) } }

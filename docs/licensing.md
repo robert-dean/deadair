@@ -96,6 +96,19 @@ a cookie copied from a browser, and the audio is resolved by `ytaudio/`, a bundl
 The plugin ships disabled and is switched on deliberately, which is the point at which that decision
 gets made.
 
+**Pandora** has no published API either. The plugin signs in with your email and password the way
+Pandora's own Android app does, using that app's partner profile from the unofficial API
+documentation, and then talks to the web app's API. The same three things follow:
+
+- **Playing a chosen record takes Pandora Premium.** The station only ever plays chosen records, so a
+  free or Plus account gives you search and playlists and nothing on air.
+- **Signing in and fetching this way is not something Pandora's terms contemplate**, and Pandora can
+  notice an account that does it. Whether that matters to you and the account you use is your call.
+- **It works only from the US**, and it stops for everyone at once if Pandora retires that partner
+  profile.
+
+It too ships disabled.
+
 **Apple Music** has a published catalogue API and no playback API a server may use. The plugin
 searches the catalogue; the audio comes from `stream/apple-player`, which plays each record in Apple's
 own web player, in Google Chrome, signed in to your subscription, and records what comes out of a sound

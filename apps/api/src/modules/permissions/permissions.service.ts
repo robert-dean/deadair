@@ -16,8 +16,8 @@ export class PermissionsService {
 
     // The public check endpoints would otherwise be an authorization-graph oracle: any user could
     // probe whether ANY subject reaches ANY object. Restrict `subject` to the caller themselves
-    // (self-checks power UI gating) unless the caller is platform staff. System/vendor actors are
-    // trusted callers and pass through.
+    // (self-checks power UI gating) unless the caller is platform staff. Trusted system actors
+    // pass through.
     // private assertMaySeeSubject(subject: SubjectRef): void {
     //     const actor = this.authorizationContext.actor;
     //     if (actor.kind !== 'user') return;

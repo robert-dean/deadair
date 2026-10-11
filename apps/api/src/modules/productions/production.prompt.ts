@@ -40,6 +40,7 @@ import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import { isVisitor, type CallSubject, type CastMember, type ShowRecord } from './production.cast.js';
 import type { OutlineBeat, ProductionOutline } from './production.js';
 import { languageName, languageRule } from '#modules/shared/language.name.js';
+import { homeRule } from '#modules/shared/station.home.js';
 
 /** How many words of the previous beat are handed over as the run-in. */
 export const TAIL_WORDS = 40;
@@ -255,6 +256,11 @@ export interface BeatRequest {
     cleanLanguage?: boolean;
     /** The station's language when it is not English. See `PromptSettings.language` in `break.prompt.ts`. */
     language?: string;
+    /**
+     * Where the station broadcasts from, or absent when none is set. See `PromptSettings.location` in
+     * `break.prompt.ts`: the same answer to "where is here", and the same rule when there is none.
+     */
+    location?: string;
 }
 
 /**
@@ -475,6 +481,10 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
         ...(request.cleanLanguage
             ? ['- This station is broadcast-clean. No profanity or crude language, and do not quote an explicit lyric or title word for word.']
             : []),
+        // Where "here" is, in the break prompt's own sentence, for everybody who is AT the station: the
+        // presenters and a guest in the studio. Not for a caller, who rang in from somewhere else and
+        // whose "here" is their own kitchen; that is fiction about a caller, not the station's dateline.
+        ...(caller && !inStudio ? [] : [`- ${homeRule(request.location)}`]),
         '- Do not end by summarising what you just said.',
         // Last, for the reason `break.prompt.ts` puts it last: it is the instruction every other one
         // is subject to, and the end of the system turn is where a model weighs most.

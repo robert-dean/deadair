@@ -57,6 +57,7 @@ describe('segmentRundownTrack', () => {
             // the key space the repeat window and the artist cooldown read.
             artist: '',
             programme: true,
+            // No `stationVoiced`: a fetched episode is somebody else's master, so its boost is capped.
             durationMs: 3_723_000,
             artworkUrl: 'https://cdn.example.com/12.jpg',
         });
@@ -79,6 +80,8 @@ describe('segmentRundownTrack', () => {
             artists: ['Frankenstein'],
             artist: '',
             programme: true,
+            // The station's own voice to the gain, so its boost is not held under a peak it never had.
+            stationVoiced: true,
             durationMs: 612_000,
         });
     });

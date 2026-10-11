@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchBudgetFor, MAX_TRACK_BYTES, TrackAudioService } from '../../../../src/modules/playout/audio/track.audio.service.js';
 import { TrackAudioRepository, type CachedFile, type SourceAudio } from '../../../../src/modules/playout/audio/track.audio.repository.js';
 import { TrackStore } from '../../../../src/modules/playout/audio/track.store.js';
-import type { PluginTrackResolver } from '../../../../src/modules/playout/providers/plugin.resolver.js';
+import { ProviderBusy, type PluginTrackResolver } from '../../../../src/modules/playout/providers/plugin.resolver.js';
 import type { AddressResolver } from '../../../../src/modules/plugins/plugin.grants.js';
 import { TracksRepository } from '../../../../src/modules/catalog/tracks.repository.js';
 
@@ -62,6 +62,7 @@ const build = (options: {
     const findForBindings = vi.fn(async () => (options.source === undefined ? [] : [options.source]));
     const recordSuccess = vi.fn(async () => {});
     const recordFailure = vi.fn(async () => {});
+    const recordDeferral = vi.fn(async () => {});
     const markServed = vi.fn(async () => {});
     const markBindingMissing = vi.fn(async () => true);
     const markBindingUnplayable = vi.fn(async () => true);
@@ -99,6 +100,7 @@ const build = (options: {
                           findForBindings,
                           recordSuccess,
                           recordFailure,
+                          recordDeferral,
                           markServed,
                           totalCachedBytes,
                           leastRecentlyServed,
@@ -128,6 +130,7 @@ const build = (options: {
         findForBindings,
         recordSuccess,
         recordFailure,
+        recordDeferral,
         markServed,
         markBindingMissing,
         markBindingUnplayable,
@@ -578,6 +581,32 @@ describe('benching a binding that will not serve', () => {
         await service.ensure(SOURCE_ID);
 
         expect(markBindingMissing).toHaveBeenCalled();
+    });
+
+    // A shared account playing on somebody's phone refuses every record for as long as it is in use.
+    // That is the ACCOUNT answering, so however deep the copy's streak already is, being busy neither
+    // adds to it nor writes the copy off: it is put off, and asked again after the wait.
+    it('puts a fetch off without counting it when the provider is busy', async () => {
+        const { service, resolveBinding, recordFailure, recordDeferral, markBindingMissing, markBindingUnplayable } = build({ source: failing(3) });
+        resolveBinding.mockRejectedValue(new ProviderBusy('deadair.spotify', 'playing on another device', 90_000));
+        const fetched = respondWith(RECORD, { contentType: 'audio/ogg' });
+
+        expect(await service.ensure(SOURCE_ID)).toBeUndefined();
+
+        expect(recordDeferral).toHaveBeenCalledExactlyOnceWith(SOURCE_ID, expect.stringContaining('playing on another device'), 90_000);
+        expect(recordFailure).not.toHaveBeenCalled();
+        expect(markBindingMissing).not.toHaveBeenCalled();
+        expect(markBindingUnplayable).not.toHaveBeenCalled();
+        expect(fetched).not.toHaveBeenCalled();
+    });
+
+    it('waits its own interval when a busy provider did not say how long', async () => {
+        const { service, resolveBinding, recordDeferral } = build({ source: failing(0) });
+        resolveBinding.mockRejectedValue(new ProviderBusy('deadair.spotify', 'quota spent'));
+
+        await service.ensure(SOURCE_ID);
+
+        expect(recordDeferral).toHaveBeenCalledExactlyOnceWith(SOURCE_ID, expect.any(String), 5 * 60 * 1000);
     });
 
     // The failure mode with teeth: `attempts` has to mean CONSECUTIVE failures, so a binding three

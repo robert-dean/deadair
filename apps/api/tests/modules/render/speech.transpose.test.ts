@@ -63,6 +63,23 @@ describe('transposeForSpeech: symbols that stand in for words', () => {
         expect(say('Dr. Dre and St. Vincent, etc.')).toBe('Doctor Dre and Saint Vincent, et cetera');
     });
 
+    // The weather tool hands the model `°C`, `°F`, `km/h` and `mph` exactly as written.
+    it('says a unit after a figure', () => {
+        expect(say('Highs of 12°C today.')).toBe('Highs of 12 degrees Celsius today.');
+        expect(say('A low of 41 °F tonight.')).toBe('A low of 41 degrees Fahrenheit tonight.');
+        expect(say('Gusts to 15 km/h this afternoon.')).toBe('Gusts to 15 kilometres per hour this afternoon.');
+        expect(say('Winds at 20mph.')).toBe('Winds at 20 miles per hour.');
+        expect(say('It turned 90° on the dial.')).toBe('It turned 90 degrees on the dial.');
+    });
+
+    it('says a unit in the singular after exactly one', () => {
+        expect(say('Just 1°C out there.')).toBe('Just 1 degree Celsius out there.');
+    });
+
+    it('leaves a unit alone when no figure comes before it', () => {
+        expect(say('Is that mph or km/h?')).toContain('mph');
+    });
+
     it('says a figure of money after the figure', () => {
         expect(say('Tickets were $5.99 back then.')).toBe('Tickets were 5.99 dollars back then.');
     });

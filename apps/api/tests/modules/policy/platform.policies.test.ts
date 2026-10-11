@@ -6,9 +6,9 @@ import { describe, expect, it } from 'vitest';
 import { DateTime } from 'luxon';
 import type { PolicyResult } from '@maroonedsoftware/policies';
 
-import { PlatformManagePolicy, PlatformViewPolicy, type RequirePolicyContext } from '../../../src/modules/policy/policy.mappings.js';
+import { PlatformManagePolicy, PlatformViewPolicy, RequestsAskPolicy, type RequirePolicyContext } from '../../../src/modules/policy/policy.mappings.js';
 import type { ServerPolicyEnvelope } from '../../../src/modules/policy/policy.envelope.js';
-import type { UserActor } from '../../../src/modules/permissions/authorization.context.js';
+import type { Actor, GuestActor, UserActor } from '../../../src/modules/permissions/authorization.context.js';
 
 type Grant = 'view' | 'manage';
 
@@ -31,7 +31,10 @@ const app = (roles: ReadonlyArray<'admin' | 'listener'>, grants: ReadonlyArray<G
     grant: { id: 'g-1', clientId: 'dyn_1', grants: new Set(grants) },
 });
 
-const evaluate = async (policy: PlatformManagePolicy | PlatformViewPolicy, actor: UserActor): Promise<PolicyResult> =>
+/** A party guest: somebody who joined with the pass, holding no role at all. */
+const guest: GuestActor = { kind: 'guest', sessionToken: 's-2', actorId: 'g-1', partyPassId: 'p-1' };
+
+const evaluate = async (policy: PlatformManagePolicy | PlatformViewPolicy | RequestsAskPolicy, actor: Actor): Promise<PolicyResult> =>
     policy.evaluate({} as RequirePolicyContext, { actor, now: DateTime.utc() } as ServerPolicyEnvelope);
 
 const allowed = (result: PolicyResult): boolean => (result as { allowed?: boolean }).allowed === true;
@@ -102,5 +105,38 @@ describe('a connected app', () => {
 
         expect(reason(result)).toBe('insufficient_scope');
         expect(headers(result)).toEqual({ 'WWW-Authenticate': 'Bearer error="insufficient_scope", scope="manage"' });
+    });
+});
+
+describe('requests.ask', () => {
+    const policy = new RequestsAskPolicy();
+
+    it('lets in everybody platform.view lets in', async () => {
+        expect(allowed(await evaluate(policy, person(['listener'])))).toBe(true);
+        expect(allowed(await evaluate(policy, key(['admin'], ['view'])))).toBe(true);
+        expect(allowed(await evaluate(policy, app(['listener'], ['view'])))).toBe(true);
+    });
+
+    it('lets a party guest in, which is the one thing it adds', async () => {
+        expect(allowed(await evaluate(policy, guest))).toBe(true);
+    });
+
+    it('refuses a key granted nothing with insufficient_scope, as platform.view does', async () => {
+        const result = await evaluate(policy, key(['admin'], []));
+
+        expect(allowed(result)).toBe(false);
+        expect(headers(result)?.['WWW-Authenticate']).toBe('Bearer error="insufficient_scope", scope="view"');
+    });
+
+    it('refuses an account nobody granted a role, and a caller that is nobody', async () => {
+        expect(allowed(await evaluate(policy, person([])))).toBe(false);
+        expect(allowed(await evaluate(policy, { kind: 'system', sessionToken: '', source: 'http' }))).toBe(false);
+    });
+});
+
+describe('a party guest everywhere else', () => {
+    it('is refused by both platform gates, since it holds no role', async () => {
+        expect(allowed(await evaluate(new PlatformViewPolicy(), guest))).toBe(false);
+        expect(allowed(await evaluate(new PlatformManagePolicy(), guest))).toBe(false);
     });
 });

@@ -1,4 +1,5 @@
 import {
+    ANALYSIS_FAILURE_CODES,
     ANALYSIS_SCHEMA_VERSION,
     configBaseUrl,
     errorText,
@@ -44,10 +45,10 @@ interface ErrorResponse {
  * laziness: the host's codes describe whose fault a call was, and by that
  * measure a URL that would not serve and a file that would not decode are the
  * same answer — the plugin worked, the thing beyond it did not. The distinction
- * that matters is preserved where it is acted on, in the message the station
- * records against the track.
+ * that matters travels beside the code as the error's `upstreamCode`, which the
+ * station records against the track and retries on.
  */
-const UPSTREAM_CODES = new Set(['unfetchable', 'undecodable', 'truncated']);
+const UPSTREAM_CODES = new Set<string>(ANALYSIS_FAILURE_CODES);
 
 /**
  * Per-track audio measurement — and joining — through the bundled analysis
@@ -328,9 +329,11 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider, MixerPro
 
         const described = code !== undefined && detail !== undefined ? `${code}: ${detail}` : (detail ?? `HTTP ${response.status}`);
 
-        return new PluginError(`the analyzer could not measure track ${ref.trackId} (${described})`)
+        const error = new PluginError(`the analyzer could not measure track ${ref.trackId} (${described})`)
             .withCode(code !== undefined && UPSTREAM_CODES.has(code) ? 'upstream' : 'internal')
             .withUpstreamStatus(response.status);
+
+        return code !== undefined && UPSTREAM_CODES.has(code) ? error.withUpstreamCode(code) : error;
     }
 
     /**

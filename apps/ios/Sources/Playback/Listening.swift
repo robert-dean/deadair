@@ -49,6 +49,8 @@ final class Listening {
     @ObservationIgnored private var resumeAfterInterruption = false
     @ObservationIgnored private var endBackgroundWork: (@MainActor () -> Void)?
     @ObservationIgnored private var skipping = false
+    /// What the lock screen's bar was last told, so it is told again only when it would be wrong.
+    @ObservationIgnored private var progress = LockScreenProgressState()
 
     /// The operator's Skip, as the lock screen, headphones and a car's next button fire it.
     @ObservationIgnored var skip: (@MainActor () async -> Void)?
@@ -76,6 +78,7 @@ final class Listening {
         gate.aired = { [weak self] reading in
             guard let self, self.conductor.wantsToPlay else { return }
             self.aired = reading
+            self.refreshProgress()
         }
         gate.refresh = { [weak self] in self?.nowPlaying.retry() }
         player.onPhase = { [weak self] phase in self?.observed(phase) }
@@ -125,6 +128,7 @@ final class Listening {
         gate.cancel()
         releaseBackgroundTime()
         system.clear()
+        progress.reset()
     }
 
     /// One skip at a time from the system's controls: two in flight would take two records off air,
@@ -160,6 +164,33 @@ final class Listening {
     private func observed(_ phase: PlayerPhase) {
         conductor.observed(phase)
         conductorMoved()
+        // The rate follows the audio: a bar left running at 1 through a stall or a reconnect would
+        // be ahead of the listener by however long the silence lasted.
+        refreshProgress()
+    }
+
+    /// Tell the lock screen's bar where the record is, if its own extrapolation would be wrong.
+    ///
+    /// Called on every reading the gate lets through and on every player phase. A new record usually
+    /// arrives through `publish`, which rebuilds the whole tile; this covers the rest: the same
+    /// record re-anchored by more than a second, a length arriving late, and the audio stopping or
+    /// starting, which moves the rate.
+    private func refreshProgress() {
+        guard conductor.wantsToPlay else { return }
+        let now = ContinuousClock.now
+        let playing = conductor.state == .playing
+        let next = LockScreenProgress.of(aired, now: now)
+        guard progress.needsUpdate(to: next, playing: playing, now: now) else { return }
+        system.update(progress: next, playing: playing)
+        progress.record(next, playing: playing, at: now)
+    }
+
+    /// The bar as of now, for a tile being drawn from scratch, recorded as what the system was told.
+    private func currentProgress(playing: Bool) -> LockScreenProgress? {
+        let now = ContinuousClock.now
+        let next = LockScreenProgress.of(aired, now: now)
+        progress.record(next, playing: playing, at: now)
+        return next
     }
 
     /// Keep the app awake while a retry is coming, whether it is on a timer or waiting for the
@@ -214,7 +245,7 @@ final class Listening {
         shown = reading
         let name = reading?.station ?? settings.settings.stationName ?? station.origin
         let playing = conductor.state == .playing
-        system.show(station: name, reading: reading, artwork: nil, playing: playing)
+        system.show(station: name, reading: reading, artwork: nil, playing: playing, progress: currentProgress(playing: playing))
         guard let art = coverArtUrl(station: station, reading: reading).flatMap(URL.init(string:)) else { return }
         Task {
             let image = await artwork.image(for: art)
@@ -223,7 +254,8 @@ final class Listening {
             // compared against that, a cover that took a moment to load was dropped whenever the
             // next record had been committed in the meantime.
             guard conductor.wantsToPlay, shown?.track?.startedAt == reading?.track?.startedAt else { return }
-            system.show(station: name, reading: reading, artwork: image, playing: conductor.state == .playing)
+            let playing = conductor.state == .playing
+            system.show(station: name, reading: reading, artwork: image, playing: playing, progress: currentProgress(playing: playing))
         }
     }
 

@@ -12,7 +12,7 @@ Records the station could be asked to play, matching a title or an artist, then 
 
 :::note
 SDK method: `searchRequestableRecords`
-Security: authenticated (policy: platform.view)
+Security: authenticated (policy: requests.ask)
 :::
 
 ## Attributes

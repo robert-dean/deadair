@@ -258,9 +258,35 @@ function saySymbols(text: string): string {
             .replace(/&/g, ' and ')
             .replace(/\s@\s/g, ' at ')
             .replace(/%/g, ' percent')
+            .replace(UNITS, (_all: string, figure: string, unit: string) => {
+                const words = UNIT_WORDS[unit.replace(/\s+/g, '').toLowerCase()] ?? DEGREES;
+                return `${figure} ${figure === '1' ? words.one : words.many}`;
+            })
             .replace(/(\d)\s*\+/g, '$1 plus')
     );
 }
+
+/**
+ * A unit written after a figure, which the weather tool hands the model exactly as `12°C` and
+ * `15 km/h` and the model copies into the script.
+ *
+ * Only after a figure: `mph` on its own in a sentence is a word somebody chose, and `°` with no number
+ * in front of it is nothing an engine can say anything sensible about. `°C` is tried before a bare
+ * `°`, so the scale is said rather than dropped.
+ */
+const UNITS = /(\d+(?:\.\d+)?)\s*(°\s*[CF]\b|°|km\/h\b|kph\b|mph\b)/gi;
+
+const DEGREES = { one: 'degree', many: 'degrees' };
+
+/** What each unit in {@link UNITS} is said as, singular after exactly `1` and plural otherwise. */
+const UNIT_WORDS: Record<string, { one: string; many: string }> = {
+    '°c': { one: 'degree Celsius', many: 'degrees Celsius' },
+    '°f': { one: 'degree Fahrenheit', many: 'degrees Fahrenheit' },
+    '°': DEGREES,
+    'km/h': { one: 'kilometre per hour', many: 'kilometres per hour' },
+    kph: { one: 'kilometre per hour', many: 'kilometres per hour' },
+    mph: { one: 'mile per hour', many: 'miles per hour' },
+};
 
 /**
  * What an abbreviated amount stands for, so `$100K` is a hundred thousand dollars out loud.

@@ -67,8 +67,8 @@ importers:
         specifier: ^2.6.1
         version: 2.6.1(pg@8.23.1)(yaml@2.9.0)
       '@maroonedsoftware/authentication':
-        specifier: ^6.3.0
-        version: 6.3.0(ioredis@6.0.0)
+        specifier: ^6.3.1
+        version: 6.3.1(ioredis@6.0.0)
       '@maroonedsoftware/cache':
         specifier: ^0.5.0
         version: 0.5.0(ioredis@6.0.0)
@@ -89,7 +89,7 @@ importers:
         version: 1.12.2(pg-boss@12.37.1(@opentelemetry/api@1.9.0))
       '@maroonedsoftware/koa':
         specifier: ^4.1.1
-        version: 4.1.1(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/authentication@6.3.0(ioredis@6.0.0))(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(koa@3.2.1)(pg@8.23.1)(yaml@2.9.0)
+        version: 4.1.1(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/authentication@6.3.1(ioredis@6.0.0))(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(koa@3.2.1)(pg@8.23.1)(yaml@2.9.0)
       '@maroonedsoftware/kysely':
         specifier: ^0.7.11
         version: 0.7.11
@@ -97,8 +97,8 @@ importers:
         specifier: ^1.1.9
         version: 1.1.9
       '@maroonedsoftware/mcp':
-        specifier: ^0.7.1
-        version: 0.7.1(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(ioredis@6.0.0)(zod@4.6.5)
+        specifier: ^0.7.2
+        version: 0.7.2(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(ioredis@6.0.0)(zod@4.6.5)
       '@maroonedsoftware/multipart':
         specifier: ^1.3.8
         version: 1.3.8
@@ -808,6 +808,24 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
 
+  plugins/pandora:
+    devDependencies:
+      '@deadair/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
+      '@repo/config-eslint':
+        specifier: workspace:*
+        version: link:../../packages/config-eslint
+      '@repo/config-typescript':
+        specifier: workspace:*
+        version: link:../../packages/config-typescript
+      vitest:
+        specifier: ^5.0.3
+        version: 5.0.3(@opentelemetry/api@1.9.0)(@types/node@26.6.4)(jsdom@30.1.2(@noble/hashes@2.4.0))(vite@8.3.4(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.29))(terser@5.51.2)(yaml@2.9.1))
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
   plugins/podcast:
     devDependencies:
       '@deadair/plugin-sdk':
@@ -832,8 +850,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@maroonedsoftware/rhapsode-sdk':
-        specifier: ^0.1.23
-        version: 0.1.23
+        specifier: ^0.1.26
+        version: 0.1.26
       '@repo/config-eslint':
         specifier: workspace:*
         version: link:../../packages/config-eslint
@@ -3229,8 +3247,8 @@ packages:
       yaml:
         optional: true
 
-  '@maroonedsoftware/authentication@6.3.0':
-    resolution: {integrity: sha512-+cNH3FiKT01VgsqYm5hHUsXSsH4zBMuiqUsZsTT0H8tZQxIIenksLz27BWupgpLnmEXBdqXg02QLk6pzyHL24A==}
+  '@maroonedsoftware/authentication@6.3.1':
+    resolution: {integrity: sha512-iQS4+jx2W2BfyPOi/r9XWZim6Zh3O3p+/Icfw1PMOTjgFLBu98gR1DVObh+EJdDBR7qRVOhH9yfkkSBtUmf03g==}
     engines: {node: '>=22'}
 
   '@maroonedsoftware/cache@0.5.0':
@@ -3300,8 +3318,8 @@ packages:
     resolution: {integrity: sha512-eEksDYu/PAWC/mIwLzxFqcF9tOnYURqyP9BDUlSgconUZ/I6MJrXvZ/cYOjCtQ6YEr/8k4GRMvwxIaOwSVaQ4w==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/mcp@0.7.1':
-    resolution: {integrity: sha512-NEESj8pAkokKt9lIpgRTZha/BzVUdnJOSe0Z2i8GlSqSYskYaQWdtNT2+bv9iLx9mgxOUoTkqaVSG/3TdrwuGw==}
+  '@maroonedsoftware/mcp@0.7.2':
+    resolution: {integrity: sha512-zX0+U6jEjrYyBcKAeslCa3bO9DrDlvTcEp08JIu8ZSzuFhXAM2C/zlLUdOOwgCIcawCcd8PRxPyHsa28oSXrVg==}
     engines: {node: '>=22'}
     peerDependencies:
       '@maroonedsoftware/cache': 0.5.0
@@ -3326,8 +3344,8 @@ packages:
     resolution: {integrity: sha512-mfIj55Fdntdw6PrUIKBTeIT2bLIGtOsEnBpvK/BH6kCnhpduWHDWMqKRrQoO1HwqpArVPLsSaFHkfl1UoELdEA==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/rhapsode-sdk@0.1.23':
-    resolution: {integrity: sha512-HibiEzIjtzh/8Zo/bIsKHP6IxydFlNpC8RCVuKV5w+3C/Mqb/p2wmNbEop0bA8limiCHKPv7EGlHckzcBFVDXA==}
+  '@maroonedsoftware/rhapsode-sdk@0.1.26':
+    resolution: {integrity: sha512-LC4Z5ZBlGftfMrctN5ThFjEfDWkh1On6l1MIIMIxKIWFTmpGgFHavR+5LGL2HrBFLp0r6HAdrrwDETxXGpudBw==}
 
   '@maroonedsoftware/servercore@0.3.0':
     resolution: {integrity: sha512-wz4BWzw65BbdAds7KCD06HbawmCPgqxHAfXxdQ5BlrScjCGN+3PG4/cZcN35DJ297uP5V8WTkBWCbPOSZ5hCDA==}
@@ -14183,7 +14201,7 @@ snapshots:
       pg: 8.23.1
       yaml: 2.9.0
 
-  '@maroonedsoftware/authentication@6.3.0(ioredis@6.0.0)':
+  '@maroonedsoftware/authentication@6.3.1(ioredis@6.0.0)':
     dependencies:
       '@maroonedsoftware/cache': 0.5.0(ioredis@6.0.0)
       '@maroonedsoftware/encryption': 0.5.13
@@ -14255,12 +14273,12 @@ snapshots:
     optionalDependencies:
       pg-boss: 12.37.1(@opentelemetry/api@1.9.0)
 
-  '@maroonedsoftware/koa@4.1.1(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/authentication@6.3.0(ioredis@6.0.0))(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(koa@3.2.1)(pg@8.23.1)(yaml@2.9.0)':
+  '@maroonedsoftware/koa@4.1.1(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/authentication@6.3.1(ioredis@6.0.0))(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(koa@3.2.1)(pg@8.23.1)(yaml@2.9.0)':
     dependencies:
       '@koa/cors': 5.0.0
       '@koa/router': 15.7.0(koa@3.2.1)
       '@maroonedsoftware/appconfig': 2.6.1(pg@8.23.1)(yaml@2.9.0)
-      '@maroonedsoftware/authentication': 6.3.0(ioredis@6.0.0)
+      '@maroonedsoftware/authentication': 6.3.1(ioredis@6.0.0)
       '@maroonedsoftware/errors': 1.9.1
       '@maroonedsoftware/logger': 1.1.9
       '@maroonedsoftware/policies': 0.6.9
@@ -14291,9 +14309,9 @@ snapshots:
     dependencies:
       injectkit: 1.7.1
 
-  '@maroonedsoftware/mcp@0.7.1(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(ioredis@6.0.0)(zod@4.6.5)':
+  '@maroonedsoftware/mcp@0.7.2(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(ioredis@6.0.0)(zod@4.6.5)':
     dependencies:
-      '@maroonedsoftware/authentication': 6.3.0(ioredis@6.0.0)
+      '@maroonedsoftware/authentication': 6.3.1(ioredis@6.0.0)
       '@maroonedsoftware/errors': 1.9.1
       '@maroonedsoftware/logger': 1.1.9
       '@maroonedsoftware/policies': 0.6.9
@@ -14332,7 +14350,7 @@ snapshots:
       injectkit: 1.7.1
       luxon: 3.7.2
 
-  '@maroonedsoftware/rhapsode-sdk@0.1.23': {}
+  '@maroonedsoftware/rhapsode-sdk@0.1.26': {}
 
   '@maroonedsoftware/servercore@0.3.0(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(pg@8.23.1)(yaml@2.9.0)':
     dependencies:
@@ -14772,7 +14790,7 @@ snapshots:
 
   '@peculiar/asn1-cms@2.9.4':
     dependencies:
-      '@peculiar/asn1-schema': 2.9.4
+      '@peculiar/asn1-schema': 2.10.0
       '@peculiar/asn1-x509': 2.9.4
       '@peculiar/asn1-x509-attr': 2.9.4
       asn1js: 3.0.10
@@ -14780,14 +14798,14 @@ snapshots:
 
   '@peculiar/asn1-csr@2.9.4':
     dependencies:
-      '@peculiar/asn1-schema': 2.9.4
+      '@peculiar/asn1-schema': 2.10.0
       '@peculiar/asn1-x509': 2.9.4
       asn1js: 3.0.10
       tslib: 2.8.1
 
   '@peculiar/asn1-ecc@2.9.4':
     dependencies:
-      '@peculiar/asn1-schema': 2.9.4
+      '@peculiar/asn1-schema': 2.10.0
       '@peculiar/asn1-x509': 2.9.4
       asn1js: 3.0.10
       tslib: 2.8.1
@@ -14797,13 +14815,13 @@ snapshots:
       '@peculiar/asn1-cms': 2.9.4
       '@peculiar/asn1-pkcs8': 2.9.4
       '@peculiar/asn1-rsa': 2.9.4
-      '@peculiar/asn1-schema': 2.9.4
+      '@peculiar/asn1-schema': 2.10.0
       asn1js: 3.0.10
       tslib: 2.8.1
 
   '@peculiar/asn1-pkcs8@2.9.4':
     dependencies:
-      '@peculiar/asn1-schema': 2.9.4
+      '@peculiar/asn1-schema': 2.10.0
       '@peculiar/asn1-x509': 2.9.4
       asn1js: 3.0.10
       tslib: 2.8.1
@@ -14813,7 +14831,7 @@ snapshots:
       '@peculiar/asn1-cms': 2.9.4
       '@peculiar/asn1-pfx': 2.9.4
       '@peculiar/asn1-pkcs8': 2.9.4
-      '@peculiar/asn1-schema': 2.9.4
+      '@peculiar/asn1-schema': 2.10.0
       '@peculiar/asn1-x509': 2.9.4
       '@peculiar/asn1-x509-attr': 2.9.4
       asn1js: 3.0.10
@@ -14821,7 +14839,7 @@ snapshots:
 
   '@peculiar/asn1-rsa@2.9.4':
     dependencies:
-      '@peculiar/asn1-schema': 2.9.4
+      '@peculiar/asn1-schema': 2.10.0
       '@peculiar/asn1-x509': 2.9.4
       asn1js: 3.0.10
       tslib: 2.8.1
@@ -14840,14 +14858,14 @@ snapshots:
 
   '@peculiar/asn1-x509-attr@2.9.4':
     dependencies:
-      '@peculiar/asn1-schema': 2.9.4
+      '@peculiar/asn1-schema': 2.10.0
       '@peculiar/asn1-x509': 2.9.4
       asn1js: 3.0.10
       tslib: 2.8.1
 
   '@peculiar/asn1-x509@2.9.4':
     dependencies:
-      '@peculiar/asn1-schema': 2.9.4
+      '@peculiar/asn1-schema': 2.10.0
       '@peculiar/utils': 2.0.3
       asn1js: 3.0.10
       tslib: 2.8.1

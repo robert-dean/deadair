@@ -131,7 +131,8 @@ packages/config-*     shared eslint / tsconfig
 plugins/*             bundled plugins: spotify, navidrome, ytmusic (YouTube Music; the audio
                       resolves signed out through ytaudio/), apple-music (searchable with no
                       developer key at all; its audio is CAPTURED from Apple's own web player by
-                      stream/apple-player), musicbrainz, lastfm,
+                      stream/apple-player), pandora (unofficial, US only; airs records with Premium,
+                      signed in the way Pandora's Android app is), musicbrainz, lastfm,
                       deezer (who sounds like whom, with no API key, so a fresh install has a
                       similarity source at all),
                       wikipedia (the prose the station's facts are extracted from, and what happened

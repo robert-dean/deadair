@@ -128,6 +128,16 @@ old the reading), and `AppModel.heardState` swaps it in while playing; stopped, 
 `Playhead.project` lets `now` fall before `readAt` for that reason: clamping that gap held the bar
 still for a buffer after every reading. Android's `heard` and `aired`, case for case.
 
+**The lock screen's bar is the record's, decided per item.** `MPNowPlayingInfoPropertyIsLiveStream`
+draws a LIVE badge and no bar whatever elapsed time is set, so a record with a length
+(`LockScreenProgress.of`, from `Listening.aired`, never a break) is published as NOT live with its
+elapsed time, duration and rate, and anything else stays live with neither, which is Android's
+`sessionPlayhead` rule. `changePlaybackPositionCommand` stays disabled, so it is not a scrubber. The
+system runs the bar on from the elapsed time and the rate, so `LockScreenProgressState` sends an
+update only when that would be wrong: a new record, a bar appearing or going, a jump over a second,
+or the rate moving as the audio stops or starts (every player phase is checked). Not yet seen on a
+phone; the simulator's lock screen draws no tile.
+
 **Words: pure state returns a `Message`, never a sentence**, as on Android. `Message.text` carries
 only words the station sent. The resolver that turns a `Message` into words belongs to the app and
 its string catalog, and its `switch` is exhaustive, so a message without words is a compile error.
@@ -397,5 +407,5 @@ History, What it said, the record pages, Settings and the sign-in page were laid
 and screenshotted on the 17 Pro and SE simulators, most in both light and dark (2026-10-02). The host
 picker, Manage, the plan form and setup were not looked at that way.
 
-Not yet: CarPlay on a head unit or the simulator's CarPlay window, Siri starting a swiped-away app, the lock-screen tile's appearance on the phone, an interruption from a call, a reconnect
+Not yet: the lock screen's progress bar on a phone, CarPlay on a head unit or the simulator's CarPlay window, Siri starting a swiped-away app, the lock-screen tile's appearance on the phone, an interruption from a call, a reconnect
 after a dropped stream, the background task running out, and the system Camera opening a console code.

@@ -1,0 +1,8 @@
+{
+  "status": 400,
+  "body": {
+    "message": "Listener does not have rights to play source AL:3807",
+    "errorCode": 0,
+    "errorString": "NO_ENTITLEMENTS"
+  }
+}

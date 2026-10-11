@@ -50,6 +50,17 @@ describe('PluginError', () => {
         expect(error.retryAfterMs).toBe(30_000);
     });
 
+    it("carries the upstream's own name for the failure beside the host code", () => {
+        const error = new PluginError('could not fetch').withCode('upstream').withUpstreamCode('unfetchable');
+
+        expect(error.code).toBe('upstream');
+        expect(error.upstreamCode).toBe('unfetchable');
+    });
+
+    it('takes a numeric upstream code as sent, since most services number theirs', () => {
+        expect(new PluginError('invalid key').withCode('config').withUpstreamCode(10).upstreamCode).toBe(10);
+    });
+
     it('is a real Error, so an unaware catch still behaves', () => {
         const error = new PluginError('took too long').withCode('timeout');
         expect(error).toBeInstanceOf(Error);
@@ -66,6 +77,7 @@ describe('PluginError', () => {
         const error = new PluginError('boom').withCode('internal');
         expect(error.retryAfterMs).toBeUndefined();
         expect(error.upstreamStatus).toBeUndefined();
+        expect(error.upstreamCode).toBeUndefined();
     });
 
     it('has a retryable default for every declared code', () => {
@@ -134,13 +146,18 @@ describe('toPluginError', () => {
     });
 
     it('adopts a foreign copy, which is the case instanceof cannot see', () => {
-        const converted = toPluginError(foreignCopy({ retryAfterMs: 2_000, upstreamStatus: 401 }));
+        const converted = toPluginError(foreignCopy({ retryAfterMs: 2_000, upstreamStatus: 401, upstreamCode: 'unfetchable' }));
 
         expect(converted).toBeInstanceOf(PluginError);
         expect(converted.code).toBe('auth');
         expect(converted.message).toBe('from another copy');
         expect(converted.retryAfterMs).toBe(2_000);
         expect(converted.upstreamStatus).toBe(401);
+        expect(converted.upstreamCode).toBe('unfetchable');
+    });
+
+    it('adopts a numeric upstream code from a foreign copy', () => {
+        expect(toPluginError(foreignCopy({ upstreamCode: 800 })).upstreamCode).toBe(800);
     });
 
     it('rebuilds rather than adopts, so the foreign object is kept only as the cause', () => {
@@ -169,10 +186,13 @@ describe('toPluginError', () => {
     });
 
     it('drops retry advice that is not a usable number, rather than emitting Retry-After: NaN', () => {
-        const converted = toPluginError(foreignCopy({ code: 'rate_limited', retryAfterMs: 'soon', upstreamStatus: Number.NaN }));
+        const converted = toPluginError(
+            foreignCopy({ code: 'rate_limited', retryAfterMs: 'soon', upstreamStatus: Number.NaN, upstreamCode: Number.NaN }),
+        );
 
         expect(converted.retryAfterMs).toBeUndefined();
         expect(converted.upstreamStatus).toBeUndefined();
+        expect(converted.upstreamCode).toBeUndefined();
     });
 
     it('is not fooled by an unbranded look-alike', () => {

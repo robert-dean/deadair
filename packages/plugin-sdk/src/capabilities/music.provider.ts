@@ -271,6 +271,41 @@ export interface MusicProviderStream {
      * available", skips the item, and holds nothing against the plugin.
      */
     resolveStreamUrl?(trackId: string): Promise<ProviderStream | undefined>;
+
+    /**
+     * Hear that a copy you served went to air, or came off it.
+     *
+     * Some services expect the client that fetched a record to say it is being played, the way their
+     * own apps do, and an account that only ever fetches looks like nothing a listener would run.
+     * This is how a provider says so: the host calls it with `started` when one of YOUR records goes
+     * to air and `ended` when the next item does, and for nothing else's.
+     *
+     * Optional, and most providers should leave it out: a library server or a service that does not
+     * care has nothing to report. Called from a job rather than on the boundary itself, so it is late
+     * by however long the queue takes, may be retried, and the two events for one record are not
+     * guaranteed to arrive in order. Throw a `PluginError` for a failure worth retrying; anything that
+     * returns is taken as reported.
+     *
+     * It is NOT a scrobble. A scrobble reports listening to somebody's history and carries a title
+     * and an artist; this tells the service that served the bytes what became of them, and carries
+     * the id it served them under.
+     */
+    reportPlayback?(trackId: string, report: PlaybackReport): Promise<void>;
+}
+
+/** What became of a served copy on air. Every field is JSON-safe. */
+export interface PlaybackReport {
+    /** `started` when the record went to air, `ended` when the next item did. */
+    event: 'started' | 'ended';
+    /** When the record went to air, as Unix epoch MILLISECONDS. The same on both events for one play. */
+    startedAt: number;
+    /**
+     * How much of it went out, in integer milliseconds. On `ended` only.
+     *
+     * Wall time from going to air to the next item doing so, which is shorter than the record when
+     * it was cut short and may be a little longer than it across a crossfade.
+     */
+    elapsedMs?: number;
 }
 
 export type PlaybackStatus = 'playing' | 'paused' | 'stopped';

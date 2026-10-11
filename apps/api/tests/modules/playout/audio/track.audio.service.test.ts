@@ -587,8 +587,8 @@ describe('benching a binding that will not serve', () => {
     // That is the ACCOUNT answering, so however deep the copy's streak already is, being busy neither
     // adds to it nor writes the copy off: it is put off, and asked again after the wait.
     it('puts a fetch off without counting it when the provider is busy', async () => {
-        const { service, resolveBinding, recordFailure, recordDeferral, markBindingMissing, markBindingUnplayable } = build({ source: failing(3) });
-        resolveBinding.mockRejectedValue(new ProviderBusy('deadair.spotify', 'playing on another device', 90_000));
+        const { service, resolveStream, recordFailure, recordDeferral, markBindingMissing, markBindingUnplayable } = build({ source: failing(3) });
+        resolveStream.mockRejectedValue(new ProviderBusy('deadair.spotify', 'playing on another device', 90_000));
         const fetched = respondWith(RECORD, { contentType: 'audio/ogg' });
 
         expect(await service.ensure(SOURCE_ID)).toBeUndefined();
@@ -601,8 +601,8 @@ describe('benching a binding that will not serve', () => {
     });
 
     it('waits its own interval when a busy provider did not say how long', async () => {
-        const { service, resolveBinding, recordDeferral } = build({ source: failing(0) });
-        resolveBinding.mockRejectedValue(new ProviderBusy('deadair.spotify', 'quota spent'));
+        const { service, resolveStream, recordDeferral } = build({ source: failing(0) });
+        resolveStream.mockRejectedValue(new ProviderBusy('deadair.spotify', 'quota spent'));
 
         await service.ensure(SOURCE_ID);
 

@@ -28,8 +28,14 @@ export type CaptureFormat = keyof typeof CAPTURE_FORMATS;
 export const isCaptureFormat = (value: string | undefined): value is CaptureFormat => value !== undefined && Object.hasOwn(CAPTURE_FORMATS, value);
 
 export interface PlayerConfig {
-    /** Listen address for this container's HTTP server. */
+    /** Port for this container's HTTP server. */
     readonly port: number;
+    /**
+     * Address the HTTP server binds. Every interface by default, because in its own compose container
+     * the app reaches it across the container network; the one-container image binds loopback, since
+     * there the app is in the same container and nothing else has a reason to ask.
+     */
+    readonly host: string;
     /**
      * Signs `/track/{id}` URLs. The bridge secret, exactly as the Spotify shim uses it.
      *
@@ -41,7 +47,13 @@ export interface PlayerConfig {
     readonly sink: string;
     /** Chrome's DevTools port, loopback-only and never published. */
     readonly cdpPort: number;
-    /** The page whose MusicKit instance is driven. Overridable for a storefront-specific entry. */
+    /**
+     * The page whose MusicKit instance is driven. Overridable for a storefront-specific entry.
+     *
+     * `APPLE_PLAYER_PAGE` and deliberately not `APPLE_PLAYER_URL`, which is the API's name for this
+     * container's own address. In the one-container image both processes share one environment, so a
+     * shared name would point Chrome at the player's own server.
+     */
     readonly playerUrl: string;
     readonly format: CaptureFormat;
     /** Where captures are written. A tmpfs in the container; each file is deleted after it is served. */
@@ -74,10 +86,11 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): PlayerConfig {
     const format = env.APPLE_PLAYER_FORMAT;
     return {
         port: number(env.APPLE_PLAYER_PORT, 3680),
+        host: env.APPLE_PLAYER_HOST?.trim() || '0.0.0.0',
         secret: env.PLAYOUT_BRIDGE_SECRET ?? '',
         sink: env.APPLE_PLAYER_SINK ?? 'deadair',
         cdpPort: number(env.APPLE_PLAYER_CDP_PORT, 9222),
-        playerUrl: env.APPLE_PLAYER_URL ?? 'https://music.apple.com/us/browse',
+        playerUrl: env.APPLE_PLAYER_PAGE?.trim() || 'https://music.apple.com/us/browse',
         format: isCaptureFormat(format) ? format : 'flac',
         captureDir: env.APPLE_PLAYER_CAPTURE_DIR ?? '/tmp/captures',
         slackMs: number(env.APPLE_PLAYER_SLACK_MS, 60_000),

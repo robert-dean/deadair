@@ -69,8 +69,24 @@ describe('the config', () => {
     it('defaults to a station that has not been told anything', () => {
         const config = readConfig({ PLAYOUT_BRIDGE_SECRET: 'x' } as NodeJS.ProcessEnv);
         expect(config.port).toBe(3680);
+        expect(config.host).toBe('0.0.0.0');
+        expect(config.playerUrl).toBe('https://music.apple.com/us/browse');
         expect(config.sink).toBe('deadair');
         expect(config.format).toBe('flac');
+    });
+
+    it('binds where it is told, which the one-container image uses to keep it on loopback', () => {
+        expect(readConfig({ APPLE_PLAYER_HOST: '127.0.0.1' } as NodeJS.ProcessEnv).host).toBe('127.0.0.1');
+    });
+
+    it("never reads the API's name for its own address as the page to open", () => {
+        // The one-container image runs the API and the player in one environment, and the API's
+        // `APPLE_PLAYER_URL` is this server's address. Read as the page, Chrome would open itself.
+        const config = readConfig({ APPLE_PLAYER_URL: 'http://apple-player:3680' } as NodeJS.ProcessEnv);
+        expect(config.playerUrl).toBe('https://music.apple.com/us/browse');
+        expect(readConfig({ APPLE_PLAYER_PAGE: 'https://music.apple.com/gb/browse' } as NodeJS.ProcessEnv).playerUrl).toBe(
+            'https://music.apple.com/gb/browse',
+        );
     });
 
     it('reads no secret as no secret, which main refuses to start on', () => {

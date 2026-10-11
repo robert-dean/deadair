@@ -386,10 +386,10 @@ services:
             # secret for every fetch the app makes with no headers. Sourced from the app-rendered
             # radio.env in a full stack; named here so a dev stack can run the player on its own.
             APPLE_PLAYER_PORT: '3680'
-            # The address the APP reaches this container on, set here rather than defaulted in the app:
-            # a station with no player must answer "cannot resolve this item" and skip it, not mint a URL
-            # at an address nothing answers on and bench the binding after four failed fetches.
-            APPLE_PLAYER_URL: http://apple-player:3680
+            # Not `APPLE_PLAYER_URL`: that is the APP's setting for where it reaches this container, and
+            # it is not defaulted, because a station with no player must answer "cannot resolve this
+            # item" and skip it rather than bench the binding after four failed fetches at an address
+            # nothing answers on. A dev app on the host sets it to http://localhost:3680 in its .env.
             # The once-per-install sign-in door, shut. Set both of these (and publish 5900 below) for
             # as long as it takes to sign in to Apple Music in this container's Chrome, then unset them
             # and restart: the session lives in the profile on /state afterwards and the door is not

@@ -169,7 +169,7 @@ From the process env, which the compose service names and a full stack sources f
 | `APPLE_PLAYER_PORT` | listen port, default `3680` |
 | `APPLE_PLAYER_SINK` | the null sink to record, default `deadair`; must match `pulse-default.pa` |
 | `APPLE_PLAYER_FORMAT` | `flac` (default) or `mp3` |
-| `APPLE_PLAYER_URL` | the page to drive, default `https://music.apple.com/us/browse`. A storefront-specific entry goes here |
+| `APPLE_PLAYER_PAGE` | the page to drive, default `https://music.apple.com/us/browse`. A storefront-specific entry goes here |
 | `APPLE_PLAYER_PROFILE` | the signed-in Chrome profile, default `/state/profile` |
 | `APPLE_PLAYER_SLACK_MS` | how much longer than its own duration a record may take, default 60s |
 | `APPLE_PLAYER_QUEUE_MS` | how long a fetch waits for the one browser, default 15 minutes |

@@ -7,8 +7,9 @@ import { signTrackToken } from './spotify.shim.client.js';
 /**
  * The compose service's address, and NOT a fallback — see {@link ApplePlayerClient.serve}.
  *
- * It is what `docker-compose.yml` sets `APPLE_PLAYER_URL` to, so an operator who runs the profile gets
- * a working station without typing an address. What it deliberately is not is a default applied when
+ * It is what the `apple` image variants set `APPLE_PLAYER_URL` to (see the API's s6 run script), and the
+ * compose service's name, so an operator who runs either gets a working station without typing an
+ * address. What it deliberately is not is a default applied when
  * the setting is absent: most stations run no player at all, and a client that minted URLs at this
  * address anyway would have every Apple Music record fail its fetch four times and bench itself.
  */

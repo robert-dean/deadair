@@ -33,19 +33,31 @@ log() { echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') apple-player-run: $*"; }
 # `set -a` so the sourced values are exported to the player. The committed static default is the
 # fallback, as it is there, so a container that comes up before the app has ever rendered anything
 # starts and reports its state instead of looping.
-cfg=/streamconfig/radio.env
-[ -f "$cfg" ] || cfg=/defaults/radio.env
-if [ -f "$cfg" ]; then
-    log "sourcing $cfg"
-    set -a
-    # shellcheck disable=SC1090
-    . "$cfg"
-    set +a
-else
-    log "no radio.env at /streamconfig or /defaults; running on the process environment alone"
-fi
+# `APPLE_PLAYER_CONFIG` is the one-container image's path for the same file, which it keeps under /data.
+#
+# Read again before every start of the player, not once. MEASURED in the one-container image: the player
+# came up before the app had rendered radio.env, sourced the static default with no secret in it, and
+# then restarted every five seconds forever on that same empty answer while the real file sat beside it.
+# Reading per start is what turns "the app has rendered the secret now" into a player that starts.
+loaded=''
+load_config() {
+    cfg="${APPLE_PLAYER_CONFIG:-/streamconfig/radio.env}"
+    [ -f "$cfg" ] || cfg=/defaults/radio.env
+    if [ -f "$cfg" ]; then
+        [ "$cfg" = "$loaded" ] || log "sourcing $cfg"
+        loaded="$cfg"
+        set -a
+        # shellcheck disable=SC1090
+        . "$cfg"
+        set +a
+    elif [ "$loaded" != none ]; then
+        log "no radio.env at ${APPLE_PLAYER_CONFIG:-/streamconfig/radio.env} or /defaults; running on the process environment alone"
+        loaded=none
+    fi
+}
+load_config
 
-mkdir -p "${XDG_RUNTIME_DIR:-/tmp/xdg}" 2>/dev/null || true
+mkdir -p "${XDG_RUNTIME_DIR:-/tmp/xdg}" "${APPLE_PLAYER_CAPTURE_DIR:-/tmp/captures}" "${APPLE_PLAYER_PROFILE:-/state/profile}" 2>/dev/null || true
 chmod 700 "${XDG_RUNTIME_DIR:-/tmp/xdg}" 2>/dev/null || true
 
 # ── Stale state from the last run, which a restart does not clear ──────────────
@@ -120,8 +132,9 @@ trap 'if [ -n "$child" ]; then kill "$child" 2>/dev/null || true; fi; if [ -n "$
 while :; do
     # Node runs the TypeScript directly: type stripping is native since Node 23 and every import here
     # names a `.ts` file, so there is no build step, no bundler and no dependency in this container
-    # beyond the runtime itself.
-    node /app/src/main.ts &
+    # beyond the runtime itself. `APPLE_PLAYER_SRC` is where the one-container image keeps it.
+    load_config
+    node "${APPLE_PLAYER_SRC:-/app/src}/main.ts" &
     child=$!
     wait "$child"
     rc=$?

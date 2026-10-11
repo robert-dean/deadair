@@ -55,7 +55,7 @@ async function main(): Promise<void> {
     log('recorder at boot (ensured again per fetch)', installed);
 
     const server = createPlayerServer({ config, client: browser.client, session: browser.session, player, log });
-    server.listen(config.port, '0.0.0.0', () => log('listening', { port: config.port, format: config.format }));
+    server.listen(config.port, config.host, () => log('listening', { host: config.host, port: config.port, format: config.format }));
 
     const stop = (signal: string): void => {
         log('stopping', { signal });

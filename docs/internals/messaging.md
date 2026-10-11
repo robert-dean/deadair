@@ -166,7 +166,13 @@ library's matches, `GET /requests/search` fills the rest of the page with what t
 the two: a `source` is taken into the library through `ProviderCopyResolver` first, as `discovered`, and the
 request then goes to `RequestDesk.submit` like any other, which is where the repeat window and the rest
 of the station's rules are applied. A record taken in stays in the library whatever becomes of the
-request. Chat stays library-only because its buttons carry a track id; giving them a source is the
+request. **Somebody who would be refused whatever they asked for is refused before the take-in**
+(`RequestDesk.refusal`, the arbitration's rules about the person and the line, without the one about the
+record), so a refusal never grows the library. That refusal has no row behind it, because a row names a
+library record and `track_id` is not null: it answers the 201 with `declined` and its `reason` like any
+other, named from the search that offered it while that is cached, but it is not kept and does not appear
+in `GET /requests/mine`. `submit` still decides the whole request afterwards, since the line may move
+between the two. Chat stays library-only because its buttons carry a track id; giving them a source is the
 change that would extend it.
 
 **The arbitration is a pure function**, `request.arbiter.ts`, because it is the part that is policy:
@@ -174,7 +180,17 @@ change that would extend it.
 intake. One open request per person (the key is the account, or the platform's user id), a cooldown after
 one is let through (a refusal does not count against anybody), a cap on how many are open at once, and
 never the same record twice. Every refusal is a sentence the station says to the person asking, and a
-refusal is still a row (`declined`, with its `reason`), so an app is answered in the same breath.
+refusal is still a row (`declined`, with its `reason`), so an app is answered in the same breath. It is
+split in two (`arbitrateRequester`, then the record) so the first half can run before a take-in.
+
+**The database holds one open request per person and one per record.** The desk decides from the open
+rows it has just read and then inserts, with nothing locked in between, so two submits that overlap (a
+double tap, or the app and a linked chat at once) both pass the arbitration. Two partial unique indexes
+over the open statuses (migration 0087) refuse the second insert; the repository turns that unique
+violation into `OpenRequestTaken`, and the desk writes the loser as `declined` with the words the
+arbitration uses for the same thing in sequence. A declined row is outside both indexes. The cap on open
+requests is a count, which no index can hold, so a true race can take the line one over: a lock held
+across placing a request, and so across the director, would be the worse failure.
 
 **The station's own rules still hold.** A request goes through `PickResolver` with the broadcast's rules,
 as a mixed-in record does, so a dislike, the repeat window, the period and the advisory policy apply to it.

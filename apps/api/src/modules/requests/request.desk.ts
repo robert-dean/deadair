@@ -18,7 +18,7 @@ import { errorText } from '#modules/shared/error.text.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { UNNAMED_REQUESTER, screenName } from './listener.text.js';
-import { TRACK_ALREADY_OPEN, arbitrate, oneAtATime } from './request.arbiter.js';
+import { TRACK_ALREADY_OPEN, arbitrate, arbitrateRequester, oneAtATime, type RequesterFacts } from './request.arbiter.js';
 import {
     OpenRequestTaken,
     RequestsRepository,
@@ -28,7 +28,7 @@ import {
     type RequestRow,
     type RequestStatus,
 } from './requests.repository.js';
-import { requestSettings, requestSettingsFor } from './requests.settings.js';
+import { requestSettings, requestSettingsFor, type RequestSettings } from './requests.settings.js';
 
 /** Who is asking, however they reached the station. */
 export interface Requester {
@@ -125,23 +125,8 @@ export class RequestDesk {
      */
     async submit(requester: Requester, record: { trackId: string; title: string; artist: string }, dedication?: Dedication): Promise<RequestRow> {
         const stationKey = this.identity.stationKey;
-        // The broadcast's own request rules where it has any: a party night's, say.
-        const settings = requestSettingsFor(this.config, (await this.lineups.load())?.rules);
-        const open = await this.repository.open(stationKey);
-        const mine = open.find(request => request.requesterKey === requester.key);
-        const lastGranted = await this.repository.lastGrantedAt(stationKey, requester.key);
-
-        const decision = arbitrate({
-            enabled: settings.enabled,
-            onAir: this.nowPlaying.getNowPlaying().onAir,
-            ...(mine === undefined ? {} : { openForRequester: `${mine.title} by ${mine.artist}` }),
-            ...(lastGranted === undefined ? {} : { lastGrantedAt: lastGranted.toMillis() }),
-            cooldownMs: settings.cooldownMs,
-            trackAlreadyOpen: open.some(request => request.trackId === record.trackId),
-            openCount: open.length,
-            maxOpen: settings.maxOpen,
-            now: Date.now(),
-        });
+        const { settings, open, facts } = await this.requesterFacts(requester);
+        const decision = arbitrate({ ...facts, trackAlreadyOpen: open.some(request => request.trackId === record.trackId) });
 
         const request: NewRequest = {
             stationKey,
@@ -163,6 +148,39 @@ export class RequestDesk {
         // everything twice.
         await this.place(created, { quiet: true });
         return (await this.repository.find(stationKey, created.id)) ?? created;
+    }
+
+    /**
+     * Why this person would be refused whatever they asked for, or nothing when they may ask. The
+     * rules about the person and the line, without the one about the record, for a caller about to
+     * take a record in from a provider: a refusal costs nothing, and the library is not grown for it.
+     * `submit` still decides the whole thing afterwards, since the line may move in between.
+     */
+    async refusal(requester: Requester): Promise<string | undefined> {
+        const { facts } = await this.requesterFacts(requester);
+        const decision = arbitrateRequester(facts);
+        return decision.ok ? undefined : decision.reason;
+    }
+
+    /** What the arbitration knows about the person asking and the line, with the open rows and the settings it came from. */
+    private async requesterFacts(requester: Requester): Promise<{ settings: RequestSettings; open: RequestRow[]; facts: RequesterFacts }> {
+        const stationKey = this.identity.stationKey;
+        // The broadcast's own request rules where it has any: a party night's, say.
+        const settings = requestSettingsFor(this.config, (await this.lineups.load())?.rules);
+        const open = await this.repository.open(stationKey);
+        const mine = open.find(request => request.requesterKey === requester.key);
+        const lastGranted = await this.repository.lastGrantedAt(stationKey, requester.key);
+        const facts: RequesterFacts = {
+            enabled: settings.enabled,
+            onAir: this.nowPlaying.getNowPlaying().onAir,
+            ...(mine === undefined ? {} : { openForRequester: `${mine.title} by ${mine.artist}` }),
+            ...(lastGranted === undefined ? {} : { lastGrantedAt: lastGranted.toMillis() }),
+            cooldownMs: settings.cooldownMs,
+            openCount: open.length,
+            maxOpen: settings.maxOpen,
+            now: Date.now(),
+        };
+        return { settings, open, facts };
     }
 
     /**

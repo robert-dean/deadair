@@ -261,6 +261,17 @@ describe('submitting', () => {
         expect(table.create).toHaveBeenCalledTimes(1);
     });
 
+    it('says ahead of a take-in why a person would be refused, and nothing for one who may ask', async () => {
+        const { desk } = build({ audio: 'remote' });
+        expect(await desk.refusal(app('a-1'))).toBeUndefined();
+
+        await desk.submit(app('a-1'), TEARDROP);
+
+        expect(await desk.refusal(app('a-1'))).toBe('You already have a request in: Teardrop by Massive Attack. One at a time.');
+        // The record is not part of it: somebody else may still be refused only once the record is known.
+        expect(await desk.refusal(chat('7'))).toBeUndefined();
+    });
+
     it('waits for an operator when the station asks for one', async () => {
         const { desk, director } = build({ approval: 'operator' });
 

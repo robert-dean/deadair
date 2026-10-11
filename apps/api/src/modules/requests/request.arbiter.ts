@@ -43,17 +43,30 @@ export const oneAtATime = (open?: string): string =>
 /** The refusal for a record somebody already has open. Exported for the same reason as {@link oneAtATime}. */
 export const TRACK_ALREADY_OPEN = 'Somebody has already asked for that one, so it is on its way.';
 
-export function arbitrate(facts: RequestFacts): RequestDecision {
+/** What the arbitration needs to know about the person asking, before anybody knows which record it is. */
+export type RequesterFacts = Omit<RequestFacts, 'trackAlreadyOpen'>;
+
+/**
+ * Every rule that is about the person asking and the line rather than the record: requests on, the
+ * station on the air, one at a time, the cooldown and the cap. Run before a record from a provider is
+ * taken in, so somebody who would be refused anyway does not add a record to the library first.
+ */
+export function arbitrateRequester(facts: RequesterFacts): RequestDecision {
     if (!facts.enabled) return { ok: false, reason: 'The station is not taking requests right now.' };
     if (!facts.onAir) return { ok: false, reason: 'The station is off the air, so it is not taking requests.' };
-    if (facts.openForRequester !== undefined) {
-        return { ok: false, reason: oneAtATime(facts.openForRequester) };
-    }
+    if (facts.openForRequester !== undefined) return { ok: false, reason: oneAtATime(facts.openForRequester) };
     if (facts.lastGrantedAt !== undefined && facts.cooldownMs > 0) {
         const wait = facts.lastGrantedAt + facts.cooldownMs - facts.now;
         if (wait > 0) return { ok: false, reason: `One request every ${minutesLeft(facts.cooldownMs)}, so try again in ${minutesLeft(wait)}.` };
     }
-    if (facts.trackAlreadyOpen) return { ok: false, reason: TRACK_ALREADY_OPEN };
     if (facts.openCount >= facts.maxOpen) return { ok: false, reason: 'The request line is full. Try again after the next few records.' };
+    return { ok: true };
+}
+
+/** The whole arbitration: the person and the line first, then the one rule that needs the record. */
+export function arbitrate(facts: RequestFacts): RequestDecision {
+    const requester = arbitrateRequester(facts);
+    if (!requester.ok) return requester;
+    if (facts.trackAlreadyOpen) return { ok: false, reason: TRACK_ALREADY_OPEN };
     return { ok: true };
 }

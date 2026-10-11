@@ -59,6 +59,15 @@ describe('RequestProviderSearch', () => {
         expect(build({ settings: { 'rotation.discover': 'true' } }).finder.reaches()).toBe(true);
     });
 
+    it('names a record a recent search offered, without asking anybody, and nothing it never offered', async () => {
+        const { finder, search } = build({ reached: [found('Blueberry Hill', 'Fats Domino')] });
+        await finder.search('blueberry', [], 10, 'user:a-1');
+
+        expect(RequestProviderSearch.named('deadair.spotify', 'sp-Blueberry Hill')).toEqual({ title: 'Blueberry Hill', artist: 'Fats Domino' });
+        expect(RequestProviderSearch.named('deadair.spotify', 'sp-other')).toBeUndefined();
+        expect(search).toHaveBeenCalledTimes(1);
+    });
+
     it('is not reached when no provider can be searched', () => {
         expect(build({ canSearch: false }).finder.reaches()).toBe(false);
     });

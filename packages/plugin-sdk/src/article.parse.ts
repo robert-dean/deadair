@@ -24,9 +24,12 @@ import type { HostFetchInit, PluginHost } from './plugin.host.js';
  * host can check a claim against the text it came from, and prose that has been
  * through a plugin's own paraphrase is prose nothing can check.
  *
- * The one thing removed that is not furniture is a paragraph announcing itself as an advertisement
- * — see {@link SPONSOR_OPENERS}. It is still a cut rather than a rewrite: what is left is the
- * publisher's own prose, and what went is prose the publisher was paid for.
+ * Three things removed are not furniture: a paragraph announcing itself as an advertisement (see
+ * {@link SPONSOR_OPENERS}), a paragraph in which the writer pitches their own book or newsletter
+ * (see {@link SELF_PROMOTION}), and a paragraph set entirely in italics (see
+ * {@link setEntirelyInEmphasis}), which is the publisher's note about the story rather than the
+ * story. All three are still cuts rather than rewrites: what is left is the publisher's own prose,
+ * and what went is prose the publisher was paid for or wrote about itself.
  *
  * ## Wrong in one direction on purpose
  *
@@ -140,6 +143,13 @@ const REFERENCE_APPARATUS: readonly (readonly [RegExp, string])[] = [
  * disclosure itself. The vocabulary is closed and every entry names something that is an
  * advertisement wherever it appears, so this can only ever cut, which is {@link FURNITURE_CLASSES}'
  * argument one level down — and a false positive costs one paragraph of a story that has others.
+ *
+ * Two entries are a publisher's own pitch rather than a sponsor's, and are here because they open a
+ * paragraph exactly the way a sponsor does. "Your support helps" is a public broadcaster asking for
+ * a membership, measured opening three of ten NPR pages, and on one of them it was the ONLY
+ * paragraph, so the whole article the bulletin was handed was a request for money. "Read more:" is
+ * a link to another story set as a paragraph of this one, measured on PBS NewsHour; the colon is
+ * part of the entry so that "Read more than…" stays a sentence.
  */
 const SPONSOR_OPENERS: readonly string[] = [
     'a message from',
@@ -151,6 +161,7 @@ const SPONSOR_OPENERS: readonly string[] = [
     'paid partnership',
     'presented by',
     'promoted by',
+    'read more:',
     'sponsored',
     'sponsored by',
     'sponsored content',
@@ -158,6 +169,7 @@ const SPONSOR_OPENERS: readonly string[] = [
     'support for this',
     'support comes from',
     'this post is sponsored',
+    'your support helps',
 ];
 
 /**
@@ -177,6 +189,51 @@ function opensWithASponsor(text: string): boolean {
         const next = said.charAt(opener.length);
         return next === '' || /[\s:;,.\u2013\u2014-]/.test(next);
     });
+}
+
+/**
+ * How a writer or a publisher asks the reader for something of its own, anywhere in a paragraph.
+ *
+ * The other half of {@link SPONSOR_OPENERS}, for the pitch that does not open its paragraph.
+ * Measured on 404 Media: "As always, for more of my work, check out my book First Contact…, or
+ * subscribe to my personal newsletter" sat between a column's introduction and its first item, and
+ * nothing about where it starts says what it is.
+ *
+ * Matched anywhere, so the vocabulary is narrower than the openers' and every entry is in the first
+ * person: a story about a newsletter says "subscribe to the newsletter", and only the person selling
+ * it says "subscribe to MY newsletter". Where reporting does carry one of these, it is inside a
+ * quotation of somebody else's pitch, and dropping that costs one paragraph of a story that has
+ * others.
+ */
+const SELF_PROMOTION =
+    /\b(?:check out my (?:book|newsletter|podcast)|for more of my work|sign up for (?:my|our) newsletter|subscribe to (?:my|our))\b/i;
+
+/**
+ * Whether a paragraph is set entirely in italics, which is how a publisher typesets an editor's note.
+ *
+ * The note that says who the publisher is, where a story first ran, which series it belongs to, or
+ * which newsletter to sign up for is an ordinary `<p>` with nothing structural about it except that
+ * every word of it is inside `<em>` or `<i>`. Measured on The Markup: "The Markup, now a part of
+ * CalMatters, uses investigative reporting… Sign up for Klaxon, a newsletter that delivers our
+ * stories" opened the article text a bulletin was handed, ahead of the reporting.
+ *
+ * Read off the MARKUP, before `plainText` throws the emphasis away. An italic title or a stressed
+ * word inside a sentence leaves the rest of the sentence outside the emphasis and is kept; only a
+ * paragraph with nothing but punctuation and links outside it is dropped. Links count as nothing
+ * because a note's newsletter name is a link with its own `<em>` inside it. A false positive is a
+ * paragraph the publisher chose to set apart from the story, which costs one paragraph of a story
+ * that has others.
+ */
+function setEntirelyInEmphasis(markup: string): boolean {
+    if (!/<(em|i)\b/i.test(markup)) return false;
+
+    const outside = markup
+        .replace(/<(em|i)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;|&#160;/gi, '')
+        .replace(/[\s\p{P}]/gu, '');
+
+    return outside.length === 0;
 }
 
 /** The containers a publisher marks the story with, in the order they are worth trusting. */
@@ -217,7 +274,7 @@ export function extractArticle(html: string, maxChars: number = ARTICLE_MAX_CHAR
 
         // After the length test rather than before it, because this is the more expensive check and
         // most of what it would run over has already been dropped for being too short to be prose.
-        if (opensWithASponsor(text)) continue;
+        if (opensWithASponsor(text) || SELF_PROMOTION.test(text) || setEntirelyInEmphasis(match[1] ?? '')) continue;
 
         // A page that repeats its own standfirst inside the body is ordinary,
         // and reading it twice is not.

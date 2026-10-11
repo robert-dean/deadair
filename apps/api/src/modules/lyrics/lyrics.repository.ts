@@ -326,14 +326,23 @@ export class LyricsRepository extends DataRepository {
      * A short-lived row, which is what takes the provider out of the record's outstanding list until
      * it lapses: without it a record nothing can match is asked about on every pass forever. On
      * conflict only the clock moves, on `recordTrackEnrichmentMiss`'s rule.
+     *
+     * Except over a row that already holds an answer, which happens when a stored lyric is expired to
+     * be read again (migration 0087) and the source no longer matches it. The words it had are kept,
+     * so the row goes back to never expiring rather than being re-asked every month for good.
      */
     async recordMiss(trackId: string, provider: string, ttlMs: number): Promise<void> {
         const expiresAt = sql<never>`now() + make_interval(secs => ${ttlMs / 1000})`;
+        const keepAnswer = sql<never>`case
+            when deadair.track_lyrics.plain is not null or deadair.track_lyrics.synced is not null or deadair.track_lyrics.instrumental
+            then null
+            else ${expiresAt}
+        end`;
 
         await this.db
             .insertInto('deadair.trackLyrics')
             .values({ trackId, provider, fetchedAt: sql<never>`now()`, expiresAt, ...ANSWERED })
-            .onConflict(oc => oc.columns(['trackId', 'provider']).doUpdateSet({ expiresAt, ...ANSWERED }))
+            .onConflict(oc => oc.columns(['trackId', 'provider']).doUpdateSet({ expiresAt: keepAnswer, ...ANSWERED }))
             .execute();
     }
 

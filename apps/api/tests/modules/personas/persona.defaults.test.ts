@@ -15,6 +15,7 @@ import {
     MIN_DICTION_MARKERS,
     personaLines,
     PERSONA_SHEET_LIMITS,
+    ruleTexts,
     subjectsVisited,
 } from '../../../src/modules/personas/persona.sheet.js';
 import { parseTemplates, renderTemplate, unknownPlaceholders, usable, wasHeard } from '../../../src/modules/director/break.templates.js';
@@ -221,7 +222,12 @@ describe('the seeded personas', () => {
         const capped = [
             ['diction', PERSONA_SHEET_LIMITS.diction, (p: (typeof SEED_CHARACTERS)[number]) => p.diction],
             ['dictionMarkers', PERSONA_SHEET_LIMITS.dictionMarkers, (p: (typeof SEED_CHARACTERS)[number]) => p.dictionMarkers],
-            ['quirks', PERSONA_SHEET_LIMITS.quirks, (p: (typeof SEED_CHARACTERS)[number]) => p.quirks],
+            ['quirks', PERSONA_SHEET_LIMITS.quirks, (p: (typeof SEED_CHARACTERS)[number]) => ruleTexts(p.quirks)],
+            [
+                'occasionalQuirks',
+                PERSONA_SHEET_LIMITS.occasionalQuirks,
+                (p: (typeof SEED_CHARACTERS)[number]) => p.quirks?.filter(quirk => quirk.cadence !== undefined && quirk.cadence !== 'always'),
+            ],
             ['catchphrases', PERSONA_SHEET_LIMITS.catchphrases, (p: (typeof SEED_CHARACTERS)[number]) => p.catchphrases],
             ['avoid', PERSONA_SHEET_LIMITS.avoid, (p: (typeof SEED_CHARACTERS)[number]) => p.avoid],
             ['samples', PERSONA_SHEET_LIMITS.samples, (p: (typeof SEED_CHARACTERS)[number]) => p.samples],
@@ -233,6 +239,19 @@ describe('the seeded personas', () => {
                     read(persona)?.length ?? 0,
                     `${persona.key} would have ${field} entries dropped before the model sees them`,
                 ).toBeLessThanOrEqual(cap);
+            }
+        }
+    });
+
+    // A rule that says "now and then" is a rule nobody follows: it goes out on every break, and a writer
+    // with no memory of the last one reads it as "not this time". Measured on the live station as 0 of
+    // 58. That is what a cadence is for, so no shipped rule may say it in words.
+    it('say "now and then" with a cadence, never in the words of a rule', () => {
+        for (const persona of SEED_CHARACTERS) {
+            for (const rule of ruleTexts(persona.quirks)) {
+                expect(rule, `${persona.key} says how often in a rule: "${rule}"`).not.toMatch(
+                    /^(now and then|once in a while|sometimes|occasionally)\b/i,
+                );
             }
         }
     });

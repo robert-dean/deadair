@@ -67,7 +67,7 @@ const sidebars: SidebarsConfig = {
             type: 'category',
             label: 'More',
             collapsed: false,
-            items: ['tutorials/produce-a-segment'],
+            items: ['tutorials/produce-a-segment', 'tutorials/throw-a-party'],
         },
     ],
 

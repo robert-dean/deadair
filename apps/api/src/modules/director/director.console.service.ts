@@ -64,9 +64,11 @@ import type {
     MoveStationItemInput,
     PutOnAirInput,
     ReplanStationInput,
+    RequestStationBreakInput,
     SetStationAirInput,
     SetStationHostInput,
     StationAir,
+    StationBreakRequest,
     StationMode,
     StationOnEnd,
     StationOrder,
@@ -86,6 +88,17 @@ const CHANGEOVER_REQUEST_KEY = 'changeover';
  * boundary, so it only ever absorbs the same change of programme being asked twice.
  */
 const CHANGEOVER_COOLDOWN_MS = 10 * 60_000;
+
+/**
+ * How long an operator's request for a break holds off the same request.
+ *
+ * A minute: long enough to absorb a button pressed twice or a chat command resent, short enough that
+ * somebody who genuinely wants the weather again is not told no for long.
+ */
+const OPERATOR_BREAK_COOLDOWN_MS = 60_000;
+
+/** The dedupe key an operator's request goes in under: one per kind and topic, so two different asks never absorb each other. */
+const operatorBreakKey = (kind: string, topic: string | undefined): string => `operator:${kind}${topic === undefined ? '' : `:${topic}`}`;
 
 /**
  * The operator's side of the director: everything a request does to the
@@ -340,6 +353,50 @@ export class DirectorConsoleService {
         });
 
         return await this.getAir();
+    }
+
+    /**
+     * Ask the station to say something now: the news, the weather, a word from the host.
+     *
+     * A door onto {@link DirectorService.requestBreak} and nothing more. Where the break goes, whether
+     * the station has a writer and a voice for it, and whether breaks are allowed at all are the
+     * director's questions, answered against the running order it owns, so this neither checks them
+     * first nor second-guesses the answer.
+     *
+     * A decline comes back as an answer rather than an error, because it is an ordinary outcome and
+     * the person who pressed the button needs its reason: a 4xx would read as "you asked wrongly"
+     * when the truth is "breaks are off" or "one went in a moment ago".
+     *
+     * Keyed per kind and topic with a short cooldown, so a button pressed twice (a Stream Deck key,
+     * a chat command sent again because the first reply was slow) asks once. A different topic is a
+     * different request, since sports news and the weather in another city are both things somebody
+     * may want back to back.
+     *
+     * Accepted is not aired. A bulletin is written later, and one with no story left unread in the
+     * window is passed over then, exactly as a clock band's would be.
+     */
+    async requestBreak(input: RequestStationBreakInput): Promise<StationBreakRequest> {
+        const result = await this.director.requestBreak({
+            kind: input.kind,
+            urgency: input.urgency,
+            source: 'operator',
+            reason: 'an operator asked for one',
+            ...(input.topic === undefined ? {} : { context: { topic: input.topic } }),
+            key: operatorBreakKey(input.kind, input.topic),
+            cooldownMs: OPERATOR_BREAK_COOLDOWN_MS,
+        });
+
+        if (result.accepted)
+            this.logger.info('director: an operator asked for a break', { kind: input.kind, urgency: input.urgency, topic: input.topic });
+        else this.logger.info(`director: an operator's request for a ${input.kind} was declined (${result.reason ?? 'the station said nothing'})`);
+
+        return {
+            accepted: result.accepted,
+            ...(result.requestId === undefined ? {} : { requestId: result.requestId }),
+            ...(result.segmentId === undefined ? {} : { segmentId: result.segmentId }),
+            ...(result.atIndex === undefined ? {} : { atIndex: result.atIndex }),
+            ...(result.reason === undefined ? {} : { reason: result.reason }),
+        };
     }
 
     /**

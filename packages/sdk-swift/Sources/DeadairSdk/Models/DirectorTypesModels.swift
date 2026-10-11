@@ -228,6 +228,72 @@ public struct ReplanStationInput: Codable, Equatable, Sendable {
     }
 }
 
+/// A kind of break an operator can ask for by name. Only the kinds that need nothing but a moment to be written: a welcome, a changeover or a dedication is ABOUT something that happened, and the station asks for those itself
+public enum RequestableBreakKind: String, Codable, CaseIterable, Sendable {
+    case news = "news"
+    case weather = "weather"
+    case almanac = "almanac"
+    case talkbreak = "talkbreak"
+    case story = "story"
+    case jingle = "jingle"
+}
+
+/// How soon a requested break wants to be heard. `interrupt` and `next` are written and spoken before they take a place in the running order, so they cannot reach their slot unready; `interrupt` lands at the first boundary that leaves time to write and speak it, `next` between the record on air and the one after. `soon` and `whenever` are planted like a break the station planned for itself, within a few records or at the next ordinary slot
+public enum BreakUrgency: String, Codable, CaseIterable, Sendable {
+    case interrupt = "interrupt"
+    case next = "next"
+    case soon = "soon"
+    case whenever = "whenever"
+}
+
+/// What the station made of a request to say something
+public struct StationBreakRequest: Codable, Equatable, Sendable {
+    /// False is an ordinary answer rather than a failure: breaks are off, there is no voice, nothing on this station writes that kind, the same request was taken moments ago, or the running order has no room
+    public var accepted: Bool
+    /// The request as it was written down. Present whenever accepted
+    public var requestId: String?
+    /// The break it became. Present whenever accepted. Accepted is not aired: a bulletin with no story left unread is still passed over when it is written
+    public var segmentId: String?
+    /// Where it went in the running order. Absent for `interrupt` and `next`, which take a place only once their audio exists
+    public var atIndex: Int?
+    /// Why it was declined, in the station's own words
+    public var reason: String?
+
+    public init(accepted: Bool, requestId: String? = nil, segmentId: String? = nil, atIndex: Int? = nil, reason: String? = nil) {
+        self.accepted = accepted
+        self.requestId = requestId
+        self.segmentId = segmentId
+        self.atIndex = atIndex
+        self.reason = reason
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case accepted = "accepted"
+        case requestId = "requestId"
+        case segmentId = "segmentId"
+        case atIndex = "atIndex"
+        case reason = "reason"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.accepted = try container.decode(Bool.self, forKey: .accepted)
+        self.requestId = try container.decodeIfPresent(String.self, forKey: .requestId)
+        self.segmentId = try container.decodeIfPresent(String.self, forKey: .segmentId)
+        self.atIndex = try container.decodeIfPresent(Int.self, forKey: .atIndex)
+        self.reason = try container.decodeIfPresent(String.self, forKey: .reason)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.accepted, forKey: .accepted)
+        try container.encodeIfPresent(self.requestId, forKey: .requestId)
+        try container.encodeIfPresent(self.segmentId, forKey: .segmentId)
+        try container.encodeIfPresent(self.atIndex, forKey: .atIndex)
+        try container.encodeIfPresent(self.reason, forKey: .reason)
+    }
+}
+
 /// Where a route starts and where it ends, as artist names
 public struct RoutePreviewInput: Codable, Equatable, Sendable {
     /// The artist to start at. The library has to hold a record by them
@@ -713,6 +779,40 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.segmentError, forKey: .segmentError)
         try container.encodeIfPresent(self.segmentWriter, forKey: .segmentWriter)
         try container.encodeIfPresent(self.overAtMs, forKey: .overAtMs)
+    }
+}
+
+/// Ask the station to say something. The station decides where it goes, and may decline
+public struct RequestStationBreakInput: Codable, Equatable, Sendable {
+    public var kind: RequestableBreakKind
+    public var urgency: BreakUrgency
+    /// What it is about, as a format clock band names it: a news category's key for a bulletin, a place's key for a forecast. A key that matches nothing is passed over when the break is written rather than read out under the wrong name
+    public var topic: String?
+
+    public init(kind: RequestableBreakKind, urgency: BreakUrgency = .next, topic: String? = nil) {
+        self.kind = kind
+        self.urgency = urgency
+        self.topic = topic
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case urgency = "urgency"
+        case topic = "topic"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.kind = try container.decode(RequestableBreakKind.self, forKey: .kind)
+        self.urgency = try container.decodeIfPresent(BreakUrgency.self, forKey: .urgency) ?? .next
+        self.topic = try container.decodeIfPresent(String.self, forKey: .topic)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.kind, forKey: .kind)
+        try container.encode(self.urgency, forKey: .urgency)
+        try container.encodeIfPresent(self.topic, forKey: .topic)
     }
 }
 

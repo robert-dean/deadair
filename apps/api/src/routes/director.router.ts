@@ -11,10 +11,12 @@ import {
     MoveStationItemInput,
     PutOnAirInput,
     ReplanStationInput,
+    RequestStationBreakInput,
     RoutePreviewInput,
     SetStationAirInput,
     SetStationHostInput,
     StationAir,
+    StationBreakRequest,
     StationOrder,
 } from '../modules/director/types/director.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
@@ -119,6 +121,21 @@ DirectorRouter.post('/director/air/replan', requirePolicy({ policy: 'platform.ma
     await service.replanOrder(body);
 
     ctx.status = 202;
+});
+
+/**
+ * Asks the station to say something now rather than when the format clock next calls for it: the news, the weather, a word from the host. The director decides where it goes. A decline is answered rather than thrown, with the station's reason, because "breaks are off" and "it was asked for a moment ago" are things the person pressing the button needs to read
+ * from [director.ck](../../data/contracts/director/director.ck) `POST /director/air/breaks`
+ */
+DirectorRouter.post('/director/air/breaks', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, RequestStationBreakInput);
+
+    const service = ctx.container.get(DirectorConsoleService);
+    const result: StationBreakRequest = await service.requestBreak(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
 });
 
 /**

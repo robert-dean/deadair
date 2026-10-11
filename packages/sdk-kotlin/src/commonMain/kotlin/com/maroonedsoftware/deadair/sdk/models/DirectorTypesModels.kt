@@ -124,6 +124,51 @@ data class ReplanStationInput(
     val brief: String? = null,
 )
 
+/** A kind of break an operator can ask for by name. Only the kinds that need nothing but a moment to be written: a welcome, a changeover or a dedication is ABOUT something that happened, and the station asks for those itself */
+@Serializable
+enum class RequestableBreakKind {
+    @SerialName("news")
+    NEWS,
+    @SerialName("weather")
+    WEATHER,
+    @SerialName("almanac")
+    ALMANAC,
+    @SerialName("talkbreak")
+    TALKBREAK,
+    @SerialName("story")
+    STORY,
+    @SerialName("jingle")
+    JINGLE,
+}
+
+/** How soon a requested break wants to be heard. `interrupt` and `next` are written and spoken before they take a place in the running order, so they cannot reach their slot unready; `interrupt` lands at the first boundary that leaves time to write and speak it, `next` between the record on air and the one after. `soon` and `whenever` are planted like a break the station planned for itself, within a few records or at the next ordinary slot */
+@Serializable
+enum class BreakUrgency {
+    @SerialName("interrupt")
+    INTERRUPT,
+    @SerialName("next")
+    NEXT,
+    @SerialName("soon")
+    SOON,
+    @SerialName("whenever")
+    WHENEVER,
+}
+
+/** What the station made of a request to say something */
+@Serializable
+data class StationBreakRequest(
+    /** False is an ordinary answer rather than a failure: breaks are off, there is no voice, nothing on this station writes that kind, the same request was taken moments ago, or the running order has no room */
+    val accepted: Boolean,
+    /** The request as it was written down. Present whenever accepted */
+    val requestId: String? = null,
+    /** The break it became. Present whenever accepted. Accepted is not aired: a bulletin with no story left unread is still passed over when it is written */
+    val segmentId: String? = null,
+    /** Where it went in the running order. Absent for `interrupt` and `next`, which take a place only once their audio exists */
+    val atIndex: Long? = null,
+    /** Why it was declined, in the station's own words */
+    val reason: String? = null,
+)
+
 /** Where a route starts and where it ends, as artist names */
 @Serializable
 data class RoutePreviewInput(
@@ -272,6 +317,15 @@ data class StationOrderItem(
     val segmentWriter: String? = null,
     /** Heard OVER the record that follows, this far into it, with the music ducked under it. Such an item is never handed to the player in its own right */
     val overAtMs: Long? = null,
+)
+
+/** Ask the station to say something. The station decides where it goes, and may decline */
+@Serializable
+data class RequestStationBreakInput(
+    val kind: RequestableBreakKind,
+    val urgency: BreakUrgency? = BreakUrgency.NEXT,
+    /** What it is about, as a format clock band names it: a news category's key for a bulletin, a place's key for a forecast. A key that matches nothing is passed over when the break is written rather than read out under the wrong name */
+    val topic: String? = null,
 )
 
 /** A route between two artists, or the news that there is none */

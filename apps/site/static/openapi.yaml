@@ -1589,6 +1589,24 @@ paths:
             responses:
                 '202':
                     description: 'Response 202'
+    '/director/air/breaks':
+        post:
+            operationId: requestBreak
+            summary: 'Request a break'
+            description: 'Asks the station to say something now rather than when the format clock next calls for it: the news, the weather, a word from the host. The director decides where it goes. A decline is answered rather than thrown, with the station''s reason, because "breaks are off" and "it was asked for a moment ago" are things the person pressing the button needs to read'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/RequestStationBreakInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationBreakRequest'
     '/director/route/preview':
         post:
             operationId: preview
@@ -8890,6 +8908,50 @@ components:
                     maxLength: 500
                     description: "What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the station's ordinary rotation. It steers every later refill too, not just this one batch"
             description: 'Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues'
+        RequestableBreakKind:
+            type: string
+            enum: [news, weather, almanac, talkbreak, story, jingle]
+            description: 'A kind of break an operator can ask for by name. Only the kinds that need nothing but a moment to be written: a welcome, a changeover or a dedication is ABOUT something that happened, and the station asks for those itself'
+        BreakUrgency:
+            type: string
+            enum: [interrupt, next, soon, whenever]
+            description: 'How soon a requested break wants to be heard. `interrupt` and `next` are written and spoken before they take a place in the running order, so they cannot reach their slot unready; `interrupt` lands at the first boundary that leaves time to write and speak it, `next` between the record on air and the one after. `soon` and `whenever` are planted like a break the station planned for itself, within a few records or at the next ordinary slot'
+        RequestStationBreakInput:
+            type: object
+            properties:
+                kind:
+                    '$ref': '#/components/schemas/RequestableBreakKind'
+                urgency:
+                    '$ref': '#/components/schemas/BreakUrgency'
+                    default: next
+                topic:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: "What it is about, as a format clock band names it: a news category's key for a bulletin, a place's key for a forecast. A key that matches nothing is passed over when the break is written rather than read out under the wrong name"
+            required: [kind, urgency]
+            description: 'Ask the station to say something. The station decides where it goes, and may decline'
+        StationBreakRequest:
+            type: object
+            properties:
+                accepted:
+                    type: boolean
+                    description: 'False is an ordinary answer rather than a failure: breaks are off, there is no voice, nothing on this station writes that kind, the same request was taken moments ago, or the running order has no room'
+                requestId:
+                    type: string
+                    description: 'The request as it was written down. Present whenever accepted'
+                segmentId:
+                    type: string
+                    description: 'The break it became. Present whenever accepted. Accepted is not aired: a bulletin with no story left unread is still passed over when it is written'
+                atIndex:
+                    type: integer
+                    minimum: 0
+                    description: 'Where it went in the running order. Absent for `interrupt` and `next`, which take a place only once their audio exists'
+                reason:
+                    type: string
+                    description: "Why it was declined, in the station's own words"
+            required: [accepted]
+            description: 'What the station made of a request to say something'
         RoutePreviewInput:
             type: object
             properties:

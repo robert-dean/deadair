@@ -17,10 +17,12 @@ import {
     MoveStationItemInput,
     PutOnAirInput,
     ReplanStationInput,
+    RequestStationBreakInput,
     RoutePreviewInput,
     SetStationAirInput,
     SetStationHostInput,
     StationAir,
+    StationBreakRequest,
     StationOrder,
 } from '../modules/director/types/director.types.js';
 
@@ -39,6 +41,7 @@ const GetTheRunningOrderArgs = z.object({});
 const RecastTheBroadcastArgs = z.object({ body: SetStationHostInput });
 const ExtendTheRunningOrderArgs = z.object({ body: ExtendStationInput });
 const ReplanTheRunningOrderArgs = z.object({ body: ReplanStationInput });
+const RequestABreakArgs = z.object({ body: RequestStationBreakInput });
 const PreviewAnArtistRouteArgs = z.object({ body: RoutePreviewInput });
 const HoldTheStationAgainstTheScheduleArgs = z.object({ body: HoldStationInput });
 const ReleaseTheStationToTheScheduleArgs = z.object({});
@@ -208,6 +211,30 @@ export class ReplanTheRunningOrderMcpTool implements McpToolHandler {
         const { body } = await parseAndValidate(args, ReplanTheRunningOrderArgs);
         await container.get(DirectorConsoleService).replanOrder(body);
         return { content: [{ type: 'text', text: 'OK' }] };
+    }
+}
+
+/**
+ * from [director.ck](../../data/contracts/director/director.ck) `POST /director/air/breaks`
+ */
+@Injectable()
+export class RequestABreakMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'request_a_break',
+        description:
+            'Asks the station to say something now rather than when the format clock next calls for it: the news, the weather, a word from the host. The director decides where it goes. A decline is answered rather than thrown, with the station\'s reason, because "breaks are off" and "it was asked for a moment ago" are things the person pressing the button needs to read',
+        inputSchema: z.toJSONSchema(RequestABreakArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(StationBreakRequest, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { body } = await parseAndValidate(args, RequestABreakArgs);
+        const result = await container.get(DirectorConsoleService).requestBreak(body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     }
 }
 
@@ -432,6 +459,7 @@ export function registerDirectorMcpCatalog(map: McpToolHandlerMap, container: Co
     map.set('recast_the_broadcast', container.get(RecastTheBroadcastMcpTool));
     map.set('extend_the_running_order', container.get(ExtendTheRunningOrderMcpTool));
     map.set('replan_the_running_order', container.get(ReplanTheRunningOrderMcpTool));
+    map.set('request_a_break', container.get(RequestABreakMcpTool));
     map.set('preview_an_artist_route', container.get(PreviewAnArtistRouteMcpTool));
     map.set('hold_the_station_against_the_schedule', container.get(HoldTheStationAgainstTheScheduleMcpTool));
     map.set('release_the_station_to_the_schedule', container.get(ReleaseTheStationToTheScheduleMcpTool));
@@ -452,6 +480,7 @@ export function registerDirectorMcpToolClasses(registry: Registry): void {
     registry.register(RecastTheBroadcastMcpTool).useClass(RecastTheBroadcastMcpTool).asSingleton();
     registry.register(ExtendTheRunningOrderMcpTool).useClass(ExtendTheRunningOrderMcpTool).asSingleton();
     registry.register(ReplanTheRunningOrderMcpTool).useClass(ReplanTheRunningOrderMcpTool).asSingleton();
+    registry.register(RequestABreakMcpTool).useClass(RequestABreakMcpTool).asSingleton();
     registry.register(PreviewAnArtistRouteMcpTool).useClass(PreviewAnArtistRouteMcpTool).asSingleton();
     registry.register(HoldTheStationAgainstTheScheduleMcpTool).useClass(HoldTheStationAgainstTheScheduleMcpTool).asSingleton();
     registry.register(ReleaseTheStationToTheScheduleMcpTool).useClass(ReleaseTheStationToTheScheduleMcpTool).asSingleton();

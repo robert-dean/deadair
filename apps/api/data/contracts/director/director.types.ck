@@ -136,6 +136,26 @@ contract ReplanStationInput: { # Throw away everything the player is not already
     brief?: string(max=500) # What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the station's ordinary rotation. It steers every later refill too, not just this one batch
 }
 
+# A kind of break an operator can ask for by name. Only the kinds that need nothing but a moment to be written: a welcome, a changeover or a dedication is ABOUT something that happened, and the station asks for those itself
+contract RequestableBreakKind: enum(news, weather, almanac, talkbreak, story, jingle)
+
+# How soon a requested break wants to be heard. `interrupt` and `next` are written and spoken before they take a place in the running order, so they cannot reach their slot unready; `interrupt` lands at the first boundary that leaves time to write and speak it, `next` between the record on air and the one after. `soon` and `whenever` are planted like a break the station planned for itself, within a few records or at the next ordinary slot
+contract BreakUrgency: enum(interrupt, next, soon, whenever)
+
+contract RequestStationBreakInput: { # Ask the station to say something. The station decides where it goes, and may decline
+    kind: RequestableBreakKind
+    urgency: BreakUrgency = next
+    topic?: string(min=1, max=100) # What it is about, as a format clock band names it: a news category's key for a bulletin, a place's key for a forecast. A key that matches nothing is passed over when the break is written rather than read out under the wrong name
+}
+
+contract StationBreakRequest: { # What the station made of a request to say something
+    accepted: boolean # False is an ordinary answer rather than a failure: breaks are off, there is no voice, nothing on this station writes that kind, the same request was taken moments ago, or the running order has no room
+    requestId?: string # The request as it was written down. Present whenever accepted
+    segmentId?: string # The break it became. Present whenever accepted. Accepted is not aired: a bulletin with no story left unread is still passed over when it is written
+    atIndex?: int(min=0) # Where it went in the running order. Absent for `interrupt` and `next`, which take a place only once their audio exists
+    reason?: string # Why it was declined, in the station's own words
+}
+
 contract RoutePreviewInput: { # Where a route starts and where it ends, as artist names
     from: string(min=1, max=200) # The artist to start at. The library has to hold a record by them
     to: string(min=1, max=200) # The artist to end at. The library has to hold a record by them

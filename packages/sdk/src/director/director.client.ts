@@ -10,10 +10,12 @@ import type {
     MoveStationItemInput,
     PutOnAirInput,
     ReplanStationInput,
+    RequestStationBreakInput,
     RoutePreviewInput,
     SetStationAirInput,
     SetStationHostInput,
     StationAir,
+    StationBreakRequest,
     StationOrder,
 } from './types/director.types.js';
 import type { BlockRuleInput, BlockRuleList, GenreSteerInput, GenreSteerReading } from './types/rules.types.js';
@@ -145,6 +147,19 @@ export class DirectorClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
+    }
+
+    /**
+     * @name Request a break
+     * @description Asks the station to say something now rather than when the format clock next calls for it: the news, the weather, a word from the host. The director decides where it goes. A decline is answered rather than thrown, with the station's reason, because "breaks are off" and "it was asked for a moment ago" are things the person pressing the button needs to read
+     */
+    async requestABreak(body: RequestStationBreakInput): Promise<StationBreakRequest> {
+        const result = await this.fetch(`/director/air/breaks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<StationBreakRequest>(result);
     }
 
     /**

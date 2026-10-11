@@ -115,6 +115,20 @@ public sealed class DirectorClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Request a break
+    /// Asks the station to say something now rather than when the format clock next calls for it: the news, the weather, a word from the host. The director decides where it goes. A decline is answered rather than thrown, with the station's reason, because "breaks are off" and "it was asked for a moment ago" are things the person pressing the button needs to read
+    /// </summary>
+    public async Task<StationBreakRequest> RequestABreakAsync(RequestStationBreakInput body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("director", "air", "breaks"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<StationBreakRequest>(response);
+    }
+
+    /// <summary>
     /// Preview an artist route
     /// Finds a route from one artist to another through artists the library holds, and says how each stop connects to the one before. Nothing goes on air: this is what a route would be
     /// </summary>

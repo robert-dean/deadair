@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-10-12
+
+- The operator can ask the station to say something from the desk. A Say something button beside Take a call offers the news, the weather, or a word from the host. Each is heard after the current record, once it has been written. The answer is shown at the foot of the page: in the ordinary colour when it is on its way, or with the station's reason when it is turned down (breaks are off, or the same request went in a moment ago). Neither is drawn as an error any more.
+
 ## [0.11.0] — 2026-10-11
 
 - Importing a persona file no longer replaces a character you already have. A character in the file whose key matches one on this station is now skipped by default, and the import dialog in the console and the desktop app says so and offers Replace on that row. In the API, `POST /personas/import` and `/personas/import/preview` take an optional `replace` list of keys to rewrite, a plan entry's `outcome` can be `skip`, and the result counts `skipped`. A caller that relied on an import overwriting a matching character now has to name it in `replace`.
@@ -127,7 +131,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.11.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.12.0...HEAD
+[0.12.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.11.0...desktop-v0.12.0
 [0.11.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.10.0...desktop-v0.11.0
 [0.10.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.9.0...desktop-v0.10.0
 [0.9.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.8.0...desktop-v0.9.0

@@ -16,6 +16,7 @@ export const productions = {
     /** What the badge says. Plain words rather than the state name, which is the machine's vocabulary. */
     state: {
         planned: 'queued',
+        researching: 'reading its sources',
         outlining: 'planning it',
         drafting: 'writing it',
         checking: 'checking it',
@@ -63,6 +64,17 @@ export const productions = {
             description:
                 'One per line: the facts it may state. Given notes, it says nothing as fact that they do not give. Left empty, it talks from general knowledge and keeps the specifics vague.',
             placeholder: 'The TR-808 came out in 1980.\nRoland stopped making it in 1983, after about 12,000 had been built.',
+        },
+        sources: {
+            label: 'Sources',
+            description:
+                'Something for it to read first: an article, a chapter, your own notes as prose. Given sources and no notes, the station reads them and states only what it can find in them.',
+            title: 'Called',
+            titlePlaceholder: 'A history of the 808',
+            text: 'What it says',
+            textPlaceholder: 'Paste the text here.',
+            add: 'Add a source',
+            remove: 'Remove this source',
         },
         kind: {
             label: 'Kind',

@@ -175,6 +175,26 @@ link, a close) is told to state no facts at all (`NOTES_ELSEWHERE`), since the g
 for the very specifics the notes were there to supply. The notes also count as raised for the check pass, so a
 programme whose notes put a storm in it is not refused for mentioning the weather.
 
+**A production handed sources and no notes is researched before it is written** (`production.research.ts`,
+the `research` pass, state `researching`). Nobody types notes for a podcast about a long article, so the
+research pass reads each source in chunks of up to eight thousand characters, three chunks at most, asks the
+model for short claims with the words in the source that state each one, and keeps a claim only when those
+words really are there. That check is `enrichment/fact.model.ts`'s `readClaims` and `occurs`, reused rather
+than rewritten: they were written for encyclopaedia articles about records, and the verification has nothing
+to do with records. Only the prompt is new. What survives, at most eight notes a source and twenty-four in
+all, is written as the notes with the row handed back to `planned`, so a restart finds a production with
+notes and goes straight to the pass its mode starts with.
+
+**Research belongs to no writing mode.** `firstPass` starts a production at `research` whenever it has
+sources and no notes, whatever its mode, and `nextPass` hands on from `research` to the first pass of the
+mode's own chain. Each chunk is its own model call at the production's own priority, with the cancellation
+asked about between them, on #27's rule that a pass is never one long hold.
+
+**A research pass that finds nothing fails the production** rather than letting it be written from general
+knowledge. Somebody who handed it an article asked for a programme about that article, and the station's
+general knowledge said vaguely is a different programme. The sources are kept beside the notes, so "where did
+it get that" has an answer after it has aired.
+
 ## How long a turn is, and who takes it
 
 **Who says a turn is arithmetic**: `OutlineBeat.lead` is deleted and `BeatPlan.speaker` replaced it, on

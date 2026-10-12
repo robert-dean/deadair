@@ -32,43 +32,22 @@ public sealed record ProductionCastMember
     public string? Persona { get; init; }
 }
 
-/// <summary>What an operator asks for. Everything else about a production is decided by the passes that make it</summary>
-public sealed record ProductionRequest
+/// <summary>Something a production was handed to read. The research pass takes the notes it states as fact out of these, keeping only claims whose words really are in the text</summary>
+public sealed record ProductionSource
 {
-    [JsonPropertyName("kind")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Kind { get; init; }
-
-    /// <summary>Absent is named after its kind and the moment it was asked for, which is what somebody taking a call now wants rather than a box to fill in</summary>
+    /// <summary>What the source is called, for the console and for the research pass's sense of what it is reading</summary>
     [JsonPropertyName("title")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Title { get; init; }
+    public required string Title { get; init; }
 
-    [JsonPropertyName("brief")]
+    /// <summary>Where it came from, when it came from somewhere</summary>
+    [JsonPropertyName("url")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Brief { get; init; }
+    public string? Url { get; init; }
 
-    /// <summary>What it may state as fact, one short note each. Absent leaves it to general knowledge, said vaguely</summary>
-    [JsonPropertyName("notes")]
+    /// <summary>What it says. Required when a production is asked for: nothing yet reads a source that has only an address</summary>
+    [JsonPropertyName("text")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<string>? Notes { get; init; }
-
-    [JsonPropertyName("personaId")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? PersonaId { get; init; }
-
-    /// <summary>Absent takes the station's `render.productionWritingMode`</summary>
-    [JsonPropertyName("writingMode")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public ProductionRequestWritingMode? WritingMode { get; init; }
-
-    [JsonPropertyName("targetMs")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public long? TargetMs { get; init; }
-
-    [JsonPropertyName("scheduledFor")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public DateTimeOffset? ScheduledFor { get; init; }
+    public string? Text { get; init; }
 }
 
 /// <summary>Something the station makes rather than something it says: several beats of speech, written in several passes, that airs as one block</summary>
@@ -94,6 +73,11 @@ public sealed record Production
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Notes { get; init; }
 
+    /// <summary>What it was handed to read. Its notes are taken from these by the research pass when nobody gave it any</summary>
+    [JsonPropertyName("sources")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ProductionSource>? Sources { get; init; }
+
     /// <summary>Who presents it. Absent falls back to the station's active persona when a pass runs</summary>
     [JsonPropertyName("personaId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -107,7 +91,7 @@ public sealed record Production
     [JsonPropertyName("targetMs")]
     public required long TargetMs { get; init; }
 
-    /// <summary>`stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not</summary>
+    /// <summary>`researching` is its sources being read for notes. `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not</summary>
     [JsonPropertyName("state")]
     public required ProductionState State { get; init; }
 
@@ -157,6 +141,11 @@ public sealed record ProductionInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Notes { get; init; }
 
+    /// <summary>What it was handed to read. Its notes are taken from these by the research pass when nobody gave it any</summary>
+    [JsonPropertyName("sources")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ProductionSource>? Sources { get; init; }
+
     /// <summary>Who presents it. Absent falls back to the station's active persona when a pass runs</summary>
     [JsonPropertyName("personaId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -171,6 +160,50 @@ public sealed record ProductionInput
     public required long TargetMs { get; init; }
 
     /// <summary>When it should air. Absent means as soon as it is made</summary>
+    [JsonPropertyName("scheduledFor")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? ScheduledFor { get; init; }
+}
+
+/// <summary>What an operator asks for. Everything else about a production is decided by the passes that make it</summary>
+public sealed record ProductionRequest
+{
+    [JsonPropertyName("kind")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Kind { get; init; }
+
+    /// <summary>Absent is named after its kind and the moment it was asked for, which is what somebody taking a call now wants rather than a box to fill in</summary>
+    [JsonPropertyName("title")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Title { get; init; }
+
+    [JsonPropertyName("brief")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Brief { get; init; }
+
+    /// <summary>What it may state as fact, one short note each. Absent leaves it to general knowledge, said vaguely</summary>
+    [JsonPropertyName("notes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Notes { get; init; }
+
+    /// <summary>What to read before writing it. Given sources and no notes, a research pass takes the notes out of these first</summary>
+    [JsonPropertyName("sources")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ProductionSource>? Sources { get; init; }
+
+    [JsonPropertyName("personaId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PersonaId { get; init; }
+
+    /// <summary>Absent takes the station's `render.productionWritingMode`</summary>
+    [JsonPropertyName("writingMode")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProductionRequestWritingMode? WritingMode { get; init; }
+
+    [JsonPropertyName("targetMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? TargetMs { get; init; }
+
     [JsonPropertyName("scheduledFor")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DateTimeOffset? ScheduledFor { get; init; }
@@ -218,12 +251,15 @@ public enum ProductionWritingMode
     Polished,
 }
 
-/// <summary>`stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not</summary>
+/// <summary>`researching` is its sources being read for notes. `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<ProductionState>))]
 public enum ProductionState
 {
     [JsonStringEnumMemberName("planned")]
     Planned,
+
+    [JsonStringEnumMemberName("researching")]
+    Researching,
 
     [JsonStringEnumMemberName("outlining")]
     Outlining,

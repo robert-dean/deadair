@@ -7,10 +7,12 @@ import { StationIdentity } from '#modules/shared/station.identity.js';
 import { coerceCast, type ProductionCast } from './production.cast.js';
 import {
     cleanNotes,
+    cleanSources,
     isSettled,
     type Production,
     type ProductionOutline,
     type ProductionPlan,
+    type ProductionSource,
     type ProductionState,
     type WritingMode,
 } from './production.js';
@@ -57,11 +59,13 @@ export class ProductionRepository extends DataRepository {
         writingMode: WritingMode;
         brief?: string;
         notes?: readonly string[];
+        sources?: readonly ProductionSource[];
         personaId?: string;
         scheduledFor?: number;
         actorId?: string;
     }): Promise<Production> {
         const notes = cleanNotes(input.notes);
+        const sources = cleanSources(input.sources);
         const row = await this.db
             .insertInto('deadair.productions')
             .values({
@@ -76,6 +80,7 @@ export class ProductionRepository extends DataRepository {
                 writingMode: input.writingMode,
                 brief: input.brief ?? null,
                 notes: notes === undefined ? null : toJsonb(notes),
+                sources: sources === undefined ? null : toJsonb(sources),
                 personaId: input.personaId ?? null,
                 // Nobody is cast at commission. A production is read ahead by up to three hours and
                 // the roster can change in between, so who is on it is decided by the first pass
@@ -165,6 +170,26 @@ export class ProductionRepository extends DataRepository {
             .set({ plan: toJsonb(plan), state: to, ...(casting === undefined ? {} : { casting: toJsonb([...casting]) }) })
             .where('id', '=', id)
             .where('state', '=', from)
+            .returning('id')
+            .executeTakeFirst();
+
+        return row !== undefined;
+    }
+
+    /**
+     * What the research pass took out of the sources, and the row handed back to `planned` for the
+     * pass the writing mode starts with.
+     *
+     * Guarded on `researching`, the claim the pass took, for `saveOutline`'s reason: a production
+     * cancelled while its sources were being read never has notes written onto it afterwards.
+     */
+    async saveNotes(id: string, notes: readonly string[]): Promise<boolean> {
+        const cleaned = cleanNotes(notes);
+        const row = await this.db
+            .updateTable('deadair.productions')
+            .set({ notes: cleaned === undefined ? null : toJsonb(cleaned), state: 'planned' })
+            .where('id', '=', id)
+            .where('state', '=', 'researching')
             .returning('id')
             .executeTakeFirst();
 
@@ -354,6 +379,7 @@ function toProduction(row: Record<string, unknown>): Production {
         title: String(row.title),
         ...(row.brief == null ? {} : { brief: String(row.brief) }),
         ...(cleanNotes(row.notes) === undefined ? {} : { notes: cleanNotes(row.notes)! }),
+        ...(cleanSources(row.sources) === undefined ? {} : { sources: cleanSources(row.sources)! }),
         ...(row.personaId == null ? {} : { personaId: String(row.personaId) }),
         ...(coerceCast(row.casting) === undefined ? {} : { casting: coerceCast(row.casting)! }),
         // Fallen back rather than trusted: the column is constrained, but a row edited by hand out of

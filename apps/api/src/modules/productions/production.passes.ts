@@ -35,7 +35,7 @@
  * length it was asked for, one that re-introduces a show already in progress — is measurable.
  */
 
-import type { ProductionPass, WritingMode } from './production.js';
+import { needsResearch, type Production, type ProductionPass, type WritingMode } from './production.js';
 
 /**
  * The pass chain for each mode, in order.
@@ -67,6 +67,9 @@ export const isWritingMode = (value: string): value is WritingMode => (WRITING_M
  * alternative is guessing where a production is in a chain it was never started on.
  */
 export function nextPass(mode: WritingMode, completed: ProductionPass): ProductionPass | undefined {
+    // Research is in no mode's chain: it runs ahead of whichever one the production has.
+    if (completed === 'research') return PASSES[mode][0];
+
     const chain = PASSES[mode];
     const at = chain.indexOf(completed);
     if (at < 0) return undefined;
@@ -74,8 +77,15 @@ export function nextPass(mode: WritingMode, completed: ProductionPass): Producti
     return chain[at + 1];
 }
 
-/** The pass a production of this mode starts with. Every mode has at least one, so this never fails. */
-export const firstPass = (mode: WritingMode): ProductionPass => PASSES[mode][0]!;
+/**
+ * The pass a production starts with: research for one handed sources and no notes, and otherwise the
+ * first of its mode's chain. Every mode has at least one, so this never fails.
+ */
+export const firstPass = (production: Pick<Production, 'writingMode' | 'notes' | 'sources'>): ProductionPass =>
+    needsResearch(production) ? 'research' : PASSES[production.writingMode][0]!;
 
-/** Whether this mode ever runs this pass, for a job asked to do something the mode does not want. */
-export const runsPass = (mode: WritingMode, pass: ProductionPass): boolean => PASSES[mode].includes(pass);
+/**
+ * Whether this mode ever runs this pass, for a job asked to do something the mode does not want.
+ * Research belongs to no mode and every mode may start with it, so it is always run.
+ */
+export const runsPass = (mode: WritingMode, pass: ProductionPass): boolean => pass === 'research' || PASSES[mode].includes(pass);

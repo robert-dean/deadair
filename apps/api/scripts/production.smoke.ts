@@ -81,6 +81,25 @@ try {
     const blank = await open({ notes: ['  ', ''] });
     check(blank.notes === undefined, 'a list of nothing but blanks is stored as no notes, never as a grounded programme with none');
 
+    // ── sources, and the research pass's claim on them ────────────────────────
+    const handed = await open({
+        sources: [
+            { title: 'A history of the 808', url: 'https://example.com/808', text: ' The TR-808 came out in 1980. ' },
+            { title: 'Nothing at all' },
+        ],
+    });
+    check(handed.sources?.length === 1, 'a source with neither text nor an address is dropped rather than kept');
+    check(handed.sources?.[0]?.text === 'The TR-808 came out in 1980.', 'a source comes back with its text trimmed');
+    check(handed.sources?.[0]?.url === 'https://example.com/808', 'and with where it came from');
+
+    const reading = await productions.claim(handed.id, 'planned', 'researching');
+    check(reading?.state === 'researching', 'the research pass can claim a production out of `planned`, which the table now allows');
+    check(await productions.saveNotes(handed.id, ['The TR-808 was released in 1980.']), 'the research pass writes its notes');
+    const researched = await productions.findById(handed.id);
+    check(researched?.state === 'planned', 'and hands the row back to `planned` for the pass its mode starts with');
+    check(researched?.notes?.[0] === 'The TR-808 was released in 1980.', 'with the notes on it');
+    check(!(await productions.saveNotes(handed.id, ['Another.'])), 'notes are never written onto a production the research pass no longer holds');
+
     // ── the claim is what makes one job per pass safe ─────────────────────────
     const first = await productions.claim(opened.id, 'planned', 'outlining');
     check(first?.state === 'outlining', 'a pass can claim a production out of the state it expects');

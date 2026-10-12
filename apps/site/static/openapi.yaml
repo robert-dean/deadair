@@ -12768,6 +12768,24 @@ components:
                     description: 'The persona key, for a link back to the character'
             required: [role]
             description: "One person in a production: the presenter, or somebody cast to phone in. A snapshot rather than a\nreference, because the persona it names may be edited or deleted while the programme is still being\nmade and what the turns were written as has to be what an operator reads back"
+        ProductionSource:
+            type: object
+            properties:
+                title:
+                    type: string
+                    minLength: 1
+                    maxLength: 300
+                    description: "What the source is called, for the console and for the research pass's sense of what it is reading"
+                url:
+                    type: string
+                    maxLength: 2000
+                    description: 'Where it came from, when it came from somewhere'
+                text:
+                    type: string
+                    maxLength: 20000
+                    description: 'What it says. Required when a production is asked for: nothing yet reads a source that has only an address'
+            required: [title]
+            description: 'Something a production was handed to read. The research pass takes the notes it states as fact out of these, keeping only claims whose words really are in the text'
         Production:
             type: object
             properties:
@@ -12797,6 +12815,12 @@ components:
                         maxLength: 500
                     maxItems: 40
                     description: 'What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact'
+                sources:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ProductionSource'
+                    maxItems: 6
+                    description: 'What it was handed to read. Its notes are taken from these by the research pass when nobody gave it any'
                 personaId:
                     type: string
                     maxLength: 100
@@ -12813,6 +12837,7 @@ components:
                     type: string
                     enum:
                         - planned
+                        - researching
                         - outlining
                         - drafting
                         - checking
@@ -12823,7 +12848,7 @@ components:
                         - failed
                         - cancelled
                     readOnly: true
-                    description: '`stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not'
+                    description: '`researching` is its sources being read for notes. `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not'
                 error:
                     type: string
                     maxLength: 2000
@@ -12885,6 +12910,12 @@ components:
                         maxLength: 500
                     maxItems: 40
                     description: 'What it may state as fact, one short note each. Absent leaves it to general knowledge, said vaguely'
+                sources:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ProductionSource'
+                    maxItems: 6
+                    description: 'What to read before writing it. Given sources and no notes, a research pass takes the notes out of these first'
                 personaId:
                     type: string
                     maxLength: 100

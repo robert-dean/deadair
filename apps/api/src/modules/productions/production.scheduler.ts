@@ -172,7 +172,7 @@ export class ProductionScheduler {
                 ...(show.personaId === undefined ? {} : { personaId: show.personaId }),
             });
 
-            await this.jobs.send('director.produce', { productionId: production.id, pass: firstPass(production.writingMode) });
+            await this.jobs.send('director.produce', { productionId: production.id, pass: firstPass(production) });
             started += 1;
 
             this.logger.info('productions: the station clock asked for a production', {
@@ -232,7 +232,7 @@ export class ProductionScheduler {
             ...(show.personaId === undefined ? {} : { personaId: show.personaId }),
         });
 
-        await this.jobs.send('director.produce', { productionId: production.id, pass: firstPass(production.writingMode) });
+        await this.jobs.send('director.produce', { productionId: production.id, pass: firstPass(production) });
         this.logger.info('productions: this broadcast takes calls, so somebody is being put on the phone', {
             production: production.id,
             kind,

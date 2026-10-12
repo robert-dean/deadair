@@ -38,64 +38,39 @@ public struct ProductionCastMember: Codable, Equatable, Sendable {
     }
 }
 
-/// What an operator asks for. Everything else about a production is decided by the passes that make it
-public struct ProductionRequest: Codable, Equatable, Sendable {
-    public var kind: String?
-    /// Absent is named after its kind and the moment it was asked for, which is what somebody taking a call now wants rather than a box to fill in
-    public var title: String?
-    public var brief: String?
-    /// What it may state as fact, one short note each. Absent leaves it to general knowledge, said vaguely
-    public var notes: [String]?
-    public var personaId: String?
-    /// Absent takes the station's `render.productionWritingMode`
-    public var writingMode: ProductionRequestWritingMode?
-    public var targetMs: Int?
-    public var scheduledFor: Date?
+/// Something a production was handed to read. The research pass takes the notes it states as fact out of these, keeping only claims whose words really are in the text
+public struct ProductionSource: Codable, Equatable, Sendable {
+    /// What the source is called, for the console and for the research pass's sense of what it is reading
+    public var title: String
+    /// Where it came from, when it came from somewhere
+    public var url: String?
+    /// What it says. Required when a production is asked for: nothing yet reads a source that has only an address
+    public var text: String?
 
-    public init(kind: String? = nil, title: String? = nil, brief: String? = nil, notes: [String]? = nil, personaId: String? = nil, writingMode: ProductionRequestWritingMode? = nil, targetMs: Int? = nil, scheduledFor: Date? = nil) {
-        self.kind = kind
+    public init(title: String, url: String? = nil, text: String? = nil) {
         self.title = title
-        self.brief = brief
-        self.notes = notes
-        self.personaId = personaId
-        self.writingMode = writingMode
-        self.targetMs = targetMs
-        self.scheduledFor = scheduledFor
+        self.url = url
+        self.text = text
     }
 
     private enum CodingKeys: String, CodingKey {
-        case kind = "kind"
         case title = "title"
-        case brief = "brief"
-        case notes = "notes"
-        case personaId = "personaId"
-        case writingMode = "writingMode"
-        case targetMs = "targetMs"
-        case scheduledFor = "scheduledFor"
+        case url = "url"
+        case text = "text"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.kind = try container.decodeIfPresent(String.self, forKey: .kind)
-        self.title = try container.decodeIfPresent(String.self, forKey: .title)
-        self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
-        self.notes = try container.decodeIfPresent([String].self, forKey: .notes)
-        self.personaId = try container.decodeIfPresent(String.self, forKey: .personaId)
-        self.writingMode = try container.decodeIfPresent(ProductionRequestWritingMode.self, forKey: .writingMode)
-        self.targetMs = try container.decodeIfPresent(Int.self, forKey: .targetMs)
-        self.scheduledFor = try container.decodeIfPresent(Date.self, forKey: .scheduledFor)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.url = try container.decodeIfPresent(String.self, forKey: .url)
+        self.text = try container.decodeIfPresent(String.self, forKey: .text)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encodeIfPresent(self.kind, forKey: .kind)
-        try container.encodeIfPresent(self.title, forKey: .title)
-        try container.encodeIfPresent(self.brief, forKey: .brief)
-        try container.encodeIfPresent(self.notes, forKey: .notes)
-        try container.encodeIfPresent(self.personaId, forKey: .personaId)
-        try container.encodeIfPresent(self.writingMode, forKey: .writingMode)
-        try container.encodeIfPresent(self.targetMs, forKey: .targetMs)
-        try container.encodeIfPresent(self.scheduledFor, forKey: .scheduledFor)
+        try container.encode(self.title, forKey: .title)
+        try container.encodeIfPresent(self.url, forKey: .url)
+        try container.encodeIfPresent(self.text, forKey: .text)
     }
 }
 
@@ -109,13 +84,15 @@ public struct Production: Codable, Equatable, Sendable {
     public var brief: String?
     /// What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact
     public var notes: [String]?
+    /// What it was handed to read. Its notes are taken from these by the research pass when nobody gave it any
+    public var sources: [ProductionSource]?
     /// Who presents it. Absent falls back to the station's active persona when a pass runs
     public var personaId: String?
     /// How many passes to spend on it
     public var writingMode: ProductionWritingMode
     /// How long it should run. What the beat count and the per-beat word budgets are computed from
     public var targetMs: Int
-    /// `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not
+    /// `researching` is its sources being read for notes. `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not
     public var state: ProductionState
     /// Why making it did not work
     public var error: String?
@@ -128,12 +105,13 @@ public struct Production: Codable, Equatable, Sendable {
     public var cast: [ProductionCastMember]
     public var createdAt: Date
 
-    public init(id: String, kind: String, title: String, brief: String? = nil, notes: [String]? = nil, personaId: String? = nil, writingMode: ProductionWritingMode, targetMs: Int, state: ProductionState, error: String? = nil, scheduledFor: Date? = nil, cancelledAt: Date? = nil, beats: Int, cast: [ProductionCastMember], createdAt: Date) {
+    public init(id: String, kind: String, title: String, brief: String? = nil, notes: [String]? = nil, sources: [ProductionSource]? = nil, personaId: String? = nil, writingMode: ProductionWritingMode, targetMs: Int, state: ProductionState, error: String? = nil, scheduledFor: Date? = nil, cancelledAt: Date? = nil, beats: Int, cast: [ProductionCastMember], createdAt: Date) {
         self.id = id
         self.kind = kind
         self.title = title
         self.brief = brief
         self.notes = notes
+        self.sources = sources
         self.personaId = personaId
         self.writingMode = writingMode
         self.targetMs = targetMs
@@ -152,6 +130,7 @@ public struct Production: Codable, Equatable, Sendable {
         case title = "title"
         case brief = "brief"
         case notes = "notes"
+        case sources = "sources"
         case personaId = "personaId"
         case writingMode = "writingMode"
         case targetMs = "targetMs"
@@ -171,6 +150,7 @@ public struct Production: Codable, Equatable, Sendable {
         self.title = try container.decode(String.self, forKey: .title)
         self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
         self.notes = try container.decodeIfPresent([String].self, forKey: .notes)
+        self.sources = try container.decodeIfPresent([ProductionSource].self, forKey: .sources)
         self.personaId = try container.decodeIfPresent(String.self, forKey: .personaId)
         self.writingMode = try container.decode(ProductionWritingMode.self, forKey: .writingMode)
         self.targetMs = try container.decode(Int.self, forKey: .targetMs)
@@ -190,6 +170,7 @@ public struct Production: Codable, Equatable, Sendable {
         try container.encode(self.title, forKey: .title)
         try container.encodeIfPresent(self.brief, forKey: .brief)
         try container.encodeIfPresent(self.notes, forKey: .notes)
+        try container.encodeIfPresent(self.sources, forKey: .sources)
         try container.encodeIfPresent(self.personaId, forKey: .personaId)
         try container.encode(self.writingMode, forKey: .writingMode)
         try container.encode(self.targetMs, forKey: .targetMs)
@@ -212,6 +193,8 @@ public struct ProductionInput: Codable, Equatable, Sendable {
     public var brief: String?
     /// What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact
     public var notes: [String]?
+    /// What it was handed to read. Its notes are taken from these by the research pass when nobody gave it any
+    public var sources: [ProductionSource]?
     /// Who presents it. Absent falls back to the station's active persona when a pass runs
     public var personaId: String?
     /// How many passes to spend on it
@@ -221,11 +204,12 @@ public struct ProductionInput: Codable, Equatable, Sendable {
     /// When it should air. Absent means as soon as it is made
     public var scheduledFor: Date?
 
-    public init(kind: String, title: String, brief: String? = nil, notes: [String]? = nil, personaId: String? = nil, writingMode: ProductionWritingMode, targetMs: Int, scheduledFor: Date? = nil) {
+    public init(kind: String, title: String, brief: String? = nil, notes: [String]? = nil, sources: [ProductionSource]? = nil, personaId: String? = nil, writingMode: ProductionWritingMode, targetMs: Int, scheduledFor: Date? = nil) {
         self.kind = kind
         self.title = title
         self.brief = brief
         self.notes = notes
+        self.sources = sources
         self.personaId = personaId
         self.writingMode = writingMode
         self.targetMs = targetMs
@@ -237,6 +221,7 @@ public struct ProductionInput: Codable, Equatable, Sendable {
         case title = "title"
         case brief = "brief"
         case notes = "notes"
+        case sources = "sources"
         case personaId = "personaId"
         case writingMode = "writingMode"
         case targetMs = "targetMs"
@@ -249,6 +234,7 @@ public struct ProductionInput: Codable, Equatable, Sendable {
         self.title = try container.decode(String.self, forKey: .title)
         self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
         self.notes = try container.decodeIfPresent([String].self, forKey: .notes)
+        self.sources = try container.decodeIfPresent([ProductionSource].self, forKey: .sources)
         self.personaId = try container.decodeIfPresent(String.self, forKey: .personaId)
         self.writingMode = try container.decode(ProductionWritingMode.self, forKey: .writingMode)
         self.targetMs = try container.decode(Int.self, forKey: .targetMs)
@@ -261,9 +247,77 @@ public struct ProductionInput: Codable, Equatable, Sendable {
         try container.encode(self.title, forKey: .title)
         try container.encodeIfPresent(self.brief, forKey: .brief)
         try container.encodeIfPresent(self.notes, forKey: .notes)
+        try container.encodeIfPresent(self.sources, forKey: .sources)
         try container.encodeIfPresent(self.personaId, forKey: .personaId)
         try container.encode(self.writingMode, forKey: .writingMode)
         try container.encode(self.targetMs, forKey: .targetMs)
+        try container.encodeIfPresent(self.scheduledFor, forKey: .scheduledFor)
+    }
+}
+
+/// What an operator asks for. Everything else about a production is decided by the passes that make it
+public struct ProductionRequest: Codable, Equatable, Sendable {
+    public var kind: String?
+    /// Absent is named after its kind and the moment it was asked for, which is what somebody taking a call now wants rather than a box to fill in
+    public var title: String?
+    public var brief: String?
+    /// What it may state as fact, one short note each. Absent leaves it to general knowledge, said vaguely
+    public var notes: [String]?
+    /// What to read before writing it. Given sources and no notes, a research pass takes the notes out of these first
+    public var sources: [ProductionSource]?
+    public var personaId: String?
+    /// Absent takes the station's `render.productionWritingMode`
+    public var writingMode: ProductionRequestWritingMode?
+    public var targetMs: Int?
+    public var scheduledFor: Date?
+
+    public init(kind: String? = nil, title: String? = nil, brief: String? = nil, notes: [String]? = nil, sources: [ProductionSource]? = nil, personaId: String? = nil, writingMode: ProductionRequestWritingMode? = nil, targetMs: Int? = nil, scheduledFor: Date? = nil) {
+        self.kind = kind
+        self.title = title
+        self.brief = brief
+        self.notes = notes
+        self.sources = sources
+        self.personaId = personaId
+        self.writingMode = writingMode
+        self.targetMs = targetMs
+        self.scheduledFor = scheduledFor
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case title = "title"
+        case brief = "brief"
+        case notes = "notes"
+        case sources = "sources"
+        case personaId = "personaId"
+        case writingMode = "writingMode"
+        case targetMs = "targetMs"
+        case scheduledFor = "scheduledFor"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.kind = try container.decodeIfPresent(String.self, forKey: .kind)
+        self.title = try container.decodeIfPresent(String.self, forKey: .title)
+        self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
+        self.notes = try container.decodeIfPresent([String].self, forKey: .notes)
+        self.sources = try container.decodeIfPresent([ProductionSource].self, forKey: .sources)
+        self.personaId = try container.decodeIfPresent(String.self, forKey: .personaId)
+        self.writingMode = try container.decodeIfPresent(ProductionRequestWritingMode.self, forKey: .writingMode)
+        self.targetMs = try container.decodeIfPresent(Int.self, forKey: .targetMs)
+        self.scheduledFor = try container.decodeIfPresent(Date.self, forKey: .scheduledFor)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.kind, forKey: .kind)
+        try container.encodeIfPresent(self.title, forKey: .title)
+        try container.encodeIfPresent(self.brief, forKey: .brief)
+        try container.encodeIfPresent(self.notes, forKey: .notes)
+        try container.encodeIfPresent(self.sources, forKey: .sources)
+        try container.encodeIfPresent(self.personaId, forKey: .personaId)
+        try container.encodeIfPresent(self.writingMode, forKey: .writingMode)
+        try container.encodeIfPresent(self.targetMs, forKey: .targetMs)
         try container.encodeIfPresent(self.scheduledFor, forKey: .scheduledFor)
     }
 }
@@ -326,9 +380,10 @@ public enum ProductionWritingMode: String, Codable, CaseIterable, Sendable {
     case polished = "polished"
 }
 
-/// `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not
+/// `researching` is its sources being read for notes. `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not
 public enum ProductionState: String, Codable, CaseIterable, Sendable {
     case planned = "planned"
+    case researching = "researching"
     case outlining = "outlining"
     case drafting = "drafting"
     case checking = "checking"

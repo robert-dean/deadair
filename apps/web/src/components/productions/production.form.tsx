@@ -1,7 +1,8 @@
-import { Button, Card, Group, NumberInput, Select, SimpleGrid, Stack, Textarea, TextInput } from '@mantine/core';
+import { ActionIcon, Button, Card, Group, NumberInput, Select, SimpleGrid, Stack, Text, Textarea, TextInput } from '@mantine/core';
 import { DateTimePicker } from '@mantine/dates';
 import { useForm } from '@mantine/form';
-import type { ProductionRequest } from '@deadair/sdk';
+import type { ProductionRequest, ProductionSource } from '@deadair/sdk';
+import { IconPlus, IconTrash } from '@tabler/icons-react';
 import { DateTime } from 'luxon';
 import { useTranslation } from 'react-i18next';
 
@@ -12,7 +13,7 @@ import { ErrorAlert } from '../shared/error.alert';
 /**
  * Asking the station for a programme.
  *
- * Eight fields, and only one is required. Everything else falls back to a station default rather than
+ * Nine fields, and only one is required. Everything else falls back to a station default rather than
  * being demanded, because the only thing nobody else can supply is what the thing is called — the
  * length, the writing mode and the presenter all have settings, and a form that insisted on them
  * would be asking an operator to re-decide the same things every time.
@@ -31,12 +32,14 @@ export interface ProductionFormProps {
 /** The modes, said the way the settings page says them, so an operator meets one vocabulary. */
 const MODES = ['quick', 'outlined', 'polished'] as const;
 
-/** The eight boxes as the form holds them, before the empty ones are dropped on the way out. */
+/** The nine boxes as the form holds them, before the empty ones are dropped on the way out. */
 interface FormValues {
     title: string;
     brief: string;
     /** One note per line, as typed. Split, trimmed and the blank lines dropped on the way out. */
     notes: string;
+    /** Pasted sources, as typed. One with no text is dropped on the way out. */
+    sources: { title: string; text: string }[];
     kind: string;
     minutes: number | string;
     mode: string | null;
@@ -51,6 +54,17 @@ export function notesOf(typed: string): string[] {
         .split('\n')
         .map(line => line.trim())
         .filter(line => line.length > 0);
+}
+
+/**
+ * The sources as the request carries them: one with no text is dropped, since there is nothing in it to
+ * read, and one with no title is named after its place in the list, since the contract needs a name and
+ * an operator pasting an article should not be stopped for want of one.
+ */
+export function sourcesOf(typed: readonly { title: string; text: string }[]): ProductionSource[] {
+    return typed
+        .filter(source => source.text.trim().length > 0)
+        .map((source, index) => ({ title: source.title.trim().length > 0 ? source.title.trim() : `Source ${index + 1}`, text: source.text.trim() }));
 }
 
 /**
@@ -74,7 +88,7 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
         // Controlled, like the settings form: Mantine's uncontrolled default does not re-render an
         // input when its ERROR changes, so a refusal would be held and never drawn.
         mode: 'controlled',
-        initialValues: { title: '', brief: '', notes: '', kind: 'podcast', minutes: '', mode: null, personaId: null, airAt: null },
+        initialValues: { title: '', brief: '', notes: '', sources: [], kind: 'podcast', minutes: '', mode: null, personaId: null, airAt: null },
         // The one thing that is actually required. It used to be enforced by a disabled button and a
         // silent `return`, which says nothing at all about why: a form that will not submit and will
         // not say why is the same failure as a line an operator mistyped.
@@ -84,11 +98,13 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
     const submit = (values: FormValues) => {
         const scheduledFor = scheduledForOf(values.airAt);
         const notes = notesOf(values.notes);
+        const sources = sourcesOf(values.sources);
         onSubmit({
             title: values.title.trim(),
             ...(values.kind.trim().length === 0 ? {} : { kind: values.kind.trim() }),
             ...(values.brief.trim().length === 0 ? {} : { brief: values.brief.trim() }),
             ...(notes.length === 0 ? {} : { notes }),
+            ...(sources.length === 0 ? {} : { sources }),
             ...(typeof values.minutes === 'number' && values.minutes > 0 ? { targetMs: values.minutes * 60_000 } : {}),
             ...(values.mode === null ? {} : { writingMode: values.mode as ProductionRequest['writingMode'] }),
             ...(values.personaId === null ? {} : { personaId: values.personaId }),
@@ -135,6 +151,60 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
                         minRows={3}
                         {...form.getInputProps('notes')}
                     />
+
+                    {/* What to read before writing it. Given sources and no notes, the station reads
+                        them first and keeps only what it can find in them. */}
+                    <Stack gap="xs">
+                        <div>
+                            <Text size="sm" fw={500}>
+                                {t('form.sources.label')}
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                                {t('form.sources.description')}
+                            </Text>
+                        </div>
+                        {form.values.sources.map((_, index) => (
+                            <Card key={index} withBorder padding="sm">
+                                <Stack gap="xs">
+                                    <Group gap="xs" wrap="nowrap" align="flex-end">
+                                        <TextInput
+                                            style={{ flex: 1 }}
+                                            label={t('form.sources.title')}
+                                            placeholder={t('form.sources.titlePlaceholder')}
+                                            {...form.getInputProps(`sources.${index}.title`)}
+                                        />
+                                        <ActionIcon
+                                            variant="subtle"
+                                            color="gray"
+                                            size="lg"
+                                            aria-label={t('form.sources.remove')}
+                                            onClick={() => form.removeListItem('sources', index)}
+                                        >
+                                            <IconTrash size={16} />
+                                        </ActionIcon>
+                                    </Group>
+                                    <Textarea
+                                        label={t('form.sources.text')}
+                                        placeholder={t('form.sources.textPlaceholder')}
+                                        autosize
+                                        minRows={4}
+                                        maxRows={12}
+                                        {...form.getInputProps(`sources.${index}.text`)}
+                                    />
+                                </Stack>
+                            </Card>
+                        ))}
+                        <Group>
+                            <Button
+                                variant="light"
+                                size="compact-sm"
+                                leftSection={<IconPlus size={14} />}
+                                onClick={() => form.insertListItem('sources', { title: '', text: '' })}
+                            >
+                                {t('form.sources.add')}
+                            </Button>
+                        </Group>
+                    </Stack>
 
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                         <TextInput label={t('form.kind.label')} description={t('form.kind.description')} {...form.getInputProps('kind')} />

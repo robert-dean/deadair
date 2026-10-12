@@ -174,6 +174,86 @@ describe('the outline pass with notes', () => {
     });
 });
 
+// A production handed sources reads them before anything is written, and keeps only the claims whose
+// words really are in what it read. One that finds nothing fails, rather than being written from
+// general knowledge as a programme nobody asked for.
+describe('the research pass', () => {
+    const SOURCE = { title: 'A history of the 808', text: 'The TR-808 came out in 1980. Roland stopped making it in 1983.' };
+
+    function buildResearch(answers: string[], options: { cancelled?: boolean } = {}) {
+        const claim = vi.fn(async () =>
+            production({ state: 'researching', writingMode: 'quick', sources: [SOURCE], brief: 'the machine nobody wanted' }),
+        );
+        const saveNotes = vi.fn(async () => true);
+        const fail = vi.fn(async () => true);
+        const isCancelled = vi.fn(async () => options.cancelled ?? false);
+        const productions = { claim, saveNotes, fail, isCancelled } as never;
+
+        let at = 0;
+        const converse = vi.fn(async (_request: { messages: { content: string }[] }) => ({
+            text: answers[Math.min(at++, answers.length - 1)] ?? '',
+        }));
+        const config = { get: (_key: string, fallback: unknown) => fallback } as unknown as AppConfig;
+
+        const job = new ProduceProductionJob(
+            productions,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            { converse } as never,
+            {} as never,
+            config,
+            { record: vi.fn(async () => {}) } as never,
+            { id: 'job-1' } as never,
+            {} as never,
+            logger as never,
+        );
+
+        const research = (job as unknown as { research: (input: Production) => Promise<boolean> }).research.bind(job);
+        return { research, converse, saveNotes, fail };
+    }
+
+    it('writes the claims it could find in the source as the notes', async () => {
+        const answer = JSON.stringify({
+            facts: [
+                { claim: 'The TR-808 was released in 1980.', quote: 'The TR-808 came out in 1980.' },
+                { claim: 'It was designed in Tokyo.', quote: 'designed in Tokyo' },
+            ],
+        });
+        const { research, converse, saveNotes, fail } = buildResearch([answer]);
+
+        expect(await research(production({ sources: [SOURCE] }))).toBe(true);
+
+        expect(saveNotes).toHaveBeenCalledWith('prod-1', ['The TR-808 was released in 1980.']);
+        expect(fail).not.toHaveBeenCalled();
+        expect(String(converse.mock.calls[0]?.[0].messages[1]?.content)).toContain('The programme is about: the machine nobody wanted');
+    });
+
+    it('fails a production whose sources gave nothing it could state as fact', async () => {
+        const { research, saveNotes, fail } = buildResearch([JSON.stringify({ facts: [{ claim: 'Invented.', quote: 'not in the source' }] })]);
+
+        expect(await research(production({ sources: [SOURCE] }))).toBe(false);
+
+        expect(saveNotes).not.toHaveBeenCalled();
+        expect(fail).toHaveBeenCalledWith('prod-1', 'its sources gave nothing the station could state as fact');
+    });
+
+    it('stops reading when the production was cancelled', async () => {
+        const { research, converse, saveNotes } = buildResearch(['{}'], { cancelled: true });
+
+        expect(await research(production({ sources: [SOURCE] }))).toBe(false);
+
+        expect(converse).not.toHaveBeenCalled();
+        expect(saveNotes).not.toHaveBeenCalled();
+    });
+});
+
 describe('sending the beats to be spoken', () => {
     /** The job with only what `render` touches wired up, on this file's own pattern. */
     function buildRender(beats: readonly { id: string }[]) {

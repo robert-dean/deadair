@@ -6,7 +6,7 @@ import type { Persona } from '@deadair/sdk';
 import { DateTime } from 'luxon';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { notesOf, ProductionForm, scheduledForOf } from '../../../src/components/productions/production.form';
+import { notesOf, ProductionForm, scheduledForOf, sourcesOf } from '../../../src/components/productions/production.form';
 import { render, screen, setupUser } from '../../utils/render';
 
 vi.mock('../../../src/api/client', () => ({
@@ -75,6 +75,17 @@ describe('ProductionForm', () => {
         );
     });
 
+    it('sends a pasted source with the production', async () => {
+        const { onSubmit, user } = build();
+
+        await user.type(screen.getByLabelText('Called', { exact: false }), 'The machine nobody wanted');
+        await user.click(screen.getByRole('button', { name: 'Add a source' }));
+        await user.type(screen.getByLabelText('What it says'), 'The TR-808 came out in 1980.');
+        await user.click(screen.getByRole('button', { name: 'Ask for it' }));
+
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ sources: [{ title: 'Source 1', text: 'The TR-808 came out in 1980.' }] }));
+    });
+
     // "Presenter" is who PRESENTS the programme, and the callers it casts are chosen per beat by the
     // production itself. Offering one here read as though an operator could hand a show to somebody
     // phoning in to it.
@@ -96,6 +107,21 @@ describe('ProductionForm', () => {
         await user.type(screen.getByLabelText('Called', { exact: false }), 'A short one{Enter}');
 
         expect(onSubmit).toHaveBeenCalledWith({ title: 'A short one', kind: 'podcast' });
+    });
+});
+
+describe('sourcesOf', () => {
+    it('drops a source with nothing in it and names one nobody named', () => {
+        expect(
+            sourcesOf([
+                { title: '', text: '  ' },
+                { title: '  A history of the 808 ', text: ' The TR-808 came out in 1980. ' },
+                { title: '', text: 'Roland stopped making it in 1983.' },
+            ]),
+        ).toEqual([
+            { title: 'A history of the 808', text: 'The TR-808 came out in 1980.' },
+            { title: 'Source 2', text: 'Roland stopped making it in 1983.' },
+        ]);
     });
 });
 

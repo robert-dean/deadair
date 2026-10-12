@@ -34,6 +34,7 @@ import { callSubjectOf, isDialogue, isVisitor, speakerOrder, turnWeights, type C
 import { ProductionCaster } from './production.caster.js';
 import { cuesFor } from './production.cues.js';
 import { beatNotes, planProduction, turnsFor } from './production.plan.js';
+import { chunksOf, gather, MAX_NOTES_PER_SOURCE, MAX_RESEARCH_NOTES, readNotes, researchPrompt } from './production.research.js';
 import { askForBeat, attemptsBefore } from './beat.answer.js';
 import { beatPrompt, outlinePrompt, runInFrom } from './production.prompt.js';
 import { coerceOutline, priorityForSlot, type Production, type ProductionPass, type ProductionPlan } from './production.js';
@@ -55,6 +56,9 @@ export const OUTLINE_BUDGET_MS = 120_000;
 
 /** How long one beat may take. */
 export const BEAT_BUDGET_MS = 120_000;
+
+/** How long reading one chunk of a source may take: one call over up to eight thousand characters. */
+export const RESEARCH_BUDGET_MS = 120_000;
 
 /**
  * How long to wait for the model slot before giving up on this pass.
@@ -83,6 +87,7 @@ export const WAIT_MS = 60_000;
  */
 export const OUTLINE_OUTPUT_TOKENS = 8_000;
 export const BEAT_OUTPUT_TOKENS = 8_000;
+export const RESEARCH_OUTPUT_TOKENS = 8_000;
 
 /**
  * Kinds of production that are REPORTED rather than presented, and are shown no character memory.
@@ -195,7 +200,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             return;
         }
 
-        const pass = payload.pass ?? firstPass(existing.writingMode);
+        const pass = payload.pass ?? firstPass(existing);
         // A mode changed under a production already being made. Stopping is the honest outcome: the
         // passes that ran ran, and guessing where it sits in a chain it was never started on is
         // worse than leaving it where an operator can see it.
@@ -235,6 +240,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
     /** One pass. Answers whether it actually ran, so a lost claim stops the chain rather than continuing it. */
     private async runPass(production: Production, pass: ProductionPass): Promise<boolean> {
         switch (pass) {
+            case 'research':
+                return await this.research(production);
             case 'outline':
                 return await this.outline(production);
             case 'draft':
@@ -242,6 +249,58 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             case 'check':
                 return await this.check(production);
         }
+    }
+
+    /**
+     * Read the sources for the notes the production may state as fact. See `production.research.ts`.
+     *
+     * One model call per chunk, each its own admission at the production's own priority, and the
+     * cancellation asked about between them, on #27's rule that a pass is never one long hold. The
+     * row is the checkpoint: the notes are written with the row handed back to `planned`, so a restart
+     * after this finds a production with notes and goes straight to the pass its mode starts with.
+     *
+     * **A research pass that finds nothing fails the production** rather than letting it be written
+     * ungrounded. Somebody who handed it a page asked for a programme about that page, and the
+     * station's general knowledge said vaguely is a different programme from the one they asked for.
+     */
+    private async research(production: Production): Promise<boolean> {
+        const claimed = await this.productions.claim(production.id, 'planned', 'researching');
+        if (claimed === undefined) return false;
+
+        const subject = claimed.brief ?? claimed.title;
+        let notes: string[] = [];
+        let read = 0;
+
+        for (const source of claimed.sources ?? []) {
+            if (notes.length >= MAX_RESEARCH_NOTES) break;
+            if (source.text === undefined) continue;
+
+            let fromSource: string[] = [];
+            for (const chunk of chunksOf(source.text)) {
+                if (fromSource.length >= MAX_NOTES_PER_SOURCE) break;
+                if (await this.productions.isCancelled(claimed.id)) return false;
+
+                const answer = await this.llm.converse(
+                    { messages: researchPrompt({ subject, source, text: chunk }), maxOutputTokens: RESEARCH_OUTPUT_TOKENS, reasoningEffort: 'low' },
+                    { budgetMs: RESEARCH_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
+                );
+                read += 1;
+                fromSource = gather(fromSource, readNotes(answer.text, chunk), MAX_NOTES_PER_SOURCE);
+            }
+
+            notes = gather(notes, fromSource);
+        }
+
+        if (notes.length === 0) {
+            await this.productions.fail(
+                claimed.id,
+                read === 0 ? 'none of its sources had any text to read' : 'its sources gave nothing the station could state as fact',
+            );
+            return false;
+        }
+
+        this.logger.info('productions: read the sources for notes', { production: claimed.id, read, notes: notes.length });
+        return await this.productions.saveNotes(claimed.id, notes);
     }
 
     /**

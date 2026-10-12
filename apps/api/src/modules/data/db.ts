@@ -800,7 +800,8 @@ export interface DeadairProductions {
   personaId: string | null;
   plan: Json | null;
   scheduledFor: DateTime | null;
-  state: Generated<"planned" | "outlining" | "drafting" | "checking" | "rendering" | "stitching" | "ready" | "aired" | "failed" | "cancelled">;
+  sources: Json | null;
+  state: Generated<"planned" | "researching" | "outlining" | "drafting" | "checking" | "rendering" | "stitching" | "ready" | "aired" | "failed" | "cancelled">;
   stationKey: Generated<string>;
   targetMs: number;
   title: string;

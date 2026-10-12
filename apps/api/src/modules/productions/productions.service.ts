@@ -65,6 +65,13 @@ export class ProductionsService {
      * a title is the only thing nobody else can supply.
      */
     async request(body: ProductionRequest): Promise<ProductionView> {
+        // Nothing reads a source that has only an address yet, so one is refused here rather than
+        // accepted and failed later by a research pass with nothing to read.
+        const unreadable = (body.sources ?? []).find(source => (source.text ?? '').trim().length === 0);
+        if (unreadable !== undefined) {
+            throw httpError(400).withDetails({ message: `the source "${unreadable.title}" has no text to read` });
+        }
+
         const kind = body.kind ?? DEFAULT_KIND;
         const production = await this.productions.open({
             kind,
@@ -78,6 +85,7 @@ export class ProductionsService {
             writingMode: body.writingMode ?? stationWritingMode(this.config),
             ...(body.brief === undefined ? {} : { brief: body.brief }),
             ...(body.notes === undefined ? {} : { notes: body.notes }),
+            ...(body.sources === undefined ? {} : { sources: body.sources }),
             ...(body.personaId === undefined ? {} : { personaId: body.personaId }),
             ...(body.scheduledFor === undefined ? {} : { scheduledFor: body.scheduledFor.toMillis() }),
             ...(this.actor() === undefined ? {} : { actorId: this.actor() as string }),
@@ -85,7 +93,7 @@ export class ProductionsService {
 
         // Queued rather than started. The job is what runs the first pass, and it runs it at whatever
         // priority `priorityForSlot` says this production's slot is worth.
-        await this.jobs.send('director.produce', { productionId: production.id, pass: firstPass(production.writingMode) });
+        await this.jobs.send('director.produce', { productionId: production.id, pass: firstPass(production) });
 
         this.logger.info('productions: an operator asked for a production', {
             production: production.id,
@@ -151,6 +159,15 @@ export class ProductionsService {
             title: production.title,
             ...(production.brief === undefined ? {} : { brief: production.brief }),
             ...(production.notes === undefined ? {} : { notes: [...production.notes] }),
+            ...(production.sources === undefined
+                ? {}
+                : {
+                      sources: production.sources.map(source => ({
+                          title: source.title,
+                          ...(source.url === undefined ? {} : { url: source.url }),
+                          ...(source.text === undefined ? {} : { text: source.text }),
+                      })),
+                  }),
             ...(production.personaId === undefined ? {} : { personaId: production.personaId }),
             writingMode: production.writingMode,
             targetMs: production.targetMs,

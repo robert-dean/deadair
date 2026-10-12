@@ -795,6 +795,7 @@ export interface DeadairProductions {
   error: string | null;
   id: Generated<string>;
   kind: Generated<string>;
+  notes: Json | null;
   outline: Json | null;
   personaId: string | null;
   plan: Json | null;

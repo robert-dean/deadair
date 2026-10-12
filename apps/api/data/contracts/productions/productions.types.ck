@@ -19,6 +19,7 @@ contract Production: {
     kind: string(min=1, max=100) # What sort of production: podcast, bulletin, feature. Free text, so a station that wants a documentary strand needs no migration
     title: string(min=1, max=300)
     brief?: string(max=4000) # What was asked for, in the operator's own words. Distinct from the title, which is only a label
+    notes?: array(string(min=1, max=500), max=40) # What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact
     personaId?: string(max=100) # Who presents it. Absent falls back to the station's active persona when a pass runs
     writingMode: enum(quick, outlined, polished) # How many passes to spend on it
     targetMs: int(min=1000) # How long it should run. What the beat count and the per-beat word budgets are computed from
@@ -40,6 +41,7 @@ contract ProductionRequest: {
     kind?: string(min=1, max=100)
     title?: string(min=1, max=300) # Absent is named after its kind and the moment it was asked for, which is what somebody taking a call now wants rather than a box to fill in
     brief?: string(max=4000)
+    notes?: array(string(min=1, max=500), max=40) # What it may state as fact, one short note each. Absent leaves it to general knowledge, said vaguely
     personaId?: string(max=100)
     writingMode?: enum(quick, outlined, polished) # Absent takes the station's `render.productionWritingMode`
     targetMs?: int(min=1000)

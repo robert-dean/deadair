@@ -31,6 +31,8 @@ export interface ProductionRequest {
     /** Absent is named after its kind and the moment it was asked for, which is what somebody taking a call now wants rather than a box to fill in */
     title?: string;
     brief?: string;
+    /** What it may state as fact, one short note each. Absent leaves it to general knowledge, said vaguely */
+    notes?: string[];
     personaId?: string;
     /** Absent takes the station's `render.productionWritingMode` */
     writingMode?: 'quick' | 'outlined' | 'polished';
@@ -58,6 +60,8 @@ export interface Production {
     title: string;
     /** What was asked for, in the operator's own words. Distinct from the title, which is only a label */
     brief?: string;
+    /** What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact */
+    notes?: string[];
     /** Who presents it. Absent falls back to the station's active persona when a pass runs */
     personaId?: string;
     /** How many passes to spend on it */
@@ -84,6 +88,8 @@ export interface ProductionInput {
     title: string;
     /** What was asked for, in the operator's own words. Distinct from the title, which is only a label */
     brief?: string;
+    /** What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact */
+    notes?: string[];
     /** Who presents it. Absent falls back to the station's active persona when a pass runs */
     personaId?: string;
     /** How many passes to spend on it */

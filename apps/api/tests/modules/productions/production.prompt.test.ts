@@ -633,3 +633,47 @@ describe('where here is, in a production', () => {
         expect(rules).not.toContain('You have not been told where the station is');
     });
 });
+
+// Notes are everything a grounded programme may state as fact, said the way a phone-in about the
+// records is held to the notes under each record.
+describe('a programme with notes', () => {
+    const notes = ['The TR-808 came out in 1980.', 'Roland stopped making it in 1983.'];
+    const podcast = { kind: 'podcast', title: 'The machine nobody wanted', ordinal: 1, words: 200 } as const;
+
+    it('hands the outline the notes by index and holds it to them', () => {
+        const user = String(outlinePrompt({ kind: 'podcast', beats: 3, wordsPerBeat: 200, items: notes })[1]?.content);
+
+        expect(user).toContain('0. The TR-808 came out in 1980.');
+        expect(user).toContain('Give every beat the notes it covers in "itemIndexes", and use every note somewhere.');
+        expect(user).toContain('These notes are everything the station knows about this.');
+    });
+
+    // Two rules that disagree produce neither: a programme with notes has source material.
+    it('does not tell an outline with notes that it has none', () => {
+        const user = String(outlinePrompt({ kind: 'podcast', beats: 3, wordsPerBeat: 200, items: notes })[1]?.content);
+
+        expect(user).not.toContain('You have been given no source material');
+        expect(user).not.toContain('The station knows nothing about any record');
+    });
+
+    it('tells a beat its own notes and that they are all the station knows', () => {
+        const user = userOf(turn({ ...podcast, items: [notes[0]!], grounded: true }));
+
+        expect(user).toContain('What this beat covers:\n- The TR-808 came out in 1980.');
+        expect(user).toContain('Say nothing else about it as fact');
+        expect(user).not.toContain("covers none of the programme's notes");
+    });
+
+    it('tells a beat that carries none of the notes to state no facts at all', () => {
+        const user = userOf(turn({ ...podcast, grounded: true }));
+
+        expect(user).toContain("This beat covers none of the programme's notes, so state no facts in it");
+        expect(user).not.toContain('What this beat covers');
+    });
+
+    it('says nothing about notes to a beat of a programme that was given none', () => {
+        const user = userOf(turn(podcast));
+
+        expect(user).not.toContain('notes');
+    });
+});

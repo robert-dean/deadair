@@ -34,6 +34,11 @@ export const ProductionRequest = z.strictObject({
             'Absent is named after its kind and the moment it was asked for, which is what somebody taking a call now wants rather than a box to fill in',
         ),
     brief: z.string().max(4000).optional(),
+    notes: z
+        .array(z.string().min(1).max(500))
+        .max(40)
+        .optional()
+        .describe('What it may state as fact, one short note each. Absent leaves it to general knowledge, said vaguely'),
     personaId: z.string().max(100).optional(),
     writingMode: z.enum(['quick', 'outlined', 'polished']).optional().describe("Absent takes the station's `render.productionWritingMode`"),
     targetMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1000)).optional(),
@@ -58,6 +63,13 @@ export const Production = z.strictObject({
         .max(4000)
         .optional()
         .describe("What was asked for, in the operator's own words. Distinct from the title, which is only a label"),
+    notes: z
+        .array(z.string().min(1).max(500))
+        .max(40)
+        .optional()
+        .describe(
+            'What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact',
+        ),
     personaId: z.string().max(100).optional().describe("Who presents it. Absent falls back to the station's active persona when a pass runs"),
     writingMode: z.enum(['quick', 'outlined', 'polished']).describe('How many passes to spend on it'),
     targetMs: z
@@ -93,6 +105,13 @@ export const ProductionInput = z.strictObject({
         .max(4000)
         .optional()
         .describe("What was asked for, in the operator's own words. Distinct from the title, which is only a label"),
+    notes: z
+        .array(z.string().min(1).max(500))
+        .max(40)
+        .optional()
+        .describe(
+            'What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact',
+        ),
     personaId: z.string().max(100).optional().describe("Who presents it. Absent falls back to the station's active persona when a pass runs"),
     writingMode: z.enum(['quick', 'outlined', 'polished']).describe('How many passes to spend on it'),
     targetMs: z

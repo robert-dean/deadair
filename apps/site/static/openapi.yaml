@@ -12789,6 +12789,14 @@ components:
                     type: string
                     maxLength: 4000
                     description: "What was asked for, in the operator's own words. Distinct from the title, which is only a label"
+                notes:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 500
+                    maxItems: 40
+                    description: 'What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact'
                 personaId:
                     type: string
                     maxLength: 100
@@ -12869,6 +12877,14 @@ components:
                 brief:
                     type: string
                     maxLength: 4000
+                notes:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 500
+                    maxItems: 40
+                    description: 'What it may state as fact, one short note each. Absent leaves it to general knowledge, said vaguely'
                 personaId:
                     type: string
                     maxLength: 100

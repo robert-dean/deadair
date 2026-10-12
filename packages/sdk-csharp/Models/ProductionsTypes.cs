@@ -48,6 +48,11 @@ public sealed record ProductionRequest
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Brief { get; init; }
 
+    /// <summary>What it may state as fact, one short note each. Absent leaves it to general knowledge, said vaguely</summary>
+    [JsonPropertyName("notes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Notes { get; init; }
+
     [JsonPropertyName("personaId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PersonaId { get; init; }
@@ -83,6 +88,11 @@ public sealed record Production
     [JsonPropertyName("brief")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Brief { get; init; }
+
+    /// <summary>What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact</summary>
+    [JsonPropertyName("notes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Notes { get; init; }
 
     /// <summary>Who presents it. Absent falls back to the station's active persona when a pass runs</summary>
     [JsonPropertyName("personaId")]
@@ -141,6 +151,11 @@ public sealed record ProductionInput
     [JsonPropertyName("brief")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Brief { get; init; }
+
+    /// <summary>What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact</summary>
+    [JsonPropertyName("notes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Notes { get; init; }
 
     /// <summary>Who presents it. Absent falls back to the station's active persona when a pass runs</summary>
     [JsonPropertyName("personaId")]

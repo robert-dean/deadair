@@ -33,7 +33,7 @@ import { checkBeat, correctionNote } from './production.checks.js';
 import { callSubjectOf, isDialogue, isVisitor, speakerOrder, turnWeights, type CastMember, type ProductionCast } from './production.cast.js';
 import { ProductionCaster } from './production.caster.js';
 import { cuesFor } from './production.cues.js';
-import { planProduction, turnsFor } from './production.plan.js';
+import { beatNotes, planProduction, turnsFor } from './production.plan.js';
 import { askForBeat, attemptsBefore } from './beat.answer.js';
 import { beatPrompt, outlinePrompt, runInFrom } from './production.prompt.js';
 import { coerceOutline, priorityForSlot, type Production, type ProductionPass, type ProductionPlan } from './production.js';
@@ -266,6 +266,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         ...onAir(claimed),
                         ...(claimed.brief === undefined ? {} : { brief: claimed.brief }),
                         ...(subject === undefined ? {} : { subject }),
+                        ...(claimed.notes === undefined ? {} : { items: claimed.notes }),
                         beats: plan.beats.length,
                         wordsPerBeat: plan.beats[0]?.words ?? 0,
                         // No persona: the outline decides what the programme is ABOUT, and the beats
@@ -297,10 +298,13 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // still busy" — so a second ask may hit the same wall; it costs another `LlmGate` wait on a
         // background-priority call and nothing on the air path. Measured live: 8 of 12 productions
         // aired with no outline at all.
-        let outline = coerceOutline(parseJson((await ask()).text), 0);
+        // The note count, so an index naming a note that exists is kept and one naming a note that
+        // does not is dropped. It was hard-wired to nothing while nothing handed the outline any.
+        const notes = claimed.notes?.length ?? 0;
+        let outline = coerceOutline(parseJson((await ask()).text), notes);
         if (outline === undefined) {
             this.logger.info('productions: the outline came back unusable, so it is being asked again', { production: claimed.id });
-            outline = coerceOutline(parseJson((await ask()).text), 0);
+            outline = coerceOutline(parseJson((await ask()).text), notes);
         }
 
         // Still a model that gave nothing usable, which is not a failure of the production: the plan
@@ -351,6 +355,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // resolving the presenter — every beat is theirs, exactly as it was.
         const casting = shaped.casting ?? [];
         const subject = callSubjectOf(claimed.brief, casting);
+        // Which notes each beat carries, decided once for the whole programme. See `beatNotes`.
+        const covers = beatNotes(claimed.notes, claimed.outline, plan.beats.length);
         // One read per character rather than one per beat. A production is up to twenty-four beats
         // and the sheet does not change while it is being written.
         const sheets = await this.sheets(claimed, casting);
@@ -409,6 +415,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 words: beat.words,
                 ...(claimed.outline === undefined ? {} : { outline: claimed.outline }),
                 ...(outlineBeat === undefined ? {} : { beat: outlineBeat }),
+                ...notesFor(covers, beat.ordinal),
                 ...(runIn === undefined ? {} : { runIn }),
                 ...(persona === undefined ? {} : { persona }),
                 ...(spent.length === 0 ? {} : { spent }),
@@ -552,6 +559,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         const plan = claimed.plan ?? planProduction(claimed.targetMs);
         const casting = claimed.casting ?? [];
         const subject = callSubjectOf(claimed.brief, casting);
+        // The same division the draft was written to, so a re-draft is held to the notes it had.
+        const covers = beatNotes(claimed.notes, claimed.outline, plan.beats.length);
         const sheets = await this.sheets(claimed, casting);
         const engine = await this.performable();
         const station = this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
@@ -594,6 +603,9 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 ...(records === undefined ? {} : { records }),
                 raised: [
                     ...(claimed.brief === undefined ? [] : [claimed.brief]),
+                    // What the notes say counts as raised, so a programme the notes put a storm in is
+                    // not refused for mentioning the weather.
+                    ...(claimed.notes ?? []),
                     ...beats
                         .slice(0, index)
                         .flatMap((earlier, before) => (isVisitor(casting[plan.beats[before]?.speaker ?? 0]) ? [earlier.script ?? ''] : [])),
@@ -615,6 +627,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         words: plan.beats[index]?.words ?? 200,
                         ...(claimed.outline === undefined ? {} : { outline: claimed.outline }),
                         ...(claimed.outline?.beats[index] === undefined ? {} : { beat: claimed.outline.beats[index]! }),
+                        ...notesFor(covers, index),
                         ...(runIn === undefined ? {} : { runIn }),
                         ...(persona === undefined ? {} : { persona }),
                         // Everything THIS SPEAKER says EXCEPT this beat: a re-draft must not be told
@@ -1211,4 +1224,15 @@ function parseJson(answer: string): unknown {
     } catch {
         return undefined;
     }
+}
+
+/**
+ * A beat's notes as its prompt takes them: the ones it covers, and that the programme has notes at
+ * all. Nothing for a production that was given none, so its beats are asked exactly what they always
+ * were.
+ */
+function notesFor(covers: readonly (readonly string[])[] | undefined, ordinal: number): { items?: readonly string[]; grounded?: true } {
+    if (covers === undefined) return {};
+    const mine = covers[ordinal] ?? [];
+    return mine.length === 0 ? { grounded: true } : { items: mine, grounded: true };
 }

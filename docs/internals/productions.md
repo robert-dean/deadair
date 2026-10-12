@@ -149,6 +149,32 @@ read is best-effort: a failure costs the records and the call falls back to the 
 persona row seeded before the countdown sheet gained `keen` (2026-09-22) does not have it, since seeds never
 overwrite a row.
 
+## What it may state as fact
+
+**A production given notes says nothing as fact that the notes do not give** (`productions.notes`,
+`beatNotes` in `production.plan.ts`). Every pass runs with no tools, and `groundingRules` keeps a beat to the
+general thing wherever it is not certain, so a podcast about a subject used to be the model's general
+knowledge with every specific taken out: true, and saying very little. Notes are the specifics it is allowed.
+
+**They reach the outline through the item slot that was already there and never filled.** `OutlineRequest.items`
+and `OutlineBeat.itemIndexes` were written for a production handed things to cover, and the job passed neither:
+`coerceOutline` was called with an item count of zero, so an index the model named was dropped as out of range.
+The outline is now handed the notes by index and told to give every beat the ones it covers, and each beat is
+handed only its own. That is also the context argument at the top of `production.prompt.ts`: a beat never
+carries the whole list, let alone the text the notes were taken from.
+
+**The station divides them whenever the model did not**: a `quick` production, an outline the model could not
+make twice, or an outline that named no notes at all. The last one matters most. Left alone, every beat would
+be told the notes are everything the station knows and then be handed none, which is a grounded programme
+that says nothing, so `beatNotes` treats it exactly like no outline and spreads them with `spreadItems`.
+
+**The sentence is `recordsLine`'s, moved from records to notes** (`NOTES_ARE_EVERYTHING`), and it replaces
+the outline's "no source material" block rather than joining it, for the reason the records version gives:
+two rules that disagree produce neither. A beat of a grounded programme that carries no notes (an opening, a
+link, a close) is told to state no facts at all (`NOTES_ELSEWHERE`), since the general rules would let it reach
+for the very specifics the notes were there to supply. The notes also count as raised for the check pass, so a
+programme whose notes put a storm in it is not refused for mentioning the weather.
+
 ## How long a turn is, and who takes it
 
 **Who says a turn is arithmetic**: `OutlineBeat.lead` is deleted and `BeatPlan.speaker` replaced it, on

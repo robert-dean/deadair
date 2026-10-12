@@ -26,6 +26,8 @@ data class ProductionRequest(
     /** Absent is named after its kind and the moment it was asked for, which is what somebody taking a call now wants rather than a box to fill in */
     val title: String? = null,
     val brief: String? = null,
+    /** What it may state as fact, one short note each. Absent leaves it to general knowledge, said vaguely */
+    val notes: List<String>? = null,
     val personaId: String? = null,
     /** Absent takes the station's `render.productionWritingMode` */
     val writingMode: ProductionRequestWritingMode? = null,
@@ -42,6 +44,8 @@ data class Production(
     val title: String,
     /** What was asked for, in the operator's own words. Distinct from the title, which is only a label */
     val brief: String? = null,
+    /** What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact */
+    val notes: List<String>? = null,
     /** Who presents it. Absent falls back to the station's active persona when a pass runs */
     val personaId: String? = null,
     /** How many passes to spend on it */
@@ -70,6 +74,8 @@ data class ProductionInput(
     val title: String,
     /** What was asked for, in the operator's own words. Distinct from the title, which is only a label */
     val brief: String? = null,
+    /** What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact */
+    val notes: List<String>? = null,
     /** Who presents it. Absent falls back to the station's active persona when a pass runs */
     val personaId: String? = null,
     /** How many passes to spend on it */

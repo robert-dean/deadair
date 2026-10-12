@@ -71,6 +71,15 @@ try {
     check(opened.casting === undefined, 'nobody is cast at commission: the roster can change in the hours before the first pass runs');
     check(opened.scheduledFor === undefined, 'an unscheduled production reads as undefined rather than null');
     check(opened.writingMode === 'outlined', 'the writing mode comes back');
+    check(opened.notes === undefined, 'a production nobody gave notes reads as undefined rather than an empty list');
+
+    const grounded = await open({ notes: [' The TR-808 came out in 1980. ', '', 'Roland stopped making it in 1983.'] });
+    check(
+        JSON.stringify(grounded.notes) === JSON.stringify(['The TR-808 came out in 1980.', 'Roland stopped making it in 1983.']),
+        'notes come back trimmed, in order, with the empty one dropped',
+    );
+    const blank = await open({ notes: ['  ', ''] });
+    check(blank.notes === undefined, 'a list of nothing but blanks is stored as no notes, never as a grounded programme with none');
 
     // ── the claim is what makes one job per pass safe ─────────────────────────
     const first = await productions.claim(opened.id, 'planned', 'outlining');

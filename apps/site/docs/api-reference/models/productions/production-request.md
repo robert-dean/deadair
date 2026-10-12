@@ -8,13 +8,14 @@ mdx:
 > What an operator asks for. Everything else about a production is decided by the passes that make it
 
 <details>
-<summary>Attributes (7)</summary>
+<summary>Attributes (8)</summary>
 
 | Attribute      | Type                                  | Required | Description                                                                                                                                 |
 | -------------- | ------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `kind`         | `string`                              | No       |                                                                                                                                             |
 | `title`        | `string`                              | No       | Absent is named after its kind and the moment it was asked for, which is what somebody taking a call now wants rather than a box to fill in |
 | `brief`        | `string`                              | No       |                                                                                                                                             |
+| `notes`        | `string[]`                            | No       | What it may state as fact, one short note each. Absent leaves it to general knowledge, said vaguely                                         |
 | `personaId`    | `string`                              | No       |                                                                                                                                             |
 | `writingMode`  | `'quick' \| 'outlined' \| 'polished'` | No       | Absent takes the station's `render.productionWritingMode`                                                                                   |
 | `targetMs`     | `number`                              | No       |                                                                                                                                             |

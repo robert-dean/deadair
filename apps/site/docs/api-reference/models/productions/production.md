@@ -8,7 +8,7 @@ mdx:
 > Something the station makes rather than something it says: several beats of speech, written in several passes, that airs as one block
 
 <details>
-<summary>Attributes (14)</summary>
+<summary>Attributes (15)</summary>
 
 | Attribute      | Type                                                                                                                                  | Required | Description                                                                                                                                    |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -16,6 +16,7 @@ mdx:
 | `kind`         | `string`                                                                                                                              | Yes      | What sort of production: podcast, bulletin, feature. Free text, so a station that wants a documentary strand needs no migration                |
 | `title`        | `string`                                                                                                                              | Yes      |                                                                                                                                                |
 | `brief`        | `string`                                                                                                                              | No       | What was asked for, in the operator's own words. Distinct from the title, which is only a label                                                |
+| `notes`        | `string[]`                                                                                                                            | No       | What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact        |
 | `personaId`    | `string`                                                                                                                              | No       | Who presents it. Absent falls back to the station's active persona when a pass runs                                                            |
 | `writingMode`  | `'quick' \| 'outlined' \| 'polished'`                                                                                                 | Yes      | How many passes to spend on it                                                                                                                 |
 | `targetMs`     | `number`                                                                                                                              | Yes      | How long it should run. What the beat count and the per-beat word budgets are computed from                                                    |

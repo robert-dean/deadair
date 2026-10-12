@@ -12,7 +12,7 @@ import { ErrorAlert } from '../shared/error.alert';
 /**
  * Asking the station for a programme.
  *
- * Seven fields, and only one is required. Everything else falls back to a station default rather than
+ * Eight fields, and only one is required. Everything else falls back to a station default rather than
  * being demanded, because the only thing nobody else can supply is what the thing is called — the
  * length, the writing mode and the presenter all have settings, and a form that insisted on them
  * would be asking an operator to re-decide the same things every time.
@@ -31,16 +31,26 @@ export interface ProductionFormProps {
 /** The modes, said the way the settings page says them, so an operator meets one vocabulary. */
 const MODES = ['quick', 'outlined', 'polished'] as const;
 
-/** The seven boxes as the form holds them, before the empty ones are dropped on the way out. */
+/** The eight boxes as the form holds them, before the empty ones are dropped on the way out. */
 interface FormValues {
     title: string;
     brief: string;
+    /** One note per line, as typed. Split, trimmed and the blank lines dropped on the way out. */
+    notes: string;
     kind: string;
     minutes: number | string;
     mode: string | null;
     personaId: string | null;
     /** The picker's own value: a local wall-clock time as `YYYY-MM-DD HH:mm:ss`, or null for "when it is ready". */
     airAt: string | null;
+}
+
+/** The notes box as the request carries it: one note per line, trimmed, the blank lines dropped. */
+export function notesOf(typed: string): string[] {
+    return typed
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
 }
 
 /**
@@ -64,7 +74,7 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
         // Controlled, like the settings form: Mantine's uncontrolled default does not re-render an
         // input when its ERROR changes, so a refusal would be held and never drawn.
         mode: 'controlled',
-        initialValues: { title: '', brief: '', kind: 'podcast', minutes: '', mode: null, personaId: null, airAt: null },
+        initialValues: { title: '', brief: '', notes: '', kind: 'podcast', minutes: '', mode: null, personaId: null, airAt: null },
         // The one thing that is actually required. It used to be enforced by a disabled button and a
         // silent `return`, which says nothing at all about why: a form that will not submit and will
         // not say why is the same failure as a line an operator mistyped.
@@ -73,10 +83,12 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
 
     const submit = (values: FormValues) => {
         const scheduledFor = scheduledForOf(values.airAt);
+        const notes = notesOf(values.notes);
         onSubmit({
             title: values.title.trim(),
             ...(values.kind.trim().length === 0 ? {} : { kind: values.kind.trim() }),
             ...(values.brief.trim().length === 0 ? {} : { brief: values.brief.trim() }),
+            ...(notes.length === 0 ? {} : { notes }),
             ...(typeof values.minutes === 'number' && values.minutes > 0 ? { targetMs: values.minutes * 60_000 } : {}),
             ...(values.mode === null ? {} : { writingMode: values.mode as ProductionRequest['writingMode'] }),
             ...(values.personaId === null ? {} : { personaId: values.personaId }),
@@ -113,6 +125,15 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
                         autosize
                         minRows={3}
                         {...form.getInputProps('brief')}
+                    />
+
+                    <Textarea
+                        label={t('form.notes.label')}
+                        description={t('form.notes.description')}
+                        placeholder={t('form.notes.placeholder')}
+                        autosize
+                        minRows={3}
+                        {...form.getInputProps('notes')}
                     />
 
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">

@@ -115,6 +115,11 @@ export interface Production {
     kind: string;
     title: string;
     brief?: string;
+    /**
+     * What it may state as fact, one short note each. The outline divides them between the beats and
+     * each beat is told its own; absent is a production left to general knowledge, said vaguely.
+     */
+    notes?: readonly string[];
     personaId?: string;
     /** Who is in it, decided once by the first pass. Absent for a production made before it was cast. */
     casting?: ProductionCast;
@@ -227,4 +232,20 @@ function itemIndexList(raw: Record<string, unknown>): number[] {
     if (Array.isArray(raw.itemIndexes)) return raw.itemIndexes.filter((value): value is number => typeof value === 'number');
     if (typeof raw.itemIndex === 'number') return [raw.itemIndex];
     return [];
+}
+
+/**
+ * Notes as they should be stored and read: trimmed, the empty ones dropped, and nothing at all for a
+ * list with nothing left in it.
+ *
+ * One reading for both directions, because a note that is only whitespace is not a fact anybody gave,
+ * and an empty list stored as `[]` would be a production that looks grounded and is handed nothing.
+ */
+export function cleanNotes(value: unknown): string[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+    const notes = value
+        .filter((note): note is string => typeof note === 'string')
+        .map(note => note.trim())
+        .filter(note => note.length > 0);
+    return notes.length === 0 ? undefined : notes;
 }

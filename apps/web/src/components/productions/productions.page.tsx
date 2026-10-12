@@ -204,6 +204,7 @@ function describe(production: Production, t: TFunction<'productions'>): string {
         t('describe.mode', { mode: production.writingMode }),
     ];
 
+    if ((production.notes?.length ?? 0) > 0) parts.push(t('describe.notes', { count: production.notes!.length }));
     if (production.beats > 0) parts.push(t('describe.beats', { count: production.beats }));
     if (production.scheduledFor !== undefined) parts.push(t('describe.due', { when: moment(production.scheduledFor) }));
 

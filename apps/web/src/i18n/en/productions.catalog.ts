@@ -42,6 +42,8 @@ export const productions = {
         beats_one: '{{count}} beat written',
         beats_other: '{{count}} beats written',
         due: 'due {{when}}',
+        notes_one: 'grounded in {{count}} note',
+        notes_other: 'grounded in {{count}} notes',
     },
     form: {
         error: 'Could not ask for that production',
@@ -55,6 +57,12 @@ export const productions = {
             label: 'What it should be about',
             description: 'In your own words. This is what the planning pass actually works from, and it matters far more than the title does.',
             placeholder: 'The history of the TR-808: why it flopped, who rescued it, and what it did to pop music.',
+        },
+        notes: {
+            label: 'Notes',
+            description:
+                'One per line: the facts it may state. Given notes, it says nothing as fact that they do not give. Left empty, it talks from general knowledge and keeps the specifics vague.',
+            placeholder: 'The TR-808 came out in 1980.\nRoland stopped making it in 1983, after about 12,000 had been built.',
         },
         kind: {
             label: 'Kind',

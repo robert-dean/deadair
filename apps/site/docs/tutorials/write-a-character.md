@@ -30,6 +30,12 @@ nothing is waiting on it.
 After a few seconds the fields below fill in: who they are, how they talk, the lines they fall back
 on, sample lines and the words that prove a break came back in character. Nothing is saved yet.
 
+The lines they fall back on are **Their own phrasings**, what the character says when no model writes
+the break. The model writes six: what just played and what is next, only what is next, the station's
+name, only what just played, one with the hour and one with the part of the day, such as
+`You're with {{station.name}} {{clock.daypart}}.` [Writing phrasings](../features/characters.md#writing-phrasings)
+lists every `{{placeholder}}` they can use.
+
 ### 2. Read it, then save
 
 Read the sheet before saving it. Change anything that is not right: it is yours now.

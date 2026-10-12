@@ -62,21 +62,28 @@ That was {{previous.title}}, from {{previous.artist}}.[[ Next up, {{next.title}}
 | `{{previous.artist}}` | who made it | as above |
 | `{{previous.chart.rank}}` | its position on the chart it came from | a record no chart placed |
 | `{{previous.chart.name}}` | that chart's name | as above |
+| `{{previous.album}}` | the album it is from, without "(Deluxe Edition)" and the like | the station does not know it |
+| `{{previous.year}}` | the year it came out | as above |
 | `{{next.title}}` | the record coming up | nothing is queued yet |
 | `{{next.artist}}` | who made it | as above |
 | `{{next.chart.rank}}` | its position on its chart | a record no chart placed |
 | `{{next.chart.name}}` | that chart's name | as above |
+| `{{next.album}}` | the album it is from | the station does not know it |
+| `{{next.year}}` | the year it came out | as above |
 | `{{station.name}}` | the station's name | never empty |
 | `{{dj.name}}` | the character's "On-air name", else the station's presenter name | neither is set |
-| `{{clock.rough}}` | the time in words, such as "just after nine" | every break but one the format clock placed to give the time |
+| `{{clock.daypart}}` | the part of the day: "this morning", "this afternoon", "this evening" or "tonight" | a break that does not yet know when it airs |
+| `{{clock.weekday}}` | the day of the week, such as "Friday" | as above |
+| `{{clock.rough}}` | the time in words, such as "just after nine" | every break while **Let the station say the hour**, under Settings, Station, is off, as it is to begin with |
 
 `{{previous.name}}` and `{{next.name}}` are the same as `.title`, and `{{previous.artist.name}}` and `{{next.artist.name}}` the same as `.artist`, so a line can read either way.
 
-Three rules decide which line is used:
+Four rules decide which line is used:
 
 - **When a record has just played, only lines that name it are used.** A line with no `{{previous.…}}` is kept for the break where there is no record to look back on.
 - **Lines recently said are rested**, so the same sentence does not come round every few records.
-- **On a station that does not broadcast in English**, `{{clock.rough}}` is never filled, since the station writes the time in English. A line naming it is never used there.
+- **A line that says the time is only true for so long.** One that said "this morning" and was moved past noon, or "Friday" and moved past midnight, is written again before it airs.
+- **On a station that does not broadcast in English**, `{{clock.rough}}`, `{{clock.daypart}}` and `{{clock.weekday}}` are never filled, since the station writes them in English. A line naming one is never used there.
 
 The console marks a line that names a placeholder it does not know (a typo such as `{{next.titel}}` would otherwise never be used, silently), one with a single square bracket outside `[[…]]` (it would be read out), and one with no placeholder at all (it would be the same sentence every time). None of these stops a save.
 
@@ -86,14 +93,14 @@ Everything the station says outside a talk break is phrased under Voice, Phrasin
 
 | Box | Also fills |
 | --- | --- |
-| What the station says to a new listener | `{{next.…}}`, `{{greeting}}` |
+| What the station says to a new listener | `{{next.…}}`, `{{greeting}}`, `{{clock.daypart}}`, `{{clock.weekday}}` |
 | What the station says in a jingle | nothing else |
-| What the station says when the show changes | `{{greeting}}`, `{{outgoing.name}}` (the presenter going off, when it is somebody else), `{{outgoing.show}}`, `{{show.name}}` (the show starting) |
-| How the station introduces the news | `{{news.headlines}}` (the whole read), `{{news.topic}}` (a band's subject, such as Technology), `{{next.…}}`, `{{clock.rough}}`, `{{greeting}}` |
-| How the station gives the weather | `{{weather.report}}`, `{{weather.place}}`, `{{news.topic}}`, `{{next.…}}`, `{{clock.rough}}`, `{{greeting}}` |
-| How the station reads the date out | `{{almanac.report}}`, `{{almanac.date}}`, `{{next.…}}`, `{{clock.rough}}`, `{{greeting}}` |
+| What the station says when the show changes | `{{greeting}}`, `{{clock.daypart}}`, `{{clock.weekday}}`, `{{outgoing.name}}` (the presenter going off, when it is somebody else), `{{outgoing.show}}`, `{{show.name}}` (the show starting) |
+| How the station introduces the news | `{{news.headlines}}` (the whole read), `{{news.topic}}` (a band's subject, such as Technology), `{{next.…}}`, `{{clock.rough}}`, `{{clock.daypart}}`, `{{clock.weekday}}`, `{{greeting}}` |
+| How the station gives the weather | `{{weather.report}}`, `{{weather.place}}`, `{{news.topic}}`, `{{next.…}}`, `{{clock.rough}}`, `{{clock.daypart}}`, `{{clock.weekday}}`, `{{greeting}}` |
+| How the station reads the date out | `{{almanac.report}}`, `{{almanac.date}}`, `{{next.…}}`, `{{clock.rough}}`, `{{clock.daypart}}`, `{{clock.weekday}}`, `{{greeting}}` |
 
-`{{greeting}}` is "good morning", "good evening" and so on, and is empty in the small hours. Like `{{clock.rough}}`, it and the weather and This Day reports are written in English, so on a station in another language they are never filled.
+`{{greeting}}` is "good morning", "good evening" and so on, and is empty in the small hours, where `{{clock.daypart}}` says "tonight". Like the three `{{clock.…}}` values, it and the weather and This Day reports are written in English, so on a station in another language they are never filled.
 
 ## What a script can carry
 

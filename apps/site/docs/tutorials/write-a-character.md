@@ -91,6 +91,43 @@ above, or ask Claude to put them on air.
 Claude can also work on characters you already have: "give the late-night host three more sample
 lines about the city at 3am" edits the sheet in place.
 
+## Reference: placeholders for their phrasings
+
+**Their own phrasings** are what the character says when the model declines, one per line. These are
+every placeholder a character's phrasing can use:
+
+| Placeholder | Fills with |
+| --- | --- |
+| `{{previous.title}}` | the record that just played |
+| `{{previous.artist}}` | who made it |
+| `{{previous.chart.rank}}` | its position on the chart it came from |
+| `{{previous.chart.name}}` | that chart's name |
+| `{{next.title}}` | the record coming up |
+| `{{next.artist}}` | who made it |
+| `{{next.chart.rank}}` | its position on the chart it came from |
+| `{{next.chart.name}}` | that chart's name |
+| `{{station.name}}` | the station's name |
+| `{{dj.name}}` | the character's **On-air name**, else the station's presenter name |
+| `{{clock.rough}}` | the time in words, such as "just after nine", on a break placed to give the time |
+
+`{{previous.name}}` and `{{next.name}}` mean the same as `.title`, and `{{previous.artist.name}}` and
+`{{next.artist.name}}` the same as `.artist`.
+
+Wrap a part in `[[double brackets]]` to have it dropped when a placeholder inside has nothing to fill
+it; a placeholder outside them with nothing to fill it rules the whole line out for that break. Start
+a line with `#` to turn it off.
+
+```text
+That was {{previous.title}}, from {{previous.artist}}.[[ Next up, {{next.title}}.]]
+[[At number {{next.chart.rank}}, ]]here's {{next.artist}}.
+```
+
+After a record has played, only lines naming it are used, so write most lines around
+`{{previous.…}}`. The station's own boxes under Voice → Phrasings (the welcome, the news, the weather
+and the rest) have placeholders of their own, and [writing phrasings](../features/characters.md#writing-phrasings)
+lists those and every rule above. Tags such as `[laugh]` and `[sfx:airhorn]` are for the model, not for
+phrasings: see [what a script can carry](../features/characters.md#what-a-script-can-carry).
+
 ## If it goes wrong
 
 - **Nothing was written.** No model is answering. Check [Give the station a model](./connect-a-model.md)

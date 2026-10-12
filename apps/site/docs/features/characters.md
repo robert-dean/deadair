@@ -40,6 +40,108 @@ A talk break or a welcome is also checked against what the station said a few br
 
 "How much they say" (short, or one line) only ever asks for less. "How much rope they get" (loose, or unleashed) is a permission: room to follow a thought instead of making one point, a ceiling of at least seventy or a hundred words, and at the top rung a looser content licence. It applies to links, welcomes and the character's own stories, never the news or the weather. It never widens station policy: an unleashed character on a clean station talks clean. It switches off no refusal: a break that names neither record or drops the character is still declined.
 
+## Writing phrasings
+
+"Their own phrasings" are sentences with holes in them, one per line. A line starting with `#` is turned off without being lost, and blank lines are ignored.
+
+```text
+That was {{previous.title}}, from {{previous.artist}}.[[ Next up, {{next.title}}.]]
+[[At number {{next.chart.rank}}, ]]here's {{next.artist}}.
+# Kept for later: This is {{dj.name}} on {{station.name}}.
+```
+
+- `{{…}}` is a placeholder, filled in on each break.
+- `[[…]]` is an optional part, dropped whole when a placeholder inside it has nothing to fill it.
+- A placeholder outside `[[…]]` that has nothing to fill it rules the whole line out for that break. That is how a line keeps to the breaks it suits, with no conditions to write.
+
+### Placeholders in a character's phrasings
+
+| Placeholder | Fills with | When it has nothing |
+| --- | --- | --- |
+| `{{previous.title}}` | the record that just played | the first break after a quiet spell |
+| `{{previous.artist}}` | who made it | as above |
+| `{{previous.chart.rank}}` | its position on the chart it came from | a record no chart placed |
+| `{{previous.chart.name}}` | that chart's name | as above |
+| `{{next.title}}` | the record coming up | nothing is queued yet |
+| `{{next.artist}}` | who made it | as above |
+| `{{next.chart.rank}}` | its position on its chart | a record no chart placed |
+| `{{next.chart.name}}` | that chart's name | as above |
+| `{{station.name}}` | the station's name | never empty |
+| `{{dj.name}}` | the character's "On-air name", else the station's presenter name | neither is set |
+| `{{clock.rough}}` | the time in words, such as "just after nine" | every break but one the format clock placed to give the time |
+
+`{{previous.name}}` and `{{next.name}}` are the same as `.title`, and `{{previous.artist.name}}` and `{{next.artist.name}}` the same as `.artist`, so a line can read either way.
+
+Three rules decide which line is used:
+
+- **When a record has just played, only lines that name it are used.** A line with no `{{previous.…}}` is kept for the break where there is no record to look back on.
+- **Lines recently said are rested**, so the same sentence does not come round every few records.
+- **On a station that does not broadcast in English**, `{{clock.rough}}` is never filled, since the station writes the time in English. A line naming it is never used there.
+
+The console marks a line that names a placeholder it does not know (a typo such as `{{next.titel}}` would otherwise never be used, silently), one with a single square bracket outside `[[…]]` (it would be read out), and one with no placeholder at all (it would be the same sentence every time). None of these stops a save.
+
+### The station's own phrasings
+
+Everything the station says outside a talk break is phrased under Voice, Phrasings, in the same syntax, and belongs to the station rather than to a character. `{{station.name}}` and `{{dj.name}}` work in all of them. The rest depends on the moment:
+
+| Box | Also fills |
+| --- | --- |
+| What the station says to a new listener | `{{next.…}}`, `{{greeting}}` |
+| What the station says in a jingle | nothing else |
+| What the station says when the show changes | `{{greeting}}`, `{{outgoing.name}}` (the presenter going off, when it is somebody else), `{{outgoing.show}}`, `{{show.name}}` (the show starting) |
+| How the station introduces the news | `{{news.headlines}}` (the whole read), `{{news.topic}}` (a band's subject, such as Technology), `{{next.…}}`, `{{clock.rough}}`, `{{greeting}}` |
+| How the station gives the weather | `{{weather.report}}`, `{{weather.place}}`, `{{news.topic}}`, `{{next.…}}`, `{{clock.rough}}`, `{{greeting}}` |
+| How the station reads the date out | `{{almanac.report}}`, `{{almanac.date}}`, `{{next.…}}`, `{{clock.rough}}`, `{{greeting}}` |
+
+`{{greeting}}` is "good morning", "good evening" and so on, and is empty in the small hours. Like `{{clock.rough}}`, it and the weather and This Day reports are written in English, so on a station in another language they are never filled.
+
+## What a script can carry
+
+Besides words, a character's script can carry three kinds of tag in square brackets. Each is performed or played rather than read out. A model writing as the character is told which ones it may use, and only those, so you never type them into a sheet. They are listed here so you know what to expect in What it said.
+
+### Reactions
+
+A reaction is written at the point it happens: `That one never gets old [laugh] and here it is again.`
+
+| Tag | Host or guest | Caller |
+| --- | --- | --- |
+| `[laugh]` | yes | yes |
+| `[chuckle]` | yes | yes |
+| `[sigh]` | yes | yes |
+| `[gasp]` | yes | yes |
+| `[cough]` | no | yes |
+| `[clear throat]` | no | yes |
+| `[sniff]` | no | yes |
+| `[groan]` | no | yes |
+
+A presenter keeps to the first four, because somebody paid to talk into a microphone who coughs sounds ill. A [caller](./phone-ins.md) on the telephone may use all eight, since that is the realism. One reaction per break at most, and the model is asked to use none unless it would actually have done it.
+
+Reactions are offered in talk breaks, the character's own stories and the turns of a production. Never in the news, the weather or a welcome.
+
+### A reading of the whole break
+
+| Tag | How it is read |
+| --- | --- |
+| `[hushed]` | quieter, slower, closer to the microphone |
+| `[frantic]` | urgent, faster, barely holding on |
+
+It goes first, before any words, and the whole break is read that way. Anywhere else it is dropped. Only talk breaks are offered one, and most want neither.
+
+### The soundboard
+
+`[sfx:name]` plays a sound from the character's soundboard at that point in the sentence, where `name` is the pad's name on Voice, Soundboard (lower-case letters, digits and hyphens, taken from the file's name). Only pads on the presenting character's board are offered, at most one per break, and only in talk breaks and production turns. A pad can be limited to the start, the middle or the end of a break, and given a note on when to reach for it ("after a terrible pun"); the model is shown both. With no model, a talk break written from the phrasings can end on a pad as a sting, once every few breaks.
+
+### What the engine decides
+
+A tag is only offered when the speech engine can perform it right now, and any tag it cannot is taken out before the words are spoken, so an engine never reads "laugh" aloud.
+
+- **Kokoro** performs none of them.
+- **Chatterbox** performs the reactions on its `turbo` model and the readings on `original` and `multilingual`, never both at once. Test connection says which the loaded model does.
+- **ElevenLabs** (Eleven v4) performs `[laugh]`, `[sigh]`, `[gasp]` and `[clear throat]`, and both readings.
+- **Rhapsode** performs whatever its server says each engine can.
+
+A soundboard pad never reaches the engine at all: the station mixes the sound in itself, so it works with any voice.
+
 ## The notebook
 
 With "Let a model read each character back to itself" on under Settings, Words (off by default), a model reads each character's broadcast words once a night and writes two kinds of note. A "said before" note records something the character actually said, with the script as evidence, and goes into use unattended. A "settled into" note is an inference about who the character is becoming. No quote can prove that, so it arrives as a suggestion and waits for you. A note you reject stays rejected, and you can write your own. Nothing is learned from a break you thumbed down, so a character cannot be taught to repeat something you said you disliked.

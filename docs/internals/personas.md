@@ -82,7 +82,7 @@ elsewhere (`callSubjectOf`, `exclusiveSubjects`) and select differently: exactly
 **On a station that is not English the sheet is written in that language**, and the writer asks for it:
 `personaPrompt` takes the station language and asks for the samples, markers, catchphrases, avoid list,
 stories and templates in it, with the descriptive fields left in English because they are read by the console
-and the next prompt rather than by a listener. It also asks for no `{{clock.rough}}`, `{{clock.daypart}}` or `{{greeting}}` in
+and the next prompt rather than by a listener. It also asks for no `{{clock.rough}}`, `{{clock.daypart}}`, `{{clock.weekday}}` or `{{greeting}}` in
 the templates, since the station fills those in English and a phrasing that names one is never used. The marker
 check is loosened for the language rather than translated; see `breaks.md` § "The station's language".
 

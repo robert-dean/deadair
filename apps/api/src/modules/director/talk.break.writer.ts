@@ -97,6 +97,7 @@ export class TalkBreakWriter extends BreakWriter {
             ...(dj.length === 0 ? {} : { dj }),
             ...(request.clock === undefined ? {} : { clock: request.clock.words }),
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart.words }),
+            ...(request.weekday === undefined ? {} : { weekday: request.weekday.words }),
         };
 
         // The persona's own phrasings, read off the request, so an operator editing a character
@@ -122,7 +123,7 @@ export class TalkBreakWriter extends BreakWriter {
 
         const chosen = choose(offered, request.recent ?? []);
         this.lastTemplate = chosen.template;
-        const claimsTime = timeClaimIn(chosen.script, request.clock, request.dayPart);
+        const claimsTime = timeClaimIn(chosen.script, request.clock, request.dayPart, request.weekday);
         // `saysNext` rather than "there was a next record": a phrasing whose intro was an optional
         // chunk that got dropped promised nothing, and a break that promised nothing must not be
         // dropped later for a promise it never made.

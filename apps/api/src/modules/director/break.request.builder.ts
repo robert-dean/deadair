@@ -25,7 +25,7 @@ import { WeatherSource } from './weather.source.js';
 import { AlmanacSource } from './almanac.source.js';
 import { advisoryPolicy, speaksClean } from './advisory.policy.js';
 import type { BreakTrack, BreakWriteRequest, PlayedRecord, SittingIn } from './break.writer.js';
-import { CLOCK_KEYS, dayGreeting, dayPart, NAMES_THE_TIME_DEFAULT, roughTime, stationZone } from './clock.words.js';
+import { CLOCK_KEYS, dayGreeting, dayPart, NAMES_THE_TIME_DEFAULT, roughTime, stationZone, weekday } from './clock.words.js';
 import { TALK_BREAK_SHAPE } from './break.prompt.js';
 import { TALK_BREAK_KIND } from './talk.break.writer.js';
 import { STORY_KIND, STORY_SHAPE } from './story.break.writer.js';
@@ -237,6 +237,8 @@ export class BreakRequestBuilder {
         // over the greeting is the small hours, which is the one stretch of the day a greeting has
         // nothing for and a presenter has the most to say about; see `dayPart`.
         const part = airsAt === undefined ? undefined : dayPart(airsAt, zone);
+        // And the day it falls on, for a phrasing that says "Friday". No model is told it.
+        const day = airsAt === undefined ? undefined : weekday(airsAt, zone);
 
         // After the claim, so a job that was merely early does no work at all, and for EVERY break
         // rather than only when a model might use them: what the station knows about a record is a
@@ -305,6 +307,7 @@ export class BreakRequestBuilder {
             ...(clock === undefined ? {} : { clock }),
             ...(greeting === undefined ? {} : { greeting }),
             ...(part === undefined ? {} : { dayPart: part }),
+            ...(day === undefined ? {} : { weekday: day }),
             // The same instant a fourth time, and the only one of the four nothing is TOLD. The three
             // above are the moment as words, which is what a model can use; this is the moment as a
             // number, which is what a guard needs to catch a script naming a point in the day rather

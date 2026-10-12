@@ -19,6 +19,7 @@ import {
     stationZone,
     timeClaimFor,
     timeClaimIn,
+    weekday,
 } from '../../../src/modules/director/clock.words.js';
 
 /** An instant from a UTC wall clock, so a test can name the time it means. */
@@ -248,6 +249,45 @@ describe('stationZone', () => {
 // breakfast show and was inside every rule it had been given. `dayPart` is the half of the day it
 // was missing, and the property that matters is that it covers ALL of it — the greeting deliberately
 // has a hole in the small hours, which is exactly the stretch a presenter says "tonight" about.
+// The day of the week is only as true as its window, and the window is the station's own day: a
+// "Friday" re-projected past midnight has to go stale exactly there, including on the two days a
+// year that are not twenty-four hours long.
+describe('weekday', () => {
+    it('names the day and holds it from midnight to midnight', () => {
+        expect(weekday(at(15, 0), UTC)).toEqual({ words: 'Thursday', validFrom: Date.UTC(2026, 7, 13), validUntil: Date.UTC(2026, 7, 14) });
+    });
+
+    it("is the station's day, not the host's", () => {
+        // 02:00 UTC on Thursday is ten at night on Wednesday in New York.
+        expect(weekday(at(2, 0), 'America/New_York')).toEqual({
+            words: 'Wednesday',
+            validFrom: Date.UTC(2026, 7, 12, 4),
+            validUntil: Date.UTC(2026, 7, 13, 4),
+        });
+    });
+
+    it('is twenty-three hours long the day the clocks go forward', () => {
+        const day = weekday(Date.UTC(2026, 2, 29, 12), 'Europe/London');
+
+        expect(day).toEqual({ words: 'Sunday', validFrom: Date.UTC(2026, 2, 29, 0), validUntil: Date.UTC(2026, 2, 29, 23) });
+    });
+
+    it('is twenty-five hours long the day they go back', () => {
+        const day = weekday(Date.UTC(2026, 9, 25, 12), 'Europe/London');
+
+        expect(day).toEqual({ words: 'Sunday', validFrom: Date.UTC(2026, 9, 24, 23), validUntil: Date.UTC(2026, 9, 26, 0) });
+    });
+
+    it('holds the instant it describes at either end of the day', () => {
+        for (const instant of [at(0, 0), at(23, 59, 59)]) {
+            const day = weekday(instant, 'Asia/Kolkata');
+
+            expect(day.validFrom).toBeLessThanOrEqual(instant);
+            expect(day.validUntil).toBeGreaterThan(instant);
+        }
+    });
+});
+
 describe('dayPart', () => {
     it('names every hour of the clock, including the ones no greeting covers', () => {
         for (let hour = 0; hour < 24; hour++) {

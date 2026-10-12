@@ -132,6 +132,7 @@ export class ChangeoverWriter extends BreakWriter {
             ...(dj.length === 0 ? {} : { dj }),
             ...(request.greeting === undefined ? {} : { greeting: request.greeting.words }),
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart.words }),
+            ...(request.weekday === undefined ? {} : { weekday: request.weekday.words }),
             ...(outgoing === undefined || outgoing.length === 0 ? {} : { outgoing }),
             ...(change?.outgoingShow === undefined ? {} : { outgoingShow: change.outgoingShow }),
             ...(change?.incomingShow === undefined ? {} : { show: change.incomingShow }),
@@ -149,7 +150,7 @@ export class ChangeoverWriter extends BreakWriter {
         const chosen = choose(fits, (request.recent ?? []).slice(0, RECENT_WINDOW));
         this.lastTemplate = chosen.template;
 
-        const claimsTime = timeClaimIn(chosen.script, request.greeting, request.dayPart);
+        const claimsTime = timeClaimIn(chosen.script, request.greeting, request.dayPart, request.weekday);
 
         return {
             script: chosen.script,

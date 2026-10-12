@@ -161,6 +161,7 @@ export class AlmanacBreakWriter extends BreakWriter {
             ...(request.clock === undefined ? {} : { clock: request.clock.words }),
             ...(request.greeting === undefined ? {} : { greeting: request.greeting.words }),
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart.words }),
+            ...(request.weekday === undefined ? {} : { weekday: request.weekday.words }),
         };
 
         const language = stationLanguage(this.config);
@@ -201,7 +202,7 @@ export class AlmanacBreakWriter extends BreakWriter {
             // the date does: "this morning" airing at half past twelve is wrong however right the
             // history still is. This used to stamp the day alone, on the reasoning that it was the
             // narrower window, which had it backwards.
-            claimsTime: within(day, timeClaimIn(chosen.script, request.clock, request.greeting, request.dayPart)),
+            claimsTime: within(day, timeClaimIn(chosen.script, request.clock, request.greeting, request.dayPart, request.weekday)),
         };
     }
 

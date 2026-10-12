@@ -117,6 +117,7 @@ export class WelcomeWriter extends BreakWriter {
             ...(dj.length === 0 ? {} : { dj }),
             ...(request.greeting === undefined ? {} : { greeting: request.greeting.words }),
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart.words }),
+            ...(request.weekday === undefined ? {} : { weekday: request.weekday.words }),
         };
 
         // Read per greeting rather than held, so an operator editing them hears the change on the
@@ -134,7 +135,7 @@ export class WelcomeWriter extends BreakWriter {
         const chosen = choose(fits, (request.recent ?? []).slice(0, RECENT_WINDOW));
         this.lastTemplate = chosen.template;
 
-        const claimsTime = timeClaimIn(chosen.script, request.greeting, request.dayPart);
+        const claimsTime = timeClaimIn(chosen.script, request.greeting, request.dayPart, request.weekday);
 
         return {
             script: chosen.script,

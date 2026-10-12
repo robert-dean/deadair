@@ -69,6 +69,8 @@ export interface TemplateInputs {
      * phrasing naming it is then simply not used.
      */
     dayPart?: string;
+    /** The day of the week, "Friday", wherever {@link dayPart} is filled and for the same reason. */
+    weekday?: string;
     /**
      * The stories of a bulletin, already assembled into sentences.
      *
@@ -265,6 +267,7 @@ const VALUES: Record<string, Resolver> = {
     'clock.rough': inputs => inputs.clock,
     // Out of `SPOKEN_VALUES` for the same reason: "this morning" is the station's own phrase.
     'clock.daypart': inputs => inputs.dayPart,
+    'clock.weekday': inputs => inputs.weekday,
     // Out of `SPOKEN_VALUES` for the same reason as the two around it: the stories arrive already
     // speakable (see `BreakStory.headline`), and `spoken` strips catalogue furniture off a TITLE,
     // which would be the wrong operation entirely on a sentence.
@@ -343,8 +346,8 @@ const SPOKEN_VALUES = new Set(
  * The inputs a template may be filled from on a station that is not English: everything but the
  * values the station writes in English itself.
  *
- * The time, the part of the day and the greeting are English phrasings ("just after nine", "this
- * morning", "good morning"), and the weather report, the almanac report and its date are English
+ * The time, the part of the day, the day and the greeting are English phrasings ("just after nine",
+ * "this morning", "Friday", "good morning"), and the weather report, the almanac report and its date are English
  * sentences the floors build. Dropped rather than translated, so a German phrasing that names one of
  * them simply does not fit, which is the renderer's ordinary way of saying a template does not apply.
  * What is left is names, titles, headlines and the place, which are whatever language they were
@@ -354,6 +357,7 @@ function withoutEnglishValues(inputs: TemplateInputs): TemplateInputs {
     const {
         clock: _clock,
         dayPart: _dayPart,
+        weekday: _weekday,
         greeting: _greeting,
         weather: _weather,
         almanac: _almanac,

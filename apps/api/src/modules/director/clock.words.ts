@@ -646,6 +646,41 @@ export function dayPart(at: number, zone: string): RoughTime {
 }
 
 /**
+ * Which day of the week it is where the station is, and the station-local day it stays true for.
+ *
+ * A {@link RoughTime} for {@link dayPart}'s reason: a phrasing saying "Friday" written at ten to
+ * midnight and aired at five past is the same failure as a stale "this morning", and the claim
+ * machinery that catches one catches the other once the window is the day.
+ *
+ * English and capitalised, because a day's name always is. A station in another language never gets
+ * it, as it never gets the greeting.
+ */
+export function weekday(at: number, zone: string): RoughTime {
+    const words = new Intl.DateTimeFormat('en-GB', { timeZone: zone, weekday: 'long' }).format(new Date(at));
+    const validFrom = midnightBefore(at, zone);
+    // Twenty-six hours on rather than twenty-four, so a day an hour longer for a clock change still
+    // lands inside tomorrow, and then back to tomorrow's midnight.
+    return { words, validFrom, validUntil: midnightBefore(validFrom + 26 * 3_600_000, zone) };
+}
+
+/**
+ * The station-local midnight at or before `at`.
+ *
+ * The wall clock's hours and minutes taken off the instant, and then corrected by however far from
+ * midnight THAT lands: on a day the clocks change, the hours since midnight on the wall are not the
+ * hours that passed, and the correction is exactly the difference.
+ */
+function midnightBefore(at: number, zone: string): number {
+    const { hour, minute } = wallClock(at, zone);
+    const instant = new Date(at);
+    const guess = at - ((hour * 60 + minute) * 60 + instant.getUTCSeconds()) * 1000 - instant.getUTCMilliseconds();
+
+    const landed = wallClock(guess, zone);
+    const drift = (landed.hour >= 12 ? landed.hour - 24 : landed.hour) * 60 + landed.minute;
+    return guess - drift * 60_000;
+}
+
+/**
  * Every hour of the day, named.
  *
  * The three greeting dayparts with their own wording, plus the gap they leave. "Late at night" runs

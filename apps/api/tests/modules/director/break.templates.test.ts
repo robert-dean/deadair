@@ -300,16 +300,23 @@ describe('the floor on a station that does not broadcast in English', () => {
     });
 
     it('does not fill a phrasing with the English time, part of the day or greeting', () => {
-        const inputs: TemplateInputs = { station: 'Radio Nord', clock: 'just after nine', dayPart: 'this morning', greeting: 'good morning' };
+        const inputs: TemplateInputs = {
+            station: 'Radio Nord',
+            clock: 'just after nine',
+            dayPart: 'this morning',
+            weekday: 'Friday',
+            greeting: 'good morning',
+        };
         const templates = [
             'Es ist {{clock.rough}} bei {{station.name}}.',
             '{{station.name}}, {{clock.daypart}}.',
+            '{{clock.weekday}} bei {{station.name}}.',
             '{{greeting}} bei {{station.name}}.',
             'Hier ist {{station.name}}.',
         ];
 
         expect(usable(templates, inputs, spoken, 'de').map(one => one.script)).toEqual(['Hier ist Radio Nord.']);
-        expect(usable(templates, inputs, spoken)).toHaveLength(4);
+        expect(usable(templates, inputs, spoken)).toHaveLength(5);
     });
 });
 
@@ -326,6 +333,16 @@ describe('the part of the day', () => {
         const rendered = render('[[{{clock.daypart}}, ]]this is {{station.name}}.', { station, dayPart: 'tonight' });
 
         expect(rendered.script).toBe('Tonight, this is The Far Frequency.');
+    });
+
+    it('names the day beside it, as it is spelled', () => {
+        const rendered = render("It's {{clock.weekday}} {{clock.daypart}} on {{station.name}}.", {
+            station,
+            dayPart: 'this evening',
+            weekday: 'Friday',
+        });
+
+        expect(rendered.script).toBe("It's Friday this evening on The Far Frequency.");
     });
 
     it('drops the chunk carrying it on a break with no air time', () => {

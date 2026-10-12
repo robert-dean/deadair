@@ -156,6 +156,7 @@ export class WeatherBreakWriter extends BreakWriter {
             ...(request.clock === undefined ? {} : { clock: request.clock.words }),
             ...(request.greeting === undefined ? {} : { greeting: request.greeting.words }),
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart.words }),
+            ...(request.weekday === undefined ? {} : { weekday: request.weekday.words }),
         };
 
         const language = stationLanguage(this.config);
@@ -171,7 +172,7 @@ export class WeatherBreakWriter extends BreakWriter {
 
         const chosen = choose(fits, (request.recent ?? []).slice(0, RECENT_WINDOW));
         this.lastTemplate = chosen.template;
-        const claimsTime = timeClaimIn(chosen.script, request.clock, request.greeting, request.dayPart);
+        const claimsTime = timeClaimIn(chosen.script, request.clock, request.greeting, request.dayPart, request.weekday);
 
         return {
             script: chosen.script,

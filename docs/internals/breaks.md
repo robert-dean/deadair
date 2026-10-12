@@ -64,7 +64,8 @@ is none.
 after nine") is filled only when `clock.namesTheTime` is on, and it is off, because the projection it is
 read from runs ahead of the order by more than its own window. `{{greeting}}` has a hole in the small hours on
 purpose. `{{clock.daypart}}` ("this morning", "tonight") covers all twenty-four hours and is filled on every
-break that knows when it airs, so it is the one a persona's phrasings can rely on. Every floor that fills any
+break that knows when it airs, so it is the one a persona's phrasings can rely on. `{{clock.weekday}}`
+("Friday") rides beside it off the same instant, claimed until the station's own midnight. Every floor that fills any
 of them stamps `claimsTime` from `timeClaimIn` over what the chosen script actually SAID, so "this morning"
 re-projected past noon is rewritten rather than aired. The almanac's whole-day claim is narrowed the same
 way: it used to stamp the day alone, so a phrasing there that also said the hour held a claim a day wide.
@@ -1028,7 +1029,7 @@ them is currently a single English constant.
 
 **Outside English the station's own phrasings are not a floor.** `parseTemplates` falls back to nothing
 rather than to the built-in English set, and the values the station can only fill in English (the time,
-the part of the day, the greeting, the weather and almanac reports) are left out of what a template may use, so a German phrasing
+the part of the day, the day of the week, the greeting, the weather and almanac reports) are left out of what a template may use, so a German phrasing
 that names one does not fit. The operator's lines and a persona's still apply. What that costs is real and
 chosen: a break whose model declined and which nobody wrote a phrasing for is dropped, and a warm-up, a
 jingle or a dedication (none of which has a model in front of it, or a box for other lines in the last case)

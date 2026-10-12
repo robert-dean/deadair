@@ -636,6 +636,15 @@ export interface BreakWriteRequest {
      */
     dayPart?: RoughTime;
     /**
+     * Which day of the week this break airs on, where the station is, and the day that stays true for.
+     *
+     * Offered to the deterministic writers for `{{clock.weekday}}` and told to no model: a model
+     * writer has never been short of the day so much as of the half of it. A writer that USES it
+     * stamps it through {@link WrittenBreak.claimsTime}, so "Friday" written before midnight and
+     * re-projected past it is rewritten rather than aired.
+     */
+    weekday?: RoughTime;
+    /**
      * The instant this break airs and the station's zone, for the guard rather than for the prompt.
      *
      * Nothing is TOLD this — {@link clock}, {@link greeting} and {@link dayPart} are how the moment

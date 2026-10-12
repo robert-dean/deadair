@@ -31,6 +31,7 @@ final class AppModel {
     let operatorActions: OperatorActions
     let transport: Transport
     let orderActions: OrderActions
+    let breakActions: BreakActions
     let catalogActions: CatalogActions
     let airActions: AirActions
     let scriptActions: ScriptActions
@@ -87,6 +88,7 @@ final class AppModel {
         operatorActions = OperatorActions(session: session, toasts: toasts)
         transport = Transport(actions: operatorActions, playout: playout)
         orderActions = OrderActions(actions: operatorActions, order: order)
+        breakActions = BreakActions(actions: operatorActions)
         catalogActions = CatalogActions(actions: operatorActions, order: order)
         airActions = AirActions(actions: operatorActions, playout: playout, order: order)
         scriptActions = ScriptActions(actions: operatorActions)

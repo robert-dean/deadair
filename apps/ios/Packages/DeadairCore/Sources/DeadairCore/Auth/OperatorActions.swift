@@ -31,6 +31,13 @@ public enum Notice: Equatable, Sendable {
     /// or the position asked for has already been handed to the player. One 422 for all of them.
     case recordRefused
 
+    /// The station took a request for a break. It is heard once it has been written and spoken.
+    case breakAsked(RequestableBreakKind)
+
+    /// The station declined a request for a break. Not a fault: breaks are off, it has no voice, or the
+    /// same request went in a moment ago. `reason` is the station's own sentence, absent when it gave none.
+    case breakDeclined(reason: String?)
+
     /// The station could not be reached to ask.
     case couldNotReach
 
@@ -142,6 +149,11 @@ public final class OperatorActions {
             post(.couldNotReach)
             return nil
         }
+    }
+
+    /// Say something about an action that SUCCEEDED, where the answer itself is what the operator needs to read.
+    public func tell(_ notice: Notice) {
+        post(notice)
     }
 
     private func post(_ notice: Notice) {

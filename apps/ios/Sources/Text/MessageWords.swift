@@ -265,6 +265,13 @@ extension Notice {
         case .hostGone: String(localized: "That persona is no longer on the station.")
         case .recordGone: String(localized: "The station no longer has that record.")
         case .recordRefused: String(localized: "The station will not play that record now.")
+        case .breakAsked(.news): String(localized: "The news is on its way. It goes out once it has been written.")
+        case .breakAsked(.weather): String(localized: "The weather is on its way. It goes out once it has been written.")
+        case .breakAsked(.talkbreak): String(localized: "The host will have a word once it has been written.")
+        case .breakAsked: String(localized: "The station will say it once it has been written.")
+        // The reason is the station's words, as `Message.text` is: a clause in its own language, quoted rather than translated.
+        case .breakDeclined(let reason?): String(localized: "The station declined: \(reason).")
+        case .breakDeclined(nil): String(localized: "The station declined to say anything just now.")
         case .couldNotReach: String(localized: "Could not reach the station to do that.")
         case .failed(let status): String(localized: "The station refused that (\(status)).")
         }

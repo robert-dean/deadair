@@ -302,7 +302,7 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
      * The names on this character's soundboard, least recently hit first, or none, with the
      * operator's notes on where each may land and when to reach for it.
      *
-     * The same read `WriteBreakJob.pads` makes, so a character is auditioned with the rack it would
+     * The same read `BreakRequestBuilder.pads` makes, so a character is auditioned with the rack it would
      * have on air: whether a host reaches for the air horn, and how often, is part of what the run
      * is measuring. The order is the station's rotation as it stands, and nothing here moves it —
      * `markUsed` is never called, for the notebook's reason: a run of twenty that rested its hits

@@ -5,6 +5,7 @@
     xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
     xmlns:chrome="using:Avalonia.Controls.Chrome"
     xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.ShellView"
     x:DataType="vm:ShellViewModel">
 
@@ -15,6 +16,10 @@
         it: a Window cannot be the content of another window, so the tool used to rebuild the layout
         by hand, and a copy is a thing that goes out of step the first time the layout moves.
     -->
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
     <UserControl.Styles>
         <!-- Below this the page would be narrower than the panel beside it. -->
         <ContainerQuery Name="Shell" Query="max-width:1060">
@@ -130,13 +135,13 @@
                                 <TextBlock Text="Back" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
-                        <!-- What the station last refused, at the foot of whichever page asked. -->
+                        <!-- What the station last refused, or answered, at the foot of whichever page asked. -->
                         <Border DockPanel.Dock="Bottom" Classes="card" Margin="20,0,20,16" Padding="12,8"
                                 IsVisible="{Binding Dialogs.HasNotice}">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                 <TextBlock Text="{Binding Dialogs.Notice}" TextWrapping="Wrap" FontSize="12"
                                            VerticalAlignment="Center"
-                                           Foreground="{DynamicResource DaToneFaultBrush}" />
+                                           Foreground="{Binding Dialogs.NoticeTone, Converter={StaticResource ToneBrush}}" />
                                 <Button Grid.Column="1" Classes="icon ghost" Width="24" Height="24" Padding="4"
                                         BorderThickness="0" ToolTip.Tip="Dismiss" AutomationProperties.Name="Dismiss"
                                         Command="{Binding Dialogs.DismissNoticeCommand}">

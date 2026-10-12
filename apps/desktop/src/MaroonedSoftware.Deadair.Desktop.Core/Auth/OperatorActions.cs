@@ -114,6 +114,16 @@ public sealed class OperatorActions(SessionManager session)
         return done is not null;
     }
 
+    /// <summary>
+    /// Says something about an action that WORKED, where the answer itself is what the operator needs
+    /// to read, through the same one host every refusal is drawn by.
+    /// </summary>
+    public void Tell(Notice notice)
+    {
+        ArgumentNullException.ThrowIfNull(notice);
+        Noticed?.Invoke(notice);
+    }
+
     private static readonly object Done = new();
 
     private async Task ReportAsync(

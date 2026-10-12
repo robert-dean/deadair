@@ -1,3 +1,5 @@
+using MaroonedSoftware.Deadair.Desktop.Core.Text;
+
 namespace MaroonedSoftware.Deadair.Desktop.Core.Auth;
 
 /// <summary>
@@ -28,6 +30,13 @@ public abstract record Notice
     /// <summary>Anything else, with the station's own sentence where it sent one.</summary>
     public sealed record Failed(string Detail) : Notice;
 
+    /// <summary>The station's answer to something that worked, which is itself what needs reading.</summary>
+    /// <remarks>
+    /// Not a refusal, so it carries its own tone rather than the fault colour every other notice is
+    /// drawn in: a request for the news that was taken, or one the station declined for a reason it gave.
+    /// </remarks>
+    public sealed record Said(string Detail, StatusTone Tone) : Notice;
+
     /// <summary>The sentence a notice is shown as.</summary>
     /// <remarks>
     /// One wording for every surface that shows one, so a refusal reads the same in a dialog as it
@@ -39,6 +48,10 @@ public abstract record Notice
         StepUpNeeded => "The station wants your authenticator code again before that.",
         Expected expected => expected.Detail,
         Failed failed => failed.Detail,
+        Said said => said.Detail,
         _ => "Something went wrong.",
     };
+
+    /// <summary>What colour a notice is drawn in. Everything but <see cref="Said"/> is something refused.</summary>
+    public static StatusTone ToneOf(Notice notice) => notice is Said said ? said.Tone : StatusTone.Fault;
 }

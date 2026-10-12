@@ -2342,6 +2342,50 @@ describe('readAnswer, past the ceiling', () => {
         });
     });
 
+    // The same outro with the last record back-announced up front, so the front cut still names
+    // something and the rescue above never fires. Measured on an audition: seven of ten breaks aired
+    // introducing nothing, every one of them having named the next record in a closing line the cut
+    // threw away.
+    describe('when the next record is named only in the tail', () => {
+        const sandman = { title: 'Enter Sandman', artist: 'Metallica' };
+        const symphony = { title: 'Symphony Of Destruction', artist: 'Megadeth' };
+        const guard = { names: [sandman, symphony], cues: { previous: sandman, next: symphony } };
+        const opening = 'That was Enter Sandman, from Metallica.';
+        const handOff = 'The next vintage from my cellar is Symphony Of Destruction by Megadeth.';
+        const middle = (count: number): string => Array.from({ length: count }, (_, index) => sentence(index + 2, 10)).join(' ');
+        const outro = `${opening} ${middle(4)} ${handOff}`;
+
+        it('cuts in front of the hand-off instead, so the next record is introduced', () => {
+            expect(readAnswer(outro, guard)).toBe(`${opening} ${middle(2)} ${handOff}`);
+            expect(writeDecline(outro, guard)).toBeUndefined();
+            expect(writeTrim(outro, guard)?.reason).toMatch(/keep the one naming a record/);
+        });
+
+        // Megadeth into Megadeth: the artist alone in the back-announce must not read as the next
+        // record named, or the hand-off is dropped for a name it never said.
+        it('tells two records by one artist apart by the title', () => {
+            const hangar = { title: 'Hangar 18', artist: 'Megadeth' };
+            const sameArtist = { names: [hangar, symphony], cues: { previous: hangar, next: symphony } };
+            const back = 'That was Hangar 18, from Megadeth.';
+
+            expect(readAnswer(`${back} ${middle(4)} ${handOff}`, sameArtist)).toBe(`${back} ${middle(2)} ${handOff}`);
+        });
+
+        // The front cut is a whole break that names a record, so it is not refused for a hand-off
+        // that could never have fitted.
+        it('keeps the ordinary cut when the hand-off cannot fit', () => {
+            const longHandOff = `Next is Symphony Of Destruction by Megadeth, ${Array.from({ length: 40 }, () => 'and').join(' ')} more.`;
+
+            expect(readAnswer(`${opening} ${middle(4)} ${longHandOff}`, guard)).toBe(`${opening} ${middle(3)}`);
+        });
+
+        it('leaves a kind that does not have to name its records to the ordinary cut', () => {
+            const unnamed = { cues: guard.cues };
+
+            expect(readAnswer(outro, unnamed)).toBe(`${opening} ${middle(3)}`);
+        });
+    });
+
     describe('writeTrim', () => {
         it('counts what was kept and what came off', () => {
             expect(writeTrim(rambled, {})).toMatchObject({ kept: 40, dropped: 10 });

@@ -41,6 +41,7 @@ import type { Persona } from './persona.js';
 import type { PersonaNotesForPrompt } from './persona.note.js';
 import type { PersonaStoryForPrompt } from './persona.story.js';
 import type { AuditionRecord } from './persona.audition.js';
+import type { PadUseNote } from '#modules/render/pad.cues.js';
 
 /** What one transition needs to know about itself, gathered by the job that is writing it. */
 export interface AuditionRequestInput {
@@ -57,6 +58,8 @@ export interface AuditionRequestInput {
     facts?: { previous?: readonly string[]; next?: readonly string[] };
     /** The names on this character's soundboard, least recently hit first. Absent for one with none. */
     pads?: readonly string[];
+    /** Where each of those pads may land and when to reach for it, for the ones not at the default. */
+    padUse?: Readonly<Record<string, PadUseNote>>;
     /** What this RUN has already said, newest first. Not the station's history: see the job. */
     recent: readonly string[];
     /** Something stable and unique to this transition, which the preoccupation is spread over. */
@@ -121,6 +124,10 @@ export function auditionRequest(input: AuditionRequestInput): BreakWriteRequest 
         // The rack exactly as `WriteBreakJob` offers it, and vetoed by the same talk-break shape. An
         // empty list is left out rather than passed, so a character with no board is told nothing.
         ...(input.pads === undefined || input.pads.length === 0 ? {} : { pads: input.pads }),
+        // With the operator's cues and placements beside them, or the run measures a host offered a
+        // bare rack that no on-air break is offered. Only alongside pads: a note about a sound
+        // nobody was handed is a note about nothing.
+        ...(input.pads === undefined || input.pads.length === 0 || input.padUse === undefined ? {} : { padUse: input.padUse }),
         // What this RUN has said, which is what makes the spent-signature rule mean anything over a
         // playlist. The rehearsal passes `[]` for repeatability, and that is the right call for one
         // break against a fixed pair; over twenty transitions it would measure a host landing its

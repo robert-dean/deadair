@@ -224,6 +224,17 @@ describe('auditionRequest', () => {
         expect(auditionRequest(input({ pads: ['airhorn', 'rimshot'] })).pads).toEqual(['airhorn', 'rimshot']);
     });
 
+    it('carries the notes on where and when each pad goes, as an on-air break is shown them', () => {
+        const padUse = { airhorn: { placements: ['end' as const], cue: 'right after a punchline' } };
+        expect(auditionRequest(input({ pads: ['airhorn'], padUse })).padUse).toEqual(padUse);
+    });
+
+    it('drops notes about a rack it was not handed', () => {
+        const padUse = { airhorn: { placements: ['end' as const] } };
+        expect(Object.keys(auditionRequest(input({ padUse })))).not.toContain('padUse');
+        expect(Object.keys(auditionRequest(input({ pads: [], padUse })))).not.toContain('padUse');
+    });
+
     it('says nothing about pads to a character with no board, rather than offering an empty one', () => {
         expect(Object.keys(auditionRequest(input()))).not.toContain('pads');
         expect(Object.keys(auditionRequest(input({ pads: [] })))).not.toContain('pads');

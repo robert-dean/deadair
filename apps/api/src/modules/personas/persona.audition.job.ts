@@ -19,6 +19,7 @@ import { PersonaRepository } from './persona.repository.js';
 import { PersonaNotesRepository } from './persona.notes.repository.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
 import { PadRepository } from '#modules/render/pad.repository.js';
+import { padUseNotes, type PadUseNote } from '#modules/render/pad.cues.js';
 import type { Persona } from './persona.js';
 import type { PersonaStoryForPrompt } from './persona.story.js';
 
@@ -201,7 +202,7 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
         const story = await this.storyFor(persona, ordinal, facts);
 
         const recent = await this.auditions.recentScripts(audition.id);
-        const pads = await this.padsFor(persona);
+        const { pads, padUse } = await this.padsFor(persona);
 
         const result = await this.writers.write(
             auditionRequest({
@@ -212,6 +213,7 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
                 next: transition.next,
                 ...(facts === undefined ? {} : { facts }),
                 ...(pads.length === 0 ? {} : { pads }),
+                ...(padUse === undefined ? {} : { padUse }),
                 recent,
                 // Stable and unique per transition, so re-reading a run reports the break it
                 // actually wrote rather than one spread over a different subject.
@@ -297,7 +299,8 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
     }
 
     /**
-     * The names on this character's soundboard, least recently hit first, or none.
+     * The names on this character's soundboard, least recently hit first, or none, with the
+     * operator's notes on where each may land and when to reach for it.
      *
      * The same read `WriteBreakJob.pads` makes, so a character is auditioned with the rack it would
      * have on air: whether a host reaches for the air horn, and how often, is part of what the run
@@ -309,18 +312,23 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
      * segments, which an audition cannot read, and a sound appended to words somebody else shaped is
      * nothing a character chose, so it would say nothing about the sheet.
      *
+     * The notes ride along because `WriteBreakJob` sends them too. Without them a run measured a
+     * host offered a bare rack while every on-air break was told "[sfx:thunder] (just before naming
+     * the next tale)", so a cue an operator set could not be auditioned at all.
+     *
      * Best-effort, like every other read here: a rack that could not be read costs the transition
      * its offer and never its break.
      */
-    private async padsFor(persona: Persona): Promise<readonly string[]> {
-        if (persona.soundboard === undefined) return [];
+    private async padsFor(persona: Persona): Promise<{ pads: readonly string[]; padUse?: Readonly<Record<string, PadUseNote>> }> {
+        if (persona.soundboard === undefined) return { pads: [] };
 
         try {
             const rack = await this.pads.onSet(persona.soundboard);
-            return rack.map(pad => pad.name);
+            const padUse = padUseNotes(rack);
+            return { pads: rack.map(pad => pad.name), ...(padUse === undefined ? {} : { padUse }) };
         } catch (error) {
             this.logger.debug(`personas: could not read this character's soundboard (${errorText(error)})`, { persona: persona.key });
-            return [];
+            return { pads: [] };
         }
     }
 

@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-10-12
+
+- The operator can ask the station to say something from the iPhone. While a show is on, the Manage page has a Say something section: the news, the weather, or a word from the host. Each is heard after the current record, once it has been written. If the station turns the request down (breaks are off, or the same request went in a moment ago), the app shows its reason.
+
 ## [0.10.0] — 2026-10-11
 
 - While the station plays, what is on shows as a Live Activity on the Lock Screen and in the Dynamic Island: the record and its artist, or who is on the mic, the station and its presenter, a bar for how far through the record it is when the station says, and a Stop button. It starts when you press play in the app, follows the record you are hearing, and goes when you stop, when the sleep timer ends, or when you choose another station. Settings, Listening has a "Show on the Lock Screen" switch to turn it off.

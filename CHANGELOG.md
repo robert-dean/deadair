@@ -9,6 +9,15 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.57.0] — 2026-10-12
+
+- An operator can ask the station for a break now, rather than waiting for the format clock: `POST /director/air/breaks` takes a `kind` (`news`, `weather`, `almanac`, `talkbreak`, `story` or `jingle`), an `urgency` (`next` unless told otherwise) and an optional `topic`, such as a news category or a weather place. The station decides where the break goes. When it declines (breaks are off, it has no voice, or the same request went in under a minute ago) the answer gives its reason instead of failing. The same operation is in every SDK and is the `request_a_break` MCP tool.
+- A show whose brief names artists now gives part of every hour to the artists it has played least recently, without waiting on the model. It takes a top track from each, one per artist, so the artists at the end of a long brief get played even when the model runs out of time near the top. The share is a new setting, "How much of each batch comes from the artists a brief names" (0.4 by default; 0 turns it off). It needs a similarity plugin that can list an artist's top tracks, such as Last.fm or Deezer.
+- When a show's brief names artists, the model choosing its records is now given those artists in the order the station has neglected them, with how long ago each last played, and told to search for them in that order. Before, it worked down the brief from the top and often ran out of time before reaching the artists at the end, so a few acts at the start of the list took most of the show.
+- When the model runs out of time before choosing a set, the station now fills the hour only with records that match what the model searched for. Before, it took one record from every artist the searches had turned up, including records that only contained the search inside another word, so a heavy-metal hour whose model searched for Dio aired "Mr. Vain - Original Radio Edit" and other radio edits. If nothing the searches found matches, the refill moves on to the station's other sources, as it did before this fallback existed.
+- The station's library search now matches whole words, so the model's search for an artist or a style no longer turns up records that only contain the search inside another word. Searching for Dio used to answer with every "Radio Edit", "Audio Remix", Diopter and Dior in the library; it now answers with Dio. A style still finds the longer styles it is part of, so metal finds heavy metal. Searching for part of a word, such as "Metalli", no longer finds anything. The console's catalog filters and the listener request search are unchanged.
+- When a show's brief names artists, the part of each hour taken from similar artists now starts from the named artists the station has played least recently, instead of from the last few artists played. Before, a show that kept returning to a handful of big names found more artists like those same names; now it reaches out from the rest of the brief.
+
 ## [0.56.0] — 2026-10-11
 
 - Importing a persona file no longer replaces a character you already have. A character in the file whose key matches one on this station is now skipped by default, and the import dialog in the console and the desktop app says so and offers Replace on that row. In the API, `POST /personas/import` and `/personas/import/preview` take an optional `replace` list of keys to rewrite, a plan entry's `outcome` can be `skip`, and the result counts `skipped`. A caller that relied on an import overwriting a matching character now has to name it in `replace`.
@@ -1344,7 +1353,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.56.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.57.0...HEAD
+[0.57.0]: https://github.com/robert-dean/deadair/compare/v0.56.0...v0.57.0
 [0.56.0]: https://github.com/robert-dean/deadair/compare/v0.55.0...v0.56.0
 [0.55.0]: https://github.com/robert-dean/deadair/compare/v0.54.0...v0.55.0
 [0.54.0]: https://github.com/robert-dean/deadair/compare/v0.53.0...v0.54.0

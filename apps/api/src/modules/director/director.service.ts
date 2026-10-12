@@ -41,8 +41,8 @@ import { resolveTalkUp, talkUpAt } from './talk.up.js';
 import { ScrobbleService } from '#modules/scrobble/scrobble.service.js';
 import type { ScrobblePlay } from '@deadair/plugin-sdk';
 import { brokenClaim } from './break.claims.js';
-import { PRODUCTION_SHELF_LIFE_MS, productionExpired, standingCall } from './production.shelf.js';
-import { BreakPlanner, expiryFor, landingFor, type AirClock } from './break.planner.js';
+import { PRODUCTION_SHELF_LIFE_MS, productionExpired, productionLanding, standingCall } from './production.shelf.js';
+import { BreakPlanner, expiryFor, type AirClock } from './break.planner.js';
 import { isRenderedFirst, type BreakRequest, type BreakRequestResult, type StoredBreakRequest } from './break.request.js';
 import { BreakRequestRepository } from './break.request.repository.js';
 import { ArtRepository } from '#modules/art/art.repository.js';
@@ -1163,9 +1163,9 @@ export class DirectorService {
                     // hour can still air it, and the shelf life above retires it otherwise.
                     if (!rules.callins && standingCall(production, conversations)) continue;
 
-                    const at = this.slotForProduction(lineup);
-                    // No room yet. Left `ready` rather than failed: the audio still exists, and the
-                    // next pass has a longer order to put it in.
+                    const at = this.slotForProduction(lineup, production.scheduledFor);
+                    // No room yet, or not its time yet. Left `ready` rather than failed: the audio
+                    // still exists, and the next pass has a longer order to put it in.
                     if (at === undefined) continue;
 
                     // One item where the beats were joined, and the block where they were not. The
@@ -1224,16 +1224,18 @@ export class DirectorService {
     }
 
     /**
-     * Where a production can go: the first boundary past what is committed.
+     * Where a production can go: the first boundary past what is committed, or past its time.
      *
      * The same answer `injectRequested` gives a break whose audio already exists, and for the same
      * reason — the words are spoken and the only thing left is a position, so it takes the earliest
      * one the order will accept. A boundary with a break on either side is walked past, because putting
      * a programme immediately after a talk break is two lots of talking in a row. This used to check
      * only the item it landed in front of, so it walked past a talk break and aired straight after it.
+     * A production asked for at a time waits for the first boundary at or after it; see
+     * `productionLanding`.
      */
-    private slotForProduction(lineup: StationLineup): number | undefined {
-        return landingFor(lineup.all(), lineup.committedThrough());
+    private slotForProduction(lineup: StationLineup, scheduledFor: number | undefined): number | undefined {
+        return productionLanding(lineup.all(), lineup.committedThrough(), this.airClock(lineup), scheduledFor);
     }
 
     private async injectReady(lineup: StationLineup): Promise<void> {

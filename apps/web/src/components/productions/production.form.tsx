@@ -1,6 +1,8 @@
 import { Button, Card, Group, NumberInput, Select, SimpleGrid, Stack, Textarea, TextInput } from '@mantine/core';
+import { DateTimePicker } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import type { ProductionRequest } from '@deadair/sdk';
+import { DateTime } from 'luxon';
 import { useTranslation } from 'react-i18next';
 
 import { usePersonas } from '../../api/personas.queries';
@@ -10,7 +12,7 @@ import { ErrorAlert } from '../shared/error.alert';
 /**
  * Asking the station for a programme.
  *
- * Six fields, and only one is required. Everything else falls back to a station default rather than
+ * Seven fields, and only one is required. Everything else falls back to a station default rather than
  * being demanded, because the only thing nobody else can supply is what the thing is called — the
  * length, the writing mode and the presenter all have settings, and a form that insisted on them
  * would be asking an operator to re-decide the same things every time.
@@ -29,7 +31,7 @@ export interface ProductionFormProps {
 /** The modes, said the way the settings page says them, so an operator meets one vocabulary. */
 const MODES = ['quick', 'outlined', 'polished'] as const;
 
-/** The six boxes as the form holds them, before the empty ones are dropped on the way out. */
+/** The seven boxes as the form holds them, before the empty ones are dropped on the way out. */
 interface FormValues {
     title: string;
     brief: string;
@@ -37,6 +39,21 @@ interface FormValues {
     minutes: number | string;
     mode: string | null;
     personaId: string | null;
+    /** The picker's own value: a local wall-clock time as `YYYY-MM-DD HH:mm:ss`, or null for "when it is ready". */
+    airAt: string | null;
+}
+
+/**
+ * When the picker says to air it, as the instant the request carries.
+ *
+ * The picker answers a wall-clock time in the browser's zone with no offset on it, which is what the
+ * person meant by "eleven tonight", so it is read as local time rather than as UTC. Empty, or
+ * anything that is not a time, is no time at all: the production airs when it is ready.
+ */
+export function scheduledForOf(airAt: string | null): DateTime | undefined {
+    if (airAt === null || airAt.trim().length === 0) return undefined;
+    const at = DateTime.fromSQL(airAt.trim());
+    return at.isValid ? at : undefined;
 }
 
 export function ProductionForm({ pending, error, onSubmit, onCancel }: ProductionFormProps) {
@@ -47,7 +64,7 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
         // Controlled, like the settings form: Mantine's uncontrolled default does not re-render an
         // input when its ERROR changes, so a refusal would be held and never drawn.
         mode: 'controlled',
-        initialValues: { title: '', brief: '', kind: 'podcast', minutes: '', mode: null, personaId: null },
+        initialValues: { title: '', brief: '', kind: 'podcast', minutes: '', mode: null, personaId: null, airAt: null },
         // The one thing that is actually required. It used to be enforced by a disabled button and a
         // silent `return`, which says nothing at all about why: a form that will not submit and will
         // not say why is the same failure as a line an operator mistyped.
@@ -55,6 +72,7 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
     });
 
     const submit = (values: FormValues) => {
+        const scheduledFor = scheduledForOf(values.airAt);
         onSubmit({
             title: values.title.trim(),
             ...(values.kind.trim().length === 0 ? {} : { kind: values.kind.trim() }),
@@ -62,6 +80,7 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
             ...(typeof values.minutes === 'number' && values.minutes > 0 ? { targetMs: values.minutes * 60_000 } : {}),
             ...(values.mode === null ? {} : { writingMode: values.mode as ProductionRequest['writingMode'] }),
             ...(values.personaId === null ? {} : { personaId: values.personaId }),
+            ...(scheduledFor === undefined ? {} : { scheduledFor }),
         });
     };
 
@@ -125,6 +144,18 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
                             {...form.getInputProps('personaId')}
                         />
                     </SimpleGrid>
+
+                    {/* When it airs. Empty is as soon as it is made, which is what every production
+                        did before this; a time holds it, ready, until the first gap at or after it. */}
+                    <DateTimePicker
+                        label={t('form.airAt.label')}
+                        description={t('form.airAt.description')}
+                        placeholder={t('form.airAt.placeholder')}
+                        valueFormat="ddd D MMM, HH:mm"
+                        minDate={new Date()}
+                        clearable
+                        {...form.getInputProps('airAt')}
+                    />
 
                     <Group justify="flex-end">
                         <Button variant="subtle" onClick={onCancel} disabled={pending}>

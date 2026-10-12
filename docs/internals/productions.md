@@ -299,6 +299,17 @@ that was placed fresh and then outlived its hour in the order while nobody liste
 block fallback never airs half a programme. A reading is exempt: it is carried to its slot, and its words are
 an author's rather than the station's.
 
+**A production with a time waits for it** (`productionLanding` in `director/production.shelf.ts`). The
+time was stored and never read: `injectProductions` put every finished production at the first open
+boundary past what was committed, so a podcast asked for at eleven at night aired the moment its last beat
+was joined, and a clock band's production, commissioned `COMMISSION_AHEAD_MS` ahead of its slot, aired up
+to three hours early. One with a `scheduledFor` now lands at the first open boundary at or after the first
+boundary `projectAirTimes` puts at or after the time, and is left `ready` while the order does not reach
+that far. The projection counts everything unmeasured as zero, so the boundary it finds is never before the
+time, which is the direction a programme asked for at a time can absorb. One with no time airs as soon as
+it is ready, as every production always has. The shelf life already counted from `scheduledFor`, so a held
+production keeps its hour from its time rather than from when it was made.
+
 ## What it writes down
 
 **A production writes down what it wrote, which is what gives a caller a memory.**

@@ -3,9 +3,10 @@
 // `return`, which is a form that will not submit and will not say why.
 
 import type { Persona } from '@deadair/sdk';
+import { DateTime } from 'luxon';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ProductionForm } from '../../../src/components/productions/production.form';
+import { ProductionForm, scheduledForOf } from '../../../src/components/productions/production.form';
 import { render, screen, setupUser } from '../../utils/render';
 
 vi.mock('../../../src/api/client', () => ({
@@ -83,5 +84,23 @@ describe('ProductionForm', () => {
         await user.type(screen.getByLabelText('Called', { exact: false }), 'A short one{Enter}');
 
         expect(onSubmit).toHaveBeenCalledWith({ title: 'A short one', kind: 'podcast' });
+    });
+});
+
+// The picker answers a wall-clock time with no zone on it. "Eleven tonight" is eleven where the
+// person is sitting, so it is read as local time, and nothing at all is "as soon as it is ready".
+describe('scheduledForOf', () => {
+    it('reads the picker as local wall-clock time', () => {
+        const at = scheduledForOf('2026-10-12 23:00:00');
+
+        expect(at?.isValid).toBe(true);
+        expect(at?.toFormat('yyyy-MM-dd HH:mm')).toBe('2026-10-12 23:00');
+        expect(at?.zoneName).toBe(DateTime.local().zoneName);
+    });
+
+    it('is no time at all for an empty picker or something that is not a time', () => {
+        expect(scheduledForOf(null)).toBeUndefined();
+        expect(scheduledForOf('  ')).toBeUndefined();
+        expect(scheduledForOf('eleven tonight')).toBeUndefined();
     });
 });

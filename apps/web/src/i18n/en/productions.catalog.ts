@@ -77,6 +77,11 @@ export const productions = {
             label: 'Presenter',
             description: 'Leave empty and whoever is on air when a pass runs presents it.',
         },
+        airAt: {
+            label: 'Air at',
+            description: 'Leave empty to air it as soon as it is made. Given a time, it waits, ready, for the first gap at or after it.',
+            placeholder: 'As soon as it is ready',
+        },
         submit: 'Ask for it',
     },
 } as const;

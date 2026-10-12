@@ -476,6 +476,19 @@ export interface DeadairOutputCasts {
   stationKey: Generated<string>;
 }
 
+export interface DeadairOwnShows {
+  createdAt: Generated<DateTime>;
+  description: string | null;
+  id: Generated<string>;
+  personaId: string | null;
+  stationKey: Generated<string>;
+  subject: string | null;
+  targetMs: number | null;
+  title: string;
+  updatedAt: Generated<DateTime>;
+  writingMode: "quick" | "outlined" | "polished" | null;
+}
+
 export interface DeadairPads {
   audioChecksum: string;
   audioExt: string;
@@ -800,6 +813,7 @@ export interface DeadairProductions {
   personaId: string | null;
   plan: Json | null;
   scheduledFor: DateTime | null;
+  showId: string | null;
   sources: Json | null;
   state: Generated<"planned" | "researching" | "outlining" | "drafting" | "checking" | "rendering" | "stitching" | "ready" | "aired" | "failed" | "cancelled">;
   stationKey: Generated<string>;
@@ -934,7 +948,7 @@ export interface DeadairScrobbleQueue {
 export interface DeadairSegmentEvents {
   broadcastId: string | null;
   createdAt: Generated<DateTime>;
-  fromState: string | null;
+  fromState: "planned" | "writing" | "written" | "rendering" | "ready" | "failed" | null;
   id: Generated<string>;
   reason: string | null;
   segmentId: string;
@@ -1238,6 +1252,7 @@ export interface DB {
   "deadair.oauthClients": DeadairOauthClients;
   "deadair.oauthGrants": DeadairOauthGrants;
   "deadair.outputCasts": DeadairOutputCasts;
+  "deadair.ownShows": DeadairOwnShows;
   "deadair.pads": DeadairPads;
   "deadair.padSetMembers": DeadairPadSetMembers;
   "deadair.padSets": DeadairPadSets;

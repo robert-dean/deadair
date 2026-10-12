@@ -200,7 +200,10 @@ function extractEnumColumns(body: string): Column[] {
         const defMatch = part.match(/\bdefault\s+('[^']*'|[a-zA-Z_]\w*(?:\([^)]*\))?|-?[0-9.]+|true|false|null)/i);
         if (defMatch && defMatch[1]) col.default = defMatch[1];
 
-        const checkRe = new RegExp(String.raw`check\s*\(\s*${colName}\s+in\s*\(([\s\S]*?)\)\s*\)`, 'i');
+        // The nullable spelling too, `check (x is null or x in (...))`, which a column whose absence
+        // means something needs. `extractAlterAddedEnums` learned it first and this did not, so a
+        // nullable enum declared inside a CREATE TABLE generated as a bare string.
+        const checkRe = new RegExp(String.raw`check\s*\(\s*(?:${colName}\s+is\s+null\s+or\s+)?${colName}\s+in\s*\(([\s\S]*?)\)\s*\)`, 'i');
         const cm = part.match(checkRe);
         if (cm && cm[1]) {
             const values = parseStringList(cm[1]);

@@ -65,6 +65,23 @@ export class ProductionsService {
      * a title is the only thing nobody else can supply.
      */
     async request(body: ProductionRequest): Promise<ProductionView> {
+        return await this.commission(body);
+    }
+
+    /** One of the station's own shows' episodes, newest first, as the Productions page shows them. */
+    async listForShow(showId: string): Promise<ProductionList> {
+        const rows = await this.productions.forShow(showId);
+        const views = await Promise.all(rows.map(async row => await this.view(row)));
+
+        return { productions: views };
+    }
+
+    /**
+     * The one way a production is asked for, from the Productions page and from one of the station's
+     * own shows alike, so an episode of a show is queued and made exactly as any other production is.
+     * `filing` is what a caller knows that the request does not carry: which show it is an episode of.
+     */
+    async commission(body: ProductionRequest, filing: { showId?: string } = {}): Promise<ProductionView> {
         // Nothing reads a source that has only an address yet, so one is refused here rather than
         // accepted and failed later by a research pass with nothing to read.
         const unreadable = (body.sources ?? []).find(source => (source.text ?? '').trim().length === 0);
@@ -89,6 +106,7 @@ export class ProductionsService {
             ...(body.personaId === undefined ? {} : { personaId: body.personaId }),
             ...(body.scheduledFor === undefined ? {} : { scheduledFor: body.scheduledFor.toMillis() }),
             ...(this.actor() === undefined ? {} : { actorId: this.actor() as string }),
+            ...(filing.showId === undefined ? {} : { showId: filing.showId }),
         });
 
         // Queued rather than started. The job is what runs the first pass, and it runs it at whatever
@@ -175,6 +193,7 @@ export class ProductionsService {
             ...(production.error === undefined ? {} : { error: production.error }),
             ...(production.scheduledFor === undefined ? {} : { scheduledFor: DateTime.fromMillis(production.scheduledFor) }),
             ...(production.cancelledAt === undefined ? {} : { cancelledAt: DateTime.fromMillis(production.cancelledAt) }),
+            ...(production.showId === undefined ? {} : { showId: production.showId }),
             beats: beats.length,
             // Who is on it. The stored snapshot rather than a fresh resolve, which is the whole
             // reason the cast is a column: the persona it names may have been edited or deleted

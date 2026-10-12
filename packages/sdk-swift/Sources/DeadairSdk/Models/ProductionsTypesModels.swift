@@ -101,11 +101,13 @@ public struct Production: Codable, Equatable, Sendable {
     public var cancelledAt: Date?
     /// How many beats exist so far, which is how far along the drafting is
     public var beats: Int
+    /// The station's own show this is an episode of, when it is one
+    public var showId: String?
     /// Who is on it, decided by the first pass that ran. Empty for one nobody has started, and for a programme the presenter reads alone
     public var cast: [ProductionCastMember]
     public var createdAt: Date
 
-    public init(id: String, kind: String, title: String, brief: String? = nil, notes: [String]? = nil, sources: [ProductionSource]? = nil, personaId: String? = nil, writingMode: ProductionWritingMode, targetMs: Int, state: ProductionState, error: String? = nil, scheduledFor: Date? = nil, cancelledAt: Date? = nil, beats: Int, cast: [ProductionCastMember], createdAt: Date) {
+    public init(id: String, kind: String, title: String, brief: String? = nil, notes: [String]? = nil, sources: [ProductionSource]? = nil, personaId: String? = nil, writingMode: ProductionWritingMode, targetMs: Int, state: ProductionState, error: String? = nil, scheduledFor: Date? = nil, cancelledAt: Date? = nil, beats: Int, showId: String? = nil, cast: [ProductionCastMember], createdAt: Date) {
         self.id = id
         self.kind = kind
         self.title = title
@@ -120,6 +122,7 @@ public struct Production: Codable, Equatable, Sendable {
         self.scheduledFor = scheduledFor
         self.cancelledAt = cancelledAt
         self.beats = beats
+        self.showId = showId
         self.cast = cast
         self.createdAt = createdAt
     }
@@ -139,6 +142,7 @@ public struct Production: Codable, Equatable, Sendable {
         case scheduledFor = "scheduledFor"
         case cancelledAt = "cancelledAt"
         case beats = "beats"
+        case showId = "showId"
         case cast = "cast"
         case createdAt = "createdAt"
     }
@@ -159,6 +163,7 @@ public struct Production: Codable, Equatable, Sendable {
         self.scheduledFor = try container.decodeIfPresent(Date.self, forKey: .scheduledFor)
         self.cancelledAt = try container.decodeIfPresent(Date.self, forKey: .cancelledAt)
         self.beats = try container.decode(Int.self, forKey: .beats)
+        self.showId = try container.decodeIfPresent(String.self, forKey: .showId)
         self.cast = try container.decode([ProductionCastMember].self, forKey: .cast)
         self.createdAt = try container.decode(Date.self, forKey: .createdAt)
     }
@@ -179,6 +184,7 @@ public struct Production: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.scheduledFor, forKey: .scheduledFor)
         try container.encodeIfPresent(self.cancelledAt, forKey: .cancelledAt)
         try container.encode(self.beats, forKey: .beats)
+        try container.encodeIfPresent(self.showId, forKey: .showId)
         try container.encode(self.cast, forKey: .cast)
         try container.encode(self.createdAt, forKey: .createdAt)
     }

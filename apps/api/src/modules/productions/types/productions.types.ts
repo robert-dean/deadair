@@ -79,6 +79,7 @@ export const Production = z.strictObject({
     beats: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .describe('How many beats exist so far, which is how far along the drafting is'),
+    showId: z.string().max(100).optional().describe("The station's own show this is an episode of, when it is one"),
     cast: z
         .array(ProductionCastMember)
         .describe(

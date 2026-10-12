@@ -58,6 +58,8 @@ data class Production(
     val cancelledAt: Instant? = null,
     /** How many beats exist so far, which is how far along the drafting is */
     val beats: Long,
+    /** The station's own show this is an episode of, when it is one */
+    val showId: String? = null,
     /** Who is on it, decided by the first pass that ran. Empty for one nobody has started, and for a programme the presenter reads alone */
     val cast: List<ProductionCastMember>,
     val createdAt: Instant,

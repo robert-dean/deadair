@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import { DateTime } from 'luxon';
+
+const _ZodDatetime = z.preprocess(
+    val => (typeof val === 'string' ? DateTime.fromISO(val) : val),
+    z.custom<DateTime>(val => val instanceof DateTime && val.isValid, { message: 'Must be in ISO 8601 format' }),
+);
 
 /**
  * A programme the station carries, as one installed plugin describes it
@@ -89,6 +95,56 @@ export const StationEpisodeQuery = z.strictObject({
 export type StationEpisodeQuery = z.infer<typeof StationEpisodeQuery>;
 
 /**
+ * A show the station makes for itself: a saved recipe for a podcast, whose every episode is a production
+ * generated from [OwnShow](../../../../data/contracts/podcasts/podcasts.types.ck)
+ */
+export const OwnShow = z.strictObject({
+    id: z.string().min(1).max(100),
+    title: z.string().min(1).max(200).describe("What the show is called. Each episode's title starts with it"),
+    description: z.string().max(2000).optional().describe('What the show is, for the console. Never read out'),
+    subject: z.string().max(4000).optional().describe('What an episode is about when it is asked for with no subject of its own'),
+    personaId: z.string().max(100).optional().describe('Who presents it. Absent is whoever is presenting when it is made'),
+    targetMs: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(60000).max(7200000))
+        .optional()
+        .describe("How long an episode runs. Absent is the station's production length"),
+    writingMode: z
+        .enum(['quick', 'outlined', 'polished'])
+        .optional()
+        .describe("How much of the model an episode is worth. Absent is the station's default"),
+    createdAt: _ZodDatetime,
+});
+export type OwnShow = z.infer<typeof OwnShow>;
+
+export const OwnShowInput = z.strictObject({
+    title: z.string().min(1).max(200).describe("What the show is called. Each episode's title starts with it"),
+    description: z.string().max(2000).optional().describe('What the show is, for the console. Never read out'),
+    subject: z.string().max(4000).optional().describe('What an episode is about when it is asked for with no subject of its own'),
+    personaId: z.string().max(100).optional().describe('Who presents it. Absent is whoever is presenting when it is made'),
+    targetMs: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(60000).max(7200000))
+        .optional()
+        .describe("How long an episode runs. Absent is the station's production length"),
+    writingMode: z
+        .enum(['quick', 'outlined', 'polished'])
+        .optional()
+        .describe("How much of the model an episode is worth. Absent is the station's default"),
+});
+export type OwnShowInput = z.infer<typeof OwnShowInput>;
+
+/**
+ * Asks one of the station's own shows for an episode. Everything is optional: a show with a standing subject needs nothing
+ * generated from [OwnEpisodeRequest](../../../../data/contracts/podcasts/podcasts.types.ck)
+ */
+export const OwnEpisodeRequest = z.strictObject({
+    topic: z.string().max(4000).optional().describe("What this episode is about. Absent is the show's own subject"),
+    sourceTitle: z.string().max(300).optional().describe('What the pasted text is called'),
+    text: z.string().max(20000).optional().describe('Something for it to read first. The episode states only what it can find in this'),
+    airAt: _ZodDatetime.optional().describe('When it should air. Absent is as soon as it is made'),
+});
+export type OwnEpisodeRequest = z.infer<typeof OwnEpisodeRequest>;
+
+/**
  * generated from [StationShowList](../../../../data/contracts/podcasts/podcasts.types.ck)
  */
 export const StationShowList = z.strictObject({
@@ -111,3 +167,16 @@ export const StationDirectoryPage = z.strictObject({
     results: z.array(StationDirectoryEntry).describe('Empty when nothing matched or no directory could be asked, which is not an error'),
 });
 export type StationDirectoryPage = z.infer<typeof StationDirectoryPage>;
+
+/**
+ * generated from [OwnShowList](../../../../data/contracts/podcasts/podcasts.types.ck)
+ */
+export const OwnShowList = z.strictObject({
+    shows: z.array(OwnShow),
+});
+export type OwnShowList = z.infer<typeof OwnShowList>;
+
+export const OwnShowListInput = z.strictObject({
+    shows: z.array(OwnShowInput),
+});
+export type OwnShowListInput = z.infer<typeof OwnShowListInput>;

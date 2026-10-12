@@ -113,6 +113,11 @@ public sealed record Production
     [JsonPropertyName("beats")]
     public required long Beats { get; init; }
 
+    /// <summary>The station's own show this is an episode of, when it is one</summary>
+    [JsonPropertyName("showId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ShowId { get; init; }
+
     /// <summary>Who is on it, decided by the first pass that ran. Empty for one nobody has started, and for a programme the presenter reads alone</summary>
     [JsonPropertyName("cast")]
     public required List<ProductionCastMember> Cast { get; init; }

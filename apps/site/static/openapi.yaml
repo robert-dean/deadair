@@ -4314,6 +4314,118 @@ paths:
             operationId: refreshPodcasts
             summary: 'Refresh podcasts'
             description: "Reads every show's feed again, in the background, rather than waiting for the next scheduled refresh"
+    '/podcasts/own':
+        get:
+            operationId: listOwnShows
+            summary: 'List own shows'
+            description: 'The shows the station makes for itself'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/OwnShowList'
+        post:
+            operationId: createOwnShow
+            summary: 'Create own show'
+            description: 'Makes a new show. Nothing is made until an episode is asked for'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/OwnShow'
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/OwnShow'
+    '/podcasts/own/{id}':
+        put:
+            operationId: updateOwnShow
+            summary: 'Update own show'
+            description: 'Rewrites a show. Episodes already asked for keep what they were asked with'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/OwnShow'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/OwnShow'
+        delete:
+            operationId: deleteOwnShow
+            summary: 'Delete own show'
+            description: 'Removes a show. Its episodes stay on the Productions page, no longer filed under it'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+    '/podcasts/own/{id}/episodes':
+        get:
+            operationId: episodes
+            summary: 'List own show episodes'
+            description: "A show's episodes, newest first, with how far along each is"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ProductionList'
+        post:
+            operationId: requestEpisode
+            summary: 'Request own show episode'
+            description: 'Asks the show for an episode. It is queued, not started, and airs when it is made or at the time given'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/OwnEpisodeRequest'
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/Production'
     '/productions':
         get:
             operationId: listProductions
@@ -12752,6 +12864,74 @@ components:
                         '$ref': '#/components/schemas/StationEpisode'
                     description: 'Newest first. Empty when the station knows of none, which is not an error'
             required: [episodes]
+        OwnShow:
+            type: object
+            properties:
+                id:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    readOnly: true
+                title:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: "What the show is called. Each episode's title starts with it"
+                description:
+                    type: string
+                    maxLength: 2000
+                    description: 'What the show is, for the console. Never read out'
+                subject:
+                    type: string
+                    maxLength: 4000
+                    description: 'What an episode is about when it is asked for with no subject of its own'
+                personaId:
+                    type: string
+                    maxLength: 100
+                    description: 'Who presents it. Absent is whoever is presenting when it is made'
+                targetMs:
+                    type: integer
+                    minimum: 60000
+                    maximum: 7200000
+                    description: "How long an episode runs. Absent is the station's production length"
+                writingMode:
+                    type: string
+                    enum: [quick, outlined, polished]
+                    description: "How much of the model an episode is worth. Absent is the station's default"
+                createdAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+            required: [id, title, createdAt]
+            description: 'A show the station makes for itself: a saved recipe for a podcast, whose every episode is a production'
+        OwnShowList:
+            type: object
+            properties:
+                shows:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/OwnShow'
+            required: [shows]
+        OwnEpisodeRequest:
+            type: object
+            properties:
+                topic:
+                    type: string
+                    maxLength: 4000
+                    description: "What this episode is about. Absent is the show's own subject"
+                sourceTitle:
+                    type: string
+                    maxLength: 300
+                    description: 'What the pasted text is called'
+                text:
+                    type: string
+                    maxLength: 20000
+                    description: 'Something for it to read first. The episode states only what it can find in this'
+                airAt:
+                    type: string
+                    format: date-time
+                    description: 'When it should air. Absent is as soon as it is made'
+            description: "Asks one of the station's own shows for an episode. Everything is optional: a show with a standing subject needs nothing"
         ProductionCastMember:
             type: object
             properties:
@@ -12867,6 +13047,11 @@ components:
                     minimum: 0
                     readOnly: true
                     description: 'How many beats exist so far, which is how far along the drafting is'
+                showId:
+                    type: string
+                    maxLength: 100
+                    readOnly: true
+                    description: "The station's own show this is an episode of, when it is one"
                 cast:
                     type: array
                     items:

@@ -26,6 +26,7 @@ import { KyselyDefaultPlugins, KyselyPgTypeOverrides, KyselyPool } from '@maroon
 
 import type { DB } from '../src/modules/data/db.js';
 import { ProductionRepository } from '../src/modules/productions/production.repository.js';
+import { OwnShowRepository } from '../src/modules/podcasts/own.show.repository.js';
 import { SegmentRepository } from '../src/modules/render/segment.repository.js';
 import { planProduction } from '../src/modules/productions/production.plan.js';
 import { StationIdentity } from '../src/modules/shared/station.identity.js';
@@ -51,6 +52,7 @@ const db = new Kysely<DB>({ dialect: new PostgresDialect({ pool }), plugins: [..
 const identity = new StationIdentity();
 const productions = new ProductionRepository(db, identity);
 const segments = new SegmentRepository(db, identity);
+const ownShows = new OwnShowRepository(db, identity);
 
 let failures = 0;
 const check = (ok: boolean, said: string): void => {
@@ -214,6 +216,27 @@ try {
     const failed = await productions.findById(broken.id);
     check(failed?.state === 'failed' && failed.error === 'beat 2 came back empty', 'the reason is on the row for whoever asks why');
 
+    // ── the station's own shows, and the episodes filed under them ────────────
+    const show = await ownShows.create({ title: TITLE, subject: 'something calm', targetMs: 40 * 60_000, writingMode: 'outlined' });
+    check(show.subject === 'something calm' && show.writingMode === 'outlined', 'a show comes back as it went in');
+    const rewritten = await ownShows.update(show.id, { title: TITLE });
+    check(
+        rewritten !== undefined && rewritten.subject === undefined && rewritten.targetMs === undefined,
+        'a rewrite is whole, so a field left out of it is cleared',
+    );
+    const episode = await open({ showId: show.id });
+    check(episode.showId === show.id, 'an episode is filed under its show');
+    check(
+        (await productions.forShow(show.id)).some(row => row.id === episode.id),
+        "and is listed among the show's episodes",
+    );
+    check(await ownShows.remove(show.id), 'a show can be removed');
+    const orphan = await productions.findById(episode.id);
+    check(
+        orphan !== undefined && orphan.showId === undefined,
+        'its episodes outlive it, no longer filed under it, because one that aired still aired',
+    );
+
     // ── what a scheduler drains ───────────────────────────────────────────────
     const unfinished = await productions.unfinished(50);
     const ids = new Set(unfinished.map(production => production.id));
@@ -222,6 +245,7 @@ try {
 } finally {
     await sql`delete from deadair.segments where label like ${`${TITLE}%`}`.execute(db);
     await sql`delete from deadair.productions where title = ${TITLE}`.execute(db);
+    await sql`delete from deadair.own_shows where title = ${TITLE}`.execute(db);
     await db.destroy();
 }
 

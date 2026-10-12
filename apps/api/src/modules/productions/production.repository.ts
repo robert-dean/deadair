@@ -63,6 +63,7 @@ export class ProductionRepository extends DataRepository {
         personaId?: string;
         scheduledFor?: number;
         actorId?: string;
+        showId?: string;
     }): Promise<Production> {
         const notes = cleanNotes(input.notes);
         const sources = cleanSources(input.sources);
@@ -88,6 +89,7 @@ export class ProductionRepository extends DataRepository {
                 casting: null,
                 scheduledFor: input.scheduledFor === undefined ? null : instant(input.scheduledFor),
                 actorId: input.actorId ?? null,
+                showId: input.showId ?? null,
             })
             .returningAll()
             .executeTakeFirstOrThrow();
@@ -278,6 +280,20 @@ export class ProductionRepository extends DataRepository {
         return rows.map(toProduction);
     }
 
+    /** One of the station's own shows' episodes, newest first. */
+    async forShow(showId: string, limit = 50): Promise<Production[]> {
+        const rows = await this.db
+            .selectFrom('deadair.productions')
+            .selectAll()
+            .where('stationKey', '=', this.identity.stationKey)
+            .where('showId', '=', showId)
+            .orderBy('createdAt', 'desc')
+            .limit(limit)
+            .execute();
+
+        return rows.map(toProduction);
+    }
+
     /**
      * Productions already scheduled at or after an instant, for the clock's idempotence.
      *
@@ -393,6 +409,7 @@ function toProduction(row: Record<string, unknown>): Production {
         ...(millisOf(row.scheduledFor as DateTime | null) === undefined ? {} : { scheduledFor: millisOf(row.scheduledFor as DateTime | null)! }),
         ...(millisOf(row.cancelledAt as DateTime | null) === undefined ? {} : { cancelledAt: millisOf(row.cancelledAt as DateTime | null)! }),
         ...(row.actorId == null ? {} : { actorId: String(row.actorId) }),
+        ...(row.showId == null ? {} : { showId: String(row.showId) }),
         createdAt: millisOf(row.createdAt as DateTime | null) ?? 0,
     };
 }

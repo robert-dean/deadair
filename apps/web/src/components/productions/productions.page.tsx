@@ -184,7 +184,7 @@ const canStop = (state: Production['state']) => state !== 'aired' && state !== '
  * the same as it being on air this second, and the `live` tone is reserved for things that genuinely
  * are.
  */
-function toneOf(state: Production['state']): StatusTone {
+export function toneOf(state: Production['state']): StatusTone {
     if (state === 'failed') return 'fault';
     if (state === 'cancelled') return 'off';
     if (state === 'aired') return 'ok';

@@ -1,7 +1,12 @@
 import { z } from 'zod';
-import { ServerKitRouter, requirePolicy } from '@maroonedsoftware/koa';
+import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
+import { OwnShowsService } from '#src/modules/podcasts/own.shows.service.js';
 import { PodcastsService } from '#src/modules/podcasts/podcasts.service.js';
 import {
+    OwnEpisodeRequest,
+    OwnShow,
+    OwnShowInput,
+    OwnShowList,
     StationDirectoryPage,
     StationDirectoryQuery,
     StationEpisode,
@@ -9,6 +14,7 @@ import {
     StationEpisodeQuery,
     StationShowList,
 } from '../modules/podcasts/types/podcasts.types.js';
+import { Production, ProductionList } from '../modules/productions/types/productions.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
@@ -88,4 +94,114 @@ PodcastsRouter.post('/podcasts/refresh', requirePolicy({ policy: 'platform.manag
     await service.requestRefresh();
 
     ctx.status = 204;
+});
+
+/**
+ * The shows the station makes for itself
+ * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck) `GET /podcasts/own`
+ */
+PodcastsRouter.get('/podcasts/own', requirePolicy({ policy: 'platform.view' }), async ctx => {
+    const service = ctx.container.get(OwnShowsService);
+    const result: OwnShowList = await service.list();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Makes a new show. Nothing is made until an episode is asked for
+ * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck) `POST /podcasts/own`
+ */
+PodcastsRouter.post('/podcasts/own', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, OwnShowInput);
+
+    const service = ctx.container.get(OwnShowsService);
+    const result: OwnShow = await service.create(body);
+
+    ctx.status = 201;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Rewrites a show. Episodes already asked for keep what they were asked with
+ * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck) `PUT /podcasts/own/{id}`
+ */
+PodcastsRouter.put('/podcasts/own/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.string().min(1).max(100),
+        }),
+    );
+
+    const body = await parseAndValidate(ctx.parsedBody, OwnShowInput);
+
+    const service = ctx.container.get(OwnShowsService);
+    const result: OwnShow = await service.update(id, body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Removes a show. Its episodes stay on the Productions page, no longer filed under it
+ * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck) `DELETE /podcasts/own/{id}`
+ */
+PodcastsRouter.delete('/podcasts/own/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.string().min(1).max(100),
+        }),
+    );
+
+    const service = ctx.container.get(OwnShowsService);
+    await service.remove(id);
+
+    ctx.status = 204;
+});
+
+/**
+ * A show's episodes, newest first, with how far along each is
+ * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck) `GET /podcasts/own/{id}/episodes`
+ */
+PodcastsRouter.get('/podcasts/own/:id/episodes', requirePolicy({ policy: 'platform.view' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.string().min(1).max(100),
+        }),
+    );
+
+    const service = ctx.container.get(OwnShowsService);
+    const result: ProductionList = await service.episodes(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Asks the show for an episode. It is queued, not started, and airs when it is made or at the time given
+ * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck) `POST /podcasts/own/{id}/episodes`
+ */
+PodcastsRouter.post('/podcasts/own/:id/episodes', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.string().min(1).max(100),
+        }),
+    );
+
+    const body = await parseAndValidate(ctx.parsedBody, OwnEpisodeRequest);
+
+    const service = ctx.container.get(OwnShowsService);
+    const result: Production = await service.requestEpisode(id, body);
+
+    ctx.status = 201;
+    ctx.type = 'application/json';
+    ctx.body = result;
 });

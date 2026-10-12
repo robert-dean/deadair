@@ -8,7 +8,7 @@ mdx:
 > Something the station makes rather than something it says: several beats of speech, written in several passes, that airs as one block
 
 <details>
-<summary>Attributes (16)</summary>
+<summary>Attributes (17)</summary>
 
 | Attribute      | Type                                                                                                                                                   | Required | Description                                                                                                                                                                       |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -26,6 +26,7 @@ mdx:
 | `scheduledFor` | `string`                                                                                                                                               | No       | When it should air. Absent means as soon as it is made                                                                                                                            |
 | `cancelledAt`  | `string`                                                                                                                                               | No       | _read-only_                                                                                                                                                                       |
 | `beats`        | `number`                                                                                                                                               | Yes      | How many beats exist so far, which is how far along the drafting is. _read-only_                                                                                                  |
+| `showId`       | `string`                                                                                                                                               | No       | The station's own show this is an episode of, when it is one. _read-only_                                                                                                         |
 | `cast`         | `ProductionCastMember[]`                                                                                                                               | Yes      | Who is on it, decided by the first pass that ran. Empty for one nobody has started, and for a programme the presenter reads alone. _read-only_                                    |
 | `createdAt`    | `string`                                                                                                                                               | Yes      | _read-only_                                                                                                                                                                       |
 

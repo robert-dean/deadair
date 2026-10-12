@@ -149,6 +149,8 @@ export interface Production {
     scheduledFor?: number;
     cancelledAt?: number;
     actorId?: string;
+    /** The station's own show this is an episode of, when it is one. See `own.shows.service.ts`. */
+    showId?: string;
     /** When it was commissioned. What a console orders the list by. */
     createdAt: number;
 }

@@ -36,6 +36,7 @@ contract Production: {
     scheduledFor?: datetime # When it should air. Absent means as soon as it is made
     cancelledAt?: readonly datetime
     beats: readonly int(min=0) # How many beats exist so far, which is how far along the drafting is
+    showId?: readonly string(max=100) # The station's own show this is an episode of, when it is one
     cast: readonly array(ProductionCastMember) # Who is on it, decided by the first pass that ran. Empty for one nobody has started, and for a programme the presenter reads alone
     createdAt: readonly datetime
 }

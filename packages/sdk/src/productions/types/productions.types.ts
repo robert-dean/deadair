@@ -65,6 +65,8 @@ export interface Production {
     cancelledAt?: DateTime;
     /** How many beats exist so far, which is how far along the drafting is */
     beats: number;
+    /** The station's own show this is an episode of, when it is one */
+    showId?: string;
     /** Who is on it, decided by the first pass that ran. Empty for one nobody has started, and for a programme the presenter reads alone */
     cast: ProductionCastMember[];
     createdAt: DateTime;

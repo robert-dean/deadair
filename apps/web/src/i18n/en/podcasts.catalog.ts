@@ -1,8 +1,77 @@
 /** Podcasts: the shows the station carries, their episodes, and the directory a show is found in. */
 export const podcasts = {
     title: 'Podcasts',
+    /** The shows the station makes for itself, above the ones it carries. */
+    own: {
+        title: 'Your shows',
+        description:
+            'Shows the station makes for itself. Each episode is written and spoken by the station, and airs as soon as it is made or at the time you give it.',
+        create: 'New show',
+        edit: 'Edit',
+        empty: 'No shows of your own yet. Start one from a template: something to fall asleep to, or the day’s news taken slowly.',
+        about: 'About: {{subject}}',
+        noSubject: 'No standing subject, so each episode needs a topic or something to read.',
+        error: {
+            list: 'Your shows could not be read',
+            save: 'That show could not be saved',
+            delete: 'That show could not be deleted',
+            episode: 'That episode could not be asked for',
+            episodes: 'This show’s episodes could not be read',
+        },
+        delete: {
+            action: 'Delete',
+            title: 'Delete {{title}}?',
+            body: 'Its episodes stay on the Productions page, and any still being made carry on. Only the show goes.',
+        },
+        form: {
+            title: { label: 'Called', required: 'Give it a name' },
+            description: { label: 'What it is', description: 'For you, on this page. Never read out.' },
+            subject: {
+                label: 'What it is about',
+                description: 'What an episode is about when you ask for one without a topic of its own. This is what it is planned from.',
+            },
+            create: 'Make the show',
+            save: 'Save',
+        },
+        template: {
+            label: 'Start from',
+            windDown: {
+                title: 'Wind-down',
+                description: 'Something to fall asleep to.',
+                subject:
+                    'Something calm and quietly interesting to fall asleep to: one subject taken slowly, with nothing alarming, no news and no sudden turns.',
+            },
+            newsInDepth: {
+                title: 'News in depth',
+                description: 'The day’s news, taken slowly.',
+                subject: 'The day’s news in depth: a few stories explained properly, with what led up to them, rather than many read out.',
+            },
+        },
+        episode: {
+            ask: 'Make an episode',
+            submit: 'Make it',
+            queued: '"{{title}}" is queued. It is written and spoken over the next few minutes, and appears below as it goes.',
+            airs: 'airs {{when}}',
+            topic: {
+                label: 'What this one is about',
+                description: 'Leave empty for the show’s own subject.',
+                required: 'This show has no subject of its own, so give it one here or something to read below.',
+            },
+            sourceTitle: 'What the text is called',
+            sourceTitlePlaceholder: 'An article, a chapter, your own notes',
+            text: {
+                label: 'Something to read first',
+                description: 'Paste an article or notes. The episode states as fact only what it can find in this.',
+            },
+            airAt: {
+                label: 'Air at',
+                description: 'Leave empty to air it as soon as it is made.',
+                placeholder: 'As soon as it is ready',
+            },
+        },
+    },
     description:
-        "Somebody else's programmes the station can carry, newest first. A <code>syndicated</code> band on the format clock airs a show's newest episode at its time; the station fetches the audio a few hours before.",
+        "Shows the station makes for itself, and somebody else's programmes it can carry, newest first. A <code>syndicated</code> band on the format clock airs a carried show's newest episode at its time; the station fetches the audio a few hours before.",
     refresh: {
         action: 'Read the feeds now',
         queued: 'The station is reading every feed again. New episodes appear here in a minute or two.',

@@ -4,6 +4,8 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { PodcastEpisodeRepository } from './podcast.episode.repository.js';
 import { PodcastFetchOptions, PodcastFetchService } from './podcast.fetch.service.js';
 import { PodcastsService } from './podcasts.service.js';
+import { OwnShowRepository } from './own.show.repository.js';
+import { OwnShowsService } from './own.shows.service.js';
 import { PodcastScheduler } from './podcast.scheduler.js';
 import { SyndicatedSource } from './syndicated.source.js';
 
@@ -36,5 +38,9 @@ export const PodcastsModule: ServerKitModule = {
         // scheduler is.
         registry.register(SyndicatedSource).useClass(SyndicatedSource).asScoped();
         registry.register(PodcastScheduler).useClass(PodcastScheduler).asScoped();
+        // The station's own shows. Scoped, since the service asks `ProductionsService` for each
+        // episode and that is scoped to the request that asked.
+        registry.register(OwnShowRepository).useClass(OwnShowRepository).asScoped();
+        registry.register(OwnShowsService).useClass(OwnShowsService).asScoped();
     },
 };

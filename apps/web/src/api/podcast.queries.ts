@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ConfigFieldDescriptor, StationDirectoryEntry } from '@deadair/sdk';
+import type { ConfigFieldDescriptor, OwnEpisodeRequest, OwnShowInput, StationDirectoryEntry } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -158,6 +158,60 @@ export function useSubscribePodcast() {
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.podcasts.shows() });
             void queryClient.invalidateQueries({ queryKey: ['plugins'] });
+        },
+    });
+}
+
+/**
+ * How often a show's episodes are re-read.
+ *
+ * `productions.queries.ts`' figure and its reason: an episode is a production, and it moves through
+ * its passes on its own over minutes with no event the console could hear.
+ */
+const OWN_EPISODES_POLL_MS = 10_000;
+
+/** The shows the station makes for itself. */
+export function useOwnShows() {
+    return useQuery({ queryKey: queryKeys.podcasts.own(), queryFn: () => sdk.podcasts.listOwnShows() });
+}
+
+/** One of the station's own shows' episodes, newest first, re-read while they are being made. */
+export function useOwnShowEpisodes(showId: string) {
+    return useQuery({
+        queryKey: queryKeys.podcasts.ownEpisodes(showId),
+        queryFn: () => sdk.podcasts.listOwnShowEpisodes(showId),
+        refetchInterval: OWN_EPISODES_POLL_MS,
+    });
+}
+
+/** The three writes to a show, each followed by the list being read again. */
+function useOwnShowsRefresh<TArgs, TResult>(mutationFn: (args: TArgs) => Promise<TResult>) {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn,
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.podcasts.own() });
+        },
+    });
+}
+
+export const useCreateOwnShow = () => useOwnShowsRefresh((body: OwnShowInput) => sdk.podcasts.createOwnShow(body));
+
+export const useUpdateOwnShow = () => useOwnShowsRefresh(({ id, body }: { id: string; body: OwnShowInput }) => sdk.podcasts.updateOwnShow(id, body));
+
+export const useDeleteOwnShow = () => useOwnShowsRefresh((id: string) => sdk.podcasts.deleteOwnShow(id));
+
+/**
+ * Ask a show for an episode. Queued rather than made, so what this resolves to is the production
+ * being taken; the show's episodes and the Productions page are both read again so it appears in each.
+ */
+export function useRequestOwnEpisode() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ showId, body }: { showId: string; body: OwnEpisodeRequest }) => sdk.podcasts.requestOwnShowEpisode(showId, body),
+        onSuccess: (_, { showId }) => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.podcasts.ownEpisodes(showId) });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.productions.list() });
         },
     });
 }

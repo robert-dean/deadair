@@ -9,6 +9,7 @@ import com.maroonedsoftware.deadair.auth.SessionManager
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.auth.SessionStore
 import com.maroonedsoftware.deadair.catalog.CatalogActions
+import com.maroonedsoftware.deadair.director.BreakActions
 import com.maroonedsoftware.deadair.director.OrderActions
 import com.maroonedsoftware.deadair.director.OrderRepository
 import com.maroonedsoftware.deadair.net.HttpClients
@@ -138,6 +139,8 @@ class AppGraph(private val application: Application) {
     val orderActions: OrderActions = OrderActions(operator, order)
 
     val air: AirActions = AirActions(operator, playout, order)
+
+    val breaks: BreakActions = BreakActions(operator)
 
     val scripts: ScriptActions = ScriptActions(operator)
 

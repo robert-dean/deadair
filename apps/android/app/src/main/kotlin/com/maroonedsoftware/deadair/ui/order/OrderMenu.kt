@@ -6,6 +6,7 @@ import com.maroonedsoftware.deadair.sdk.models.StationOrder
 enum class OrderVerb {
     AIR_SOMETHING,
     ADD_RECORD,
+    SAY_SOMETHING,
 }
 
 data class OrderMenuItem(val verb: OrderVerb, val enabled: Boolean = true)
@@ -14,7 +15,7 @@ data class OrderMenuItem(val verb: OrderVerb, val enabled: Boolean = true)
  * What the Manage page offers to put on air, in order.
  *
  * Something to air is always offered, since off air it is the way on. A record needs a broadcast to
- * join. Nothing is offered before the order has answered. Refill and Shuffle were here and are not:
+ * join, and so does a break asked for by hand. Nothing is offered before the order has answered. Refill and Shuffle were here and are not:
  * the station refills a broadcast by itself, and Shuffle is on Now playing beside the record it
  * reorders around.
  */
@@ -25,5 +26,7 @@ fun orderMenu(order: StationOrder?): List<OrderMenuItem> {
         add(OrderMenuItem(OrderVerb.AIR_SOMETHING))
         // Off air, Air something is the way on; there is no broadcast for one record to join.
         if (!nothingOn) add(OrderMenuItem(OrderVerb.ADD_RECORD))
+        // Off air the station declines every break, since there is no running order to put one in.
+        if (!nothingOn) add(OrderMenuItem(OrderVerb.SAY_SOMETHING))
     }
 }

@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.58.1] — 2026-10-12
+
+- A persona audition now shows the host each sound effect's cue and placement, as an on-air break does. Before, an audition offered the soundboard as bare names, so a cue set on a pad could not be auditioned at all.
+
 ## [0.58.0] — 2026-10-12
 
 - One of the station's own shows can read the news. Choose the feeds it reads and how many hours back, and each episode is made from the newest stories on them, stating only what it can find in them; a story you keep off the air is kept out of the episode too. The News in depth starting point reads every feed the station has over the last day until you narrow it. Asking for an episode when the feeds had nothing in the window says so rather than queueing one. In the API, `OwnShow` carries `newsFeedIds` and `newsHours`.
@@ -1364,7 +1368,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.58.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.58.1...HEAD
+[0.58.1]: https://github.com/robert-dean/deadair/compare/v0.58.0...v0.58.1
 [0.58.0]: https://github.com/robert-dean/deadair/compare/v0.57.0...v0.58.0
 [0.57.0]: https://github.com/robert-dean/deadair/compare/v0.56.0...v0.57.0
 [0.56.0]: https://github.com/robert-dean/deadair/compare/v0.55.0...v0.56.0

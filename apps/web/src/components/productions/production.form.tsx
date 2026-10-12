@@ -38,8 +38,8 @@ interface FormValues {
     brief: string;
     /** One note per line, as typed. Split, trimmed and the blank lines dropped on the way out. */
     notes: string;
-    /** Pasted sources, as typed. One with no text is dropped on the way out. */
-    sources: { title: string; text: string }[];
+    /** Sources, as typed: a page's address, pasted text, or both. One with neither is dropped on the way out. */
+    sources: TypedSource[];
     kind: string;
     minutes: number | string;
     mode: string | null;
@@ -56,15 +56,28 @@ export function notesOf(typed: string): string[] {
         .filter(line => line.length > 0);
 }
 
+/** One source row as the form holds it. */
+export interface TypedSource {
+    title: string;
+    url: string;
+    text: string;
+}
+
 /**
- * The sources as the request carries them: one with no text is dropped, since there is nothing in it to
- * read, and one with no title is named after its place in the list, since the contract needs a name and
- * an operator pasting an article should not be stopped for want of one.
+ * The sources as the request carries them: one with neither an address nor text is dropped, since there
+ * is nothing in it to read. One with no title is named by its address, which the station replaces with the
+ * page's own title once it has read it, or else after its place in the list, since the contract needs a
+ * name and an operator pasting an article should not be stopped for want of one.
  */
-export function sourcesOf(typed: readonly { title: string; text: string }[]): ProductionSource[] {
+export function sourcesOf(typed: readonly TypedSource[]): ProductionSource[] {
     return typed
-        .filter(source => source.text.trim().length > 0)
-        .map((source, index) => ({ title: source.title.trim().length > 0 ? source.title.trim() : `Source ${index + 1}`, text: source.text.trim() }));
+        .filter(source => source.text.trim().length > 0 || source.url.trim().length > 0)
+        .map((source, index) => {
+            const url = source.url.trim();
+            const text = source.text.trim();
+            const title = source.title.trim().length > 0 ? source.title.trim() : url.length > 0 ? url : `Source ${index + 1}`;
+            return { title, ...(url.length === 0 ? {} : { url }), ...(text.length === 0 ? {} : { text }) };
+        });
 }
 
 /**
@@ -183,6 +196,12 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
                                             <IconTrash size={16} />
                                         </ActionIcon>
                                     </Group>
+                                    <TextInput
+                                        label={t('form.sources.url')}
+                                        description={t('form.sources.urlDescription')}
+                                        placeholder={t('form.sources.urlPlaceholder')}
+                                        {...form.getInputProps(`sources.${index}.url`)}
+                                    />
                                     <Textarea
                                         label={t('form.sources.text')}
                                         placeholder={t('form.sources.textPlaceholder')}
@@ -199,7 +218,7 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
                                 variant="light"
                                 size="compact-sm"
                                 leftSection={<IconPlus size={14} />}
-                                onClick={() => form.insertListItem('sources', { title: '', text: '' })}
+                                onClick={() => form.insertListItem('sources', { title: '', url: '', text: '' })}
                             >
                                 {t('form.sources.add')}
                             </Button>

@@ -305,6 +305,11 @@ public sealed record OwnEpisodeRequest
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Topic { get; init; }
 
+    /// <summary>A page for it to read first, by its address. The episode states only what it can find there</summary>
+    [JsonPropertyName("url")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Url { get; init; }
+
     /// <summary>What the pasted text is called</summary>
     [JsonPropertyName("sourceTitle")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

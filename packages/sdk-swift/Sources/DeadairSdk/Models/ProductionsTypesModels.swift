@@ -44,7 +44,7 @@ public struct ProductionSource: Codable, Equatable, Sendable {
     public var title: String
     /// Where it came from, when it came from somewhere
     public var url: String?
-    /// What it says. Required when a production is asked for: nothing yet reads a source that has only an address
+    /// What it says. Absent for a source given only by its address, which the research pass reads through whichever installed plugin can open a page
     public var text: String?
 
     public init(title: String, url: String? = nil, text: String? = nil) {

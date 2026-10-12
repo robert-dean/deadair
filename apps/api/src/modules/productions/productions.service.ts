@@ -82,11 +82,18 @@ export class ProductionsService {
      * `filing` is what a caller knows that the request does not carry: which show it is an episode of.
      */
     async commission(body: ProductionRequest, filing: { showId?: string } = {}): Promise<ProductionView> {
-        // Nothing reads a source that has only an address yet, so one is refused here rather than
-        // accepted and failed later by a research pass with nothing to read.
-        const unreadable = (body.sources ?? []).find(source => (source.text ?? '').trim().length === 0);
-        if (unreadable !== undefined) {
-            throw httpError(400).withDetails({ message: `the source "${unreadable.title}" has no text to read` });
+        // A source is read from its text, or from its address by the research pass. One with neither
+        // is nothing to read, and an address that is not a web page's is refused here rather than
+        // accepted and failed later by a pass with nothing to fetch.
+        for (const source of body.sources ?? []) {
+            const hasText = (source.text ?? '').trim().length > 0;
+            const url = source.url?.trim() ?? '';
+            if (!hasText && url.length === 0) {
+                throw httpError(400).withDetails({ message: `the source "${source.title}" has neither text nor an address to read` });
+            }
+            if (url.length > 0 && !isWebAddress(url)) {
+                throw httpError(400).withDetails({ message: `"${url}" is not the address of a web page` });
+            }
         }
 
         const kind = body.kind ?? DEFAULT_KIND;
@@ -205,5 +212,15 @@ export class ProductionsService {
             })),
             createdAt: DateTime.fromMillis(production.createdAt),
         };
+    }
+}
+
+/** Whether an address is one a plugin could open as a web page: http or https, with a host. */
+export function isWebAddress(url: string): boolean {
+    try {
+        const parsed = new URL(url);
+        return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.hostname.length > 0;
+    } catch {
+        return false;
     }
 }

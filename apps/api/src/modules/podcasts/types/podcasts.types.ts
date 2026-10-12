@@ -156,6 +156,7 @@ export type OwnShowInput = z.infer<typeof OwnShowInput>;
  */
 export const OwnEpisodeRequest = z.strictObject({
     topic: z.string().max(4000).optional().describe("What this episode is about. Absent is the show's own subject"),
+    url: z.string().max(2000).optional().describe('A page for it to read first, by its address. The episode states only what it can find there'),
     sourceTitle: z.string().max(300).optional().describe('What the pasted text is called'),
     text: z
         .string()

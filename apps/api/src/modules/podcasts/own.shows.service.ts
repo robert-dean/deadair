@@ -80,8 +80,9 @@ export class OwnShowsService {
      *
      * A show that reads the news reads it now, when the episode is asked for, and hands the stories over
      * as its sources: the news as it stood when somebody asked is the news they asked about, and reading
-     * it here keeps the research pass knowing nothing about shows. Pasted text takes the news's place,
-     * since an operator who pasted something meant that rather than the feeds.
+     * it here keeps the research pass knowing nothing about shows. Pasted text or an address takes the
+     * news's place, since an operator who gave the episode something to read meant that rather than the
+     * feeds. An address is read by the research pass, through whichever plugin can open a page.
      */
     async requestEpisode(id: string, body: OwnEpisodeRequest): Promise<Production> {
         const show = await this.shows.find(id);
@@ -89,9 +90,11 @@ export class OwnShowsService {
 
         const topic = body.topic?.trim() ?? '';
         const text = body.text?.trim() ?? '';
-        const readsNews = text.length === 0 && (show.newsFeedIds?.length ?? 0) > 0;
+        const url = body.url?.trim() ?? '';
+        const given = text.length > 0 || url.length > 0;
+        const readsNews = !given && (show.newsFeedIds?.length ?? 0) > 0;
         const brief = topic.length > 0 ? topic : (show.subject ?? (readsNews ? NEWS_BRIEF : undefined));
-        if (brief === undefined && text.length === 0) {
+        if (brief === undefined && !given) {
             throw httpError(400).withDetails({
                 message: `"${show.title}" has no subject of its own, so an episode needs a topic or something to read`,
             });
@@ -100,16 +103,18 @@ export class OwnShowsService {
         const sourceTitle = body.sourceTitle?.trim() ?? '';
         const sources = readsNews
             ? await this.newsSources(show)
-            : text.length === 0
-              ? undefined
-              : [{ title: sourceTitle.length > 0 ? sourceTitle : PASTED, text }];
+            : [
+                  // Titled by its address until the research pass reads the title the page gives itself.
+                  ...(url.length === 0 ? [] : [{ title: url.slice(0, 300), url }]),
+                  ...(text.length === 0 ? [] : [{ title: sourceTitle.length > 0 ? sourceTitle : PASTED, text }]),
+              ];
 
         return await this.productions.commission(
             {
                 kind: 'podcast',
                 title: episodeTitle(show, topic, Date.now(), stationZone(this.config)),
                 ...(brief === undefined ? {} : { brief }),
-                ...(sources === undefined ? {} : { sources }),
+                ...(sources.length === 0 ? {} : { sources }),
                 ...(show.personaId === undefined ? {} : { personaId: show.personaId }),
                 ...(show.targetMs === undefined ? {} : { targetMs: show.targetMs }),
                 ...(show.writingMode === undefined ? {} : { writingMode: show.writingMode }),

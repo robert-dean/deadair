@@ -2,6 +2,7 @@ import { PluginError } from './plugin.error.js';
 import { pluginCodeForStatus, retryAfterMs, upstreamDetail } from './plugin.http.js';
 import { plainText, truncateSentences } from './html.text.js';
 import type { HostFetchInit, PluginHost } from './plugin.host.js';
+import type { SourceDocument } from './capabilities/enrichment.js';
 
 /**
  * The story behind a headline, as the paragraphs somebody else published.
@@ -337,6 +338,71 @@ export async function fetchArticle(
     init?: HostFetchInit,
     options?: { maxChars?: number },
 ): Promise<string | undefined> {
+    const html = await fetchHtml(host, url, init);
+    return html === undefined ? undefined : extractArticle(html, options?.maxChars);
+}
+
+/**
+ * A whole page as a document: its prose, the title it gives itself, where it is and when it was read.
+ *
+ * {@link fetchArticle} with the page's title kept, for a caller that is handed an address and nothing
+ * else, which is a page somebody asked the station to make a programme about rather than a story whose
+ * headline a feed already supplied. `options.maxChars` defaults far higher than a bulletin's
+ * {@link ARTICLE_MAX_CHARS}, since what reads this is a research pass taking notes rather than a
+ * presenter reading a sentence. `undefined` for a page with no prose on it, as for a PDF, which is an
+ * ordinary answer; a refused or failed request throws, as {@link fetchArticle} does.
+ */
+export async function readDocument(
+    host: PluginHost,
+    url: string,
+    init?: HostFetchInit,
+    options?: { maxChars?: number },
+): Promise<SourceDocument | undefined> {
+    const html = await fetchHtml(host, url, init);
+    if (html === undefined) return undefined;
+
+    const text = extractArticle(html, options?.maxChars ?? DOCUMENT_MAX_CHARS);
+    if (text === undefined) return undefined;
+
+    return { url, title: extractTitle(html) ?? url, text, retrievedAt: new Date().toISOString() };
+}
+
+/** How much of a page {@link readDocument} keeps by default: about three thousand words. */
+export const DOCUMENT_MAX_CHARS = 20_000;
+
+/** The longest title {@link extractTitle} answers, cut at a word. */
+const TITLE_MAX_CHARS = 300;
+
+/**
+ * What a page calls itself: its `og:title`, then its `<title>`, then its first `<h1>`.
+ *
+ * The Open Graph title first, because it is the one a publisher writes for somebody sharing the page
+ * and so the one without the site's name glued on the end, which a `<title>` usually has. `undefined`
+ * for a page that names itself nowhere.
+ */
+export function extractTitle(html: string): string | undefined {
+    // Each quote closed by its own kind, so "The keeper's year" is not cut at its apostrophe.
+    const meta = /<meta\b[^>]*>/gi;
+    let og: string | undefined;
+    for (let tag = meta.exec(html); tag !== null && og === undefined; tag = meta.exec(html)) {
+        if (!/\bproperty\s*=\s*(?:"og:title"|'og:title')/i.test(tag[0])) continue;
+        const content = /\bcontent\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(tag[0]);
+        og = content?.[1] ?? content?.[2];
+    }
+    const candidates = [og, /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1], /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html)?.[1]];
+
+    for (const candidate of candidates) {
+        const title = candidate === undefined ? undefined : plainText(candidate, TITLE_MAX_CHARS);
+        if (title !== undefined) return title;
+    }
+    return undefined;
+}
+
+/**
+ * A page's HTML, or `undefined` for a response that is not a page. The status ladder and the
+ * content-type check that {@link fetchArticle} documents, shared with {@link readDocument}.
+ */
+async function fetchHtml(host: PluginHost, url: string, init?: HostFetchInit): Promise<string | undefined> {
     const response = await host.fetch(url, init);
 
     if (!response.ok) {
@@ -361,5 +427,5 @@ export async function fetchArticle(
         return undefined;
     }
 
-    return extractArticle(await response.text(), options?.maxChars);
+    return await response.text();
 }

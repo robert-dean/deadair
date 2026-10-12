@@ -164,6 +164,8 @@ export function reviveOwnShow(raw: OwnShow): OwnShow {
 export interface OwnEpisodeRequest {
     /** What this episode is about. Absent is the show's own subject */
     topic?: string;
+    /** A page for it to read first, by its address. The episode states only what it can find there */
+    url?: string;
     /** What the pasted text is called */
     sourceTitle?: string;
     /** Something for it to read first. The episode states only what it can find in this. Given text, a show that reads the news reads this instead */

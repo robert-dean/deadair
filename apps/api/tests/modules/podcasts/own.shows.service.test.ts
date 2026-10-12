@@ -110,6 +110,33 @@ describe('OwnShowsService.requestEpisode', () => {
     });
 });
 
+describe('an episode made from a page', () => {
+    it('hands the address over to be read, titled by it until the page is read', async () => {
+        const { service, commission } = build();
+
+        await service.requestEpisode('show-1', { url: 'https://example.com/keepers' });
+
+        expect(commission).toHaveBeenCalledWith(
+            expect.objectContaining({ sources: [{ title: 'https://example.com/keepers', url: 'https://example.com/keepers' }] }),
+            { showId: 'show-1' },
+        );
+    });
+
+    it('reads the page instead of the news on a show that reads the news', async () => {
+        const { service, fetchItems, commission } = build({ id: 'show-4', title: 'News in depth', newsFeedIds: ['deadair.rss:world'], createdAt: 0 });
+
+        await service.requestEpisode('show-4', { url: 'https://example.com/one-story' });
+
+        expect(fetchItems).not.toHaveBeenCalled();
+        expect(commission).toHaveBeenCalledWith(
+            expect.objectContaining({ sources: [{ title: 'https://example.com/one-story', url: 'https://example.com/one-story' }] }),
+            {
+                showId: 'show-4',
+            },
+        );
+    });
+});
+
 describe('OwnShowsService.create', () => {
     it('stores an empty box as nothing rather than as an empty string', async () => {
         const { service, shows } = build();

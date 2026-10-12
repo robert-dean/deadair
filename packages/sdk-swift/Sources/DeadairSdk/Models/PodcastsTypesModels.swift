@@ -468,6 +468,8 @@ public struct OwnShowInput: Codable, Equatable, Sendable {
 public struct OwnEpisodeRequest: Codable, Equatable, Sendable {
     /// What this episode is about. Absent is the show's own subject
     public var topic: String?
+    /// A page for it to read first, by its address. The episode states only what it can find there
+    public var url: String?
     /// What the pasted text is called
     public var sourceTitle: String?
     /// Something for it to read first. The episode states only what it can find in this. Given text, a show that reads the news reads this instead
@@ -475,8 +477,9 @@ public struct OwnEpisodeRequest: Codable, Equatable, Sendable {
     /// When it should air. Absent is as soon as it is made
     public var airAt: Date?
 
-    public init(topic: String? = nil, sourceTitle: String? = nil, text: String? = nil, airAt: Date? = nil) {
+    public init(topic: String? = nil, url: String? = nil, sourceTitle: String? = nil, text: String? = nil, airAt: Date? = nil) {
         self.topic = topic
+        self.url = url
         self.sourceTitle = sourceTitle
         self.text = text
         self.airAt = airAt
@@ -484,6 +487,7 @@ public struct OwnEpisodeRequest: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case topic = "topic"
+        case url = "url"
         case sourceTitle = "sourceTitle"
         case text = "text"
         case airAt = "airAt"
@@ -492,6 +496,7 @@ public struct OwnEpisodeRequest: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.topic = try container.decodeIfPresent(String.self, forKey: .topic)
+        self.url = try container.decodeIfPresent(String.self, forKey: .url)
         self.sourceTitle = try container.decodeIfPresent(String.self, forKey: .sourceTitle)
         self.text = try container.decodeIfPresent(String.self, forKey: .text)
         self.airAt = try container.decodeIfPresent(Date.self, forKey: .airAt)
@@ -500,6 +505,7 @@ public struct OwnEpisodeRequest: Codable, Equatable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(self.topic, forKey: .topic)
+        try container.encodeIfPresent(self.url, forKey: .url)
         try container.encodeIfPresent(self.sourceTitle, forKey: .sourceTitle)
         try container.encodeIfPresent(self.text, forKey: .text)
         try container.encodeIfPresent(self.airAt, forKey: .airAt)

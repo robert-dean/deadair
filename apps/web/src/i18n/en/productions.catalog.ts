@@ -68,9 +68,12 @@ export const productions = {
         sources: {
             label: 'Sources',
             description:
-                'Something for it to read first: an article, a chapter, your own notes as prose. Given sources and no notes, the station reads them and states only what it can find in them.',
+                'Something for it to read first: a web page, an article, a chapter, your own notes as prose. Given sources and no notes, the station reads them and states only what it can find in them.',
             title: 'Called',
             titlePlaceholder: 'A history of the 808',
+            url: 'Address',
+            urlDescription: 'A web page for the station to read. Leave empty and paste the text below instead.',
+            urlPlaceholder: 'https://',
             text: 'What it says',
             textPlaceholder: 'Paste the text here.',
             add: 'Add a source',

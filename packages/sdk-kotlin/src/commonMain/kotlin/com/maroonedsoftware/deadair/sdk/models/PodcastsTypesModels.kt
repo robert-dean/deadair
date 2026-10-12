@@ -142,6 +142,8 @@ data class OwnShowInput(
 data class OwnEpisodeRequest(
     /** What this episode is about. Absent is the show's own subject */
     val topic: String? = null,
+    /** A page for it to read first, by its address. The episode states only what it can find there */
+    val url: String? = null,
     /** What the pasted text is called */
     val sourceTitle: String? = null,
     /** Something for it to read first. The episode states only what it can find in this. Given text, a show that reads the news reads this instead */

@@ -198,6 +198,23 @@ export class ProductionRepository extends DataRepository {
         return row !== undefined;
     }
 
+    /**
+     * Sources with what was read from their addresses filled in, guarded on `researching` for
+     * {@link saveNotes}' reason.
+     */
+    async saveSources(id: string, sources: readonly ProductionSource[]): Promise<boolean> {
+        const cleaned = cleanSources(sources);
+        const row = await this.db
+            .updateTable('deadair.productions')
+            .set({ sources: cleaned === undefined ? null : toJsonb(cleaned) })
+            .where('id', '=', id)
+            .where('state', '=', 'researching')
+            .returning('id')
+            .executeTakeFirst();
+
+        return row !== undefined;
+    }
+
     /** Move a production on, guarded on where it was. */
     async moveTo(id: string, to: ProductionState, from: ProductionState | readonly ProductionState[]): Promise<boolean> {
         const states = Array.isArray(from) ? from : [from as ProductionState];

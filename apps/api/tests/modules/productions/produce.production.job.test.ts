@@ -71,6 +71,7 @@ function build(answers: string[], claimed: Partial<Production> = {}) {
         {} as never,
         config,
         activity,
+        {} as never,
         { id: 'job-1' } as never,
         {} as never,
         logger as never,
@@ -180,14 +181,19 @@ describe('the outline pass with notes', () => {
 describe('the research pass', () => {
     const SOURCE = { title: 'A history of the 808', text: 'The TR-808 came out in 1980. Roland stopped making it in 1983.' };
 
-    function buildResearch(answers: string[], options: { cancelled?: boolean } = {}) {
+    function buildResearch(
+        answers: string[],
+        options: { cancelled?: boolean; sources?: Production['sources']; read?: (url: string) => Promise<unknown> } = {},
+    ) {
         const claim = vi.fn(async () =>
-            production({ state: 'researching', writingMode: 'quick', sources: [SOURCE], brief: 'the machine nobody wanted' }),
+            production({ state: 'researching', writingMode: 'quick', sources: options.sources ?? [SOURCE], brief: 'the machine nobody wanted' }),
         );
         const saveNotes = vi.fn(async () => true);
+        const saveSources = vi.fn(async () => true);
         const fail = vi.fn(async () => true);
         const isCancelled = vi.fn(async () => options.cancelled ?? false);
-        const productions = { claim, saveNotes, fail, isCancelled } as never;
+        const productions = { claim, saveNotes, saveSources, fail, isCancelled } as never;
+        const read = vi.fn(options.read ?? (async () => undefined));
 
         let at = 0;
         const converse = vi.fn(async (_request: { messages: { content: string }[] }) => ({
@@ -210,13 +216,14 @@ describe('the research pass', () => {
             {} as never,
             config,
             { record: vi.fn(async () => {}) } as never,
+            { read } as never,
             { id: 'job-1' } as never,
             {} as never,
             logger as never,
         );
 
         const research = (job as unknown as { research: (input: Production) => Promise<boolean> }).research.bind(job);
-        return { research, converse, saveNotes, fail };
+        return { research, converse, saveNotes, saveSources, fail, read };
     }
 
     it('writes the claims it could find in the source as the notes', async () => {
@@ -242,6 +249,39 @@ describe('the research pass', () => {
 
         expect(saveNotes).not.toHaveBeenCalled();
         expect(fail).toHaveBeenCalledWith('prod-1', 'its sources gave nothing the station could state as fact');
+    });
+
+    // A source handed over as only an address is read through whichever plugin can, written back onto the
+    // row, and then researched like any other.
+    it('reads a source that is only an address before taking notes from it', async () => {
+        const page = { url: 'https://example.com/808', title: 'A history of the 808', text: SOURCE.text, retrievedAt: '2026-10-12T08:00:00.000Z' };
+        const answer = JSON.stringify({ facts: [{ claim: 'The TR-808 was released in 1980.', quote: 'The TR-808 came out in 1980.' }] });
+        const { research, read, saveSources, saveNotes } = buildResearch([answer], {
+            sources: [{ title: 'https://example.com/808', url: 'https://example.com/808' }],
+            read: async () => page,
+        });
+
+        expect(await research(production())).toBe(true);
+
+        expect(read).toHaveBeenCalledWith('https://example.com/808');
+        expect(saveSources).toHaveBeenCalledWith('prod-1', [
+            { title: 'A history of the 808', url: 'https://example.com/808', text: SOURCE.text, retrievedAt: Date.parse(page.retrievedAt) },
+        ]);
+        expect(saveNotes).toHaveBeenCalledWith('prod-1', ['The TR-808 was released in 1980.']);
+    });
+
+    it('fails the production with the reason when a page could not be read', async () => {
+        const { research, converse, fail } = buildResearch(['{}'], {
+            sources: [{ title: 'https://example.com/808', url: 'https://example.com/808' }],
+            read: async () => {
+                throw new Error('could not read example.com (deadair.rss: 503)');
+            },
+        });
+
+        expect(await research(production())).toBe(false);
+
+        expect(fail).toHaveBeenCalledWith('prod-1', 'could not read example.com (deadair.rss: 503)');
+        expect(converse).not.toHaveBeenCalled();
     });
 
     it('stops reading when the production was cancelled', async () => {
@@ -279,6 +319,7 @@ describe('sending the beats to be spoken', () => {
             jobs,
             config,
             { record: vi.fn(async () => {}) } as never,
+            {} as never,
             { id: 'job-1' } as never,
             {} as never,
             logger as never,
@@ -371,6 +412,7 @@ describe('the last pass of a polished production', () => {
             { send } as never,
             config,
             { record: vi.fn(async () => {}) } as never,
+            {} as never,
             { id: 'job-1' } as never,
             {} as never,
             logger as never,
@@ -428,6 +470,7 @@ describe('weather in a phone-in', () => {
             {} as never,
             config,
             { record: vi.fn(async () => {}) } as never,
+            {} as never,
             { id: 'job-1' } as never,
             {} as never,
             logger as never,
@@ -508,6 +551,7 @@ describe('ProduceProductionJob drafting a beat whose model fails', () => {
             {} as never,
             config,
             { record: vi.fn(async () => {}) } as never,
+            {} as never,
             { id: 'job-1' } as never,
             {} as never,
             logger as never,

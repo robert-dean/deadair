@@ -215,13 +215,14 @@ function EpisodeForm({ show, onDone }: { show: OwnShow; onDone: () => void }) {
     const request = useRequestOwnEpisode();
     const form = useForm({
         mode: 'controlled',
-        initialValues: { topic: '', sourceTitle: '', text: '', airAt: null as string | null },
+        initialValues: { topic: '', url: '', sourceTitle: '', text: '', airAt: null as string | null },
     });
 
     const submit = (values: typeof form.values) => {
         const scheduledFor = scheduledForOf(values.airAt);
         const body: OwnEpisodeRequest = {
             ...(values.topic.trim().length === 0 ? {} : { topic: values.topic.trim() }),
+            ...(values.url.trim().length === 0 ? {} : { url: values.url.trim() }),
             ...(values.text.trim().length === 0 ? {} : { text: values.text.trim() }),
             ...(values.sourceTitle.trim().length === 0 || values.text.trim().length === 0 ? {} : { sourceTitle: values.sourceTitle.trim() }),
             ...(scheduledFor === undefined ? {} : { airAt: scheduledFor }),
@@ -247,6 +248,12 @@ function EpisodeForm({ show, onDone }: { show: OwnShow; onDone: () => void }) {
                     autosize
                     minRows={2}
                     {...form.getInputProps('topic')}
+                />
+                <TextInput
+                    label={t('own.episode.url.label')}
+                    description={t('own.episode.url.description')}
+                    placeholder={t('own.episode.url.placeholder')}
+                    {...form.getInputProps('url')}
                 />
                 <TextInput
                     label={t('own.episode.sourceTitle')}

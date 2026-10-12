@@ -111,16 +111,18 @@ describe('ProductionForm', () => {
 });
 
 describe('sourcesOf', () => {
-    it('drops a source with nothing in it and names one nobody named', () => {
+    it('drops a source with nothing in it and names one nobody named, by its address where it has one', () => {
         expect(
             sourcesOf([
-                { title: '', text: '  ' },
-                { title: '  A history of the 808 ', text: ' The TR-808 came out in 1980. ' },
-                { title: '', text: 'Roland stopped making it in 1983.' },
+                { title: '', url: '', text: '  ' },
+                { title: '  A history of the 808 ', url: '', text: ' The TR-808 came out in 1980. ' },
+                { title: '', url: '', text: 'Roland stopped making it in 1983.' },
+                { title: '', url: ' https://example.com/808 ', text: '' },
             ]),
         ).toEqual([
             { title: 'A history of the 808', text: 'The TR-808 came out in 1980.' },
             { title: 'Source 2', text: 'Roland stopped making it in 1983.' },
+            { title: 'https://example.com/808', url: 'https://example.com/808' },
         ]);
     });
 });

@@ -65,6 +65,11 @@ export const podcasts = {
                 description: 'Leave empty for the show’s own subject.',
                 required: 'This show has no subject of its own, so give it one here or something to read below.',
             },
+            url: {
+                label: 'A page to read first',
+                description: 'The station reads it and states as fact only what it finds there.',
+                placeholder: 'https://',
+            },
             sourceTitle: 'What the text is called',
             sourceTitlePlaceholder: 'An article, a chapter, your own notes',
             text: {

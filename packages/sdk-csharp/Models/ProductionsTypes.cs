@@ -44,7 +44,7 @@ public sealed record ProductionSource
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Url { get; init; }
 
-    /// <summary>What it says. Required when a production is asked for: nothing yet reads a source that has only an address</summary>
+    /// <summary>What it says. Absent for a source given only by its address, which the research pass reads through whichever installed plugin can open a page</summary>
     [JsonPropertyName("text")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Text { get; init; }

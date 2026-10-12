@@ -17,7 +17,7 @@ contract ProductionCastMember: {
 contract ProductionSource: {
     title: string(min=1, max=300) # What the source is called, for the console and for the research pass's sense of what it is reading
     url?: string(max=2000) # Where it came from, when it came from somewhere
-    text?: string(max=20000) # What it says. Required when a production is asked for: nothing yet reads a source that has only an address
+    text?: string(max=20000) # What it says. Absent for a source given only by its address, which the research pass reads through whichever installed plugin can open a page
 }
 
 # Something the station makes rather than something it says: several beats of speech, written in several passes, that airs as one block

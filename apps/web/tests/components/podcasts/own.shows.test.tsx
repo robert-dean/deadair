@@ -105,7 +105,7 @@ describe('OwnShows', () => {
         expect(requestOwnShowEpisode).toHaveBeenCalledWith('show-1', {});
     });
 
-    it('sends the topic and the pasted text when they were given', async () => {
+    it('sends the topic, the page and the pasted text when they were given', async () => {
         requestOwnShowEpisode.mockResolvedValue(episode());
         const user = setupUser();
         render(<OwnShows />);
@@ -113,10 +113,15 @@ describe('OwnShows', () => {
         await user.click(await screen.findByRole('button', { name: 'Make an episode' }));
         const form = screen.getByRole('button', { name: 'Make it' }).closest('form') as HTMLElement;
         await user.type(within(form).getByLabelText('What this one is about'), 'lighthouses');
+        await user.type(within(form).getByLabelText('A page to read first'), 'https://example.com/keepers');
         await user.type(within(form).getByLabelText('Something to read first'), 'The keeper lit the lamp at dusk.');
         await user.click(within(form).getByRole('button', { name: 'Make it' }));
 
-        expect(requestOwnShowEpisode).toHaveBeenCalledWith('show-1', { topic: 'lighthouses', text: 'The keeper lit the lamp at dusk.' });
+        expect(requestOwnShowEpisode).toHaveBeenCalledWith('show-1', {
+            topic: 'lighthouses',
+            url: 'https://example.com/keepers',
+            text: 'The keeper lit the lamp at dusk.',
+        });
     });
 });
 

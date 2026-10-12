@@ -3,6 +3,7 @@ import {
     fetchFeed,
     isPluginError,
     Plugin,
+    readDocument,
     type FeedItem,
     type NewsFeedDescriptor,
     type NewsItem,
@@ -10,10 +11,18 @@ import {
     type NewsQuery,
     type PluginConnectionResult,
     type PluginErrorCode,
+    type SourceDocument,
 } from '@deadair/plugin-sdk';
 
 import { parseFeedRows, type ConfiguredFeed } from './rss.feeds.js';
-import { ARTICLE_TIMEOUT_MS, DEFAULT_CACHE_SECONDS, DEFAULT_FETCH_ARTICLES, DEFAULT_MAX_ITEMS, REQUEST_TIMEOUT_MS } from './rss.manifest.js';
+import {
+    ARTICLE_TIMEOUT_MS,
+    PAGE_TIMEOUT_MS,
+    DEFAULT_CACHE_SECONDS,
+    DEFAULT_FETCH_ARTICLES,
+    DEFAULT_MAX_ITEMS,
+    REQUEST_TIMEOUT_MS,
+} from './rss.manifest.js';
 
 export { rssManifest } from './rss.manifest.js';
 
@@ -189,6 +198,18 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
      */
     async listFeeds(): Promise<NewsFeedDescriptor[]> {
         return this.feeds.map(feed => feed.descriptor);
+    }
+
+    /**
+     * One page an operator asked the station to make a programme about, read
+     * whole, under the same `network.open` grant the stories are read under.
+     *
+     * Nothing about it is cached, unlike a story: it is asked for once, by
+     * somebody, and the station keeps what it read on the production. A page the
+     * grant has not been answered for is refused by the host, which says so.
+     */
+    async readPage(url: string): Promise<SourceDocument | undefined> {
+        return await readDocument(this.host, url, { timeoutMs: PAGE_TIMEOUT_MS });
     }
 
     async fetchItems(query: NewsQuery): Promise<NewsItem[]> {

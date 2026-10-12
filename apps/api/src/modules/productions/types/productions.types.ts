@@ -30,7 +30,9 @@ export const ProductionSource = z.strictObject({
         .string()
         .max(20000)
         .optional()
-        .describe('What it says. Required when a production is asked for: nothing yet reads a source that has only an address'),
+        .describe(
+            'What it says. Absent for a source given only by its address, which the research pass reads through whichever installed plugin can open a page',
+        ),
 });
 export type ProductionSource = z.infer<typeof ProductionSource>;
 

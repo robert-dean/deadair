@@ -190,6 +190,19 @@ sources and no notes, whatever its mode, and `nextPass` hands on from `research`
 mode's own chain. Each chunk is its own model call at the production's own priority, with the cancellation
 asked about between them, on #27's rule that a pass is never one long hold.
 
+**A source can be only an address**, and the research pass reads it first (`SourceReader`,
+`readAddresses`). The station does not open pages from Node: `host.fetch` is a plugin's, behind the plugin's
+own network grant, and a page an operator names is on no allowlist a manifest could write down. So it asks a
+news plugin that implements the optional `readPage`, which is the RSS plugin: it already opens whatever page a
+feed links to under a `network.open` grant the operator answered, and that grant's private-address check
+applies here as well. What was read is written back onto the row, title and all, before any notes are taken,
+so a restart reads nothing twice and an operator can see afterwards what the page said. A page nothing could
+read fails the production with the site's name, since a programme about that page made without it is not the
+programme somebody asked for. An address that is not http or https is refused when the production is asked
+for (`isWebAddress`). **The RSS grant's approval covers this without asking again**: grants are keyed by
+plugin and capability, not by the reason text, so widening the reason to name this use changed what an
+existing approval allows. Only an operator can give a production an address.
+
 **A research pass that finds nothing fails the production** rather than letting it be written from general
 knowledge. Somebody who handed it an article asked for a programme about that article, and the station's
 general knowledge said vaguely is a different programme. The sources are kept beside the notes, so "where did

@@ -34,10 +34,11 @@ import { callSubjectOf, isDialogue, isVisitor, speakerOrder, turnWeights, type C
 import { ProductionCaster } from './production.caster.js';
 import { cuesFor } from './production.cues.js';
 import { beatNotes, planProduction, turnsFor } from './production.plan.js';
+import { SourceReader } from './source.reader.js';
 import { chunksOf, gather, MAX_NOTES_PER_SOURCE, MAX_RESEARCH_NOTES, readNotes, researchPrompt } from './production.research.js';
 import { askForBeat, attemptsBefore } from './beat.answer.js';
 import { beatPrompt, outlinePrompt, runInFrom } from './production.prompt.js';
-import { coerceOutline, priorityForSlot, type Production, type ProductionPass, type ProductionPlan } from './production.js';
+import { coerceOutline, priorityForSlot, type Production, type ProductionPass, type ProductionPlan, type ProductionSource } from './production.js';
 import { firstPass, nextPass, runsPass } from './production.passes.js';
 import { ProductionRepository } from './production.repository.js';
 import { spokenTitle } from './production.scheduler.js';
@@ -180,6 +181,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // Best-effort and never awaited, on `ActivityRecorder`'s own rule: nothing reads these rows
         // to decide anything, so a failed insert must never cost the station the thing it described.
         private readonly activity: ActivityRecorder,
+        /** What reads a source handed over as only an address. See {@link research}. */
+        private readonly reader: SourceReader,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -268,10 +271,13 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         if (claimed === undefined) return false;
 
         const subject = claimed.brief ?? claimed.title;
+        const sources = await this.readAddresses(claimed);
+        if (sources === undefined) return false;
+
         let notes: string[] = [];
         let read = 0;
 
-        for (const source of claimed.sources ?? []) {
+        for (const source of sources) {
             if (notes.length >= MAX_RESEARCH_NOTES) break;
             if (source.text === undefined) continue;
 
@@ -301,6 +307,43 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
 
         this.logger.info('productions: read the sources for notes', { production: claimed.id, read, notes: notes.length });
         return await this.productions.saveNotes(claimed.id, notes);
+    }
+
+    /**
+     * Every source handed over as only an address, read now through `SourceReader` and written back onto
+     * the row before any notes are taken, so a restart part way through the research reads nothing twice
+     * and an operator can see afterwards what the page said. A page that cannot be read fails the
+     * production with the site's name: somebody asked for a programme about that page, and one made
+     * without it is not that programme. `undefined` when the production was failed or cancelled here.
+     */
+    private async readAddresses(production: Production): Promise<readonly ProductionSource[] | undefined> {
+        const sources = production.sources ?? [];
+        if (sources.every(source => source.text !== undefined || source.url === undefined)) return sources;
+
+        const read: ProductionSource[] = [];
+        for (const source of sources) {
+            if (source.text !== undefined || source.url === undefined) {
+                read.push(source);
+                continue;
+            }
+            if (await this.productions.isCancelled(production.id)) return undefined;
+
+            try {
+                const document = await this.reader.read(source.url);
+                read.push({
+                    title: source.title === source.url ? document.title : source.title,
+                    url: source.url,
+                    text: document.text,
+                    retrievedAt: Date.parse(document.retrievedAt),
+                });
+            } catch (error) {
+                await this.productions.fail(production.id, errorText(error));
+                return undefined;
+            }
+        }
+
+        await this.productions.saveSources(production.id, read);
+        return read;
     }
 
     /**

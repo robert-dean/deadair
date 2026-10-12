@@ -92,6 +92,7 @@ contract OwnShowList: {
 
 contract OwnEpisodeRequest: { # Asks one of the station's own shows for an episode. Everything is optional: a show with a standing subject needs nothing
     topic?: string(max=4000) # What this episode is about. Absent is the show's own subject
+    url?: string(max=2000) # A page for it to read first, by its address. The episode states only what it can find there
     sourceTitle?: string(max=300) # What the pasted text is called
     text?: string(max=20000) # Something for it to read first. The episode states only what it can find in this. Given text, a show that reads the news reads this instead
     airAt?: datetime # When it should air. Absent is as soon as it is made

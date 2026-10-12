@@ -8,11 +8,12 @@ mdx:
 > Asks one of the station's own shows for an episode. Everything is optional: a show with a standing subject needs nothing
 
 <details>
-<summary>Attributes (4)</summary>
+<summary>Attributes (5)</summary>
 
 | Attribute     | Type     | Required | Description                                                                                                                                 |
 | ------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `topic`       | `string` | No       | What this episode is about. Absent is the show's own subject                                                                                |
+| `url`         | `string` | No       | A page for it to read first, by its address. The episode states only what it can find there                                                 |
 | `sourceTitle` | `string` | No       | What the pasted text is called                                                                                                              |
 | `text`        | `string` | No       | Something for it to read first. The episode states only what it can find in this. Given text, a show that reads the news reads this instead |
 | `airAt`       | `string` | No       | When it should air. Absent is as soon as it is made                                                                                         |

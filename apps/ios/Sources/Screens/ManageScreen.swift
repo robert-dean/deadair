@@ -9,6 +9,9 @@ import SwiftUI
 /// nothing that would be refused. `apps/android`'s `ManageScreen`.
 struct ManageScreen: View {
     @Environment(AppModel.self) private var model
+    /// One request at a time: the station absorbs a second press of the same kind anyway, and rows
+    /// that grey while it asks are what tell the operator the first one was heard.
+    @State private var asking = false
 
     var body: some View {
         let order = model.order.state(signedIn: model.signedIn)
@@ -31,6 +34,14 @@ struct ManageScreen: View {
                         NavigationLink(value: PageRoute.addRecord) { row(String(localized: "Add a record"), detail: nil) }
                     }
                 }
+                // Off air the station declines every break, since there is no running order to put one in.
+                if broadcast?.nothingOn == false {
+                    Section(String(localized: "Say something")) {
+                        say(.news, String(localized: "The news"))
+                        say(.weather, String(localized: "The weather"))
+                        say(.talkbreak, String(localized: "A word from the host"))
+                    }
+                }
             }
             if model.signedIn {
                 Section(String(localized: "What it said")) {
@@ -43,6 +54,19 @@ struct ManageScreen: View {
         .navigationTitle(String(localized: "Manage"))
         .navigationBarTitleDisplayMode(.inline)
         .task { await model.order.hold() }
+    }
+
+    private func say(_ kind: RequestableBreakKind, _ title: String) -> some View {
+        Button {
+            asking = true
+            Task {
+                await model.breakActions.request(kind)
+                asking = false
+            }
+        } label: {
+            row(title, detail: String(localized: "After this record, once it is written")).foregroundStyle(asking ? Color.secondary : Color.primary)
+        }
+        .disabled(asking)
     }
 
     private func row(_ title: String, detail: String?) -> some View {

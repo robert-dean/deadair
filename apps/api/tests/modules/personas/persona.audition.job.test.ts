@@ -86,7 +86,7 @@ function build(
         recent?: string[];
         facts?: Map<string, string[]>;
         shelf?: unknown[];
-        rack?: { name: string }[] | Error;
+        rack?: { name: string; placements?: ('start' | 'middle' | 'end')[]; cue?: string }[] | Error;
     } = {},
 ) {
     const claim = vi.fn(async () => options.claimed);
@@ -115,7 +115,8 @@ function build(
     // The rack, with its writing half faked so a test can assert a hit is never rested.
     const onSet = vi.fn(async (_key: string) => {
         if (options.rack instanceof Error) throw options.rack;
-        return options.rack ?? [];
+        // Every real pad carries its placements, and every pad starts with all three.
+        return (options.rack ?? []).map(pad => ({ placements: ['start', 'middle', 'end'], ...pad }));
     });
     const markPadUsed = vi.fn(async () => {});
     const pads = { onSet, markUsed: markPadUsed } as never;
@@ -592,6 +593,28 @@ describe('PersonaAuditionJob: the soundboard', () => {
 
         expect(onSet).toHaveBeenCalledWith('pirate-board');
         expect(seen[0]?.pads).toEqual(['cannon', 'parrot']);
+    });
+
+    it('offers the cues and placements an on-air break would be shown beside them', async () => {
+        const { run, seen } = build({
+            claimed: audition(),
+            found: persona({ soundboard: 'pirate-board' }),
+            rack: [{ name: 'cannon', cue: 'right after a punchline' }, { name: 'Parrot', placements: ['end'] }, { name: 'bell' }],
+        });
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        // Keyed lower case, as `WriteBreakJob` keys them, and a pad at the default is left out.
+        expect(seen[0]?.padUse).toEqual({
+            cannon: { placements: ['start', 'middle', 'end'], cue: 'right after a punchline' },
+            parrot: { placements: ['end'] },
+        });
+    });
+
+    it('sends no notes for a rack nobody has set up', async () => {
+        const { run, seen } = build({ claimed: audition(), found: persona({ soundboard: 'pirate-board' }), rack: [{ name: 'cannon' }] });
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(Object.keys(seen[0] ?? {})).not.toContain('padUse');
     });
 
     it('never rests a pad, whatever the break hit', async () => {

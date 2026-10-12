@@ -9,6 +9,7 @@ import type { StoredBreakRequest } from '../../../src/modules/director/break.req
 import type { BreakChangeover, BreakStory, BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
 import { StationLineup } from '../../../src/modules/director/station.lineup.js';
 import { WriteBreakJob } from '../../../src/modules/director/write.break.job.js';
+import { BreakRequestBuilder } from '../../../src/modules/director/break.request.builder.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Persona } from '../../../src/modules/personas/persona.js';
 import type { PersonaStoryForPrompt } from '../../../src/modules/personas/persona.story.js';
@@ -240,12 +241,11 @@ function harness(
 
     const floorWatch = { observe: vi.fn() };
 
-    const job = new WriteBreakJob(
-        lineups as never,
+    // The real builder over the same doubles, so every assertion about what a writer is handed
+    // still goes through the code that hands it.
+    const builder = new BreakRequestBuilder(
         segments as never,
-        requests as never,
         history as never,
-        writers as never,
         enrichment as never,
         bulletin as never,
         weather as never,
@@ -255,13 +255,26 @@ function harness(
         pads as never,
         notes as never,
         personaStories as never,
-        tellings as never,
         plays as never,
         vocalMarkers as never,
         lyricLabels as never,
         lyricTexts as never,
         identity as never,
         speech as never,
+        config as never,
+        logger as never,
+    );
+
+    const job = new WriteBreakJob(
+        lineups as never,
+        segments as never,
+        requests as never,
+        history as never,
+        writers as never,
+        builder,
+        personas as never,
+        pads as never,
+        tellings as never,
         activity as never,
         floorWatch as never,
         jobs as never,

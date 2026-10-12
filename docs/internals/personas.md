@@ -106,7 +106,7 @@ from its sketch: one newsreader per station rather than a default per kind.
 
 **A host can sit in on somebody else's show, and says so.** When a schedule slot's guest host is on
 (`docs/internals/director.md` explains which nights), the running order carries `regular_persona_id`
-and `WriteBreakJob.sittingIn` hands every writer `sittingInFor`: the regular presenter's on-air name and
+and `BreakRequestBuilder.sittingIn` hands every writer `sittingInFor`: the regular presenter's on-air name and
 the show's. `stationPromptSettings` carries it to all eight model writers at once, and `break.prompt.ts`
 renders one line under the role sentence: sitting in for them, their show, never call it yours. It is the
 presenter's alone, so a bulletin read by the newsreader is not given it, and a recast clears it with the
@@ -271,7 +271,7 @@ used and a list of anecdotes in a forty-word break is a presenter reading their 
 
 **`personas.storytelling` (`never`/`occasionally`/`often`, absent meaning `occasionally`) is the first sheet
 field that never reaches a model** — it decides whether a story is IN the prompt — and it is applied where the
-story is CHOSEN, in `WriteBreakJob`, because the rung and the prompt have to agree about what the break was
+story is CHOSEN, in `BreakRequestBuilder`, because the rung and the prompt have to agree about what the break was
 given: a rung consulted at render time would leave the store reporting tellings nobody heard. It governs the
 ordinary talk break ALONE, since a `story` band on the clock is an operator asking in as many words.
 

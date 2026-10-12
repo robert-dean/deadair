@@ -30,6 +30,7 @@ import { WelcomeWriter } from './welcome.writer.js';
 import { ChangeoverWriter } from './changeover.writer.js';
 import { ModelChangeoverWriter } from './model.changeover.writer.js';
 import { ChangeoverSource } from './changeover.source.js';
+import { BreakRequestBuilder } from './break.request.builder.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { ClockBandRepository } from './clock.band.repository.js';
 import { ClockService } from './clock.service.js';
@@ -222,6 +223,9 @@ export const DirectorModule: ServerKitModule = {
         // The fourth, scoped with the persona repository it reads. It fetches nothing: the request
         // carried the facts, and this only decides whether the host who finished is somebody else.
         registry.register(ChangeoverSource).useClass(ChangeoverSource).asScoped();
+        // What a break's writers are handed, read from the four sources above and the rest of the
+        // moment. Scoped with them, since the job runner gives each execution its own scope.
+        registry.register(BreakRequestBuilder).useClass(BreakRequestBuilder).asScoped();
         registry
             .register(BreakWriterRegistry)
             .useFactory(

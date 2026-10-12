@@ -200,7 +200,7 @@ duck's 300ms ramp after the last word as part of the link, allows for Liquidsoap
 about 3.5% slow (measured beside `on_air_elapsed` in `radio.liq`), and on an intro of 18s or more
 starts two seconds in rather than hanging silent until the post.
 
-**The writer is told the intro's length as an offer, never as a tighter ceiling.** `WriteBreakJob.talkUp`
+**The writer is told the intro's length as an offer, never as a tighter ceiling.** `BreakRequestBuilder.talkUp`
 reads the next record's runway through the same `runwayFor`, and `talkUpBudget` turns it into a word
 count at `WORDS_PER_SECOND` after the same safety, ramp and clock allowances; `breakPrompt` says the
 singing starts about N seconds in and that a link of that many words or fewer goes out over the intro,
@@ -226,7 +226,7 @@ what it does for an interrupting talk-over ([`playout.md`](playout.md) § "What 
 `breaks.aboutTheRecord` on (off, and useful only with `lyrics.subjects` on too). The sentence is the
 station's own: a model writes it once per record from the lyric and, where the station can search, the
 web (`lyrics/lyric.subject.ts`), and it is refused before it is stored if it shares six words in a row
-with the lyric. `WriteBreakJob.aboutTheRecords` stamps it on `BreakTrack.about` for a talk link, and
+with the lyric. `BreakRequestBuilder.aboutTheRecords` stamps it on `BreakTrack.about` for a talk link, and
 `describe` renders it behind `withFacts` as "What it is about", beside a line asking for no quoting.
 A writer cannot quote a line it was never shown, which is why the subject travels and the lyric does not.
 
@@ -450,7 +450,7 @@ the small hours is the stretch "tonight" is RIGHT for), rides the request beside
 `timeClaimIn` intersects whichever claims a script actually made so the narrower window wins.
 
 **That fix reached the kinds that did not need it and missed the one that did, for two years' worth of
-breaks.** `WriteBreakJob` derives the clock, the greeting AND the daypart from `segments.airs_at` and skips
+breaks.** `BreakRequestBuilder` derives the clock, the greeting AND the daypart from `segments.airs_at` and skips
 all three when there is none, and `BreakPlanner.slotsFor` stamped it on the ANCHORED walk alone — so news and
 welcome had one and the ordinary talk break, planted by the station's own spacing floor, never did. Measured
 live: 940 talk breaks, not one with an `airs_at`, 225 of 225 talk-break prompts with no daypart line in them,
@@ -521,7 +521,7 @@ a check that declined over it would be refusing the character for being itself.
 `[hushed]` or `[frantic]`, the whole of `SPEECH_DELIVERIES`, offered on the two conditions a reaction is: the
 shape permits it (`BreakPromptShape.allowsDeliveries`, on for the talk break alone, since a newsreader who reads
 a story hushed has editorialised it) and the engine performs it (`SpeechService.deliveries`, asked by
-`WriteBreakJob` beside the reactions). The model puts the mark first, before any words, and `liftDelivery`
+`BreakRequestBuilder` beside the reactions). The model puts the mark first, before any words, and `liftDelivery`
 takes it off before anything judges the answer. It has to be the writer that does this, and once:
 `readAnswer`, `writeDecline` and `writeTrim` each tidy the text themselves, and the tidying strips any bracketed
 run it does not recognise, so a mark left for them would be gone before the break was judged and would have
@@ -920,7 +920,7 @@ operator can see where a wrong bulletin is not. And the subject reaches the writ
 asked for several passes after the band claimed the slot — resolved once by `BulletinSource` or
 `WeatherSource` into a `BreakSubject`, so the model binding and the floor cannot resolve it
 differently. The two never both answer, because each refuses every kind but its own, which is why
-`WriteBreakJob` reads them as a chain rather than merging them.
+`BreakRequestBuilder` reads them as a chain rather than merging them.
 
 **A story's category is decided by three signals, ranked, and a category that matches nothing declines the
 slot.** `news.classify.ts` is pure and runs on the floor as well as under the model, so it may not fetch and

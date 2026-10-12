@@ -354,6 +354,23 @@ describe('TalkBreakWriter and the time', () => {
         expect(written?.claimsTime).toBeUndefined();
     });
 
+    it('claims the window of the part of the day when that is what it said', async () => {
+        const dayPart = { words: 'this morning', validFrom: 2_000, validUntil: 900_000 };
+        const morning = speaking('That was {{previous.title}} {{clock.daypart}}.');
+        const written = await morning.write({ kind: TALK_BREAK_KIND, previous, next, station: 'Deadair', dayPart });
+
+        expect(written?.script).toBe('That was Solid Air this morning.');
+        expect(written?.claimsTime).toEqual({ from: 2_000, until: 900_000 });
+    });
+
+    it('claims the narrower window when it said both the time and the part of the day', async () => {
+        const dayPart = { words: 'this morning', validFrom: 2_000, validUntil: 900_000 };
+        const both = speaking("It's {{clock.rough}} {{clock.daypart}}. That was {{previous.title}}.");
+        const written = await both.write({ kind: TALK_BREAK_KIND, previous, next, station: 'Deadair', clock, dayPart });
+
+        expect(written?.claimsTime).toEqual({ from: 2_000, until: 500_000 });
+    });
+
     it('claims nothing when the phrasing it picked left the time out', async () => {
         // Two phrasings fit and only one names the hour. Whichever is chosen, the claim has to
         // describe what was actually said — the same rule `claimsNext` follows.

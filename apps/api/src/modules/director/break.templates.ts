@@ -61,6 +61,16 @@ export interface TemplateInputs {
      */
     clock?: string;
     /**
+     * Which part of the day it is, as words a sentence can carry: "this morning", "tonight".
+     *
+     * {@link clock}'s companion, and the one a stock station actually fills: the hour is behind
+     * `clock.namesTheTime`, which is off by default, while this is offered on every break that knows
+     * when it airs. It covers all twenty-four hours, unlike {@link greeting}, because the small hours
+     * are exactly when a presenter wants "tonight". Absent for a break with no air time, and a
+     * phrasing naming it is then simply not used.
+     */
+    dayPart?: string;
+    /**
      * The stories of a bulletin, already assembled into sentences.
      *
      * One value rather than a list, because a template is a sentence with holes in it and has no
@@ -245,6 +255,8 @@ const VALUES: Record<string, Resolver> = {
     // catalogue furniture to strip. The filter there excludes it already, by naming the two
     // prefixes that ARE read as titles, so this needs nothing.
     'clock.rough': inputs => inputs.clock,
+    // Out of `SPOKEN_VALUES` for the same reason: "this morning" is the station's own phrase.
+    'clock.daypart': inputs => inputs.dayPart,
     // Out of `SPOKEN_VALUES` for the same reason as the two around it: the stories arrive already
     // speakable (see `BreakStory.headline`), and `spoken` strips catalogue furniture off a TITLE,
     // which would be the wrong operation entirely on a sentence.
@@ -312,7 +324,7 @@ const CHUNK = /\[\[(.*?)\]\]/gs;
  * capital where they open a sentence. A title or a credit is never touched: "k.d. lang" opening a
  * line is how she spells it.
  */
-const PHRASE_VALUES: readonly string[] = ['greeting', 'clock.rough'];
+const PHRASE_VALUES: readonly string[] = ['greeting', 'clock.rough', 'clock.daypart'];
 
 /** Which placeholders are read out loud, and so go through {@link spoken}. */
 const SPOKEN_VALUES = new Set(
@@ -323,14 +335,23 @@ const SPOKEN_VALUES = new Set(
  * The inputs a template may be filled from on a station that is not English: everything but the
  * values the station writes in English itself.
  *
- * The time and the greeting are English phrasings ("just after nine", "good morning"), and the
- * weather report, the almanac report and its date are English sentences the floors build. Dropped
- * rather than translated, so a German phrasing that names one of them simply does not fit, which is
- * the renderer's ordinary way of saying a template does not apply. What is left is names, titles,
- * headlines and the place, which are whatever language they were written in.
+ * The time, the part of the day and the greeting are English phrasings ("just after nine", "this
+ * morning", "good morning"), and the weather report, the almanac report and its date are English
+ * sentences the floors build. Dropped rather than translated, so a German phrasing that names one of
+ * them simply does not fit, which is the renderer's ordinary way of saying a template does not apply.
+ * What is left is names, titles, headlines and the place, which are whatever language they were
+ * written in.
  */
 function withoutEnglishValues(inputs: TemplateInputs): TemplateInputs {
-    const { clock: _clock, greeting: _greeting, weather: _weather, almanac: _almanac, almanacDate: _almanacDate, ...rest } = inputs;
+    const {
+        clock: _clock,
+        dayPart: _dayPart,
+        greeting: _greeting,
+        weather: _weather,
+        almanac: _almanac,
+        almanacDate: _almanacDate,
+        ...rest
+    } = inputs;
     return rest;
 }
 

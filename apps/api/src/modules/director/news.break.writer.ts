@@ -160,6 +160,7 @@ export class NewsBreakWriter extends BreakWriter {
             ...(dj.length === 0 ? {} : { dj }),
             ...(request.clock === undefined ? {} : { clock: request.clock.words }),
             ...(request.greeting === undefined ? {} : { greeting: request.greeting.words }),
+            ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart.words }),
         };
 
         const language = stationLanguage(this.config);
@@ -175,7 +176,7 @@ export class NewsBreakWriter extends BreakWriter {
 
         const chosen = choose(fits, (request.recent ?? []).slice(0, RECENT_WINDOW));
         this.lastTemplate = chosen.template;
-        const claimsTime = timeClaimIn(chosen.script, request.clock, request.greeting);
+        const claimsTime = timeClaimIn(chosen.script, request.clock, request.greeting, request.dayPart);
 
         return {
             script: chosen.script,

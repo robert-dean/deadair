@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
-import { saysTime } from './clock.words.js';
+import { saysTime, timeClaimIn } from './clock.words.js';
 import { Logger } from '@maroonedsoftware/logger';
 import { BreakWriter, type BreakTrack, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import {
@@ -96,6 +96,7 @@ export class TalkBreakWriter extends BreakWriter {
             ...(request.station === undefined ? {} : { station: request.station }),
             ...(dj.length === 0 ? {} : { dj }),
             ...(request.clock === undefined ? {} : { clock: request.clock.words }),
+            ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart.words }),
         };
 
         // The persona's own phrasings, read off the request, so an operator editing a character
@@ -121,6 +122,7 @@ export class TalkBreakWriter extends BreakWriter {
 
         const chosen = choose(offered, request.recent ?? []);
         this.lastTemplate = chosen.template;
+        const claimsTime = timeClaimIn(chosen.script, request.clock, request.dayPart);
         // `saysNext` rather than "there was a next record": a phrasing whose intro was an optional
         // chunk that got dropped promised nothing, and a break that promised nothing must not be
         // dropped later for a promise it never made.
@@ -131,12 +133,11 @@ export class TalkBreakWriter extends BreakWriter {
             // `saysPrevious`, for the mirror reason: an outro chunk that got dropped named nothing
             // behind the break, and this is the only thing that knows whether it survived.
             claimsPrevious: chosen.saysPrevious,
-            // Only when the words actually carry the time, for the reason `claimsNext` is answered
-            // rather than assumed: the writer is the only thing that knows what it said, and a
-            // break dropped later for a claim it never made is a break lost for nothing.
-            ...(request.clock !== undefined && saysTime(chosen.script, request.clock)
-                ? { claimsTime: { from: request.clock.validFrom, until: request.clock.validUntil } }
-                : {}),
+            // Only when the words actually carry the time or the part of the day, for the reason
+            // `claimsNext` is answered rather than assumed: the writer is the only thing that knows
+            // what it said, and a break dropped later for a claim it never made is a break lost for
+            // nothing.
+            ...(claimsTime === undefined ? {} : { claimsTime }),
         };
     }
 

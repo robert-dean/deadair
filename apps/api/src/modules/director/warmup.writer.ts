@@ -3,6 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import { parseTemplates, unknownPlaceholders, usable, wasHeard, type RenderedTemplate, type TemplateInputs } from './break.templates.js';
+import { timeClaimIn } from './clock.words.js';
 import { spoken } from './talk.break.writer.js';
 import { stationLanguage } from '#modules/stream/stream.settings.js';
 
@@ -101,6 +102,7 @@ export class WarmUpWriter extends BreakWriter {
         const inputs: TemplateInputs = {
             ...(request.station === undefined ? {} : { station: request.station }),
             ...(request.greeting === undefined ? {} : { greeting: request.greeting.words }),
+            ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart.words }),
         };
 
         const language = stationLanguage(this.config);
@@ -116,9 +118,10 @@ export class WarmUpWriter extends BreakWriter {
         const chosen = choose(fits, (request.recent ?? []).slice(0, RECENT_WINDOW));
         this.lastTemplate = chosen.template;
 
-        // No `claimsNext` and no `claimsTime`: it promises no record, and "in a moment" is not a
-        // claim about the clock that `timeClaimIn` could narrow or a boundary could falsify.
-        return { script: chosen.script, label: 'Warming up' };
+        // No `claimsNext`: it promises no record. "In a moment" is not a claim about the clock either,
+        // but a phrasing that greets or names the part of the day is, and is stamped as one.
+        const claimsTime = timeClaimIn(chosen.script, request.greeting, request.dayPart);
+        return { script: chosen.script, label: 'Warming up', ...(claimsTime === undefined ? {} : { claimsTime }) };
     }
 
     /** Say once, per broken phrasing, that it names something nothing can fill. */

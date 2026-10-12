@@ -299,12 +299,39 @@ describe('the floor on a station that does not broadcast in English', () => {
         expect(parseTemplates('Das war {{previous.title}}.', WELCOME_TEMPLATES, 'de')).toEqual(['Das war {{previous.title}}.']);
     });
 
-    it('does not fill a phrasing with the English time or greeting', () => {
-        const inputs: TemplateInputs = { station: 'Radio Nord', clock: 'just after nine', greeting: 'good morning' };
-        const templates = ['Es ist {{clock.rough}} bei {{station.name}}.', '{{greeting}} bei {{station.name}}.', 'Hier ist {{station.name}}.'];
+    it('does not fill a phrasing with the English time, part of the day or greeting', () => {
+        const inputs: TemplateInputs = { station: 'Radio Nord', clock: 'just after nine', dayPart: 'this morning', greeting: 'good morning' };
+        const templates = [
+            'Es ist {{clock.rough}} bei {{station.name}}.',
+            '{{station.name}}, {{clock.daypart}}.',
+            '{{greeting}} bei {{station.name}}.',
+            'Hier ist {{station.name}}.',
+        ];
 
         expect(usable(templates, inputs, spoken, 'de').map(one => one.script)).toEqual(['Hier ist Radio Nord.']);
-        expect(usable(templates, inputs, spoken)).toHaveLength(3);
+        expect(usable(templates, inputs, spoken)).toHaveLength(4);
+    });
+});
+
+describe('the part of the day', () => {
+    const station = 'The Far Frequency';
+
+    it('fills {{clock.daypart}} mid-sentence as the phrase it is', () => {
+        const rendered = render("You're with {{station.name}} {{clock.daypart}}.", { station, dayPart: 'this morning' });
+
+        expect(rendered.script).toBe("You're with The Far Frequency this morning.");
+    });
+
+    it('capitalises it where it opens a sentence', () => {
+        const rendered = render('[[{{clock.daypart}}, ]]this is {{station.name}}.', { station, dayPart: 'tonight' });
+
+        expect(rendered.script).toBe('Tonight, this is The Far Frequency.');
+    });
+
+    it('drops the chunk carrying it on a break with no air time', () => {
+        const rendered = render('This is {{station.name}}[[ {{clock.daypart}}]].', { station });
+
+        expect(rendered.script).toBe('This is The Far Frequency.');
     });
 });
 

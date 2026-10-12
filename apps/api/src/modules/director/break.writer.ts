@@ -632,7 +632,7 @@ export interface BreakWriteRequest {
      * Read by the model bindings, which need it because {@link clock} is twelve-hour with no am or
      * pm — correct for a listener who is awake at the time and useless to a model, which will say
      * "tonight" over a breakfast show and be within every rule it was given. The deterministic
-     * writers ignore it: a phrasing an operator wrote already knows when it is for.
+     * writers fill `{{clock.daypart}}` from it, and stamp its window when a phrasing says it.
      */
     dayPart?: RoughTime;
     /**

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StationEpisode } from '@deadair/sdk';
 
 import { episodeState, PodcastsPage } from '../../../src/components/podcasts/podcasts.page';
@@ -11,6 +11,7 @@ const refreshPodcasts = vi.fn();
 const searchPodcastDirectory = vi.fn();
 const getPlugin = vi.fn();
 const updatePluginConfiguration = vi.fn();
+const listOwnShows = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -20,7 +21,9 @@ vi.mock('../../../src/api/client', () => ({
             fetchEpisode: (...args: unknown[]) => fetchEpisode(...args),
             refreshPodcasts: (...args: unknown[]) => refreshPodcasts(...args),
             searchPodcastDirectory: (...args: unknown[]) => searchPodcastDirectory(...args),
+            listOwnShows: (...args: unknown[]) => listOwnShows(...args),
         },
+        personas: { listPersonas: async () => ({ personas: [] }) },
         plugins: {
             getPlugin: (...args: unknown[]) => getPlugin(...args),
             updatePluginConfiguration: (...args: unknown[]) => updatePluginConfiguration(...args),
@@ -45,6 +48,11 @@ const episode = (overrides: Partial<StationEpisode> = {}): StationEpisode => ({
 });
 
 const carrying = () => listShows.mockResolvedValue({ shows: [{ id: SHOW, pluginId: 'deadair.podcast', title: 'The Long Wave', feedUrl: FEED }] });
+
+beforeEach(() => {
+    // The station's own shows sit above the carried ones and are tested in `own.shows.test.tsx`.
+    listOwnShows.mockResolvedValue({ shows: [] });
+});
 
 afterEach(() => {
     vi.resetAllMocks();

@@ -696,9 +696,42 @@ prose worth extracting claims from, declare `enrichment` too and return it as a
 a rate limit and a query nothing matched are one outcome to every caller. Throw
 only for something the operator has to go and fix.
 
+**A subject that is not a record goes through enrichment, too.** When an
+operator asks the station to research a programme's subject, the host asks
+every `enrichment` plugin that implements the optional
+`enrichTopic({ query })` for `documents` about it, and reads them for claims
+exactly as it reads an artist's. Hand back only pages your plugin has the
+operator's leave to quote; the web search plugin answers from its trusted sites
+and nowhere else.
+
 Note what `search` is not. Looking for something to PLAY is `searchTracks` on
 the catalog capability, which answers with provider ids the station can resolve
 into audio. Nothing a search plugin returns can be scheduled.
+
+## Reading a page somebody named
+
+A `news` plugin may implement one optional method more, `readPage`, and the
+station asks it when an operator gives a production a web page to make a
+programme about:
+
+```ts
+async readPage(url: string): Promise<SourceDocument | undefined> {
+    return await readDocument(this.host, url, { timeoutMs: 15_000 });
+}
+```
+
+`readDocument` in `article.parse.ts` is the whole of a typical implementation:
+it fetches the page through `host.fetch`, keeps its prose the way
+`fetchArticle` does but far more of it (`DOCUMENT_MAX_CHARS`), and takes the
+title the page gives itself (`extractTitle`: its `og:title`, then `<title>`,
+then the first `<h1>`).
+
+It belongs on a plugin that can already open whatever page a feed links to,
+because that is the only kind with a network grant wide enough: the address is
+on no allowlist a manifest could write down, so the plugin needs
+`network.open`, which the operator answers. Answer `undefined` for a page with
+no prose on it. Throw for one that could not be read, and the station says
+which site it was when it fails the production.
 
 ## Carrying podcasts
 

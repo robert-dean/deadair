@@ -26,6 +26,16 @@ export const REQUEST_TIMEOUT_MS = 8_000;
 export const ARTICLE_TIMEOUT_MS = 5_000;
 
 /**
+ * How long one page an operator named may take to arrive.
+ *
+ * Longer than a story's, because the other way round holds here: nothing is
+ * waiting on the air for it, and it is the whole of what the programme is
+ * about rather than an improvement on a headline. Bounded by the host's own
+ * budget for the call in any case.
+ */
+export const PAGE_TIMEOUT_MS = 15_000;
+
+/**
  * One request a second to any one publisher.
  *
  * PER PUBLISHER, which is the host's default for an entry read from config (a
@@ -154,7 +164,7 @@ export const rssManifest: PluginManifest = {
         grants: [
             {
                 capability: 'network.open',
-                reason: 'Opens the page each headline links to, so a bulletin can say what happened rather than reading out titles. The stories are on whatever sites your feeds point at, which only the feeds know.',
+                reason: 'Opens the page each headline links to, so a bulletin can say what happened rather than reading out titles, and a page you give the station to make a programme about. The stories are on whatever sites your feeds point at, which only the feeds know.',
                 ratePerSecond: ARTICLE_RATE_PER_SECOND,
                 bucket: ARTICLE_BUCKET,
             },

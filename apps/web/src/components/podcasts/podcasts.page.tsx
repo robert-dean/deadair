@@ -12,6 +12,7 @@ import {
     useSubscribePodcast,
 } from '../../api/podcast.queries';
 import { i18n } from '../../i18n/i18n.setup';
+import { OwnShows } from './own.shows';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDuration } from '../shared/format.duration';
@@ -85,6 +86,8 @@ export function PodcastsPage() {
             {episodes.error ? <ErrorAlert title={t('error.episodes')} error={episodes.error} /> : undefined}
             {refresh.error ? <ErrorAlert title={t('error.refresh')} error={refresh.error} /> : undefined}
             {fetchEpisode.error ? <ErrorAlert title={t('error.fetch')} error={fetchEpisode.error} /> : undefined}
+
+            <OwnShows />
 
             {episodes.isPending ? <PageSkeleton variant="rows" count={4} /> : undefined}
 

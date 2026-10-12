@@ -100,6 +100,7 @@ public sealed partial class ProductionsViewModel(OperatorActions actions, HttpCl
     public static string StateWords(ProductionState state) => state switch
     {
         ProductionState.Planned => "queued",
+        ProductionState.Researching => "reading its sources",
         ProductionState.Outlining => "planning it",
         ProductionState.Drafting => "writing it",
         ProductionState.Checking => "checking it",
@@ -138,6 +139,7 @@ public sealed partial class ProductionsViewModel(OperatorActions actions, HttpCl
     /// </remarks>
     public static bool IsCancellable(ProductionState state) =>
         state is ProductionState.Planned
+            or ProductionState.Researching
             or ProductionState.Outlining
             or ProductionState.Drafting
             or ProductionState.Checking

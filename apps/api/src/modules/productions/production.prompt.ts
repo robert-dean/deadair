@@ -45,6 +45,24 @@ import { homeRule } from '#modules/shared/station.home.js';
 /** How many words of the previous beat are handed over as the run-in. */
 export const TAIL_WORDS = 40;
 
+/**
+ * The sentence a programme with notes is grounded by, said the way `recordsLine` says it for the
+ * records a phone-in is about and for the same reason: the notes are what the station was told, and
+ * a programme that went beyond them would be the model's memory going out on the radio as fact.
+ */
+export const NOTES_ARE_EVERYTHING =
+    'These notes are everything the station knows about this. Say nothing else about it as fact: no names, dates, places, figures or ' +
+    'quotes the notes do not give. What anybody thinks of it is theirs to say.';
+
+/** How the outline is asked to use the notes: every one somewhere, by index, and no beat that needs a fact they lack. */
+export const NOTES_FOR_THE_OUTLINE =
+    'Give every beat the notes it covers in "itemIndexes", and use every note somewhere. Plan no beat that needs a fact the notes do not give.';
+
+/** What a beat of a grounded programme that covers no notes is told instead. */
+export const NOTES_ELSEWHERE =
+    "This beat covers none of the programme's notes, so state no facts in it: introduce, connect, react or reflect. " +
+    'Everything the station knows is in the beats that carry the notes.';
+
 /** What the outline pass is working from. */
 export interface OutlineRequest {
     kind: string;
@@ -62,7 +80,11 @@ export interface OutlineRequest {
     beats: number;
     /** About how many words each beat gets, for the model's sense of pace. */
     wordsPerBeat: number;
-    /** Anything the production was handed to cover, in order. Indexes into this are what a beat names. */
+    /**
+     * The production's notes, in order: everything it may state as fact. Indexes into this are what a
+     * beat names, and handing them over replaces the "no source material" block, since a production
+     * with notes has some.
+     */
     items?: readonly string[];
     station?: string;
     /**
@@ -113,8 +135,14 @@ export interface BeatRequest {
     beat?: OutlineBeat;
     /** The last few words of the beat before, verbatim. Absent for the first beat. */
     runIn?: string;
-    /** The items this beat covers, already resolved from its indexes. */
+    /** The notes this beat covers, already resolved from its indexes. */
     items?: readonly string[];
+    /**
+     * Whether the production was given notes at all. A beat of a grounded programme that covers none
+     * of them (an opening, a link, a close) is told to state no facts, rather than left to the general
+     * rules, which would let it reach for the very specifics the notes were there to supply.
+     */
+    grounded?: boolean;
     /** The speaker's own sheet, which is whoever this turn belongs to rather than whoever presents. */
     persona?: Persona;
     /**
@@ -344,7 +372,14 @@ export function outlinePrompt(request: OutlineRequest): LlmMessage[] {
                           'no chart placings, no connection to any other record. What you think of it is yours to say. What happened to it is not, ' +
                           'unless you were told.',
                   ]
-            : ['', 'Cover these, by index:', ...request.items.map((item, index) => `${index}. ${item}`)]),
+            : [
+                  '',
+                  'The notes, by index:',
+                  ...request.items.map((item, index) => `${index}. ${item}`),
+                  '',
+                  NOTES_FOR_THE_OUTLINE,
+                  NOTES_ARE_EVERYTHING,
+              ]),
     ]
         .join('\n')
         // Every block after the title opens with its own blank line, and an untitled programme has
@@ -528,7 +563,9 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
     }
 
     if (request.items !== undefined && request.items.length > 0) {
-        parts.push(['What this beat covers:', ...request.items.map(item => `- ${item}`)].join('\n'));
+        parts.push(['What this beat covers:', ...request.items.map(item => `- ${item}`), NOTES_ARE_EVERYTHING].join('\n'));
+    } else if (request.grounded === true) {
+        parts.push(NOTES_ELSEWHERE);
     }
 
     // What this character has said on this station before tonight, which is the half of a memory

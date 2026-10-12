@@ -322,6 +322,208 @@ public struct StationEpisodeQuery: Codable, Equatable, Sendable {
     }
 }
 
+/// A show the station makes for itself: a saved recipe for a podcast, whose every episode is a production
+public struct OwnShow: Codable, Equatable, Sendable {
+    public var id: String
+    /// What the show is called. Each episode's title starts with it
+    public var title: String
+    /// What the show is, for the console. Never read out
+    public var description: String?
+    /// What an episode is about when it is asked for with no subject of its own
+    public var subject: String?
+    /// Who presents it. Absent is whoever is presenting when it is made
+    public var personaId: String?
+    /// How long an episode runs. Absent is the station's production length
+    public var targetMs: Int?
+    /// How much of the model an episode is worth. Absent is the station's default
+    public var writingMode: OwnShowWritingMode?
+    /// The station's news feeds an episode reads, by their qualified ids. Absent or empty is a show that does not read the news
+    public var newsFeedIds: [String]?
+    /// How many hours of news an episode reads. Absent is a day
+    public var newsHours: Int?
+    /// Whether an episode given nothing to read finds its own sources on the operator's trusted sites
+    public var research: Bool?
+    public var createdAt: Date
+
+    public init(id: String, title: String, description: String? = nil, subject: String? = nil, personaId: String? = nil, targetMs: Int? = nil, writingMode: OwnShowWritingMode? = nil, newsFeedIds: [String]? = nil, newsHours: Int? = nil, research: Bool? = nil, createdAt: Date) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.subject = subject
+        self.personaId = personaId
+        self.targetMs = targetMs
+        self.writingMode = writingMode
+        self.newsFeedIds = newsFeedIds
+        self.newsHours = newsHours
+        self.research = research
+        self.createdAt = createdAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case title = "title"
+        case description = "description"
+        case subject = "subject"
+        case personaId = "personaId"
+        case targetMs = "targetMs"
+        case writingMode = "writingMode"
+        case newsFeedIds = "newsFeedIds"
+        case newsHours = "newsHours"
+        case research = "research"
+        case createdAt = "createdAt"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.description = try container.decodeIfPresent(String.self, forKey: .description)
+        self.subject = try container.decodeIfPresent(String.self, forKey: .subject)
+        self.personaId = try container.decodeIfPresent(String.self, forKey: .personaId)
+        self.targetMs = try container.decodeIfPresent(Int.self, forKey: .targetMs)
+        self.writingMode = try container.decodeIfPresent(OwnShowWritingMode.self, forKey: .writingMode)
+        self.newsFeedIds = try container.decodeIfPresent([String].self, forKey: .newsFeedIds)
+        self.newsHours = try container.decodeIfPresent(Int.self, forKey: .newsHours)
+        self.research = try container.decodeIfPresent(Bool.self, forKey: .research)
+        self.createdAt = try container.decode(Date.self, forKey: .createdAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.id, forKey: .id)
+        try container.encode(self.title, forKey: .title)
+        try container.encodeIfPresent(self.description, forKey: .description)
+        try container.encodeIfPresent(self.subject, forKey: .subject)
+        try container.encodeIfPresent(self.personaId, forKey: .personaId)
+        try container.encodeIfPresent(self.targetMs, forKey: .targetMs)
+        try container.encodeIfPresent(self.writingMode, forKey: .writingMode)
+        try container.encodeIfPresent(self.newsFeedIds, forKey: .newsFeedIds)
+        try container.encodeIfPresent(self.newsHours, forKey: .newsHours)
+        try container.encodeIfPresent(self.research, forKey: .research)
+        try container.encode(self.createdAt, forKey: .createdAt)
+    }
+}
+
+/// A show the station makes for itself: a saved recipe for a podcast, whose every episode is a production
+public struct OwnShowInput: Codable, Equatable, Sendable {
+    /// What the show is called. Each episode's title starts with it
+    public var title: String
+    /// What the show is, for the console. Never read out
+    public var description: String?
+    /// What an episode is about when it is asked for with no subject of its own
+    public var subject: String?
+    /// Who presents it. Absent is whoever is presenting when it is made
+    public var personaId: String?
+    /// How long an episode runs. Absent is the station's production length
+    public var targetMs: Int?
+    /// How much of the model an episode is worth. Absent is the station's default
+    public var writingMode: OwnShowWritingMode?
+    /// The station's news feeds an episode reads, by their qualified ids. Absent or empty is a show that does not read the news
+    public var newsFeedIds: [String]?
+    /// How many hours of news an episode reads. Absent is a day
+    public var newsHours: Int?
+    /// Whether an episode given nothing to read finds its own sources on the operator's trusted sites
+    public var research: Bool?
+
+    public init(title: String, description: String? = nil, subject: String? = nil, personaId: String? = nil, targetMs: Int? = nil, writingMode: OwnShowWritingMode? = nil, newsFeedIds: [String]? = nil, newsHours: Int? = nil, research: Bool? = nil) {
+        self.title = title
+        self.description = description
+        self.subject = subject
+        self.personaId = personaId
+        self.targetMs = targetMs
+        self.writingMode = writingMode
+        self.newsFeedIds = newsFeedIds
+        self.newsHours = newsHours
+        self.research = research
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case title = "title"
+        case description = "description"
+        case subject = "subject"
+        case personaId = "personaId"
+        case targetMs = "targetMs"
+        case writingMode = "writingMode"
+        case newsFeedIds = "newsFeedIds"
+        case newsHours = "newsHours"
+        case research = "research"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.description = try container.decodeIfPresent(String.self, forKey: .description)
+        self.subject = try container.decodeIfPresent(String.self, forKey: .subject)
+        self.personaId = try container.decodeIfPresent(String.self, forKey: .personaId)
+        self.targetMs = try container.decodeIfPresent(Int.self, forKey: .targetMs)
+        self.writingMode = try container.decodeIfPresent(OwnShowWritingMode.self, forKey: .writingMode)
+        self.newsFeedIds = try container.decodeIfPresent([String].self, forKey: .newsFeedIds)
+        self.newsHours = try container.decodeIfPresent(Int.self, forKey: .newsHours)
+        self.research = try container.decodeIfPresent(Bool.self, forKey: .research)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.title, forKey: .title)
+        try container.encodeIfPresent(self.description, forKey: .description)
+        try container.encodeIfPresent(self.subject, forKey: .subject)
+        try container.encodeIfPresent(self.personaId, forKey: .personaId)
+        try container.encodeIfPresent(self.targetMs, forKey: .targetMs)
+        try container.encodeIfPresent(self.writingMode, forKey: .writingMode)
+        try container.encodeIfPresent(self.newsFeedIds, forKey: .newsFeedIds)
+        try container.encodeIfPresent(self.newsHours, forKey: .newsHours)
+        try container.encodeIfPresent(self.research, forKey: .research)
+    }
+}
+
+/// Asks one of the station's own shows for an episode. Everything is optional: a show with a standing subject needs nothing
+public struct OwnEpisodeRequest: Codable, Equatable, Sendable {
+    /// What this episode is about. Absent is the show's own subject
+    public var topic: String?
+    /// A page for it to read first, by its address. The episode states only what it can find there
+    public var url: String?
+    /// What the pasted text is called
+    public var sourceTitle: String?
+    /// Something for it to read first. The episode states only what it can find in this. Given text, a show that reads the news reads this instead
+    public var text: String?
+    /// When it should air. Absent is as soon as it is made
+    public var airAt: Date?
+
+    public init(topic: String? = nil, url: String? = nil, sourceTitle: String? = nil, text: String? = nil, airAt: Date? = nil) {
+        self.topic = topic
+        self.url = url
+        self.sourceTitle = sourceTitle
+        self.text = text
+        self.airAt = airAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case topic = "topic"
+        case url = "url"
+        case sourceTitle = "sourceTitle"
+        case text = "text"
+        case airAt = "airAt"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.topic = try container.decodeIfPresent(String.self, forKey: .topic)
+        self.url = try container.decodeIfPresent(String.self, forKey: .url)
+        self.sourceTitle = try container.decodeIfPresent(String.self, forKey: .sourceTitle)
+        self.text = try container.decodeIfPresent(String.self, forKey: .text)
+        self.airAt = try container.decodeIfPresent(Date.self, forKey: .airAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.topic, forKey: .topic)
+        try container.encodeIfPresent(self.url, forKey: .url)
+        try container.encodeIfPresent(self.sourceTitle, forKey: .sourceTitle)
+        try container.encodeIfPresent(self.text, forKey: .text)
+        try container.encodeIfPresent(self.airAt, forKey: .airAt)
+    }
+}
+
 public struct StationShowList: Codable, Equatable, Sendable {
     public var shows: [StationShow]
 
@@ -388,4 +590,55 @@ public struct StationDirectoryPage: Codable, Equatable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.results, forKey: .results)
     }
+}
+
+public struct OwnShowList: Codable, Equatable, Sendable {
+    public var shows: [OwnShow]
+
+    public init(shows: [OwnShow]) {
+        self.shows = shows
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case shows = "shows"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.shows = try container.decode([OwnShow].self, forKey: .shows)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.shows, forKey: .shows)
+    }
+}
+
+public struct OwnShowListInput: Codable, Equatable, Sendable {
+    public var shows: [OwnShowInput]
+
+    public init(shows: [OwnShowInput]) {
+        self.shows = shows
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case shows = "shows"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.shows = try container.decode([OwnShowInput].self, forKey: .shows)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.shows, forKey: .shows)
+    }
+}
+
+/// How much of the model an episode is worth. Absent is the station's default
+public enum OwnShowWritingMode: String, Codable, CaseIterable, Sendable {
+    case quick = "quick"
+    case outlined = "outlined"
+    case polished = "polished"
 }

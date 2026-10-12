@@ -16,6 +16,7 @@ export const productions = {
     /** What the badge says. Plain words rather than the state name, which is the machine's vocabulary. */
     state: {
         planned: 'queued',
+        researching: 'reading its sources',
         outlining: 'planning it',
         drafting: 'writing it',
         checking: 'checking it',
@@ -42,6 +43,8 @@ export const productions = {
         beats_one: '{{count}} beat written',
         beats_other: '{{count}} beats written',
         due: 'due {{when}}',
+        notes_one: 'grounded in {{count}} note',
+        notes_other: 'grounded in {{count}} notes',
     },
     form: {
         error: 'Could not ask for that production',
@@ -55,6 +58,31 @@ export const productions = {
             label: 'What it should be about',
             description: 'In your own words. This is what the planning pass actually works from, and it matters far more than the title does.',
             placeholder: 'The history of the TR-808: why it flopped, who rescued it, and what it did to pop music.',
+        },
+        notes: {
+            label: 'Notes',
+            description:
+                'One per line: the facts it may state. Given notes, it says nothing as fact that they do not give. Left empty, it talks from general knowledge and keeps the specifics vague.',
+            placeholder: 'The TR-808 came out in 1980.\nRoland stopped making it in 1983, after about 12,000 had been built.',
+        },
+        research: {
+            label: 'Research it on your trusted sites',
+            description:
+                'Given nothing to read, the station searches the sites you trust in the web search plugin for its subject and states only what it finds there.',
+        },
+        sources: {
+            label: 'Sources',
+            description:
+                'Something for it to read first: a web page, an article, a chapter, your own notes as prose. Given sources and no notes, the station reads them and states only what it can find in them.',
+            title: 'Called',
+            titlePlaceholder: 'A history of the 808',
+            url: 'Address',
+            urlDescription: 'A web page for the station to read. Leave empty and paste the text below instead.',
+            urlPlaceholder: 'https://',
+            text: 'What it says',
+            textPlaceholder: 'Paste the text here.',
+            add: 'Add a source',
+            remove: 'Remove this source',
         },
         kind: {
             label: 'Kind',
@@ -76,6 +104,11 @@ export const productions = {
         presenter: {
             label: 'Presenter',
             description: 'Leave empty and whoever is on air when a pass runs presents it.',
+        },
+        airAt: {
+            label: 'Air at',
+            description: 'Leave empty to air it as soon as it is made. Given a time, it waits, ready, for the first gap at or after it.',
+            placeholder: 'As soon as it is ready',
         },
         submit: 'Ask for it',
     },

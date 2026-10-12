@@ -23,28 +23,16 @@ export interface ProductionCastMember {
 }
 
 /**
- * What an operator asks for. Everything else about a production is decided by the passes that make it
- * generated from [ProductionRequest](../../../../../apps/api/data/contracts/productions/productions.types.ck)
+ * Something a production was handed to read. The research pass takes the notes it states as fact out of these, keeping only claims whose words really are in the text
+ * generated from [ProductionSource](../../../../../apps/api/data/contracts/productions/productions.types.ck)
  */
-export interface ProductionRequest {
-    kind?: string;
-    /** Absent is named after its kind and the moment it was asked for, which is what somebody taking a call now wants rather than a box to fill in */
-    title?: string;
-    brief?: string;
-    personaId?: string;
-    /** Absent takes the station's `render.productionWritingMode` */
-    writingMode?: 'quick' | 'outlined' | 'polished';
-    targetMs?: number;
-    scheduledFor?: DateTime;
-}
-
-/** Rehydrates every wire-encoded scalar in a ProductionRequest into its runtime type. Mutates and returns `raw`. */
-export function reviveProductionRequest(raw: ProductionRequest): ProductionRequest {
-    const __o0 = raw as unknown as Record<string, unknown>;
-    if (__o0['scheduledFor'] != null) {
-        __o0['scheduledFor'] = __dt(__o0['scheduledFor'], 'ProductionRequest.scheduledFor');
-    }
-    return raw;
+export interface ProductionSource {
+    /** What the source is called, for the console and for the research pass's sense of what it is reading */
+    title: string;
+    /** Where it came from, when it came from somewhere */
+    url?: string;
+    /** What it says. Absent for a source given only by its address, which the research pass reads through whichever installed plugin can open a page */
+    text?: string;
 }
 
 /**
@@ -58,14 +46,20 @@ export interface Production {
     title: string;
     /** What was asked for, in the operator's own words. Distinct from the title, which is only a label */
     brief?: string;
+    /** What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact */
+    notes?: string[];
+    /** What it was handed to read. Its notes are taken from these by the research pass when nobody gave it any */
+    sources?: ProductionSource[];
+    /** Whether it was asked to find its own sources on the operator's trusted sites */
+    research?: boolean;
     /** Who presents it. Absent falls back to the station's active persona when a pass runs */
     personaId?: string;
     /** How many passes to spend on it */
     writingMode: 'quick' | 'outlined' | 'polished';
     /** How long it should run. What the beat count and the per-beat word budgets are computed from */
     targetMs: number;
-    /** `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not */
-    state: 'planned' | 'outlining' | 'drafting' | 'checking' | 'rendering' | 'stitching' | 'ready' | 'aired' | 'failed' | 'cancelled';
+    /** `researching` is its sources being read for notes. `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not */
+    state: 'planned' | 'researching' | 'outlining' | 'drafting' | 'checking' | 'rendering' | 'stitching' | 'ready' | 'aired' | 'failed' | 'cancelled';
     /** Why making it did not work */
     error?: string;
     /** When it should air. Absent means as soon as it is made */
@@ -73,6 +67,8 @@ export interface Production {
     cancelledAt?: DateTime;
     /** How many beats exist so far, which is how far along the drafting is */
     beats: number;
+    /** The station's own show this is an episode of, when it is one */
+    showId?: string;
     /** Who is on it, decided by the first pass that ran. Empty for one nobody has started, and for a programme the presenter reads alone */
     cast: ProductionCastMember[];
     createdAt: DateTime;
@@ -84,6 +80,10 @@ export interface ProductionInput {
     title: string;
     /** What was asked for, in the operator's own words. Distinct from the title, which is only a label */
     brief?: string;
+    /** What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact */
+    notes?: string[];
+    /** What it was handed to read. Its notes are taken from these by the research pass when nobody gave it any */
+    sources?: ProductionSource[];
     /** Who presents it. Absent falls back to the station's active persona when a pass runs */
     personaId?: string;
     /** How many passes to spend on it */
@@ -104,6 +104,37 @@ export function reviveProduction(raw: Production): Production {
         __o0['cancelledAt'] = __dt(__o0['cancelledAt'], 'Production.cancelledAt');
     }
     __o0['createdAt'] = __dt(__o0['createdAt'], 'Production.createdAt');
+    return raw;
+}
+
+/**
+ * What an operator asks for. Everything else about a production is decided by the passes that make it
+ * generated from [ProductionRequest](../../../../../apps/api/data/contracts/productions/productions.types.ck)
+ */
+export interface ProductionRequest {
+    kind?: string;
+    /** Absent is named after its kind and the moment it was asked for, which is what somebody taking a call now wants rather than a box to fill in */
+    title?: string;
+    brief?: string;
+    /** What it may state as fact, one short note each. Absent leaves it to general knowledge, said vaguely */
+    notes?: string[];
+    /** What to read before writing it. Given sources and no notes, a research pass takes the notes out of these first */
+    sources?: ProductionSource[];
+    /** Given nothing to read, search the operator's trusted sites for its subject and read what comes back. Needs an enrichment plugin that can, such as the web search one with trusted sites */
+    research?: boolean;
+    personaId?: string;
+    /** Absent takes the station's `render.productionWritingMode` */
+    writingMode?: 'quick' | 'outlined' | 'polished';
+    targetMs?: number;
+    scheduledFor?: DateTime;
+}
+
+/** Rehydrates every wire-encoded scalar in a ProductionRequest into its runtime type. Mutates and returns `raw`. */
+export function reviveProductionRequest(raw: ProductionRequest): ProductionRequest {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['scheduledFor'] != null) {
+        __o0['scheduledFor'] = __dt(__o0['scheduledFor'], 'ProductionRequest.scheduledFor');
+    }
     return raw;
 }
 

@@ -2597,6 +2597,22 @@ describe('DirectorService and a broadcast that takes no calls', () => {
         expect(placed(lineup)).toBe(true);
     });
 
+    it('holds a production asked for at a time the order does not reach yet', async () => {
+        const { director, lineup, productions, seed } = build({
+            productions: [{ id: 'prod-1', kind: 'podcast', title: 'Wind-down', state: 'ready', scheduledFor: Date.now() + 3 * 60 * 60_000 }],
+            beats: READY_BEATS,
+            joined: { 'prod-1': { id: 'joined-1' } },
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        // Ready and waiting for its time, rather than aired the moment its beats were joined.
+        expect(placed(lineup)).toBe(false);
+        expect(productions.moveTo).not.toHaveBeenCalledWith('prod-1', 'aired', 'ready');
+        expect(productions.fail).not.toHaveBeenCalled();
+    });
+
     it('still places a production that is not a conversation', async () => {
         const { director, lineup, seed } = build({
             callins: false,

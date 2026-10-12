@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ARTICLE_MAX_CHARS, extractArticle, fetchArticle } from '../src/article.parse.js';
+import { ARTICLE_MAX_CHARS, extractArticle, extractTitle, fetchArticle, readDocument } from '../src/article.parse.js';
 import { isPluginError } from '../src/plugin.error.js';
 import type { PluginHost } from '../src/plugin.host.js';
 
@@ -313,5 +313,63 @@ describe('fetchArticle', () => {
         await expect(fetchArticle(host, 'https://example.com/story')).rejects.toSatisfy(
             error => isPluginError(error) && error.code === 'rate_limited' && error.retryAfterMs === 30_000,
         );
+    });
+});
+
+// What a page calls itself, for a page somebody handed the station with nothing but its address.
+describe('extractTitle', () => {
+    it('prefers the Open Graph title, which has no site name glued on', () => {
+        const html = '<head><title>A bridge reopens | The Daily</title><meta property="og:title" content="A bridge reopens"></head>';
+
+        expect(extractTitle(html)).toBe('A bridge reopens');
+    });
+
+    it('keeps an apostrophe inside a double-quoted title', () => {
+        expect(extractTitle(`<meta property="og:title" content="The keeper's year">`)).toBe("The keeper's year");
+    });
+
+    it('reads the attributes in either order', () => {
+        expect(extractTitle('<meta content="A bridge reopens" property="og:title">')).toBe('A bridge reopens');
+    });
+
+    it('falls back to the title, then the first heading, with entities decoded', () => {
+        expect(extractTitle('<title>Fish &amp; chips</title><h1>Something else</h1>')).toBe('Fish & chips');
+        expect(extractTitle('<body><h1>The <em>only</em> heading</h1></body>')).toBe('The only heading');
+    });
+
+    it('is nothing for a page that names itself nowhere', () => {
+        expect(extractTitle('<body><p>Words.</p></body>')).toBeUndefined();
+    });
+});
+
+describe('readDocument', () => {
+    it('reads a page as a document, with its prose, its title and where it was', async () => {
+        const page = STORY_PAGE.replace('<head>', '<head><meta property="og:title" content="Record rainfall">');
+        const host = hostAnswering(new Response(page, { headers: { 'content-type': 'text/html' } }));
+
+        const document = await readDocument(host, 'https://example.com/story');
+
+        expect(document?.url).toBe('https://example.com/story');
+        expect(document?.title).toBe('Record rainfall');
+        expect(document?.text).toContain('Total rainfall of nearly three feet');
+        expect(Number.isNaN(Date.parse(document?.retrievedAt ?? ''))).toBe(false);
+    });
+
+    it('keeps far more of a page than a bulletin does', async () => {
+        const paragraphs = Array.from(
+            { length: 100 },
+            (_, at) => `<p>Paragraph ${at} is a sentence of reporting that is long enough to count as prose on a page.</p>`,
+        );
+        const long = `<html><body><article>${paragraphs.join('')}</article></body></html>`;
+        const host = hostAnswering(new Response(long, { headers: { 'content-type': 'text/html' } }));
+
+        expect((await readDocument(host, 'https://example.com/long'))!.text.length).toBeGreaterThan(ARTICLE_MAX_CHARS * 2);
+    });
+
+    it('is nothing for a page with no prose, and throws for one that could not be read', async () => {
+        expect(
+            await readDocument(hostAnswering(new Response('%PDF', { headers: { 'content-type': 'application/pdf' } })), 'https://example.com/a.pdf'),
+        ).toBeUndefined();
+        await expect(readDocument(hostAnswering(new Response('gone', { status: 404 })), 'https://example.com/gone')).rejects.toSatisfy(isPluginError);
     });
 });

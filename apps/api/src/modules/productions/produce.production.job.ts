@@ -33,10 +33,13 @@ import { checkBeat, correctionNote } from './production.checks.js';
 import { callSubjectOf, isDialogue, isVisitor, speakerOrder, turnWeights, type CastMember, type ProductionCast } from './production.cast.js';
 import { ProductionCaster } from './production.caster.js';
 import { cuesFor } from './production.cues.js';
-import { planProduction, turnsFor } from './production.plan.js';
+import { beatNotes, planProduction, turnsFor } from './production.plan.js';
+import { SourceReader } from './source.reader.js';
+import { TopicResearcher } from './topic.researcher.js';
+import { chunksOf, gather, MAX_NOTES_PER_SOURCE, MAX_RESEARCH_NOTES, readNotes, researchPrompt } from './production.research.js';
 import { askForBeat, attemptsBefore } from './beat.answer.js';
 import { beatPrompt, outlinePrompt, runInFrom } from './production.prompt.js';
-import { coerceOutline, priorityForSlot, type Production, type ProductionPass, type ProductionPlan } from './production.js';
+import { coerceOutline, priorityForSlot, type Production, type ProductionPass, type ProductionPlan, type ProductionSource } from './production.js';
 import { firstPass, nextPass, runsPass } from './production.passes.js';
 import { ProductionRepository } from './production.repository.js';
 import { spokenTitle } from './production.scheduler.js';
@@ -55,6 +58,9 @@ export const OUTLINE_BUDGET_MS = 120_000;
 
 /** How long one beat may take. */
 export const BEAT_BUDGET_MS = 120_000;
+
+/** How long reading one chunk of a source may take: one call over up to eight thousand characters. */
+export const RESEARCH_BUDGET_MS = 120_000;
 
 /**
  * How long to wait for the model slot before giving up on this pass.
@@ -83,6 +89,7 @@ export const WAIT_MS = 60_000;
  */
 export const OUTLINE_OUTPUT_TOKENS = 8_000;
 export const BEAT_OUTPUT_TOKENS = 8_000;
+export const RESEARCH_OUTPUT_TOKENS = 8_000;
 
 /**
  * Kinds of production that are REPORTED rather than presented, and are shown no character memory.
@@ -175,6 +182,10 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // Best-effort and never awaited, on `ActivityRecorder`'s own rule: nothing reads these rows
         // to decide anything, so a failed insert must never cost the station the thing it described.
         private readonly activity: ActivityRecorder,
+        /** What reads a source handed over as only an address. See {@link research}. */
+        private readonly reader: SourceReader,
+        /** What finds pages about a production's subject, for one asked to research itself. */
+        private readonly researcher: TopicResearcher,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -195,7 +206,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             return;
         }
 
-        const pass = payload.pass ?? firstPass(existing.writingMode);
+        const pass = payload.pass ?? firstPass(existing);
         // A mode changed under a production already being made. Stopping is the honest outcome: the
         // passes that ran ran, and guessing where it sits in a chain it was never started on is
         // worse than leaving it where an operator can see it.
@@ -235,6 +246,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
     /** One pass. Answers whether it actually ran, so a lost claim stops the chain rather than continuing it. */
     private async runPass(production: Production, pass: ProductionPass): Promise<boolean> {
         switch (pass) {
+            case 'research':
+                return await this.research(production);
             case 'outline':
                 return await this.outline(production);
             case 'draft':
@@ -242,6 +255,132 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             case 'check':
                 return await this.check(production);
         }
+    }
+
+    /**
+     * Read the sources for the notes the production may state as fact. See `production.research.ts`.
+     *
+     * One model call per chunk, each its own admission at the production's own priority, and the
+     * cancellation asked about between them, on #27's rule that a pass is never one long hold. The
+     * row is the checkpoint: the notes are written with the row handed back to `planned`, so a restart
+     * after this finds a production with notes and goes straight to the pass its mode starts with.
+     *
+     * **A research pass that finds nothing fails the production** rather than letting it be written
+     * ungrounded. Somebody who handed it a page asked for a programme about that page, and the
+     * station's general knowledge said vaguely is a different programme from the one they asked for.
+     */
+    private async research(production: Production): Promise<boolean> {
+        const claimed = await this.productions.claim(production.id, 'planned', 'researching');
+        if (claimed === undefined) return false;
+
+        const subject = claimed.brief ?? claimed.title;
+        const sources = (claimed.sources?.length ?? 0) > 0 ? await this.readAddresses(claimed) : await this.findSources(claimed, subject);
+        if (sources === undefined) return false;
+
+        let notes: string[] = [];
+        let read = 0;
+
+        for (const source of sources) {
+            if (notes.length >= MAX_RESEARCH_NOTES) break;
+            if (source.text === undefined) continue;
+
+            let fromSource: string[] = [];
+            for (const chunk of chunksOf(source.text)) {
+                if (fromSource.length >= MAX_NOTES_PER_SOURCE) break;
+                if (await this.productions.isCancelled(claimed.id)) return false;
+
+                const answer = await this.llm.converse(
+                    { messages: researchPrompt({ subject, source, text: chunk }), maxOutputTokens: RESEARCH_OUTPUT_TOKENS, reasoningEffort: 'low' },
+                    { budgetMs: RESEARCH_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
+                );
+                read += 1;
+                fromSource = gather(fromSource, readNotes(answer.text, chunk), MAX_NOTES_PER_SOURCE);
+            }
+
+            notes = gather(notes, fromSource);
+        }
+
+        if (notes.length === 0) {
+            await this.productions.fail(
+                claimed.id,
+                read === 0 ? 'none of its sources had any text to read' : 'its sources gave nothing the station could state as fact',
+            );
+            return false;
+        }
+
+        this.logger.info('productions: read the sources for notes', { production: claimed.id, read, notes: notes.length });
+        return await this.productions.saveNotes(claimed.id, notes);
+    }
+
+    /**
+     * Pages about the production's subject, for one asked to research itself and handed nothing to read:
+     * the operator's trusted sites searched through `TopicResearcher`, and what came back written onto the
+     * row as its sources before any notes are taken, for `readAddresses`' reasons. Finding nothing fails the
+     * production with the reason, rather than writing it from general knowledge when somebody asked for it
+     * to be researched. `undefined` when it was failed or cancelled here.
+     */
+    private async findSources(production: Production, subject: string): Promise<readonly ProductionSource[] | undefined> {
+        if (production.research !== true) return [];
+        if (!this.researcher.canResearch()) {
+            await this.productions.fail(
+                production.id,
+                'nothing installed can research a subject; the web search plugin can, once it has trusted sites',
+            );
+            return undefined;
+        }
+        if (await this.productions.isCancelled(production.id)) return undefined;
+
+        const documents = await this.researcher.documentsAbout(subject);
+        if (documents.length === 0) {
+            await this.productions.fail(production.id, 'no trusted site had anything on this');
+            return undefined;
+        }
+
+        const found: ProductionSource[] = documents.map(document => ({
+            title: document.title,
+            url: document.url,
+            text: document.text,
+            retrievedAt: Date.parse(document.retrievedAt),
+        }));
+        await this.productions.saveSources(production.id, found);
+        return found;
+    }
+
+    /**
+     * Every source handed over as only an address, read now through `SourceReader` and written back onto
+     * the row before any notes are taken, so a restart part way through the research reads nothing twice
+     * and an operator can see afterwards what the page said. A page that cannot be read fails the
+     * production with the site's name: somebody asked for a programme about that page, and one made
+     * without it is not that programme. `undefined` when the production was failed or cancelled here.
+     */
+    private async readAddresses(production: Production): Promise<readonly ProductionSource[] | undefined> {
+        const sources = production.sources ?? [];
+        if (sources.every(source => source.text !== undefined || source.url === undefined)) return sources;
+
+        const read: ProductionSource[] = [];
+        for (const source of sources) {
+            if (source.text !== undefined || source.url === undefined) {
+                read.push(source);
+                continue;
+            }
+            if (await this.productions.isCancelled(production.id)) return undefined;
+
+            try {
+                const document = await this.reader.read(source.url);
+                read.push({
+                    title: source.title === source.url ? document.title : source.title,
+                    url: source.url,
+                    text: document.text,
+                    retrievedAt: Date.parse(document.retrievedAt),
+                });
+            } catch (error) {
+                await this.productions.fail(production.id, errorText(error));
+                return undefined;
+            }
+        }
+
+        await this.productions.saveSources(production.id, read);
+        return read;
     }
 
     /**
@@ -266,6 +405,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         ...onAir(claimed),
                         ...(claimed.brief === undefined ? {} : { brief: claimed.brief }),
                         ...(subject === undefined ? {} : { subject }),
+                        ...(claimed.notes === undefined ? {} : { items: claimed.notes }),
                         beats: plan.beats.length,
                         wordsPerBeat: plan.beats[0]?.words ?? 0,
                         // No persona: the outline decides what the programme is ABOUT, and the beats
@@ -297,10 +437,13 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // still busy" — so a second ask may hit the same wall; it costs another `LlmGate` wait on a
         // background-priority call and nothing on the air path. Measured live: 8 of 12 productions
         // aired with no outline at all.
-        let outline = coerceOutline(parseJson((await ask()).text), 0);
+        // The note count, so an index naming a note that exists is kept and one naming a note that
+        // does not is dropped. It was hard-wired to nothing while nothing handed the outline any.
+        const notes = claimed.notes?.length ?? 0;
+        let outline = coerceOutline(parseJson((await ask()).text), notes);
         if (outline === undefined) {
             this.logger.info('productions: the outline came back unusable, so it is being asked again', { production: claimed.id });
-            outline = coerceOutline(parseJson((await ask()).text), 0);
+            outline = coerceOutline(parseJson((await ask()).text), notes);
         }
 
         // Still a model that gave nothing usable, which is not a failure of the production: the plan
@@ -351,6 +494,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // resolving the presenter — every beat is theirs, exactly as it was.
         const casting = shaped.casting ?? [];
         const subject = callSubjectOf(claimed.brief, casting);
+        // Which notes each beat carries, decided once for the whole programme. See `beatNotes`.
+        const covers = beatNotes(claimed.notes, claimed.outline, plan.beats.length);
         // One read per character rather than one per beat. A production is up to twenty-four beats
         // and the sheet does not change while it is being written.
         const sheets = await this.sheets(claimed, casting);
@@ -409,6 +554,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 words: beat.words,
                 ...(claimed.outline === undefined ? {} : { outline: claimed.outline }),
                 ...(outlineBeat === undefined ? {} : { beat: outlineBeat }),
+                ...notesFor(covers, beat.ordinal),
                 ...(runIn === undefined ? {} : { runIn }),
                 ...(persona === undefined ? {} : { persona }),
                 ...(spent.length === 0 ? {} : { spent }),
@@ -552,6 +698,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         const plan = claimed.plan ?? planProduction(claimed.targetMs);
         const casting = claimed.casting ?? [];
         const subject = callSubjectOf(claimed.brief, casting);
+        // The same division the draft was written to, so a re-draft is held to the notes it had.
+        const covers = beatNotes(claimed.notes, claimed.outline, plan.beats.length);
         const sheets = await this.sheets(claimed, casting);
         const engine = await this.performable();
         const station = this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
@@ -594,6 +742,9 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 ...(records === undefined ? {} : { records }),
                 raised: [
                     ...(claimed.brief === undefined ? [] : [claimed.brief]),
+                    // What the notes say counts as raised, so a programme the notes put a storm in is
+                    // not refused for mentioning the weather.
+                    ...(claimed.notes ?? []),
                     ...beats
                         .slice(0, index)
                         .flatMap((earlier, before) => (isVisitor(casting[plan.beats[before]?.speaker ?? 0]) ? [earlier.script ?? ''] : [])),
@@ -615,6 +766,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         words: plan.beats[index]?.words ?? 200,
                         ...(claimed.outline === undefined ? {} : { outline: claimed.outline }),
                         ...(claimed.outline?.beats[index] === undefined ? {} : { beat: claimed.outline.beats[index]! }),
+                        ...notesFor(covers, index),
                         ...(runIn === undefined ? {} : { runIn }),
                         ...(persona === undefined ? {} : { persona }),
                         // Everything THIS SPEAKER says EXCEPT this beat: a re-draft must not be told
@@ -1211,4 +1363,15 @@ function parseJson(answer: string): unknown {
     } catch {
         return undefined;
     }
+}
+
+/**
+ * A beat's notes as its prompt takes them: the ones it covers, and that the programme has notes at
+ * all. Nothing for a production that was given none, so its beats are asked exactly what they always
+ * were.
+ */
+function notesFor(covers: readonly (readonly string[])[] | undefined, ordinal: number): { items?: readonly string[]; grounded?: true } {
+    if (covers === undefined) return {};
+    const mine = covers[ordinal] ?? [];
+    return mine.length === 0 ? { grounded: true } : { items: mine, grounded: true };
 }

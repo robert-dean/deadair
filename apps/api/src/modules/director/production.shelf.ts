@@ -1,4 +1,7 @@
 import type { Production } from '#modules/productions/production.js';
+import { nextBoundaryAtOrAfter, projectAirTimes } from './air.clock.js';
+import { landingFor, type AirClock } from './break.planner.js';
+import type { StationLineupItem } from './station.lineup.js';
 
 /**
  * How long a produced programme stays fit to air after it was made.
@@ -43,4 +46,31 @@ export function productionExpired(production: Pick<Production, 'createdAt' | 'sc
  */
 export function standingCall(production: Pick<Production, 'kind' | 'scheduledFor' | 'actorId'>, dialogueKinds: ReadonlySet<string>): boolean {
     return production.scheduledFor === undefined && production.actorId === undefined && dialogueKinds.has(production.kind.trim().toLowerCase());
+}
+
+/**
+ * Where a finished production goes in the order, or `undefined` while it has nowhere to go yet.
+ *
+ * One with no time airs at the first open boundary past what is committed, which is what every
+ * production did. One with a time waits for it: it lands at the first open boundary at or after the
+ * first boundary the projection puts at or after `scheduledFor`, and answers `undefined` while the
+ * order does not reach that far, so the production stays `ready` and a later pass, against a longer
+ * order, places it.
+ *
+ * The time used to be stored and never read, so a podcast asked for at eleven at night aired the
+ * moment its last beat was joined, and a clock band's production commissioned three hours ahead aired
+ * up to three hours early. The projection counts everything unmeasured as zero (`air.clock.ts`), so
+ * the boundary it finds is at or after the time and never before it, which is the direction a
+ * programme somebody asked for at a time can absorb.
+ */
+export function productionLanding(
+    items: readonly StationLineupItem[],
+    head: number,
+    clock: Pick<AirClock, 'anchorAt' | 'from'>,
+    scheduledFor: number | undefined,
+): number | undefined {
+    if (scheduledFor === undefined) return landingFor(items, head);
+
+    const boundary = nextBoundaryAtOrAfter(projectAirTimes(items, clock.anchorAt, clock.from), scheduledFor, head);
+    return boundary === undefined ? undefined : landingFor(items, boundary);
 }

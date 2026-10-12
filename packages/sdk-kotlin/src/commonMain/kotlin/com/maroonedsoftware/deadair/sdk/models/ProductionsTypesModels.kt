@@ -19,18 +19,15 @@ data class ProductionCastMember(
     val persona: String? = null,
 )
 
-/** What an operator asks for. Everything else about a production is decided by the passes that make it */
+/** Something a production was handed to read. The research pass takes the notes it states as fact out of these, keeping only claims whose words really are in the text */
 @Serializable
-data class ProductionRequest(
-    val kind: String? = null,
-    /** Absent is named after its kind and the moment it was asked for, which is what somebody taking a call now wants rather than a box to fill in */
-    val title: String? = null,
-    val brief: String? = null,
-    val personaId: String? = null,
-    /** Absent takes the station's `render.productionWritingMode` */
-    val writingMode: ProductionRequestWritingMode? = null,
-    val targetMs: Long? = null,
-    val scheduledFor: Instant? = null,
+data class ProductionSource(
+    /** What the source is called, for the console and for the research pass's sense of what it is reading */
+    val title: String,
+    /** Where it came from, when it came from somewhere */
+    val url: String? = null,
+    /** What it says. Absent for a source given only by its address, which the research pass reads through whichever installed plugin can open a page */
+    val text: String? = null,
 )
 
 /** Something the station makes rather than something it says: several beats of speech, written in several passes, that airs as one block */
@@ -42,13 +39,19 @@ data class Production(
     val title: String,
     /** What was asked for, in the operator's own words. Distinct from the title, which is only a label */
     val brief: String? = null,
+    /** What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact */
+    val notes: List<String>? = null,
+    /** What it was handed to read. Its notes are taken from these by the research pass when nobody gave it any */
+    val sources: List<ProductionSource>? = null,
+    /** Whether it was asked to find its own sources on the operator's trusted sites */
+    val research: Boolean? = null,
     /** Who presents it. Absent falls back to the station's active persona when a pass runs */
     val personaId: String? = null,
     /** How many passes to spend on it */
     val writingMode: ProductionWritingMode,
     /** How long it should run. What the beat count and the per-beat word budgets are computed from */
     val targetMs: Long,
-    /** `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not */
+    /** `researching` is its sources being read for notes. `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not */
     val state: ProductionState,
     /** Why making it did not work */
     val error: String? = null,
@@ -57,6 +60,8 @@ data class Production(
     val cancelledAt: Instant? = null,
     /** How many beats exist so far, which is how far along the drafting is */
     val beats: Long,
+    /** The station's own show this is an episode of, when it is one */
+    val showId: String? = null,
     /** Who is on it, decided by the first pass that ran. Empty for one nobody has started, and for a programme the presenter reads alone */
     val cast: List<ProductionCastMember>,
     val createdAt: Instant,
@@ -70,6 +75,10 @@ data class ProductionInput(
     val title: String,
     /** What was asked for, in the operator's own words. Distinct from the title, which is only a label */
     val brief: String? = null,
+    /** What it may state as fact, one short note each. The outline divides them between the beats, and nothing else it says is offered as fact */
+    val notes: List<String>? = null,
+    /** What it was handed to read. Its notes are taken from these by the research pass when nobody gave it any */
+    val sources: List<ProductionSource>? = null,
     /** Who presents it. Absent falls back to the station's active persona when a pass runs */
     val personaId: String? = null,
     /** How many passes to spend on it */
@@ -77,6 +86,26 @@ data class ProductionInput(
     /** How long it should run. What the beat count and the per-beat word budgets are computed from */
     val targetMs: Long,
     /** When it should air. Absent means as soon as it is made */
+    val scheduledFor: Instant? = null,
+)
+
+/** What an operator asks for. Everything else about a production is decided by the passes that make it */
+@Serializable
+data class ProductionRequest(
+    val kind: String? = null,
+    /** Absent is named after its kind and the moment it was asked for, which is what somebody taking a call now wants rather than a box to fill in */
+    val title: String? = null,
+    val brief: String? = null,
+    /** What it may state as fact, one short note each. Absent leaves it to general knowledge, said vaguely */
+    val notes: List<String>? = null,
+    /** What to read before writing it. Given sources and no notes, a research pass takes the notes out of these first */
+    val sources: List<ProductionSource>? = null,
+    /** Given nothing to read, search the operator's trusted sites for its subject and read what comes back. Needs an enrichment plugin that can, such as the web search one with trusted sites */
+    val research: Boolean? = null,
+    val personaId: String? = null,
+    /** Absent takes the station's `render.productionWritingMode` */
+    val writingMode: ProductionRequestWritingMode? = null,
+    val targetMs: Long? = null,
     val scheduledFor: Instant? = null,
 )
 
@@ -113,11 +142,13 @@ enum class ProductionWritingMode {
     POLISHED,
 }
 
-/** `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not */
+/** `researching` is its sources being read for notes. `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not */
 @Serializable
 enum class ProductionState {
     @SerialName("planned")
     PLANNED,
+    @SerialName("researching")
+    RESEARCHING,
     @SerialName("outlining")
     OUTLINING,
     @SerialName("drafting")

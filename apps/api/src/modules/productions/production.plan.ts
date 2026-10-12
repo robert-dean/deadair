@@ -39,6 +39,8 @@
  * decided, rather than papered over where the speakers are assigned.
  */
 
+import type { ProductionOutline } from './production.js';
+
 /** How fast the station is assumed to speak, for turning a duration into a word budget. */
 export const WORDS_PER_MINUTE = 160;
 
@@ -301,4 +303,30 @@ export function spreadItems<T>(items: readonly T[], beats: number): T[][] {
         const end = Math.max(start + 1, Math.floor(((index + 1) * items.length) / beats));
         return items.slice(start, Math.min(end, items.length));
     });
+}
+
+/**
+ * The notes each beat covers, in plan order, or `undefined` for a production that was given none.
+ *
+ * The outline's own division when it made one, and an even spread when it did not. An outline that
+ * names no notes at all is treated exactly like no outline (a `quick` production, or a model that
+ * could not plan it twice): left alone, every beat would be told the notes are everything the station
+ * knows and then be handed none of them, which is a grounded programme that says nothing. Which beat
+ * covers what is the station's arithmetic whenever the model did not decide it, on the same argument
+ * that keeps beat counts and word budgets away from the model.
+ *
+ * Indexes out of range never reach here: `coerceOutlineBeat` drops them, because a hallucinated index
+ * points a beat at the wrong note rather than failing.
+ */
+export function beatNotes(
+    notes: readonly string[] | undefined,
+    outline: ProductionOutline | undefined,
+    beats: number,
+): (readonly string[])[] | undefined {
+    if (notes === undefined || notes.length === 0) return undefined;
+    if (outline === undefined || !outline.beats.some(beat => (beat.itemIndexes?.length ?? 0) > 0)) return spreadItems(notes, beats);
+
+    return Array.from({ length: beats }, (_, index) =>
+        (outline.beats[index]?.itemIndexes ?? []).flatMap(at => (notes[at] === undefined ? [] : [notes[at]])),
+    );
 }

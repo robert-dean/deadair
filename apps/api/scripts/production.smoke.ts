@@ -26,6 +26,7 @@ import { KyselyDefaultPlugins, KyselyPgTypeOverrides, KyselyPool } from '@maroon
 
 import type { DB } from '../src/modules/data/db.js';
 import { ProductionRepository } from '../src/modules/productions/production.repository.js';
+import { OwnShowRepository } from '../src/modules/podcasts/own.show.repository.js';
 import { SegmentRepository } from '../src/modules/render/segment.repository.js';
 import { planProduction } from '../src/modules/productions/production.plan.js';
 import { StationIdentity } from '../src/modules/shared/station.identity.js';
@@ -51,6 +52,7 @@ const db = new Kysely<DB>({ dialect: new PostgresDialect({ pool }), plugins: [..
 const identity = new StationIdentity();
 const productions = new ProductionRepository(db, identity);
 const segments = new SegmentRepository(db, identity);
+const ownShows = new OwnShowRepository(db, identity);
 
 let failures = 0;
 const check = (ok: boolean, said: string): void => {
@@ -71,6 +73,34 @@ try {
     check(opened.casting === undefined, 'nobody is cast at commission: the roster can change in the hours before the first pass runs');
     check(opened.scheduledFor === undefined, 'an unscheduled production reads as undefined rather than null');
     check(opened.writingMode === 'outlined', 'the writing mode comes back');
+    check(opened.notes === undefined, 'a production nobody gave notes reads as undefined rather than an empty list');
+
+    const grounded = await open({ notes: [' The TR-808 came out in 1980. ', '', 'Roland stopped making it in 1983.'] });
+    check(
+        JSON.stringify(grounded.notes) === JSON.stringify(['The TR-808 came out in 1980.', 'Roland stopped making it in 1983.']),
+        'notes come back trimmed, in order, with the empty one dropped',
+    );
+    const blank = await open({ notes: ['  ', ''] });
+    check(blank.notes === undefined, 'a list of nothing but blanks is stored as no notes, never as a grounded programme with none');
+
+    // ── sources, and the research pass's claim on them ────────────────────────
+    const handed = await open({
+        sources: [
+            { title: 'A history of the 808', url: 'https://example.com/808', text: ' The TR-808 came out in 1980. ' },
+            { title: 'Nothing at all' },
+        ],
+    });
+    check(handed.sources?.length === 1, 'a source with neither text nor an address is dropped rather than kept');
+    check(handed.sources?.[0]?.text === 'The TR-808 came out in 1980.', 'a source comes back with its text trimmed');
+    check(handed.sources?.[0]?.url === 'https://example.com/808', 'and with where it came from');
+
+    const reading = await productions.claim(handed.id, 'planned', 'researching');
+    check(reading?.state === 'researching', 'the research pass can claim a production out of `planned`, which the table now allows');
+    check(await productions.saveNotes(handed.id, ['The TR-808 was released in 1980.']), 'the research pass writes its notes');
+    const researched = await productions.findById(handed.id);
+    check(researched?.state === 'planned', 'and hands the row back to `planned` for the pass its mode starts with');
+    check(researched?.notes?.[0] === 'The TR-808 was released in 1980.', 'with the notes on it');
+    check(!(await productions.saveNotes(handed.id, ['Another.'])), 'notes are never written onto a production the research pass no longer holds');
 
     // ── the claim is what makes one job per pass safe ─────────────────────────
     const first = await productions.claim(opened.id, 'planned', 'outlining');
@@ -186,6 +216,39 @@ try {
     const failed = await productions.findById(broken.id);
     check(failed?.state === 'failed' && failed.error === 'beat 2 came back empty', 'the reason is on the row for whoever asks why');
 
+    // ── the station's own shows, and the episodes filed under them ────────────
+    const show = await ownShows.create({ title: TITLE, subject: 'something calm', targetMs: 40 * 60_000, writingMode: 'outlined' });
+    check(show.subject === 'something calm' && show.writingMode === 'outlined', 'a show comes back as it went in');
+    const curious = await ownShows.create({ title: TITLE, research: true });
+    check(curious.research === true, 'a show can ask for its episodes to be researched');
+    await ownShows.remove(curious.id);
+    const asked = await open({ research: true });
+    check(asked.research === true, 'and so can a production');
+    check(opened.research === undefined, 'a production nobody asked to research reads as undefined rather than false');
+    const news = await ownShows.create({ title: TITLE, newsFeedIds: ['deadair.rss:world', 'deadair.rss:tech'], newsHours: 6 });
+    check(
+        news.newsFeedIds?.join(',') === 'deadair.rss:world,deadair.rss:tech' && news.newsHours === 6,
+        'a news show keeps its feeds, in order, and its window',
+    );
+    await ownShows.remove(news.id);
+    const rewritten = await ownShows.update(show.id, { title: TITLE });
+    check(
+        rewritten !== undefined && rewritten.subject === undefined && rewritten.targetMs === undefined,
+        'a rewrite is whole, so a field left out of it is cleared',
+    );
+    const episode = await open({ showId: show.id });
+    check(episode.showId === show.id, 'an episode is filed under its show');
+    check(
+        (await productions.forShow(show.id)).some(row => row.id === episode.id),
+        "and is listed among the show's episodes",
+    );
+    check(await ownShows.remove(show.id), 'a show can be removed');
+    const orphan = await productions.findById(episode.id);
+    check(
+        orphan !== undefined && orphan.showId === undefined,
+        'its episodes outlive it, no longer filed under it, because one that aired still aired',
+    );
+
     // ── what a scheduler drains ───────────────────────────────────────────────
     const unfinished = await productions.unfinished(50);
     const ids = new Set(unfinished.map(production => production.id));
@@ -194,6 +257,7 @@ try {
 } finally {
     await sql`delete from deadair.segments where label like ${`${TITLE}%`}`.execute(db);
     await sql`delete from deadair.productions where title = ${TITLE}`.execute(db);
+    await sql`delete from deadair.own_shows where title = ${TITLE}`.execute(db);
     await db.destroy();
 }
 

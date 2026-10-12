@@ -52,12 +52,41 @@ describe('nextPass', () => {
 
 describe('firstPass', () => {
     it('starts a quick production at the draft, because it plans no content', () => {
-        expect(firstPass('quick')).toBe('draft');
+        expect(firstPass({ writingMode: 'quick' })).toBe('draft');
     });
 
     it('starts the other two at the outline, which is what makes them a programme', () => {
-        expect(firstPass('outlined')).toBe('outline');
-        expect(firstPass('polished')).toBe('outline');
+        expect(firstPass({ writingMode: 'outlined' })).toBe('outline');
+        expect(firstPass({ writingMode: 'polished' })).toBe('outline');
+    });
+
+    // A production handed something to read reads it first, whatever its mode: its notes come out of
+    // what it was handed, and every pass after that is written against them.
+    it('starts a production handed sources and no notes at the research', () => {
+        const sources = [{ title: 'An article', text: 'What it says.' }];
+
+        expect(firstPass({ writingMode: 'quick', sources })).toBe('research');
+        expect(firstPass({ writingMode: 'polished', sources })).toBe('research');
+    });
+
+    it('starts a production asked to research itself at the research, though it was handed nothing', () => {
+        expect(firstPass({ writingMode: 'outlined', research: true })).toBe('research');
+    });
+
+    it('skips the research for a production that already has notes', () => {
+        expect(firstPass({ writingMode: 'outlined', sources: [{ title: 'An article', text: 'What it says.' }], notes: ['A fact.'] })).toBe('outline');
+    });
+});
+
+describe('the research pass', () => {
+    it('hands on to the first pass of whichever mode the production has', () => {
+        expect(nextPass('quick', 'research')).toBe('draft');
+        expect(nextPass('outlined', 'research')).toBe('outline');
+        expect(nextPass('polished', 'research')).toBe('outline');
+    });
+
+    it('is run whatever the mode, since it belongs to none of them', () => {
+        for (const mode of WRITING_MODES) expect(runsPass(mode, 'research')).toBe(true);
     });
 });
 

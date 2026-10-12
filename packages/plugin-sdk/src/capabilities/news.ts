@@ -32,6 +32,8 @@
  * Every shape here is JSON-safe.
  */
 
+import type { SourceDocument } from './enrichment.js';
+
 /**
  * One feed this plugin can serve.
  *
@@ -172,4 +174,23 @@ export interface NewsProvider {
      * one failing feed must not cost the others.
      */
     fetchItems(query: NewsQuery): Promise<NewsItem[]>;
+
+    /**
+     * One page an operator named, as a document: its prose and the title it
+     * gives itself. Optional.
+     *
+     * For a programme somebody asked the station to make about a page, which
+     * is a different thing from a story: nothing about it came from a feed, so
+     * the host cannot fetch it itself (`host.fetch` is a plugin's, behind the
+     * plugin's own network grant) and has only the address to go on. A plugin
+     * that can already open whatever page a feed links to has everything it
+     * needs to open this one, so it is a method here rather than a capability
+     * of its own: `readDocument` in `article.parse.ts` is the whole of a
+     * typical implementation.
+     *
+     * `undefined` for a page with no prose on it, which is an ordinary answer.
+     * Throw for a page that could not be read, so the host can say which site
+     * it was.
+     */
+    readPage?(url: string): Promise<SourceDocument | undefined>;
 }

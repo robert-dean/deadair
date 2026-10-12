@@ -10,6 +10,8 @@ import {
     type SearchQuery,
     type SearchResult,
     type SourceDocument,
+    type TopicEnrichment,
+    type TopicRef,
     type TrackEnrichment,
 } from '@deadair/plugin-sdk';
 
@@ -195,6 +197,22 @@ export class WebSearchPlugin extends Plugin implements SearchPluginInstance, Enr
      */
     async enrichArtist(ref: ArtistRef): Promise<Partial<ArtistEnrichment>> {
         const documents = await this.background(artistQuery(ref.name));
+        return documents.length === 0 ? {} : { documents };
+    }
+
+    /**
+     * What the operator's trusted sites say about a subject a programme is to be made about.
+     *
+     * {@link enrichArtist} with the operator's own words as the query: one search, restricted to the
+     * trusted sites, and up to `maxDocuments` pages read. The same line this plugin draws everywhere
+     * else: the station quotes sites its operator chose, never whatever an engine ranked first. `{}`
+     * with no engine or no trusted site, which costs nothing.
+     */
+    async enrichTopic(topic: TopicRef): Promise<Partial<TopicEnrichment>> {
+        const query = topic.query.trim();
+        if (query.length === 0) return {};
+
+        const documents = await this.background(query);
         return documents.length === 0 ? {} : { documents };
     }
 

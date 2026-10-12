@@ -49,4 +49,54 @@ public final class PodcastsClient: Sendable {
         let request = SdkRequest(method: "POST", path: ["podcasts", "refresh"])
         _ = try await http.execute(request)
     }
+
+    /// List own shows
+    /// The shows the station makes for itself
+    public func listOwnShows() async throws -> OwnShowList {
+        let request = SdkRequest(method: "GET", path: ["podcasts", "own"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(OwnShowList.self, from: response)
+    }
+
+    /// Create own show
+    /// Makes a new show. Nothing is made until an episode is asked for
+    public func createOwnShow(body: OwnShowInput) async throws -> OwnShow {
+        var request = SdkRequest(method: "POST", path: ["podcasts", "own"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(OwnShow.self, from: response)
+    }
+
+    /// Update own show
+    /// Rewrites a show. Episodes already asked for keep what they were asked with
+    public func updateOwnShow(id: String, body: OwnShowInput) async throws -> OwnShow {
+        var request = try SdkRequest(method: "PUT", path: ["podcasts", "own", http.segment(id)])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(OwnShow.self, from: response)
+    }
+
+    /// Delete own show
+    /// Removes a show. Its episodes stay on the Productions page, no longer filed under it
+    public func deleteOwnShow(id: String) async throws {
+        let request = try SdkRequest(method: "DELETE", path: ["podcasts", "own", http.segment(id)])
+        _ = try await http.execute(request)
+    }
+
+    /// List own show episodes
+    /// A show's episodes, newest first, with how far along each is
+    public func listOwnShowEpisodes(id: String) async throws -> ProductionList {
+        let request = try SdkRequest(method: "GET", path: ["podcasts", "own", http.segment(id), "episodes"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(ProductionList.self, from: response)
+    }
+
+    /// Request own show episode
+    /// Asks the show for an episode. It is queued, not started, and airs when it is made or at the time given
+    public func requestOwnShowEpisode(id: String, body: OwnEpisodeRequest) async throws -> Production {
+        var request = try SdkRequest(method: "POST", path: ["podcasts", "own", http.segment(id), "episodes"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(Production.self, from: response)
+    }
 }

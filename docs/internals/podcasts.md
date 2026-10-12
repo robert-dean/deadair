@@ -188,6 +188,42 @@ addresses) and saves through the ordinary partial settings save, so the plugin's
 and the plugin reinitializes. The directory search is `GET /podcasts/search`, on `platform.manage`
 because the words go to somebody else's directory, and nothing is sent until somebody presses search.
 
+## Shows the station makes
+
+**A show the station makes for itself is a saved recipe, and every episode of it is a production**
+(`deadair.own_shows`, `OwnShowsService`). Somebody wanted a podcast queued for bedtime and a deeper news
+segment over the washing up, and both are a podcast the station writes rather than one it fetches. So
+nothing on this page's fetch path is involved: an episode is asked for through
+`ProductionsService.commission`, the same path the Productions page uses, filed under its show by
+`productions.show_id`, and researched, written, spoken, joined and aired by code that already did all of
+that. What a show adds is its defaults: who presents it, how long an episode runs, how much of the model it
+is worth, and the subject an episode has when it is asked for with none of its own. Pasted text becomes a
+source, so the episode states only what the research pass can find in it (`productions.md` § "What it may
+state as fact"). A time given to an episode is its `scheduledFor`, which the director waits for.
+
+**A show can read the news instead of having a subject** (`own_shows.news_feed_ids`, `news_hours`). Asking
+one for an episode reads the newest stories on its feeds within its window, through
+`NewsService.fetchItems`, the call the bulletin reads them through, so a story an operator keeps off the air
+is kept out of the episode too. The stories go to the research pass as sources, at most `NEWS_STORIES`
+(six), since a seventh would be read for notes the production has no room for. They are read when the episode
+is asked for rather than when it is written: the news as it stood when somebody asked is the news they asked
+about, and it keeps the research pass knowing nothing about shows. A request with nothing on the feeds in the
+window is refused there, rather than queueing an episode its research pass could only fail. Pasted text takes
+the news's place, since somebody who pasted something meant that.
+
+**A show can research its episodes** (`own_shows.research`): an episode handed nothing to read is commissioned
+with `research` set, and finds its own sources on the operator's trusted sites (`productions.md` § "What it may
+state as fact"). Pasted text, a page or the news is what an episode was asked to be about, so any of those wins.
+
+**Not called a station show.** A `StationShow` is already somebody else's programme the station carries,
+as a podcast plugin describes it, and two things called a station show would be one name for opposite
+ideas. Deleting a show keeps its episodes, no longer filed under it, because an episode that aired still
+aired and the production row is the record of it.
+
+**An episode airs as a production, not through a `syndicated` band.** The time somebody gives an episode
+is what places it, so a show needs no band on the clock. Putting one of the station's own shows on the
+format clock, so the station makes its next episode ahead of the band, is not built.
+
 ## What is not built
 
 - **The segment audio route reads the whole file into memory.** `getSegmentAudio` answers a `Buffer`,

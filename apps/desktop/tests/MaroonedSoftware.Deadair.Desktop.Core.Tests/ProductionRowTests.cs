@@ -29,6 +29,7 @@ public class ProductionRowTests
     }
 
     [Theory]
+    [InlineData(ProductionState.Researching, true)]
     [InlineData(ProductionState.Drafting, true)]
     [InlineData(ProductionState.Stitching, true)]
     [InlineData(ProductionState.Ready, false)]

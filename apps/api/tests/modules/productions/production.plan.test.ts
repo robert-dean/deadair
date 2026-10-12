@@ -12,6 +12,7 @@ import {
     MAX_WORDS,
     MIN_WORDS,
     planProduction,
+    beatNotes,
     spreadItems,
     TURN_BAND,
     wordBudget,
@@ -267,5 +268,38 @@ describe('weighting a dialogue by who is speaking', () => {
         const plan = planProduction(minutes(2), { dialogue: true, speakers: [0, 1, 0], weights: [0.001, 5, 0.001] });
 
         expect(plan.beats.every(beat => beat.words >= 1)).toBe(true);
+    });
+});
+
+describe('beatNotes', () => {
+    const notes = ['a', 'b', 'c', 'd'];
+
+    it('is nothing for a production with no notes', () => {
+        expect(beatNotes(undefined, undefined, 3)).toBeUndefined();
+        expect(beatNotes([], undefined, 3)).toBeUndefined();
+    });
+
+    it('spreads them evenly when there is no outline', () => {
+        expect(beatNotes(notes, undefined, 2)).toEqual([
+            ['a', 'b'],
+            ['c', 'd'],
+        ]);
+    });
+
+    it('follows the outline when it divided them', () => {
+        const outline = { runners: [], beats: [{ title: 'One', itemIndexes: [2] }, { title: 'Two' }, { title: 'Three', itemIndexes: [0, 3] }] };
+
+        expect(beatNotes(notes, outline, 3)).toEqual([['c'], [], ['a', 'd']]);
+    });
+
+    // Every beat told the notes are all the station knows and then handed none of them is a grounded
+    // programme that says nothing, so an outline that named none is treated as no outline.
+    it('spreads them when the outline named none of them', () => {
+        const outline = { runners: [], beats: [{ title: 'One' }, { title: 'Two' }] };
+
+        expect(beatNotes(notes, outline, 2)).toEqual([
+            ['a', 'b'],
+            ['c', 'd'],
+        ]);
     });
 });

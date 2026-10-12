@@ -205,6 +205,137 @@ public sealed record StationEpisodeQuery
     public long? Limit { get; init; }
 }
 
+/// <summary>A show the station makes for itself: a saved recipe for a podcast, whose every episode is a production</summary>
+public sealed record OwnShow
+{
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    /// <summary>What the show is called. Each episode's title starts with it</summary>
+    [JsonPropertyName("title")]
+    public required string Title { get; init; }
+
+    /// <summary>What the show is, for the console. Never read out</summary>
+    [JsonPropertyName("description")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; init; }
+
+    /// <summary>What an episode is about when it is asked for with no subject of its own</summary>
+    [JsonPropertyName("subject")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Subject { get; init; }
+
+    /// <summary>Who presents it. Absent is whoever is presenting when it is made</summary>
+    [JsonPropertyName("personaId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PersonaId { get; init; }
+
+    /// <summary>How long an episode runs. Absent is the station's production length</summary>
+    [JsonPropertyName("targetMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? TargetMs { get; init; }
+
+    /// <summary>How much of the model an episode is worth. Absent is the station's default</summary>
+    [JsonPropertyName("writingMode")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public OwnShowWritingMode? WritingMode { get; init; }
+
+    /// <summary>The station's news feeds an episode reads, by their qualified ids. Absent or empty is a show that does not read the news</summary>
+    [JsonPropertyName("newsFeedIds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? NewsFeedIds { get; init; }
+
+    /// <summary>How many hours of news an episode reads. Absent is a day</summary>
+    [JsonPropertyName("newsHours")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? NewsHours { get; init; }
+
+    /// <summary>Whether an episode given nothing to read finds its own sources on the operator's trusted sites</summary>
+    [JsonPropertyName("research")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Research { get; init; }
+
+    [JsonPropertyName("createdAt")]
+    public required DateTimeOffset CreatedAt { get; init; }
+}
+
+/// <summary>A show the station makes for itself: a saved recipe for a podcast, whose every episode is a production</summary>
+public sealed record OwnShowInput
+{
+    /// <summary>What the show is called. Each episode's title starts with it</summary>
+    [JsonPropertyName("title")]
+    public required string Title { get; init; }
+
+    /// <summary>What the show is, for the console. Never read out</summary>
+    [JsonPropertyName("description")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; init; }
+
+    /// <summary>What an episode is about when it is asked for with no subject of its own</summary>
+    [JsonPropertyName("subject")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Subject { get; init; }
+
+    /// <summary>Who presents it. Absent is whoever is presenting when it is made</summary>
+    [JsonPropertyName("personaId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PersonaId { get; init; }
+
+    /// <summary>How long an episode runs. Absent is the station's production length</summary>
+    [JsonPropertyName("targetMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? TargetMs { get; init; }
+
+    /// <summary>How much of the model an episode is worth. Absent is the station's default</summary>
+    [JsonPropertyName("writingMode")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public OwnShowWritingMode? WritingMode { get; init; }
+
+    /// <summary>The station's news feeds an episode reads, by their qualified ids. Absent or empty is a show that does not read the news</summary>
+    [JsonPropertyName("newsFeedIds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? NewsFeedIds { get; init; }
+
+    /// <summary>How many hours of news an episode reads. Absent is a day</summary>
+    [JsonPropertyName("newsHours")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? NewsHours { get; init; }
+
+    /// <summary>Whether an episode given nothing to read finds its own sources on the operator's trusted sites</summary>
+    [JsonPropertyName("research")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Research { get; init; }
+}
+
+/// <summary>Asks one of the station's own shows for an episode. Everything is optional: a show with a standing subject needs nothing</summary>
+public sealed record OwnEpisodeRequest
+{
+    /// <summary>What this episode is about. Absent is the show's own subject</summary>
+    [JsonPropertyName("topic")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Topic { get; init; }
+
+    /// <summary>A page for it to read first, by its address. The episode states only what it can find there</summary>
+    [JsonPropertyName("url")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Url { get; init; }
+
+    /// <summary>What the pasted text is called</summary>
+    [JsonPropertyName("sourceTitle")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourceTitle { get; init; }
+
+    /// <summary>Something for it to read first. The episode states only what it can find in this. Given text, a show that reads the news reads this instead</summary>
+    [JsonPropertyName("text")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Text { get; init; }
+
+    /// <summary>When it should air. Absent is as soon as it is made</summary>
+    [JsonPropertyName("airAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? AirAt { get; init; }
+}
+
 public sealed record StationShowList
 {
     [JsonPropertyName("shows")]
@@ -223,4 +354,30 @@ public sealed record StationDirectoryPage
     /// <summary>Empty when nothing matched or no directory could be asked, which is not an error</summary>
     [JsonPropertyName("results")]
     public required List<StationDirectoryEntry> Results { get; init; }
+}
+
+public sealed record OwnShowList
+{
+    [JsonPropertyName("shows")]
+    public required List<OwnShow> Shows { get; init; }
+}
+
+public sealed record OwnShowListInput
+{
+    [JsonPropertyName("shows")]
+    public required List<OwnShowInput> Shows { get; init; }
+}
+
+/// <summary>How much of the model an episode is worth. Absent is the station's default</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<OwnShowWritingMode>))]
+public enum OwnShowWritingMode
+{
+    [JsonStringEnumMemberName("quick")]
+    Quick,
+
+    [JsonStringEnumMemberName("outlined")]
+    Outlined,
+
+    [JsonStringEnumMemberName("polished")]
+    Polished,
 }

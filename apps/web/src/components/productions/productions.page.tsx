@@ -184,7 +184,7 @@ const canStop = (state: Production['state']) => state !== 'aired' && state !== '
  * the same as it being on air this second, and the `live` tone is reserved for things that genuinely
  * are.
  */
-function toneOf(state: Production['state']): StatusTone {
+export function toneOf(state: Production['state']): StatusTone {
     if (state === 'failed') return 'fault';
     if (state === 'cancelled') return 'off';
     if (state === 'aired') return 'ok';
@@ -204,6 +204,7 @@ function describe(production: Production, t: TFunction<'productions'>): string {
         t('describe.mode', { mode: production.writingMode }),
     ];
 
+    if ((production.notes?.length ?? 0) > 0) parts.push(t('describe.notes', { count: production.notes!.length }));
     if (production.beats > 0) parts.push(t('describe.beats', { count: production.beats }));
     if (production.scheduledFor !== undefined) parts.push(t('describe.due', { when: moment(production.scheduledFor) }));
 

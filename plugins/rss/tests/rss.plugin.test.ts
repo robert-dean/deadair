@@ -588,3 +588,35 @@ describe('unload', () => {
         expect(host.calls).toHaveLength(2);
     });
 });
+
+// A page somebody gave the station to make a programme about: read whole, under the same grant the
+// stories are read under, and kept nowhere.
+describe('readPage', () => {
+    const PAGE = `<!doctype html><html><head><meta property="og:title" content="The keeper's year"><title>The keeper's year | Coastal</title></head>
+<body><article><p>The keeper climbed the tower at dusk to light the lamp, and wound the clockwork that turned the lens.</p>
+<p>In storms he stayed awake all night, because a lamp that went out was a ship on the rocks by morning.</p></article></body></html>`;
+
+    it('reads the page as a document, with the title it gives itself', async () => {
+        await initialize();
+        host.queueResponse({ status: 200, body: PAGE, headers: { 'content-type': 'text/html' } });
+
+        const document = await plugin.readPage('https://coastal.example.com/keeper');
+
+        expect(document?.title).toBe("The keeper's year");
+        expect(document?.url).toBe('https://coastal.example.com/keeper');
+        expect(document?.text).toContain('wound the clockwork that turned the lens');
+    });
+
+    it('throws for a page that could not be read, so the station can say which site it was', async () => {
+        await initialize();
+        host.queueResponse({ status: 503, body: 'down' });
+
+        await expect(plugin.readPage('https://coastal.example.com/keeper')).rejects.toBeInstanceOf(PluginError);
+    });
+
+    it('says in its grant that it opens a page an operator names, not only the stories', () => {
+        const [asked] = rssManifest.permissions.grants ?? [];
+
+        expect(asked?.reason).toContain('a page you give the station');
+    });
+});

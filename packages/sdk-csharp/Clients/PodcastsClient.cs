@@ -85,4 +85,84 @@ public sealed class PodcastsClient(SdkHttp http)
             http.Path("podcasts", "refresh"),
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// List own shows
+    /// The shows the station makes for itself
+    /// </summary>
+    public async Task<OwnShowList> ListOwnShowsAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("podcasts", "own"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<OwnShowList>(response);
+    }
+
+    /// <summary>
+    /// Create own show
+    /// Makes a new show. Nothing is made until an episode is asked for
+    /// </summary>
+    public async Task<OwnShow> CreateOwnShowAsync(OwnShowInput body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("podcasts", "own"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<OwnShow>(response);
+    }
+
+    /// <summary>
+    /// Update own show
+    /// Rewrites a show. Episodes already asked for keep what they were asked with
+    /// </summary>
+    public async Task<OwnShow> UpdateOwnShowAsync(string id, OwnShowInput body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Put,
+            http.Path("podcasts", "own", http.Segment(id)),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<OwnShow>(response);
+    }
+
+    /// <summary>
+    /// Delete own show
+    /// Removes a show. Its episodes stay on the Productions page, no longer filed under it
+    /// </summary>
+    public async Task DeleteOwnShowAsync(string id, CancellationToken cancellationToken = default)
+    {
+        await http.ExecuteAsync(
+            HttpMethod.Delete,
+            http.Path("podcasts", "own", http.Segment(id)),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// List own show episodes
+    /// A show's episodes, newest first, with how far along each is
+    /// </summary>
+    public async Task<ProductionList> ListOwnShowEpisodesAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("podcasts", "own", http.Segment(id), "episodes"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<ProductionList>(response);
+    }
+
+    /// <summary>
+    /// Request own show episode
+    /// Asks the show for an episode. It is queued, not started, and airs when it is made or at the time given
+    /// </summary>
+    public async Task<Production> RequestOwnShowEpisodeAsync(string id, OwnEpisodeRequest body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("podcasts", "own", http.Segment(id), "episodes"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<Production>(response);
+    }
 }

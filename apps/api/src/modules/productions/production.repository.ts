@@ -5,7 +5,17 @@ import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { toJsonb } from '#modules/data/jsonb.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { coerceCast, type ProductionCast } from './production.cast.js';
-import { isSettled, type Production, type ProductionOutline, type ProductionPlan, type ProductionState, type WritingMode } from './production.js';
+import {
+    cleanNotes,
+    cleanSources,
+    isSettled,
+    type Production,
+    type ProductionOutline,
+    type ProductionPlan,
+    type ProductionSource,
+    type ProductionState,
+    type WritingMode,
+} from './production.js';
 import { isWritingMode } from './production.passes.js';
 
 /**
@@ -48,10 +58,16 @@ export class ProductionRepository extends DataRepository {
         targetMs: number;
         writingMode: WritingMode;
         brief?: string;
+        notes?: readonly string[];
+        sources?: readonly ProductionSource[];
+        research?: boolean;
         personaId?: string;
         scheduledFor?: number;
         actorId?: string;
+        showId?: string;
     }): Promise<Production> {
+        const notes = cleanNotes(input.notes);
+        const sources = cleanSources(input.sources);
         const row = await this.db
             .insertInto('deadair.productions')
             .values({
@@ -65,6 +81,9 @@ export class ProductionRepository extends DataRepository {
                 targetMs: input.targetMs,
                 writingMode: input.writingMode,
                 brief: input.brief ?? null,
+                notes: notes === undefined ? null : toJsonb(notes),
+                sources: sources === undefined ? null : toJsonb(sources),
+                research: input.research === true,
                 personaId: input.personaId ?? null,
                 // Nobody is cast at commission. A production is read ahead by up to three hours and
                 // the roster can change in between, so who is on it is decided by the first pass
@@ -72,6 +91,7 @@ export class ProductionRepository extends DataRepository {
                 casting: null,
                 scheduledFor: input.scheduledFor === undefined ? null : instant(input.scheduledFor),
                 actorId: input.actorId ?? null,
+                showId: input.showId ?? null,
             })
             .returningAll()
             .executeTakeFirstOrThrow();
@@ -160,6 +180,43 @@ export class ProductionRepository extends DataRepository {
         return row !== undefined;
     }
 
+    /**
+     * What the research pass took out of the sources, and the row handed back to `planned` for the
+     * pass the writing mode starts with.
+     *
+     * Guarded on `researching`, the claim the pass took, for `saveOutline`'s reason: a production
+     * cancelled while its sources were being read never has notes written onto it afterwards.
+     */
+    async saveNotes(id: string, notes: readonly string[]): Promise<boolean> {
+        const cleaned = cleanNotes(notes);
+        const row = await this.db
+            .updateTable('deadair.productions')
+            .set({ notes: cleaned === undefined ? null : toJsonb(cleaned), state: 'planned' })
+            .where('id', '=', id)
+            .where('state', '=', 'researching')
+            .returning('id')
+            .executeTakeFirst();
+
+        return row !== undefined;
+    }
+
+    /**
+     * Sources with what was read from their addresses filled in, guarded on `researching` for
+     * {@link saveNotes}' reason.
+     */
+    async saveSources(id: string, sources: readonly ProductionSource[]): Promise<boolean> {
+        const cleaned = cleanSources(sources);
+        const row = await this.db
+            .updateTable('deadair.productions')
+            .set({ sources: cleaned === undefined ? null : toJsonb(cleaned) })
+            .where('id', '=', id)
+            .where('state', '=', 'researching')
+            .returning('id')
+            .executeTakeFirst();
+
+        return row !== undefined;
+    }
+
     /** Move a production on, guarded on where it was. */
     async moveTo(id: string, to: ProductionState, from: ProductionState | readonly ProductionState[]): Promise<boolean> {
         const states = Array.isArray(from) ? from : [from as ProductionState];
@@ -235,6 +292,20 @@ export class ProductionRepository extends DataRepository {
             .selectFrom('deadair.productions')
             .selectAll()
             .where('stationKey', '=', this.identity.stationKey)
+            .orderBy('createdAt', 'desc')
+            .limit(limit)
+            .execute();
+
+        return rows.map(toProduction);
+    }
+
+    /** One of the station's own shows' episodes, newest first. */
+    async forShow(showId: string, limit = 50): Promise<Production[]> {
+        const rows = await this.db
+            .selectFrom('deadair.productions')
+            .selectAll()
+            .where('stationKey', '=', this.identity.stationKey)
+            .where('showId', '=', showId)
             .orderBy('createdAt', 'desc')
             .limit(limit)
             .execute();
@@ -342,6 +413,9 @@ function toProduction(row: Record<string, unknown>): Production {
         kind: String(row.kind),
         title: String(row.title),
         ...(row.brief == null ? {} : { brief: String(row.brief) }),
+        ...(cleanNotes(row.notes) === undefined ? {} : { notes: cleanNotes(row.notes)! }),
+        ...(cleanSources(row.sources) === undefined ? {} : { sources: cleanSources(row.sources)! }),
+        ...(row.research === true ? { research: true as const } : {}),
         ...(row.personaId == null ? {} : { personaId: String(row.personaId) }),
         ...(coerceCast(row.casting) === undefined ? {} : { casting: coerceCast(row.casting)! }),
         // Fallen back rather than trusted: the column is constrained, but a row edited by hand out of
@@ -355,6 +429,7 @@ function toProduction(row: Record<string, unknown>): Production {
         ...(millisOf(row.scheduledFor as DateTime | null) === undefined ? {} : { scheduledFor: millisOf(row.scheduledFor as DateTime | null)! }),
         ...(millisOf(row.cancelledAt as DateTime | null) === undefined ? {} : { cancelledAt: millisOf(row.cancelledAt as DateTime | null)! }),
         ...(row.actorId == null ? {} : { actorId: String(row.actorId) }),
+        ...(row.showId == null ? {} : { showId: String(row.showId) }),
         createdAt: millisOf(row.createdAt as DateTime | null) ?? 0,
     };
 }

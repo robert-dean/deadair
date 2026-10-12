@@ -275,6 +275,9 @@ export const queryKeys = {
         episodes: (showId?: string) => ['podcasts', 'episodes', showId ?? ''] as const,
         /** A directory search, by the words searched for. Never fetched until somebody searches. */
         directory: (query: string) => ['podcasts', 'directory', query] as const,
+        /** The station's own shows, and one of them's episodes. */
+        own: () => ['podcasts', 'own'] as const,
+        ownEpisodes: (showId: string) => ['podcasts', 'own', showId, 'episodes'] as const,
     },
 
     /** The series the station reads out, and the pieces of them it knows about, narrowed by series. */

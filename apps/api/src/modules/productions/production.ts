@@ -15,7 +15,7 @@ import type { ProductionCast } from './production.cast.js';
 
 /** How far along making one is. Mirrors the check constraint in migration 0016. */
 export type ProductionState =
-    'planned' | 'outlining' | 'drafting' | 'checking' | 'rendering' | 'stitching' | 'ready' | 'aired' | 'failed' | 'cancelled';
+    'planned' | 'researching' | 'outlining' | 'drafting' | 'checking' | 'rendering' | 'stitching' | 'ready' | 'aired' | 'failed' | 'cancelled';
 
 /** Nothing else will be spent on a production in one of these. */
 const SETTLED: ReadonlySet<ProductionState> = new Set<ProductionState>(['aired', 'failed', 'cancelled']);
@@ -37,8 +37,23 @@ export const isSettled = (state: ProductionState): boolean => SETTLED.has(state)
  */
 export type WritingMode = 'quick' | 'outlined' | 'polished';
 
-/** One thing a pass job does. See `production.passes.ts` for which modes run which. */
-export type ProductionPass = 'outline' | 'draft' | 'check';
+/**
+ * One thing a pass job does. See `production.passes.ts` for which modes run which.
+ *
+ * `research` belongs to no mode: it runs first for a production handed sources and no notes, whatever
+ * its mode, and hands the row on to the pass its mode starts with.
+ */
+export type ProductionPass = 'research' | 'outline' | 'draft' | 'check';
+
+/** Something a production was handed to read. See `productions.sources` in migration 0091. */
+export interface ProductionSource {
+    title: string;
+    url?: string;
+    /** What it says. Absent only for a source with an address and nothing read from it yet. */
+    text?: string;
+    /** When its text was read, as epoch millis, for a source the station fetched itself. */
+    retrievedAt?: number;
+}
 
 /**
  * One beat of the outline: what it is about, and what it owes the beats around it.
@@ -115,6 +130,15 @@ export interface Production {
     kind: string;
     title: string;
     brief?: string;
+    /**
+     * What it may state as fact, one short note each. The outline divides them between the beats and
+     * each beat is told its own; absent is a production left to general knowledge, said vaguely.
+     */
+    notes?: readonly string[];
+    /** What it was handed to read. The research pass takes its notes out of these when it was given none. */
+    sources?: readonly ProductionSource[];
+    /** Asked to find its own sources on the operator's trusted sites when it was handed none. */
+    research?: true;
     personaId?: string;
     /** Who is in it, decided once by the first pass. Absent for a production made before it was cast. */
     casting?: ProductionCast;
@@ -127,6 +151,8 @@ export interface Production {
     scheduledFor?: number;
     cancelledAt?: number;
     actorId?: string;
+    /** The station's own show this is an episode of, when it is one. See `own.shows.service.ts`. */
+    showId?: string;
     /** When it was commissioned. What a console orders the list by. */
     createdAt: number;
 }
@@ -228,3 +254,57 @@ function itemIndexList(raw: Record<string, unknown>): number[] {
     if (typeof raw.itemIndex === 'number') return [raw.itemIndex];
     return [];
 }
+
+/**
+ * Notes as they should be stored and read: trimmed, the empty ones dropped, and nothing at all for a
+ * list with nothing left in it.
+ *
+ * One reading for both directions, because a note that is only whitespace is not a fact anybody gave,
+ * and an empty list stored as `[]` would be a production that looks grounded and is handed nothing.
+ */
+export function cleanNotes(value: unknown): string[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+    const notes = value
+        .filter((note): note is string => typeof note === 'string')
+        .map(note => note.trim())
+        .filter(note => note.length > 0);
+    return notes.length === 0 ? undefined : notes;
+}
+
+/**
+ * Sources as they should be stored and read: each with a title, text trimmed, and nothing at all for
+ * a list with nothing usable in it.
+ *
+ * A source with neither text nor an address is nothing anybody could read, so it is dropped rather
+ * than kept as an entry the research pass would have to step around.
+ */
+export function cleanSources(value: unknown): ProductionSource[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+
+    const sources = value.flatMap((entry): ProductionSource[] => {
+        if (typeof entry !== 'object' || entry === null) return [];
+        const raw = entry as Record<string, unknown>;
+        const title = typeof raw.title === 'string' ? raw.title.trim() : '';
+        const url = typeof raw.url === 'string' && raw.url.trim().length > 0 ? raw.url.trim() : undefined;
+        const text = typeof raw.text === 'string' && raw.text.trim().length > 0 ? raw.text.trim() : undefined;
+        if (text === undefined && url === undefined) return [];
+
+        return [
+            {
+                title: title.length > 0 ? title : (url ?? 'Untitled'),
+                ...(url === undefined ? {} : { url }),
+                ...(text === undefined ? {} : { text }),
+                ...(typeof raw.retrievedAt === 'number' && Number.isFinite(raw.retrievedAt) ? { retrievedAt: raw.retrievedAt } : {}),
+            },
+        ];
+    });
+
+    return sources.length === 0 ? undefined : sources;
+}
+
+/**
+ * Whether a production has to be researched before it is written: no notes, and either sources to read
+ * or a request to go and find some.
+ */
+export const needsResearch = (production: Pick<Production, 'notes' | 'sources' | 'research'>): boolean =>
+    (production.notes?.length ?? 0) === 0 && ((production.sources?.length ?? 0) > 0 || production.research === true);

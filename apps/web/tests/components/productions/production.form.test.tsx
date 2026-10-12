@@ -3,9 +3,10 @@
 // `return`, which is a form that will not submit and will not say why.
 
 import type { Persona } from '@deadair/sdk';
+import { DateTime } from 'luxon';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ProductionForm } from '../../../src/components/productions/production.form';
+import { notesOf, ProductionForm, scheduledForOf, sourcesOf } from '../../../src/components/productions/production.form';
 import { render, screen, setupUser } from '../../utils/render';
 
 vi.mock('../../../src/api/client', () => ({
@@ -62,6 +63,39 @@ describe('ProductionForm', () => {
         });
     });
 
+    it('sends the notes one per line, and none at all when the box was left empty', async () => {
+        const { onSubmit, user } = build();
+
+        await user.type(screen.getByLabelText('Called', { exact: false }), 'The machine nobody wanted');
+        await user.type(screen.getByLabelText('Notes'), 'The TR-808 came out in 1980.{enter}{enter}Roland stopped making it in 1983.');
+        await user.click(screen.getByRole('button', { name: 'Ask for it' }));
+
+        expect(onSubmit).toHaveBeenCalledWith(
+            expect.objectContaining({ notes: ['The TR-808 came out in 1980.', 'Roland stopped making it in 1983.'] }),
+        );
+    });
+
+    it('asks a production handed nothing to read to research itself', async () => {
+        const { onSubmit, user } = build();
+
+        await user.type(screen.getByLabelText('Called', { exact: false }), 'Lighthouse keepers');
+        await user.click(screen.getByLabelText('Research it on your trusted sites'));
+        await user.click(screen.getByRole('button', { name: 'Ask for it' }));
+
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ research: true }));
+    });
+
+    it('sends a pasted source with the production', async () => {
+        const { onSubmit, user } = build();
+
+        await user.type(screen.getByLabelText('Called', { exact: false }), 'The machine nobody wanted');
+        await user.click(screen.getByRole('button', { name: 'Add a source' }));
+        await user.type(screen.getByLabelText('What it says'), 'The TR-808 came out in 1980.');
+        await user.click(screen.getByRole('button', { name: 'Ask for it' }));
+
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ sources: [{ title: 'Source 1', text: 'The TR-808 came out in 1980.' }] }));
+    });
+
     // "Presenter" is who PRESENTS the programme, and the callers it casts are chosen per beat by the
     // production itself. Offering one here read as though an operator could hand a show to somebody
     // phoning in to it.
@@ -83,5 +117,50 @@ describe('ProductionForm', () => {
         await user.type(screen.getByLabelText('Called', { exact: false }), 'A short one{Enter}');
 
         expect(onSubmit).toHaveBeenCalledWith({ title: 'A short one', kind: 'podcast' });
+    });
+});
+
+describe('sourcesOf', () => {
+    it('drops a source with nothing in it and names one nobody named, by its address where it has one', () => {
+        expect(
+            sourcesOf([
+                { title: '', url: '', text: '  ' },
+                { title: '  A history of the 808 ', url: '', text: ' The TR-808 came out in 1980. ' },
+                { title: '', url: '', text: 'Roland stopped making it in 1983.' },
+                { title: '', url: ' https://example.com/808 ', text: '' },
+            ]),
+        ).toEqual([
+            { title: 'A history of the 808', text: 'The TR-808 came out in 1980.' },
+            { title: 'Source 2', text: 'Roland stopped making it in 1983.' },
+            { title: 'https://example.com/808', url: 'https://example.com/808' },
+        ]);
+    });
+});
+
+describe('notesOf', () => {
+    it('is one note per line, trimmed, with the blank lines dropped', () => {
+        expect(notesOf(' The TR-808 came out in 1980. \n\n  \nRoland stopped making it in 1983.\n')).toEqual([
+            'The TR-808 came out in 1980.',
+            'Roland stopped making it in 1983.',
+        ]);
+        expect(notesOf('   ')).toEqual([]);
+    });
+});
+
+// The picker answers a wall-clock time with no zone on it. "Eleven tonight" is eleven where the
+// person is sitting, so it is read as local time, and nothing at all is "as soon as it is ready".
+describe('scheduledForOf', () => {
+    it('reads the picker as local wall-clock time', () => {
+        const at = scheduledForOf('2026-10-12 23:00:00');
+
+        expect(at?.isValid).toBe(true);
+        expect(at?.toFormat('yyyy-MM-dd HH:mm')).toBe('2026-10-12 23:00');
+        expect(at?.zoneName).toBe(DateTime.local().zoneName);
+    });
+
+    it('is no time at all for an empty picker or something that is not a time', () => {
+        expect(scheduledForOf(null)).toBeUndefined();
+        expect(scheduledForOf('  ')).toBeUndefined();
+        expect(scheduledForOf('eleven tonight')).toBeUndefined();
     });
 });

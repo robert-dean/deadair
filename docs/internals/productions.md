@@ -149,6 +149,75 @@ read is best-effort: a failure costs the records and the call falls back to the 
 persona row seeded before the countdown sheet gained `keen` (2026-09-22) does not have it, since seeds never
 overwrite a row.
 
+## What it may state as fact
+
+**A production given notes says nothing as fact that the notes do not give** (`productions.notes`,
+`beatNotes` in `production.plan.ts`). Every pass runs with no tools, and `groundingRules` keeps a beat to the
+general thing wherever it is not certain, so a podcast about a subject used to be the model's general
+knowledge with every specific taken out: true, and saying very little. Notes are the specifics it is allowed.
+
+**They reach the outline through the item slot that was already there and never filled.** `OutlineRequest.items`
+and `OutlineBeat.itemIndexes` were written for a production handed things to cover, and the job passed neither:
+`coerceOutline` was called with an item count of zero, so an index the model named was dropped as out of range.
+The outline is now handed the notes by index and told to give every beat the ones it covers, and each beat is
+handed only its own. That is also the context argument at the top of `production.prompt.ts`: a beat never
+carries the whole list, let alone the text the notes were taken from.
+
+**The station divides them whenever the model did not**: a `quick` production, an outline the model could not
+make twice, or an outline that named no notes at all. The last one matters most. Left alone, every beat would
+be told the notes are everything the station knows and then be handed none, which is a grounded programme
+that says nothing, so `beatNotes` treats it exactly like no outline and spreads them with `spreadItems`.
+
+**The sentence is `recordsLine`'s, moved from records to notes** (`NOTES_ARE_EVERYTHING`), and it replaces
+the outline's "no source material" block rather than joining it, for the reason the records version gives:
+two rules that disagree produce neither. A beat of a grounded programme that carries no notes (an opening, a
+link, a close) is told to state no facts at all (`NOTES_ELSEWHERE`), since the general rules would let it reach
+for the very specifics the notes were there to supply. The notes also count as raised for the check pass, so a
+programme whose notes put a storm in it is not refused for mentioning the weather.
+
+**A production handed sources and no notes is researched before it is written** (`production.research.ts`,
+the `research` pass, state `researching`). Nobody types notes for a podcast about a long article, so the
+research pass reads each source in chunks of up to eight thousand characters, three chunks at most, asks the
+model for short claims with the words in the source that state each one, and keeps a claim only when those
+words really are there. That check is `enrichment/fact.model.ts`'s `readClaims` and `occurs`, reused rather
+than rewritten: they were written for encyclopaedia articles about records, and the verification has nothing
+to do with records. Only the prompt is new. What survives, at most eight notes a source and twenty-four in
+all, is written as the notes with the row handed back to `planned`, so a restart finds a production with
+notes and goes straight to the pass its mode starts with.
+
+**Research belongs to no writing mode.** `firstPass` starts a production at `research` whenever it has
+sources and no notes, whatever its mode, and `nextPass` hands on from `research` to the first pass of the
+mode's own chain. Each chunk is its own model call at the production's own priority, with the cancellation
+asked about between them, on #27's rule that a pass is never one long hold.
+
+**A source can be only an address**, and the research pass reads it first (`SourceReader`,
+`readAddresses`). The station does not open pages from Node: `host.fetch` is a plugin's, behind the plugin's
+own network grant, and a page an operator names is on no allowlist a manifest could write down. So it asks a
+news plugin that implements the optional `readPage`, which is the RSS plugin: it already opens whatever page a
+feed links to under a `network.open` grant the operator answered, and that grant's private-address check
+applies here as well. What was read is written back onto the row, title and all, before any notes are taken,
+so a restart reads nothing twice and an operator can see afterwards what the page said. A page nothing could
+read fails the production with the site's name, since a programme about that page made without it is not the
+programme somebody asked for. An address that is not http or https is refused when the production is asked
+for (`isWebAddress`). **The RSS grant's approval covers this without asking again**: grants are keyed by
+plugin and capability, not by the reason text, so widening the reason to name this use changed what an
+existing approval allows. Only an operator can give a production an address.
+
+**A production can be asked to research itself** (`productions.research`, `TopicResearcher`). Handed nothing to
+read and no notes, it still starts at the research pass, which asks every enrichment plugin implementing the
+optional `enrichTopic` for pages about its brief, keeps at most four, writes them onto the row as its sources and
+takes notes from them as from any other. In practice that is the web search plugin, which searches only the
+operator's trusted sites and reads only what it finds there: the line websearch draws everywhere, that the station
+quotes sites its operator chose and never whatever an engine ranked first, and one the host's allowlist enforces
+rather than anything here. A flag rather than sources found at commission, because finding them is a search and
+several page reads, which is a pass's work and not a request's. Finding nothing fails the production with
+"no trusted site had anything on this"; nothing installed that can research fails it saying what to install.
+
+**A research pass that finds nothing fails the production** rather than letting it be written from general
+knowledge. Somebody who handed it an article asked for a programme about that article, and the station's
+general knowledge said vaguely is a different programme. The sources are kept beside the notes, so "where did
+it get that" has an answer after it has aired.
+
 ## How long a turn is, and who takes it
 
 **Who says a turn is arithmetic**: `OutlineBeat.lead` is deleted and `BeatPlan.speaker` replaced it, on
@@ -298,6 +367,17 @@ fails one too old to place, including one that has sat half-rendered since yeste
 that was placed fresh and then outlived its hour in the order while nobody listened, every member of it, so the
 block fallback never airs half a programme. A reading is exempt: it is carried to its slot, and its words are
 an author's rather than the station's.
+
+**A production with a time waits for it** (`productionLanding` in `director/production.shelf.ts`). The
+time was stored and never read: `injectProductions` put every finished production at the first open
+boundary past what was committed, so a podcast asked for at eleven at night aired the moment its last beat
+was joined, and a clock band's production, commissioned `COMMISSION_AHEAD_MS` ahead of its slot, aired up
+to three hours early. One with a `scheduledFor` now lands at the first open boundary at or after the first
+boundary `projectAirTimes` puts at or after the time, and is left `ready` while the order does not reach
+that far. The projection counts everything unmeasured as zero, so the boundary it finds is never before the
+time, which is the direction a programme asked for at a time can absorb. One with no time airs as soon as
+it is ready, as every production always has. The shelf life already counted from `scheduledFor`, so a held
+production keeps its hour from its time rather than from when it was made.
 
 ## What it writes down
 

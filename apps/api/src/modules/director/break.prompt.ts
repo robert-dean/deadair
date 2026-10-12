@@ -2731,10 +2731,46 @@ function fitToCeiling(script: string, guard: AnswerGuard): string | undefined {
     // shape of an outro: the model rambles about the last record and names the next one in its
     // closing line. Kept as it was, the trim is then refused as `named-nothing`, a fault the model
     // did not commit. So the naming sentence is kept and the cut moves in front of it instead.
-    const kept = namesNothing(fitted, guard) && !namesNothing(script, guard) ? keepingTheName(script, ceiling, guard) : fitted;
-    if (kept === undefined) return undefined;
+    if (namesNothing(fitted, guard) && !namesNothing(script, guard)) {
+        const kept = keepingTheName(script, ceiling, guard.names ?? [], guard.language);
+        return kept === undefined || wordsIn(kept) < ceiling * MIN_KEPT_SHARE ? undefined : kept;
+    }
 
-    return wordsIn(kept) < ceiling * MIN_KEPT_SHARE ? undefined : kept;
+    if (wordsIn(fitted) < ceiling * MIN_KEPT_SHARE) return undefined;
+
+    // The same cut keeping the PREVIOUS record and losing the next, which `namesNothing` cannot see
+    // because the back-announce still names something. Measured on an audition: seven of ten breaks
+    // under a sheet that asks for the next record in the last sentence aired introducing nothing,
+    // every one of them cut 10 to 64 words past an 80-word ceiling. Unlike the rescue above this one
+    // is a preference rather than a necessity — the front cut is a whole, sayable break — so a hand-off
+    // that cannot be kept leaves the front cut standing instead of refusing it.
+    const next = droppedNext(fitted, script, guard);
+    if (next === undefined) return fitted;
+
+    const handedOff = keepingTheName(script, ceiling, [next], guard.language);
+    return handedOff === undefined || wordsIn(handedOff) < ceiling * MIN_KEPT_SHARE ? fitted : handedOff;
+}
+
+/**
+ * The record still to come, when a trim cut the only sentences that named it, or `undefined`.
+ *
+ * Asked only of a kind that has to name its records at all (a non-empty {@link AnswerGuard.names}),
+ * since a welcome or a bulletin shown the next record is free not to introduce it and a cut that
+ * moves its words round to make it would be the station editing for a rule it never gave.
+ *
+ * Two records by one artist share that name, so the artist alone would read as the next record named
+ * by a script that only back-announced the last one. The title is what tells them apart then, on the
+ * reasoning `misCuedIn` drops shared identifiers by.
+ */
+function droppedNext(fitted: string, script: string, guard: AnswerGuard): BreakTrack | undefined {
+    const next = guard.cues?.next;
+    if (next === undefined || (guard.names ?? []).every(record => record === undefined)) return undefined;
+
+    const previous = guard.cues?.previous;
+    const telling = previous !== undefined && bareWords(previous.artist) === bareWords(next.artist) ? { ...next, artist: '' } : next;
+    const names = (text: string): boolean => namedRecordIn(text, [telling], guard.language) !== undefined;
+
+    return !names(fitted) && names(script) ? telling : undefined;
 }
 
 /**
@@ -2749,9 +2785,9 @@ function fitToCeiling(script: string, guard: AnswerGuard): string | undefined {
  * Nothing when even the opening sentence and the name together are over, which `writeDecline`
  * then reports as `ran-long` — the true reason, rather than a `named-nothing` the cut caused.
  */
-function keepingTheName(script: string, ceiling: number, guard: AnswerGuard): string | undefined {
+function keepingTheName(script: string, ceiling: number, records: readonly (BreakTrack | undefined)[], language?: string): string | undefined {
     const sentences = sentencesOf(script);
-    const naming = sentences.findIndex(sentence => !namesNothing(sentence, guard));
+    const naming = sentences.findIndex(sentence => namedRecordIn(sentence, records, language) !== undefined);
     if (naming < 0) return undefined;
 
     const name = sentences[naming] ?? '';

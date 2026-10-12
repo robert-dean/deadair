@@ -86,6 +86,8 @@ public struct Production: Codable, Equatable, Sendable {
     public var notes: [String]?
     /// What it was handed to read. Its notes are taken from these by the research pass when nobody gave it any
     public var sources: [ProductionSource]?
+    /// Whether it was asked to find its own sources on the operator's trusted sites
+    public var research: Bool?
     /// Who presents it. Absent falls back to the station's active persona when a pass runs
     public var personaId: String?
     /// How many passes to spend on it
@@ -107,13 +109,14 @@ public struct Production: Codable, Equatable, Sendable {
     public var cast: [ProductionCastMember]
     public var createdAt: Date
 
-    public init(id: String, kind: String, title: String, brief: String? = nil, notes: [String]? = nil, sources: [ProductionSource]? = nil, personaId: String? = nil, writingMode: ProductionWritingMode, targetMs: Int, state: ProductionState, error: String? = nil, scheduledFor: Date? = nil, cancelledAt: Date? = nil, beats: Int, showId: String? = nil, cast: [ProductionCastMember], createdAt: Date) {
+    public init(id: String, kind: String, title: String, brief: String? = nil, notes: [String]? = nil, sources: [ProductionSource]? = nil, research: Bool? = nil, personaId: String? = nil, writingMode: ProductionWritingMode, targetMs: Int, state: ProductionState, error: String? = nil, scheduledFor: Date? = nil, cancelledAt: Date? = nil, beats: Int, showId: String? = nil, cast: [ProductionCastMember], createdAt: Date) {
         self.id = id
         self.kind = kind
         self.title = title
         self.brief = brief
         self.notes = notes
         self.sources = sources
+        self.research = research
         self.personaId = personaId
         self.writingMode = writingMode
         self.targetMs = targetMs
@@ -134,6 +137,7 @@ public struct Production: Codable, Equatable, Sendable {
         case brief = "brief"
         case notes = "notes"
         case sources = "sources"
+        case research = "research"
         case personaId = "personaId"
         case writingMode = "writingMode"
         case targetMs = "targetMs"
@@ -155,6 +159,7 @@ public struct Production: Codable, Equatable, Sendable {
         self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
         self.notes = try container.decodeIfPresent([String].self, forKey: .notes)
         self.sources = try container.decodeIfPresent([ProductionSource].self, forKey: .sources)
+        self.research = try container.decodeIfPresent(Bool.self, forKey: .research)
         self.personaId = try container.decodeIfPresent(String.self, forKey: .personaId)
         self.writingMode = try container.decode(ProductionWritingMode.self, forKey: .writingMode)
         self.targetMs = try container.decode(Int.self, forKey: .targetMs)
@@ -176,6 +181,7 @@ public struct Production: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.brief, forKey: .brief)
         try container.encodeIfPresent(self.notes, forKey: .notes)
         try container.encodeIfPresent(self.sources, forKey: .sources)
+        try container.encodeIfPresent(self.research, forKey: .research)
         try container.encodeIfPresent(self.personaId, forKey: .personaId)
         try container.encode(self.writingMode, forKey: .writingMode)
         try container.encode(self.targetMs, forKey: .targetMs)
@@ -271,18 +277,21 @@ public struct ProductionRequest: Codable, Equatable, Sendable {
     public var notes: [String]?
     /// What to read before writing it. Given sources and no notes, a research pass takes the notes out of these first
     public var sources: [ProductionSource]?
+    /// Given nothing to read, search the operator's trusted sites for its subject and read what comes back. Needs an enrichment plugin that can, such as the web search one with trusted sites
+    public var research: Bool?
     public var personaId: String?
     /// Absent takes the station's `render.productionWritingMode`
     public var writingMode: ProductionRequestWritingMode?
     public var targetMs: Int?
     public var scheduledFor: Date?
 
-    public init(kind: String? = nil, title: String? = nil, brief: String? = nil, notes: [String]? = nil, sources: [ProductionSource]? = nil, personaId: String? = nil, writingMode: ProductionRequestWritingMode? = nil, targetMs: Int? = nil, scheduledFor: Date? = nil) {
+    public init(kind: String? = nil, title: String? = nil, brief: String? = nil, notes: [String]? = nil, sources: [ProductionSource]? = nil, research: Bool? = nil, personaId: String? = nil, writingMode: ProductionRequestWritingMode? = nil, targetMs: Int? = nil, scheduledFor: Date? = nil) {
         self.kind = kind
         self.title = title
         self.brief = brief
         self.notes = notes
         self.sources = sources
+        self.research = research
         self.personaId = personaId
         self.writingMode = writingMode
         self.targetMs = targetMs
@@ -295,6 +304,7 @@ public struct ProductionRequest: Codable, Equatable, Sendable {
         case brief = "brief"
         case notes = "notes"
         case sources = "sources"
+        case research = "research"
         case personaId = "personaId"
         case writingMode = "writingMode"
         case targetMs = "targetMs"
@@ -308,6 +318,7 @@ public struct ProductionRequest: Codable, Equatable, Sendable {
         self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
         self.notes = try container.decodeIfPresent([String].self, forKey: .notes)
         self.sources = try container.decodeIfPresent([ProductionSource].self, forKey: .sources)
+        self.research = try container.decodeIfPresent(Bool.self, forKey: .research)
         self.personaId = try container.decodeIfPresent(String.self, forKey: .personaId)
         self.writingMode = try container.decodeIfPresent(ProductionRequestWritingMode.self, forKey: .writingMode)
         self.targetMs = try container.decodeIfPresent(Int.self, forKey: .targetMs)
@@ -321,6 +332,7 @@ public struct ProductionRequest: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.brief, forKey: .brief)
         try container.encodeIfPresent(self.notes, forKey: .notes)
         try container.encodeIfPresent(self.sources, forKey: .sources)
+        try container.encodeIfPresent(self.research, forKey: .research)
         try container.encodeIfPresent(self.personaId, forKey: .personaId)
         try container.encodeIfPresent(self.writingMode, forKey: .writingMode)
         try container.encodeIfPresent(self.targetMs, forKey: .targetMs)

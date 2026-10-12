@@ -128,6 +128,8 @@ export interface OwnShow {
     newsFeedIds?: string[];
     /** How many hours of news an episode reads. Absent is a day */
     newsHours?: number;
+    /** Whether an episode given nothing to read finds its own sources on the operator's trusted sites */
+    research?: boolean;
     createdAt: DateTime;
 }
 
@@ -148,6 +150,8 @@ export interface OwnShowInput {
     newsFeedIds?: string[];
     /** How many hours of news an episode reads. Absent is a day */
     newsHours?: number;
+    /** Whether an episode given nothing to read finds its own sources on the operator's trusted sites */
+    research?: boolean;
 }
 
 /** Rehydrates every wire-encoded scalar in a OwnShow into its runtime type. Mutates and returns `raw`. */

@@ -297,4 +297,29 @@ export interface EnrichmentProvider {
 
     /** The album equivalent of {@link enrichArtist}, asked once per record. */
     enrichAlbum?(ref: AlbumRef): Promise<Partial<AlbumEnrichment>>;
+
+    /**
+     * Background on a subject that is not a record at all: what an operator
+     * asked the station to make a programme about. Optional, as
+     * {@link enrichArtist} is, and asked only when a production is to be
+     * researched rather than written from general knowledge.
+     *
+     * Answer with {@link SourceDocument}s, the same prose an artist's
+     * `documents` carry: the host reads them for claims it can check against
+     * the text, so the pages have to be ones your plugin has the operator's
+     * leave to quote. `{}` when you have nothing, which is an ordinary answer.
+     */
+    enrichTopic?(topic: TopicRef): Promise<Partial<TopicEnrichment>>;
+}
+
+/** How an enrichment plugin is asked about a subject that is not a record. */
+export interface TopicRef {
+    /** What the programme is about, in the operator's words. */
+    query: string;
+}
+
+/** What an enrichment plugin knows about a subject that is not a record. */
+export interface TopicEnrichment {
+    /** Pages about it, as prose the host reads for claims. */
+    documents: SourceDocument[];
 }

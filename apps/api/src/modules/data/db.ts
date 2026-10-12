@@ -483,6 +483,7 @@ export interface DeadairOwnShows {
   newsFeedIds: Json | null;
   newsHours: number | null;
   personaId: string | null;
+  research: Generated<boolean>;
   stationKey: Generated<string>;
   subject: string | null;
   targetMs: number | null;
@@ -814,6 +815,7 @@ export interface DeadairProductions {
   outline: Json | null;
   personaId: string | null;
   plan: Json | null;
+  research: Generated<boolean>;
   scheduledFor: DateTime | null;
   showId: string | null;
   sources: Json | null;

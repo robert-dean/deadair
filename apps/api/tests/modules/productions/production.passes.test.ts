@@ -69,6 +69,10 @@ describe('firstPass', () => {
         expect(firstPass({ writingMode: 'polished', sources })).toBe('research');
     });
 
+    it('starts a production asked to research itself at the research, though it was handed nothing', () => {
+        expect(firstPass({ writingMode: 'outlined', research: true })).toBe('research');
+    });
+
     it('skips the research for a production that already has notes', () => {
         expect(firstPass({ writingMode: 'outlined', sources: [{ title: 'An article', text: 'What it says.' }], notes: ['A fact.'] })).toBe('outline');
     });

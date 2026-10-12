@@ -8,7 +8,7 @@ mdx:
 > A show the station makes for itself: a saved recipe for a podcast, whose every episode is a production
 
 <details>
-<summary>Attributes (10)</summary>
+<summary>Attributes (11)</summary>
 
 | Attribute     | Type                                  | Required | Description                                                                                                              |
 | ------------- | ------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -21,6 +21,7 @@ mdx:
 | `writingMode` | `'quick' \| 'outlined' \| 'polished'` | No       | How much of the model an episode is worth. Absent is the station's default                                               |
 | `newsFeedIds` | `string[]`                            | No       | The station's news feeds an episode reads, by their qualified ids. Absent or empty is a show that does not read the news |
 | `newsHours`   | `number`                              | No       | How many hours of news an episode reads. Absent is a day                                                                 |
+| `research`    | `boolean`                             | No       | Whether an episode given nothing to read finds its own sources on the operator's trusted sites                           |
 | `createdAt`   | `string`                              | Yes      | _read-only_                                                                                                              |
 
 </details>

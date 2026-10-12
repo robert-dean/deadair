@@ -35,6 +35,7 @@ import { ProductionCaster } from './production.caster.js';
 import { cuesFor } from './production.cues.js';
 import { beatNotes, planProduction, turnsFor } from './production.plan.js';
 import { SourceReader } from './source.reader.js';
+import { TopicResearcher } from './topic.researcher.js';
 import { chunksOf, gather, MAX_NOTES_PER_SOURCE, MAX_RESEARCH_NOTES, readNotes, researchPrompt } from './production.research.js';
 import { askForBeat, attemptsBefore } from './beat.answer.js';
 import { beatPrompt, outlinePrompt, runInFrom } from './production.prompt.js';
@@ -183,6 +184,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         private readonly activity: ActivityRecorder,
         /** What reads a source handed over as only an address. See {@link research}. */
         private readonly reader: SourceReader,
+        /** What finds pages about a production's subject, for one asked to research itself. */
+        private readonly researcher: TopicResearcher,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -271,7 +274,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         if (claimed === undefined) return false;
 
         const subject = claimed.brief ?? claimed.title;
-        const sources = await this.readAddresses(claimed);
+        const sources = (claimed.sources?.length ?? 0) > 0 ? await this.readAddresses(claimed) : await this.findSources(claimed, subject);
         if (sources === undefined) return false;
 
         let notes: string[] = [];
@@ -307,6 +310,40 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
 
         this.logger.info('productions: read the sources for notes', { production: claimed.id, read, notes: notes.length });
         return await this.productions.saveNotes(claimed.id, notes);
+    }
+
+    /**
+     * Pages about the production's subject, for one asked to research itself and handed nothing to read:
+     * the operator's trusted sites searched through `TopicResearcher`, and what came back written onto the
+     * row as its sources before any notes are taken, for `readAddresses`' reasons. Finding nothing fails the
+     * production with the reason, rather than writing it from general knowledge when somebody asked for it
+     * to be researched. `undefined` when it was failed or cancelled here.
+     */
+    private async findSources(production: Production, subject: string): Promise<readonly ProductionSource[] | undefined> {
+        if (production.research !== true) return [];
+        if (!this.researcher.canResearch()) {
+            await this.productions.fail(
+                production.id,
+                'nothing installed can research a subject; the web search plugin can, once it has trusted sites',
+            );
+            return undefined;
+        }
+        if (await this.productions.isCancelled(production.id)) return undefined;
+
+        const documents = await this.researcher.documentsAbout(subject);
+        if (documents.length === 0) {
+            await this.productions.fail(production.id, 'no trusted site had anything on this');
+            return undefined;
+        }
+
+        const found: ProductionSource[] = documents.map(document => ({
+            title: document.title,
+            url: document.url,
+            text: document.text,
+            retrievedAt: Date.parse(document.retrievedAt),
+        }));
+        await this.productions.saveSources(production.id, found);
+        return found;
     }
 
     /**

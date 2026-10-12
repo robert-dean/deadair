@@ -75,6 +75,16 @@ describe('ProductionForm', () => {
         );
     });
 
+    it('asks a production handed nothing to read to research itself', async () => {
+        const { onSubmit, user } = build();
+
+        await user.type(screen.getByLabelText('Called', { exact: false }), 'Lighthouse keepers');
+        await user.click(screen.getByLabelText('Research it on your trusted sites'));
+        await user.click(screen.getByRole('button', { name: 'Ask for it' }));
+
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ research: true }));
+    });
+
     it('sends a pasted source with the production', async () => {
         const { onSubmit, user } = build();
 

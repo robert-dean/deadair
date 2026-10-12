@@ -84,6 +84,8 @@ import type {
     ExternalId,
     ExternalLink,
     SourceDocument,
+    TopicEnrichment,
+    TopicRef,
     TrackEnrichment,
     TrackRef,
 } from './capabilities/enrichment.js';
@@ -218,6 +220,8 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     TrackEnrichment: IsJsonSafe<TrackEnrichment>;
     ArtistEnrichment: IsJsonSafe<ArtistEnrichment>;
     AlbumEnrichment: IsJsonSafe<AlbumEnrichment>;
+    TopicRef: IsJsonSafe<TopicRef>;
+    TopicEnrichment: IsJsonSafe<TopicEnrichment>;
     SpeechRequest: IsJsonSafe<SpeechRequest>;
     SpeechVoice: IsJsonSafe<SpeechVoice>;
     LlmMessage: IsJsonSafe<LlmMessage>;
@@ -330,6 +334,8 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'TrackEnrichment',
     'ArtistEnrichment',
     'AlbumEnrichment',
+    'TopicRef',
+    'TopicEnrichment',
     'SpeechRequest',
     'SpeechVoice',
     'LlmMessage',

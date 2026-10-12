@@ -110,6 +110,7 @@ export class ProductionsService {
             ...(body.brief === undefined ? {} : { brief: body.brief }),
             ...(body.notes === undefined ? {} : { notes: body.notes }),
             ...(body.sources === undefined ? {} : { sources: body.sources }),
+            ...(body.research === true ? { research: true } : {}),
             ...(body.personaId === undefined ? {} : { personaId: body.personaId }),
             ...(body.scheduledFor === undefined ? {} : { scheduledFor: body.scheduledFor.toMillis() }),
             ...(this.actor() === undefined ? {} : { actorId: this.actor() as string }),
@@ -200,6 +201,7 @@ export class ProductionsService {
             ...(production.error === undefined ? {} : { error: production.error }),
             ...(production.scheduledFor === undefined ? {} : { scheduledFor: DateTime.fromMillis(production.scheduledFor) }),
             ...(production.cancelledAt === undefined ? {} : { cancelledAt: DateTime.fromMillis(production.cancelledAt) }),
+            ...(production.research === true ? { research: true } : {}),
             ...(production.showId === undefined ? {} : { showId: production.showId }),
             beats: beats.length,
             // Who is on it. The stored snapshot rather than a fresh resolve, which is the whole

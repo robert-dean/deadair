@@ -5,6 +5,7 @@ import { ProductionRepository } from './production.repository.js';
 import { ProductionScheduler } from './production.scheduler.js';
 import { ProductionsService } from './productions.service.js';
 import { SourceReader } from './source.reader.js';
+import { TopicResearcher } from './topic.researcher.js';
 
 /**
  * What the station MAKES, as against what it says.
@@ -38,6 +39,8 @@ export const ProductionsModule: ServerKitModule = {
         registry.register(ProductionCaster).useClass(ProductionCaster).asScoped();
         // What reads a page a production was handed by its address, through whichever plugin can.
         registry.register(SourceReader).useClass(SourceReader).asScoped();
+        // What finds pages about a subject, for a production asked to research itself.
+        registry.register(TopicResearcher).useClass(TopicResearcher).asScoped();
 
         // `ProduceProductionJob` is deliberately NOT registered here. `JobsModule` walks
         // `job.mappings.ts` and registers every job class in it, so a module that also registers its

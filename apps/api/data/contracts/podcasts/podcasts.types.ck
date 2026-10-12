@@ -83,6 +83,7 @@ contract OwnShow: { # A show the station makes for itself: a saved recipe for a 
     writingMode?: enum(quick, outlined, polished) # How much of the model an episode is worth. Absent is the station's default
     newsFeedIds?: array(string(min=1, max=400), max=20) # The station's news feeds an episode reads, by their qualified ids. Absent or empty is a show that does not read the news
     newsHours?: int(min=1, max=168) # How many hours of news an episode reads. Absent is a day
+    research?: boolean # Whether an episode given nothing to read finds its own sources on the operator's trusted sites
     createdAt: readonly datetime
 }
 

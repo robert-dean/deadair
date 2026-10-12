@@ -240,3 +240,38 @@ describe('enrichTrack', () => {
         expect(host.calls).toHaveLength(0);
     });
 });
+
+// A subject a programme is to be made about, which is not a record: the operator's own words are the
+// query, and the trusted sites are still the only pages read.
+describe('enrichTopic', () => {
+    beforeEach(() => {
+        host.seedRemainingMs(ENRICH_CALL_REMAINING_MS);
+    });
+
+    it('searches the trusted sites with the words it was given and reads what it found', async () => {
+        await initialize();
+        queueSearch('https://www.example.com/lighthouses');
+        queuePage(prose('The last keeper left the lighthouse in 1998, when the lamp was automated.'));
+
+        const answer = await plugin.enrichTopic({ query: 'lighthouse keepers' });
+
+        const asked = decodeURIComponent((host.calls[0]?.url ?? '').replace(/\+/g, ' '));
+        expect(asked).toContain('lighthouse keepers');
+        expect(asked).toContain('site:example.com');
+        expect(answer.documents?.[0]).toMatchObject({ url: 'https://www.example.com/lighthouses', text: expect.stringContaining('last keeper') });
+    });
+
+    it('asks nothing when the operator has trusted no site', async () => {
+        await initialize({ trustedSites: '[]' });
+
+        await expect(plugin.enrichTopic({ query: 'lighthouse keepers' })).resolves.toEqual({});
+        expect(host.calls).toHaveLength(0);
+    });
+
+    it('asks nothing about nothing', async () => {
+        await initialize();
+
+        await expect(plugin.enrichTopic({ query: '   ' })).resolves.toEqual({});
+        expect(host.calls).toHaveLength(0);
+    });
+});

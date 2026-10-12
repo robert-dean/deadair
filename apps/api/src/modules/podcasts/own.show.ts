@@ -17,6 +17,8 @@ export interface OwnShowRecord {
     newsFeedIds?: readonly string[];
     /** How many hours of news an episode reads. Absent is {@link DEFAULT_NEWS_HOURS}. */
     newsHours?: number;
+    /** Whether an episode given nothing to read finds its own sources on the operator's trusted sites. */
+    research?: true;
     createdAt: number;
 }
 

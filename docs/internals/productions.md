@@ -203,6 +203,16 @@ for (`isWebAddress`). **The RSS grant's approval covers this without asking agai
 plugin and capability, not by the reason text, so widening the reason to name this use changed what an
 existing approval allows. Only an operator can give a production an address.
 
+**A production can be asked to research itself** (`productions.research`, `TopicResearcher`). Handed nothing to
+read and no notes, it still starts at the research pass, which asks every enrichment plugin implementing the
+optional `enrichTopic` for pages about its brief, keeps at most four, writes them onto the row as its sources and
+takes notes from them as from any other. In practice that is the web search plugin, which searches only the
+operator's trusted sites and reads only what it finds there: the line websearch draws everywhere, that the station
+quotes sites its operator chose and never whatever an engine ranked first, and one the host's allowlist enforces
+rather than anything here. A flag rather than sources found at commission, because finding them is a search and
+several page reads, which is a pass's work and not a request's. Finding nothing fails the production with
+"no trusted site had anything on this"; nothing installed that can research fails it saying what to install.
+
 **A research pass that finds nothing fails the production** rather than letting it be written from general
 knowledge. Somebody who handed it an article asked for a programme about that article, and the station's
 general knowledge said vaguely is a different programme. The sources are kept beside the notes, so "where did

@@ -60,6 +60,7 @@ export class ProductionRepository extends DataRepository {
         brief?: string;
         notes?: readonly string[];
         sources?: readonly ProductionSource[];
+        research?: boolean;
         personaId?: string;
         scheduledFor?: number;
         actorId?: string;
@@ -82,6 +83,7 @@ export class ProductionRepository extends DataRepository {
                 brief: input.brief ?? null,
                 notes: notes === undefined ? null : toJsonb(notes),
                 sources: sources === undefined ? null : toJsonb(sources),
+                research: input.research === true,
                 personaId: input.personaId ?? null,
                 // Nobody is cast at commission. A production is read ahead by up to three hours and
                 // the roster can change in between, so who is on it is decided by the first pass
@@ -413,6 +415,7 @@ function toProduction(row: Record<string, unknown>): Production {
         ...(row.brief == null ? {} : { brief: String(row.brief) }),
         ...(cleanNotes(row.notes) === undefined ? {} : { notes: cleanNotes(row.notes)! }),
         ...(cleanSources(row.sources) === undefined ? {} : { sources: cleanSources(row.sources)! }),
+        ...(row.research === true ? { research: true as const } : {}),
         ...(row.personaId == null ? {} : { personaId: String(row.personaId) }),
         ...(coerceCast(row.casting) === undefined ? {} : { casting: coerceCast(row.casting)! }),
         // Fallen back rather than trusted: the column is constrained, but a row edited by hand out of

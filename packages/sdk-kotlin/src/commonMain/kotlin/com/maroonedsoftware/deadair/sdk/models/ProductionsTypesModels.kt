@@ -43,6 +43,8 @@ data class Production(
     val notes: List<String>? = null,
     /** What it was handed to read. Its notes are taken from these by the research pass when nobody gave it any */
     val sources: List<ProductionSource>? = null,
+    /** Whether it was asked to find its own sources on the operator's trusted sites */
+    val research: Boolean? = null,
     /** Who presents it. Absent falls back to the station's active persona when a pass runs */
     val personaId: String? = null,
     /** How many passes to spend on it */
@@ -98,6 +100,8 @@ data class ProductionRequest(
     val notes: List<String>? = null,
     /** What to read before writing it. Given sources and no notes, a research pass takes the notes out of these first */
     val sources: List<ProductionSource>? = null,
+    /** Given nothing to read, search the operator's trusted sites for its subject and read what comes back. Needs an enrichment plugin that can, such as the web search one with trusted sites */
+    val research: Boolean? = null,
     val personaId: String? = null,
     /** Absent takes the station's `render.productionWritingMode` */
     val writingMode: ProductionRequestWritingMode? = null,

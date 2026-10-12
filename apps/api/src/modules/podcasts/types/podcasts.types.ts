@@ -121,6 +121,10 @@ export const OwnShow = z.strictObject({
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(168))
         .optional()
         .describe('How many hours of news an episode reads. Absent is a day'),
+    research: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe("Whether an episode given nothing to read finds its own sources on the operator's trusted sites"),
     createdAt: _ZodDatetime,
 });
 export type OwnShow = z.infer<typeof OwnShow>;
@@ -147,6 +151,10 @@ export const OwnShowInput = z.strictObject({
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(168))
         .optional()
         .describe('How many hours of news an episode reads. Absent is a day'),
+    research: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe("Whether an episode given nothing to read finds its own sources on the operator's trusted sites"),
 });
 export type OwnShowInput = z.infer<typeof OwnShowInput>;
 

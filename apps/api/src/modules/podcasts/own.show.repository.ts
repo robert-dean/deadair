@@ -90,6 +90,7 @@ function columnsOf(show: OwnShowWrite) {
         writingMode: show.writingMode ?? null,
         newsFeedIds: show.newsFeedIds === undefined || show.newsFeedIds.length === 0 ? null : toJsonb([...show.newsFeedIds]),
         newsHours: show.newsHours ?? null,
+        research: show.research === true,
     };
 }
 
@@ -109,6 +110,7 @@ function toShow(row: Record<string, unknown>): OwnShowRecord {
         ...(mode !== undefined && isWritingMode(mode) ? { writingMode: mode } : {}),
         ...(feeds.length === 0 ? {} : { newsFeedIds: feeds }),
         ...(row.newsHours == null ? {} : { newsHours: Number(row.newsHours) }),
+        ...(row.research === true ? { research: true as const } : {}),
         createdAt: created == null ? 0 : created instanceof Date ? created.getTime() : created.toMillis(),
     };
 }

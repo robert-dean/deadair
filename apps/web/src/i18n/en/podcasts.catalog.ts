@@ -38,6 +38,11 @@ export const podcasts = {
                     'For a show about the day’s stories. Each episode reads the newest on these feeds and states only what it finds in them.',
             },
             newsHours: { label: 'Hours back', description: 'Leave empty for a day.' },
+            research: {
+                label: 'Research each episode on your trusted sites',
+                description:
+                    'An episode given nothing to read searches the sites you trust in the web search plugin for its subject, and states only what it finds there.',
+            },
             create: 'Make the show',
             save: 'Save',
         },

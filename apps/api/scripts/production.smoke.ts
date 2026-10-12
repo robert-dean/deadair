@@ -219,6 +219,12 @@ try {
     // ── the station's own shows, and the episodes filed under them ────────────
     const show = await ownShows.create({ title: TITLE, subject: 'something calm', targetMs: 40 * 60_000, writingMode: 'outlined' });
     check(show.subject === 'something calm' && show.writingMode === 'outlined', 'a show comes back as it went in');
+    const curious = await ownShows.create({ title: TITLE, research: true });
+    check(curious.research === true, 'a show can ask for its episodes to be researched');
+    await ownShows.remove(curious.id);
+    const asked = await open({ research: true });
+    check(asked.research === true, 'and so can a production');
+    check(opened.research === undefined, 'a production nobody asked to research reads as undefined rather than false');
     const news = await ownShows.create({ title: TITLE, newsFeedIds: ['deadair.rss:world', 'deadair.rss:tech'], newsHours: 6 });
     check(
         news.newsFeedIds?.join(',') === 'deadair.rss:world,deadair.rss:tech' && news.newsHours === 6,

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Badge, Button, Card, Group, MultiSelect, NumberInput, Select, SimpleGrid, Stack, Text, Textarea, TextInput } from '@mantine/core';
+import { Badge, Button, Card, Checkbox, Group, MultiSelect, NumberInput, Select, SimpleGrid, Stack, Text, Textarea, TextInput } from '@mantine/core';
 import { DateTimePicker } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import type { OwnEpisodeRequest, OwnShow, OwnShowInput, Production } from '@deadair/sdk';
@@ -42,6 +42,8 @@ interface ShowValues {
     /** The news feeds an episode reads. Empty is a show that does not read the news. */
     newsFeedIds: string[];
     newsHours: number | string;
+    /** Whether an episode given nothing to read finds its own sources on the trusted sites. */
+    research: boolean;
 }
 
 /**
@@ -69,6 +71,7 @@ export function showBodyOf(values: ShowValues): OwnShowInput {
         ...(values.mode === null ? {} : { writingMode: values.mode as OwnShowInput['writingMode'] }),
         ...(values.newsFeedIds.length === 0 ? {} : { newsFeedIds: values.newsFeedIds }),
         ...(values.newsFeedIds.length > 0 && typeof values.newsHours === 'number' && values.newsHours > 0 ? { newsHours: values.newsHours } : {}),
+        ...(values.research ? { research: true } : {}),
     };
 }
 
@@ -368,6 +371,7 @@ function ShowForm({
             mode: initial?.writingMode ?? null,
             newsFeedIds: [...(initial?.newsFeedIds ?? [])],
             newsHours: initial?.newsHours ?? '',
+            research: initial?.research === true,
         },
         validate: values => (values.title.trim().length === 0 ? { title: t('own.form.title.required') } : {}),
     });
@@ -384,6 +388,7 @@ function ShowForm({
             // one thing a template cannot know for itself.
             newsFeedIds: key === 'newsInDepth' ? (feeds.data?.feeds ?? []).map(feed => feed.id) : [],
             newsHours: key === 'newsInDepth' ? 24 : '',
+            research: false,
         });
     };
 
@@ -420,6 +425,12 @@ function ShowForm({
                         minRows={2}
                         {...form.getInputProps('subject')}
                     />
+                    <Checkbox
+                        label={t('own.form.research.label')}
+                        description={t('own.form.research.description')}
+                        {...form.getInputProps('research', { type: 'checkbox' })}
+                    />
+
                     {/* The news this show reads, for one whose episodes are about the day's stories.
                         Only offered where the station has feeds, since an empty picker explains nothing. */}
                     {(feeds.data?.feeds ?? []).length > 0 ? (

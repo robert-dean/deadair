@@ -211,6 +211,10 @@ about, and it keeps the research pass knowing nothing about shows. A request wit
 window is refused there, rather than queueing an episode its research pass could only fail. Pasted text takes
 the news's place, since somebody who pasted something meant that.
 
+**A show can research its episodes** (`own_shows.research`): an episode handed nothing to read is commissioned
+with `research` set, and finds its own sources on the operator's trusted sites (`productions.md` § "What it may
+state as fact"). Pasted text, a page or the news is what an episode was asked to be about, so any of those wins.
+
 **Not called a station show.** A `StationShow` is already somebody else's programme the station carries,
 as a podcast plugin describes it, and two things called a station show would be one name for opposite
 ideas. Deleting a show keeps its episodes, no longer filed under it, because an episode that aired still

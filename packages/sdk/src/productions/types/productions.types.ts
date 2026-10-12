@@ -50,6 +50,8 @@ export interface Production {
     notes?: string[];
     /** What it was handed to read. Its notes are taken from these by the research pass when nobody gave it any */
     sources?: ProductionSource[];
+    /** Whether it was asked to find its own sources on the operator's trusted sites */
+    research?: boolean;
     /** Who presents it. Absent falls back to the station's active persona when a pass runs */
     personaId?: string;
     /** How many passes to spend on it */
@@ -118,6 +120,8 @@ export interface ProductionRequest {
     notes?: string[];
     /** What to read before writing it. Given sources and no notes, a research pass takes the notes out of these first */
     sources?: ProductionSource[];
+    /** Given nothing to read, search the operator's trusted sites for its subject and read what comes back. Needs an enrichment plugin that can, such as the web search one with trusted sites */
+    research?: boolean;
     personaId?: string;
     /** Absent takes the station's `render.productionWritingMode` */
     writingMode?: 'quick' | 'outlined' | 'polished';

@@ -137,6 +137,8 @@ export interface Production {
     notes?: readonly string[];
     /** What it was handed to read. The research pass takes its notes out of these when it was given none. */
     sources?: readonly ProductionSource[];
+    /** Asked to find its own sources on the operator's trusted sites when it was handed none. */
+    research?: true;
     personaId?: string;
     /** Who is in it, decided once by the first pass. Absent for a production made before it was cast. */
     casting?: ProductionCast;
@@ -300,6 +302,9 @@ export function cleanSources(value: unknown): ProductionSource[] | undefined {
     return sources.length === 0 ? undefined : sources;
 }
 
-/** Whether a production has to be researched before it is written: handed sources, and no notes. */
-export const needsResearch = (production: Pick<Production, 'notes' | 'sources'>): boolean =>
-    (production.notes?.length ?? 0) === 0 && (production.sources?.length ?? 0) > 0;
+/**
+ * Whether a production has to be researched before it is written: no notes, and either sources to read
+ * or a request to go and find some.
+ */
+export const needsResearch = (production: Pick<Production, 'notes' | 'sources' | 'research'>): boolean =>
+    (production.notes?.length ?? 0) === 0 && ((production.sources?.length ?? 0) > 0 || production.research === true);

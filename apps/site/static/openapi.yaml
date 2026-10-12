@@ -12911,6 +12911,9 @@ components:
                     minimum: 1
                     maximum: 168
                     description: 'How many hours of news an episode reads. Absent is a day'
+                research:
+                    type: boolean
+                    description: "Whether an episode given nothing to read finds its own sources on the operator's trusted sites"
                 createdAt:
                     type: string
                     format: date-time
@@ -13018,6 +13021,10 @@ components:
                         '$ref': '#/components/schemas/ProductionSource'
                     maxItems: 6
                     description: 'What it was handed to read. Its notes are taken from these by the research pass when nobody gave it any'
+                research:
+                    type: boolean
+                    readOnly: true
+                    description: "Whether it was asked to find its own sources on the operator's trusted sites"
                 personaId:
                     type: string
                     maxLength: 100
@@ -13118,6 +13125,9 @@ components:
                         '$ref': '#/components/schemas/ProductionSource'
                     maxItems: 6
                     description: 'What to read before writing it. Given sources and no notes, a research pass takes the notes out of these first'
+                research:
+                    type: boolean
+                    description: "Given nothing to read, search the operator's trusted sites for its subject and read what comes back. Needs an enrichment plugin that can, such as the web search one with trusted sites"
                 personaId:
                     type: string
                     maxLength: 100

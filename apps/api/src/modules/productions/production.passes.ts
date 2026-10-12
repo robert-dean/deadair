@@ -81,7 +81,7 @@ export function nextPass(mode: WritingMode, completed: ProductionPass): Producti
  * The pass a production starts with: research for one handed sources and no notes, and otherwise the
  * first of its mode's chain. Every mode has at least one, so this never fails.
  */
-export const firstPass = (production: Pick<Production, 'writingMode' | 'notes' | 'sources'>): ProductionPass =>
+export const firstPass = (production: Pick<Production, 'writingMode' | 'notes' | 'sources' | 'research'>): ProductionPass =>
     needsResearch(production) ? 'research' : PASSES[production.writingMode][0]!;
 
 /**

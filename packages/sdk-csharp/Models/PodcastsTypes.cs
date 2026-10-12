@@ -250,6 +250,11 @@ public sealed record OwnShow
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? NewsHours { get; init; }
 
+    /// <summary>Whether an episode given nothing to read finds its own sources on the operator's trusted sites</summary>
+    [JsonPropertyName("research")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Research { get; init; }
+
     [JsonPropertyName("createdAt")]
     public required DateTimeOffset CreatedAt { get; init; }
 }
@@ -295,6 +300,11 @@ public sealed record OwnShowInput
     [JsonPropertyName("newsHours")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? NewsHours { get; init; }
+
+    /// <summary>Whether an episode given nothing to read finds its own sources on the operator's trusted sites</summary>
+    [JsonPropertyName("research")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Research { get; init; }
 }
 
 /// <summary>Asks one of the station's own shows for an episode. Everything is optional: a show with a standing subject needs nothing</summary>

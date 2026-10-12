@@ -158,10 +158,36 @@ describe('a show that reads the news', () => {
 
     it('leaves the window out for a show that reads no news', () => {
         expect(
-            showBodyOf({ title: 'Wind-down', description: '', subject: '', personaId: null, minutes: '', mode: null, newsFeedIds: [], newsHours: 6 }),
+            showBodyOf({
+                title: 'Wind-down',
+                description: '',
+                subject: '',
+                personaId: null,
+                minutes: '',
+                mode: null,
+                newsFeedIds: [],
+                newsHours: 6,
+                research: false,
+            }),
         ).toEqual({
             title: 'Wind-down',
         });
+    });
+});
+
+describe('a show that researches its episodes', () => {
+    it('sends the choice with the show', async () => {
+        listOwnShows.mockResolvedValue({ shows: [] });
+        createOwnShow.mockResolvedValue({ ...WIND_DOWN, id: 'show-2' });
+        const user = setupUser();
+        render(<OwnShows />);
+
+        await user.click(await screen.findByRole('button', { name: 'New show' }));
+        await user.type(screen.getByLabelText('Called', { exact: false }), 'Curiosities');
+        await user.click(screen.getByLabelText('Research each episode on your trusted sites'));
+        await user.click(screen.getByRole('button', { name: 'Make the show' }));
+
+        expect(createOwnShow).toHaveBeenCalledWith({ title: 'Curiosities', research: true });
     });
 });
 
@@ -177,6 +203,7 @@ describe('showBodyOf', () => {
                 mode: null,
                 newsFeedIds: [],
                 newsHours: 6,
+                research: false,
             }),
         ).toEqual({
             title: 'News in depth',

@@ -341,9 +341,11 @@ public struct OwnShow: Codable, Equatable, Sendable {
     public var newsFeedIds: [String]?
     /// How many hours of news an episode reads. Absent is a day
     public var newsHours: Int?
+    /// Whether an episode given nothing to read finds its own sources on the operator's trusted sites
+    public var research: Bool?
     public var createdAt: Date
 
-    public init(id: String, title: String, description: String? = nil, subject: String? = nil, personaId: String? = nil, targetMs: Int? = nil, writingMode: OwnShowWritingMode? = nil, newsFeedIds: [String]? = nil, newsHours: Int? = nil, createdAt: Date) {
+    public init(id: String, title: String, description: String? = nil, subject: String? = nil, personaId: String? = nil, targetMs: Int? = nil, writingMode: OwnShowWritingMode? = nil, newsFeedIds: [String]? = nil, newsHours: Int? = nil, research: Bool? = nil, createdAt: Date) {
         self.id = id
         self.title = title
         self.description = description
@@ -353,6 +355,7 @@ public struct OwnShow: Codable, Equatable, Sendable {
         self.writingMode = writingMode
         self.newsFeedIds = newsFeedIds
         self.newsHours = newsHours
+        self.research = research
         self.createdAt = createdAt
     }
 
@@ -366,6 +369,7 @@ public struct OwnShow: Codable, Equatable, Sendable {
         case writingMode = "writingMode"
         case newsFeedIds = "newsFeedIds"
         case newsHours = "newsHours"
+        case research = "research"
         case createdAt = "createdAt"
     }
 
@@ -380,6 +384,7 @@ public struct OwnShow: Codable, Equatable, Sendable {
         self.writingMode = try container.decodeIfPresent(OwnShowWritingMode.self, forKey: .writingMode)
         self.newsFeedIds = try container.decodeIfPresent([String].self, forKey: .newsFeedIds)
         self.newsHours = try container.decodeIfPresent(Int.self, forKey: .newsHours)
+        self.research = try container.decodeIfPresent(Bool.self, forKey: .research)
         self.createdAt = try container.decode(Date.self, forKey: .createdAt)
     }
 
@@ -394,6 +399,7 @@ public struct OwnShow: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.writingMode, forKey: .writingMode)
         try container.encodeIfPresent(self.newsFeedIds, forKey: .newsFeedIds)
         try container.encodeIfPresent(self.newsHours, forKey: .newsHours)
+        try container.encodeIfPresent(self.research, forKey: .research)
         try container.encode(self.createdAt, forKey: .createdAt)
     }
 }
@@ -416,8 +422,10 @@ public struct OwnShowInput: Codable, Equatable, Sendable {
     public var newsFeedIds: [String]?
     /// How many hours of news an episode reads. Absent is a day
     public var newsHours: Int?
+    /// Whether an episode given nothing to read finds its own sources on the operator's trusted sites
+    public var research: Bool?
 
-    public init(title: String, description: String? = nil, subject: String? = nil, personaId: String? = nil, targetMs: Int? = nil, writingMode: OwnShowWritingMode? = nil, newsFeedIds: [String]? = nil, newsHours: Int? = nil) {
+    public init(title: String, description: String? = nil, subject: String? = nil, personaId: String? = nil, targetMs: Int? = nil, writingMode: OwnShowWritingMode? = nil, newsFeedIds: [String]? = nil, newsHours: Int? = nil, research: Bool? = nil) {
         self.title = title
         self.description = description
         self.subject = subject
@@ -426,6 +434,7 @@ public struct OwnShowInput: Codable, Equatable, Sendable {
         self.writingMode = writingMode
         self.newsFeedIds = newsFeedIds
         self.newsHours = newsHours
+        self.research = research
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -437,6 +446,7 @@ public struct OwnShowInput: Codable, Equatable, Sendable {
         case writingMode = "writingMode"
         case newsFeedIds = "newsFeedIds"
         case newsHours = "newsHours"
+        case research = "research"
     }
 
     public init(from decoder: Decoder) throws {
@@ -449,6 +459,7 @@ public struct OwnShowInput: Codable, Equatable, Sendable {
         self.writingMode = try container.decodeIfPresent(OwnShowWritingMode.self, forKey: .writingMode)
         self.newsFeedIds = try container.decodeIfPresent([String].self, forKey: .newsFeedIds)
         self.newsHours = try container.decodeIfPresent(Int.self, forKey: .newsHours)
+        self.research = try container.decodeIfPresent(Bool.self, forKey: .research)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -461,6 +472,7 @@ public struct OwnShowInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.writingMode, forKey: .writingMode)
         try container.encodeIfPresent(self.newsFeedIds, forKey: .newsFeedIds)
         try container.encodeIfPresent(self.newsHours, forKey: .newsHours)
+        try container.encodeIfPresent(self.research, forKey: .research)
     }
 }
 

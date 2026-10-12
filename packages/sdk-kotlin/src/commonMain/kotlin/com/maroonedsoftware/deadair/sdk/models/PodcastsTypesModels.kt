@@ -113,6 +113,8 @@ data class OwnShow(
     val newsFeedIds: List<String>? = null,
     /** How many hours of news an episode reads. Absent is a day */
     val newsHours: Long? = null,
+    /** Whether an episode given nothing to read finds its own sources on the operator's trusted sites */
+    val research: Boolean? = null,
     val createdAt: Instant,
 )
 
@@ -135,6 +137,8 @@ data class OwnShowInput(
     val newsFeedIds: List<String>? = null,
     /** How many hours of news an episode reads. Absent is a day */
     val newsHours: Long? = null,
+    /** Whether an episode given nothing to read finds its own sources on the operator's trusted sites */
+    val research: Boolean? = null,
 )
 
 /** Asks one of the station's own shows for an episode. Everything is optional: a show with a standing subject needs nothing */

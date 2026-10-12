@@ -78,6 +78,11 @@ public sealed record Production
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<ProductionSource>? Sources { get; init; }
 
+    /// <summary>Whether it was asked to find its own sources on the operator's trusted sites</summary>
+    [JsonPropertyName("research")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Research { get; init; }
+
     /// <summary>Who presents it. Absent falls back to the station's active persona when a pass runs</summary>
     [JsonPropertyName("personaId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -195,6 +200,11 @@ public sealed record ProductionRequest
     [JsonPropertyName("sources")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<ProductionSource>? Sources { get; init; }
+
+    /// <summary>Given nothing to read, search the operator's trusted sites for its subject and read what comes back. Needs an enrichment plugin that can, such as the web search one with trusted sites</summary>
+    [JsonPropertyName("research")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Research { get; init; }
 
     [JsonPropertyName("personaId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

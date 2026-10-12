@@ -115,6 +115,9 @@ export class OwnShowsService {
                 title: episodeTitle(show, topic, Date.now(), stationZone(this.config)),
                 ...(brief === undefined ? {} : { brief }),
                 ...(sources.length === 0 ? {} : { sources }),
+                // Researched only when it was handed nothing to read: pasted text, a page or the news
+                // is what it was asked to be about, and the trusted sites are for when there is none.
+                ...(sources.length === 0 && show.research === true ? { research: true } : {}),
                 ...(show.personaId === undefined ? {} : { personaId: show.personaId }),
                 ...(show.targetMs === undefined ? {} : { targetMs: show.targetMs }),
                 ...(show.writingMode === undefined ? {} : { writingMode: show.writingMode }),
@@ -211,6 +214,7 @@ function writeOf(body: OwnShowInput): OwnShowWrite {
         ...(body.writingMode === undefined ? {} : { writingMode: body.writingMode }),
         ...(feeds.length === 0 ? {} : { newsFeedIds: feeds }),
         ...(body.newsHours === undefined ? {} : { newsHours: body.newsHours }),
+        ...(body.research === true ? { research: true as const } : {}),
     };
 }
 
@@ -225,6 +229,7 @@ function view(show: OwnShowRecord): OwnShow {
         ...(show.writingMode === undefined ? {} : { writingMode: show.writingMode }),
         ...(show.newsFeedIds === undefined ? {} : { newsFeedIds: [...show.newsFeedIds] }),
         ...(show.newsHours === undefined ? {} : { newsHours: show.newsHours }),
+        ...(show.research === true ? { research: true } : {}),
         createdAt: DateTime.fromMillis(show.createdAt),
     };
 }

@@ -65,6 +65,10 @@ export const Production = z.strictObject({
         .max(6)
         .optional()
         .describe('What it was handed to read. Its notes are taken from these by the research pass when nobody gave it any'),
+    research: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe("Whether it was asked to find its own sources on the operator's trusted sites"),
     personaId: z.string().max(100).optional().describe("Who presents it. Absent falls back to the station's active persona when a pass runs"),
     writingMode: z.enum(['quick', 'outlined', 'polished']).describe('How many passes to spend on it'),
     targetMs: z
@@ -149,6 +153,12 @@ export const ProductionRequest = z.strictObject({
         .max(6)
         .optional()
         .describe('What to read before writing it. Given sources and no notes, a research pass takes the notes out of these first'),
+    research: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Given nothing to read, search the operator's trusted sites for its subject and read what comes back. Needs an enrichment plugin that can, such as the web search one with trusted sites",
+        ),
     personaId: z.string().max(100).optional(),
     writingMode: z.enum(['quick', 'outlined', 'polished']).optional().describe("Absent takes the station's `render.productionWritingMode`"),
     targetMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1000)).optional(),

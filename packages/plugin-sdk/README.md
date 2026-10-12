@@ -696,6 +696,14 @@ prose worth extracting claims from, declare `enrichment` too and return it as a
 a rate limit and a query nothing matched are one outcome to every caller. Throw
 only for something the operator has to go and fix.
 
+**A subject that is not a record goes through enrichment, too.** When an
+operator asks the station to research a programme's subject, the host asks
+every `enrichment` plugin that implements the optional
+`enrichTopic({ query })` for `documents` about it, and reads them for claims
+exactly as it reads an artist's. Hand back only pages your plugin has the
+operator's leave to quote; the web search plugin answers from its trusted sites
+and nowhere else.
+
 Note what `search` is not. Looking for something to PLAY is `searchTracks` on
 the catalog capability, which answers with provider ids the station can resolve
 into audio. Nothing a search plugin returns can be scheduled.

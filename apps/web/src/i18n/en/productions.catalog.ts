@@ -65,6 +65,11 @@ export const productions = {
                 'One per line: the facts it may state. Given notes, it says nothing as fact that they do not give. Left empty, it talks from general knowledge and keeps the specifics vague.',
             placeholder: 'The TR-808 came out in 1980.\nRoland stopped making it in 1983, after about 12,000 had been built.',
         },
+        research: {
+            label: 'Research it on your trusted sites',
+            description:
+                'Given nothing to read, the station searches the sites you trust in the web search plugin for its subject and states only what it finds there.',
+        },
         sources: {
             label: 'Sources',
             description:

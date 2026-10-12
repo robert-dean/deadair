@@ -1,4 +1,4 @@
-import { ActionIcon, Button, Card, Group, NumberInput, Select, SimpleGrid, Stack, Text, Textarea, TextInput } from '@mantine/core';
+import { ActionIcon, Button, Card, Checkbox, Group, NumberInput, Select, SimpleGrid, Stack, Text, Textarea, TextInput } from '@mantine/core';
 import { DateTimePicker } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import type { ProductionRequest, ProductionSource } from '@deadair/sdk';
@@ -40,6 +40,8 @@ interface FormValues {
     notes: string;
     /** Sources, as typed: a page's address, pasted text, or both. One with neither is dropped on the way out. */
     sources: TypedSource[];
+    /** Given nothing to read, find something on the operator's trusted sites. */
+    research: boolean;
     kind: string;
     minutes: number | string;
     mode: string | null;
@@ -101,7 +103,18 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
         // Controlled, like the settings form: Mantine's uncontrolled default does not re-render an
         // input when its ERROR changes, so a refusal would be held and never drawn.
         mode: 'controlled',
-        initialValues: { title: '', brief: '', notes: '', sources: [], kind: 'podcast', minutes: '', mode: null, personaId: null, airAt: null },
+        initialValues: {
+            title: '',
+            brief: '',
+            notes: '',
+            sources: [],
+            research: false,
+            kind: 'podcast',
+            minutes: '',
+            mode: null,
+            personaId: null,
+            airAt: null,
+        },
         // The one thing that is actually required. It used to be enforced by a disabled button and a
         // silent `return`, which says nothing at all about why: a form that will not submit and will
         // not say why is the same failure as a line an operator mistyped.
@@ -118,6 +131,7 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
             ...(values.brief.trim().length === 0 ? {} : { brief: values.brief.trim() }),
             ...(notes.length === 0 ? {} : { notes }),
             ...(sources.length === 0 ? {} : { sources }),
+            ...(values.research && sources.length === 0 && notes.length === 0 ? { research: true } : {}),
             ...(typeof values.minutes === 'number' && values.minutes > 0 ? { targetMs: values.minutes * 60_000 } : {}),
             ...(values.mode === null ? {} : { writingMode: values.mode as ProductionRequest['writingMode'] }),
             ...(values.personaId === null ? {} : { personaId: values.personaId }),
@@ -223,6 +237,14 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
                                 {t('form.sources.add')}
                             </Button>
                         </Group>
+                        {/* Only for a production handed nothing to read, which is when there is
+                            anything to find. Its notes, or its sources, are what it was asked about. */}
+                        <Checkbox
+                            label={t('form.research.label')}
+                            description={t('form.research.description')}
+                            disabled={form.values.sources.length > 0 || form.values.notes.trim().length > 0}
+                            {...form.getInputProps('research', { type: 'checkbox' })}
+                        />
                     </Stack>
 
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">

@@ -72,6 +72,7 @@ function build(answers: string[], claimed: Partial<Production> = {}) {
         config,
         activity,
         {} as never,
+        {} as never,
         { id: 'job-1' } as never,
         {} as never,
         logger as never,
@@ -183,10 +184,22 @@ describe('the research pass', () => {
 
     function buildResearch(
         answers: string[],
-        options: { cancelled?: boolean; sources?: Production['sources']; read?: (url: string) => Promise<unknown> } = {},
+        options: {
+            cancelled?: boolean;
+            sources?: Production['sources'];
+            research?: boolean;
+            canResearch?: boolean;
+            read?: (url: string) => Promise<unknown>;
+            found?: unknown[];
+        } = {},
     ) {
         const claim = vi.fn(async () =>
-            production({ state: 'researching', writingMode: 'quick', sources: options.sources ?? [SOURCE], brief: 'the machine nobody wanted' }),
+            production({
+                state: 'researching',
+                writingMode: 'quick',
+                ...(options.research === true ? { research: true as const } : { sources: options.sources ?? [SOURCE] }),
+                brief: 'the machine nobody wanted',
+            }),
         );
         const saveNotes = vi.fn(async () => true);
         const saveSources = vi.fn(async () => true);
@@ -194,6 +207,7 @@ describe('the research pass', () => {
         const isCancelled = vi.fn(async () => options.cancelled ?? false);
         const productions = { claim, saveNotes, saveSources, fail, isCancelled } as never;
         const read = vi.fn(options.read ?? (async () => undefined));
+        const documentsAbout = vi.fn(async (_subject: string) => options.found ?? []);
 
         let at = 0;
         const converse = vi.fn(async (_request: { messages: { content: string }[] }) => ({
@@ -217,13 +231,14 @@ describe('the research pass', () => {
             config,
             { record: vi.fn(async () => {}) } as never,
             { read } as never,
+            { canResearch: () => options.canResearch ?? true, documentsAbout } as never,
             { id: 'job-1' } as never,
             {} as never,
             logger as never,
         );
 
         const research = (job as unknown as { research: (input: Production) => Promise<boolean> }).research.bind(job);
-        return { research, converse, saveNotes, saveSources, fail, read };
+        return { research, converse, saveNotes, saveSources, fail, read, documentsAbout };
     }
 
     it('writes the claims it could find in the source as the notes', async () => {
@@ -284,6 +299,40 @@ describe('the research pass', () => {
         expect(converse).not.toHaveBeenCalled();
     });
 
+    // Asked to research itself and handed nothing, a production finds pages about its subject on the
+    // operator's trusted sites, keeps them as its sources and takes notes from them as from any other.
+    it('finds pages about its subject when it was asked to research itself', async () => {
+        const page = { url: 'https://example.com/808', title: 'A history of the 808', text: SOURCE.text, retrievedAt: '2026-10-12T08:00:00.000Z' };
+        const answer = JSON.stringify({ facts: [{ claim: 'The TR-808 was released in 1980.', quote: 'The TR-808 came out in 1980.' }] });
+        const { research, documentsAbout, saveSources, saveNotes } = buildResearch([answer], { research: true, found: [page] });
+
+        expect(await research(production())).toBe(true);
+
+        expect(documentsAbout).toHaveBeenCalledWith('the machine nobody wanted');
+        expect(saveSources).toHaveBeenCalledWith('prod-1', [
+            { title: 'A history of the 808', url: 'https://example.com/808', text: SOURCE.text, retrievedAt: Date.parse(page.retrievedAt) },
+        ]);
+        expect(saveNotes).toHaveBeenCalledWith('prod-1', ['The TR-808 was released in 1980.']);
+    });
+
+    it('fails, rather than writing from general knowledge, when no trusted site had anything', async () => {
+        const { research, converse, fail } = buildResearch(['{}'], { research: true, found: [] });
+
+        expect(await research(production())).toBe(false);
+
+        expect(fail).toHaveBeenCalledWith('prod-1', 'no trusted site had anything on this');
+        expect(converse).not.toHaveBeenCalled();
+    });
+
+    it('says what to install when nothing can research a subject at all', async () => {
+        const { research, documentsAbout, fail } = buildResearch(['{}'], { research: true, canResearch: false });
+
+        expect(await research(production())).toBe(false);
+
+        expect(documentsAbout).not.toHaveBeenCalled();
+        expect(fail).toHaveBeenCalledWith('prod-1', expect.stringContaining('the web search plugin can, once it has trusted sites'));
+    });
+
     it('stops reading when the production was cancelled', async () => {
         const { research, converse, saveNotes } = buildResearch(['{}'], { cancelled: true });
 
@@ -319,6 +368,7 @@ describe('sending the beats to be spoken', () => {
             jobs,
             config,
             { record: vi.fn(async () => {}) } as never,
+            {} as never,
             {} as never,
             { id: 'job-1' } as never,
             {} as never,
@@ -413,6 +463,7 @@ describe('the last pass of a polished production', () => {
             config,
             { record: vi.fn(async () => {}) } as never,
             {} as never,
+            {} as never,
             { id: 'job-1' } as never,
             {} as never,
             logger as never,
@@ -470,6 +521,7 @@ describe('weather in a phone-in', () => {
             {} as never,
             config,
             { record: vi.fn(async () => {}) } as never,
+            {} as never,
             {} as never,
             { id: 'job-1' } as never,
             {} as never,
@@ -551,6 +603,7 @@ describe('ProduceProductionJob drafting a beat whose model fails', () => {
             {} as never,
             config,
             { record: vi.fn(async () => {}) } as never,
+            {} as never,
             {} as never,
             { id: 'job-1' } as never,
             {} as never,

@@ -137,6 +137,26 @@ describe('an episode made from a page', () => {
     });
 });
 
+describe('a show that researches its episodes', () => {
+    const RESEARCHED: OwnShowRecord = { ...WIND_DOWN, id: 'show-5', research: true };
+
+    it('asks for an episode given nothing to read to find its own sources', async () => {
+        const { service, commission } = build(RESEARCHED);
+
+        await service.requestEpisode('show-5', { topic: 'lighthouse keepers' });
+
+        expect(commission).toHaveBeenCalledWith(expect.objectContaining({ brief: 'lighthouse keepers', research: true }), { showId: 'show-5' });
+    });
+
+    it('reads what it was given instead when it was given something', async () => {
+        const { service, commission } = build(RESEARCHED);
+
+        await service.requestEpisode('show-5', { url: 'https://example.com/keepers' });
+
+        expect(commission).toHaveBeenCalledWith(expect.not.objectContaining({ research: true }), { showId: 'show-5' });
+    });
+});
+
 describe('OwnShowsService.create', () => {
     it('stores an empty box as nothing rather than as an empty string', async () => {
         const { service, shows } = build();

@@ -150,12 +150,13 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     // location: an operator's own word for a thing, and it does not stop being that word.
     subject: 'timeless',
 
-    // The moment, in the three shapes a writer can use and the one a guard can. A phrasing that
-    // names any of the first three stamps `claims_time_*`; `moment` is a number nothing is told,
+    // The moment, in the four shapes a writer can use and the one a guard can. A phrasing that
+    // names any of the first four stamps `claims_time_*`; `moment` is a number nothing is told,
     // carried for `namesWrongTimeOfDay` alone.
     clock: 'claims-time',
     greeting: 'claims-time',
     dayPart: 'claims-time',
+    weekday: 'claims-time',
     moment: 'not-spoken',
 
     // When it airs, what it is worth at the model slot, and what asked for it. The first two are

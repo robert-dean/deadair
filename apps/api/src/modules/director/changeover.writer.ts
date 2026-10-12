@@ -11,7 +11,7 @@ import {
     type RenderedTemplate,
     type TemplateInputs,
 } from './break.templates.js';
-import { saysTime } from './clock.words.js';
+import { timeClaimIn } from './clock.words.js';
 import { spoken } from './talk.break.writer.js';
 import { stationLanguage } from '#modules/stream/stream.settings.js';
 
@@ -131,6 +131,8 @@ export class ChangeoverWriter extends BreakWriter {
             ...(request.station === undefined ? {} : { station: request.station }),
             ...(dj.length === 0 ? {} : { dj }),
             ...(request.greeting === undefined ? {} : { greeting: request.greeting.words }),
+            ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart.words }),
+            ...(request.weekday === undefined ? {} : { weekday: request.weekday.words }),
             ...(outgoing === undefined || outgoing.length === 0 ? {} : { outgoing }),
             ...(change?.outgoingShow === undefined ? {} : { outgoingShow: change.outgoingShow }),
             ...(change?.incomingShow === undefined ? {} : { show: change.incomingShow }),
@@ -148,17 +150,17 @@ export class ChangeoverWriter extends BreakWriter {
         const chosen = choose(fits, (request.recent ?? []).slice(0, RECENT_WINDOW));
         this.lastTemplate = chosen.template;
 
+        const claimsTime = timeClaimIn(chosen.script, request.greeting, request.dayPart, request.weekday);
+
         return {
             script: chosen.script,
             label: 'Changeover',
             // What a player shows while it airs: the show it opens, which is what a listener glancing
             // at the screen wants to know, or the station's own name when the station opened none.
             listenerLabel: change?.incomingShow ?? request.station ?? 'Changeover',
-            // Only when the words really carry the greeting, as the welcome does: a phrasing whose
-            // greeting chunk was dropped made no claim about the time of day.
-            ...(request.greeting !== undefined && saysTime(chosen.script, request.greeting)
-                ? { claimsTime: { from: request.greeting.validFrom, until: request.greeting.validUntil } }
-                : {}),
+            // Only when the words really carry the greeting or the part of the day, as the welcome
+            // does: a phrasing whose greeting chunk was dropped made no claim about the time of day.
+            ...(claimsTime === undefined ? {} : { claimsTime }),
         };
     }
 

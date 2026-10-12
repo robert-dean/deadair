@@ -632,9 +632,18 @@ export interface BreakWriteRequest {
      * Read by the model bindings, which need it because {@link clock} is twelve-hour with no am or
      * pm — correct for a listener who is awake at the time and useless to a model, which will say
      * "tonight" over a breakfast show and be within every rule it was given. The deterministic
-     * writers ignore it: a phrasing an operator wrote already knows when it is for.
+     * writers fill `{{clock.daypart}}` from it, and stamp its window when a phrasing says it.
      */
     dayPart?: RoughTime;
+    /**
+     * Which day of the week this break airs on, where the station is, and the day that stays true for.
+     *
+     * Offered to the deterministic writers for `{{clock.weekday}}` and told to no model: a model
+     * writer has never been short of the day so much as of the half of it. A writer that USES it
+     * stamps it through {@link WrittenBreak.claimsTime}, so "Friday" written before midnight and
+     * re-projected past it is rewritten rather than aired.
+     */
+    weekday?: RoughTime;
     /**
      * The instant this break airs and the station's zone, for the guard rather than for the prompt.
      *

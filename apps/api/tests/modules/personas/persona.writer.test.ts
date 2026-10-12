@@ -258,12 +258,12 @@ describe('the self-check', () => {
 
     it('drops a broken phrasing BY THE LINE, keeping the ones that work', () => {
         const generated = readPersona(
-            answer({ templates: 'That was {{previous.title}}.\nHere comes {{next.album}}.\nYou are with {{station.name}}.' }),
+            answer({ templates: 'That was {{previous.title}}.\nHere comes {{next.label}}.\nYou are with {{station.name}}.' }),
         )!;
 
         // Five good phrasings and one broken one is five phrasings.
         expect(generated.draft.templates).toBe('That was {{previous.title}}.\nYou are with {{station.name}}.');
-        expect(generated.droppedTemplates).toEqual(['Here comes {{next.album}}.']);
+        expect(generated.droppedTemplates).toEqual(['Here comes {{next.label}}.']);
     });
 
     it('drops a phrasing carrying a lone bracket, which no other check could see', () => {
@@ -304,7 +304,7 @@ describe('the self-check', () => {
     });
 
     it('leaves the templates unset when every line was broken, so the station phrasings apply', () => {
-        const generated = readPersona(answer({ templates: 'Here comes {{next.album}}.' }))!;
+        const generated = readPersona(answer({ templates: 'Here comes {{next.label}}.' }))!;
 
         expect(generated.draft.templates).toBeUndefined();
     });
@@ -324,10 +324,16 @@ describe('personaPrompt on a station that does not broadcast in English', () => 
 
         expect(system).toContain('This station broadcasts in Dutch.');
         expect(system).toContain('Write every other field in English.');
-        expect(system).toContain('Do not use {{clock.rough}} or {{greeting}}');
+        expect(system).toContain('Do not use {{clock.rough}}, {{clock.daypart}}, {{clock.weekday}} or {{greeting}}');
     });
 
     it('says nothing about language on an English station', () => {
         expect(personaPrompt('anything')[0]!.content).not.toContain('This station broadcasts in');
+    });
+
+    it('asks an English station for a phrasing naming the part of the day', () => {
+        const system = personaPrompt('anything')[0]!.content;
+
+        expect(system).toContain('(6) one using {{clock.daypart}}');
     });
 });

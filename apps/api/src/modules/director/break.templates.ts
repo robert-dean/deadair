@@ -10,9 +10,8 @@
  * ## The syntax is two things
  *
  * `{{next.title}}` is a value. The vocabulary is an explicit map below rather than a walk into
- * whatever object is handy, which is what makes `{{next.album}}` one row to add when enrichment
- * lands instead of a parser change, and what makes a typo a template that is not used rather than a
- * sentence with a hole in it.
+ * whatever object is handy, which is what made `{{next.album}}` one row to add rather than a parser
+ * change, and what makes a typo a template that is not used rather than a sentence with a hole in it.
  *
  * `[[ ... ]]` is an optional chunk, dropped when what is inside it cannot be filled. That is what
  * carries the "This is {station}" phrasing, which is one sentence plus an optional back-announce
@@ -60,6 +59,18 @@ export interface TemplateInputs {
      * template that does not apply.
      */
     clock?: string;
+    /**
+     * Which part of the day it is, as words a sentence can carry: "this morning", "tonight".
+     *
+     * {@link clock}'s companion, and the one a stock station actually fills: the hour is behind
+     * `clock.namesTheTime`, which is off by default, while this is offered on every break that knows
+     * when it airs. It covers all twenty-four hours, unlike {@link greeting}, because the small hours
+     * are exactly when a presenter wants "tonight". Absent for a break with no air time, and a
+     * phrasing naming it is then simply not used.
+     */
+    dayPart?: string;
+    /** The day of the week, "Friday", wherever {@link dayPart} is filled and for the same reason. */
+    weekday?: string;
     /**
      * The stories of a bulletin, already assembled into sentences.
      *
@@ -234,7 +245,16 @@ const trackFields = (which: 'previous' | 'next'): Record<string, Resolver> => ({
     // own name have no catalogue furniture to strip.
     [`${which}.chart.rank`]: inputs => (inputs[which]?.chart === undefined ? undefined : String(inputs[which]!.chart!.rank)),
     [`${which}.chart.name`]: inputs => inputs[which]?.chart?.name,
+    // What the running order already knows about the record, absent rather than guessed when it does
+    // not. The album is read as a title and goes through `spoken`, so "(Deluxe Edition)" is never
+    // said; the year is a number and is kept out of it with the chart's two.
+    [`${which}.album`]: inputs => inputs[which]?.album,
+    [`${which}.year`]: inputs => yearOf(inputs[which]?.year),
 });
+
+/** A year a presenter could say, or nothing: a zero or a negative is a catalogue's placeholder. */
+const yearOf = (year: number | undefined): string | undefined =>
+    year === undefined || !Number.isInteger(year) || year <= 0 ? undefined : String(year);
 
 const VALUES: Record<string, Resolver> = {
     ...trackFields('previous'),
@@ -245,6 +265,9 @@ const VALUES: Record<string, Resolver> = {
     // catalogue furniture to strip. The filter there excludes it already, by naming the two
     // prefixes that ARE read as titles, so this needs nothing.
     'clock.rough': inputs => inputs.clock,
+    // Out of `SPOKEN_VALUES` for the same reason: "this morning" is the station's own phrase.
+    'clock.daypart': inputs => inputs.dayPart,
+    'clock.weekday': inputs => inputs.weekday,
     // Out of `SPOKEN_VALUES` for the same reason as the two around it: the stories arrive already
     // speakable (see `BreakStory.headline`), and `spoken` strips catalogue furniture off a TITLE,
     // which would be the wrong operation entirely on a sentence.
@@ -312,25 +335,35 @@ const CHUNK = /\[\[(.*?)\]\]/gs;
  * capital where they open a sentence. A title or a credit is never touched: "k.d. lang" opening a
  * line is how she spells it.
  */
-const PHRASE_VALUES: readonly string[] = ['greeting', 'clock.rough'];
+const PHRASE_VALUES: readonly string[] = ['greeting', 'clock.rough', 'clock.daypart'];
 
 /** Which placeholders are read out loud, and so go through {@link spoken}. */
 const SPOKEN_VALUES = new Set(
-    Object.keys(VALUES).filter(key => (key.startsWith('previous.') || key.startsWith('next.')) && !key.includes('.chart.')),
+    Object.keys(VALUES).filter(key => (key.startsWith('previous.') || key.startsWith('next.')) && !key.includes('.chart.') && !key.endsWith('.year')),
 );
 
 /**
  * The inputs a template may be filled from on a station that is not English: everything but the
  * values the station writes in English itself.
  *
- * The time and the greeting are English phrasings ("just after nine", "good morning"), and the
- * weather report, the almanac report and its date are English sentences the floors build. Dropped
- * rather than translated, so a German phrasing that names one of them simply does not fit, which is
- * the renderer's ordinary way of saying a template does not apply. What is left is names, titles,
- * headlines and the place, which are whatever language they were written in.
+ * The time, the part of the day, the day and the greeting are English phrasings ("just after nine",
+ * "this morning", "Friday", "good morning"), and the weather report, the almanac report and its date are English
+ * sentences the floors build. Dropped rather than translated, so a German phrasing that names one of
+ * them simply does not fit, which is the renderer's ordinary way of saying a template does not apply.
+ * What is left is names, titles, headlines and the place, which are whatever language they were
+ * written in.
  */
 function withoutEnglishValues(inputs: TemplateInputs): TemplateInputs {
-    const { clock: _clock, greeting: _greeting, weather: _weather, almanac: _almanac, almanacDate: _almanacDate, ...rest } = inputs;
+    const {
+        clock: _clock,
+        dayPart: _dayPart,
+        weekday: _weekday,
+        greeting: _greeting,
+        weather: _weather,
+        almanac: _almanac,
+        almanacDate: _almanacDate,
+        ...rest
+    } = inputs;
     return rest;
 }
 

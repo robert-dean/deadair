@@ -99,7 +99,7 @@ export const MAX_OUTPUT_TOKENS = 4000;
  * A persona's phrasings are the floor under an ordinary talk break, and a break between two records
  * has no business reading a headline or saying good evening — the shapes that own those values
  * supply them. Named as an exclusion rather than by listing what IS offered, so `{{next.album}}`
- * reaches an operator's generated persona on the day enrichment adds it.
+ * reached an operator's generated persona the day it was added, with no change here.
  */
 const KIND_SPECIFIC_VALUES = new Set(['news.headlines', 'greeting']);
 
@@ -221,12 +221,13 @@ export function personaPrompt(description: string, language?: string): LlmMessag
                 // simply one the station never says — a wasted line rather than a wrong one.
                 '- Never put the whole phrasing in brackets. Something must always be left outside them, or there is no sentence when the optional parts drop away.',
                 '- {{clock.rough}} reads as a phrase like "just after nine", so write "It\'s {{clock.rough}}" and never "At the {{clock.rough}}".',
+                '- {{clock.daypart}} reads as "this morning", "this afternoon", "this evening" or "tonight", so write "with you {{clock.daypart}}" and never "in the {{clock.daypart}}".',
                 // Both are literal text that reaches the script and gets read out. Checked now, so
                 // asking is what stops the station paying for a line it will throw away.
                 '- Use no square brackets except the [[double]] kind, and do not wrap a phrasing in quotation marks. Anything else you type is read out loud exactly as written.',
                 // Named shapes rather than a count alone, because five variations on one shape leave
                 // the station with nothing to say at the top of an order or on the hour.
-                '- Write one of each of these, in this order: (1) what just played and then what is next, (2) only what is next, for the top of a show when nothing has played yet, (3) the station name with both records in [[brackets]], (4) only what just played, (5) one using {{clock.rough}}.',
+                '- Write one of each of these, in this order: (1) what just played and then what is next, (2) only what is next, for the top of a show when nothing has played yet, (3) the station name with both records in [[brackets]], (4) only what just played, (5) one using {{clock.rough}}, (6) one using {{clock.daypart}}.',
                 '- diction is HOW they talk and quirks are WHAT they talk about. Do not put a subject in diction.',
                 // The distinction that decides whether the rotation is worth anything: a rule
                 // repeated five times is one preoccupation written out five ways, and the station
@@ -248,9 +249,9 @@ export function personaPrompt(description: string, language?: string): LlmMessag
                     ? []
                     : [
                           `- This station broadcasts in ${languageName(language)}. Write "samples", "dictionMarkers", "catchphrases", "avoid", the "stories" and the "templates" in ${languageName(language)}, because they are said on air or checked against what is. Write every other field in English.`,
-                          // The two values the station fills in English, which a phrasing on this
+                          // The values the station fills in English, which a phrasing on this
                           // station never gets, so a template that names one is never said.
-                          '- Do not use {{clock.rough}} or {{greeting}} in the templates: this station fills them in English, so a phrasing that names one is never used. Write the fifth phrasing around the station name instead.',
+                          '- Do not use {{clock.rough}}, {{clock.daypart}}, {{clock.weekday}} or {{greeting}} in the templates: this station fills them in English, so a phrasing that names one is never used. Write the fifth and sixth phrasings around the station name instead.',
                       ]),
             ].join('\n'),
         },

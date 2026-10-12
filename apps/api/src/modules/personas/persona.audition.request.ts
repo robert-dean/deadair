@@ -34,7 +34,7 @@
  */
 
 import { TALK_BREAK_KIND } from '#modules/director/talk.break.writer.js';
-import { dayGreeting, dayPart } from '#modules/director/clock.words.js';
+import { dayGreeting, dayPart, weekday } from '#modules/director/clock.words.js';
 import { occasionalQuirkOf, preoccupationOf } from './persona.sheet.js';
 import type { BreakTrack, BreakWriteRequest } from '#modules/director/break.writer.js';
 import type { Persona } from './persona.js';
@@ -137,6 +137,7 @@ export function auditionRequest(input: AuditionRequestInput): BreakWriteRequest 
         // does not.
         ...(greeting === undefined ? {} : { greeting }),
         dayPart: dayPart(input.now, input.zone),
+        weekday: weekday(input.now, input.zone),
         moment: { at: input.now, zone: input.zone },
         // The station is always more important than hearing what it would have said. An audition
         // queues behind every break and refill and is taken off the model the moment one arrives, at

@@ -159,6 +159,16 @@ describe('writing one', () => {
         expect(written?.claimsTime).toEqual({ from: DAY.from, until: DAY.until });
     });
 
+    it('narrows the day to the part of it the phrasing named', async () => {
+        const { writer } = build({ [ALMANAC_BREAK_KEYS.templates]: 'Here we go {{clock.daypart}}. {{almanac.report}}' });
+        const dayPart = { words: 'this morning', validFrom: DAY.from + 5 * 3_600_000, validUntil: DAY.from + 12 * 3_600_000 };
+
+        const written = await writer.write(request({ dayPart }));
+
+        expect(written?.script).toMatch(/^Here we go this morning\./);
+        expect(written?.claimsTime).toEqual({ from: dayPart.validFrom, until: dayPart.validUntil });
+    });
+
     it('records which phrasing produced the line', async () => {
         const { writer } = build({ [ALMANAC_BREAK_KEYS.templates]: 'Here we go. {{almanac.report}}' });
 

@@ -49,8 +49,8 @@ OTHER kinds (welcome, jingle, changeover, news, weather, the date) have no per-c
 station-wide set each: the `phrasings` setting group, which no settings section draws and the Voice page's
 Phrasings tab does (`SettingsGroupPage`). Their keys keep the `rotation.` prefix from when they sat at the
 bottom of Rotation, so a stored row still answers. `{{next.title}}` resolves through an
-explicit map in `break.templates.ts` (which is why `{{next.album}}` is one row to add when enrichment
-lands), `[[double brackets]]` mark a part dropped when it cannot be filled, and a template with an
+explicit map in `break.templates.ts` (which is why `{{next.album}}` and `{{next.year}}` were one row
+each), `[[double brackets]]` mark a part dropped when it cannot be filled, and a template with an
 unknown placeholder is never used and is logged once, quoted. A phrasing is filled in ONE pass over its
 own text, once its chunks are settled, so a value is never read as template: a record titled
 `Song {{station.name}}` airs as written rather than as the station's name, and one titled `Song {{station}}`
@@ -59,6 +59,17 @@ no longer rules out every phrasing that names it inside a chunk. Only the map's 
 the operator's: a placeholder outside an optional chunk that cannot be filled means the phrasing does
 not apply, and a phrasing saying nothing about the record just finished is only offered where there
 is none.
+
+**A phrasing can say the time three ways, and only one of them is on by default.** `{{clock.rough}}` ("just
+after nine") is filled only when `clock.namesTheTime` is on, and it is off, because the projection it is
+read from runs ahead of the order by more than its own window. `{{greeting}}` has a hole in the small hours on
+purpose. `{{clock.daypart}}` ("this morning", "tonight") covers all twenty-four hours and is filled on every
+break that knows when it airs, so it is the one a persona's phrasings can rely on. `{{clock.weekday}}`
+("Friday") rides beside it off the same instant, claimed until the station's own midnight. Every floor that fills any
+of them stamps `claimsTime` from `timeClaimIn` over what the chosen script actually SAID, so "this morning"
+re-projected past noon is rewritten rather than aired. The almanac's whole-day claim is narrowed the same
+way: it used to stamp the day alone, so a phrasing there that also said the hour held a claim a day wide.
+The jingle is offered none of them: it is placed an hour ahead and never re-checked against a claim.
 
 **A jingle is a kind with a floor and nothing above it.** `JingleWriter` writes `jingle` out of
 `rotation.jingleTemplates` and is the third deterministic writer with no model in front of it, after
@@ -1018,7 +1029,7 @@ them is currently a single English constant.
 
 **Outside English the station's own phrasings are not a floor.** `parseTemplates` falls back to nothing
 rather than to the built-in English set, and the values the station can only fill in English (the time,
-the greeting, the weather and almanac reports) are left out of what a template may use, so a German phrasing
+the part of the day, the day of the week, the greeting, the weather and almanac reports) are left out of what a template may use, so a German phrasing
 that names one does not fit. The operator's lines and a persona's still apply. What that costs is real and
 chosen: a break whose model declined and which nobody wrote a phrasing for is dropped, and a warm-up, a
 jingle or a dedication (none of which has a model in front of it, or a box for other lines in the last case)

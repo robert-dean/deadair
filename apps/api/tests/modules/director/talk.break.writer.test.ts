@@ -354,6 +354,34 @@ describe('TalkBreakWriter and the time', () => {
         expect(written?.claimsTime).toBeUndefined();
     });
 
+    it('claims the window of the part of the day when that is what it said', async () => {
+        const dayPart = { words: 'this morning', validFrom: 2_000, validUntil: 900_000 };
+        const morning = speaking('That was {{previous.title}} {{clock.daypart}}.');
+        const written = await morning.write({ kind: TALK_BREAK_KIND, previous, next, station: 'Deadair', dayPart });
+
+        expect(written?.script).toBe('That was Solid Air this morning.');
+        expect(written?.claimsTime).toEqual({ from: 2_000, until: 900_000 });
+    });
+
+    it('claims the narrower window when it said both the time and the part of the day', async () => {
+        const dayPart = { words: 'this morning', validFrom: 2_000, validUntil: 900_000 };
+        const both = speaking("It's {{clock.rough}} {{clock.daypart}}. That was {{previous.title}}.");
+        const written = await both.write({ kind: TALK_BREAK_KIND, previous, next, station: 'Deadair', clock, dayPart });
+
+        expect(written?.claimsTime).toEqual({ from: 2_000, until: 500_000 });
+    });
+
+    it('claims the day when it named the day', async () => {
+        const friday = { words: 'Friday', validFrom: 0, validUntil: 86_400_000 };
+        const dayPart = { words: 'tonight', validFrom: 80_000_000, validUntil: 104_000_000 };
+        const named = speaking("It's {{clock.weekday}} {{clock.daypart}}. That was {{previous.title}}.");
+        const written = await named.write({ kind: TALK_BREAK_KIND, previous, next, station: 'Deadair', dayPart, weekday: friday });
+
+        expect(written?.script).toBe("It's Friday tonight. That was Solid Air.");
+        // Tonight runs past midnight and Friday does not, so the claim ends where the day does.
+        expect(written?.claimsTime).toEqual({ from: 80_000_000, until: 86_400_000 });
+    });
+
     it('claims nothing when the phrasing it picked left the time out', async () => {
         // Two phrasings fit and only one names the hour. Whichever is chosen, the claim has to
         // describe what was actually said — the same rule `claimsNext` follows.

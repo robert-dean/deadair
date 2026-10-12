@@ -11,7 +11,7 @@ import {
     type RenderedTemplate,
     type TemplateInputs,
 } from './break.templates.js';
-import { saysTime } from './clock.words.js';
+import { timeClaimIn } from './clock.words.js';
 import { spoken } from './talk.break.writer.js';
 import { stationLanguage } from '#modules/stream/stream.settings.js';
 
@@ -116,6 +116,8 @@ export class WelcomeWriter extends BreakWriter {
             ...(request.station === undefined ? {} : { station: request.station }),
             ...(dj.length === 0 ? {} : { dj }),
             ...(request.greeting === undefined ? {} : { greeting: request.greeting.words }),
+            ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart.words }),
+            ...(request.weekday === undefined ? {} : { weekday: request.weekday.words }),
         };
 
         // Read per greeting rather than held, so an operator editing them hears the change on the
@@ -133,18 +135,18 @@ export class WelcomeWriter extends BreakWriter {
         const chosen = choose(fits, (request.recent ?? []).slice(0, RECENT_WINDOW));
         this.lastTemplate = chosen.template;
 
+        const claimsTime = timeClaimIn(chosen.script, request.greeting, request.dayPart, request.weekday);
+
         return {
             script: chosen.script,
             label: 'Welcome',
             // One word, and it is the same word either way round.
             listenerLabel: 'Welcome',
             claimsNext: chosen.saysNext,
-            // Only when the words really carry the greeting, which is the same answered-rather-than-
-            // assumed posture the talk break takes: a phrasing whose greeting chunk was dropped made
-            // no claim about the time of day and must not be thrown away for one.
-            ...(request.greeting !== undefined && saysTime(chosen.script, request.greeting)
-                ? { claimsTime: { from: request.greeting.validFrom, until: request.greeting.validUntil } }
-                : {}),
+            // Only when the words really carry the greeting or the part of the day, which is the same
+            // answered-rather-than-assumed posture the talk break takes: a phrasing whose greeting
+            // chunk was dropped made no claim about the time of day and must not be thrown away for one.
+            ...(claimsTime === undefined ? {} : { claimsTime }),
         };
     }
 

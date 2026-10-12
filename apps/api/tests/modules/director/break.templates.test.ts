@@ -299,12 +299,79 @@ describe('the floor on a station that does not broadcast in English', () => {
         expect(parseTemplates('Das war {{previous.title}}.', WELCOME_TEMPLATES, 'de')).toEqual(['Das war {{previous.title}}.']);
     });
 
-    it('does not fill a phrasing with the English time or greeting', () => {
-        const inputs: TemplateInputs = { station: 'Radio Nord', clock: 'just after nine', greeting: 'good morning' };
-        const templates = ['Es ist {{clock.rough}} bei {{station.name}}.', '{{greeting}} bei {{station.name}}.', 'Hier ist {{station.name}}.'];
+    it('does not fill a phrasing with the English time, part of the day or greeting', () => {
+        const inputs: TemplateInputs = {
+            station: 'Radio Nord',
+            clock: 'just after nine',
+            dayPart: 'this morning',
+            weekday: 'Friday',
+            greeting: 'good morning',
+        };
+        const templates = [
+            'Es ist {{clock.rough}} bei {{station.name}}.',
+            '{{station.name}}, {{clock.daypart}}.',
+            '{{clock.weekday}} bei {{station.name}}.',
+            '{{greeting}} bei {{station.name}}.',
+            'Hier ist {{station.name}}.',
+        ];
 
         expect(usable(templates, inputs, spoken, 'de').map(one => one.script)).toEqual(['Hier ist Radio Nord.']);
-        expect(usable(templates, inputs, spoken)).toHaveLength(3);
+        expect(usable(templates, inputs, spoken)).toHaveLength(5);
+    });
+});
+
+describe('the part of the day', () => {
+    const station = 'The Far Frequency';
+
+    it('fills {{clock.daypart}} mid-sentence as the phrase it is', () => {
+        const rendered = render("You're with {{station.name}} {{clock.daypart}}.", { station, dayPart: 'this morning' });
+
+        expect(rendered.script).toBe("You're with The Far Frequency this morning.");
+    });
+
+    it('capitalises it where it opens a sentence', () => {
+        const rendered = render('[[{{clock.daypart}}, ]]this is {{station.name}}.', { station, dayPart: 'tonight' });
+
+        expect(rendered.script).toBe('Tonight, this is The Far Frequency.');
+    });
+
+    it('names the day beside it, as it is spelled', () => {
+        const rendered = render("It's {{clock.weekday}} {{clock.daypart}} on {{station.name}}.", {
+            station,
+            dayPart: 'this evening',
+            weekday: 'Friday',
+        });
+
+        expect(rendered.script).toBe("It's Friday this evening on The Far Frequency.");
+    });
+
+    it('drops the chunk carrying it on a break with no air time', () => {
+        const rendered = render('This is {{station.name}}[[ {{clock.daypart}}]].', { station });
+
+        expect(rendered.script).toBe('This is The Far Frequency.');
+    });
+});
+
+describe('the album and the year', () => {
+    const dated = { ...previous, album: 'Rumours [Deluxe Edition]', year: 1977 };
+
+    it('names the album as a title and the year as a number', () => {
+        const rendered = render('That was {{previous.title}}, from {{previous.album}}[[, {{previous.year}}]].', { previous: dated, next });
+
+        expect(rendered.script).toBe(`That was ${previous.title}, from Rumours, 1977.`);
+        expect(rendered.saysPrevious).toBe(true);
+    });
+
+    it('drops the chunk for a record the order knows neither of', () => {
+        const rendered = render('That was {{previous.title}}[[, from {{previous.album}}]][[ in {{previous.year}}]].', { previous, next });
+
+        expect(rendered.script).toBe(`That was ${previous.title}.`);
+    });
+
+    it('says no year for one a catalogue filled with zero', () => {
+        const rendered = render('That was {{previous.title}}[[ in {{previous.year}}]].', { previous: { ...previous, year: 0 }, next });
+
+        expect(rendered.script).toBe(`That was ${previous.title}.`);
     });
 });
 

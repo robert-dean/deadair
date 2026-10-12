@@ -15,6 +15,7 @@ import {
     type RenderedTemplate,
     type TemplateInputs,
 } from './break.templates.js';
+import { timeClaimIn } from './clock.words.js';
 import { spoken } from './talk.break.writer.js';
 import { stationLanguage } from '#modules/stream/stream.settings.js';
 
@@ -159,6 +160,8 @@ export class AlmanacBreakWriter extends BreakWriter {
             ...(dj.length === 0 ? {} : { dj }),
             ...(request.clock === undefined ? {} : { clock: request.clock.words }),
             ...(request.greeting === undefined ? {} : { greeting: request.greeting.words }),
+            ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart.words }),
+            ...(request.weekday === undefined ? {} : { weekday: request.weekday.words }),
         };
 
         const language = stationLanguage(this.config);
@@ -194,11 +197,12 @@ export class AlmanacBreakWriter extends BreakWriter {
             // `almanac.day.ts`, and `break.claims.ts` drops a break that reaches its slot outside it
             // exactly as it drops an expired clock phrasing.
             //
-            // It replaces rather than accompanies a clock claim: a phrasing here can also say what
-            // time it is, and the narrower of the two windows is always this one's — a rough time is
-            // minutes wide and a day is a day. Nothing needs to choose, because `claimsTime` holds
-            // one window and the day is the one every phrasing here earns.
-            claimsTime: { from: day.from, until: day.until },
+            // NARROWED by anything else the words said about the time. A phrasing here can also say
+            // the hour, greet, or name the part of the day, and each of those goes stale long before
+            // the date does: "this morning" airing at half past twelve is wrong however right the
+            // history still is. This used to stamp the day alone, on the reasoning that it was the
+            // narrower window, which had it backwards.
+            claimsTime: within(day, timeClaimIn(chosen.script, request.clock, request.greeting, request.dayPart, request.weekday)),
         };
     }
 
@@ -245,6 +249,12 @@ export function reportOf(entry: AlmanacEntry): string {
     if (entry.kind === 'death') return `Died on this day in ${year}: ${text}.`;
 
     return `On this day in ${year}: ${text}.`;
+}
+
+/** The station's day, narrowed by whatever other claim about the time a script made. */
+function within(day: StationDay, said: { from: number; until: number } | undefined): { from: number; until: number } {
+    if (said === undefined) return { from: day.from, until: day.until };
+    return { from: Math.max(day.from, said.from), until: Math.min(day.until, said.until) };
 }
 
 /**

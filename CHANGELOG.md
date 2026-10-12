@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.59.0] — 2026-10-12
+
+- Phrasings can name a record's album and year with `{{previous.album}}`, `{{previous.year}}`, `{{next.album}}` and `{{next.year}}`, wherever the running order knows them. Edition furniture such as "(Deluxe Edition)" is left off the album as it is off a title, and a phrasing that needs one of them is skipped, or drops its optional part, for a record that has none. The persona editor no longer flags them as unknown.
+- Phrasings can name the part of the day with `{{clock.daypart}}` ("this morning", "this afternoon", "this evening", "tonight"). Unlike `{{clock.rough}}`, which needs `clock.namesTheTime` switched on, it is filled on every break that knows when it airs, in the talk, news, weather, date, welcome, changeover and warm-up phrasings. A break that says it is claimed only until that part of the day ends, so one that slides past noon is rewritten rather than aired. The persona editor no longer flags it as unknown. A date break whose phrasing also said the time is now claimed only as long as that time holds, rather than all day.
+- Phrasings can name the day of the week with `{{clock.weekday}}` ("Friday"), in the station's own time zone, wherever `{{clock.daypart}}` is filled. A break that says it is claimed only until the station's midnight, so one written late on a Friday and moved past midnight is rewritten rather than aired. Like the time and the greeting it is English, so a station broadcasting in another language never fills it. The persona editor no longer flags it as unknown.
+- Generating a persona now asks for a sixth phrasing that names the part of the day with `{{clock.daypart}}`, so a new character has a time-aware line that airs on a stock station. The fifth, built on `{{clock.rough}}`, airs only when `clock.namesTheTime` is on.
+
 ## [0.58.1] — 2026-10-12
 
 - A persona audition now shows the host each sound effect's cue and placement, as an on-air break does. Before, an audition offered the soundboard as bare names, so a cue set on a pad could not be auditioned at all.
@@ -1368,7 +1375,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.58.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.59.0...HEAD
+[0.59.0]: https://github.com/robert-dean/deadair/compare/v0.58.1...v0.59.0
 [0.58.1]: https://github.com/robert-dean/deadair/compare/v0.58.0...v0.58.1
 [0.58.0]: https://github.com/robert-dean/deadair/compare/v0.57.0...v0.58.0
 [0.57.0]: https://github.com/robert-dean/deadair/compare/v0.56.0...v0.57.0

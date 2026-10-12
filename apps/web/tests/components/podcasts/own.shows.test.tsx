@@ -25,8 +25,11 @@ vi.mock('../../../src/api/client', () => ({
             deleteOwnShow: vi.fn(),
         },
         personas: { listPersonas: async () => ({ personas: [] }) },
+        news: { listFeeds: (...args: unknown[]) => listFeeds(...args) },
     },
 }));
+
+const listFeeds = vi.fn();
 
 const WIND_DOWN: OwnShow = {
     id: 'show-1',
@@ -50,6 +53,7 @@ const episode = (over: Partial<Production> = {}): Production => ({
 });
 
 beforeEach(() => {
+    listFeeds.mockResolvedValue({ feeds: [] });
     listOwnShows.mockResolvedValue({ shows: [WIND_DOWN] });
     listOwnShowEpisodes.mockResolvedValue({ productions: [] });
 });
@@ -116,9 +120,60 @@ describe('OwnShows', () => {
     });
 });
 
+describe('a show that reads the news', () => {
+    it('starts News in depth reading every feed the station has, over a day', async () => {
+        listOwnShows.mockResolvedValue({ shows: [] });
+        listFeeds.mockResolvedValue({
+            feeds: [
+                { id: 'deadair.rss:world', pluginId: 'deadair.rss', name: 'World' },
+                { id: 'deadair.rss:tech', pluginId: 'deadair.rss', name: 'Tech' },
+            ],
+        });
+        createOwnShow.mockResolvedValue({ ...WIND_DOWN, id: 'show-2' });
+        const user = setupUser();
+        render(<OwnShows />);
+
+        await user.click(await screen.findByRole('button', { name: 'New show' }));
+        await screen.findByText('News it reads');
+        await user.click(screen.getByRole('button', { name: 'News in depth' }));
+        await user.click(screen.getByRole('button', { name: 'Make the show' }));
+
+        expect(createOwnShow).toHaveBeenCalledWith(
+            expect.objectContaining({ title: 'News in depth', newsFeedIds: ['deadair.rss:world', 'deadair.rss:tech'], newsHours: 24 }),
+        );
+    });
+
+    it('says so on its card', async () => {
+        listOwnShows.mockResolvedValue({ shows: [{ ...WIND_DOWN, subject: undefined, newsFeedIds: ['deadair.rss:world'], newsHours: 6 }] });
+
+        render(<OwnShows />);
+
+        expect(await screen.findByText('Reads the news on 1 feed from the last 6 hours.')).toBeInTheDocument();
+    });
+
+    it('leaves the window out for a show that reads no news', () => {
+        expect(
+            showBodyOf({ title: 'Wind-down', description: '', subject: '', personaId: null, minutes: '', mode: null, newsFeedIds: [], newsHours: 6 }),
+        ).toEqual({
+            title: 'Wind-down',
+        });
+    });
+});
+
 describe('showBodyOf', () => {
     it('drops the empty boxes and turns minutes into milliseconds', () => {
-        expect(showBodyOf({ title: ' News in depth ', description: ' ', subject: 'the day', personaId: null, minutes: 15, mode: null })).toEqual({
+        expect(
+            showBodyOf({
+                title: ' News in depth ',
+                description: ' ',
+                subject: 'the day',
+                personaId: null,
+                minutes: 15,
+                mode: null,
+                newsFeedIds: [],
+                newsHours: 6,
+            }),
+        ).toEqual({
             title: 'News in depth',
             subject: 'the day',
             targetMs: 15 * 60_000,

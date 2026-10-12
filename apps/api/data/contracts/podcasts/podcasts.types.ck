@@ -81,6 +81,8 @@ contract OwnShow: { # A show the station makes for itself: a saved recipe for a 
     personaId?: string(max=100) # Who presents it. Absent is whoever is presenting when it is made
     targetMs?: int(min=60000, max=7200000) # How long an episode runs. Absent is the station's production length
     writingMode?: enum(quick, outlined, polished) # How much of the model an episode is worth. Absent is the station's default
+    newsFeedIds?: array(string(min=1, max=400), max=20) # The station's news feeds an episode reads, by their qualified ids. Absent or empty is a show that does not read the news
+    newsHours?: int(min=1, max=168) # How many hours of news an episode reads. Absent is a day
     createdAt: readonly datetime
 }
 
@@ -91,6 +93,6 @@ contract OwnShowList: {
 contract OwnEpisodeRequest: { # Asks one of the station's own shows for an episode. Everything is optional: a show with a standing subject needs nothing
     topic?: string(max=4000) # What this episode is about. Absent is the show's own subject
     sourceTitle?: string(max=300) # What the pasted text is called
-    text?: string(max=20000) # Something for it to read first. The episode states only what it can find in this
+    text?: string(max=20000) # Something for it to read first. The episode states only what it can find in this. Given text, a show that reads the news reads this instead
     airAt?: datetime # When it should air. Absent is as soon as it is made
 }

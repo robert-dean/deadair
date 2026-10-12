@@ -240,6 +240,16 @@ public sealed record OwnShow
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public OwnShowWritingMode? WritingMode { get; init; }
 
+    /// <summary>The station's news feeds an episode reads, by their qualified ids. Absent or empty is a show that does not read the news</summary>
+    [JsonPropertyName("newsFeedIds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? NewsFeedIds { get; init; }
+
+    /// <summary>How many hours of news an episode reads. Absent is a day</summary>
+    [JsonPropertyName("newsHours")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? NewsHours { get; init; }
+
     [JsonPropertyName("createdAt")]
     public required DateTimeOffset CreatedAt { get; init; }
 }
@@ -275,6 +285,16 @@ public sealed record OwnShowInput
     [JsonPropertyName("writingMode")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public OwnShowWritingMode? WritingMode { get; init; }
+
+    /// <summary>The station's news feeds an episode reads, by their qualified ids. Absent or empty is a show that does not read the news</summary>
+    [JsonPropertyName("newsFeedIds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? NewsFeedIds { get; init; }
+
+    /// <summary>How many hours of news an episode reads. Absent is a day</summary>
+    [JsonPropertyName("newsHours")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? NewsHours { get; init; }
 }
 
 /// <summary>Asks one of the station's own shows for an episode. Everything is optional: a show with a standing subject needs nothing</summary>
@@ -290,7 +310,7 @@ public sealed record OwnEpisodeRequest
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SourceTitle { get; init; }
 
-    /// <summary>Something for it to read first. The episode states only what it can find in this</summary>
+    /// <summary>Something for it to read first. The episode states only what it can find in this. Given text, a show that reads the news reads this instead</summary>
     [JsonPropertyName("text")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Text { get; init; }

@@ -109,6 +109,10 @@ data class OwnShow(
     val targetMs: Long? = null,
     /** How much of the model an episode is worth. Absent is the station's default */
     val writingMode: OwnShowWritingMode? = null,
+    /** The station's news feeds an episode reads, by their qualified ids. Absent or empty is a show that does not read the news */
+    val newsFeedIds: List<String>? = null,
+    /** How many hours of news an episode reads. Absent is a day */
+    val newsHours: Long? = null,
     val createdAt: Instant,
 )
 
@@ -127,6 +131,10 @@ data class OwnShowInput(
     val targetMs: Long? = null,
     /** How much of the model an episode is worth. Absent is the station's default */
     val writingMode: OwnShowWritingMode? = null,
+    /** The station's news feeds an episode reads, by their qualified ids. Absent or empty is a show that does not read the news */
+    val newsFeedIds: List<String>? = null,
+    /** How many hours of news an episode reads. Absent is a day */
+    val newsHours: Long? = null,
 )
 
 /** Asks one of the station's own shows for an episode. Everything is optional: a show with a standing subject needs nothing */
@@ -136,7 +144,7 @@ data class OwnEpisodeRequest(
     val topic: String? = null,
     /** What the pasted text is called */
     val sourceTitle: String? = null,
-    /** Something for it to read first. The episode states only what it can find in this */
+    /** Something for it to read first. The episode states only what it can find in this. Given text, a show that reads the news reads this instead */
     val text: String? = null,
     /** When it should air. Absent is as soon as it is made */
     val airAt: Instant? = null,

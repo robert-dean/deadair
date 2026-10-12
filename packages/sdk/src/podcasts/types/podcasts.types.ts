@@ -124,6 +124,10 @@ export interface OwnShow {
     targetMs?: number;
     /** How much of the model an episode is worth. Absent is the station's default */
     writingMode?: 'quick' | 'outlined' | 'polished';
+    /** The station's news feeds an episode reads, by their qualified ids. Absent or empty is a show that does not read the news */
+    newsFeedIds?: string[];
+    /** How many hours of news an episode reads. Absent is a day */
+    newsHours?: number;
     createdAt: DateTime;
 }
 
@@ -140,6 +144,10 @@ export interface OwnShowInput {
     targetMs?: number;
     /** How much of the model an episode is worth. Absent is the station's default */
     writingMode?: 'quick' | 'outlined' | 'polished';
+    /** The station's news feeds an episode reads, by their qualified ids. Absent or empty is a show that does not read the news */
+    newsFeedIds?: string[];
+    /** How many hours of news an episode reads. Absent is a day */
+    newsHours?: number;
 }
 
 /** Rehydrates every wire-encoded scalar in a OwnShow into its runtime type. Mutates and returns `raw`. */
@@ -158,7 +166,7 @@ export interface OwnEpisodeRequest {
     topic?: string;
     /** What the pasted text is called */
     sourceTitle?: string;
-    /** Something for it to read first. The episode states only what it can find in this */
+    /** Something for it to read first. The episode states only what it can find in this. Given text, a show that reads the news reads this instead */
     text?: string;
     /** When it should air. Absent is as soon as it is made */
     airAt?: DateTime;

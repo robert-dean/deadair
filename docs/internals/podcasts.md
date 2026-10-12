@@ -201,6 +201,16 @@ is worth, and the subject an episode has when it is asked for with none of its o
 source, so the episode states only what the research pass can find in it (`productions.md` § "What it may
 state as fact"). A time given to an episode is its `scheduledFor`, which the director waits for.
 
+**A show can read the news instead of having a subject** (`own_shows.news_feed_ids`, `news_hours`). Asking
+one for an episode reads the newest stories on its feeds within its window, through
+`NewsService.fetchItems`, the call the bulletin reads them through, so a story an operator keeps off the air
+is kept out of the episode too. The stories go to the research pass as sources, at most `NEWS_STORIES`
+(six), since a seventh would be read for notes the production has no room for. They are read when the episode
+is asked for rather than when it is written: the news as it stood when somebody asked is the news they asked
+about, and it keeps the research pass knowing nothing about shows. A request with nothing on the feeds in the
+window is refused there, rather than queueing an episode its research pass could only fail. Pasted text takes
+the news's place, since somebody who pasted something meant that.
+
 **Not called a station show.** A `StationShow` is already somebody else's programme the station carries,
 as a podcast plugin describes it, and two things called a station show would be one name for opposite
 ideas. Deleting a show keeps its episodes, no longer filed under it, because an episode that aired still

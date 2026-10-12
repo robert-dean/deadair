@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Badge, Button, Card, Group, NumberInput, Select, SimpleGrid, Stack, Text, Textarea, TextInput } from '@mantine/core';
+import { Badge, Button, Card, Group, MultiSelect, NumberInput, Select, SimpleGrid, Stack, Text, Textarea, TextInput } from '@mantine/core';
 import { DateTimePicker } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import type { OwnEpisodeRequest, OwnShow, OwnShowInput, Production } from '@deadair/sdk';
@@ -13,6 +13,7 @@ import {
     useRequestOwnEpisode,
     useUpdateOwnShow,
 } from '../../api/podcast.queries';
+import { useNewsFeeds } from '../../api/news.queries';
 import { usePersonas } from '../../api/personas.queries';
 import { presents } from '../personas/persona.kind';
 import { scheduledForOf } from '../productions/production.form';
@@ -38,6 +39,9 @@ interface ShowValues {
     personaId: string | null;
     minutes: number | string;
     mode: string | null;
+    /** The news feeds an episode reads. Empty is a show that does not read the news. */
+    newsFeedIds: string[];
+    newsHours: number | string;
 }
 
 /**
@@ -63,6 +67,8 @@ export function showBodyOf(values: ShowValues): OwnShowInput {
         ...(values.personaId === null ? {} : { personaId: values.personaId }),
         ...(typeof values.minutes === 'number' && values.minutes > 0 ? { targetMs: values.minutes * 60_000 } : {}),
         ...(values.mode === null ? {} : { writingMode: values.mode as OwnShowInput['writingMode'] }),
+        ...(values.newsFeedIds.length === 0 ? {} : { newsFeedIds: values.newsFeedIds }),
+        ...(values.newsFeedIds.length > 0 && typeof values.newsHours === 'number' && values.newsHours > 0 ? { newsHours: values.newsHours } : {}),
     };
 }
 
@@ -151,8 +157,17 @@ function ShowCard({ show }: { show: OwnShow }) {
                             </Text>
                         )}
                         <Text size="xs" c="dimmed">
-                            {show.subject === undefined ? t('own.noSubject') : t('own.about', { subject: show.subject })}
+                            {show.subject === undefined
+                                ? (show.newsFeedIds?.length ?? 0) > 0
+                                    ? t('own.readsNews', { count: show.newsFeedIds!.length, hours: show.newsHours ?? 24 })
+                                    : t('own.noSubject')
+                                : t('own.about', { subject: show.subject })}
                         </Text>
+                        {show.subject !== undefined && (show.newsFeedIds?.length ?? 0) > 0 ? (
+                            <Text size="xs" c="dimmed">
+                                {t('own.readsNews', { count: show.newsFeedIds!.length, hours: show.newsHours ?? 24 })}
+                            </Text>
+                        ) : undefined}
                     </Stack>
                     <Group gap="xs" wrap="nowrap">
                         {mode === 'episode' ? undefined : (
@@ -334,6 +349,7 @@ function ShowForm({
 }) {
     const { t } = useTranslation(['podcasts', 'productions', 'common']);
     const personas = usePersonas();
+    const feeds = useNewsFeeds();
     const form = useForm<ShowValues>({
         mode: 'controlled',
         initialValues: {
@@ -343,6 +359,8 @@ function ShowForm({
             personaId: initial?.personaId ?? null,
             minutes: initial?.targetMs === undefined ? '' : Math.round(initial.targetMs / 60_000),
             mode: initial?.writingMode ?? null,
+            newsFeedIds: [...(initial?.newsFeedIds ?? [])],
+            newsHours: initial?.newsHours ?? '',
         },
         validate: values => (values.title.trim().length === 0 ? { title: t('own.form.title.required') } : {}),
     });
@@ -355,6 +373,10 @@ function ShowForm({
             subject: t(`own.template.${key}.subject`),
             minutes: template.minutes,
             mode: template.mode,
+            // News in depth reads every feed the station has until somebody narrows it, which is the
+            // one thing a template cannot know for itself.
+            newsFeedIds: key === 'newsInDepth' ? (feeds.data?.feeds ?? []).map(feed => feed.id) : [],
+            newsHours: key === 'newsInDepth' ? 24 : '',
         });
     };
 
@@ -391,6 +413,30 @@ function ShowForm({
                         minRows={2}
                         {...form.getInputProps('subject')}
                     />
+                    {/* The news this show reads, for one whose episodes are about the day's stories.
+                        Only offered where the station has feeds, since an empty picker explains nothing. */}
+                    {(feeds.data?.feeds ?? []).length > 0 ? (
+                        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+                            <MultiSelect
+                                style={{ gridColumn: 'span 2' }}
+                                label={t('own.form.news.label')}
+                                description={t('own.form.news.description')}
+                                data={(feeds.data?.feeds ?? []).map(feed => ({ value: feed.id, label: feed.name }))}
+                                clearable
+                                searchable
+                                {...form.getInputProps('newsFeedIds')}
+                            />
+                            <NumberInput
+                                label={t('own.form.newsHours.label')}
+                                description={t('own.form.newsHours.description')}
+                                min={1}
+                                max={168}
+                                disabled={form.values.newsFeedIds.length === 0}
+                                {...form.getInputProps('newsHours')}
+                            />
+                        </SimpleGrid>
+                    ) : undefined}
+
                     <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
                         <Select
                             label={t('productions:form.presenter.label')}

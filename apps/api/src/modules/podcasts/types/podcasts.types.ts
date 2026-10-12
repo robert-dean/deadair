@@ -112,6 +112,15 @@ export const OwnShow = z.strictObject({
         .enum(['quick', 'outlined', 'polished'])
         .optional()
         .describe("How much of the model an episode is worth. Absent is the station's default"),
+    newsFeedIds: z
+        .array(z.string().min(1).max(400))
+        .max(20)
+        .optional()
+        .describe("The station's news feeds an episode reads, by their qualified ids. Absent or empty is a show that does not read the news"),
+    newsHours: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(168))
+        .optional()
+        .describe('How many hours of news an episode reads. Absent is a day'),
     createdAt: _ZodDatetime,
 });
 export type OwnShow = z.infer<typeof OwnShow>;
@@ -129,6 +138,15 @@ export const OwnShowInput = z.strictObject({
         .enum(['quick', 'outlined', 'polished'])
         .optional()
         .describe("How much of the model an episode is worth. Absent is the station's default"),
+    newsFeedIds: z
+        .array(z.string().min(1).max(400))
+        .max(20)
+        .optional()
+        .describe("The station's news feeds an episode reads, by their qualified ids. Absent or empty is a show that does not read the news"),
+    newsHours: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(168))
+        .optional()
+        .describe('How many hours of news an episode reads. Absent is a day'),
 });
 export type OwnShowInput = z.infer<typeof OwnShowInput>;
 
@@ -139,7 +157,13 @@ export type OwnShowInput = z.infer<typeof OwnShowInput>;
 export const OwnEpisodeRequest = z.strictObject({
     topic: z.string().max(4000).optional().describe("What this episode is about. Absent is the show's own subject"),
     sourceTitle: z.string().max(300).optional().describe('What the pasted text is called'),
-    text: z.string().max(20000).optional().describe('Something for it to read first. The episode states only what it can find in this'),
+    text: z
+        .string()
+        .max(20000)
+        .optional()
+        .describe(
+            'Something for it to read first. The episode states only what it can find in this. Given text, a show that reads the news reads this instead',
+        ),
     airAt: _ZodDatetime.optional().describe('When it should air. Absent is as soon as it is made'),
 });
 export type OwnEpisodeRequest = z.infer<typeof OwnEpisodeRequest>;

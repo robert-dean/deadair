@@ -11,6 +11,8 @@ export const podcasts = {
         empty: 'No shows of your own yet. Start one from a template: something to fall asleep to, or the day’s news taken slowly.',
         about: 'About: {{subject}}',
         noSubject: 'No standing subject, so each episode needs a topic or something to read.',
+        readsNews_one: 'Reads the news on {{count}} feed from the last {{hours}} hours.',
+        readsNews_other: 'Reads the news on {{count}} feeds from the last {{hours}} hours.',
         error: {
             list: 'Your shows could not be read',
             save: 'That show could not be saved',
@@ -30,6 +32,12 @@ export const podcasts = {
                 label: 'What it is about',
                 description: 'What an episode is about when you ask for one without a topic of its own. This is what it is planned from.',
             },
+            news: {
+                label: 'News it reads',
+                description:
+                    'For a show about the day’s stories. Each episode reads the newest on these feeds and states only what it finds in them.',
+            },
+            newsHours: { label: 'Hours back', description: 'Leave empty for a day.' },
             create: 'Make the show',
             save: 'Save',
         },

@@ -7,7 +7,8 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { DateTime } from 'luxon';
 import { describe, expect, it, vi } from 'vitest';
 
-import { episodeTitle, OwnShowsService } from '../../../src/modules/podcasts/own.shows.service.js';
+import type { NewsItem } from '@deadair/plugin-sdk';
+import { episodeTitle, newsSourcesOf, OwnShowsService } from '../../../src/modules/podcasts/own.shows.service.js';
 import type { OwnShowRecord } from '../../../src/modules/podcasts/own.show.js';
 
 const WIND_DOWN: OwnShowRecord = {
@@ -32,10 +33,11 @@ function build(given: OwnShowRecord | 'none' = WIND_DOWN) {
     };
     const commission = vi.fn(async () => ({ id: 'prod-1' }));
     const listForShow = vi.fn(async () => ({ productions: [] }));
+    const fetchItems = vi.fn(async (_query: { feedId?: string; since?: string; limit: number }): Promise<NewsItem[]> => []);
     const config = { get: (_key: string, fallback: unknown) => fallback } as unknown as AppConfig;
 
-    const service = new OwnShowsService(shows as never, { commission, listForShow } as never, config);
-    return { service, shows, commission, listForShow };
+    const service = new OwnShowsService(shows as never, { commission, listForShow } as never, { fetchItems } as never, config);
+    return { service, shows, commission, listForShow, fetchItems };
 }
 
 describe('OwnShowsService.requestEpisode', () => {
@@ -128,5 +130,90 @@ describe('episodeTitle', () => {
 
         expect(title.length).toBeLessThan(140);
         expect(title.endsWith('…')).toBe(true);
+    });
+});
+
+// "News in depth" over the washing up: an episode reads the station's own feeds when it is asked for,
+// through the same service the bulletin reads them through, and hands the stories over to be researched.
+describe('a show that reads the news', () => {
+    const NEWS: OwnShowRecord = { id: 'show-4', title: 'News in depth', newsFeedIds: ['deadair.rss:world'], newsHours: 6, createdAt: 0 };
+    const story = (over: Partial<NewsItem> = {}): NewsItem => ({
+        id: 'story-1',
+        feedId: 'world',
+        feedName: 'World',
+        title: 'A bridge reopens',
+        content: 'The bridge reopened on Monday after two years of repairs.',
+        url: 'https://example.com/bridge',
+        publishedAt: '2026-10-12T08:00:00.000Z',
+        ...over,
+    });
+
+    it("reads the show's feeds within its window and hands the stories over as sources", async () => {
+        const { service, fetchItems, commission } = build(NEWS);
+        fetchItems.mockResolvedValue([story()]);
+
+        await service.requestEpisode('show-4', {});
+
+        const query = fetchItems.mock.calls[0]?.[0];
+        expect(query?.feedId).toBe('deadair.rss:world');
+        expect(Date.now() - Date.parse(query?.since ?? '')).toBeGreaterThanOrEqual(6 * 60 * 60_000 - 1_000);
+        expect(commission).toHaveBeenCalledWith(
+            expect.objectContaining({
+                brief: expect.stringContaining('news in depth'),
+                sources: [
+                    {
+                        title: 'A bridge reopens',
+                        url: 'https://example.com/bridge',
+                        text: 'The bridge reopened on Monday after two years of repairs.',
+                    },
+                ],
+            }),
+            { showId: 'show-4' },
+        );
+    });
+
+    it('reads what was pasted instead of the feeds', async () => {
+        const { service, fetchItems, commission } = build(NEWS);
+
+        await service.requestEpisode('show-4', { text: 'One story in full.' });
+
+        expect(fetchItems).not.toHaveBeenCalled();
+        expect(commission).toHaveBeenCalledWith(expect.objectContaining({ sources: [{ title: 'Pasted text', text: 'One story in full.' }] }), {
+            showId: 'show-4',
+        });
+    });
+
+    it('refuses an episode when the feeds had nothing in the window, rather than queue one that can only fail', async () => {
+        const { service, commission } = build(NEWS);
+
+        await expect(service.requestEpisode('show-4', {})).rejects.toMatchObject({ statusCode: 400 });
+        expect(commission).not.toHaveBeenCalled();
+    });
+});
+
+describe('newsSourcesOf', () => {
+    const item = (id: string, publishedAt: string, over: Partial<NewsItem> = {}): NewsItem => ({
+        id,
+        feedId: 'world',
+        feedName: 'World',
+        title: `Story ${id}`,
+        summary: `What happened in ${id}.`,
+        url: `https://example.com/${id}`,
+        publishedAt,
+        ...over,
+    });
+
+    it('takes the newest stories with words in them, each once, up to the bound', () => {
+        const sources = newsSourcesOf(
+            [
+                item('a', '2026-10-12T06:00:00Z'),
+                item('b', '2026-10-12T09:00:00Z'),
+                item('c', '2026-10-12T08:00:00Z', { summary: undefined }),
+                item('d', '2026-10-12T07:00:00Z', { url: 'https://example.com/b' }),
+            ],
+            2,
+        );
+
+        expect(sources.map(source => source.title)).toEqual(['Story b', 'Story a']);
     });
 });

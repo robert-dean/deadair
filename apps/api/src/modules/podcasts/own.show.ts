@@ -13,8 +13,15 @@ export interface OwnShowRecord {
     personaId?: string;
     targetMs?: number;
     writingMode?: WritingMode;
+    /** The station's news feeds an episode reads, by their qualified ids. Absent is a show that does not read the news. */
+    newsFeedIds?: readonly string[];
+    /** How many hours of news an episode reads. Absent is {@link DEFAULT_NEWS_HOURS}. */
+    newsHours?: number;
     createdAt: number;
 }
 
 /** What an operator writes. The id and the moment it was made are the table's. */
 export type OwnShowWrite = Omit<OwnShowRecord, 'id' | 'createdAt'>;
+
+/** How far back a show that reads the news reads, when it does not say. */
+export const DEFAULT_NEWS_HOURS = 24;

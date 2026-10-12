@@ -12898,6 +12898,19 @@ components:
                     type: string
                     enum: [quick, outlined, polished]
                     description: "How much of the model an episode is worth. Absent is the station's default"
+                newsFeedIds:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 400
+                    maxItems: 20
+                    description: "The station's news feeds an episode reads, by their qualified ids. Absent or empty is a show that does not read the news"
+                newsHours:
+                    type: integer
+                    minimum: 1
+                    maximum: 168
+                    description: 'How many hours of news an episode reads. Absent is a day'
                 createdAt:
                     type: string
                     format: date-time
@@ -12926,7 +12939,7 @@ components:
                 text:
                     type: string
                     maxLength: 20000
-                    description: 'Something for it to read first. The episode states only what it can find in this'
+                    description: 'Something for it to read first. The episode states only what it can find in this. Given text, a show that reads the news reads this instead'
                 airAt:
                     type: string
                     format: date-time

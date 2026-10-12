@@ -480,6 +480,8 @@ export interface DeadairOwnShows {
   createdAt: Generated<DateTime>;
   description: string | null;
   id: Generated<string>;
+  newsFeedIds: Json | null;
+  newsHours: number | null;
   personaId: string | null;
   stationKey: Generated<string>;
   subject: string | null;

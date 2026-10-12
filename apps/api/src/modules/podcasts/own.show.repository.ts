@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { Kysely } from 'kysely';
 import type { DateTime } from 'luxon';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
+import { toJsonb } from '#modules/data/jsonb.js';
 import { isWritingMode } from '#modules/productions/production.passes.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import type { OwnShowRecord, OwnShowWrite } from './own.show.js';
@@ -87,6 +88,8 @@ function columnsOf(show: OwnShowWrite) {
         personaId: show.personaId ?? null,
         targetMs: show.targetMs ?? null,
         writingMode: show.writingMode ?? null,
+        newsFeedIds: show.newsFeedIds === undefined || show.newsFeedIds.length === 0 ? null : toJsonb([...show.newsFeedIds]),
+        newsHours: show.newsHours ?? null,
     };
 }
 
@@ -94,6 +97,7 @@ function columnsOf(show: OwnShowWrite) {
 function toShow(row: Record<string, unknown>): OwnShowRecord {
     const mode = row.writingMode == null ? undefined : String(row.writingMode);
     const created = row.createdAt as DateTime | Date | null;
+    const feeds = Array.isArray(row.newsFeedIds) ? row.newsFeedIds.filter((feed): feed is string => typeof feed === 'string' && feed.length > 0) : [];
 
     return {
         id: String(row.id),
@@ -103,6 +107,8 @@ function toShow(row: Record<string, unknown>): OwnShowRecord {
         ...(row.personaId == null ? {} : { personaId: String(row.personaId) }),
         ...(row.targetMs == null ? {} : { targetMs: Number(row.targetMs) }),
         ...(mode !== undefined && isWritingMode(mode) ? { writingMode: mode } : {}),
+        ...(feeds.length === 0 ? {} : { newsFeedIds: feeds }),
+        ...(row.newsHours == null ? {} : { newsHours: Number(row.newsHours) }),
         createdAt: created == null ? 0 : created instanceof Date ? created.getTime() : created.toMillis(),
     };
 }

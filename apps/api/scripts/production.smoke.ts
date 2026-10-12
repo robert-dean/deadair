@@ -219,6 +219,12 @@ try {
     // ── the station's own shows, and the episodes filed under them ────────────
     const show = await ownShows.create({ title: TITLE, subject: 'something calm', targetMs: 40 * 60_000, writingMode: 'outlined' });
     check(show.subject === 'something calm' && show.writingMode === 'outlined', 'a show comes back as it went in');
+    const news = await ownShows.create({ title: TITLE, newsFeedIds: ['deadair.rss:world', 'deadair.rss:tech'], newsHours: 6 });
+    check(
+        news.newsFeedIds?.join(',') === 'deadair.rss:world,deadair.rss:tech' && news.newsHours === 6,
+        'a news show keeps its feeds, in order, and its window',
+    );
+    await ownShows.remove(news.id);
     const rewritten = await ownShows.update(show.id, { title: TITLE });
     check(
         rewritten !== undefined && rewritten.subject === undefined && rewritten.targetMs === undefined,

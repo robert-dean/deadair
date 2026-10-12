@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-10-12
+
+- A production can be handed sources to read: pasted text, each with a title. Given sources and no notes, the station reads them before writing anything and keeps as notes only the claims whose words it can find in them, so a podcast made from an article states nothing as fact that the article does not say. One whose sources give nothing usable fails with the reason rather than being written from general knowledge. Productions have a new state, `researching`, while their sources are being read; the console and the desktop app call it "reading its sources", and it can be stopped like any other stage. The console's production form has a Sources section. In the API, `ProductionRequest` and `Production` carry an optional `sources` list, and a source with no text is refused.
+
 ## [0.12.0] — 2026-10-12
 
 - The operator can ask the station to say something from the desk. A Say something button beside Take a call offers the news, the weather, or a word from the host. Each is heard after the current record, once it has been written. The answer is shown at the foot of the page: in the ordinary colour when it is on its way, or with the station's reason when it is turned down (breaks are off, or the same request went in a moment ago). Neither is drawn as an error any more.
@@ -131,7 +135,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.12.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.0...HEAD
+[0.13.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.12.0...desktop-v0.13.0
 [0.12.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.11.0...desktop-v0.12.0
 [0.11.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.10.0...desktop-v0.11.0
 [0.10.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.9.0...desktop-v0.10.0

@@ -10,9 +10,8 @@
  * ## The syntax is two things
  *
  * `{{next.title}}` is a value. The vocabulary is an explicit map below rather than a walk into
- * whatever object is handy, which is what makes `{{next.album}}` one row to add when enrichment
- * lands instead of a parser change, and what makes a typo a template that is not used rather than a
- * sentence with a hole in it.
+ * whatever object is handy, which is what made `{{next.album}}` one row to add rather than a parser
+ * change, and what makes a typo a template that is not used rather than a sentence with a hole in it.
  *
  * `[[ ... ]]` is an optional chunk, dropped when what is inside it cannot be filled. That is what
  * carries the "This is {station}" phrasing, which is one sentence plus an optional back-announce
@@ -244,7 +243,16 @@ const trackFields = (which: 'previous' | 'next'): Record<string, Resolver> => ({
     // own name have no catalogue furniture to strip.
     [`${which}.chart.rank`]: inputs => (inputs[which]?.chart === undefined ? undefined : String(inputs[which]!.chart!.rank)),
     [`${which}.chart.name`]: inputs => inputs[which]?.chart?.name,
+    // What the running order already knows about the record, absent rather than guessed when it does
+    // not. The album is read as a title and goes through `spoken`, so "(Deluxe Edition)" is never
+    // said; the year is a number and is kept out of it with the chart's two.
+    [`${which}.album`]: inputs => inputs[which]?.album,
+    [`${which}.year`]: inputs => yearOf(inputs[which]?.year),
 });
+
+/** A year a presenter could say, or nothing: a zero or a negative is a catalogue's placeholder. */
+const yearOf = (year: number | undefined): string | undefined =>
+    year === undefined || !Number.isInteger(year) || year <= 0 ? undefined : String(year);
 
 const VALUES: Record<string, Resolver> = {
     ...trackFields('previous'),
@@ -328,7 +336,7 @@ const PHRASE_VALUES: readonly string[] = ['greeting', 'clock.rough', 'clock.dayp
 
 /** Which placeholders are read out loud, and so go through {@link spoken}. */
 const SPOKEN_VALUES = new Set(
-    Object.keys(VALUES).filter(key => (key.startsWith('previous.') || key.startsWith('next.')) && !key.includes('.chart.')),
+    Object.keys(VALUES).filter(key => (key.startsWith('previous.') || key.startsWith('next.')) && !key.includes('.chart.') && !key.endsWith('.year')),
 );
 
 /**

@@ -258,12 +258,12 @@ describe('the self-check', () => {
 
     it('drops a broken phrasing BY THE LINE, keeping the ones that work', () => {
         const generated = readPersona(
-            answer({ templates: 'That was {{previous.title}}.\nHere comes {{next.album}}.\nYou are with {{station.name}}.' }),
+            answer({ templates: 'That was {{previous.title}}.\nHere comes {{next.label}}.\nYou are with {{station.name}}.' }),
         )!;
 
         // Five good phrasings and one broken one is five phrasings.
         expect(generated.draft.templates).toBe('That was {{previous.title}}.\nYou are with {{station.name}}.');
-        expect(generated.droppedTemplates).toEqual(['Here comes {{next.album}}.']);
+        expect(generated.droppedTemplates).toEqual(['Here comes {{next.label}}.']);
     });
 
     it('drops a phrasing carrying a lone bracket, which no other check could see', () => {
@@ -304,7 +304,7 @@ describe('the self-check', () => {
     });
 
     it('leaves the templates unset when every line was broken, so the station phrasings apply', () => {
-        const generated = readPersona(answer({ templates: 'Here comes {{next.album}}.' }))!;
+        const generated = readPersona(answer({ templates: 'Here comes {{next.label}}.' }))!;
 
         expect(generated.draft.templates).toBeUndefined();
     });

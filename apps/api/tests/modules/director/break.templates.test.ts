@@ -335,6 +335,29 @@ describe('the part of the day', () => {
     });
 });
 
+describe('the album and the year', () => {
+    const dated = { ...previous, album: 'Rumours [Deluxe Edition]', year: 1977 };
+
+    it('names the album as a title and the year as a number', () => {
+        const rendered = render('That was {{previous.title}}, from {{previous.album}}[[, {{previous.year}}]].', { previous: dated, next });
+
+        expect(rendered.script).toBe(`That was ${previous.title}, from Rumours, 1977.`);
+        expect(rendered.saysPrevious).toBe(true);
+    });
+
+    it('drops the chunk for a record the order knows neither of', () => {
+        const rendered = render('That was {{previous.title}}[[, from {{previous.album}}]][[ in {{previous.year}}]].', { previous, next });
+
+        expect(rendered.script).toBe(`That was ${previous.title}.`);
+    });
+
+    it('says no year for one a catalogue filled with zero', () => {
+        const rendered = render('That was {{previous.title}}[[ in {{previous.year}}]].', { previous: { ...previous, year: 0 }, next });
+
+        expect(rendered.script).toBe(`That was ${previous.title}.`);
+    });
+});
+
 describe('a chart position', () => {
     const charted = { ...next, chart: { rank: 7, name: 'Top 100' } };
 

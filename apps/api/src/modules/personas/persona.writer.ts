@@ -99,7 +99,7 @@ export const MAX_OUTPUT_TOKENS = 4000;
  * A persona's phrasings are the floor under an ordinary talk break, and a break between two records
  * has no business reading a headline or saying good evening — the shapes that own those values
  * supply them. Named as an exclusion rather than by listing what IS offered, so `{{next.album}}`
- * reaches an operator's generated persona on the day enrichment adds it.
+ * reached an operator's generated persona the day it was added, with no change here.
  */
 const KIND_SPECIFIC_VALUES = new Set(['news.headlines', 'greeting']);
 

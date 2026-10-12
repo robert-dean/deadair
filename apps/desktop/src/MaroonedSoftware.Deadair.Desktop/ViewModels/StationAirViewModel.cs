@@ -13,7 +13,8 @@ namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
 /// <summary>
 /// The station's air, on the desk: who is driving it, whether the schedule may take it back, what
-/// puts it on air, who presents it, planning it, taking a call, and rating the record on air.
+/// puts it on air, who presents it, planning it, taking a call, asking it to say something, and
+/// rating the record on air.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -231,6 +232,45 @@ public sealed partial class StationAirViewModel(OperatorActions actions, IDialog
         var hosts = await HostsAsync(report: false).ConfigureAwait(true) ?? [];
         await dialogs.ShowAsync(new TakeACallDialogViewModel(actions, _station, http, _order?.PersonaId, _order?.PersonaLabel, hosts))
             .ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Asks the station to say something after the record on air: the news, the weather, or a word
+    /// from the host.
+    /// </summary>
+    /// <remarks>
+    /// No question first, unlike everything else here: it changes nothing that is airing, the station
+    /// decides whether and where it goes, and a second press of the same one inside a minute is
+    /// absorbed by the station rather than heard twice. Always <c>next</c>, the urgency the phones send.
+    /// </remarks>
+    [RelayCommand]
+    private async Task SayAsync(string kind)
+    {
+        if (!HasOrder || !Enum.TryParse<RequestableBreakKind>(kind, out var wanted))
+        {
+            return;
+        }
+
+        Busy = true;
+        try
+        {
+            var answer = await actions.RunAsync(async token =>
+            {
+                using var sdk = new DeadairSdk(new SdkOptions { BaseUrl = _station.ApiBase, HttpClient = http });
+                return await sdk.Director.RequestABreakAsync(
+                    new RequestStationBreakInput { Kind = wanted, Urgency = BreakUrgency.Next },
+                    token).ConfigureAwait(false);
+            }).ConfigureAwait(true);
+
+            if (answer is not null)
+            {
+                actions.Tell(BreakWords.Answer(wanted, answer));
+            }
+        }
+        finally
+        {
+            Busy = false;
+        }
     }
 
     /// <summary>The air mode, asked before it is changed: it decides whether the station airs to nobody.</summary>

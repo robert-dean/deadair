@@ -1,4 +1,5 @@
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
 using MaroonedSoftware.Deadair.Desktop.ViewModels;
 using MaroonedSoftware.Deadair.Sdk.Runtime;
@@ -121,5 +122,20 @@ public class DialogsTests
 
         Assert.True(await actions.DoAsync(_ => Task.CompletedTask, cancellationToken: token));
         Assert.False(await actions.DoAsync(_ => throw new SdkException(500, "{}"), cancellationToken: token));
+    }
+
+    [Fact]
+    public void AnAnswerIsDrawnInItsOwnToneAndARefusalInTheFaultColour()
+    {
+        var (dialogs, actions, _) = Build();
+
+        actions.Tell(new Notice.Said("The news is on its way. It goes out once it has been written.", StatusTone.Ok));
+
+        Assert.Equal("The news is on its way. It goes out once it has been written.", dialogs.Notice);
+        Assert.Equal(StatusTone.Ok, dialogs.NoticeTone);
+
+        actions.Tell(new Notice.Failed("The station refused that."));
+
+        Assert.Equal(StatusTone.Fault, dialogs.NoticeTone);
     }
 }

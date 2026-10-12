@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
 
 // The `Notice` property below shadows the type of the same name.
@@ -65,6 +66,10 @@ public sealed partial class DialogsViewModel : ObservableObject, IDialogs
     private string? _notice;
 
     public bool HasNotice => Notice is not null;
+
+    /// <summary>What colour the notice is drawn in: the fault colour for a refusal, its own for an answer.</summary>
+    [ObservableProperty]
+    private StatusTone _noticeTone = StatusTone.Fault;
 
     public Task<bool> ShowAsync(DialogViewModel dialog)
     {
@@ -137,6 +142,7 @@ public sealed partial class DialogsViewModel : ObservableObject, IDialogs
             return;
         }
 
+        NoticeTone = StationNotice.ToneOf(notice);
         Notice = text;
         _clear?.Dispose();
         _clear = _time.CreateTimer(

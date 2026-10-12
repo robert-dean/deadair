@@ -126,6 +126,25 @@
                     <!-- Disabled with nothing on: a call joins a running order, and there is none. -->
                     <Button Content="Take a call" Command="{Binding TakeCallCommand}" IsEnabled="{Binding HasOrder}"
                             ToolTip.Tip="Puts somebody on the phone. It is written over a few minutes and drops into the running order when it is ready." />
+                    <!-- The same three the phones offer. Disabled with nothing on: off air the station
+                         declines every break, since there is no running order to put one in. -->
+                    <Button IsEnabled="{Binding HasOrder}"
+                            ToolTip.Tip="Asks the station to say something after this record, once it has been written.">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="Say something" VerticalAlignment="Center" />
+                            <PathIcon Width="10" Height="10" Data="{DynamicResource DaIconChevronDown}" />
+                        </StackPanel>
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <MenuItem Header="The news" Command="{Binding SayCommand}" CommandParameter="News"
+                                          IsEnabled="{Binding !Busy}" />
+                                <MenuItem Header="The weather" Command="{Binding SayCommand}" CommandParameter="Weather"
+                                          IsEnabled="{Binding !Busy}" />
+                                <MenuItem Header="A word from the host" Command="{Binding SayCommand}" CommandParameter="Talkbreak"
+                                          IsEnabled="{Binding !Busy}" />
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
                     <Button Content="Plan" Command="{Binding PlanCommand}"
                             ToolTip.Tip="Change what the station plays, either from here on or as a new show." />
                 </StackPanel>

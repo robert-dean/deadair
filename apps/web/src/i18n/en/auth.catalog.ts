@@ -26,11 +26,12 @@ export const auth = {
         factor: {
             email: 'Email',
             authenticator: 'Authenticator',
+            passkey: 'Passkey',
         },
         startOver: 'Start over',
         unsupportedTitle: 'Second factor required',
         unsupported:
-            'This account needs a second factor that this console cannot present. Sign in with the factor you enrolled, or ask whoever runs the station to reset it.',
+            'This account needs a second factor that this browser cannot present. A passkey works only when the station is opened at its own https address. Sign in there, or ask whoever runs the station to reset your second step.',
         sendFallback: 'Could not send a code to your email. Try again.',
         anotherFactor: 'The station asked for yet another factor, which this console cannot present.',
         noCodeSent: 'No code sent',
@@ -41,6 +42,9 @@ export const auth = {
         authenticatorCode: 'Authenticator code',
         verify: 'Verify',
         sendAgain: 'Send it again',
+        passkeyPrompt: 'Your browser will ask for your passkey.',
+        usePasskey: 'Use your passkey',
+        passkeyFallback: 'Your passkey was not accepted. Try again.',
     },
     consent: {
         kind: {
@@ -92,6 +96,8 @@ export const auth = {
         emailPlaceholder: 'you@example.com',
         password: 'Password',
         emailLink: 'Email me a sign-in link',
+        usePasskey: 'Sign in with a passkey',
+        passkeyFailed: 'Your passkey was not accepted. Try your password, or another passkey.',
         or: 'or',
         continueWith: 'Continue with {{provider}}',
     },

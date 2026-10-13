@@ -3,7 +3,8 @@ import { Alert, Button, Group, Modal, Select, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next';
 import type { MfaRequiredResponseOutput } from '@deadair/sdk';
 
-import { authenticatorFactors, useMfaCodeMutation, useStartStepUp } from '../../api/auth.factors.queries';
+import { strongFactors, useMfaCodeMutation, usePasskeyChallengeMutation, useStartStepUp } from '../../api/auth.factors.queries';
+import { isPasskeyCancelled } from '../../auth/webauthn';
 import { isRateLimited, retryAfterMs } from '../../api/retry.policy';
 import { apiErrorMessage, isInvalidToken, stepUpRequirement } from '../../api/sdk.error';
 import { i18n } from '../../i18n/i18n.setup';
@@ -85,7 +86,7 @@ function codeError(error: unknown): string {
 }
 
 /**
- * Re-verifying with an authenticator, for a change the API will not make on an old session.
+ * Re-verifying with an authenticator or a passkey, for a change the API will not make on an old session.
  *
  * The API mints a challenge for the current session when the dialog opens, the code completes
  * it, and the session is rotated onto a token that carries the fresh factor. The action the gate
@@ -108,6 +109,7 @@ function StepUpBody({ gate }: { gate: StepUpGate }) {
     const { t } = useTranslation(['settings', 'common']);
     const start = useStartStepUp();
     const submit = useMfaCodeMutation();
+    const passkey = usePasskeyChallengeMutation();
     const [code, setCode] = useState('');
     const [methodId, setMethodId] = useState<string>();
     const inflight = useRef(false);
@@ -118,15 +120,30 @@ function StepUpBody({ gate }: { gate: StepUpGate }) {
         mint(undefined, {
             onSuccess: response => {
                 if (response.result === 'mfa_required') {
-                    setMethodId(authenticatorFactors({ challengeId: response.challenge_id, factors: response.factors })[0]?.method_id);
+                    setMethodId(strongFactors({ challengeId: response.challenge_id, factors: response.factors })[0]?.method_id);
                 }
             },
         });
     }, [mint]);
 
     const challenge: MfaRequiredResponseOutput | undefined = start.data?.result === 'mfa_required' ? start.data : undefined;
-    const factors = challenge ? authenticatorFactors({ challengeId: challenge.challenge_id, factors: challenge.factors }) : [];
+    const factors = challenge ? strongFactors({ challengeId: challenge.challenge_id, factors: challenge.factors }) : [];
     const nothingToVerifyWith = start.data !== undefined && factors.length === 0;
+    const usingPasskey = factors.find(factor => factor.method_id === methodId)?.method === 'fido';
+    const busy = submit.isPending || passkey.isPending;
+
+    async function verifyWithPasskey(): Promise<void> {
+        if (inflight.current || !challenge) return;
+        inflight.current = true;
+        try {
+            const response = await passkey.mutateAsync({ challengeId: challenge.challenge_id });
+            if (response.result === 'token') gate.settle('verified');
+        } catch {
+            // Reported below, off the mutation's own error, unless the prompt was simply closed.
+        } finally {
+            inflight.current = false;
+        }
+    }
 
     async function verify(value: string): Promise<void> {
         if (inflight.current || !challenge || methodId === undefined || value.length !== ONE_TIME_CODE_LENGTH) return;
@@ -160,34 +177,53 @@ function StepUpBody({ gate }: { gate: StepUpGate }) {
                     </Alert>
                 ) : undefined}
                 {submit.error ? <ErrorAlert title={t('stepUp.notVerified')}>{codeError(submit.error)}</ErrorAlert> : undefined}
+                {passkey.error && !isPasskeyCancelled(passkey.error) ? (
+                    <ErrorAlert title={t('stepUp.notVerified')} error={passkey.error} fallback={t('stepUp.passkeyFallback')} />
+                ) : undefined}
 
                 {factors.length > 1 ? (
                     <Select
                         label={t('stepUp.which')}
-                        data={factors.map(factor => ({ value: factor.method_id, label: factor.label ?? t('stepUp.authenticator') }))}
+                        data={factors.map(factor => ({
+                            value: factor.method_id,
+                            label: factor.label ?? (factor.method === 'fido' ? t('stepUp.passkey') : t('stepUp.authenticator')),
+                        }))}
                         value={methodId}
                         onChange={value => setMethodId(value ?? undefined)}
                         allowDeselect={false}
-                        disabled={submit.isPending}
+                        disabled={busy}
                     />
                 ) : undefined}
 
-                <OneTimeCodeInput
-                    label={t('stepUp.code')}
-                    value={code}
-                    onChange={setCode}
-                    onComplete={value => void verify(value)}
-                    disabled={submit.isPending || !challenge}
-                />
+                {usingPasskey ? (
+                    <Group justify="flex-end">
+                        <Button variant="default" onClick={() => gate.settle('cancelled')} disabled={busy}>
+                            {t('common:action.cancel')}
+                        </Button>
+                        <Button loading={passkey.isPending} disabled={!challenge} onClick={() => void verifyWithPasskey()}>
+                            {t('stepUp.usePasskey')}
+                        </Button>
+                    </Group>
+                ) : (
+                    <>
+                        <OneTimeCodeInput
+                            label={t('stepUp.code')}
+                            value={code}
+                            onChange={setCode}
+                            onComplete={value => void verify(value)}
+                            disabled={busy || !challenge}
+                        />
 
-                <Group justify="flex-end">
-                    <Button variant="default" onClick={() => gate.settle('cancelled')} disabled={submit.isPending}>
-                        {t('common:action.cancel')}
-                    </Button>
-                    <Button type="submit" loading={submit.isPending} disabled={!challenge || code.length !== ONE_TIME_CODE_LENGTH}>
-                        {t('stepUp.verify')}
-                    </Button>
-                </Group>
+                        <Group justify="flex-end">
+                            <Button variant="default" onClick={() => gate.settle('cancelled')} disabled={busy}>
+                                {t('common:action.cancel')}
+                            </Button>
+                            <Button type="submit" loading={submit.isPending} disabled={!challenge || code.length !== ONE_TIME_CODE_LENGTH}>
+                                {t('stepUp.verify')}
+                            </Button>
+                        </Group>
+                    </>
+                )}
             </Stack>
         </form>
     );

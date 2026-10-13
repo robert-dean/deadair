@@ -4,11 +4,12 @@ import { useForm } from '@mantine/form';
 import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 
-import { useLoginMutation, useMagicLinkMutation, useOidcSignInMutation } from '../api/auth.mutations';
+import { useLoginMutation, useMagicLinkMutation, useOidcSignInMutation, usePasskeySignInMutation } from '../api/auth.mutations';
 import { useSigninProviders } from '../api/auth.providers.queries';
 import { isRateLimited, retryAfterMs } from '../api/retry.policy';
 import { apiErrorDetails, apiErrorMessage, isInvalidToken } from '../api/sdk.error';
 import { safeRedirectTarget } from '../auth/redirect.target';
+import { isPasskeyCancelled, passkeysAvailable } from '../auth/webauthn';
 import { i18n } from '../i18n/i18n.setup';
 import { ChallengePanel } from './auth/challenge.panel';
 import { ErrorAlert } from './shared/error.alert';
@@ -54,6 +55,7 @@ export function LoginPage({ redirect }: LoginPageProps) {
     const magicLink = useMagicLinkMutation();
     const providers = useSigninProviders().data ?? [];
     const oidc = useOidcSignInMutation();
+    const passkey = usePasskeySignInMutation();
     // A sentence that has to outlive the mutation it came from: the challenge expiring resets the
     // login, and the reset would take the explanation with it.
     const [notice, setNotice] = useState<string>();
@@ -105,6 +107,28 @@ export function LoginPage({ redirect }: LoginPageProps) {
         }
         magicLink.mutate({ email });
     }
+
+    /**
+     * Sign in with a passkey, which needs nothing but the address: the browser offers the passkeys it
+     * holds for this station, and one touch is the whole sign-in. Offered only where the browser can
+     * use one, so a station opened over plain `http://` looks as it always did.
+     */
+    async function signInWithPasskey(): Promise<void> {
+        setNotice(undefined);
+        const email = form.getValues().email.trim();
+        if (email.length === 0) {
+            form.setFieldError('email', t('login.emailRequired'));
+            return;
+        }
+        try {
+            const response = await passkey.mutateAsync({ email });
+            if (response.result === 'token') await navigate({ href: safeRedirectTarget(redirect) });
+        } catch {
+            // Reported below off the mutation's own error, unless the prompt was simply closed.
+        }
+    }
+
+    const passkeyFailed = passkey.error && !isPasskeyCancelled(passkey.error) ? passkey.error : undefined;
 
     // Read before the JSX rather than spread from inside it: the literal-string rule reads a field
     // name in a spread attribute as copy, and these are form keys, not words.
@@ -167,6 +191,9 @@ export function LoginPage({ redirect }: LoginPageProps) {
                                 {oidc.error ? (
                                     <ErrorAlert title={t('login.providerFailedTitle')} error={oidc.error} fallback={t('login.providerFailed')} />
                                 ) : undefined}
+                                {passkeyFailed ? (
+                                    <ErrorAlert title={t('signInFailed')} error={passkeyFailed} fallback={t('login.passkeyFailed')} />
+                                ) : undefined}
                                 {magicLink.error ? (
                                     <ErrorAlert title={t('login.noLinkSent')} error={magicLink.error} fallback={t('login.linkFailed')} />
                                 ) : undefined}
@@ -201,6 +228,17 @@ export function LoginPage({ redirect }: LoginPageProps) {
                                     >
                                         {t('login.emailLink')}
                                     </Button>
+                                    {passkeysAvailable() ? (
+                                        <Button
+                                            variant="subtle"
+                                            size="compact-sm"
+                                            loading={passkey.isPending}
+                                            disabled={login.isPending}
+                                            onClick={() => void signInWithPasskey()}
+                                        >
+                                            {t('login.usePasskey')}
+                                        </Button>
+                                    ) : undefined}
                                 </Group>
                                 {/* Only when the operator has set one up, so a station without any
                                     looks exactly as it did. Each leaves the console for the provider,

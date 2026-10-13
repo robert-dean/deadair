@@ -516,12 +516,12 @@ export const settings = {
     },
     security: {
         title: 'How you sign in',
-        intro: 'With an authenticator enrolled, every sign-in to this account asks for its code after the password. Lose the phone and the README says how to get back in from the box.',
+        intro: 'With an authenticator or a passkey enrolled, every sign-in to this account asks for it after the password. Lose the device and another admin can reset your second step under People.',
         unavailable: {
             title: 'Sign-in methods unavailable',
             fallback: 'The station could not read how you sign in.',
         },
-        noAuthenticator: 'No authenticator yet. Sign-in is the password alone.',
+        noAuthenticator: 'No authenticator or passkey yet. Sign-in is the password alone.',
         factor: {
             authenticator: 'Authenticator',
             password: 'Password',
@@ -533,13 +533,16 @@ export const settings = {
             oidcLabelled: '{{label}} sign-in',
         },
         authenticatorBadge: 'authenticator',
+        passkeyBadge: 'passkey',
         remove: {
             action: 'Remove',
             title: 'Remove {{name}}?',
             errorTitle: 'Not removed',
-            errorFallback: 'The authenticator is still enrolled.',
-            body: 'Codes from this app will stop being accepted. If it is the last authenticator on the account, sign-in goes back to the password alone.',
+            errorFallback: 'It is still enrolled.',
+            body: 'Codes from this app will stop being accepted. If it is the last authenticator or passkey on the account, sign-in goes back to the password alone.',
             bodyPending: 'Codes from this app will stop being accepted. ',
+            passkeyBody:
+                'This passkey will stop being accepted. If it is the last authenticator or passkey on the account, sign-in goes back to the password alone.',
             done: '{{name}} removed.',
         },
         notEnrolled: 'Not enrolled',
@@ -559,6 +562,19 @@ export const settings = {
             },
             showQr: 'Show QR code',
             saved: 'Authenticator',
+        },
+        passkey: {
+            title: 'Add a passkey',
+            intro: 'Touch ID, Face ID, Windows Hello, your phone or a security key: one touch instead of a code. A passkey belongs to this address, so it works here and not on any page pretending to be the station. The phone apps still ask for an authenticator code.',
+            startFailed: 'No passkey added',
+            startFallback: 'The station could not add that passkey.',
+            create: 'Create passkey',
+            saved: 'Passkey',
+            label: {
+                label: 'Label',
+                description: 'So you can tell this one apart later',
+                placeholder: 'Laptop',
+            },
         },
         email: {
             title: 'Add an email address',
@@ -731,20 +747,23 @@ export const settings = {
     },
     stepUp: {
         title: 'Confirm it is you',
-        intro: 'Enter the code from your authenticator app to make this change.',
+        intro: 'Use your passkey, or enter the code from your authenticator app, to make this change.',
         startFailed: {
             title: 'Could not start',
             fallback: 'The station could not issue a challenge.',
         },
         nothing: {
             title: 'Nothing to verify with',
-            body: 'This account has no authenticator this console can ask for.',
+            body: 'This account has no authenticator or passkey this browser can ask for.',
         },
         notVerified: 'Not verified',
-        which: 'Which authenticator',
+        which: 'Verify with',
         authenticator: 'Authenticator',
+        passkey: 'Passkey',
         code: 'Authenticator code',
         verify: 'Verify',
+        usePasskey: 'Use your passkey',
+        passkeyFallback: 'Your passkey was not accepted. Try again.',
     },
     unsaved: {
         title: 'Discard unsaved changes?',

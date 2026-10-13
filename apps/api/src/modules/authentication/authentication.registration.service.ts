@@ -286,7 +286,7 @@ export class AuthenticationRegistrationService {
     async removeFactor(method: AuthenticationFactorMethod, methodId: string): Promise<void> {
         const { actorId } = this.authorizationContext.requireAuthentication();
 
-        if (method !== 'authenticator' && method !== 'oidc') {
+        if (method !== 'authenticator' && method !== 'fido' && method !== 'oidc') {
             throw httpError(400).withDetails({
                 method: `Unsupported method ${method}`,
             });
@@ -300,15 +300,18 @@ export class AuthenticationRegistrationService {
         }
 
         // Scoped to the caller: the repository answers only this actor's rows, so somebody else's
-        // factor id is indistinguishable from one that never existed.
-        const factor = await this.authenticatorFactorService.getFactor(actorId, methodId).catch(() => undefined);
+        // factor id is indistinguishable from one that never existed. A passkey and an authenticator
+        // are removed alike: each is a second step the account holds, and losing it turns the
+        // second step off only when it was the last.
+        const service = method === 'fido' ? this.fidoFactorService : this.authenticatorFactorService;
+        const factor = await service.getFactor(actorId, methodId).catch(() => undefined);
         if (!factor || !factor.active) {
             throw httpError(404).withDetails({
                 methodId: 'No such factor',
             });
         }
 
-        await this.authenticatorFactorService.deleteFactor(actorId, methodId);
+        await service.deleteFactor(actorId, methodId);
     }
 
     private async removeOidcFactor(actorId: string, methodId: string): Promise<void> {

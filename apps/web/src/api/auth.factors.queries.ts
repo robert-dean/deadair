@@ -8,6 +8,7 @@ import type {
 } from '@deadair/sdk';
 
 import { generateCodeChallenge, generateCodeVerifier } from '../auth/pkce';
+import { assertPasskey, createPasskey, passkeysAvailable } from '../auth/webauthn';
 import { setSession } from '../auth/session.store';
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -194,26 +195,86 @@ export interface MfaChallenge {
     factors: MfaChallengeFactorOutput[];
 }
 
-/** The factors on a challenge this console can present, which is the authenticator ones. */
-export function authenticatorFactors(challenge: MfaChallenge): MfaChallengeFactorOutput[] {
-    return challenge.factors.filter(factor => factor.method === 'authenticator');
+/** How strongly the console recommends answering a challenge with each method: a passkey, then an app, then email. */
+const FACTOR_RANK: Record<string, number> = { fido: 0, authenticator: 1, email: 2 };
+
+const byRank = (a: MfaChallengeFactorOutput, b: MfaChallengeFactorOutput): number => (FACTOR_RANK[a.method] ?? 9) - (FACTOR_RANK[b.method] ?? 9);
+
+/**
+ * The strong factors on a challenge this browser can answer: an authenticator, and a passkey where
+ * the browser can use one. What the re-verify dialog offers, since an emailed code is not strong.
+ */
+export function strongFactors(challenge: MfaChallenge): MfaChallengeFactorOutput[] {
+    return challenge.factors.filter(factor => factor.method === 'authenticator' || (factor.method === 'fido' && passkeysAvailable())).sort(byRank);
 }
 
 /**
- * The methods this console can actually put a field in front of somebody for.
+ * The methods this console can actually put in front of somebody at the sign-in second step.
  *
- * Authenticators first, and the order is the recommendation: a code from an app is already on the
- * operator's phone, while an emailed one is a round trip through a mail server that may or may not
- * be configured. An account with both is offered the app.
+ * A passkey first where the browser can use one, then an authenticator, then email, and the order is
+ * the recommendation: a passkey is one touch, a code from an app is already on the operator's phone,
+ * and an emailed one is a round trip through a mail server that may or may not be configured.
  *
- * A challenge listing neither is a real state — a passkey enrolled through the API — and the panel
- * says so rather than drawing a field no code can satisfy.
+ * A challenge listing none of them is a real state, a passkey on a station opened over plain
+ * `http://`, and the panel says so rather than drawing a field no code can satisfy.
  */
 export function presentableFactors(challenge: MfaChallenge): MfaChallengeFactorOutput[] {
-    const rank = (method: string): number => (method === 'authenticator' ? 0 : 1);
     return challenge.factors
-        .filter(factor => factor.method === 'authenticator' || factor.method === 'email')
-        .sort((a, b) => rank(a.method) - rank(b.method));
+        .filter(factor => factor.method === 'authenticator' || factor.method === 'email' || (factor.method === 'fido' && passkeysAvailable()))
+        .sort(byRank);
+}
+
+/**
+ * Enrols a passkey: the station starts a registration, the browser makes the passkey, and the
+ * station answers with a token whose session carries it as a fresh factor, stored for the reason
+ * {@link useVerifyAuthenticator} stores one.
+ */
+export function useRegisterPasskey() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        retry: false,
+        mutationFn: async ({ label }: { label?: string }) => {
+            const trimmed = label?.trim();
+            const registration = await sdk.authentication.factors.registerFactor({ method: 'fido', ...(trimmed ? { label: trimmed } : {}) });
+            if (registration.method !== 'fido') throw new Error(`Expected a passkey registration, got ${registration.method}`);
+            const credential = await createPasskey(registration.attestation);
+            return await sdk.authentication.factors.verifyFactorRegistration({
+                method: 'fido',
+                registrationId: registration.registrationId,
+                credential,
+            });
+        },
+        onSuccess: token => {
+            setSession(token.access_token, token.expires_in);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.auth.factors() });
+        },
+    });
+}
+
+/**
+ * Answers a pending challenge with a passkey: the station issues an assertion bound to the passkey
+ * the challenge offered, the browser signs it, and the token lands as the code mutations' does.
+ */
+export function usePasskeyChallengeMutation() {
+    return useMutation({
+        retry: false,
+        mutationFn: async ({ challengeId }: { challengeId: string }): Promise<AuthenticationTokenResponseOutput> => {
+            const started = await sdk.authentication.factors.startFactorChallenge({ method: 'fido', mfa_challenge_id: challengeId });
+            if (started.method !== 'fido') throw new Error('The station answered with a factor this console did not ask for.');
+            const credential = await assertPasskey(started.assertion);
+            return await sdk.authentication.requestToken({
+                grant_type: 'fido',
+                mfa_challenge_id: challengeId,
+                challenge_id: started.fido_challenge_id,
+                credential,
+            });
+        },
+        onSuccess: (response: AuthenticationTokenResponseOutput) => {
+            if (response.result === 'token') {
+                setSession(response.access_token, response.expires_in);
+            }
+        },
+    });
 }
 
 /**
@@ -293,6 +354,7 @@ export function useMfaCodeMutation() {
 export function useStartStepUp() {
     return useMutation({
         retry: false,
-        mutationFn: (): Promise<StepUpStartResponseOutput> => sdk.authentication.factors.startMFAChallenge({ acceptableMethods: ['authenticator'] }),
+        mutationFn: (): Promise<StepUpStartResponseOutput> =>
+            sdk.authentication.factors.startMFAChallenge({ acceptableMethods: passkeysAvailable() ? ['authenticator', 'fido'] : ['authenticator'] }),
     });
 }

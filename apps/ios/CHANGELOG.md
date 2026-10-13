@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-10-13
+
+- The request screen offers "Play it anyway" on a request the station turned down for its own taste, and pressing it asks for the record again past those rules.
+
 ## [0.11.0] — 2026-10-12
 
 - The operator can ask the station to say something from the iPhone. While a show is on, the Manage page has a Say something section: the news, the weather, or a word from the host. Each is heard after the current record, once it has been written. If the station turns the request down (breaks are off, or the same request went in a moment ago), the app shows its reason.

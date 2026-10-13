@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.62.0] — 2026-10-13
+
+- The party page offers "Play it anyway" on a request the station turned down for its own taste, and pressing it asks for the record again past those rules. The new request shows in Your requests like any other.
+- A listener can overrule the station on a request it turned down for its own taste. When a request is refused because the record aired lately, its artist played too recently, it is disliked, it falls outside the show's period or it is longer or shorter than the station plays, the request comes back `overrulable`, and `POST /requests/{id}/insist` asks for it again past those rules. The new request is decided like any other: one at a time, the cooldown, the line and operator approval all still apply, and each refusal can be insisted on once. A never-play rule, a clean-only station with no clean copy, and a record no source can play are never overruled, and those refusals now say so plainly rather than blaming the rotation. The MCP endpoint offers it as `insist_on_request`.
+
 ## [0.61.0] — 2026-10-13
 
 - Settings, Appearance has a Clock choice: 12-hour, 24-hour, or as each screen has it (the 24-hour on-air clocks and 12-hour feed stamps the console drew before). It covers every time of day the console shows, from the clock in the header to the schedule grid and the date pickers, and it is remembered on that browser.
@@ -1387,7 +1392,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.61.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.62.0...HEAD
+[0.62.0]: https://github.com/robert-dean/deadair/compare/v0.61.0...v0.62.0
 [0.61.0]: https://github.com/robert-dean/deadair/compare/v0.60.0...v0.61.0
 [0.60.0]: https://github.com/robert-dean/deadair/compare/v0.59.0...v0.60.0
 [0.59.0]: https://github.com/robert-dean/deadair/compare/v0.58.1...v0.59.0

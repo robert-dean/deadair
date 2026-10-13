@@ -47,6 +47,7 @@ import { McpModule } from './mcp/mcp.module.js';
 import { MessagingModule } from './messaging/messaging.module.js';
 import { OutputsModule } from './outputs/outputs.module.js';
 import { RequestsModule } from './requests/requests.module.js';
+import { UsersModule } from './users/users.module.js';
 
 // Registered in dependency order: infrastructure (data, shared, messaging,
 // events) first, then the single-actor identity/auth foundation. IdentityModule
@@ -288,6 +289,9 @@ const ordered: ServerKitModule[] = [
     // After the director, which places a request, and the transport, which says when one is heard.
     // Before Messaging, whose `/request` command calls the desk here.
     RequestsModule,
+    // After authentication and permissions, whose accounts and roles it reads and changes. Nothing
+    // resolves it, and it owns no loop.
+    UsersModule,
     // After the plugins it polls and everything a chat command reaches (now playing, the director),
     // so its poller lets go of every platform before any of those tear down. Nothing resolves it.
     MessagingModule,

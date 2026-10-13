@@ -42,6 +42,7 @@ import com.maroonedsoftware.deadair.sdk.clients.TracesClient
 import com.maroonedsoftware.deadair.sdk.clients.StorageClient
 import com.maroonedsoftware.deadair.sdk.clients.StreamClient
 import com.maroonedsoftware.deadair.sdk.clients.TopicsClient
+import com.maroonedsoftware.deadair.sdk.clients.UsersClient
 import com.maroonedsoftware.deadair.sdk.runtime.SdkConfig
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 
@@ -94,6 +95,7 @@ class DeadairSdk(config: SdkConfig) : AutoCloseable {
     val storage: StorageClient = StorageClient(http)
     val stream: StreamClient = StreamClient(http)
     val topics: TopicsClient = TopicsClient(http)
+    val users: UsersClient = UsersClient(http)
 
     override fun close() {
         http.close()

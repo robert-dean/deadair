@@ -47,6 +47,7 @@ public final class Deadair: Sendable {
     public let storage: StorageClient
     public let stream: StreamClient
     public let topics: TopicsClient
+    public let users: UsersClient
 
     public init(config: SdkConfig) {
         let http = SdkHttp(config: config)
@@ -92,6 +93,7 @@ public final class Deadair: Sendable {
         self.storage = StorageClient(http: http)
         self.stream = StreamClient(http: http)
         self.topics = TopicsClient(http: http)
+        self.users = UsersClient(http: http)
     }
 
     /// The SDK against `baseURL`, with `headers` added to every request.

@@ -64,3 +64,5 @@ export * from './stream/stream.client.js';
 export * from './stream/types/index.js';
 export * from './topics/topics.client.js';
 export * from './topics/types/index.js';
+export * from './users/types/index.js';
+export * from './users/users.client.js';

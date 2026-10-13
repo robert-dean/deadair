@@ -41,6 +41,7 @@ import { McpRouter } from '../mcp/mcp.router.js';
 import { MessagingRouter } from './messaging.router.js';
 import { RequestsRouter } from './requests.router.js';
 import { RequestsPartyRouter } from './requests.party.router.js';
+import { UsersRouter } from './users.router.js';
 import { OutputsRouter } from './outputs.router.js';
 
 export const routers = [
@@ -96,5 +97,6 @@ export const routers = [
     MessagingRouter,
     RequestsRouter,
     RequestsPartyRouter,
+    UsersRouter,
     OutputsRouter,
 ];

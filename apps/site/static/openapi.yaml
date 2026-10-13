@@ -6056,6 +6056,98 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/TopicList'
+    '/users':
+        get:
+            operationId: listUsers
+            summary: 'List users'
+            description: "The station's people, one page at a time, ordered by when their account was made"
+            parameters:
+                - name: page
+                  in: query
+                  required: true
+                  description: 'The page number'
+                  schema:
+                      type: integer
+                      minimum: 0
+                      default: 0
+                      description: 'The page number'
+                - name: pageSize
+                  in: query
+                  required: true
+                  description: 'The page size'
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                      default: 25
+                      description: 'The page size'
+                - name: sort
+                  in: query
+                  required: true
+                  description: 'The sort order'
+                  schema:
+                      type: string
+                      enum: [asc, desc]
+                      default: desc
+                      description: 'The sort order'
+                - name: total
+                  in: query
+                  required: true
+                  description: 'The total number of items'
+                  schema:
+                      type: integer
+                      minimum: 0
+                      readOnly: true
+                      description: 'The total number of items'
+                - name: active
+                  in: query
+                  required: false
+                  description: 'Optionally filter by whether the items are active'
+                  schema:
+                      type: boolean
+                      description: 'Optionally filter by whether the items are active'
+                - name: search
+                  in: query
+                  required: false
+                  description: 'Part of an email address'
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                      description: 'Part of an email address'
+                - name: role
+                  in: query
+                  required: false
+                  description: 'Only people holding this role'
+                  schema:
+                      '$ref': '#/components/schemas/PlatformRole'
+                      description: 'Only people holding this role'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/UserPage'
+    '/users/{id}':
+        get:
+            operationId: getUser
+            summary: 'Get user'
+            description: 'One person, with every way they sign in, where they are signed in and their recent sign-ins'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/UserDetail'
 components:
     schemas:
         ActivityModule:
@@ -7018,6 +7110,90 @@ components:
                         '$ref': '#/components/schemas/AuthenticationFactorMethod'
                     description: 'If set, factors with these methods are never listed'
             description: 'Mint a fresh MFA challenge for the current session so the SPA can satisfy a `step_up_required` denial. Filters mirror `StepUpRequirement` from `@maroonedsoftware/policies`.'
+        SessionFactor:
+            type: object
+            properties:
+                method:
+                    type: string
+                    enum: [phone, password, authenticator, email, fido, oidc]
+                    description: 'The verification method'
+                methodId:
+                    type: string
+                    maxLength: 255
+                    description: 'Stable identifier for the specific factor record'
+                kind:
+                    type: string
+                    enum: [knowledge, possession, biometric]
+                    description: 'MFA category for the factor'
+                issuedAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                    description: 'When this factor entry was first added to the session'
+                authenticatedAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                    description: 'When the factor was most recently re-verified'
+            required: [method, methodId, kind, issuedAt, authenticatedAt]
+            description: 'A factor satisfied by the session'
+        Session:
+            type: object
+            properties:
+                sessionToken:
+                    type: string
+                    maxLength: 255
+                    readOnly: true
+                    description: 'Opaque session token used as the cache key and embedded in JWTs'
+                actorId:
+                    type: string
+                    format: uuid
+                    readOnly: true
+                    description: 'The actor that owns this session'
+                issuedAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                    description: 'When the session was originally issued'
+                expiresAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                    description: 'When the session expires'
+                lastAccessedAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                    description: 'When the session was last accessed'
+                factors:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/SessionFactor'
+                    readOnly: true
+                    description: 'Factors that have been satisfied in this session'
+                ip:
+                    type: [string, 'null']
+                    maxLength: 64
+                    readOnly: true
+                    description: 'IP address recorded when the session was created'
+                userAgent:
+                    type: [string, 'null']
+                    maxLength: 512
+                    readOnly: true
+                    description: 'User agent recorded when the session was created'
+                isCurrent:
+                    type: boolean
+                    readOnly: true
+                    description: 'True when this session matches the requesting session'
+            required:
+                - sessionToken
+                - actorId
+                - issuedAt
+                - expiresAt
+                - lastAccessedAt
+                - factors
+                - isCurrent
+            description: 'An active authentication session'
         PlatformRole:
             type: string
             enum: [admin, listener]
@@ -14572,6 +14748,14 @@ components:
                     description: 'The total number of items'
             required: [page, pageSize, sort, total]
             description: 'Represents a pagination object'
+        PaginationWithActive:
+            allOf:
+                - '$ref': '#/components/schemas/Pagination'
+                - type: object
+                  properties:
+                      active:
+                          type: boolean
+                          description: 'Optionally filter by whether the items are active'
         LogLevel:
             type: string
             enum: [trace, debug, info, warn, error]
@@ -15246,3 +15430,123 @@ components:
                     type: string
                     maxLength: 100
                     description: 'One sort of break, or absent for every subject this station has named'
+        UserQuery:
+            allOf:
+                - '$ref': '#/components/schemas/PaginationWithActive'
+                - type: object
+                  properties:
+                      search:
+                          type: string
+                          minLength: 1
+                          maxLength: 200
+                          description: 'Part of an email address'
+                      role:
+                          '$ref': '#/components/schemas/PlatformRole'
+                          description: 'Only people holding this role'
+        UserSummary:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    description: "The person's account id"
+                email:
+                    type: string
+                    maxLength: 320
+                    description: 'The address they sign in with. Absent for an account that has none, such as one made through a provider that shared no address'
+                role:
+                    '$ref': '#/components/schemas/PlatformRole'
+                    description: 'The one role they hold. Absent for an account nobody has granted one'
+                active:
+                    type: boolean
+                    description: 'False once the account has been switched off. A switched-off person cannot sign in, and every session they held has ended'
+                createdAt:
+                    type: string
+                    format: date-time
+                    description: 'When the account was made'
+                lastSignInAt:
+                    type: string
+                    format: date-time
+                    description: 'When they last signed in. Absent if they never have'
+                hasStrongFactor:
+                    type: boolean
+                    description: 'Whether they have an authenticator app or a passkey, which the phone apps need to sign in with'
+            required: [id, active, createdAt, hasStrongFactor]
+            description: 'A person with an account on the station'
+        UserPage:
+            type: object
+            properties:
+                meta:
+                    '$ref': '#/components/schemas/Pagination'
+                data:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/UserSummary'
+            required: [meta, data]
+            description: 'One page of people'
+        UserFactor:
+            type: object
+            properties:
+                method:
+                    type: string
+                    enum: [email, password, authenticator, fido, oidc, phone]
+                    description: 'What kind of factor it is'
+                methodId:
+                    type: string
+                    maxLength: 255
+                    description: 'Which factor of that kind'
+                kind:
+                    type: string
+                    enum: [knowledge, possession, biometric]
+                    description: 'What it proves'
+                label:
+                    type: string
+                    maxLength: 255
+                    description: "How it is shown, such as a masked address or the authenticator's name"
+            required: [method, methodId, kind]
+            description: 'One way a person signs in. Never the secret itself'
+        UserSignIn:
+            type: object
+            properties:
+                occurredAt:
+                    type: string
+                    format: date-time
+                    description: When
+                method:
+                    type: string
+                    maxLength: 64
+                    description: 'The factor they signed in with'
+                mfaSatisfied:
+                    type: boolean
+                    description: 'Whether a second factor was proved'
+                ip:
+                    type: string
+                    maxLength: 64
+                    description: 'The address the request came from'
+                userAgent:
+                    type: string
+                    maxLength: 512
+                    description: 'The app or browser that asked'
+            required: [occurredAt, method, mfaSatisfied]
+            description: 'One time a person signed in'
+        UserDetail:
+            allOf:
+                - '$ref': '#/components/schemas/UserSummary'
+                - type: object
+                  properties:
+                      factors:
+                          type: array
+                          items:
+                              '$ref': '#/components/schemas/UserFactor'
+                          description: 'Every way they can sign in'
+                      sessions:
+                          type: array
+                          items:
+                              '$ref': '#/components/schemas/Session'
+                          description: 'Where they are signed in now'
+                      signIns:
+                          type: array
+                          items:
+                              '$ref': '#/components/schemas/UserSignIn'
+                          description: 'Their most recent sign-ins, newest first'
+                  required: [factors, sessions, signIns]

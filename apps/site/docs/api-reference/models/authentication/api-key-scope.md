@@ -1,6 +1,6 @@
 ---
 title: 'ApiKeyScope'
-sidebar_position: 60
+sidebar_position: 62
 mdx:
     format: 'md'
 ---

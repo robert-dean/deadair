@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
-import { Box, Card, Group, SimpleGrid, Stack, Text, Title, UnstyledButton } from '@mantine/core';
+import { Box, Card, Group, Input, SegmentedControl, SimpleGrid, Stack, Text, Title, UnstyledButton } from '@mantine/core';
 
+import { CLOCK_CHOICES, setClock, useClock, type ClockChoice } from '../../clock.store';
 import { setTheme, useThemeId } from '../../theme.store';
 import { THEME_ORDER, THEMES, type ThemeDefinition } from '../../themes';
 import { Eyebrow } from '../shared/eyebrow';
@@ -21,6 +22,11 @@ import { Eyebrow } from '../shared/eyebrow';
  * Each card draws that theme's four load-bearing colours in the proportion the console uses them —
  * desk, panel, accent, tally — and sets its own name in its own display face. A row of three labels
  * would make the choice a guess; this way an operator picks the one they can already see.
+ *
+ * ## The clock rides along
+ *
+ * 12-hour or 24-hour is the same kind of choice, true of one browser and about reading rather than
+ * about the station, so it sits under the themes rather than in a card of its own.
  */
 export function AppearanceCard() {
     const { t } = useTranslation('settings');
@@ -46,11 +52,37 @@ export function AppearanceCard() {
                     ))}
                 </SimpleGrid>
 
+                <ClockChoiceInput />
+
                 <Text size="xs" c="dimmed">
                     {t('appearance.footnote')}
                 </Text>
             </Stack>
         </Card>
+    );
+}
+
+function ClockChoiceInput() {
+    const { t } = useTranslation('settings');
+    const clock = useClock();
+    const label: Record<ClockChoice, string> = {
+        auto: t('appearance.clock.auto'),
+        '12': t('appearance.clock.twelve'),
+        '24': t('appearance.clock.twentyFour'),
+    };
+
+    return (
+        // A div rather than a label: the control is a group of radios, each with its own.
+        <Input.Wrapper label={t('appearance.clock.label')} description={t('appearance.clock.description')} labelElement="div">
+            <SegmentedControl
+                mt="xs"
+                value={clock}
+                onChange={value => {
+                    setClock(value as ClockChoice);
+                }}
+                data={CLOCK_CHOICES.map(value => ({ value, label: label[value] }))}
+            />
+        </Input.Wrapper>
     );
 }
 

@@ -77,6 +77,13 @@ export const settings = {
         intro: 'Three ways to read the same console. The tally stays red in every one of them.',
         footnote: 'Remembered on this browser. Nothing else about the station changes.',
         inUse: 'in use',
+        clock: {
+            label: 'Clock',
+            description: 'How times of day read across the console. The station keeps its own time whichever you pick.',
+            auto: 'As each screen has it',
+            twelve: '12-hour',
+            twentyFour: '24-hour',
+        },
     },
     languages: {
         title: 'Languages',
@@ -722,7 +729,7 @@ export const settings = {
         },
         appearance: {
             label: 'Appearance',
-            hint: 'How the console looks, on this browser',
+            hint: 'How the console looks and tells the time, on this browser',
         },
         languages: {
             label: 'Languages',

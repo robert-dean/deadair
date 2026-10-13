@@ -22,6 +22,7 @@ import { ConfirmModal } from '../shared/confirm.modal';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatMomentMinute } from '../shared/feed.moment';
+import { dayjsClock } from '../../i18n/format.locale';
 import { notifyQueued } from '../shared/notify';
 import { toneColor } from '../shared/status';
 
@@ -275,7 +276,8 @@ function EpisodeForm({ show, onDone }: { show: OwnShow; onDone: () => void }) {
                     label={t('own.episode.airAt.label')}
                     description={t('own.episode.airAt.description')}
                     placeholder={t('own.episode.airAt.placeholder')}
-                    valueFormat="ddd D MMM, HH:mm"
+                    valueFormat={`ddd D MMM, ${dayjsClock().time}`}
+                    timePickerProps={{ format: dayjsClock().picker }}
                     minDate={new Date()}
                     clearable
                     {...form.getInputProps('airAt')}

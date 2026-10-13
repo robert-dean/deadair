@@ -23,6 +23,7 @@ import { SustainingPanel } from './sustaining.panel';
 import { SpecialsPanel } from './specials.panel';
 import { isSpecial } from './schedule.specials';
 import { i18n } from '../../i18n/i18n.setup';
+import { dayjsClock } from '../../i18n/format.locale';
 
 /**
  * The station's day, drawn as the timetable it is.
@@ -209,6 +210,8 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
             if (next === 'day' || next === 'week') setView(next);
         },
         viewSelectProps: { views: ['day', 'week'] as const },
+        // The hour down the side, on the operator's clock.
+        slotLabelFormat: dayjsClock().hour,
         // The package answers a `YYYY-MM-DD HH:mm:ss` stamp, and the API takes a date alone (and
         // refuses anything longer), so paging a week forward used to answer "Bad Request".
         onDateChange: (date: string) => setAnchor(date.slice(0, 10)),

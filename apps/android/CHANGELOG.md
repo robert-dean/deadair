@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.19.0] — 2026-10-13
+
+- The request page offers "Play it anyway" on a request the station turned down for its own taste, and pressing it asks for the record again past those rules.
+
 ## [0.18.0] — 2026-10-12
 
 - The operator can ask the station to say something from the phone. While a show is on, the Manage page has a Say something group: the news, the weather, or a word from the host. Each is heard after the current record, once it has been written. If the station turns the request down (breaks are off, or the same request went in a moment ago), the app shows its reason.
@@ -239,7 +243,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.18.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.19.0...HEAD
+[0.19.0]: https://github.com/robert-dean/deadair/compare/android-v0.18.0...android-v0.19.0
 [0.18.0]: https://github.com/robert-dean/deadair/compare/android-v0.17.0...android-v0.18.0
 [0.17.0]: https://github.com/robert-dean/deadair/compare/android-v0.16.0...android-v0.17.0
 [0.16.0]: https://github.com/robert-dean/deadair/compare/android-v0.15.6...android-v0.16.0

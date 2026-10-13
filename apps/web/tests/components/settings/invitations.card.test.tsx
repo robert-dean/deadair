@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
+import { SdkError } from '@deadair/sdk';
 
 import { InvitationsCard } from '../../../src/components/settings/invitations.card';
 import { render, screen, setupUser, waitFor, within } from '../../utils/render';
@@ -19,6 +21,15 @@ vi.mock('../../../src/api/client', () => ({
             },
         },
     },
+}));
+
+// The mail-settings link is a router Link, and this card is drawn here without a router.
+vi.mock('@tanstack/react-router', () => ({
+    Link: ({ to, children, ...props }: { to?: string; children?: ReactNode }) => (
+        <a href={to} {...props}>
+            {children}
+        </a>
+    ),
 }));
 
 afterEach(() => {
@@ -105,5 +116,41 @@ describe('InvitationsCard', () => {
         await user.click(within(dialog).getByRole('button', { name: 'Send again' }));
 
         await waitFor(() => expect(createInvitation).toHaveBeenCalledWith({ email: 'pat@friends.test', role: 'admin' }));
+    });
+
+    it('emails an admin invitation by default, and shows no link when it has been sent', async () => {
+        listInvitations.mockResolvedValue({ data: [] });
+        createInvitation.mockResolvedValue(ADMIN);
+        const user = setupUser();
+        render(<InvitationsCard />);
+
+        await user.type(await screen.findByLabelText('Their address'), 'pat@friends.test');
+        await user.click(screen.getByRole('combobox', { name: 'Role' }));
+        await user.click(await screen.findByRole('option', { name: 'Admin' }));
+        expect(screen.getByRole('switch', { name: /^Email it to them/ })).toBeChecked();
+        await user.click(screen.getByRole('button', { name: 'Create invitation' }));
+
+        await waitFor(() => expect(createInvitation).toHaveBeenCalledWith({ email: 'pat@friends.test', role: 'admin', send: true }));
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('points at the mail settings when the station has no mail server', async () => {
+        listInvitations.mockResolvedValue({ data: [] });
+        createInvitation.mockRejectedValue(
+            new SdkError(
+                503,
+                'Unavailable',
+                { statusCode: 503, message: 'Unavailable', details: { message: 'Email is not configured.' } },
+                new Headers(),
+            ),
+        );
+        const user = setupUser();
+        render(<InvitationsCard />);
+
+        await user.type(await screen.findByLabelText('Their address'), 'sam@friends.test');
+        await user.click(screen.getByRole('switch', { name: /^Email it to them/ }));
+        await user.click(screen.getByRole('button', { name: 'Create invitation' }));
+
+        expect(await screen.findByRole('link', { name: 'Open mail settings' })).toBeInTheDocument();
     });
 });

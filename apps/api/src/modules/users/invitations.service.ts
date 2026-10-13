@@ -7,6 +7,9 @@ import { ErrorCodes } from '@deadair/error-codes';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { EmailFactorRepository } from '@maroonedsoftware/authentication';
 import { StrongFactorGate } from '#modules/authentication/strong.factor.gate.js';
+import { MailService } from '#modules/mail/mail.service.js';
+import { AppConfig } from '@maroonedsoftware/appconfig';
+import { deployedOrigin } from '#modules/stream/stream.settings.js';
 import { InvitationsRepository, type InvitationRow } from './invitations.repository.js';
 import { INVITATION_LIFETIME, hashInvitationToken, invitationState, mintInvitationToken } from './invitation.token.js';
 import { Invitation, InvitationList, type InvitationCreate } from './types/invitations.types.js';
@@ -30,6 +33,8 @@ export class InvitationsService {
         private readonly encryption: EncryptionProvider,
         private readonly strongFactorGate: StrongFactorGate,
         private readonly authz: AuthorizationContext,
+        private readonly mail: MailService,
+        private readonly config: AppConfig,
     ) {}
 
     async list(): Promise<InvitationList> {
@@ -45,6 +50,10 @@ export class InvitationsService {
     async create(body: InvitationCreate): Promise<Invitation> {
         const callerId = await this.beginWrite();
         const email = body.email.trim();
+        // Both refusals come before anything is made, so asking for an email the station cannot
+        // send leaves no invitation behind to explain.
+        const origin = body.send ? this.inviteOrigin() : undefined;
+        if (body.send) this.mail.assertConfigured();
 
         if (await this.emailFactors.findFactor(email)) {
             throw httpError(409).withDetails({
@@ -63,7 +72,38 @@ export class InvitationsService {
             expiresAt: DateTime.utc().plus(INVITATION_LIFETIME[body.role]),
             invitedBy: callerId,
         });
+
+        // Sent inside the request rather than after it commits. A send that fails then throws, the
+        // invitation rolls back with it, and the admin is told nothing was made; the rare send that
+        // succeeds before a failed commit only delivers a link the page will call not open. The
+        // other way round leaves an invitation nobody was told about behind an error.
+        if (origin) {
+            await this.mail.send({
+                to: email,
+                template: 'Invitation',
+                data: {
+                    link: `${origin}/invite#${token}`,
+                    role: body.role,
+                    ...(row.inviterEmail ? { inviter: row.inviterEmail } : {}),
+                    until: row.expiresAt.setLocale('en-GB').toFormat('d LLLL yyyy'),
+                },
+            });
+        }
         return await parseAndValidate(this.toInvitation(row, DateTime.utc()), Invitation);
+    }
+
+    /**
+     * Where an emailed link points: the address the station's console was deployed at. A link built
+     * from anything the request carried could be pointed at another site by whoever sent it.
+     */
+    private inviteOrigin(): string {
+        const origin = deployedOrigin(this.config);
+        if (!origin) {
+            throw httpError(409).withDetails({
+                message: "the station's address is not set (SPA_BASE_URL), so an emailed link would have nowhere to point; copy the link instead",
+            });
+        }
+        return origin;
     }
 
     /** Withdraw an invitation. Its link stops working at once; the row stays, marked withdrawn. */

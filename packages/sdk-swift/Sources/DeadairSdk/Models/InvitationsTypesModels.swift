@@ -15,27 +15,33 @@ public struct InvitationCreate: Codable, Equatable, Sendable {
     public var email: String
     /// The role the account will hold
     public var role: PlatformRole
+    /// Email the link to the address too. Refused with a 503, and nothing made, when the station has no mail server
+    public var send: Bool?
 
-    public init(email: String, role: PlatformRole) {
+    public init(email: String, role: PlatformRole, send: Bool? = nil) {
         self.email = email
         self.role = role
+        self.send = send
     }
 
     private enum CodingKeys: String, CodingKey {
         case email = "email"
         case role = "role"
+        case send = "send"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.email = try container.decode(String.self, forKey: .email)
         self.role = try container.decode(PlatformRole.self, forKey: .role)
+        self.send = try container.decodeIfPresent(Bool.self, forKey: .send)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.email, forKey: .email)
         try container.encode(self.role, forKey: .role)
+        try container.encodeIfPresent(self.send, forKey: .send)
     }
 }
 

@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Code, Group, Modal, Select, Stack, Table, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Anchor, Button, Card, Code, Group, Modal, Select, Stack, Switch, Table, Text, TextInput, Title } from '@mantine/core';
+import { Link } from '@tanstack/react-router';
 import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
 import type { Invitation, PlatformRole } from '@deadair/sdk';
 
 import { isLoopback } from '../../api/party.queries';
-import { apiErrorMessage } from '../../api/sdk.error';
+import { apiErrorMessage, sdkError } from '../../api/sdk.error';
 import { invitationLink, useCreateInvitation, useInvitations, useRevokeInvitation } from '../../api/users.queries';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { CopyButton } from '../shared/copy.button';
@@ -29,8 +30,8 @@ const STATE_TONES: Record<Invitation['state'], StatusTone> = { pending: 'ok', ac
 /**
  * Inviting somebody, and the invitations so far.
  *
- * The station mints the link and the admin sends it however they like: the console never sends it
- * anywhere itself (the station can email it, from the form, when mail is set up). The link is shown
+ * The station mints the link and the admin sends it however they like, or has the station email it
+ * when a mail server is set up. The link is shown
  * on demand rather than in the row, and an admin's link asks first, because whoever opens it first
  * runs the station. Every change is behind the re-verify dialog, which the API asks for whenever the
  * admin acting has a strong factor they have not proved recently.
@@ -176,16 +177,22 @@ function InviteForm({ gate, onCreated }: { gate: Gate; onCreated: (invitation: I
     const create = useCreateInvitation();
     const [email, setEmail] = useState('');
     const [role, setRole] = useState<PlatformRole>('listener');
+    // On by default for an admin, whose link is better in their own inbox than on a screen; off for
+    // a listener, whose link is as often handed over in person.
+    const [send, setSend] = useState(false);
     const [failure, setFailure] = useState<unknown>();
 
     async function submit(): Promise<void> {
         setFailure(undefined);
         try {
-            const invitation = await gate.run(() => create.mutateAsync({ email, role }));
+            const invitation = await gate.run(() => create.mutateAsync({ email, role, send }));
             setEmail('');
             setRole('listener');
-            notifyDone(t('people.invitations.created', { email: invitation.email }));
-            onCreated(invitation);
+            setSend(false);
+            notifyDone(t(send ? 'people.invitations.emailed' : 'people.invitations.created', { email: invitation.email }));
+            // An emailed link has gone where it should; the console shows one only when the admin
+            // is the one who will pass it on.
+            if (!send) onCreated(invitation);
         } catch (caught) {
             if (!isStepUpCancelled(caught)) setFailure(caught);
         }
@@ -201,7 +208,16 @@ function InviteForm({ gate, onCreated }: { gate: Gate; onCreated: (invitation: I
             <Stack gap="sm">
                 {failure ? (
                     <ErrorAlert title={t('people.invitations.form.errorTitle')}>
-                        {apiErrorMessage(failure, t('people.invitations.form.errorFallback'))}
+                        <Stack gap="xxs">
+                            <Text size="sm">{apiErrorMessage(failure, t('people.invitations.form.errorFallback'))}</Text>
+                            {/* The one refusal an admin can fix from here, drawn off the status as the
+                                email enrolment card draws it, rather than off the sentence. */}
+                            {sdkError(failure)?.status === 503 ? (
+                                <Anchor size="sm" renderRoot={(props: object) => <Link to="/settings/mail" {...props} />}>
+                                    {t('security.email.openMail')}
+                                </Anchor>
+                            ) : undefined}
+                        </Stack>
                     </ErrorAlert>
                 ) : undefined}
                 <Group align="flex-end" gap="sm">
@@ -219,7 +235,11 @@ function InviteForm({ gate, onCreated }: { gate: Gate; onCreated: (invitation: I
                         data={ROLES.map(value => ({ value, label: t(`people.role.${value}`) }))}
                         value={role}
                         allowDeselect={false}
-                        onChange={next => setRole((next as PlatformRole | null) ?? 'listener')}
+                        onChange={next => {
+                            const chosen = (next as PlatformRole | null) ?? 'listener';
+                            setRole(chosen);
+                            setSend(chosen === 'admin');
+                        }}
                     />
                     <Button type="submit" loading={create.isPending} disabled={email.trim().length === 0}>
                         {t('people.invitations.form.submit')}
@@ -228,6 +248,12 @@ function InviteForm({ gate, onCreated }: { gate: Gate; onCreated: (invitation: I
                 <Text size="xs" c="dimmed">
                     {t(`people.roleHelp.${role}`)}
                 </Text>
+                <Switch
+                    label={t('people.invitations.form.send.label')}
+                    description={t('people.invitations.form.send.description')}
+                    checked={send}
+                    onChange={event => setSend(event.currentTarget.checked)}
+                />
             </Stack>
         </form>
     );

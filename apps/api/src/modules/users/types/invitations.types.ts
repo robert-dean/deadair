@@ -23,6 +23,10 @@ export type InvitationState = z.infer<typeof InvitationState>;
 export const InvitationCreate = z.strictObject({
     email: z.email().describe('The address the account will have'),
     role: PlatformRole.describe('The role the account will hold'),
+    send: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe('Email the link to the address too. Refused with a 503, and nothing made, when the station has no mail server'),
 });
 export type InvitationCreate = z.infer<typeof InvitationCreate>;
 

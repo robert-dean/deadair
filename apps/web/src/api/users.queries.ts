@@ -114,7 +114,8 @@ export function useCreateInvitation() {
     const queryClient = useQueryClient();
     return useMutation({
         retry: false,
-        mutationFn: (body: InvitationCreate) => sdk.users.invitations.createInvitation({ email: body.email.trim(), role: body.role }),
+        mutationFn: (body: InvitationCreate) =>
+            sdk.users.invitations.createInvitation({ email: body.email.trim(), role: body.role, ...(body.send ? { send: true } : {}) }),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.users.invitations() });
         },

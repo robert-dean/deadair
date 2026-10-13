@@ -38,6 +38,11 @@ public sealed record InvitationCreate
     /// <summary>The role the account will hold</summary>
     [JsonPropertyName("role")]
     public required PlatformRole Role { get; init; }
+
+    /// <summary>Email the link to the address too. Refused with a 503, and nothing made, when the station has no mail server</summary>
+    [JsonPropertyName("send")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Send { get; init; }
 }
 
 /// <summary>An invitation's link token, as it appears after `#` on the invite page</summary>

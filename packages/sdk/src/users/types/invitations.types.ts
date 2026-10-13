@@ -27,6 +27,8 @@ export interface InvitationCreate {
     email: string;
     /** The role the account will hold */
     role: PlatformRole;
+    /** Email the link to the address too. Refused with a 503, and nothing made, when the station has no mail server */
+    send?: boolean;
 }
 
 /**

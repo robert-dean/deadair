@@ -15694,6 +15694,9 @@ components:
                 role:
                     '$ref': '#/components/schemas/PlatformRole'
                     description: 'The role the account will hold'
+                send:
+                    type: boolean
+                    description: 'Email the link to the address too. Refused with a 503, and nothing made, when the station has no mail server'
             required: [email, role]
             description: 'Invite somebody by their address'
         InvitationToken:

@@ -26,6 +26,7 @@ contract InvitationList: { # The station's invitations, newest first
 contract InvitationCreate: { # Invite somebody by their address
     email: email # The address the account will have
     role: PlatformRole # The role the account will hold
+    send?: boolean # Email the link to the address too. Refused with a 503, and nothing made, when the station has no mail server
 }
 
 contract InvitationToken: { # An invitation's link token, as it appears after `#` on the invite page

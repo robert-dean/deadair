@@ -42,6 +42,8 @@ data class InvitationCreate(
     val email: String,
     /** The role the account will hold */
     val role: PlatformRole,
+    /** Email the link to the address too. Refused with a 503, and nothing made, when the station has no mail server */
+    val send: Boolean? = null,
 )
 
 /** An invitation's link token, as it appears after `#` on the invite page */

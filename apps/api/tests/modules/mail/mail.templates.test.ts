@@ -17,6 +17,12 @@ const messages: MailMessage[] = [
         data: { link: 'https://radio.example.com/auth/callback?token=t&challenge_id=c', minutes: 30 },
     },
     { to: 'someone@example.com', template: 'VerifyEmail', data: { code: '654321', minutes: 10 } },
+    {
+        to: 'someone@example.com',
+        template: 'Invitation',
+        data: { link: 'https://radio.example.com/invite#di_abc', role: 'listener', inviter: 'admin@example.com', until: '20 October 2026' },
+    },
+    { to: 'someone@example.com', template: 'SecondFactorReset', data: {} },
 ];
 
 describe('rendering a message', () => {
@@ -88,5 +94,35 @@ describe('rendering a message', () => {
         const envelope = renderMail(message, STATION);
 
         expect(envelope.html).not.toMatch(/<img|<link|url\(/i);
+    });
+
+    it('puts the invitation link in the text part, and says who invited them, into what, and until when', () => {
+        const envelope = renderMail(
+            {
+                to: 'a@b.c',
+                template: 'Invitation',
+                data: { link: 'https://x.test/invite#di_abc', role: 'admin', inviter: 'boss@x.test', until: '15 October 2026' },
+            },
+            STATION,
+        );
+
+        expect(envelope.subject).toBe('You are invited to run Dead Air');
+        expect(envelope.text).toContain('https://x.test/invite#di_abc');
+        expect(envelope.text).toContain('boss@x.test has invited you to run Dead Air');
+        expect(envelope.text).toContain('until 15 October 2026');
+    });
+
+    it('escapes the inviter, whose address is whatever their account holds', () => {
+        const envelope = renderMail(
+            {
+                to: 'a@b.c',
+                template: 'Invitation',
+                data: { link: 'https://x.test/invite#t', role: 'listener', inviter: '<b>@x.test', until: 'soon' },
+            },
+            STATION,
+        );
+
+        expect(envelope.html).not.toContain('<b>@');
+        expect(envelope.html).toContain('&lt;b&gt;@x.test');
     });
 });

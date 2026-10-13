@@ -343,11 +343,16 @@ export const settings = {
             form: {
                 email: { label: 'Their address', placeholder: 'friend@example.com' },
                 role: { label: 'Role' },
+                send: {
+                    label: 'Email it to them',
+                    description: 'The station sends the link to their address. Off, you get the link and the code to pass on yourself.',
+                },
                 submit: 'Create invitation',
                 errorTitle: 'No invitation made',
                 errorFallback: 'The station did not make the invitation.',
             },
             created: 'Invitation for {{email}} is ready. Send them the link.',
+            emailed: 'Invitation emailed to {{email}}.',
             list: { title: 'Invitations', empty: 'Nobody has been invited yet.' },
             column: { person: 'Person', role: 'Role', state: 'Status', expires: 'Expires', invitedBy: 'Invited by' },
             state: {

@@ -6,8 +6,9 @@
  * placeholder in the body — which is the failure mode of a string-keyed template registry, and it
  * ships an email with `{code}` in it to the one person who cannot then sign in to report it.
  *
- * Three, and all three are the same sentence to a person waiting on a screen: here is a code, or
- * here is a link. There is no marketing here and there is not going to be.
+ * Most are the same sentence to a person waiting on a screen: here is a code, or here is a link. The
+ * other two are about an account: an invitation to make one, and a notice that its second step was
+ * reset. There is no marketing here and there is not going to be.
  */
 export type MailTemplateMap = {
     /** A second factor at sign-in: the password was right and this proves the inbox. */
@@ -16,6 +17,10 @@ export type MailTemplateMap = {
     SignInLink: { link: string; minutes: number };
     /** Proof an address exists before it is attached to an account. */
     VerifyEmail: { code: string; minutes: number };
+    /** An admin invited this address into a role. `until` is already a date a person reads, such as `15 October 2026`. */
+    Invitation: { link: string; role: 'admin' | 'listener'; inviter?: string; until: string };
+    /** An admin removed this account's authenticator apps and passkeys. Sent so a reset nobody asked for is noticed. */
+    SecondFactorReset: Record<string, never>;
 };
 
 export type MailTemplate = keyof MailTemplateMap;
@@ -112,6 +117,46 @@ function body(message: MailMessage, stationName: string): { subject: string; tex
                     `<p style="font-size:28px;font-weight:600;letter-spacing:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${escapeHtml(code)}</p>`,
                     `<p>It expires in ${escapeHtml(plural(minutes, 'minute'))}, and works once.</p>`,
                     '<p>If you were not expecting this, nothing has happened to your address. Ignore it.</p>',
+                ].join(''),
+            };
+        }
+        case 'Invitation': {
+            const { link, role, inviter, until } = message.data;
+            const who = inviter ? `${inviter} has invited you` : 'You have been invited';
+            const what = role === 'admin' ? `to run ${stationName}` : `to listen to ${stationName}`;
+            return {
+                subject: role === 'admin' ? `You are invited to run ${stationName}` : `You are invited to ${stationName}`,
+                text: [
+                    `${who} ${what}. Open this link to make your account:`,
+                    '',
+                    link,
+                    '',
+                    `You will choose a password and set up an authenticator app or a passkey. The link works once, until ${until}.`,
+                    '',
+                    'If you were not expecting this, ignore it. Anybody who can read this message can use the link, so do not forward it.',
+                ].join('\n'),
+                html: [
+                    `<p>${escapeHtml(who)} ${escapeHtml(what)}.</p>`,
+                    `<p><a href="${escapeHtml(link)}" style="font-size:16px">Make your account</a></p>`,
+                    `<p>You will choose a password and set up an authenticator app or a passkey. The link works once, until ${escapeHtml(until)}.</p>`,
+                    '<p>If you were not expecting this, ignore it. Anybody who can read this message can use the link, so do not forward it.</p>',
+                ].join(''),
+            };
+        }
+        case 'SecondFactorReset': {
+            return {
+                subject: `Your second step on ${stationName} was reset`,
+                text: [
+                    `An admin of ${stationName} removed the authenticator apps and passkeys on your account and signed you out everywhere.`,
+                    '',
+                    'Sign in with your password and set up a new one from Sign-in and security.',
+                    '',
+                    'If you did not ask for this, tell whoever runs the station.',
+                ].join('\n'),
+                html: [
+                    `<p>An admin of ${escapeHtml(stationName)} removed the authenticator apps and passkeys on your account and signed you out everywhere.</p>`,
+                    '<p>Sign in with your password and set up a new one from Sign-in and security.</p>',
+                    '<p>If you did not ask for this, tell whoever runs the station.</p>',
                 ].join(''),
             };
         }

@@ -8,6 +8,9 @@ import { PLATFORM_ROLE_NAMES, isPlatformRoleName } from '#modules/permissions/pl
 import { ActorsRepository } from '#modules/authentication/repositories/actors.repository.js';
 import { SessionActivityService } from '#modules/authentication/session.activity.service.js';
 import { StrongFactorGate } from '#modules/authentication/strong.factor.gate.js';
+import { AfterCommit } from '#modules/data/after.commit.js';
+import { MailService } from '#modules/mail/mail.service.js';
+import { Logger } from '@maroonedsoftware/logger';
 import { UsersRepository, type UserRow } from './users.repository.js';
 import { UserDetail, UserPage, UserSummary, type UserQueryInput, type UserRoleChange, type UserSignIn } from './types/users.types.js';
 
@@ -48,6 +51,9 @@ export class UsersService {
         private readonly sessionService: AuthenticationSessionService,
         private readonly authenticatorFactors: AuthenticatorFactorService,
         private readonly fidoFactors: FidoFactorService,
+        private readonly mail: MailService,
+        private readonly afterCommit: AfterCommit,
+        private readonly logger: Logger,
     ) {}
 
     async list(query: UserQueryInput): Promise<UserPage> {
@@ -147,6 +153,21 @@ export class UsersService {
         for (const factor of authenticators) await this.authenticatorFactors.deleteFactor(id, factor.id);
         for (const factor of passkeys) await this.fidoFactors.deleteFactor(id, factor.id);
         await this.sessionService.revokeAllForSubject(id, 'logout');
+
+        // A notice to the person, so a reset they did not ask for is noticed. After the commit, and
+        // never allowed to undo the reset: a station with no mail server, or one that refuses,
+        // still resets a lost device, and the admin who did it can tell them.
+        const person = await this.users.get(id);
+        if (person?.email && this.mail.isConfigured()) {
+            const to = person.email;
+            this.afterCommit.add(async () => {
+                await this.mail.send({ to, template: 'SecondFactorReset', data: {} }).catch((error: unknown) => {
+                    this.logger.warn(
+                        `users: could not tell ${to} their second step was reset (${error instanceof Error ? error.message : String(error)})`,
+                    );
+                });
+            });
+        }
     }
 
     /** An admin, who has proved a strong factor recently if they hold one. Answers who is acting. */

@@ -29,7 +29,7 @@ const actor = (roles: ReadonlyArray<'admin' | 'listener'>): UserActor => ({
 
 const friend: UserRow = { id: FRIEND_ID, active: true, createdAt: CREATED, email: 'friend@example.com', roles: ['listener'], hasStrongFactor: true };
 
-function build(roles: ReadonlyArray<'admin' | 'listener'> = ['admin'], rows: UserRow[] = [friend]) {
+function build(roles: ReadonlyArray<'admin' | 'listener'> = ['admin'], rows: UserRow[] = [friend], mailConfigured = true) {
     const users = {
         list: vi.fn(async () => ({ total: rows.length, data: rows })),
         get: vi.fn(async (id: string) => rows.find(row => row.id === id)),
@@ -57,6 +57,10 @@ function build(roles: ReadonlyArray<'admin' | 'listener'> = ['admin'], rows: Use
     const authenticatorFactors = { listFactors: vi.fn(async () => [{ id: 'totp-1' }, { id: 'totp-2' }]), deleteFactor: vi.fn(async () => undefined) };
     const fidoFactors = { listFactors: vi.fn(async () => [{ id: 'key-1' }]), deleteFactor: vi.fn(async () => undefined) };
     Object.assign(actors, { update: vi.fn(async () => ({})) });
+    const mail = { isConfigured: vi.fn(() => mailConfigured), send: vi.fn(async () => undefined) };
+    const tasks: Array<() => Promise<void>> = [];
+    const afterCommit = { add: vi.fn((task: () => Promise<void>) => void tasks.push(task)) };
+    const logger = { warn: vi.fn() };
     const service = new UsersService(
         users as unknown as UsersRepository,
         actors as unknown as ActorsRepository,
@@ -67,6 +71,9 @@ function build(roles: ReadonlyArray<'admin' | 'listener'> = ['admin'], rows: Use
         sessionService as unknown as AuthenticationSessionService,
         authenticatorFactors as unknown as AuthenticatorFactorService,
         fidoFactors as unknown as FidoFactorService,
+        mail as never,
+        afterCommit as never,
+        logger as never,
     );
     return {
         service,
@@ -78,6 +85,9 @@ function build(roles: ReadonlyArray<'admin' | 'listener'> = ['admin'], rows: Use
         sessionService,
         authenticatorFactors,
         fidoFactors,
+        mail,
+        tasks,
+        logger,
     };
 }
 
@@ -200,6 +210,32 @@ describe('UsersService writes', () => {
         ]);
         expect(h.fidoFactors.deleteFactor).toHaveBeenCalledWith(FRIEND_ID, 'key-1');
         expect(h.sessionService.revokeAllForSubject).toHaveBeenCalledWith(FRIEND_ID, 'logout');
+    });
+
+    it('tell the person their second step was reset, once the reset has committed', async () => {
+        const h = build();
+
+        await h.service.resetMfa(FRIEND_ID);
+        expect(h.mail.send).not.toHaveBeenCalled();
+        for (const task of h.tasks) await task();
+
+        expect(h.mail.send).toHaveBeenCalledWith({ to: 'friend@example.com', template: 'SecondFactorReset', data: {} });
+    });
+
+    it('still reset a second step when the notice cannot be sent', async () => {
+        const h = build();
+        h.mail.send.mockRejectedValue(new Error('refused'));
+
+        await h.service.resetMfa(FRIEND_ID);
+        for (const task of h.tasks) await expect(task()).resolves.toBeUndefined();
+
+        expect(h.logger.warn).toHaveBeenCalled();
+    });
+
+    it('send no notice on a station with no mail server', async () => {
+        const h = build(['admin'], [friend], false);
+        await h.service.resetMfa(FRIEND_ID);
+        expect(h.tasks).toHaveLength(0);
     });
 
     it('offer no way for an admin to change an address', () => {

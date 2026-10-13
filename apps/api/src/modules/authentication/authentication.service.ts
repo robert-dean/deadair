@@ -1,4 +1,5 @@
 import { httpError, IsHttpError, unauthorizedError } from '@maroonedsoftware/errors';
+import { ErrorCodes } from '@deadair/error-codes';
 import {
     AuthenticationFactor,
     AuthenticationFactorKind,
@@ -407,6 +408,7 @@ export class AuthenticationService {
         actor: TargetActor<ActorType>;
         primaryFactor: AuthenticationSessionFactor;
     }): Promise<AuthenticationTokenInternal> {
+        await this.refuseInactive(ctx.actor.actorId);
         const enrolled = await this.actorsRepository.listFactors(ctx.actor.actorId, true);
         // The repository selects method/kind as raw SQL literals; cast through the validated
         // factor union since Kysely widens them to `string`. Labels travel into the orchestrator
@@ -443,10 +445,23 @@ export class AuthenticationService {
         };
     }
 
+    /**
+     * A switched-off account proves its factors and is still not signed in. Every request it made
+     * would be refused anyway (the authorization middleware checks the actor is active), but a token
+     * that fails on first use reads to an app as a broken station rather than a closed account. Asked
+     * before an MFA challenge is issued as well as before a token, so nobody is walked through a
+     * second step that leads nowhere.
+     */
+    private async refuseInactive(actorId: string): Promise<void> {
+        if (await this.actorsRepository.existsActive(actorId)) return;
+        throw httpError(401).withDetails({ code: ErrorCodes.ACCOUNT_DISABLED, message: 'this account has been switched off' });
+    }
+
     private async issueTokenFor(
         actor: TargetActor<ActorType>,
         factors: AuthenticationSessionFactor | AuthenticationSessionFactor[],
     ): Promise<AuthenticationTokenInternal> {
+        await this.refuseInactive(actor.actorId);
         const factorList = Array.isArray(factors) ? factors : [factors];
         const mfaSatisfied = factorList.length > 1;
         const claims = {

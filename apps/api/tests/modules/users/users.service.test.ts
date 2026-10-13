@@ -11,6 +11,9 @@ import { AuthorizationContext, type UserActor } from '../../../src/modules/permi
 import type { UsersRepository, UserRow } from '../../../src/modules/users/users.repository.js';
 import type { ActorsRepository } from '../../../src/modules/authentication/repositories/actors.repository.js';
 import type { SessionActivityService } from '../../../src/modules/authentication/session.activity.service.js';
+import type { PlatformRoleService } from '../../../src/modules/permissions/platform.role.service.js';
+import type { StrongFactorGate } from '../../../src/modules/authentication/strong.factor.gate.js';
+import type { AuthenticationSessionService, AuthenticatorFactorService, FidoFactorService } from '@maroonedsoftware/authentication';
 
 const ADMIN_ID = '11111111-1111-4111-8111-111111111111';
 const FRIEND_ID = '22222222-2222-4222-8222-222222222222';
@@ -44,13 +47,38 @@ function build(roles: ReadonlyArray<'admin' | 'listener'> = ['admin'], rows: Use
             data: [{ occurredAt: CREATED, factorType: 'password', mfaSatisfied: true, ip: null, userAgent: 'deadair-android' }],
         })),
     };
+    const platformRoles = {
+        assertMayReassign: vi.fn(async () => undefined),
+        assertMayDeactivate: vi.fn(async () => undefined),
+        assign: vi.fn(async () => undefined),
+    };
+    const strongFactorGate = { assertRecentIfAnyEnrolled: vi.fn(async () => undefined) };
+    const sessionService = { revokeAllForSubject: vi.fn(async () => 1) };
+    const authenticatorFactors = { listFactors: vi.fn(async () => [{ id: 'totp-1' }, { id: 'totp-2' }]), deleteFactor: vi.fn(async () => undefined) };
+    const fidoFactors = { listFactors: vi.fn(async () => [{ id: 'key-1' }]), deleteFactor: vi.fn(async () => undefined) };
+    Object.assign(actors, { update: vi.fn(async () => ({})) });
     const service = new UsersService(
         users as unknown as UsersRepository,
         actors as unknown as ActorsRepository,
         sessions as unknown as SessionActivityService,
         new AuthorizationContext(actor(roles)),
+        platformRoles as unknown as PlatformRoleService,
+        strongFactorGate as unknown as StrongFactorGate,
+        sessionService as unknown as AuthenticationSessionService,
+        authenticatorFactors as unknown as AuthenticatorFactorService,
+        fidoFactors as unknown as FidoFactorService,
     );
-    return { service, users, actors, sessions };
+    return {
+        service,
+        users,
+        actors: actors as typeof actors & { update: ReturnType<typeof vi.fn> },
+        sessions,
+        platformRoles,
+        strongFactorGate,
+        sessionService,
+        authenticatorFactors,
+        fidoFactors,
+    };
 }
 
 describe('UsersService.list', () => {
@@ -105,5 +133,79 @@ describe('UsersService.get', () => {
         ]);
         expect(person.signIns).toEqual([{ occurredAt: CREATED, method: 'password', mfaSatisfied: true, userAgent: 'deadair-android' }]);
         expect(sessions.listLoginsForActor).toHaveBeenCalledWith(FRIEND_ID, { limit: 20, offset: 0 });
+    });
+});
+
+describe('UsersService writes', () => {
+    it('refuse anybody who is not an admin, before asking for a step-up', async () => {
+        const h = build(['listener']);
+        await expect(h.service.changeRole(FRIEND_ID, { role: 'admin' })).rejects.toSatisfy(IsHttpError);
+        expect(h.strongFactorGate.assertRecentIfAnyEnrolled).not.toHaveBeenCalled();
+    });
+
+    it('each ask the caller for a recent strong factor', async () => {
+        const h = build();
+        await h.service.signOut(FRIEND_ID);
+        expect(h.strongFactorGate.assertRecentIfAnyEnrolled).toHaveBeenCalledWith(ADMIN_ID);
+    });
+
+    it('answer 404 for an id that is not a person, and change nothing', async () => {
+        const h = build();
+        await expect(h.service.deactivate('33333333-3333-4333-8333-333333333333')).rejects.toSatisfy(IsHttpError);
+        expect(h.actors.update).not.toHaveBeenCalled();
+    });
+
+    it('change a role only after the guards agree, attributed to the admin acting', async () => {
+        const h = build();
+
+        await h.service.changeRole(FRIEND_ID, { role: 'admin' });
+
+        expect(h.platformRoles.assertMayReassign).toHaveBeenCalledWith(ADMIN_ID, FRIEND_ID, 'admin');
+        expect(h.platformRoles.assign).toHaveBeenCalledWith(FRIEND_ID, 'admin', ADMIN_ID);
+    });
+
+    it('do not change a role the guards refuse', async () => {
+        const h = build();
+        h.platformRoles.assertMayReassign.mockRejectedValue(new Error('refused'));
+
+        await expect(h.service.changeRole(FRIEND_ID, { role: 'listener' })).rejects.toThrow('refused');
+        expect(h.platformRoles.assign).not.toHaveBeenCalled();
+    });
+
+    it('switch a person off by flag, end their sessions, and delete nothing', async () => {
+        const h = build();
+
+        await h.service.deactivate(FRIEND_ID);
+
+        expect(h.platformRoles.assertMayDeactivate).toHaveBeenCalledWith(ADMIN_ID, FRIEND_ID);
+        expect(h.actors.update).toHaveBeenCalledWith(FRIEND_ID, false);
+        expect(h.sessionService.revokeAllForSubject).toHaveBeenCalledWith(FRIEND_ID, 'logout');
+        expect(h.authenticatorFactors.deleteFactor).not.toHaveBeenCalled();
+    });
+
+    it('switch a person back on', async () => {
+        const h = build();
+        await h.service.reactivate(FRIEND_ID);
+        expect(h.actors.update).toHaveBeenCalledWith(FRIEND_ID, true);
+    });
+
+    it('reset MFA by removing every authenticator and passkey, then signing the person out', async () => {
+        const h = build();
+
+        await h.service.resetMfa(FRIEND_ID);
+
+        expect(h.authenticatorFactors.deleteFactor.mock.calls).toEqual([
+            [FRIEND_ID, 'totp-1'],
+            [FRIEND_ID, 'totp-2'],
+        ]);
+        expect(h.fidoFactors.deleteFactor).toHaveBeenCalledWith(FRIEND_ID, 'key-1');
+        expect(h.sessionService.revokeAllForSubject).toHaveBeenCalledWith(FRIEND_ID, 'logout');
+    });
+
+    it('offer no way for an admin to change an address', () => {
+        // Only the person changes their own address, through the verified email-factor enrolment on
+        // their own Sign-in and security page. Nothing on this service takes one.
+        const methods = Object.getOwnPropertyNames(UsersService.prototype);
+        expect(methods.filter(name => /email|address/i.test(name))).toEqual([]);
     });
 });

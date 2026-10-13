@@ -25,4 +25,43 @@ public final class UsersClient: Sendable {
         let response = try await http.execute(request)
         return try http.decodeJSON(UserDetail.self, from: response)
     }
+
+    /// Change user role
+    /// Give a person a different role. They hold exactly one, so the role they had is taken away. Refused for your own account, and for the last admin
+    public func changeUserRole(id: UUID, body: UserRoleChange) async throws -> UserSummary {
+        var request = try SdkRequest(method: "PUT", path: ["users", http.segment(id), "role"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(UserSummary.self, from: response)
+    }
+
+    /// Deactivate user
+    /// Switch a person off. They are signed out everywhere and cannot sign in, and their API keys, connected apps and chat links stop working, until they are switched back on. Nothing is deleted. Refused for your own account, and for the last admin
+    public func deactivateUser(id: UUID) async throws -> UserSummary {
+        let request = try SdkRequest(method: "POST", path: ["users", http.segment(id), "deactivate"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(UserSummary.self, from: response)
+    }
+
+    /// Reactivate user
+    /// Switch a person back on. They sign in as they did before, and their API keys, connected apps and chat links work again
+    public func reactivateUser(id: UUID) async throws -> UserSummary {
+        let request = try SdkRequest(method: "POST", path: ["users", http.segment(id), "reactivate"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(UserSummary.self, from: response)
+    }
+
+    /// Sign out user
+    /// Sign a person out everywhere. They can sign straight back in
+    public func signOutUser(id: UUID) async throws {
+        let request = try SdkRequest(method: "POST", path: ["users", http.segment(id), "sign-out"])
+        _ = try await http.execute(request)
+    }
+
+    /// Reset user MFA
+    /// Remove a person's authenticator apps and passkeys and sign them out everywhere, for when they have lost the device. They sign in with their password and set a new one up
+    public func resetUserMfa(id: UUID) async throws {
+        let request = try SdkRequest(method: "POST", path: ["users", http.segment(id), "mfa", "reset"])
+        _ = try await http.execute(request)
+    }
 }

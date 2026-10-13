@@ -6148,6 +6148,99 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/UserDetail'
+    '/users/{id}/role':
+        put:
+            operationId: changeRole
+            summary: 'Change user role'
+            description: 'Give a person a different role. They hold exactly one, so the role they had is taken away. Refused for your own account, and for the last admin'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/UserRoleChange'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/UserSummary'
+    '/users/{id}/deactivate':
+        post:
+            operationId: deactivate
+            summary: 'Deactivate user'
+            description: 'Switch a person off. They are signed out everywhere and cannot sign in, and their API keys, connected apps and chat links stop working, until they are switched back on. Nothing is deleted. Refused for your own account, and for the last admin'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/UserSummary'
+    '/users/{id}/reactivate':
+        post:
+            operationId: reactivate
+            summary: 'Reactivate user'
+            description: 'Switch a person back on. They sign in as they did before, and their API keys, connected apps and chat links work again'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/UserSummary'
+    '/users/{id}/sign-out':
+        post:
+            operationId: signOut
+            summary: 'Sign out user'
+            description: 'Sign a person out everywhere. They can sign straight back in'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '204':
+                    description: 'No content'
+    '/users/{id}/mfa/reset':
+        post:
+            operationId: resetMfa
+            summary: 'Reset user MFA'
+            description: "Remove a person's authenticator apps and passkeys and sign them out everywhere, for when they have lost the device. They sign in with their password and set a new one up"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '204':
+                    description: 'No content'
 components:
     schemas:
         ActivityModule:
@@ -15550,3 +15643,11 @@ components:
                               '$ref': '#/components/schemas/UserSignIn'
                           description: 'Their most recent sign-ins, newest first'
                   required: [factors, sessions, signIns]
+        UserRoleChange:
+            type: object
+            properties:
+                role:
+                    '$ref': '#/components/schemas/PlatformRole'
+                    description: 'Replaces whatever role they held'
+            required: [role]
+            description: 'The role a person should hold'

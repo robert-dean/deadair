@@ -106,6 +106,15 @@ export function reviveUserSignIn(raw: UserSignIn): UserSignIn {
 }
 
 /**
+ * The role a person should hold
+ * generated from [UserRoleChange](../../../../../apps/api/data/contracts/users/users.types.ck)
+ */
+export interface UserRoleChange {
+    /** Replaces whatever role they held */
+    role: PlatformRole;
+}
+
+/**
  * One page of people
  * generated from [UserPage](../../../../../apps/api/data/contracts/users/users.types.ck)
  */

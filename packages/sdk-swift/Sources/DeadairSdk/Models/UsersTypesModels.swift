@@ -265,6 +265,30 @@ public struct UserSignIn: Codable, Equatable, Sendable {
     }
 }
 
+/// The role a person should hold
+public struct UserRoleChange: Codable, Equatable, Sendable {
+    /// Replaces whatever role they held
+    public var role: PlatformRole
+
+    public init(role: PlatformRole) {
+        self.role = role
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case role = "role"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.role = try container.decode(PlatformRole.self, forKey: .role)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.role, forKey: .role)
+    }
+}
+
 /// One page of people
 public struct UserPage: Codable, Equatable, Sendable {
     public var meta: Pagination

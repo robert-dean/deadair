@@ -92,6 +92,13 @@ data class UserSignIn(
     val userAgent: String? = null,
 )
 
+/** The role a person should hold */
+@Serializable
+data class UserRoleChange(
+    /** Replaces whatever role they held */
+    val role: PlatformRole,
+)
+
 /** One page of people */
 @Serializable
 data class UserPage(

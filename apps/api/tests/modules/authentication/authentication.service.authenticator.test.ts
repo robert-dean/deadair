@@ -8,6 +8,7 @@
 // Built the way the refresh test builds its service: off the prototype, with only the collaborators
 // this path touches assigned. The constructor populates a grant-handler map these tests bypass.
 
+import { ErrorCodes } from '@deadair/error-codes';
 import { describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
 import { IsHttpError } from '@maroonedsoftware/errors';
@@ -60,6 +61,7 @@ const build = (options: { challengeExists?: boolean; eligible?: { method: string
     };
     const actorsRepository = {
         listFactors: vi.fn().mockResolvedValue([{ method: 'authenticator', methodId: 'totp-1', kind: 'possession', label: 'Phone' }]),
+        existsActive: vi.fn().mockResolvedValue(true),
     };
 
     const service = Object.create(AuthenticationService.prototype) as AuthenticationService;
@@ -68,7 +70,7 @@ const build = (options: { challengeExists?: boolean; eligible?: { method: string
     const submit = (code = '123456', methodId = 'totp-1') =>
         (service as any).handleAuthenticator({ grant_type: 'authenticator', code, mfa_challenge_id: CHALLENGE_ID, method_id: methodId });
 
-    return { submit, service, mfaChallengeService, mfaOrchestrator, sessionService, sessionActivity };
+    return { submit, service, mfaChallengeService, mfaOrchestrator, sessionService, sessionActivity, actorsRepository };
 };
 
 const statusOf = async (promise: Promise<unknown>) => {
@@ -154,5 +156,31 @@ describe('a password sign-in that needs a second factor', () => {
         ]);
         expect(response).toMatchObject({ result: 'token' });
         expect(h.sessionService.createSession).toHaveBeenCalledWith(ACTOR_ID, expect.any(Object), primaryFactor);
+    });
+});
+
+describe('a switched-off account', () => {
+    const refusal = async (promise: Promise<unknown>) => {
+        const error = await promise.catch((e: unknown) => e);
+        return IsHttpError(error) ? { status: error.statusCode, code: (error.details as { code?: string } | undefined)?.code } : undefined;
+    };
+
+    it('is refused before any second step is offered', async () => {
+        const h = build();
+        h.actorsRepository.existsActive.mockResolvedValue(false);
+
+        expect(await refusal((h.service as any).issueOrChallenge({ actor: { kind: 'user', actorId: ACTOR_ID }, primaryFactor }))).toEqual({
+            status: 401,
+            code: ErrorCodes.ACCOUNT_DISABLED,
+        });
+        expect(h.mfaOrchestrator.issueOrChallenge).not.toHaveBeenCalled();
+    });
+
+    it('is refused a token even after completing a second step it was offered before being switched off', async () => {
+        const h = build();
+        h.actorsRepository.existsActive.mockResolvedValue(false);
+
+        expect(await refusal(h.submit())).toEqual({ status: 401, code: ErrorCodes.ACCOUNT_DISABLED });
+        expect(h.sessionService.createSession).not.toHaveBeenCalled();
     });
 });

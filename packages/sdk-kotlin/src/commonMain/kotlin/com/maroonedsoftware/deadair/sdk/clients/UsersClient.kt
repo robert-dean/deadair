@@ -6,6 +6,8 @@ package com.maroonedsoftware.deadair.sdk.clients
 import com.maroonedsoftware.deadair.sdk.models.UserDetail
 import com.maroonedsoftware.deadair.sdk.models.UserPage
 import com.maroonedsoftware.deadair.sdk.models.UserQueryInput
+import com.maroonedsoftware.deadair.sdk.models.UserRoleChange
+import com.maroonedsoftware.deadair.sdk.models.UserSummary
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 import io.ktor.http.HttpMethod
 import kotlin.uuid.ExperimentalUuidApi
@@ -34,5 +36,59 @@ class UsersClient(private val http: SdkHttp) {
             path("users", segment(id))
         }
         return http.decodeJson(response)
+    }
+
+    /**
+     * Change user role
+     * Give a person a different role. They hold exactly one, so the role they had is taken away. Refused for your own account, and for the last admin
+     */
+    suspend fun changeUserRole(id: Uuid, body: UserRoleChange): UserSummary {
+        val response = http.execute(HttpMethod.Put) {
+            path("users", segment(id), "role")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Deactivate user
+     * Switch a person off. They are signed out everywhere and cannot sign in, and their API keys, connected apps and chat links stop working, until they are switched back on. Nothing is deleted. Refused for your own account, and for the last admin
+     */
+    suspend fun deactivateUser(id: Uuid): UserSummary {
+        val response = http.execute(HttpMethod.Post) {
+            path("users", segment(id), "deactivate")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Reactivate user
+     * Switch a person back on. They sign in as they did before, and their API keys, connected apps and chat links work again
+     */
+    suspend fun reactivateUser(id: Uuid): UserSummary {
+        val response = http.execute(HttpMethod.Post) {
+            path("users", segment(id), "reactivate")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Sign out user
+     * Sign a person out everywhere. They can sign straight back in
+     */
+    suspend fun signOutUser(id: Uuid) {
+        http.execute(HttpMethod.Post) {
+            path("users", segment(id), "sign-out")
+        }
+    }
+
+    /**
+     * Reset user MFA
+     * Remove a person's authenticator apps and passkeys and sign them out everywhere, for when they have lost the device. They sign in with their password and set a new one up
+     */
+    suspend fun resetUserMfa(id: Uuid) {
+        http.execute(HttpMethod.Post) {
+            path("users", segment(id), "mfa", "reset")
+        }
     }
 }

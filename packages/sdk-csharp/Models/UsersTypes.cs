@@ -159,6 +159,14 @@ public sealed record UserSignIn
     public string? UserAgent { get; init; }
 }
 
+/// <summary>The role a person should hold</summary>
+public sealed record UserRoleChange
+{
+    /// <summary>Replaces whatever role they held</summary>
+    [JsonPropertyName("role")]
+    public required PlatformRole Role { get; init; }
+}
+
 /// <summary>One page of people</summary>
 public sealed record UserPage
 {

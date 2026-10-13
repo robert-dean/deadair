@@ -44,3 +44,7 @@ contract UserDetail: UserSummary & { # A person, with how they sign in and where
     sessions: array(Session) # Where they are signed in now
     signIns: array(UserSignIn) # Their most recent sign-ins, newest first
 }
+
+contract UserRoleChange: { # The role a person should hold
+    role: PlatformRole # Replaces whatever role they held
+}

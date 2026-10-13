@@ -78,6 +78,15 @@ export const UserSignIn = z.strictObject({
 export type UserSignIn = z.infer<typeof UserSignIn>;
 
 /**
+ * The role a person should hold
+ * generated from [UserRoleChange](../../../../data/contracts/users/users.types.ck)
+ */
+export const UserRoleChange = z.strictObject({
+    role: PlatformRole.describe('Replaces whatever role they held'),
+});
+export type UserRoleChange = z.infer<typeof UserRoleChange>;
+
+/**
  * One page of people
  * generated from [UserPage](../../../../data/contracts/users/users.types.ck)
  */

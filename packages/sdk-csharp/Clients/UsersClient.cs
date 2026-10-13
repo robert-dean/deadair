@@ -46,4 +46,68 @@ public sealed class UsersClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<UserDetail>(response);
     }
+
+    /// <summary>
+    /// Change user role
+    /// Give a person a different role. They hold exactly one, so the role they had is taken away. Refused for your own account, and for the last admin
+    /// </summary>
+    public async Task<UserSummary> ChangeUserRoleAsync(Guid id, UserRoleChange body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Put,
+            http.Path("users", http.Segment(id), "role"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<UserSummary>(response);
+    }
+
+    /// <summary>
+    /// Deactivate user
+    /// Switch a person off. They are signed out everywhere and cannot sign in, and their API keys, connected apps and chat links stop working, until they are switched back on. Nothing is deleted. Refused for your own account, and for the last admin
+    /// </summary>
+    public async Task<UserSummary> DeactivateUserAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("users", http.Segment(id), "deactivate"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<UserSummary>(response);
+    }
+
+    /// <summary>
+    /// Reactivate user
+    /// Switch a person back on. They sign in as they did before, and their API keys, connected apps and chat links work again
+    /// </summary>
+    public async Task<UserSummary> ReactivateUserAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("users", http.Segment(id), "reactivate"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<UserSummary>(response);
+    }
+
+    /// <summary>
+    /// Sign out user
+    /// Sign a person out everywhere. They can sign straight back in
+    /// </summary>
+    public async Task SignOutUserAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("users", http.Segment(id), "sign-out"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Reset user MFA
+    /// Remove a person's authenticator apps and passkeys and sign them out everywhere, for when they have lost the device. They sign in with their password and set a new one up
+    /// </summary>
+    public async Task ResetUserMfaAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("users", http.Segment(id), "mfa", "reset"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
 }

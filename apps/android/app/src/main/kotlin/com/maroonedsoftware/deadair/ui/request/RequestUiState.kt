@@ -106,9 +106,17 @@ fun isOpen(status: RequestStatus): Boolean = status == RequestStatus.WAITING || 
  * One of the listener's own requests, with the line under it.
  *
  * The note is the most useful thing to know next: when it aired, why it never will, or who it is for
- * while it is still on its way.
+ * while it is still on its way. `mayInsist` is a refusal the station says may be overruled: turned
+ * down for its own taste, and not insisted on yet. The station decides that; the app only reads it.
  */
-data class MyRequestRow(val id: String, val title: String, val artist: String, val status: RequestStatus, val note: Message?) {
+data class MyRequestRow(
+    val id: String,
+    val title: String,
+    val artist: String,
+    val status: RequestStatus,
+    val note: Message?,
+    val mayInsist: Boolean = false,
+) {
     companion object {
         @OptIn(ExperimentalUuidApi::class)
         fun of(request: ListenerRequest, nowEpochMs: Long, zone: ZoneId) =
@@ -123,6 +131,7 @@ data class MyRequestRow(val id: String, val title: String, val artist: String, v
                         RequestStatus.DECLINED, RequestStatus.EXPIRED -> request.reason?.let(Message::Text)
                         else -> request.dedicateTo?.let(Message::RequestFor)
                     },
+                mayInsist = request.status == RequestStatus.DECLINED && request.overrulable == true,
             )
     }
 }

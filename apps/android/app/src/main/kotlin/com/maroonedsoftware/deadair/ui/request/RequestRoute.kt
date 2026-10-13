@@ -25,6 +25,8 @@ import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * Asking the station for a record, wired.
@@ -36,6 +38,7 @@ import kotlinx.coroutines.launch
  *
  * A send that the station refuses is still a 201, and is said as the station said it.
  */
+@OptIn(ExperimentalUuidApi::class)
 @Composable
 fun RequestRoute(graph: AppGraph, onBack: () -> Unit) {
     var typed by rememberSaveable { mutableStateOf("") }
@@ -109,6 +112,7 @@ fun RequestRoute(graph: AppGraph, onBack: () -> Unit) {
     val gone = stringResource(R.string.request_record_gone)
     val unreachable = stringResource(R.string.error_could_not_reach)
     val refusedWith = stringResource(R.string.notice_failed)
+    val spent = stringResource(R.string.request_cannot_insist)
 
     fun send(row: RequestRow) {
         if (sending) return
@@ -140,6 +144,29 @@ fun RequestRoute(graph: AppGraph, onBack: () -> Unit) {
         }
     }
 
+    // Overruling the station on a refusal makes a new request, decided like any other, so it is told
+    // the same way a request just sent is.
+    var insisting by remember { mutableStateOf<String?>(null) }
+    fun insist(row: MyRequestRow) {
+        if (insisting != null) return
+        insisting = row.id
+        scope.launch {
+            try {
+                val request = graph.sessions.withSession { it.requests.insistOnRequest(Uuid.parse(row.id)) }
+                outcome = requestOutcome(request)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: SdkError) {
+                snackbarHost.showSnackbar(if (error.status == CONFLICT) spent else refusedWith.format(error.status))
+            } catch (error: Exception) {
+                snackbarHost.showSnackbar(unreachable)
+            } finally {
+                insisting = null
+                mineAttempt += 1
+            }
+        }
+    }
+
     RequestScreen(
         typed = typed,
         onTyped = { typed = it },
@@ -156,9 +183,12 @@ fun RequestRoute(graph: AppGraph, onBack: () -> Unit) {
         sending = sending,
         onSend = ::send,
         onDismiss = { if (!sending) chosen = null },
+        insisting = insisting,
+        onInsist = ::insist,
         snackbarHost = snackbarHost,
     )
 }
 
 private const val UNAUTHORIZED = 401
 private const val NOT_FOUND = 404
+private const val CONFLICT = 409

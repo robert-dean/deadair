@@ -1,7 +1,7 @@
 ---
 title: 'List users'
 sidebar_label: 'List users'
-sidebar_position: 4
+sidebar_position: 7
 mdx:
     format: 'md'
 ---

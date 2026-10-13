@@ -1,10 +1,13 @@
 import { Registry } from 'injectkit';
+import { Redis } from 'ioredis';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { UsersRepository } from './users.repository.js';
 import { UsersService } from './users.service.js';
 import { InvitationsRepository } from './invitations.repository.js';
 import { InvitationsService } from './invitations.service.js';
+import { InvitationAcceptLimiter } from './invitation.accept.limiter.js';
+import { InvitationAcceptService } from './invitation.accept.service.js';
 
 /**
  * The station's people: who has an account, the role they hold, how they sign in, and who has
@@ -20,5 +23,11 @@ export const UsersModule: ServerKitModule = {
         registry.register(UsersService).useClass(UsersService).asScoped();
         registry.register(InvitationsRepository).useClass(InvitationsRepository).asScoped();
         registry.register(InvitationsService).useClass(InvitationsService).asScoped();
+        // A singleton over the one Redis client, as the party join limiter is.
+        registry
+            .register(InvitationAcceptLimiter)
+            .useFactory(container => new InvitationAcceptLimiter(container.get(Redis)))
+            .asSingleton();
+        registry.register(InvitationAcceptService).useClass(InvitationAcceptService).asScoped();
     },
 };

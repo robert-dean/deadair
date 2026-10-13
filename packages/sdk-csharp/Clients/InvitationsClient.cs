@@ -59,4 +59,46 @@ public sealed class InvitationsClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<Invitation>(response);
     }
+
+    /// <summary>
+    /// Read invitation
+    /// What an open invitation is for: the address, the role and the station. Changes nothing
+    /// </summary>
+    public async Task<InvitationDetails> ReadInvitationAsync(InvitationToken body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("invitations", "accept", "details"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<InvitationDetails>(response);
+    }
+
+    /// <summary>
+    /// Start accepting invitation
+    /// Check the password and start setting up the second step. Nothing is saved, and starting again replaces the setup
+    /// </summary>
+    public async Task<InvitationAcceptStartResponse> StartAcceptingInvitationAsync(InvitationAcceptStart body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("invitations", "accept", "start"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<InvitationAcceptStartResponse>(response);
+    }
+
+    /// <summary>
+    /// Accept invitation
+    /// Accept: make the account with its password, its second step and its role, all at once, and spend the invitation
+    /// </summary>
+    public async Task<InvitationAccepted> AcceptInvitationAsync(InvitationAccept body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("invitations", "accept"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<InvitationAccepted>(response);
+    }
 }

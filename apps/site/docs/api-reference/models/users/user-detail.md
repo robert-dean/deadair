@@ -1,6 +1,6 @@
 ---
 title: 'UserDetail'
-sidebar_position: 10
+sidebar_position: 21
 mdx:
     format: 'md'
 ---

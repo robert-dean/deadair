@@ -1,7 +1,7 @@
 ---
 title: 'Change user role'
 sidebar_label: 'Change user role'
-sidebar_position: 6
+sidebar_position: 9
 mdx:
     format: 'md'
 ---

@@ -1,6 +1,6 @@
 ---
 title: 'UserPage'
-sidebar_position: 7
+sidebar_position: 18
 mdx:
     format: 'md'
 ---

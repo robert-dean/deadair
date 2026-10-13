@@ -84,6 +84,31 @@ newcomer gets the `listener` role through `PermissionsService.writeDirect`, as o
 `oidc_failed` for anything else, or the provider's own error. `OidcSignInRefused` carries the code
 and the sentence.
 
+## Invitations
+
+**An invitation is the other way in, and the only one that can make an admin.** An admin names an
+address and a role (`users/invitations.ck`); the station mints a `di_` token, stores its sha256 and
+a copy sealed with the root key (the party pass's pattern, so the console can show an open link
+again), and the link is `/invite#<token>`. One pending invitation per address, held by a partial
+unique index; inviting the address again withdraws the first, which is how a resend works. An
+admin's link lasts 48 hours and a listener's a week, and expiry is read off `expires_at` rather than
+swept. Nothing in `deadair.invitations` is ever deleted.
+
+**Accepting makes the account an onboarded admin has, plus a second step, all at once.**
+`InvitationAcceptService` has three public routes and none is a GET or is called on page load, so a
+mail scanner fetching the link spends nothing. `details` changes nothing. `start` checks the
+password's strength and registers an authenticator or a passkey against an account id chosen then,
+for an account that does not exist yet; the id waits in the cache under the registration. `accept`
+makes the actor with that id, spends the invitation in one conditional `update` (which is what makes
+it single-use under a race), writes the email and password factors, proves and writes the second
+factor, and assigns the role on the inviter's authority. All of it is the request's transaction, so
+a wrong code or a refused passkey leaves no account and an open invitation. The address is the
+invited one and the person cannot change it there; an admin never can.
+
+**An address that already has an account is refused, at invitation and again at acceptance,** with
+`INVITATION_ALREADY_MEMBER`: an invitation that could attach a role to an existing account would let
+whoever holds the link skip that account's own second step.
+
 ## Linking and unlinking
 
 **A link is an ordinary factor registration** (`POST /auth/factors/register` with

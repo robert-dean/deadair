@@ -40,6 +40,145 @@ public sealed record InvitationCreate
     public required PlatformRole Role { get; init; }
 }
 
+/// <summary>An invitation's link token, as it appears after `#` on the invite page</summary>
+public sealed record InvitationToken
+{
+    /// <summary>The token</summary>
+    [JsonPropertyName("token")]
+    public required string Token { get; init; }
+}
+
+/// <summary>What an open invitation is for, shown to the person before they accept</summary>
+public sealed record InvitationDetails
+{
+    /// <summary>The address the account will have</summary>
+    [JsonPropertyName("email")]
+    public required string Email { get; init; }
+
+    /// <summary>The role it will hold</summary>
+    [JsonPropertyName("role")]
+    public required PlatformRole Role { get; init; }
+
+    /// <summary>What the station calls itself</summary>
+    [JsonPropertyName("stationName")]
+    public required string StationName { get; init; }
+
+    /// <summary>When the link stops working</summary>
+    [JsonPropertyName("expiresAt")]
+    public required DateTimeOffset ExpiresAt { get; init; }
+}
+
+/// <summary>How the person will prove it is them after their password: an authenticator app, or a passkey</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<InvitationSecondStep>))]
+public enum InvitationSecondStep
+{
+    [JsonStringEnumMemberName("authenticator")]
+    Authenticator,
+
+    [JsonStringEnumMemberName("fido")]
+    Fido,
+}
+
+/// <summary>An authenticator app to scan, for an invitation being accepted</summary>
+public sealed record InvitationAuthenticatorSetup : InvitationAcceptStartResponse
+{
+    /// <summary>Discriminator</summary>
+    [JsonPropertyName("method")]
+    public string Method { get; init; } = "authenticator";
+
+    /// <summary>Send this back with the first code</summary>
+    [JsonPropertyName("registrationId")]
+    public required string RegistrationId { get; init; }
+
+    /// <summary>The key, for an app that cannot scan</summary>
+    [JsonPropertyName("secret")]
+    public required string Secret { get; init; }
+
+    /// <summary>The `otpauth://` address the QR code holds</summary>
+    [JsonPropertyName("uri")]
+    public required string Uri { get; init; }
+
+    /// <summary>The QR code, as a data URL</summary>
+    [JsonPropertyName("qrCode")]
+    public required string QrCode { get; init; }
+}
+
+/// <summary>A passkey to make, for an invitation being accepted</summary>
+public sealed record InvitationPasskeySetup : InvitationAcceptStartResponse
+{
+    /// <summary>Discriminator</summary>
+    [JsonPropertyName("method")]
+    public string Method { get; init; } = "fido";
+
+    /// <summary>Send this back with the credential</summary>
+    [JsonPropertyName("registrationId")]
+    public required string RegistrationId { get; init; }
+
+    /// <summary>What to hand `navigator.credentials.create`</summary>
+    [JsonPropertyName("attestation")]
+    public required FidoFactorAttestation Attestation { get; init; }
+}
+
+/// <summary>Accept with the first code from the authenticator app</summary>
+public sealed record InvitationAcceptWithAuthenticator : InvitationAccept
+{
+    /// <summary>Discriminator</summary>
+    [JsonPropertyName("method")]
+    public string Method { get; init; } = "authenticator";
+
+    /// <summary>The invitation's token</summary>
+    [JsonPropertyName("token")]
+    public required string Token { get; init; }
+
+    /// <summary>The same password as at the start</summary>
+    [JsonPropertyName("password")]
+    public required string Password { get; init; }
+
+    /// <summary>From the start</summary>
+    [JsonPropertyName("registrationId")]
+    public required string RegistrationId { get; init; }
+
+    /// <summary>The first code the app shows</summary>
+    [JsonPropertyName("code")]
+    public required string Code { get; init; }
+}
+
+/// <summary>Accept with the passkey the browser just made</summary>
+public sealed record InvitationAcceptWithPasskey : InvitationAccept
+{
+    /// <summary>Discriminator</summary>
+    [JsonPropertyName("method")]
+    public string Method { get; init; } = "fido";
+
+    /// <summary>The invitation's token</summary>
+    [JsonPropertyName("token")]
+    public required string Token { get; init; }
+
+    /// <summary>The same password as at the start</summary>
+    [JsonPropertyName("password")]
+    public required string Password { get; init; }
+
+    /// <summary>From the start</summary>
+    [JsonPropertyName("registrationId")]
+    public required string RegistrationId { get; init; }
+
+    /// <summary>What `navigator.credentials.create` answered</summary>
+    [JsonPropertyName("credential")]
+    public required PublicKeyCredentialWithAttestation Credential { get; init; }
+}
+
+/// <summary>The account made from an invitation. Sign in with it as usual</summary>
+public sealed record InvitationAccepted
+{
+    /// <summary>The address to sign in with</summary>
+    [JsonPropertyName("email")]
+    public required string Email { get; init; }
+
+    /// <summary>The role it holds</summary>
+    [JsonPropertyName("role")]
+    public required PlatformRole Role { get; init; }
+}
+
 /// <summary>An invitation for somebody to take an account on the station</summary>
 public sealed record Invitation
 {
@@ -88,9 +227,105 @@ public sealed record Invitation
     public string? Token { get; init; }
 }
 
+/// <summary>Choose a password and a second step. Nothing is saved yet</summary>
+public sealed record InvitationAcceptStart
+{
+    /// <summary>The invitation's token</summary>
+    [JsonPropertyName("token")]
+    public required string Token { get; init; }
+
+    /// <summary>The password the account will have. Refused here if it is too weak, so the person learns before setting anything else up</summary>
+    [JsonPropertyName("password")]
+    public required string Password { get; init; }
+
+    /// <summary>The second step to set up</summary>
+    [JsonPropertyName("method")]
+    public required InvitationSecondStep Method { get; init; }
+}
+
 /// <summary>The station's invitations, newest first</summary>
 public sealed record InvitationList
 {
     [JsonPropertyName("data")]
     public required List<Invitation> Data { get; init; }
+}
+
+[JsonConverter(typeof(InvitationAcceptStartResponseConverter))]
+public interface InvitationAcceptStartResponse
+{
+}
+
+/// <summary>Reads <see cref="InvitationAcceptStartResponse"/> by dispatching on its 'method' tag.</summary>
+public sealed class InvitationAcceptStartResponseConverter : JsonConverter<InvitationAcceptStartResponse>
+{
+    public override InvitationAcceptStartResponse Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        using var document = JsonDocument.ParseValue(ref reader);
+        var element = document.RootElement;
+        var tag = element.TryGetProperty("method", out var tagElement) && tagElement.ValueKind == JsonValueKind.String
+            ? tagElement.GetString()
+            : null;
+
+        return tag switch
+        {
+            "authenticator" => element.Deserialize<InvitationAuthenticatorSetup>(options)!,
+            "fido" => element.Deserialize<InvitationPasskeySetup>(options)!,
+            _ => throw new JsonException($"Unknown InvitationAcceptStartResponse method: {tag}"),
+        };
+    }
+
+    public override void Write(Utf8JsonWriter writer, InvitationAcceptStartResponse value, JsonSerializerOptions options)
+    {
+        switch (value)
+        {
+            case InvitationAuthenticatorSetup member:
+                JsonSerializer.Serialize(writer, member, options);
+                break;
+            case InvitationPasskeySetup member:
+                JsonSerializer.Serialize(writer, member, options);
+                break;
+            default:
+                throw new JsonException($"Unknown InvitationAcceptStartResponse member {value.GetType().Name}.");
+        }
+    }
+}
+
+[JsonConverter(typeof(InvitationAcceptConverter))]
+public interface InvitationAccept
+{
+}
+
+/// <summary>Reads <see cref="InvitationAccept"/> by dispatching on its 'method' tag.</summary>
+public sealed class InvitationAcceptConverter : JsonConverter<InvitationAccept>
+{
+    public override InvitationAccept Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        using var document = JsonDocument.ParseValue(ref reader);
+        var element = document.RootElement;
+        var tag = element.TryGetProperty("method", out var tagElement) && tagElement.ValueKind == JsonValueKind.String
+            ? tagElement.GetString()
+            : null;
+
+        return tag switch
+        {
+            "authenticator" => element.Deserialize<InvitationAcceptWithAuthenticator>(options)!,
+            "fido" => element.Deserialize<InvitationAcceptWithPasskey>(options)!,
+            _ => throw new JsonException($"Unknown InvitationAccept method: {tag}"),
+        };
+    }
+
+    public override void Write(Utf8JsonWriter writer, InvitationAccept value, JsonSerializerOptions options)
+    {
+        switch (value)
+        {
+            case InvitationAcceptWithAuthenticator member:
+                JsonSerializer.Serialize(writer, member, options);
+                break;
+            case InvitationAcceptWithPasskey member:
+                JsonSerializer.Serialize(writer, member, options);
+                break;
+            default:
+                throw new JsonException($"Unknown InvitationAccept member {value.GetType().Name}.");
+        }
+    }
 }

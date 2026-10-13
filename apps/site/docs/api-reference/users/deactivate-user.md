@@ -1,7 +1,7 @@
 ---
 title: 'Deactivate user'
 sidebar_label: 'Deactivate user'
-sidebar_position: 7
+sidebar_position: 10
 mdx:
     format: 'md'
 ---

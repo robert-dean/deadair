@@ -1,7 +1,7 @@
 ---
 title: 'Get user'
 sidebar_label: 'Get user'
-sidebar_position: 5
+sidebar_position: 8
 mdx:
     format: 'md'
 ---

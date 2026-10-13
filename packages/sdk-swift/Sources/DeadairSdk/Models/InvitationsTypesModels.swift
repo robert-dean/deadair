@@ -39,6 +39,300 @@ public struct InvitationCreate: Codable, Equatable, Sendable {
     }
 }
 
+/// An invitation's link token, as it appears after `#` on the invite page
+public struct InvitationToken: Codable, Equatable, Sendable {
+    /// The token
+    public var token: String
+
+    public init(token: String) {
+        self.token = token
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case token = "token"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.token = try container.decode(String.self, forKey: .token)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.token, forKey: .token)
+    }
+}
+
+/// What an open invitation is for, shown to the person before they accept
+public struct InvitationDetails: Codable, Equatable, Sendable {
+    /// The address the account will have
+    public var email: String
+    /// The role it will hold
+    public var role: PlatformRole
+    /// What the station calls itself
+    public var stationName: String
+    /// When the link stops working
+    public var expiresAt: Date
+
+    public init(email: String, role: PlatformRole, stationName: String, expiresAt: Date) {
+        self.email = email
+        self.role = role
+        self.stationName = stationName
+        self.expiresAt = expiresAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case email = "email"
+        case role = "role"
+        case stationName = "stationName"
+        case expiresAt = "expiresAt"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.email = try container.decode(String.self, forKey: .email)
+        self.role = try container.decode(PlatformRole.self, forKey: .role)
+        self.stationName = try container.decode(String.self, forKey: .stationName)
+        self.expiresAt = try container.decode(Date.self, forKey: .expiresAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.email, forKey: .email)
+        try container.encode(self.role, forKey: .role)
+        try container.encode(self.stationName, forKey: .stationName)
+        try container.encode(self.expiresAt, forKey: .expiresAt)
+    }
+}
+
+/// How the person will prove it is them after their password: an authenticator app, or a passkey
+public enum InvitationSecondStep: String, Codable, CaseIterable, Sendable {
+    case authenticator = "authenticator"
+    case fido = "fido"
+}
+
+/// An authenticator app to scan, for an invitation being accepted
+public struct InvitationAuthenticatorSetup: Codable, Equatable, Sendable {
+    /// Discriminator
+    public var method: String
+    /// Send this back with the first code
+    public var registrationId: String
+    /// The key, for an app that cannot scan
+    public var secret: String
+    /// The `otpauth://` address the QR code holds
+    public var uri: String
+    /// The QR code, as a data URL
+    public var qrCode: String
+
+    public init(method: String = "authenticator", registrationId: String, secret: String, uri: String, qrCode: String) {
+        self.method = method
+        self.registrationId = registrationId
+        self.secret = secret
+        self.uri = uri
+        self.qrCode = qrCode
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case method = "method"
+        case registrationId = "registrationId"
+        case secret = "secret"
+        case uri = "uri"
+        case qrCode = "qrCode"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.method = try container.decode(String.self, forKey: .method)
+        guard self.method == "authenticator" else {
+            throw DecodingError.dataCorruptedError(forKey: .method, in: container, debugDescription: "Expected \"authenticator\"")
+        }
+        self.registrationId = try container.decode(String.self, forKey: .registrationId)
+        self.secret = try container.decode(String.self, forKey: .secret)
+        self.uri = try container.decode(String.self, forKey: .uri)
+        self.qrCode = try container.decode(String.self, forKey: .qrCode)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.method, forKey: .method)
+        try container.encode(self.registrationId, forKey: .registrationId)
+        try container.encode(self.secret, forKey: .secret)
+        try container.encode(self.uri, forKey: .uri)
+        try container.encode(self.qrCode, forKey: .qrCode)
+    }
+}
+
+/// A passkey to make, for an invitation being accepted
+public struct InvitationPasskeySetup: Codable, Equatable, Sendable {
+    /// Discriminator
+    public var method: String
+    /// Send this back with the credential
+    public var registrationId: String
+    /// What to hand `navigator.credentials.create`
+    public var attestation: FidoFactorAttestation
+
+    public init(method: String = "fido", registrationId: String, attestation: FidoFactorAttestation) {
+        self.method = method
+        self.registrationId = registrationId
+        self.attestation = attestation
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case method = "method"
+        case registrationId = "registrationId"
+        case attestation = "attestation"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.method = try container.decode(String.self, forKey: .method)
+        guard self.method == "fido" else {
+            throw DecodingError.dataCorruptedError(forKey: .method, in: container, debugDescription: "Expected \"fido\"")
+        }
+        self.registrationId = try container.decode(String.self, forKey: .registrationId)
+        self.attestation = try container.decode(FidoFactorAttestation.self, forKey: .attestation)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.method, forKey: .method)
+        try container.encode(self.registrationId, forKey: .registrationId)
+        try container.encode(self.attestation, forKey: .attestation)
+    }
+}
+
+/// Accept with the first code from the authenticator app
+public struct InvitationAcceptWithAuthenticator: Codable, Equatable, Sendable {
+    /// Discriminator
+    public var method: String
+    /// The invitation's token
+    public var token: String
+    /// The same password as at the start
+    public var password: String
+    /// From the start
+    public var registrationId: String
+    /// The first code the app shows
+    public var code: String
+
+    public init(method: String = "authenticator", token: String, password: String, registrationId: String, code: String) {
+        self.method = method
+        self.token = token
+        self.password = password
+        self.registrationId = registrationId
+        self.code = code
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case method = "method"
+        case token = "token"
+        case password = "password"
+        case registrationId = "registrationId"
+        case code = "code"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.method = try container.decode(String.self, forKey: .method)
+        guard self.method == "authenticator" else {
+            throw DecodingError.dataCorruptedError(forKey: .method, in: container, debugDescription: "Expected \"authenticator\"")
+        }
+        self.token = try container.decode(String.self, forKey: .token)
+        self.password = try container.decode(String.self, forKey: .password)
+        self.registrationId = try container.decode(String.self, forKey: .registrationId)
+        self.code = try container.decode(String.self, forKey: .code)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.method, forKey: .method)
+        try container.encode(self.token, forKey: .token)
+        try container.encode(self.password, forKey: .password)
+        try container.encode(self.registrationId, forKey: .registrationId)
+        try container.encode(self.code, forKey: .code)
+    }
+}
+
+/// Accept with the passkey the browser just made
+public struct InvitationAcceptWithPasskey: Codable, Equatable, Sendable {
+    /// Discriminator
+    public var method: String
+    /// The invitation's token
+    public var token: String
+    /// The same password as at the start
+    public var password: String
+    /// From the start
+    public var registrationId: String
+    /// What `navigator.credentials.create` answered
+    public var credential: PublicKeyCredentialWithAttestation
+
+    public init(method: String = "fido", token: String, password: String, registrationId: String, credential: PublicKeyCredentialWithAttestation) {
+        self.method = method
+        self.token = token
+        self.password = password
+        self.registrationId = registrationId
+        self.credential = credential
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case method = "method"
+        case token = "token"
+        case password = "password"
+        case registrationId = "registrationId"
+        case credential = "credential"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.method = try container.decode(String.self, forKey: .method)
+        guard self.method == "fido" else {
+            throw DecodingError.dataCorruptedError(forKey: .method, in: container, debugDescription: "Expected \"fido\"")
+        }
+        self.token = try container.decode(String.self, forKey: .token)
+        self.password = try container.decode(String.self, forKey: .password)
+        self.registrationId = try container.decode(String.self, forKey: .registrationId)
+        self.credential = try container.decode(PublicKeyCredentialWithAttestation.self, forKey: .credential)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.method, forKey: .method)
+        try container.encode(self.token, forKey: .token)
+        try container.encode(self.password, forKey: .password)
+        try container.encode(self.registrationId, forKey: .registrationId)
+        try container.encode(self.credential, forKey: .credential)
+    }
+}
+
+/// The account made from an invitation. Sign in with it as usual
+public struct InvitationAccepted: Codable, Equatable, Sendable {
+    /// The address to sign in with
+    public var email: String
+    /// The role it holds
+    public var role: PlatformRole
+
+    public init(email: String, role: PlatformRole) {
+        self.email = email
+        self.role = role
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case email = "email"
+        case role = "role"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.email = try container.decode(String.self, forKey: .email)
+        self.role = try container.decode(PlatformRole.self, forKey: .role)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.email, forKey: .email)
+        try container.encode(self.role, forKey: .role)
+    }
+}
+
 /// An invitation for somebody to take an account on the station
 public struct Invitation: Codable, Equatable, Sendable {
     /// The invitation's id
@@ -117,6 +411,42 @@ public struct Invitation: Codable, Equatable, Sendable {
     }
 }
 
+/// Choose a password and a second step. Nothing is saved yet
+public struct InvitationAcceptStart: Codable, Equatable, Sendable {
+    /// The invitation's token
+    public var token: String
+    /// The password the account will have. Refused here if it is too weak, so the person learns before setting anything else up
+    public var password: String
+    /// The second step to set up
+    public var method: InvitationSecondStep
+
+    public init(token: String, password: String, method: InvitationSecondStep) {
+        self.token = token
+        self.password = password
+        self.method = method
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case token = "token"
+        case password = "password"
+        case method = "method"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.token = try container.decode(String.self, forKey: .token)
+        self.password = try container.decode(String.self, forKey: .password)
+        self.method = try container.decode(InvitationSecondStep.self, forKey: .method)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.token, forKey: .token)
+        try container.encode(self.password, forKey: .password)
+        try container.encode(self.method, forKey: .method)
+    }
+}
+
 /// The station's invitations, newest first
 public struct InvitationList: Codable, Equatable, Sendable {
     public var data: [Invitation]
@@ -137,5 +467,59 @@ public struct InvitationList: Codable, Equatable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.data, forKey: .data)
+    }
+}
+
+public indirect enum InvitationAcceptStartResponse: Codable, Equatable, Sendable {
+    case invitationAuthenticatorSetup(InvitationAuthenticatorSetup)
+    case invitationPasskeySetup(InvitationPasskeySetup)
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: DynamicCodingKey.self)
+        let tag = try container.decode(JSONValue.self, forKey: DynamicCodingKey(stringValue: "method"))
+        switch tag {
+        case .string("authenticator"):
+            self = .invitationAuthenticatorSetup(try InvitationAuthenticatorSetup(from: decoder))
+        case .string("fido"):
+            self = .invitationPasskeySetup(try InvitationPasskeySetup(from: decoder))
+        default:
+            throw DecodingError.dataCorruptedError(forKey: DynamicCodingKey(stringValue: "method"), in: container, debugDescription: "Unknown InvitationAcceptStartResponse method: \(tag)")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .invitationAuthenticatorSetup(let value):
+            try value.encode(to: encoder)
+        case .invitationPasskeySetup(let value):
+            try value.encode(to: encoder)
+        }
+    }
+}
+
+public indirect enum InvitationAccept: Codable, Equatable, Sendable {
+    case invitationAcceptWithAuthenticator(InvitationAcceptWithAuthenticator)
+    case invitationAcceptWithPasskey(InvitationAcceptWithPasskey)
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: DynamicCodingKey.self)
+        let tag = try container.decode(JSONValue.self, forKey: DynamicCodingKey(stringValue: "method"))
+        switch tag {
+        case .string("authenticator"):
+            self = .invitationAcceptWithAuthenticator(try InvitationAcceptWithAuthenticator(from: decoder))
+        case .string("fido"):
+            self = .invitationAcceptWithPasskey(try InvitationAcceptWithPasskey(from: decoder))
+        default:
+            throw DecodingError.dataCorruptedError(forKey: DynamicCodingKey(stringValue: "method"), in: container, debugDescription: "Unknown InvitationAccept method: \(tag)")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .invitationAcceptWithAuthenticator(let value):
+            try value.encode(to: encoder)
+        case .invitationAcceptWithPasskey(let value):
+            try value.encode(to: encoder)
+        }
     }
 }

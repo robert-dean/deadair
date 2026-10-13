@@ -6104,6 +6104,63 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/Invitation'
+    '/invitations/accept/details':
+        post:
+            operationId: details
+            summary: 'Read invitation'
+            description: 'What an open invitation is for: the address, the role and the station. Changes nothing'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/InvitationToken'
+            security: []
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/InvitationDetails'
+    '/invitations/accept/start':
+        post:
+            operationId: startAcceptingInvitation
+            summary: 'Start accepting invitation'
+            description: 'Check the password and start setting up the second step. Nothing is saved, and starting again replaces the setup'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/InvitationAcceptStart'
+            security: []
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/InvitationAcceptStartResponse'
+    '/invitations/accept':
+        post:
+            operationId: accept
+            summary: 'Accept invitation'
+            description: 'Accept: make the account with its password, its second step and its role, all at once, and spend the invitation'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/InvitationAccept'
+            security: []
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/InvitationAccepted'
     '/users':
         get:
             operationId: listUsers
@@ -15639,6 +15696,171 @@ components:
                     description: 'The role the account will hold'
             required: [email, role]
             description: 'Invite somebody by their address'
+        InvitationToken:
+            type: object
+            properties:
+                token:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'The token'
+            required: [token]
+            description: "An invitation's link token, as it appears after `#` on the invite page"
+        InvitationDetails:
+            type: object
+            properties:
+                email:
+                    type: string
+                    maxLength: 320
+                    description: 'The address the account will have'
+                role:
+                    '$ref': '#/components/schemas/PlatformRole'
+                    description: 'The role it will hold'
+                stationName:
+                    type: string
+                    description: 'What the station calls itself'
+                expiresAt:
+                    type: string
+                    format: date-time
+                    description: 'When the link stops working'
+            required: [email, role, stationName, expiresAt]
+            description: 'What an open invitation is for, shown to the person before they accept'
+        InvitationSecondStep:
+            type: string
+            enum: [authenticator, fido]
+            description: 'How the person will prove it is them after their password: an authenticator app, or a passkey'
+        InvitationAcceptStart:
+            type: object
+            properties:
+                token:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: "The invitation's token"
+                password:
+                    type: string
+                    minLength: 8
+                    maxLength: 256
+                    description: 'The password the account will have. Refused here if it is too weak, so the person learns before setting anything else up'
+                method:
+                    '$ref': '#/components/schemas/InvitationSecondStep'
+                    description: 'The second step to set up'
+            required: [token, password, method]
+            description: 'Choose a password and a second step. Nothing is saved yet'
+        InvitationAuthenticatorSetup:
+            type: object
+            properties:
+                method:
+                    const: authenticator
+                    description: Discriminator
+                registrationId:
+                    type: string
+                    description: 'Send this back with the first code'
+                secret:
+                    type: string
+                    description: 'The key, for an app that cannot scan'
+                uri:
+                    type: string
+                    description: 'The `otpauth://` address the QR code holds'
+                qrCode:
+                    type: string
+                    description: 'The QR code, as a data URL'
+            required: [method, registrationId, secret, uri, qrCode]
+            description: 'An authenticator app to scan, for an invitation being accepted'
+        InvitationPasskeySetup:
+            type: object
+            properties:
+                method:
+                    const: fido
+                    description: Discriminator
+                registrationId:
+                    type: string
+                    description: 'Send this back with the credential'
+                attestation:
+                    '$ref': '#/components/schemas/FidoFactorAttestation'
+                    description: 'What to hand `navigator.credentials.create`'
+            required: [method, registrationId, attestation]
+            description: 'A passkey to make, for an invitation being accepted'
+        InvitationAcceptStartResponse:
+            oneOf:
+                - '$ref': '#/components/schemas/InvitationAuthenticatorSetup'
+                - '$ref': '#/components/schemas/InvitationPasskeySetup'
+            discriminator:
+                propertyName: method
+                mapping:
+                    authenticator: '#/components/schemas/InvitationAuthenticatorSetup'
+                    fido: '#/components/schemas/InvitationPasskeySetup'
+        InvitationAcceptWithAuthenticator:
+            type: object
+            properties:
+                method:
+                    const: authenticator
+                    description: Discriminator
+                token:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: "The invitation's token"
+                password:
+                    type: string
+                    minLength: 8
+                    maxLength: 256
+                    description: 'The same password as at the start'
+                registrationId:
+                    type: string
+                    description: 'From the start'
+                code:
+                    type: string
+                    minLength: 6
+                    maxLength: 10
+                    description: 'The first code the app shows'
+            required: [method, token, password, registrationId, code]
+            description: 'Accept with the first code from the authenticator app'
+        InvitationAcceptWithPasskey:
+            type: object
+            properties:
+                method:
+                    const: fido
+                    description: Discriminator
+                token:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: "The invitation's token"
+                password:
+                    type: string
+                    minLength: 8
+                    maxLength: 256
+                    description: 'The same password as at the start'
+                registrationId:
+                    type: string
+                    description: 'From the start'
+                credential:
+                    '$ref': '#/components/schemas/PublicKeyCredentialWithAttestation'
+                    description: 'What `navigator.credentials.create` answered'
+            required: [method, token, password, registrationId, credential]
+            description: 'Accept with the passkey the browser just made'
+        InvitationAccept:
+            oneOf:
+                - '$ref': '#/components/schemas/InvitationAcceptWithAuthenticator'
+                - '$ref': '#/components/schemas/InvitationAcceptWithPasskey'
+            discriminator:
+                propertyName: method
+                mapping:
+                    authenticator: '#/components/schemas/InvitationAcceptWithAuthenticator'
+                    fido: '#/components/schemas/InvitationAcceptWithPasskey'
+        InvitationAccepted:
+            type: object
+            properties:
+                email:
+                    type: string
+                    maxLength: 320
+                    description: 'The address to sign in with'
+                role:
+                    '$ref': '#/components/schemas/PlatformRole'
+                    description: 'The role it holds'
+            required: [email, role]
+            description: 'The account made from an invitation. Sign in with it as usual'
         UserQuery:
             allOf:
                 - '$ref': '#/components/schemas/PaginationWithActive'

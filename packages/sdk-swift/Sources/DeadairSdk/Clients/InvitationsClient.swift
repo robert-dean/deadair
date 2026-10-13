@@ -33,4 +33,31 @@ public final class InvitationsClient: Sendable {
         let response = try await http.execute(request)
         return try http.decodeJSON(Invitation.self, from: response)
     }
+
+    /// Read invitation
+    /// What an open invitation is for: the address, the role and the station. Changes nothing
+    public func readInvitation(body: InvitationToken) async throws -> InvitationDetails {
+        var request = SdkRequest(method: "POST", path: ["invitations", "accept", "details"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(InvitationDetails.self, from: response)
+    }
+
+    /// Start accepting invitation
+    /// Check the password and start setting up the second step. Nothing is saved, and starting again replaces the setup
+    public func startAcceptingInvitation(body: InvitationAcceptStart) async throws -> InvitationAcceptStartResponse {
+        var request = SdkRequest(method: "POST", path: ["invitations", "accept", "start"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(InvitationAcceptStartResponse.self, from: response)
+    }
+
+    /// Accept invitation
+    /// Accept: make the account with its password, its second step and its role, all at once, and spend the invitation
+    public func acceptInvitation(body: InvitationAccept) async throws -> InvitationAccepted {
+        var request = SdkRequest(method: "POST", path: ["invitations", "accept"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(InvitationAccepted.self, from: response)
+    }
 }

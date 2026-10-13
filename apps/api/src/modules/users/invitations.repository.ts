@@ -83,4 +83,33 @@ export class InvitationsRepository extends DataRepository {
             .executeTakeFirst();
         return row ? await this.get(row.id) : undefined;
     }
+
+    /** The invitation a token names, if it is still open: pending and inside its time. */
+    async openByHash(tokenHash: string): Promise<InvitationRow | undefined> {
+        return await this.db
+            .selectFrom('deadair.invitations')
+            .selectAll('deadair.invitations')
+            .select(INVITER_EMAIL.as('inviterEmail'))
+            .where('tokenHash', '=', tokenHash)
+            .where('state', '=', 'pending')
+            .where('expiresAt', '>', DateTime.utc())
+            .executeTakeFirst();
+    }
+
+    /**
+     * Spend an invitation on `acceptedBy`, only if it is still open. One statement, so two people
+     * accepting at once cannot both win: the second waits on the first's row lock and then finds it
+     * no longer pending. Answers nothing when it was not open.
+     */
+    async consume(tokenHash: string, acceptedBy: string): Promise<InvitationRow | undefined> {
+        const row = await this.db
+            .updateTable('deadair.invitations')
+            .set({ state: 'accepted', acceptedAt: DateTime.utc(), acceptedBy })
+            .where('tokenHash', '=', tokenHash)
+            .where('state', '=', 'pending')
+            .where('expiresAt', '>', DateTime.utc())
+            .returning('id')
+            .executeTakeFirst();
+        return row ? await this.get(row.id) : undefined;
+    }
 }

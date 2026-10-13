@@ -4,8 +4,14 @@
 package com.maroonedsoftware.deadair.sdk.clients
 
 import com.maroonedsoftware.deadair.sdk.models.Invitation
+import com.maroonedsoftware.deadair.sdk.models.InvitationAccept
+import com.maroonedsoftware.deadair.sdk.models.InvitationAcceptStart
+import com.maroonedsoftware.deadair.sdk.models.InvitationAcceptStartResponse
+import com.maroonedsoftware.deadair.sdk.models.InvitationAccepted
 import com.maroonedsoftware.deadair.sdk.models.InvitationCreate
+import com.maroonedsoftware.deadair.sdk.models.InvitationDetails
 import com.maroonedsoftware.deadair.sdk.models.InvitationList
+import com.maroonedsoftware.deadair.sdk.models.InvitationToken
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 import io.ktor.http.HttpMethod
 import kotlin.uuid.ExperimentalUuidApi
@@ -43,6 +49,42 @@ class InvitationsClient(private val http: SdkHttp) {
     suspend fun revokeInvitation(id: Uuid): Invitation {
         val response = http.execute(HttpMethod.Delete) {
             path("invitations", segment(id))
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Read invitation
+     * What an open invitation is for: the address, the role and the station. Changes nothing
+     */
+    suspend fun readInvitation(body: InvitationToken): InvitationDetails {
+        val response = http.execute(HttpMethod.Post) {
+            path("invitations", "accept", "details")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Start accepting invitation
+     * Check the password and start setting up the second step. Nothing is saved, and starting again replaces the setup
+     */
+    suspend fun startAcceptingInvitation(body: InvitationAcceptStart): InvitationAcceptStartResponse {
+        val response = http.execute(HttpMethod.Post) {
+            path("invitations", "accept", "start")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Accept invitation
+     * Accept: make the account with its password, its second step and its role, all at once, and spend the invitation
+     */
+    suspend fun acceptInvitation(body: InvitationAccept): InvitationAccepted {
+        val response = http.execute(HttpMethod.Post) {
+            path("invitations", "accept")
+            jsonBody(body, "application/json")
         }
         return http.decodeJson(response)
     }

@@ -1,5 +1,7 @@
 import { DateTime } from 'luxon';
+import type { FidoFactorAttestation } from '../../authentication/types/registration.types.js';
 import type { PlatformRole } from '../../authentication/types/authentication.types.js';
+import type { PublicKeyCredentialWithAttestation } from '../../authentication/types/authentication.types.js';
 
 const __dt = (v: unknown, path: string): DateTime => {
     if (typeof v !== 'string') {
@@ -24,6 +26,118 @@ export interface InvitationCreate {
     /** The address the account will have */
     email: string;
     /** The role the account will hold */
+    role: PlatformRole;
+}
+
+/**
+ * An invitation's link token, as it appears after `#` on the invite page
+ * generated from [InvitationToken](../../../../../apps/api/data/contracts/users/invitations.types.ck)
+ */
+export interface InvitationToken {
+    /** The token */
+    token: string;
+}
+
+/**
+ * What an open invitation is for, shown to the person before they accept
+ * generated from [InvitationDetails](../../../../../apps/api/data/contracts/users/invitations.types.ck)
+ */
+export interface InvitationDetails {
+    /** The address the account will have */
+    email: string;
+    /** The role it will hold */
+    role: PlatformRole;
+    /** What the station calls itself */
+    stationName: string;
+    /** When the link stops working */
+    expiresAt: DateTime;
+}
+
+/** Rehydrates every wire-encoded scalar in a InvitationDetails into its runtime type. Mutates and returns `raw`. */
+export function reviveInvitationDetails(raw: InvitationDetails): InvitationDetails {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['expiresAt'] = __dt(__o0['expiresAt'], 'InvitationDetails.expiresAt');
+    return raw;
+}
+
+/**
+ * How the person will prove it is them after their password: an authenticator app, or a passkey
+ * generated from [InvitationSecondStep](../../../../../apps/api/data/contracts/users/invitations.types.ck)
+ */
+export type InvitationSecondStep = 'authenticator' | 'fido';
+
+/**
+ * An authenticator app to scan, for an invitation being accepted
+ * generated from [InvitationAuthenticatorSetup](../../../../../apps/api/data/contracts/users/invitations.types.ck)
+ */
+export interface InvitationAuthenticatorSetup {
+    /** Discriminator */
+    method: 'authenticator';
+    /** Send this back with the first code */
+    registrationId: string;
+    /** The key, for an app that cannot scan */
+    secret: string;
+    /** The `otpauth://` address the QR code holds */
+    uri: string;
+    /** The QR code, as a data URL */
+    qrCode: string;
+}
+
+/**
+ * A passkey to make, for an invitation being accepted
+ * generated from [InvitationPasskeySetup](../../../../../apps/api/data/contracts/users/invitations.types.ck)
+ */
+export interface InvitationPasskeySetup {
+    /** Discriminator */
+    method: 'fido';
+    /** Send this back with the credential */
+    registrationId: string;
+    /** What to hand `navigator.credentials.create` */
+    attestation: FidoFactorAttestation;
+}
+
+/**
+ * Accept with the first code from the authenticator app
+ * generated from [InvitationAcceptWithAuthenticator](../../../../../apps/api/data/contracts/users/invitations.types.ck)
+ */
+export interface InvitationAcceptWithAuthenticator {
+    /** Discriminator */
+    method: 'authenticator';
+    /** The invitation's token */
+    token: string;
+    /** The same password as at the start */
+    password: string;
+    /** From the start */
+    registrationId: string;
+    /** The first code the app shows */
+    code: string;
+}
+
+/**
+ * Accept with the passkey the browser just made
+ * generated from [InvitationAcceptWithPasskey](../../../../../apps/api/data/contracts/users/invitations.types.ck)
+ */
+export interface InvitationAcceptWithPasskey {
+    /** Discriminator */
+    method: 'fido';
+    /** The invitation's token */
+    token: string;
+    /** The same password as at the start */
+    password: string;
+    /** From the start */
+    registrationId: string;
+    /** What `navigator.credentials.create` answered */
+    credential: PublicKeyCredentialWithAttestation;
+}
+
+/**
+ * The account made from an invitation. Sign in with it as usual
+ * generated from [InvitationAccepted](../../../../../apps/api/data/contracts/users/invitations.types.ck)
+ */
+export interface InvitationAccepted {
+    /** The address to sign in with */
+    email: string;
+    /** The role it holds */
     role: PlatformRole;
 }
 
@@ -67,6 +181,29 @@ export function reviveInvitation(raw: Invitation): Invitation {
     }
     return raw;
 }
+
+/**
+ * Choose a password and a second step. Nothing is saved yet
+ * generated from [InvitationAcceptStart](../../../../../apps/api/data/contracts/users/invitations.types.ck)
+ */
+export interface InvitationAcceptStart {
+    /** The invitation's token */
+    token: string;
+    /** The password the account will have. Refused here if it is too weak, so the person learns before setting anything else up */
+    password: string;
+    /** The second step to set up */
+    method: InvitationSecondStep;
+}
+
+/**
+ * generated from [InvitationAcceptStartResponse](../../../../../apps/api/data/contracts/users/invitations.types.ck)
+ */
+export type InvitationAcceptStartResponse = InvitationAuthenticatorSetup | InvitationPasskeySetup;
+
+/**
+ * generated from [InvitationAccept](../../../../../apps/api/data/contracts/users/invitations.types.ck)
+ */
+export type InvitationAccept = InvitationAcceptWithAuthenticator | InvitationAcceptWithPasskey;
 
 /**
  * The station's invitations, newest first

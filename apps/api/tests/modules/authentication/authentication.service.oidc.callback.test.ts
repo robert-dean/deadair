@@ -33,7 +33,7 @@ function build(completion: Completion, allowlist = '') {
     };
     const actorsRepository = { create: vi.fn(async () => ({ id: NEW_ACTOR })) };
     const emailFactorRepository = { createFactor: vi.fn(async () => ({})) };
-    const permissionsService = { writeDirect: vi.fn(async () => undefined) };
+    const platformRoles = { assign: vi.fn(async () => undefined) };
     const sessionActivity = { recordFactorFailure: vi.fn(async () => undefined) };
     const htmlRedirectProvider = { getRedirectHtml: (url: URL) => ({ html: url.toString() }) };
 
@@ -44,13 +44,13 @@ function build(completion: Completion, allowlist = '') {
         oidcFactorService,
         actorsRepository,
         emailFactorRepository,
-        permissionsService,
+        platformRoles,
         sessionActivity,
         htmlRedirectProvider,
     });
 
     const callback = async () => new URL(await service.handleOidcCallback({ code: 'c', state: 's' }));
-    return { callback, oidcFactorService, actorsRepository, emailFactorRepository, permissionsService, sessionActivity };
+    return { callback, oidcFactorService, actorsRepository, emailFactorRepository, platformRoles, sessionActivity };
 }
 
 const newcomer = (email: string, emailVerified = true): Completion => ({
@@ -119,7 +119,7 @@ describe('AuthenticationService.handleOidcCallback', () => {
         expect(target.searchParams.get('error')).toBe('not_allowed');
         expect(target.searchParams.get('error_description')).toContain('not allowed to join');
         expect(h.actorsRepository.create).not.toHaveBeenCalled();
-        expect(h.permissionsService.writeDirect).not.toHaveBeenCalled();
+        expect(h.platformRoles.assign).not.toHaveBeenCalled();
     });
 
     it('turns away everybody new while the allowlist is empty', async () => {
@@ -142,16 +142,7 @@ describe('AuthenticationService.handleOidcCallback', () => {
         expect(target.searchParams.get('is_new_user')).toBe('true');
         expect(h.emailFactorRepository.createFactor).toHaveBeenCalledWith(NEW_ACTOR, 'Alice@Example.com');
         expect(h.oidcFactorService.createFactorFromAuthorization).toHaveBeenCalledWith(NEW_ACTOR, 'authz-1');
-        expect(h.permissionsService.writeDirect).toHaveBeenCalledWith(
-            [
-                {
-                    object: { namespace: 'platform', id: 'main' },
-                    relation: 'listener',
-                    subject: { kind: 'concrete', namespace: 'user', id: NEW_ACTOR },
-                },
-            ],
-            NEW_ACTOR,
-        );
+        expect(h.platformRoles.assign).toHaveBeenCalledWith(NEW_ACTOR, 'listener', NEW_ACTOR);
     });
 
     it('refuses to shadow an existing account whose address the provider did not verify', async () => {

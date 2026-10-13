@@ -5,6 +5,7 @@ import { AuthorizationModel, CheckMetricsSink, PermissionsTupleRepository, noopM
 import { DeadairPermissionsTupleRepository } from './permissions.repository.js';
 import { PermissionsService } from './permissions.service.js';
 import { AccessControlService } from './access.control.service.js';
+import { PlatformRoleService } from './platform.role.service.js';
 import { model as authorizationModel } from './generated/index.js';
 import { AuthorizationContext } from './authorization.context.js';
 
@@ -39,5 +40,6 @@ export const PermissionsModule: ServerKitModule = {
 
         registry.register(PermissionsService).useClass(PermissionsService).asTransient();
         registry.register(AccessControlService).useClass(AccessControlService).asTransient();
+        registry.register(PlatformRoleService).useClass(PlatformRoleService).asTransient();
     },
 };

@@ -197,6 +197,21 @@ export class DeadairPermissionsTupleRepository extends DataRepository implements
         return grantTuples({ id: row.id, actorId: row.actorId, scope: row.scope, revoked: row.revokedAt != null });
     }
 
+    /** How many accounts hold `role` on `platform:main` through a concrete grant (a wildcard is nobody). */
+    async countPlatformRoleHolders(role: string): Promise<number> {
+        const row = await this.db
+            .selectFrom('deadair.permissionsRelationTuples')
+            .where('objectNamespace', '=', PLATFORM_NAMESPACE)
+            .where('objectId', '=', PLATFORM_OBJECT_ID)
+            .where('relation', '=', role)
+            .where('subjectNamespace', '=', 'user')
+            .where('subjectRelation', '=', '')
+            .where('subjectId', '<>', '*')
+            .select(eb => eb.fn.countAll<string>().as('holders'))
+            .executeTakeFirstOrThrow();
+        return Number(row.holders);
+    }
+
     async adminExists(): Promise<boolean> {
         const row = await this.db
             .selectFrom('deadair.permissionsRelationTuples')

@@ -43,8 +43,7 @@ import { parseAndValidate, parseAndValidateArray } from '@maroonedsoftware/zod';
 import { PasswordRateLimiter } from './password.rate.limiter.js';
 import { AuthenticationServiceOptions } from './authentication.options.js';
 import { ActorsRepository } from '#modules/authentication/repositories/actors.repository.js';
-import { PermissionsService } from '#modules/permissions/permissions.service.js';
-import { PLATFORM_NAMESPACE, PLATFORM_OBJECT_ID } from '#modules/permissions/platform.roles.js';
+import { PlatformRoleService } from '#modules/permissions/platform.role.service.js';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { OidcSignInRefused } from './oidc.sign.in.refused.js';
 import { allowlistAdmits, resolveSigninAllowlist, resolveSigninProviders } from './signin.settings.js';
@@ -150,7 +149,7 @@ export class AuthenticationService {
         private readonly oidcFactorService: OidcFactorService,
         private readonly requestCookieJar: RequestCookieJar,
         private readonly responseCookieJar: ResponseCookieJar,
-        private readonly permissionsService: PermissionsService,
+        private readonly platformRoles: PlatformRoleService,
         private readonly config: AppConfig,
         private readonly passwordLimiter: PasswordRateLimiter,
     ) {
@@ -1119,16 +1118,7 @@ export class AuthenticationService {
 
         // The one role a newcomer gets. `createdBy` is the new account itself, as onboarding's grant
         // is: nobody signed in performed it.
-        await this.permissionsService.writeDirect(
-            [
-                {
-                    object: { namespace: PLATFORM_NAMESPACE, id: PLATFORM_OBJECT_ID },
-                    relation: 'listener',
-                    subject: { kind: 'concrete', namespace: 'user', id: actor.id },
-                },
-            ],
-            actor.id,
-        );
+        await this.platformRoles.assign(actor.id, 'listener', actor.id);
 
         return { actorId: actor.id, factorId: factor.id, isNewUser: true };
     }

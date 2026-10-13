@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { PermissionsService } from '../permissions/permissions.service.js';
-import { PLATFORM_NAMESPACE, PLATFORM_OBJECT_ID } from '../permissions/platform.roles.js';
+import { PlatformRoleService } from '../permissions/platform.role.service.js';
 import { OnboardingRequirementInput, OnboardingRequirement, AdminAccountOnboardingRequirementInput } from './types/onboarding.types.js';
 import { parseAndValidateArray } from '@maroonedsoftware/zod';
 import { AuthenticationRegistrationService } from '../authentication/authentication.registration.service.js';
@@ -14,6 +14,7 @@ export class OnboardingService {
         private readonly permissionsService: PermissionsService,
         private readonly authenticationRegistrationService: AuthenticationRegistrationService,
         private readonly onboardingRepository: OnboardingRepository,
+        private readonly platformRoles: PlatformRoleService,
     ) {}
 
     async getOnboardingRequirements() {
@@ -54,16 +55,7 @@ export class OnboardingService {
             // The first account is an onboarding rule, not a registration one, so the
             // grant lives here rather than in bootstrapLogin. `createdBy` is the actor
             // itself: there is no acting administrator to attribute this to.
-            await this.permissionsService.writeDirect(
-                [
-                    {
-                        object: { namespace: PLATFORM_NAMESPACE, id: PLATFORM_OBJECT_ID },
-                        relation: 'admin',
-                        subject: { kind: 'concrete', namespace: 'user', id: actor.id },
-                    },
-                ],
-                actor.id,
-            );
+            await this.platformRoles.assign(actor.id, 'admin', actor.id);
         }
 
         return await this.getOnboardingRequirements();

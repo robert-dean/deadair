@@ -11,6 +11,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import { AppearanceCard } from './appearance.card';
 import { LanguagesCard } from './languages.card';
 import { ConfigFieldsForm } from './config.fields.form';
+import { PeopleCard } from './people.card';
 import { PluginGrantsCard } from './plugin.grants.card';
 import { ProvidersCard } from './providers.card';
 import { SecurityCard } from './security.card';
@@ -119,6 +120,7 @@ function StandaloneSection({ section }: { section: SettingsSection }) {
     if (section.id === 'appearance') return <AppearanceCard />;
     if (section.id === 'languages') return <LanguagesCard />;
     if (section.id === 'artwork') return <BreakArtCard />;
+    if (section.id === 'people') return <PeopleCard />;
     if (section.id === 'storage') return <StorageCard />;
     if (section.id === 'grants') return <PluginGrantsCard />;
     // Its settings ARE declared, unlike the others here, and it still draws its own card: the

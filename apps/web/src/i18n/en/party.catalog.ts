@@ -45,12 +45,15 @@ export const party = {
         refused: 'The station turned that one down.',
         gone: 'The station cannot play that record any more.',
         failed: 'That did not send. Try again.',
+        spent: 'That one cannot be asked for again.',
     },
     mine: {
         title: 'Your requests',
         none: 'You have not asked for anything yet.',
         for: 'For {{name}}',
         aired: 'Played at {{time}}',
+        insist: 'Play it anyway',
+        insistLabel: 'Play “{{title}}” anyway',
     },
     /** A request's state, in the words the listener apps use. */
     state: {

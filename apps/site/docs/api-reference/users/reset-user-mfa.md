@@ -1,7 +1,7 @@
 ---
 title: 'Reset user MFA'
 sidebar_label: 'Reset user MFA'
-sidebar_position: 7
+sidebar_position: 10
 mdx:
     format: 'md'
 ---

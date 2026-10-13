@@ -2,9 +2,14 @@ import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
 import type { UserDetail, UserPage, UserQueryInput, UserRoleChange, UserSummary } from './types/users.types.js';
 import { reviveUserDetail, reviveUserPage, reviveUserSummary } from './types/users.types.js';
+import { UsersInvitationsClient } from './invitations.client.js';
 
 export class UsersClient {
-    constructor(private fetch: SdkFetch) {}
+    readonly invitations: UsersInvitationsClient;
+
+    constructor(private fetch: SdkFetch) {
+        this.invitations = new UsersInvitationsClient(fetch);
+    }
 
     /**
      * @name List users

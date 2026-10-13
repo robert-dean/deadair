@@ -1,6 +1,6 @@
 ---
 title: 'UserFactor'
-sidebar_position: 4
+sidebar_position: 8
 mdx:
     format: 'md'
 ---

@@ -1,7 +1,7 @@
 ---
 title: 'Reactivate user'
 sidebar_label: 'Reactivate user'
-sidebar_position: 5
+sidebar_position: 8
 mdx:
     format: 'md'
 ---

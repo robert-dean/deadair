@@ -1,7 +1,7 @@
 ---
 title: 'Sign out user'
 sidebar_label: 'Sign out user'
-sidebar_position: 6
+sidebar_position: 9
 mdx:
     format: 'md'
 ---

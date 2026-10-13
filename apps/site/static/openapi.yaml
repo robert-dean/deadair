@@ -6056,6 +6056,54 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/TopicList'
+    '/invitations':
+        get:
+            operationId: listInvitations
+            summary: 'List invitations'
+            description: 'Every invitation, newest first, with the link of each one still open'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/InvitationList'
+        post:
+            operationId: createInvitation
+            summary: 'Create invitation'
+            description: 'Invite somebody into a role. An open invitation to the same address is withdrawn first, so this is also how one is sent again. Refused for an address that already has an account'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/InvitationCreate'
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/Invitation'
+    '/invitations/{id}':
+        delete:
+            operationId: revokeInvitation
+            summary: 'Revoke invitation'
+            description: 'Withdraw an invitation. Its link stops working at once. Nothing is deleted: it stays in the list as withdrawn'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/Invitation'
     '/users':
         get:
             operationId: listUsers
@@ -15523,6 +15571,74 @@ components:
                     type: string
                     maxLength: 100
                     description: 'One sort of break, or absent for every subject this station has named'
+        InvitationState:
+            type: string
+            enum: [pending, accepted, revoked, expired]
+            description: 'Where an invitation stands. `expired` is a pending invitation whose time ran out'
+        Invitation:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    description: "The invitation's id"
+                email:
+                    type: string
+                    maxLength: 320
+                    description: 'The address the account will have. The person cannot change it while accepting'
+                role:
+                    '$ref': '#/components/schemas/PlatformRole'
+                    description: 'The role the account will hold'
+                state:
+                    '$ref': '#/components/schemas/InvitationState'
+                    description: 'Where it stands'
+                createdAt:
+                    type: string
+                    format: date-time
+                    description: 'When it was made'
+                expiresAt:
+                    type: string
+                    format: date-time
+                    description: 'When the link stops working, if nobody has used it'
+                invitedBy:
+                    type: string
+                    maxLength: 320
+                    description: 'The address of the admin who made it. Absent once their account is gone'
+                acceptedAt:
+                    type: string
+                    format: date-time
+                    description: 'When somebody accepted it'
+                revokedAt:
+                    type: string
+                    format: date-time
+                    description: 'When it was withdrawn, by an admin or by a newer invitation to the same address'
+                token:
+                    type: string
+                    maxLength: 200
+                    description: "The invitation itself, only while it is pending. Put it after `#` on the station's `/invite` page, as `/invite#<token>`. Anyone holding it can claim the account, so show it only to the person invited"
+            required: [id, email, role, state, createdAt, expiresAt]
+            description: 'An invitation for somebody to take an account on the station'
+        InvitationList:
+            type: object
+            properties:
+                data:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/Invitation'
+            required: [data]
+            description: "The station's invitations, newest first"
+        InvitationCreate:
+            type: object
+            properties:
+                email:
+                    type: string
+                    format: email
+                    description: 'The address the account will have'
+                role:
+                    '$ref': '#/components/schemas/PlatformRole'
+                    description: 'The role the account will hold'
+            required: [email, role]
+            description: 'Invite somebody by their address'
         UserQuery:
             allOf:
                 - '$ref': '#/components/schemas/PaginationWithActive'

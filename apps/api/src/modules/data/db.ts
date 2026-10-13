@@ -340,6 +340,22 @@ export interface DeadairHiddenPlaylists {
   stationKey: Generated<string>;
 }
 
+export interface DeadairInvitations {
+  acceptedAt: DateTime | null;
+  acceptedBy: string | null;
+  createdAt: Generated<DateTime>;
+  email: string;
+  expiresAt: DateTime;
+  id: Generated<string>;
+  invitedBy: string | null;
+  revokedAt: DateTime | null;
+  revokedBy: string | null;
+  role: "admin" | "listener";
+  state: Generated<"pending" | "accepted" | "revoked">;
+  tokenHash: string;
+  tokenSealed: string;
+}
+
 export interface DeadairListenerRequests {
   actorId: string | null;
   airedAt: DateTime | null;
@@ -1246,6 +1262,7 @@ export interface DB {
   "deadair.facts": DeadairFacts;
   "deadair.genreSteers": DeadairGenreSteers;
   "deadair.hiddenPlaylists": DeadairHiddenPlaylists;
+  "deadair.invitations": DeadairInvitations;
   "deadair.listenerRequests": DeadairListenerRequests;
   "deadair.loginEvents": DeadairLoginEvents;
   "deadair.loginFailureCounters": DeadairLoginFailureCounters;

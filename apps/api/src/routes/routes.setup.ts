@@ -42,6 +42,7 @@ import { MessagingRouter } from './messaging.router.js';
 import { RequestsRouter } from './requests.router.js';
 import { RequestsPartyRouter } from './requests.party.router.js';
 import { UsersRouter } from './users.router.js';
+import { InvitationsRouter } from './invitations.router.js';
 import { OutputsRouter } from './outputs.router.js';
 
 export const routers = [
@@ -98,5 +99,6 @@ export const routers = [
     RequestsRouter,
     RequestsPartyRouter,
     UsersRouter,
+    InvitationsRouter,
     OutputsRouter,
 ];

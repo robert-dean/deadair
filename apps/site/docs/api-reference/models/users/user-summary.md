@@ -1,6 +1,6 @@
 ---
 title: 'UserSummary'
-sidebar_position: 2
+sidebar_position: 6
 mdx:
     format: 'md'
 ---

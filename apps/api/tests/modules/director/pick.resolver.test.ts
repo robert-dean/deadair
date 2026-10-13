@@ -18,7 +18,7 @@ import type { CatalogResolverService } from '../../../src/modules/catalog/ingest
 import type { CandidatesRepository, TrackBinding } from '../../../src/modules/director/candidates.repository.js';
 import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { artistKey } from '../../../src/modules/director/rotation.keys.js';
-import { DEFAULT_RULES, type ResolvedRules } from '../../../src/modules/director/rotation.rules.js';
+import { DEFAULT_RULES, NO_RULES, type ResolvedRules } from '../../../src/modules/director/rotation.rules.js';
 import type { TrackPick } from '../../../src/modules/director/set.generator.js';
 import { TRACK_LENGTH_KEYS } from '../../../src/modules/director/track.length.js';
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
@@ -1369,6 +1369,68 @@ describe('never-play rules', () => {
         await resolve(resolver, [{ title: 'One', artist: 'A', trackId: 'track-1' }]);
 
         expect(candidates.tagsFor).not.toHaveBeenCalled();
+    });
+});
+
+describe('PickResolver overruled by a listener', () => {
+    // A listener who insists on a record the station turned down outvotes the station's own taste:
+    // how often, a dislike, the period and the length. Three things they cannot outvote: a never-play
+    // rule, a clean-only station with no clean copy, and a record nothing will serve.
+    const one = { title: 'A', artist: 'One', trackId: 'track-1' };
+    const overruled = (resolver: PickResolver) => resolver.resolve([one], DEFAULT_RULES, { overrule: true, era: { from: 1970, to: 1979 } });
+    const served = {
+        bindings: { 'track-1': binding('track-1', 'deadair.spotify', 1_000_000) },
+        metadata: { 'track-1': { title: 'A', credit: 'One' } },
+    };
+
+    it('airs a record the station would have dropped for its rules, its taste, its period and its length all at once', async () => {
+        const { resolver } = build({
+            ...served,
+            recentSongs: ['one:a'],
+            recentArtists: ['one'],
+            ratings: { 'track-1': -1 },
+            years: { 'track-1': 1994 },
+            settings: { [TRACK_LENGTH_KEYS.maxTrackSeconds]: '900' },
+        });
+
+        expect(
+            await resolver.resolve([one], { ...DEFAULT_RULES, repeatWindowDays: 3, artistCooldownMinutes: 40 }, { era: { from: 1970, to: 1979 } }),
+        ).toEqual([]);
+        expect((await overruled(resolver)).map(track => track.trackId)).toEqual(['track-1']);
+    });
+
+    it('reads no ratings, windows or years, since none of them could drop it', async () => {
+        const { resolver, candidates, history } = build(served);
+
+        await overruled(resolver);
+
+        expect(candidates.ratingsFor).not.toHaveBeenCalled();
+        expect(candidates.yearsFor).not.toHaveBeenCalled();
+        expect(history.songKeysSince).not.toHaveBeenCalled();
+        expect(history.artistKeysSince).not.toHaveBeenCalled();
+    });
+
+    it('still never plays what a never-play rule forbids', async () => {
+        const { resolver } = build({
+            ...served,
+            blockRules: [{ id: 'no-country', field: 'genre', value: 'Country' }],
+            tags: { 'track-1': ['Country'] },
+        });
+
+        expect(await overruled(resolver)).toEqual([]);
+    });
+
+    it('still holds a clean-only station to a clean copy', async () => {
+        const { resolver, candidates } = build({ bindings: {}, settings: { [ADVISORY_KEY]: 'clean-only' } });
+
+        expect(await overruled(resolver)).toEqual([]);
+        expect(candidates.bindingsFor).toHaveBeenCalledWith(['track-1'], [], 'clean-only', undefined);
+    });
+
+    it('takes the same answer from NO_RULES as from the station rules, since it reads neither', async () => {
+        const { resolver } = build({ ...served, recentSongs: ['one:a'] });
+
+        expect(await resolver.resolve([one], NO_RULES, { overrule: true })).toHaveLength(1);
     });
 });
 

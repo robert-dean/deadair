@@ -366,8 +366,10 @@ export interface DeadairListenerRequests {
   decidedAt: DateTime | null;
   dedicateTo: string | null;
   id: Generated<string>;
+  insisted: Generated<boolean>;
   message: string | null;
   messageId: string | null;
+  overrulable: Generated<boolean>;
   pluginId: string | null;
   reason: string | null;
   requesterKey: string;

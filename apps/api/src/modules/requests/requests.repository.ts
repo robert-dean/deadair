@@ -34,6 +34,10 @@ export interface RequestRow {
     airedAt?: DateTime;
     /** A dedication: who it is for, and the listener's own words to go with it. Both untrusted. */
     dedication?: Dedication;
+    /** Declined for the station's own taste, so its listener may still insist on it. See migration 0096. */
+    overrulable?: true;
+    /** Written when its listener insisted on a record the station had turned down, and placed as overruled. */
+    insisted?: true;
 }
 
 /** Who a request is dedicated to and what the listener wanted said. The listener's words, never the station's. */
@@ -55,9 +59,10 @@ export interface NewRequest {
     status: RequestStatus;
     reason?: string;
     dedication?: Dedication;
+    insisted?: true;
 }
 
-/** The two partial unique indexes that hold the one-at-a-time rules (migration 0087), by what each one holds. */
+/** The two partial unique indexes that hold the one-at-a-time rules (migration 0088), by what each one holds. */
 const ONE_OPEN_INDEXES: Record<string, OpenRequestTaken['which']> = {
     listener_requests_one_open_per_requester_idx: 'requester',
     listener_requests_one_open_per_track_idx: 'track',
@@ -114,6 +119,8 @@ const COLUMNS = [
     'airedAt',
     'dedicateTo',
     'message',
+    'overrulable',
+    'insisted',
 ] as const;
 
 /** A row as the module reads it, dropping absent optionals rather than passing nulls on. See `apps/api/CLAUDE.md`. */
@@ -135,6 +142,8 @@ function toRow(row: {
     airedAt: DateTime | null;
     dedicateTo: string | null;
     message: string | null;
+    overrulable: boolean;
+    insisted: boolean;
 }): RequestRow {
     const chat =
         row.pluginId != null && row.chatId != null && row.chatKind != null && row.messageId != null
@@ -158,6 +167,8 @@ function toRow(row: {
             : {
                   dedication: { ...(row.dedicateTo == null ? {} : { to: row.dedicateTo }), ...(row.message == null ? {} : { message: row.message }) },
               }),
+        ...(row.overrulable ? { overrulable: true as const } : {}),
+        ...(row.insisted ? { insisted: true as const } : {}),
     };
 }
 
@@ -203,6 +214,7 @@ export class RequestsRepository extends DataRepository {
                 reason: request.reason ?? null,
                 dedicateTo: request.dedication?.to ?? null,
                 message: request.dedication?.message ?? null,
+                insisted: request.insisted === true,
                 ...(request.status === 'declined' ? { decidedAt: sql<DateTime>`now()` } : {}),
             })
             .returning(COLUMNS)
@@ -263,7 +275,7 @@ export class RequestsRepository extends DataRepository {
     /**
      * Move a request from one state to another, and answer it as it now stands, or nothing when it
      * was no longer in `from`: somebody else decided first. Guarded on `from` so two deciders racing
-     * cannot both win.
+     * cannot both win. `overrulable` marks a refusal its listener may still insist on.
      */
     async moveTo(
         stationKey: string,
@@ -271,18 +283,37 @@ export class RequestsRepository extends DataRepository {
         from: readonly RequestStatus[],
         to: RequestStatus,
         reason?: string,
+        options: { overrulable?: boolean } = {},
     ): Promise<RequestRow | undefined> {
         const row = await this.db
             .updateTable('deadair.listenerRequests')
             .set({
                 status: to,
                 ...(reason === undefined ? {} : { reason }),
+                ...(options.overrulable === true ? { overrulable: true } : {}),
                 ...(to === 'aired' ? { airedAt: sql<DateTime>`now()` } : {}),
                 ...(to === 'declined' || to === 'pending' ? { decidedAt: sql<DateTime>`now()` } : {}),
             })
             .where('stationKey', '=', stationKey)
             .where('id', '=', id)
             .where('status', 'in', from)
+            .returning(COLUMNS)
+            .executeTakeFirst();
+        return row === undefined ? undefined : toRow(row);
+    }
+
+    /**
+     * Spend a refusal's overrule: answer the row, or nothing when it was not declined and
+     * overrulable any more. Guarded so two taps on "play it anyway" cannot both insist.
+     */
+    async spendOverrule(stationKey: string, id: string): Promise<RequestRow | undefined> {
+        const row = await this.db
+            .updateTable('deadair.listenerRequests')
+            .set({ overrulable: false })
+            .where('stationKey', '=', stationKey)
+            .where('id', '=', id)
+            .where('status', '=', 'declined')
+            .where('overrulable', '=', true)
             .returning(COLUMNS)
             .executeTakeFirst();
         return row === undefined ? undefined : toRow(row);

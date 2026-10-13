@@ -45,14 +45,18 @@ const build = (options: { authenticated?: boolean; enrolled?: { method: string }
         }),
         deleteFactor: vi.fn().mockResolvedValue(undefined),
     };
+    const fidoFactorService = {
+        getFactor: vi.fn(async () => ({ id: 'key-1', actorId: ACTOR_ID, active: true })),
+        deleteFactor: vi.fn().mockResolvedValue(undefined),
+    };
 
     const service = Object.create(AuthenticationRegistrationService.prototype) as AuthenticationRegistrationService;
     const strongFactorGate = new StrongFactorGate(actorsRepository as unknown as ActorsRepository, policyService as unknown as PolicyService);
-    Object.assign(service, { authorizationContext, strongFactorGate, authenticatorFactorService });
+    Object.assign(service, { authorizationContext, strongFactorGate, authenticatorFactorService, fidoFactorService });
 
     const remove = (method = 'authenticator', methodId = FACTOR_ID) => service.removeFactor(method as never, methodId);
 
-    return { remove, policyService, authenticatorFactorService };
+    return { remove, policyService, authenticatorFactorService, fidoFactorService };
 };
 
 const statusOf = async (promise: Promise<unknown>) => {
@@ -68,11 +72,21 @@ describe('removing a factor', () => {
         expect(h.authenticatorFactorService.deleteFactor).not.toHaveBeenCalled();
     });
 
-    it('answers only an authenticator or a linked provider for now', async () => {
+    it('answers only an authenticator, a passkey or a linked provider', async () => {
         const h = build();
 
-        expect(await statusOf(h.remove('fido', 'key-1'))).toBe(400);
+        expect(await statusOf(h.remove('password', 'p-1'))).toBe(400);
         expect(h.policyService.assert).not.toHaveBeenCalled();
+    });
+
+    it('removes a passkey through the passkey service, behind the same gate', async () => {
+        const h = build();
+
+        await expect(h.remove('fido', 'key-1')).resolves.toBeUndefined();
+
+        expect(h.policyService.assert).toHaveBeenCalledOnce();
+        expect(h.fidoFactorService.deleteFactor).toHaveBeenCalledWith(ACTOR_ID, 'key-1');
+        expect(h.authenticatorFactorService.deleteFactor).not.toHaveBeenCalled();
     });
 
     it('is refused without a recent strong factor, and says so the way the console expects', async () => {

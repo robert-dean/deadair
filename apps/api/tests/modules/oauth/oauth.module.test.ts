@@ -20,6 +20,7 @@ import { OAuthModule } from '../../../src/modules/oauth/oauth.module.js';
 import { MailService } from '../../../src/modules/mail/mail.service.js';
 import { AuthorizationContext } from '../../../src/modules/permissions/authorization.context.js';
 import { PermissionsService } from '../../../src/modules/permissions/permissions.service.js';
+import { PlatformRoleService } from '../../../src/modules/permissions/platform.role.service.js';
 import { DeadairPermissionsTupleRepository } from '../../../src/modules/permissions/permissions.repository.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
@@ -42,6 +43,7 @@ const FOREIGN: Identifier<unknown>[] = [
     AuthorizationContext,
     MailService,
     PermissionsService,
+    PlatformRoleService,
     ServerKitContext,
 ];
 

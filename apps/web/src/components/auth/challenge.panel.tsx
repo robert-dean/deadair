@@ -3,7 +3,14 @@ import { Alert, Button, Group, Select, Stack, Text } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import type { MfaChallengeFactorOutput, MfaRequiredResponseOutput } from '@deadair/sdk';
 
-import { presentableFactors, startEmailChallenge, useEmailCodeMutation, useMfaCodeMutation } from '../../api/auth.factors.queries';
+import {
+    presentableFactors,
+    startEmailChallenge,
+    useEmailCodeMutation,
+    useMfaCodeMutation,
+    usePasskeyChallengeMutation,
+} from '../../api/auth.factors.queries';
+import { isPasskeyCancelled } from '../../auth/webauthn';
 import { isRateLimited, retryAfterMs } from '../../api/retry.policy';
 import { apiErrorMessage, authChallenge, isInvalidToken } from '../../api/sdk.error';
 import { i18n } from '../../i18n/i18n.setup';
@@ -38,6 +45,7 @@ export function challengeExpired(error: unknown): boolean {
 /** What the panel calls a factor in a picker and in its own copy. */
 function factorLabel(factor: MfaChallengeFactorOutput): string {
     if (factor.method === 'email') return factor.label ?? i18n.t('auth:challenge.factor.email');
+    if (factor.method === 'fido') return factor.label ?? i18n.t('auth:challenge.factor.passkey');
     return factor.label ?? i18n.t('auth:challenge.factor.authenticator');
 }
 
@@ -55,10 +63,10 @@ export interface ChallengePanelProps {
 /**
  * The second half of a sign-in that stopped at `mfa_required`.
  *
- * Presents an authenticator or an emailed code, preferring the authenticator when an account has
- * both — a code from an app is already on the phone, where an emailed one is a round trip through a
- * mail server. A challenge listing neither (a passkey enrolled through the API) is still told so
- * plainly rather than shown a field no code can satisfy.
+ * Presents a passkey, an authenticator or an emailed code, in that order of preference: a passkey
+ * is one touch, a code from an app is already on the phone, and an emailed one is a round trip
+ * through a mail server. A challenge listing none this browser can answer (a passkey, on a station
+ * opened over plain `http://`) is told so plainly rather than shown a field no code can satisfy.
  *
  * The two paths differ only in what the code is bound to, and it is not a detail the operator ever
  * sees: an authenticator code carries the enrolled factor's `method_id`, while an emailed one
@@ -71,6 +79,7 @@ export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, 
     const factors = presentableFactors({ challengeId: challenge.challenge_id, factors: challenge.factors });
     const submitAuthenticatorCode = useMfaCodeMutation();
     const submitEmailCode = useEmailCodeMutation();
+    const submitPasskey = usePasskeyChallengeMutation();
 
     const [code, setCode] = useState('');
     const [methodId, setMethodId] = useState<string | undefined>(factors[0]?.method_id);
@@ -81,6 +90,7 @@ export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, 
 
     const selected = factors.find(factor => factor.method_id === methodId);
     const isEmail = selected?.method === 'email';
+    const isPasskey = selected?.method === 'fido';
 
     // Held here rather than in a mutation, for the reason `startEmailChallenge` gives: the first
     // send has to come from an effect, and a mutation observer does not survive StrictMode's
@@ -115,7 +125,26 @@ export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, 
         void sendCode();
     }, [isEmail, methodId, sendCode]);
 
-    const pending = submitAuthenticatorCode.isPending || submitEmailCode.isPending;
+    const pending = submitAuthenticatorCode.isPending || submitEmailCode.isPending || submitPasskey.isPending;
+
+    // A button rather than a prompt raised on arrival: Safari refuses a passkey prompt that no
+    // press started, and a prompt nobody asked for is a surprise anyway.
+    async function verifyWithPasskey(): Promise<void> {
+        if (inflight.current) return;
+        inflight.current = true;
+        try {
+            const response = await submitPasskey.mutateAsync({ challengeId: challenge.challenge_id });
+            if (response.result === 'token') {
+                await onComplete();
+            }
+        } catch (caught) {
+            if (challengeExpired(caught)) {
+                onExpired();
+            }
+        } finally {
+            inflight.current = false;
+        }
+    }
 
     async function verify(value: string): Promise<void> {
         if (inflight.current || methodId === undefined || value.length !== ONE_TIME_CODE_LENGTH) return;
@@ -151,11 +180,18 @@ export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, 
     }
 
     const submitError = submitEmailCode.error ?? submitAuthenticatorCode.error;
-    const failure = submitError && !challengeExpired(submitError) ? codeError(submitError) : undefined;
+    const passkeyError =
+        submitPasskey.error && !isPasskeyCancelled(submitPasskey.error) && !challengeExpired(submitPasskey.error) ? submitPasskey.error : undefined;
+    const failure =
+        submitError && !challengeExpired(submitError)
+            ? codeError(submitError)
+            : passkeyError
+              ? apiErrorMessage(passkeyError, t('challenge.passkeyFallback'))
+              : undefined;
     // The station could not send the code at all — an unconfigured mail server, or one that
     // refused. Reported as its own thing rather than as a bad code, because no code was typed.
     const sendFailure = sendFailed ? apiErrorMessage(sendFailed, t('challenge.sendFallback')) : undefined;
-    const response = submitEmailCode.data ?? submitAuthenticatorCode.data;
+    const response = submitEmailCode.data ?? submitAuthenticatorCode.data ?? submitPasskey.data;
     const anotherFactor = response?.result === 'mfa_required' ? t('challenge.anotherFactor') : undefined;
 
     const codeReady = !isEmail || emailChallengeId !== undefined;
@@ -188,16 +224,29 @@ export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, 
                         {t('challenge.sentTo', { target: selected?.label ?? t('challenge.yourEmail') })}
                     </Text>
                 ) : undefined}
-                <OneTimeCodeInput
-                    label={isEmail ? t('challenge.emailedCode') : t('challenge.authenticatorCode')}
-                    value={code}
-                    onChange={setCode}
-                    onComplete={value => void verify(value)}
-                    disabled={pending || sendingCode || !codeReady}
-                />
-                <Button type="submit" loading={pending} disabled={code.length !== ONE_TIME_CODE_LENGTH || !codeReady} fullWidth>
-                    {t('challenge.verify')}
-                </Button>
+                {isPasskey ? (
+                    <>
+                        <Text c="dimmed" size="sm">
+                            {t('challenge.passkeyPrompt')}
+                        </Text>
+                        <Button loading={submitPasskey.isPending} disabled={pending} onClick={() => void verifyWithPasskey()} fullWidth>
+                            {t('challenge.usePasskey')}
+                        </Button>
+                    </>
+                ) : (
+                    <>
+                        <OneTimeCodeInput
+                            label={isEmail ? t('challenge.emailedCode') : t('challenge.authenticatorCode')}
+                            value={code}
+                            onChange={setCode}
+                            onComplete={value => void verify(value)}
+                            disabled={pending || sendingCode || !codeReady}
+                        />
+                        <Button type="submit" loading={pending} disabled={code.length !== ONE_TIME_CODE_LENGTH || !codeReady} fullWidth>
+                            {t('challenge.verify')}
+                        </Button>
+                    </>
+                )}
                 <Group justify="center" gap="xs">
                     {isEmail ? (
                         <Button variant="subtle" size="compact-sm" loading={sendingCode} disabled={pending} onClick={() => void sendCode()}>

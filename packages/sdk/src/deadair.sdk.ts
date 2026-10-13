@@ -29,6 +29,7 @@ import { StationClient } from './station/station.client.js';
 import { StorageClient } from './storage/storage.client.js';
 import { StreamClient } from './stream/stream.client.js';
 import { TopicsClient } from './topics/topics.client.js';
+import { UsersClient } from './users/users.client.js';
 
 export class DeadairSdk {
     readonly activity: ActivityClient;
@@ -60,6 +61,7 @@ export class DeadairSdk {
     readonly storage: StorageClient;
     readonly stream: StreamClient;
     readonly topics: TopicsClient;
+    readonly users: UsersClient;
 
     constructor(options: SdkOptions) {
         const sdkFetch = options.fetch ?? createSdkFetch(options);
@@ -92,5 +94,6 @@ export class DeadairSdk {
         this.storage = new StorageClient(sdkFetch);
         this.stream = new StreamClient(sdkFetch);
         this.topics = new TopicsClient(sdkFetch);
+        this.users = new UsersClient(sdkFetch);
     }
 }

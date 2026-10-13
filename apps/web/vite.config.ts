@@ -26,16 +26,21 @@ const ICECAST_TARGET = 'http://127.0.0.1:8000';
 const MOUNT_PATTERN = '^/[^/]+\\.(mp3|opus|aac|flac)$';
 
 /**
- * `/party` is the guest request page, a second page with its own entry (`party.html`) so a guest
- * never loads the console or its sign-in. nginx serves it at `/party` in the image
- * (`docker/nginx.conf`, `nginx/nginx.prod.conf`); this is the same rewrite for the dev server, which
- * otherwise answers every unknown path with the console's `index.html`.
+ * `/party` is the guest request page and `/invite` the page an invited person makes their account on,
+ * each a page with its own entry (`party.html`, `invite.html`) so a guest or somebody with no account
+ * yet never loads the console or its sign-in. nginx serves both in the image (`docker/nginx.conf`,
+ * `nginx/nginx.prod.conf`); this is the same rewrite for the dev server, which otherwise answers every
+ * unknown path with the console's `index.html`.
  */
-const partyPage = (): Plugin => ({
-    name: 'deadair-party-page',
+const STANDALONE_PAGES = ['/party', '/invite'] as const;
+
+const standalonePages = (): Plugin => ({
+    name: 'deadair-standalone-pages',
     configureServer(server) {
         server.middlewares.use((req, _res, next) => {
-            if (req.url === '/party' || req.url?.startsWith('/party?')) req.url = req.url.replace('/party', '/party.html');
+            for (const page of STANDALONE_PAGES) {
+                if (req.url === page || req.url?.startsWith(`${page}?`)) req.url = req.url.replace(page, `${page}.html`);
+            }
             next();
         });
     },
@@ -46,11 +51,18 @@ export default defineConfig(({ mode }) => ({
         // Must precede react() so the generated route tree is in place before JSX transforms.
         tanstackRouter({ target: 'react', autoCodeSplitting: true }),
         react(),
-        partyPage(),
+        standalonePages(),
     ],
     build: {
-        // Two pages: the console, and the guest request page a party's QR code points at.
-        rollupOptions: { input: { main: resolve(import.meta.dirname, 'index.html'), party: resolve(import.meta.dirname, 'party.html') } },
+        // Three pages: the console, the guest request page a party's QR code points at, and the page an
+        // invitation's link opens.
+        rollupOptions: {
+            input: {
+                main: resolve(import.meta.dirname, 'index.html'),
+                party: resolve(import.meta.dirname, 'party.html'),
+                invite: resolve(import.meta.dirname, 'invite.html'),
+            },
+        },
     },
     server: {
         // nginx.dev.conf proxies http://localhost:8080/ to this port.

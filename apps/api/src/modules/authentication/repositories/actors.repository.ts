@@ -7,8 +7,16 @@ type ActorType = 'user' | 'system' | 'vendor' | 'guest';
 
 @Injectable()
 export class ActorsRepository extends DataRepository {
-    async create(type: ActorType, active: boolean = true) {
-        return await this.db.insertInto('deadair.actors').values({ type, active }).returningAll().executeTakeFirstOrThrow();
+    /**
+     * Make an actor. `id` is for the one caller that has to know it before the row exists: accepting
+     * an invitation sets up a second factor against the account's id, then makes the account.
+     */
+    async create(type: ActorType, active: boolean = true, id?: string) {
+        return await this.db
+            .insertInto('deadair.actors')
+            .values({ type, active, ...(id === undefined ? {} : { id }) })
+            .returningAll()
+            .executeTakeFirstOrThrow();
     }
 
     async get(id: string, active?: boolean) {

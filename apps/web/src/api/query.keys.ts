@@ -18,6 +18,21 @@ export const queryKeys = {
         apikeys: () => ['auth', 'apikeys'] as const,
         /** The identity providers the sign-in page offers. Public: asked before anybody is signed in. */
         providers: () => ['auth', 'providers'] as const,
+        /** Who the signed-in person is and which roles they hold. */
+        session: () => ['auth', 'session'] as const,
+    },
+    /**
+     * The station's people. A list is keyed on its filters, so a strict prefix of every one of them
+     * is `['users']`, which is what a change to anybody invalidates: a role or a switch-off moves a
+     * person in and out of every filtered list at once.
+     */
+    users: {
+        all: () => ['users'] as const,
+        list: (query: { page: number; pageSize: number; search?: string; role?: string; active?: boolean }) =>
+            ['users', 'list', query.page, query.pageSize, query.search ?? '', query.role ?? 'any', query.active ?? 'any'] as const,
+        detail: (id: string) => ['users', 'detail', id] as const,
+        /** Every invitation. Inviting, re-inviting or withdrawing answers in terms of the whole list again. */
+        invitations: () => ['users', 'invitations'] as const,
     },
     /** Listener requests, for the operator deciding on them. Granting or declining one answers in terms of the whole list again. */
     /** The party that is on, with its pass. Starting or ending one answers in terms of it. */

@@ -60,7 +60,10 @@ const build = (options: { factorExists?: boolean; active?: boolean; spaBaseUrl?:
             primaryFactor: { method: 'email', methodId: 'email-1', kind: 'possession' },
         }),
     };
-    const actorsRepository = { listFactors: vi.fn().mockResolvedValue([{ method: 'email', methodId: 'email-1', kind: 'possession' }]) };
+    const actorsRepository = {
+        listFactors: vi.fn().mockResolvedValue([{ method: 'email', methodId: 'email-1', kind: 'possession' }]),
+        existsActive: vi.fn().mockResolvedValue(true),
+    };
     const sessionService = {
         createSession: vi.fn().mockResolvedValue({ sessionToken: 'session' }),
         issueTokenForSession: vi.fn().mockResolvedValue({ accessToken: 'a', refreshToken: 'r', expiresIn: 900, tokenType: 'Bearer', scope: '' }),

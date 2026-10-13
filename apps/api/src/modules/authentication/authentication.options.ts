@@ -9,8 +9,6 @@
 export class AuthenticationServiceOptions {
     constructor(
         public readonly appBaseUrl: string = 'http://localhost:3000',
-        public readonly authenticationFidoRpId: string = 'localhost',
-        public readonly authenticationFidoRpOrigin: string = 'http://localhost:3000',
         // Where the SPA is served from. Normally the same origin as `appBaseUrl`, which is the
         // station's origin and not the API's: the API is reached under `/api/` on it. Different
         // only when the frontend runs on a separate origin in development.

@@ -1,6 +1,6 @@
 ---
 title: 'FidoFactorAttestation'
-sidebar_position: 76
+sidebar_position: 78
 mdx:
     format: 'md'
 ---

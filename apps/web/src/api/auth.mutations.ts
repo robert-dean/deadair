@@ -3,6 +3,7 @@ import type { AuthenticationTokenResponseOutput } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { clearSession, setSession } from '../auth/session.store';
+import { assertPasskey } from '../auth/webauthn';
 
 export interface LoginCredentials {
     email: string;
@@ -82,6 +83,26 @@ export function useOidcSignInMutation() {
         },
         onSuccess: response => {
             window.location.assign(response.authorize_url);
+        },
+    });
+}
+
+/**
+ * Signs in with a passkey alone. The address says whose passkeys the browser should offer; the
+ * station answers an assertion, the browser signs it, and a passkey is a strong enough factor that
+ * the token comes straight back, with no second step.
+ */
+export function usePasskeySignInMutation() {
+    return useMutation({
+        retry: false,
+        mutationFn: async ({ email }: { email: string }) => {
+            const started = await sdk.authentication.startLogin({ grant_type: 'fido', email: email.trim() });
+            if (started.grant_type !== 'fido') throw new Error('The station answered a different kind of sign-in.');
+            const credential = await assertPasskey(started.assertion);
+            return await sdk.authentication.requestToken({ grant_type: 'fido', challenge_id: started.challengeId, credential });
+        },
+        onSuccess: response => {
+            if (response.result === 'token') setSession(response.access_token, response.expires_in);
         },
     });
 }

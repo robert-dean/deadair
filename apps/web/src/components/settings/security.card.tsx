@@ -10,12 +10,14 @@ import {
     useFactors,
     useRegisterAuthenticator,
     useRegisterEmail,
+    useRegisterPasskey,
     useRemoveFactor,
     useVerifyAuthenticator,
     useVerifyEmail,
 } from '../../api/auth.factors.queries';
 import { isRateLimited, retryAfterMs } from '../../api/retry.policy';
 import { apiErrorMessage, isInvalidToken, sdkError } from '../../api/sdk.error';
+import { isPasskeyCancelled, passkeysAvailable } from '../../auth/webauthn';
 import { i18n } from '../../i18n/i18n.setup';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { CopyButton } from '../shared/copy.button';
@@ -49,8 +51,8 @@ function factorName(factor: AuthenticationFactor): string {
 /**
  * How the operator signs in.
  *
- * The one section of Settings about a person rather than the station. Enrolling an authenticator
- * here is what turns the second step on: from then on every sign-in to this account asks for the
+ * The one section of Settings about a person rather than the station. Enrolling an authenticator or
+ * a passkey here is what turns the second step on: from then on every sign-in to this account asks for the
  * code after the password, and removing the last one turns it off again. Both are gated the same
  * way on the API side, on a strong factor verified in the last few minutes, which is why either
  * may open the re-verify dialog first.
@@ -66,9 +68,10 @@ export function SecurityCard() {
     const factors = useFactors();
     const gate = useStepUpGate();
 
-    const authenticators = (factors.data ?? []).filter(factor => factor.method === 'authenticator');
+    // The second steps: authenticators and passkeys, each removable here.
+    const strong = (factors.data ?? []).filter(factor => factor.method === 'authenticator' || factor.method === 'fido');
     // Linked providers have a card of their own below, with the link and unlink they need.
-    const others = (factors.data ?? []).filter(factor => factor.method !== 'authenticator' && factor.method !== 'oidc');
+    const others = (factors.data ?? []).filter(factor => factor.method !== 'authenticator' && factor.method !== 'fido' && factor.method !== 'oidc');
 
     return (
         <Stack gap="lg">
@@ -93,10 +96,10 @@ export function SecurityCard() {
                             {others.map(factor => (
                                 <FactorRow key={`${factor.method}:${factor.methodId}`} factor={factor} />
                             ))}
-                            {authenticators.map(factor => (
-                                <AuthenticatorRow key={factor.methodId} factor={factor} gate={gate} />
+                            {strong.map(factor => (
+                                <StrongFactorRow key={`${factor.method}:${factor.methodId}`} factor={factor} gate={gate} />
                             ))}
-                            {authenticators.length === 0 ? (
+                            {strong.length === 0 ? (
                                 <Text size="sm" c="dimmed">
                                     {t('security.noAuthenticator')}
                                 </Text>
@@ -108,6 +111,7 @@ export function SecurityCard() {
 
             {factors.data ? <LinkedSigninsCard factors={factors.data} gate={gate} /> : undefined}
             {factors.data ? <EnrolAuthenticatorCard gate={gate} /> : undefined}
+            {factors.data && passkeysAvailable() ? <EnrolPasskeyCard gate={gate} /> : undefined}
             {factors.data ? <EnrolEmailCard gate={gate} /> : undefined}
 
             <StepUpDialog gate={gate} />
@@ -126,7 +130,8 @@ function FactorRow({ factor }: { factor: AuthenticationFactor }) {
     );
 }
 
-function AuthenticatorRow({ factor, gate }: { factor: AuthenticationFactor; gate: ReturnType<typeof useStepUpGate> }) {
+/** An authenticator or a passkey: a second step, and removable, behind the re-verify dialog. */
+function StrongFactorRow({ factor, gate }: { factor: AuthenticationFactor; gate: ReturnType<typeof useStepUpGate> }) {
     const { t } = useTranslation('settings');
     const remove = useRemoveFactor();
     const [confirming, setConfirming] = useState(false);
@@ -135,7 +140,7 @@ function AuthenticatorRow({ factor, gate }: { factor: AuthenticationFactor; gate
     async function confirmRemove(): Promise<void> {
         setFailure(undefined);
         try {
-            await gate.run(() => remove.mutateAsync({ method: 'authenticator', methodId: factor.methodId }));
+            await gate.run(() => remove.mutateAsync({ method: factor.method, methodId: factor.methodId }));
             setConfirming(false);
             notifyDone(t('security.remove.done', { name: factorName(factor) }));
         } catch (caught) {
@@ -150,7 +155,7 @@ function AuthenticatorRow({ factor, gate }: { factor: AuthenticationFactor; gate
             <Group gap="xs">
                 <Text size="sm">{factorName(factor)}</Text>
                 <Badge variant="light" color="teal">
-                    {t('security.authenticatorBadge')}
+                    {factor.method === 'fido' ? t('security.passkeyBadge') : t('security.authenticatorBadge')}
                 </Badge>
             </Group>
             <Button variant="subtle" color="red" size="compact-sm" onClick={() => setConfirming(true)}>
@@ -170,7 +175,11 @@ function AuthenticatorRow({ factor, gate }: { factor: AuthenticationFactor; gate
                 errorTitle={t('security.remove.errorTitle')}
                 errorFallback={t('security.remove.errorFallback')}
             >
-                {remove.isPending ? t('security.remove.bodyPending') : t('security.remove.body')}
+                {factor.method === 'fido'
+                    ? t('security.remove.passkeyBody')
+                    : remove.isPending
+                      ? t('security.remove.bodyPending')
+                      : t('security.remove.body')}
             </ConfirmModal>
         </Group>
     );
@@ -307,6 +316,66 @@ function EnrolAuthenticatorCard({ gate }: { gate: ReturnType<typeof useStepUpGat
                         </Button>
                     </Group>
                 )}
+            </Stack>
+        </Card>
+    );
+}
+
+/**
+ * Enrolling a passkey: a label, then the browser's own prompt.
+ *
+ * One press rather than the authenticator's two steps, because the browser's prompt IS the proof:
+ * the station writes the factor only once the browser hands back a credential made for this
+ * address. Offered only where the browser can make one (see `passkeysAvailable`), and behind the
+ * re-verify dialog once the account has a strong factor, for the reason every enrolment here is.
+ * A closed prompt is a choice, not a failure, and says nothing.
+ */
+function EnrolPasskeyCard({ gate }: { gate: ReturnType<typeof useStepUpGate> }) {
+    const { t } = useTranslation('settings');
+    const register = useRegisterPasskey();
+    const [label, setLabel] = useState('');
+    const [failure, setFailure] = useState<unknown>();
+
+    async function create(): Promise<void> {
+        setFailure(undefined);
+        try {
+            await gate.run(() => register.mutateAsync({ label }));
+            notifySaved(t('security.passkey.saved'));
+            setLabel('');
+        } catch (caught) {
+            if (!isStepUpCancelled(caught) && !isPasskeyCancelled(caught)) setFailure(caught);
+        }
+    }
+
+    return (
+        <Card padding="lg">
+            <Stack gap="md">
+                <Stack gap="xxs">
+                    <Title order={2} size="h4">
+                        {t('security.passkey.title')}
+                    </Title>
+                    <Text size="sm" c="dimmed">
+                        {t('security.passkey.intro')}
+                    </Text>
+                </Stack>
+
+                {failure ? (
+                    <ErrorAlert title={t('security.passkey.startFailed')}>{apiErrorMessage(failure, t('security.passkey.startFallback'))}</ErrorAlert>
+                ) : undefined}
+
+                <Group align="flex-end" wrap="nowrap">
+                    <TextInput
+                        label={t('security.passkey.label.label')}
+                        description={t('security.passkey.label.description')}
+                        placeholder={t('security.passkey.label.placeholder')}
+                        value={label}
+                        onChange={event => setLabel(event.currentTarget.value)}
+                        style={{ flex: 1 }}
+                    />
+                    <Button onClick={() => void create()} loading={register.isPending}>
+                        {t('security.passkey.create')}
+                    </Button>
+                </Group>
             </Stack>
         </Card>
     );

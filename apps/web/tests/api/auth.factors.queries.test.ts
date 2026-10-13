@@ -4,7 +4,8 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
-    authenticatorFactors,
+    presentableFactors,
+    strongFactors,
     useMfaCodeMutation,
     useRegisterAuthenticator,
     useRemoveFactor,
@@ -149,16 +150,47 @@ describe('useStartStepUp', () => {
     });
 });
 
-describe('authenticatorFactors', () => {
-    it('keeps only the factors this console can present', () => {
-        const factors = authenticatorFactors({
-            challengeId: 'mfa-1',
-            factors: [
-                { method: 'fido', method_id: 'key-1', kind: 'possession' },
-                { method: 'authenticator', method_id: 'totp-1', kind: 'possession', label: 'Phone' },
-            ],
-        });
+const passkeyAvailable = vi.hoisted(() => ({ value: false }));
+vi.mock('../../src/auth/webauthn', async importOriginal => ({
+    ...(await importOriginal<typeof import('../../src/auth/webauthn')>()),
+    passkeysAvailable: () => passkeyAvailable.value,
+}));
 
-        expect(factors.map(factor => factor.method_id)).toEqual(['totp-1']);
+const MIXED = {
+    challengeId: 'mfa-1',
+    factors: [
+        { method: 'email' as const, method_id: 'email-1', kind: 'possession' as const },
+        { method: 'authenticator' as const, method_id: 'totp-1', kind: 'possession' as const, label: 'Phone' },
+        { method: 'fido' as const, method_id: 'key-1', kind: 'possession' as const },
+    ],
+};
+
+describe('strongFactors', () => {
+    afterEach(() => {
+        passkeyAvailable.value = false;
+    });
+
+    it('keeps the authenticators, and no passkey where this browser cannot use one', () => {
+        expect(strongFactors(MIXED).map(factor => factor.method_id)).toEqual(['totp-1']);
+    });
+
+    it('offers a passkey first where the browser can use one, and never an emailed code', () => {
+        passkeyAvailable.value = true;
+        expect(strongFactors(MIXED).map(factor => factor.method_id)).toEqual(['key-1', 'totp-1']);
+    });
+});
+
+describe('presentableFactors', () => {
+    afterEach(() => {
+        passkeyAvailable.value = false;
+    });
+
+    it('orders a passkey, then an authenticator, then email', () => {
+        passkeyAvailable.value = true;
+        expect(presentableFactors(MIXED).map(factor => factor.method)).toEqual(['fido', 'authenticator', 'email']);
+    });
+
+    it('leaves the passkey out on a station opened over plain http', () => {
+        expect(presentableFactors(MIXED).map(factor => factor.method)).toEqual(['authenticator', 'email']);
     });
 });

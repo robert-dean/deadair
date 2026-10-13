@@ -75,7 +75,9 @@
             "deadair.station_lineup.mood": "'love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear' | null",
             "deadair.block_rules.field": "'genre' | 'tag'",
             "deadair.schedule_slot_hosts.role": "'guest' | 'cohost'",
-            "deadair.own_shows.writing_mode": "'quick' | 'outlined' | 'polished' | null"
+            "deadair.own_shows.writing_mode": "'quick' | 'outlined' | 'polished' | null",
+            "deadair.invitations.role": "'admin' | 'listener'",
+            "deadair.invitations.state": "Generated<'pending' | 'accepted' | 'revoked'>"
         }
     },
     "partitions": false,

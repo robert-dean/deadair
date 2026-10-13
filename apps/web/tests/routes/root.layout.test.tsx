@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from '@testing-library/react';
 import { SdkError } from '@deadair/sdk';
 
@@ -10,6 +10,7 @@ import { createTestQueryClient, render, screen, setupUser, waitFor } from '../ut
 const navigate = vi.fn().mockResolvedValue(undefined);
 const invalidate = vi.fn().mockResolvedValue(undefined);
 const logout = vi.fn();
+const readSession = vi.fn();
 
 // The layout is exercised on its own: the router is stubbed down to the three pieces it renders with.
 vi.mock('@tanstack/react-router', () => ({
@@ -33,7 +34,8 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('../../src/api/client', () => ({
     sdk: {
         authentication: {
-            sessions: { logout: (...args: unknown[]) => logout(...args) },
+            sessions: { logout: (...args: unknown[]) => logout(...args), readSession: () => readSession() },
+            factors: { listFactors: async () => [] },
         },
     },
 }));
@@ -42,7 +44,12 @@ function logoutButton() {
     return screen.getByRole('button', { name: 'Logout' });
 }
 
+beforeEach(() => {
+    readSession.mockResolvedValue({ actorId: 'u-admin', roles: ['admin'] });
+});
+
 afterEach(() => {
+    readSession.mockReset();
     navigate.mockClear();
     invalidate.mockClear();
     logout.mockReset();
@@ -57,11 +64,11 @@ describe('RootLayout', () => {
         expect(screen.queryByRole('link', { name: 'Desk' })).not.toBeInTheDocument();
     });
 
-    it('shows the nav and Logout for a live session', () => {
+    it('shows the nav and Logout for a live session', async () => {
         setSession('token-123', 3600);
         render(<RootLayout />);
 
-        expect(logoutButton()).toBeInTheDocument();
+        expect(await screen.findByRole('button', { name: 'Logout' })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Desk' })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Library' })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
@@ -110,6 +117,7 @@ describe('RootLayout', () => {
         logout.mockResolvedValue(undefined);
         setSession('token-123', 3600);
         render(<RootLayout />);
+        await screen.findByRole('button', { name: 'Logout' });
 
         await setupUser().click(logoutButton());
 
@@ -124,6 +132,7 @@ describe('RootLayout', () => {
         logout.mockRejectedValue(new SdkError(500, 'Internal Server Error', { statusCode: 500, message: 'Revoke exploded' }, new Headers()));
         setSession('token-123', 3600);
         render(<RootLayout />);
+        await screen.findByRole('button', { name: 'Logout' });
 
         await setupUser().click(logoutButton());
 
@@ -139,6 +148,7 @@ describe('RootLayout', () => {
         const queryClient = createTestQueryClient();
         queryClient.setQueryData(['onboarding', 'requirements'], [{ key: 'admin.account' }]);
         render(<RootLayout />, { queryClient });
+        await screen.findByRole('button', { name: 'Logout' });
 
         await setupUser().click(logoutButton());
 
@@ -153,6 +163,7 @@ describe('RootLayout', () => {
         const queryClient = createTestQueryClient();
         queryClient.setQueryData(['onboarding', 'requirements'], [{ key: 'admin.account' }]);
         render(<RootLayout />, { queryClient });
+        await screen.findByRole('button', { name: 'Logout' });
 
         await setupUser().click(logoutButton());
 
@@ -165,6 +176,7 @@ describe('RootLayout', () => {
         logout.mockRejectedValue(new Error('offline'));
         setSession('token-123', 3600);
         render(<RootLayout />);
+        await screen.findByRole('button', { name: 'Logout' });
 
         const user = setupUser();
         await user.click(logoutButton());
@@ -174,6 +186,43 @@ describe('RootLayout', () => {
 
         await waitFor(() => {
             expect(screen.queryByText('Sign-out incomplete')).not.toBeInTheDocument();
+        });
+    });
+
+    describe('for somebody without the admin role', () => {
+        it('draws their own account rather than the desk', async () => {
+            readSession.mockResolvedValue({ actorId: 'u-friend', roles: ['listener'] });
+            setSession('token-123', 3600);
+            render(<RootLayout />);
+
+            expect(await screen.findByRole('heading', { name: 'Your account' })).toBeInTheDocument();
+            expect(screen.queryByRole('link', { name: 'Desk' })).not.toBeInTheDocument();
+            expect(screen.getByRole('link', { name: 'Open the station in the deadair app' })).toBeInTheDocument();
+        });
+
+        it('treats an account holding no role at all the same way', async () => {
+            readSession.mockRejectedValue(new SdkError(403, 'Forbidden', { statusCode: 403, message: 'Forbidden' }, new Headers()));
+            setSession('token-123', 3600);
+            render(<RootLayout />);
+
+            expect(await screen.findByRole('heading', { name: 'Your account' })).toBeInTheDocument();
+        });
+
+        it('draws nothing of the desk while it is still asking who they are', () => {
+            readSession.mockReturnValue(new Promise(() => undefined));
+            setSession('token-123', 3600);
+            render(<RootLayout />);
+
+            expect(screen.queryByRole('link', { name: 'Desk' })).not.toBeInTheDocument();
+            expect(screen.queryByRole('heading', { name: 'Your account' })).not.toBeInTheDocument();
+        });
+
+        it('keeps the desk for an admin when the station is only unwell', async () => {
+            readSession.mockRejectedValue(new SdkError(502, 'Bad Gateway', { statusCode: 502, message: 'Bad Gateway' }, new Headers()));
+            setSession('token-123', 3600);
+            render(<RootLayout />);
+
+            expect(await screen.findByRole('button', { name: 'Logout' })).toBeInTheDocument();
         });
     });
 });

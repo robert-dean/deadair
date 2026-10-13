@@ -84,7 +84,7 @@ describe('SecurityCard', () => {
 
         expect(await screen.findByText('Password')).toBeInTheDocument();
         expect(screen.getByText('Email, a***@example.com')).toBeInTheDocument();
-        expect(screen.getByText(/No authenticator yet/)).toBeInTheDocument();
+        expect(screen.getByText(/No authenticator or passkey yet/)).toBeInTheDocument();
     });
 
     it('enrols an authenticator: shows the QR and the key, then the first code proves the scan', async () => {
@@ -143,7 +143,7 @@ describe('SecurityCard', () => {
         await waitFor(() => {
             expect(removeFactor).toHaveBeenCalledWith('authenticator', 'totp-1');
         });
-        expect(await screen.findByText(/No authenticator yet/)).toBeInTheDocument();
+        expect(await screen.findByText(/No authenticator or passkey yet/)).toBeInTheDocument();
     });
 
     it('re-verifies with a code when the API asks, then removes', async () => {
@@ -182,7 +182,7 @@ describe('SecurityCard', () => {
         await waitFor(() => {
             expect(removeFactor).toHaveBeenCalledTimes(2);
         });
-        expect(await screen.findByText(/No authenticator yet/)).toBeInTheDocument();
+        expect(await screen.findByText(/No authenticator or passkey yet/)).toBeInTheDocument();
     });
 
     it('leaves everything as it was when the re-verify dialog is cancelled', async () => {

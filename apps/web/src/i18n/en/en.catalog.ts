@@ -1,3 +1,4 @@
+import { account } from './account.catalog.ts';
 import { activity } from './activity.catalog.ts';
 import { api } from './api.catalog.ts';
 import { auth } from './auth.catalog.ts';
@@ -20,6 +21,7 @@ import { podcasts } from './podcasts.catalog.ts';
 import { productions } from './productions.catalog.ts';
 import { programme } from './programme.catalog.ts';
 import { pronunciations } from './pronunciations.catalog.ts';
+import { invite } from './invite.catalog.ts';
 import { party } from './party.catalog.ts';
 import { requests } from './requests.catalog.ts';
 import { routes } from './routes.catalog.ts';
@@ -40,6 +42,7 @@ import { voices } from './voices.catalog.ts';
  * other locale's catalog is checked against.
  */
 export const en = {
+    account,
     common,
     shell,
     auth,
@@ -68,6 +71,7 @@ export const en = {
     podcasts,
     productions,
     pronunciations,
+    invite,
     party,
     requests,
     scripts,

@@ -1,4 +1,5 @@
 import { httpError, IsHttpError, unauthorizedError } from '@maroonedsoftware/errors';
+import { ErrorCodes } from '@deadair/error-codes';
 import {
     AuthenticationFactor,
     AuthenticationFactorKind,
@@ -43,8 +44,8 @@ import { parseAndValidate, parseAndValidateArray } from '@maroonedsoftware/zod';
 import { PasswordRateLimiter } from './password.rate.limiter.js';
 import { AuthenticationServiceOptions } from './authentication.options.js';
 import { ActorsRepository } from '#modules/authentication/repositories/actors.repository.js';
-import { PermissionsService } from '#modules/permissions/permissions.service.js';
-import { PLATFORM_NAMESPACE, PLATFORM_OBJECT_ID } from '#modules/permissions/platform.roles.js';
+import { PlatformRoleService } from '#modules/permissions/platform.role.service.js';
+import { PasskeyRelyingParty } from './passkey.relying.party.js';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { OidcSignInRefused } from './oidc.sign.in.refused.js';
 import { allowlistAdmits, resolveSigninAllowlist, resolveSigninProviders } from './signin.settings.js';
@@ -150,9 +151,10 @@ export class AuthenticationService {
         private readonly oidcFactorService: OidcFactorService,
         private readonly requestCookieJar: RequestCookieJar,
         private readonly responseCookieJar: ResponseCookieJar,
-        private readonly permissionsService: PermissionsService,
+        private readonly platformRoles: PlatformRoleService,
         private readonly config: AppConfig,
         private readonly passwordLimiter: PasswordRateLimiter,
+        private readonly passkeyRelyingParty: PasskeyRelyingParty,
     ) {
         this.authenticateHandlerMap = new Map<AuthenticationGrantType, AuthenticationHandlers>();
         this.authenticateHandlerMap.set('client_credentials', {
@@ -408,6 +410,7 @@ export class AuthenticationService {
         actor: TargetActor<ActorType>;
         primaryFactor: AuthenticationSessionFactor;
     }): Promise<AuthenticationTokenInternal> {
+        await this.refuseInactive(ctx.actor.actorId);
         const enrolled = await this.actorsRepository.listFactors(ctx.actor.actorId, true);
         // The repository selects method/kind as raw SQL literals; cast through the validated
         // factor union since Kysely widens them to `string`. Labels travel into the orchestrator
@@ -444,10 +447,23 @@ export class AuthenticationService {
         };
     }
 
+    /**
+     * A switched-off account proves its factors and is still not signed in. Every request it made
+     * would be refused anyway (the authorization middleware checks the actor is active), but a token
+     * that fails on first use reads to an app as a broken station rather than a closed account. Asked
+     * before an MFA challenge is issued as well as before a token, so nobody is walked through a
+     * second step that leads nowhere.
+     */
+    private async refuseInactive(actorId: string): Promise<void> {
+        if (await this.actorsRepository.existsActive(actorId)) return;
+        throw httpError(401).withDetails({ code: ErrorCodes.ACCOUNT_DISABLED, message: 'this account has been switched off' });
+    }
+
     private async issueTokenFor(
         actor: TargetActor<ActorType>,
         factors: AuthenticationSessionFactor | AuthenticationSessionFactor[],
     ): Promise<AuthenticationTokenInternal> {
+        await this.refuseInactive(actor.actorId);
         const factorList = Array.isArray(factors) ? factors : [factors];
         const mfaSatisfied = factorList.length > 1;
         const claims = {
@@ -884,10 +900,8 @@ export class AuthenticationService {
 
         // We scope the WebAuthn allowlist to the specific credential the MFA challenge offered
         // — the SPA mustn't be able to discover other credentials by trying different ids.
-        const challenge = await this.fidoFactorService.createFidoAuthorizationChallenge(mfa.actor.actorId, fidoFactor.methodId, {
-            rpId: this.options.authenticationFidoRpId,
-            rpOrigin: this.options.authenticationFidoRpOrigin,
-        });
+        const { rpId, rpOrigin } = this.passkeyRelyingParty.resolve();
+        const challenge = await this.fidoFactorService.createFidoAuthorizationChallenge(mfa.actor.actorId, fidoFactor.methodId, { rpId, rpOrigin });
 
         return {
             method: 'fido',
@@ -984,10 +998,8 @@ export class AuthenticationService {
             throw httpError(400);
         }
 
-        const challenge = await this.fidoFactorService.createFidoAuthorizationChallenge(factor.actorId, undefined, {
-            rpId: this.options.authenticationFidoRpId,
-            rpOrigin: this.options.authenticationFidoRpOrigin,
-        });
+        const { rpId, rpOrigin } = this.passkeyRelyingParty.resolve();
+        const challenge = await this.fidoFactorService.createFidoAuthorizationChallenge(factor.actorId, undefined, { rpId, rpOrigin });
 
         return {
             grant_type: 'fido',
@@ -1119,16 +1131,7 @@ export class AuthenticationService {
 
         // The one role a newcomer gets. `createdBy` is the new account itself, as onboarding's grant
         // is: nobody signed in performed it.
-        await this.permissionsService.writeDirect(
-            [
-                {
-                    object: { namespace: PLATFORM_NAMESPACE, id: PLATFORM_OBJECT_ID },
-                    relation: 'listener',
-                    subject: { kind: 'concrete', namespace: 'user', id: actor.id },
-                },
-            ],
-            actor.id,
-        );
+        await this.platformRoles.assign(actor.id, 'listener', actor.id);
 
         return { actorId: actor.id, factorId: factor.id, isNewUser: true };
     }

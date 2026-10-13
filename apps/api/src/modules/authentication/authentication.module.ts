@@ -67,6 +67,7 @@ import { DeadairEmailFactorRepository } from './repositories/email.factor.reposi
 import { AuthenticationRegistrationService } from './authentication.registration.service.js';
 import { DeadairJwtAuthenticationIssuer } from './issuers/jwt.authentication.issuer.js';
 import { DeadairFidoFactorRepository } from './repositories/fido.factor.repository.js';
+import { PasskeyRelyingParty } from './passkey.relying.party.js';
 import { DeadairAuthenticatorFactorRepository } from './repositories/authenticator.factor.repository.js';
 import { DeadairOidcFactorRepository } from './repositories/oidc.factor.repository.js';
 import { DeadairOidcActorEmailLookup } from './oidc.actor.email.lookup.js';
@@ -277,6 +278,9 @@ export const AuthenticationModule: ServerKitModule = {
             .useFactory(() => new FidoFactorServiceOptions(Duration.fromMillis(60_000), 'deadair', 'deadair', 'deadair'))
             .asScoped();
         registry.register(FidoFactorService).useClass(FidoFactorService).asScoped();
+        // Every passkey call names its relying party from this, per request; the options above are
+        // only the package's fallbacks, which a real browser would refuse. See the class.
+        registry.register(PasskeyRelyingParty).useClass(PasskeyRelyingParty).asScoped();
 
         registry.register(AuthenticatorFactorRepository).useClass(DeadairAuthenticatorFactorRepository).asScoped();
         // The issuer is what the authenticator app shows beside the code, so it is the station's
@@ -294,7 +298,7 @@ export const AuthenticationModule: ServerKitModule = {
 
         registry
             .register(AuthenticationServiceOptions)
-            .useFactory(() => new AuthenticationServiceOptions(config.get('APP_BASE_URL', ''), 'deadair', 'https://deadair.com', spaBaseUrl))
+            .useFactory(() => new AuthenticationServiceOptions(config.get('APP_BASE_URL', ''), spaBaseUrl))
             .asScoped();
 
         registry

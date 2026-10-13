@@ -1,6 +1,6 @@
 ---
 title: 'OidcFactorRegistration'
-sidebar_position: 70
+sidebar_position: 72
 mdx:
     format: 'md'
 ---

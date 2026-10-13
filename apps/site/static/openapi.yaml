@@ -6056,6 +6056,296 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/TopicList'
+    '/invitations':
+        get:
+            operationId: listInvitations
+            summary: 'List invitations'
+            description: 'Every invitation, newest first, with the link of each one still open'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/InvitationList'
+        post:
+            operationId: createInvitation
+            summary: 'Create invitation'
+            description: 'Invite somebody into a role. An open invitation to the same address is withdrawn first, so this is also how one is sent again. Refused for an address that already has an account'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/InvitationCreate'
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/Invitation'
+    '/invitations/{id}':
+        delete:
+            operationId: revokeInvitation
+            summary: 'Revoke invitation'
+            description: 'Withdraw an invitation. Its link stops working at once. Nothing is deleted: it stays in the list as withdrawn'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/Invitation'
+    '/invitations/accept/details':
+        post:
+            operationId: details
+            summary: 'Read invitation'
+            description: 'What an open invitation is for: the address, the role and the station. Changes nothing'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/InvitationToken'
+            security: []
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/InvitationDetails'
+    '/invitations/accept/start':
+        post:
+            operationId: startAcceptingInvitation
+            summary: 'Start accepting invitation'
+            description: 'Check the password and start setting up the second step. Nothing is saved, and starting again replaces the setup'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/InvitationAcceptStart'
+            security: []
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/InvitationAcceptStartResponse'
+    '/invitations/accept':
+        post:
+            operationId: accept
+            summary: 'Accept invitation'
+            description: 'Accept: make the account with its password, its second step and its role, all at once, and spend the invitation'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/InvitationAccept'
+            security: []
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/InvitationAccepted'
+    '/users':
+        get:
+            operationId: listUsers
+            summary: 'List users'
+            description: "The station's people, one page at a time, ordered by when their account was made"
+            parameters:
+                - name: page
+                  in: query
+                  required: true
+                  description: 'The page number'
+                  schema:
+                      type: integer
+                      minimum: 0
+                      default: 0
+                      description: 'The page number'
+                - name: pageSize
+                  in: query
+                  required: true
+                  description: 'The page size'
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                      default: 25
+                      description: 'The page size'
+                - name: sort
+                  in: query
+                  required: true
+                  description: 'The sort order'
+                  schema:
+                      type: string
+                      enum: [asc, desc]
+                      default: desc
+                      description: 'The sort order'
+                - name: total
+                  in: query
+                  required: true
+                  description: 'The total number of items'
+                  schema:
+                      type: integer
+                      minimum: 0
+                      readOnly: true
+                      description: 'The total number of items'
+                - name: active
+                  in: query
+                  required: false
+                  description: 'Optionally filter by whether the items are active'
+                  schema:
+                      type: boolean
+                      description: 'Optionally filter by whether the items are active'
+                - name: search
+                  in: query
+                  required: false
+                  description: 'Part of an email address'
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                      description: 'Part of an email address'
+                - name: role
+                  in: query
+                  required: false
+                  description: 'Only people holding this role'
+                  schema:
+                      '$ref': '#/components/schemas/PlatformRole'
+                      description: 'Only people holding this role'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/UserPage'
+    '/users/{id}':
+        get:
+            operationId: getUser
+            summary: 'Get user'
+            description: 'One person, with every way they sign in, where they are signed in and their recent sign-ins'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/UserDetail'
+    '/users/{id}/role':
+        put:
+            operationId: changeRole
+            summary: 'Change user role'
+            description: 'Give a person a different role. They hold exactly one, so the role they had is taken away. Refused for your own account, and for the last admin'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/UserRoleChange'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/UserSummary'
+    '/users/{id}/deactivate':
+        post:
+            operationId: deactivate
+            summary: 'Deactivate user'
+            description: 'Switch a person off. They are signed out everywhere and cannot sign in, and their API keys, connected apps and chat links stop working, until they are switched back on. Nothing is deleted. Refused for your own account, and for the last admin'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/UserSummary'
+    '/users/{id}/reactivate':
+        post:
+            operationId: reactivate
+            summary: 'Reactivate user'
+            description: 'Switch a person back on. They sign in as they did before, and their API keys, connected apps and chat links work again'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/UserSummary'
+    '/users/{id}/sign-out':
+        post:
+            operationId: signOut
+            summary: 'Sign out user'
+            description: 'Sign a person out everywhere. They can sign straight back in'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '204':
+                    description: 'No content'
+    '/users/{id}/mfa/reset':
+        post:
+            operationId: resetMfa
+            summary: 'Reset user MFA'
+            description: "Remove a person's authenticator apps and passkeys and sign them out everywhere, for when they have lost the device. They sign in with their password and set a new one up"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '204':
+                    description: 'No content'
 components:
     schemas:
         ActivityModule:
@@ -7018,6 +7308,90 @@ components:
                         '$ref': '#/components/schemas/AuthenticationFactorMethod'
                     description: 'If set, factors with these methods are never listed'
             description: 'Mint a fresh MFA challenge for the current session so the SPA can satisfy a `step_up_required` denial. Filters mirror `StepUpRequirement` from `@maroonedsoftware/policies`.'
+        SessionFactor:
+            type: object
+            properties:
+                method:
+                    type: string
+                    enum: [phone, password, authenticator, email, fido, oidc]
+                    description: 'The verification method'
+                methodId:
+                    type: string
+                    maxLength: 255
+                    description: 'Stable identifier for the specific factor record'
+                kind:
+                    type: string
+                    enum: [knowledge, possession, biometric]
+                    description: 'MFA category for the factor'
+                issuedAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                    description: 'When this factor entry was first added to the session'
+                authenticatedAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                    description: 'When the factor was most recently re-verified'
+            required: [method, methodId, kind, issuedAt, authenticatedAt]
+            description: 'A factor satisfied by the session'
+        Session:
+            type: object
+            properties:
+                sessionToken:
+                    type: string
+                    maxLength: 255
+                    readOnly: true
+                    description: 'Opaque session token used as the cache key and embedded in JWTs'
+                actorId:
+                    type: string
+                    format: uuid
+                    readOnly: true
+                    description: 'The actor that owns this session'
+                issuedAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                    description: 'When the session was originally issued'
+                expiresAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                    description: 'When the session expires'
+                lastAccessedAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                    description: 'When the session was last accessed'
+                factors:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/SessionFactor'
+                    readOnly: true
+                    description: 'Factors that have been satisfied in this session'
+                ip:
+                    type: [string, 'null']
+                    maxLength: 64
+                    readOnly: true
+                    description: 'IP address recorded when the session was created'
+                userAgent:
+                    type: [string, 'null']
+                    maxLength: 512
+                    readOnly: true
+                    description: 'User agent recorded when the session was created'
+                isCurrent:
+                    type: boolean
+                    readOnly: true
+                    description: 'True when this session matches the requesting session'
+            required:
+                - sessionToken
+                - actorId
+                - issuedAt
+                - expiresAt
+                - lastAccessedAt
+                - factors
+                - isCurrent
+            description: 'An active authentication session'
         PlatformRole:
             type: string
             enum: [admin, listener]
@@ -14572,6 +14946,14 @@ components:
                     description: 'The total number of items'
             required: [page, pageSize, sort, total]
             description: 'Represents a pagination object'
+        PaginationWithActive:
+            allOf:
+                - '$ref': '#/components/schemas/Pagination'
+                - type: object
+                  properties:
+                      active:
+                          type: boolean
+                          description: 'Optionally filter by whether the items are active'
         LogLevel:
             type: string
             enum: [trace, debug, info, warn, error]
@@ -15246,3 +15628,367 @@ components:
                     type: string
                     maxLength: 100
                     description: 'One sort of break, or absent for every subject this station has named'
+        InvitationState:
+            type: string
+            enum: [pending, accepted, revoked, expired]
+            description: 'Where an invitation stands. `expired` is a pending invitation whose time ran out'
+        Invitation:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    description: "The invitation's id"
+                email:
+                    type: string
+                    maxLength: 320
+                    description: 'The address the account will have. The person cannot change it while accepting'
+                role:
+                    '$ref': '#/components/schemas/PlatformRole'
+                    description: 'The role the account will hold'
+                state:
+                    '$ref': '#/components/schemas/InvitationState'
+                    description: 'Where it stands'
+                createdAt:
+                    type: string
+                    format: date-time
+                    description: 'When it was made'
+                expiresAt:
+                    type: string
+                    format: date-time
+                    description: 'When the link stops working, if nobody has used it'
+                invitedBy:
+                    type: string
+                    maxLength: 320
+                    description: 'The address of the admin who made it. Absent once their account is gone'
+                acceptedAt:
+                    type: string
+                    format: date-time
+                    description: 'When somebody accepted it'
+                revokedAt:
+                    type: string
+                    format: date-time
+                    description: 'When it was withdrawn, by an admin or by a newer invitation to the same address'
+                token:
+                    type: string
+                    maxLength: 200
+                    description: "The invitation itself, only while it is pending. Put it after `#` on the station's `/invite` page, as `/invite#<token>`. Anyone holding it can claim the account, so show it only to the person invited"
+            required: [id, email, role, state, createdAt, expiresAt]
+            description: 'An invitation for somebody to take an account on the station'
+        InvitationList:
+            type: object
+            properties:
+                data:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/Invitation'
+            required: [data]
+            description: "The station's invitations, newest first"
+        InvitationCreate:
+            type: object
+            properties:
+                email:
+                    type: string
+                    format: email
+                    description: 'The address the account will have'
+                role:
+                    '$ref': '#/components/schemas/PlatformRole'
+                    description: 'The role the account will hold'
+                send:
+                    type: boolean
+                    description: 'Email the link to the address too. Refused with a 503, and nothing made, when the station has no mail server'
+            required: [email, role]
+            description: 'Invite somebody by their address'
+        InvitationToken:
+            type: object
+            properties:
+                token:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'The token'
+            required: [token]
+            description: "An invitation's link token, as it appears after `#` on the invite page"
+        InvitationDetails:
+            type: object
+            properties:
+                email:
+                    type: string
+                    maxLength: 320
+                    description: 'The address the account will have'
+                role:
+                    '$ref': '#/components/schemas/PlatformRole'
+                    description: 'The role it will hold'
+                stationName:
+                    type: string
+                    description: 'What the station calls itself'
+                expiresAt:
+                    type: string
+                    format: date-time
+                    description: 'When the link stops working'
+            required: [email, role, stationName, expiresAt]
+            description: 'What an open invitation is for, shown to the person before they accept'
+        InvitationSecondStep:
+            type: string
+            enum: [authenticator, fido]
+            description: 'How the person will prove it is them after their password: an authenticator app, or a passkey'
+        InvitationAcceptStart:
+            type: object
+            properties:
+                token:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: "The invitation's token"
+                password:
+                    type: string
+                    minLength: 8
+                    maxLength: 256
+                    description: 'The password the account will have. Refused here if it is too weak, so the person learns before setting anything else up'
+                method:
+                    '$ref': '#/components/schemas/InvitationSecondStep'
+                    description: 'The second step to set up'
+            required: [token, password, method]
+            description: 'Choose a password and a second step. Nothing is saved yet'
+        InvitationAuthenticatorSetup:
+            type: object
+            properties:
+                method:
+                    const: authenticator
+                    description: Discriminator
+                registrationId:
+                    type: string
+                    description: 'Send this back with the first code'
+                secret:
+                    type: string
+                    description: 'The key, for an app that cannot scan'
+                uri:
+                    type: string
+                    description: 'The `otpauth://` address the QR code holds'
+                qrCode:
+                    type: string
+                    description: 'The QR code, as a data URL'
+            required: [method, registrationId, secret, uri, qrCode]
+            description: 'An authenticator app to scan, for an invitation being accepted'
+        InvitationPasskeySetup:
+            type: object
+            properties:
+                method:
+                    const: fido
+                    description: Discriminator
+                registrationId:
+                    type: string
+                    description: 'Send this back with the credential'
+                attestation:
+                    '$ref': '#/components/schemas/FidoFactorAttestation'
+                    description: 'What to hand `navigator.credentials.create`'
+            required: [method, registrationId, attestation]
+            description: 'A passkey to make, for an invitation being accepted'
+        InvitationAcceptStartResponse:
+            oneOf:
+                - '$ref': '#/components/schemas/InvitationAuthenticatorSetup'
+                - '$ref': '#/components/schemas/InvitationPasskeySetup'
+            discriminator:
+                propertyName: method
+                mapping:
+                    authenticator: '#/components/schemas/InvitationAuthenticatorSetup'
+                    fido: '#/components/schemas/InvitationPasskeySetup'
+        InvitationAcceptWithAuthenticator:
+            type: object
+            properties:
+                method:
+                    const: authenticator
+                    description: Discriminator
+                token:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: "The invitation's token"
+                password:
+                    type: string
+                    minLength: 8
+                    maxLength: 256
+                    description: 'The same password as at the start'
+                registrationId:
+                    type: string
+                    description: 'From the start'
+                code:
+                    type: string
+                    minLength: 6
+                    maxLength: 10
+                    description: 'The first code the app shows'
+            required: [method, token, password, registrationId, code]
+            description: 'Accept with the first code from the authenticator app'
+        InvitationAcceptWithPasskey:
+            type: object
+            properties:
+                method:
+                    const: fido
+                    description: Discriminator
+                token:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: "The invitation's token"
+                password:
+                    type: string
+                    minLength: 8
+                    maxLength: 256
+                    description: 'The same password as at the start'
+                registrationId:
+                    type: string
+                    description: 'From the start'
+                credential:
+                    '$ref': '#/components/schemas/PublicKeyCredentialWithAttestation'
+                    description: 'What `navigator.credentials.create` answered'
+            required: [method, token, password, registrationId, credential]
+            description: 'Accept with the passkey the browser just made'
+        InvitationAccept:
+            oneOf:
+                - '$ref': '#/components/schemas/InvitationAcceptWithAuthenticator'
+                - '$ref': '#/components/schemas/InvitationAcceptWithPasskey'
+            discriminator:
+                propertyName: method
+                mapping:
+                    authenticator: '#/components/schemas/InvitationAcceptWithAuthenticator'
+                    fido: '#/components/schemas/InvitationAcceptWithPasskey'
+        InvitationAccepted:
+            type: object
+            properties:
+                email:
+                    type: string
+                    maxLength: 320
+                    description: 'The address to sign in with'
+                role:
+                    '$ref': '#/components/schemas/PlatformRole'
+                    description: 'The role it holds'
+            required: [email, role]
+            description: 'The account made from an invitation. Sign in with it as usual'
+        UserQuery:
+            allOf:
+                - '$ref': '#/components/schemas/PaginationWithActive'
+                - type: object
+                  properties:
+                      search:
+                          type: string
+                          minLength: 1
+                          maxLength: 200
+                          description: 'Part of an email address'
+                      role:
+                          '$ref': '#/components/schemas/PlatformRole'
+                          description: 'Only people holding this role'
+        UserSummary:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    description: "The person's account id"
+                email:
+                    type: string
+                    maxLength: 320
+                    description: 'The address they sign in with. Absent for an account that has none, such as one made through a provider that shared no address'
+                role:
+                    '$ref': '#/components/schemas/PlatformRole'
+                    description: 'The one role they hold. Absent for an account nobody has granted one'
+                active:
+                    type: boolean
+                    description: 'False once the account has been switched off. A switched-off person cannot sign in, and every session they held has ended'
+                createdAt:
+                    type: string
+                    format: date-time
+                    description: 'When the account was made'
+                lastSignInAt:
+                    type: string
+                    format: date-time
+                    description: 'When they last signed in. Absent if they never have'
+                hasStrongFactor:
+                    type: boolean
+                    description: 'Whether they have an authenticator app or a passkey, which the phone apps need to sign in with'
+            required: [id, active, createdAt, hasStrongFactor]
+            description: 'A person with an account on the station'
+        UserPage:
+            type: object
+            properties:
+                meta:
+                    '$ref': '#/components/schemas/Pagination'
+                data:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/UserSummary'
+            required: [meta, data]
+            description: 'One page of people'
+        UserFactor:
+            type: object
+            properties:
+                method:
+                    type: string
+                    enum: [email, password, authenticator, fido, oidc, phone]
+                    description: 'What kind of factor it is'
+                methodId:
+                    type: string
+                    maxLength: 255
+                    description: 'Which factor of that kind'
+                kind:
+                    type: string
+                    enum: [knowledge, possession, biometric]
+                    description: 'What it proves'
+                label:
+                    type: string
+                    maxLength: 255
+                    description: "How it is shown, such as a masked address or the authenticator's name"
+            required: [method, methodId, kind]
+            description: 'One way a person signs in. Never the secret itself'
+        UserSignIn:
+            type: object
+            properties:
+                occurredAt:
+                    type: string
+                    format: date-time
+                    description: When
+                method:
+                    type: string
+                    maxLength: 64
+                    description: 'The factor they signed in with'
+                mfaSatisfied:
+                    type: boolean
+                    description: 'Whether a second factor was proved'
+                ip:
+                    type: string
+                    maxLength: 64
+                    description: 'The address the request came from'
+                userAgent:
+                    type: string
+                    maxLength: 512
+                    description: 'The app or browser that asked'
+            required: [occurredAt, method, mfaSatisfied]
+            description: 'One time a person signed in'
+        UserDetail:
+            allOf:
+                - '$ref': '#/components/schemas/UserSummary'
+                - type: object
+                  properties:
+                      factors:
+                          type: array
+                          items:
+                              '$ref': '#/components/schemas/UserFactor'
+                          description: 'Every way they can sign in'
+                      sessions:
+                          type: array
+                          items:
+                              '$ref': '#/components/schemas/Session'
+                          description: 'Where they are signed in now'
+                      signIns:
+                          type: array
+                          items:
+                              '$ref': '#/components/schemas/UserSignIn'
+                          description: 'Their most recent sign-ins, newest first'
+                  required: [factors, sessions, signIns]
+        UserRoleChange:
+            type: object
+            properties:
+                role:
+                    '$ref': '#/components/schemas/PlatformRole'
+                    description: 'Replaces whatever role they held'
+            required: [role]
+            description: 'The role a person should hold'

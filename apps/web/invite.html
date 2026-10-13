@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" data-da-theme="carbon" data-mantine-color-scheme="dark">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="referrer" content="no-referrer" />
+        <link rel="icon" type="image/png" href="/favicon.png" />
+        <title>deadair</title>
+        <style>
+            /*
+             * Painted before the bundle loads, as index.html does, in the two consoles an invited person can
+             * get: carbon on a phone set to dark, paper on one set to light. The hexes are `--da-bg`
+             * from src/tokens.css, duplicated because this paints before any stylesheet exists.
+             */
+            html,
+            body {
+                margin: 0;
+                background-color: #0c0e0d;
+            }
+
+            @media (prefers-color-scheme: light) {
+                html,
+                body {
+                    background-color: #f4f1ea;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div id="root"></div>
+        <script type="module" src="/src/invite/invite.main.tsx"></script>
+    </body>
+</html>

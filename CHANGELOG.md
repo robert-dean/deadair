@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.61.0] — 2026-10-13
+
+- Settings, Appearance has a Clock choice: 12-hour, 24-hour, or as each screen has it (the 24-hour on-air clocks and 12-hour feed stamps the console drew before). It covers every time of day the console shows, from the clock in the header to the schedule grid and the date pickers, and it is remembered on that browser.
+
 ## [0.60.0] — 2026-10-13
 
 - People: an admin invites somebody into the admin or listener role from Settings › People, and looks after everybody's account afterwards. An invitation is a single-use link for one address and one role (a week for a listener, two days for an admin), shown with a QR code to send however you like or emailed by the station when mail is set up. The link opens a page of its own where the person chooses a password and sets up an authenticator app or a passkey, and the account is made in one go; nothing happens until they press a button, so a mail scanner opening the link uses nothing up. Each person's entry shows how they sign in, where and when, and lets an admin change their role, sign them out everywhere, reset a lost second step (the person is emailed), or switch them off and back on. Nothing is ever deleted, an admin never changes anybody's address, nobody changes their own role, and the station always keeps an admin.
@@ -1383,7 +1387,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.60.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.61.0...HEAD
+[0.61.0]: https://github.com/robert-dean/deadair/compare/v0.60.0...v0.61.0
 [0.60.0]: https://github.com/robert-dean/deadair/compare/v0.59.0...v0.60.0
 [0.59.0]: https://github.com/robert-dean/deadair/compare/v0.58.1...v0.59.0
 [0.58.1]: https://github.com/robert-dean/deadair/compare/v0.58.0...v0.58.1

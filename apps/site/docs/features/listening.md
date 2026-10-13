@@ -94,6 +94,14 @@ The speaker shows the station's name and the programme rather than each record, 
 
 Some televisions cannot play an `https://` stream at all through their DLNA player, Samsung's among them: they show "This file format is not supported" while the same stream plays over plain `http://`. For those, and for any speaker that cannot reach the public address from inside your network, set **Settings**, **Stream**, **Address for speakers** to the station's plain `http://` address on your network, such as `http://192.168.1.10:8080`. Speakers are then handed that address while listeners keep the public one.
 
+### Through Music Assistant
+
+The station cannot put itself on a HomePod or any other AirPlay speaker, nor on an Alexa. [Music Assistant](https://music-assistant.io) can, and all it needs is the stream. In Music Assistant, add a custom radio station and give it the station's MP3 address: `/live.mp3` on your station's address, which **Check-up**, **Machinery** has a **Copy** button for under **Listen**. Music Assistant then plays the station on any speaker it reaches.
+
+Music Assistant usually runs on your own network, so the address has to be one it can reach from there. When the public address does not resolve inside your network, or routes out and back in through a tunnel, give it the station's plain `http://` address on your network instead, the same one **Address for speakers** takes.
+
+Music Assistant playing the station is a listener like any other and holds it on air while it plays, so the first seconds after you press play are [the station coming on air](#the-first-few-seconds), not a fault.
+
 ## Lyrics
 
 A record's words reach a listener only through a signed-in app, and never through the stream or the presenter: the station never says a lyric. They come from the [LRCLIB plugin](./plugins.md), once **Look up the words of each record** is on under **Settings**, **Measurement**. It is off by default, because lyrics are somebody else's copyrighted text and the sources are run by volunteers.

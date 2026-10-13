@@ -47,7 +47,7 @@ import { isRenderedFirst, type BreakRequest, type BreakRequestResult, type Store
 import { BreakRequestRepository } from './break.request.repository.js';
 import { ArtRepository } from '#modules/art/art.repository.js';
 import { artPath } from '#modules/art/art.path.js';
-import { breakArtKey } from '#modules/art/break.art.js';
+import { breakPicture, breakPictureKeys, breakPicturesFrom, type BreakPictures } from './break.picture.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult, type OrderEdit, type ResumeResult } from './director.mailbox.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
@@ -2881,29 +2881,23 @@ export class DirectorService {
      * an operator replacing the weather picture changed nothing about the forecast already sitting
      * in the running order.
      *
-     * Empty on any failure, which costs a break the station's logo and nothing else. Nothing here
-     * asks for anything to be fetched, unlike {@link stationArtwork}: a break picture has no
-     * upstream to go and get, so a kind with no row is simply a kind nobody has given a picture.
+     * The same read answers the portrait of each break's SPEAKER, which is the picture a break with
+     * none for its kind wears; see `break.picture.ts` for why that is the speaker and not the host.
+     *
+     * Undefined on any failure, which costs a break the host's portrait or the station's logo and
+     * nothing else. Nothing here asks for anything to be fetched, unlike {@link stationArtwork}: a
+     * break picture has no upstream to go and get, so a kind with no row is simply a kind nobody has
+     * given a picture.
      */
-    private async breakArtwork(segments: ReadonlyMap<string, Segment>): Promise<Map<string, string>> {
-        const kinds = [...new Set([...segments.values()].map(segment => segment.kind))];
-        if (kinds.length === 0) return new Map();
+    private async breakArtwork(segments: ReadonlyMap<string, Segment>): Promise<BreakPictures | undefined> {
+        const keys = breakPictureKeys(segments.values());
+        if (keys.length === 0) return undefined;
 
-        const held = await inScope(this.container, async scope =>
-            scope.get(ArtRepository).findBySourceUrls(kinds.map(kind => breakArtKey(kind))),
-        ).catch(error => {
+        const held = await inScope(this.container, async scope => scope.get(ArtRepository).findBySourceUrls(keys)).catch(error => {
             this.logger.warn(`director: could not tell which pictures the station holds for a kind of break (${errorText(error)})`);
             return undefined;
         });
-        if (held === undefined) return new Map();
-
-        const resolved = new Map<string, string>();
-        for (const kind of kinds) {
-            const asset = held.get(breakArtKey(kind));
-            if (asset?.checksum !== undefined) resolved.set(kind, artPath(asset));
-        }
-
-        return resolved;
+        return held === undefined ? undefined : breakPicturesFrom(segments.values(), held);
     }
 
     /**
@@ -3000,10 +2994,10 @@ export class DirectorService {
         // reason: an operator who replaces the weather picture has replaced it for the forecast
         // that is about to air, not for the one after the next refill.
         const breakArtwork = await this.breakArtwork(segments);
-        // And, for a break with no picture of either kind, the face of whoever is presenting it: the
-        // portrait the transport already holds beside the host's name, so the mount shows the
-        // person talking rather than the logo. Read from the broadcast rather than looked up again,
-        // so the stream and `/nowplaying` can never name two different hosts.
+        // And the face of whoever is presenting, for a break whose row names no speaker: the portrait
+        // the transport already holds beside the host's name, so the mount shows the person talking
+        // rather than the logo. A break that names its speaker wears THEIR portrait, which on a
+        // co-hosted show is not this one; see `breakPicture`.
         const hostArtwork = this.rundown.broadcast()?.hostArtUrl;
 
         // Where the singing starts on each record a link in this batch could be talked up over, read
@@ -3308,7 +3302,7 @@ export class DirectorService {
             }
 
             const { artworkUrl: ownCover, ...spoken } = segmentRundownTrack(segment);
-            const picture = breakArtwork.get(segment.kind) ?? hostArtwork;
+            const picture = breakPicture(segment, breakArtwork, hostArtwork);
 
             playable.push({
                 ...spoken,

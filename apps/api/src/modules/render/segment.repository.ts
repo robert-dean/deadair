@@ -89,6 +89,13 @@ export interface Segment {
      */
     voice?: string;
     /**
+     * Who says it: the persona whose words and voice these are, stamped when the script is written,
+     * or when the row is planned for a production beat. Absent for a recording nobody wrote and for a
+     * speaker since deleted (the column is `on delete set null`). On a co-hosted show this is not the
+     * broadcast's host, which is what it is read for: the picture a break wears is its speaker's.
+     */
+    personaId?: string;
+    /**
      * How these words are to be read, in the station's own vocabulary, or absent for the voice's
      * ordinary reading, which is nearly every row.
      *
@@ -366,6 +373,7 @@ interface SegmentRow {
     loudnessLufs: number | null;
     error: string | null;
     voice: string | null;
+    personaId: string | null;
     delivery: string | null;
     writer: string | null;
     claimsItemId: string | null;
@@ -398,6 +406,7 @@ const SEGMENT_COLUMNS = [
     'loudnessLufs',
     'error',
     'voice',
+    'personaId',
     'delivery',
     'writer',
     'claimsItemId',
@@ -474,6 +483,7 @@ function toSegment(row: SegmentRow): Segment {
         ...(row.listenerLabel == null ? {} : { listenerLabel: row.listenerLabel }),
         ...(row.error == null ? {} : { error: row.error }),
         ...(row.voice == null ? {} : { voice: row.voice }),
+        ...(row.personaId == null ? {} : { personaId: row.personaId }),
         ...(isSpeechDelivery(row.delivery) ? { delivery: row.delivery } : {}),
         ...(row.writer == null ? {} : { writer: row.writer }),
         ...(row.claimsItemId == null ? {} : { claimsItemId: row.claimsItemId }),

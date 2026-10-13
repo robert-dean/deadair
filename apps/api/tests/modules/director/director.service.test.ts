@@ -4690,6 +4690,43 @@ describe("DirectorService putting the station's own cover on a record", () => {
         expect(coverOf(rundown.upcoming().find(item => item.externalId === 'seg-1')!)).toBe('art/asset-weather/cover.jpg');
     });
 
+    it("puts a co-host's own portrait on the break they speak, rather than the host's", async () => {
+        // On a co-hosted show a talk break goes to whichever of them was heard least recently, so the
+        // break's speaker and the broadcast's host are two different people with two different faces.
+        const coHost = 'e070f751-d56e-4300-acef-c65ff8d50637';
+        const { director, rundown, lineup, seed } = build({
+            items: ['a'],
+            personas: { active: 'classic', known: ['classic'], names: { classic: 'Ray' } },
+            portraits: { classic: 'art/portrait-1/cover.png' },
+            heldArt: [`deadair:persona-art/${coHost}`],
+            segments: [
+                { id: 'seg-1', kind: 'talkbreak', state: 'ready', label: 'Talk break', personaId: coHost, audioChecksum: 'x', audioExt: 'mp3' },
+            ],
+        });
+        await seed();
+        lineup.insertSegment('seg-1', 0);
+
+        await director.start();
+
+        expect(coverOf(rundown.upcoming().find(item => item.externalId === 'seg-1')!)).toBe(`art/asset-${coHost}/cover.jpg`);
+    });
+
+    it("leaves a break whose speaker has no portrait wearing nothing rather than the host's face", async () => {
+        const reader = '34b9e595-6364-4436-9b0b-ca7ad4e98274';
+        const { director, rundown, lineup, seed } = build({
+            items: ['a'],
+            personas: { active: 'classic', known: ['classic'], names: { classic: 'Ray' } },
+            portraits: { classic: 'art/portrait-1/cover.png' },
+            segments: [{ id: 'seg-1', kind: 'news', state: 'ready', label: 'News', personaId: reader, audioChecksum: 'x', audioExt: 'mp3' }],
+        });
+        await seed();
+        lineup.insertSegment('seg-1', 0);
+
+        await director.start();
+
+        expect(coverOf(rundown.upcoming().find(item => item.externalId === 'seg-1')!)).toBeUndefined();
+    });
+
     it("never replaces a programme's own cover with its band's picture", async () => {
         // A syndicated episode carries the show's artwork, and the band it airs in can be called
         // anything an operator likes — including a kind that has a picture. The episode's own cover

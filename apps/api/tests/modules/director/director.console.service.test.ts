@@ -20,6 +20,7 @@ import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
 import type { ArtAsset, ArtRepository } from '../../../src/modules/art/art.repository.js';
 import { breakArtKey } from '../../../src/modules/art/break.art.js';
+import { personaArtKey } from '../../../src/modules/art/persona.art.js';
 import { clearArtSourceKey, configureArtSourceKey } from '../../../src/modules/art/art.source.token.js';
 import type { SettingsService } from '../../../src/modules/settings/settings.service.js';
 import type { PickResolver } from '../../../src/modules/director/pick.resolver.js';
@@ -63,6 +64,8 @@ interface Options {
      * `deadair:break-art/<kind>` row key, so a case reads as "a weather forecast has a picture".
      */
     breakArt?: Record<string, { id: string; ext?: ArtAsset['ext']; checksum?: string }>;
+    /** Personas' portraits the art table holds, keyed by persona id, as the asset id each is stored under. */
+    portraits?: Record<string, string>;
     /** The presenter's portrait on the broadcast the transport holds. None unless a case gives one. */
     hostArtUrl?: string;
     /** What the art table does when the order is drawn, for the case where it cannot be read. */
@@ -246,10 +249,16 @@ function build(options: Options = {}) {
     const art = {
         findBySourceUrls: vi.fn(async (sourceUrls: readonly string[]) => {
             if (options.artError !== undefined) throw options.artError;
-            const held = Object.entries(options.breakArt ?? {}).map(([kind, asset]): [string, ArtAsset] => [
-                breakArtKey(kind),
-                { sourceUrl: breakArtKey(kind), checksum: 'sum', ext: 'png', ...asset },
-            ]);
+            const held = [
+                ...Object.entries(options.breakArt ?? {}).map(([kind, asset]): [string, ArtAsset] => [
+                    breakArtKey(kind),
+                    { sourceUrl: breakArtKey(kind), checksum: 'sum', ext: 'png', ...asset },
+                ]),
+                ...Object.entries(options.portraits ?? {}).map(([personaId, id]): [string, ArtAsset] => [
+                    personaArtKey(personaId),
+                    { id, sourceUrl: personaArtKey(personaId), checksum: 'sum', ext: 'jpg' } as ArtAsset,
+                ]),
+            ];
             return new Map(held.filter(([sourceUrl]) => sourceUrls.includes(sourceUrl)));
         }),
     } as unknown as ArtRepository;
@@ -1834,6 +1843,25 @@ describe('DirectorConsoleService editing the running order', () => {
 
         expect(drawn.items[1]!.artworkUrl).toBe('art/art-weather/cover.png');
         expect(drawn.items[2]!.artworkUrl).toBe('art/portrait-1/cover.png');
+    });
+
+    it("draws a co-host's break wearing their own portrait rather than the host's", async () => {
+        const coHost = 'e070f751-d56e-4300-acef-c65ff8d50637';
+        const order = onAirWith(1);
+        order.insertSegment('seg-talk', 1);
+        const { service, art } = build({
+            order,
+            segments: [{ id: 'seg-talk', kind: 'talkbreak', state: 'ready', label: 'Talk break', source: 'model', personaId: coHost }],
+            portraits: { [coHost]: 'art-garth' },
+            hostArtUrl: 'art/portrait-1/cover.png',
+        });
+
+        const drawn = await service.getOrder();
+
+        expect(drawn.items[1]!.artworkUrl).toBe('art/art-garth/cover.jpg');
+        // The kind's picture and the speaker's portrait come back from the one read.
+        expect(art.findBySourceUrls).toHaveBeenCalledTimes(1);
+        expect(art.findBySourceUrls).toHaveBeenCalledWith([breakArtKey('talkbreak'), personaArtKey(coHost)]);
     });
 
     // One read for the order, and one key per KIND rather than per break: a clock that alternates

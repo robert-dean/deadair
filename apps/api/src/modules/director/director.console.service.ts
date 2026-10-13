@@ -8,8 +8,7 @@ import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { ArtRepository } from '#modules/art/art.repository.js';
-import { artPath } from '#modules/art/art.path.js';
-import { breakArtKey } from '#modules/art/break.art.js';
+import { breakPicture, breakPictureKeys, breakPicturesFrom, type BreakPictures } from './break.picture.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { ChartsService, MAX_CHART_ENTRIES } from '#modules/charts/charts.service.js';
 import { splitChartId } from '#modules/charts/chart.ids.js';
@@ -1637,32 +1636,24 @@ export class DirectorConsoleService {
      * the director's has to open a scope of its own. What they must agree on is the KEY, and they do,
      * because `breakArtKey` is the only place it is spelled.
      *
-     * Empty on any failure, which costs the row its picture and the operator nothing else: a break
+     * The same read answers the portrait of each break's speaker, as the commit pass's does; see
+     * `break.picture.ts`.
+     *
+     * Undefined on any failure, which costs the row its picture and the operator nothing else: a break
      * with no picture is the ordinary case anyway, and a running order that would not draw because
      * the art table was unreachable is a desk somebody is standing at with nothing on it. Nothing
      * here fetches, unlike the cover half: a break picture has no upstream, so a kind with no row is
      * a kind nobody has given a picture to. See `art/break.art.ts`.
      */
-    private async breakArtwork(segments: ReadonlyMap<string, Segment>): Promise<Map<string, string>> {
-        const kinds = [...new Set([...segments.values()].map(segment => segment.kind))];
-        if (kinds.length === 0) return new Map();
+    private async breakArtwork(segments: ReadonlyMap<string, Segment>): Promise<BreakPictures | undefined> {
+        const keys = breakPictureKeys(segments.values());
+        if (keys.length === 0) return undefined;
 
-        const held = await this.art.findBySourceUrls(kinds.map(kind => breakArtKey(kind))).catch((error: unknown) => {
+        const held = await this.art.findBySourceUrls(keys).catch((error: unknown) => {
             this.logger.warn(`director: could not tell which pictures the station holds for a kind of break (${errorText(error)})`);
             return undefined;
         });
-        if (held === undefined) return new Map();
-
-        const pictures = new Map<string, string>();
-        for (const kind of kinds) {
-            const asset = held.get(breakArtKey(kind));
-            // A row with no checksum is one the sweeper has not filled, which a break picture never
-            // is — it is written with its bytes — but the narrowing is the repository's contract and
-            // taking it here costs nothing.
-            if (asset?.checksum !== undefined) pictures.set(kind, artPath(asset));
-        }
-
-        return pictures;
+        return held === undefined ? undefined : breakPicturesFrom(segments.values(), held);
     }
 
     /**
@@ -1688,7 +1679,7 @@ export class DirectorConsoleService {
         // station's to change, so an operator who replaces it sees the forecast already in the
         // order wearing the new one rather than the one it was built with.
         const pictures = await this.breakArtwork(segments);
-        // And the presenter's portrait for a break whose kind has none, read from the broadcast the
+        // And the presenter's portrait for a break that names no speaker, read from the broadcast the
         // transport holds exactly as the commit pass reads it, so the desk and the mount agree.
         const hostArtwork = this.rundown.broadcast()?.hostArtUrl;
         const followOn = followOnFor(order.rules);
@@ -1713,7 +1704,7 @@ export class DirectorConsoleService {
             items: order.items.map(item => {
                 if (item.kind === 'segment') {
                     const segment = segments.get(item.segmentId);
-                    return toOrderSegment(item, segment, segment === undefined ? undefined : (pictures.get(segment.kind) ?? hostArtwork));
+                    return toOrderSegment(item, segment, segment === undefined ? undefined : breakPicture(segment, pictures, hostArtwork));
                 }
 
                 // One lookup for the opinion and both links: absent means the catalog has never

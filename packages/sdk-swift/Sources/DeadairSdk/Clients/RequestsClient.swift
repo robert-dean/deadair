@@ -44,6 +44,14 @@ public final class RequestsClient: Sendable {
         return try http.decodeJSON(ListenerRequestList.self, from: response)
     }
 
+    /// Insist on request
+    /// Ask again for a record the station turned down for its own taste, overruling it. Only your own request, only one marked `overrulable`, and only once. Answers with the NEW request this makes, decided like any other: it can still wait for an operator, or be refused for who is asking or how full the line is
+    public func insistOnRequest(id: UUID) async throws -> ListenerRequest {
+        let request = try SdkRequest(method: "POST", path: ["requests", http.segment(id), "insist"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(ListenerRequest.self, from: response)
+    }
+
     /// Grant request
     /// Let a waiting request through. It goes into the running order once its audio is here
     public func grantRequest(id: UUID) async throws -> ListenerRequest {

@@ -40,6 +40,8 @@ contract ListenerRequest: { # A record somebody asked the station to play, and w
     dedicateTo?: string(max=60) # Who the listener dedicated it to
     message?: string(max=200) # What the listener asked to have said with it, in their own words
     fromParty?: boolean # True when a guest at a party asked for it, through the party pass. Absent otherwise
+    overrulable?: boolean # True on a declined request whoever asked may still insist on, with `POST /requests/{id}/insist`: the station turned it down for its own taste (aired lately, a cooldown, a dislike, the period, a length) rather than a rule nobody overrules. Absent otherwise, and once it has been insisted on
+    insisted?: boolean # True when whoever asked insisted on it after the station turned it down, so the station's own taste was overruled. Absent otherwise
 }
 
 contract ListenerRequestList: { # Requests, newest first

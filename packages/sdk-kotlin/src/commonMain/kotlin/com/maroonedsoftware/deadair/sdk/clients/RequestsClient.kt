@@ -65,6 +65,17 @@ class RequestsClient(private val http: SdkHttp) {
     }
 
     /**
+     * Insist on request
+     * Ask again for a record the station turned down for its own taste, overruling it. Only your own request, only one marked `overrulable`, and only once. Answers with the NEW request this makes, decided like any other: it can still wait for an operator, or be refused for who is asking or how full the line is
+     */
+    suspend fun insistOnRequest(id: Uuid): ListenerRequest {
+        val response = http.execute(HttpMethod.Post) {
+            path("requests", segment(id), "insist")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
      * Grant request
      * Let a waiting request through. It goes into the running order once its audio is here
      */

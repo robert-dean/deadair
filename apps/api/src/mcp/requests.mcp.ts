@@ -38,6 +38,7 @@ const SearchRequestableRecordsArgs = z.object({
 const ListRequestsArgs = z.object({ query: z.object({ status: RequestStatus.optional().describe('Only requests in this state') }).optional() });
 const CreateRequestArgs = z.object({ body: ListenerRequestCreate });
 const ListMyRequestsArgs = z.object({});
+const InsistOnRequestArgs = z.object({ id: z.uuid() });
 const GrantRequestArgs = z.object({ id: z.uuid() });
 const DeclineRequestArgs = z.object({ id: z.uuid(), body: ListenerRequestDecline });
 
@@ -138,6 +139,30 @@ export class ListMyRequestsMcpTool implements McpToolHandler {
 }
 
 /**
+ * from [requests.ck](../../data/contracts/requests/requests.ck) `POST /requests/{id}/insist`
+ */
+@Injectable()
+export class InsistOnRequestMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'insist_on_request',
+        description:
+            "Overrules the station on one of this person's own refused requests, asking for the record again past the rules it was turned down for (aired lately, an artist cooldown, a dislike, the show's period or a record's length). Only a request list_my_requests marks overrulable, and only once. A never-play rule or a clean-only station is never overruled. It answers with the new request, which is decided like any other.",
+        inputSchema: z.toJSONSchema(InsistOnRequestArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(ListenerRequest, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'requests.ask' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'requests.ask' });
+        const { id } = await parseAndValidate(args, InsistOnRequestArgs);
+        const result = await container.get(RequestsService).insist(id);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
  * from [requests.ck](../../data/contracts/requests/requests.ck) `POST /requests/{id}/grant`
  */
 @Injectable()
@@ -188,6 +213,7 @@ export function registerRequestsMcpTools(map: McpToolHandlerMap, container: Cont
     map.set('search_requestable_records', container.get(SearchRequestableRecordsMcpTool));
     map.set('create_request', container.get(CreateRequestMcpTool));
     map.set('list_my_requests', container.get(ListMyRequestsMcpTool));
+    map.set('insist_on_request', container.get(InsistOnRequestMcpTool));
 }
 
 /** Add a handler for each of this file's operations to the catalog, unlisted in `tools/list`. */
@@ -196,6 +222,7 @@ export function registerRequestsMcpCatalog(map: McpToolHandlerMap, container: Co
     map.set('list_requests', container.get(ListRequestsMcpTool));
     map.set('create_request', container.get(CreateRequestMcpTool));
     map.set('list_my_requests', container.get(ListMyRequestsMcpTool));
+    map.set('insist_on_request', container.get(InsistOnRequestMcpTool));
     map.set('grant_request', container.get(GrantRequestMcpTool));
     map.set('decline_request', container.get(DeclineRequestMcpTool));
 }
@@ -206,6 +233,7 @@ export function registerRequestsMcpToolClasses(registry: Registry): void {
     registry.register(ListRequestsMcpTool).useClass(ListRequestsMcpTool).asSingleton();
     registry.register(CreateRequestMcpTool).useClass(CreateRequestMcpTool).asSingleton();
     registry.register(ListMyRequestsMcpTool).useClass(ListMyRequestsMcpTool).asSingleton();
+    registry.register(InsistOnRequestMcpTool).useClass(InsistOnRequestMcpTool).asSingleton();
     registry.register(GrantRequestMcpTool).useClass(GrantRequestMcpTool).asSingleton();
     registry.register(DeclineRequestMcpTool).useClass(DeclineRequestMcpTool).asSingleton();
 }

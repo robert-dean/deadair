@@ -1,7 +1,7 @@
 ---
 title: 'Get party'
 sidebar_label: 'Get party'
-sidebar_position: 7
+sidebar_position: 8
 mdx:
     format: 'md'
 ---

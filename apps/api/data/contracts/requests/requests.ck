@@ -10,7 +10,8 @@ options {
         # guest who joined a party with its pass. Asking for a record and following your own requests
         # is exactly what a listener app and the party page are for, so it is not an operator's
         # action. Deciding on somebody else's request is, and overrides below with platform.manage,
-        # which a guest never passes. `requests.ask` is named by these three routes and no others.
+        # which a guest never passes. `requests.ask` is named by these four routes and no others: insisting
+        # is a listener's own action on their own refusal, and the desk checks the refusal is theirs.
         policy: requests.ask
     }
 }
@@ -77,6 +78,24 @@ operation /requests/mine: {
         response: {
             200: {
                 application/json: ListenerRequestList
+            }
+        }
+    }
+}
+
+operation /requests/{id}/insist: {
+    params: {
+        id: uuid
+    }
+    post: { # Ask again for a record the station turned down for its own taste, overruling it. Only your own request, only one marked `overrulable`, and only once. Answers with the NEW request this makes, decided like any other: it can still wait for an operator, or be refused for who is asking or how full the line is
+        name: Insist on request
+        mcp: {
+            description: "Overrules the station on one of this person's own refused requests, asking for the record again past the rules it was turned down for (aired lately, an artist cooldown, a dislike, the show's period or a record's length). Only a request list_my_requests marks overrulable, and only once. A never-play rule or a clean-only station is never overruled. It answers with the new request, which is decided like any other."
+        }
+        service: RequestsService.insist
+        response: {
+            201: {
+                application/json: ListenerRequest
             }
         }
     }

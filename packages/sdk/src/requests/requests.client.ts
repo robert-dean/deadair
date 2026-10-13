@@ -65,6 +65,15 @@ export class RequestsClient {
     }
 
     /**
+     * @name Insist on request
+     * @description Ask again for a record the station turned down for its own taste, overruling it. Only your own request, only one marked `overrulable`, and only once. Answers with the NEW request this makes, decided like any other: it can still wait for an operator, or be refused for who is asking or how full the line is
+     */
+    async insistOnRequest(id: string): Promise<ListenerRequest> {
+        const result = await this.fetch(`/requests/${encodeURIComponent(id)}/insist`, { method: 'POST' });
+        return reviveListenerRequest(await parseJson<ListenerRequest>(result));
+    }
+
+    /**
      * @name Grant request
      * @description Let a waiting request through. It goes into the running order once its audio is here
      */

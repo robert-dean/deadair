@@ -156,6 +156,18 @@ export const ListenerRequest = z.strictObject({
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
         .describe('True when a guest at a party asked for it, through the party pass. Absent otherwise'),
+    overrulable: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'True on a declined request whoever asked may still insist on, with `POST /requests/{id}/insist`: the station turned it down for its own taste (aired lately, a cooldown, a dislike, the period, a length) rather than a rule nobody overrules. Absent otherwise, and once it has been insisted on',
+        ),
+    insisted: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "True when whoever asked insisted on it after the station turned it down, so the station's own taste was overruled. Absent otherwise",
+        ),
 });
 export type ListenerRequest = z.infer<typeof ListenerRequest>;
 

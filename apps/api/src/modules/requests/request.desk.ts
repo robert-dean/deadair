@@ -174,6 +174,31 @@ export class RequestDesk {
     }
 
     /**
+     * The listener insisting on a record the station turned down for its own taste: a NEW request
+     * for it, marked `insisted`, decided like any other and placed as overruled (see the class).
+     *
+     * Answers nothing for a request that is not this person's, so another listener's ids tell them
+     * nothing, and `spent` for one that is not declined and overrulable any more. Somebody the
+     * arbitration would refuse whatever they asked for (one already open, the cooldown, a full line)
+     * is refused with a row as usual and keeps the overrule, so they can insist once that has passed.
+     */
+    async insist(requester: Requester, id: string): Promise<RequestRow | 'spent' | undefined> {
+        const stationKey = this.identity.stationKey;
+        const refused = await this.repository.find(stationKey, id);
+        if (refused === undefined || refused.requesterKey !== requester.key) return undefined;
+        if (refused.status !== 'declined' || refused.overrulable !== true) return 'spent';
+
+        // Under the name they asked by the first time, whatever this caller would be called now.
+        const asking: Requester = { ...requester, name: refused.requesterName };
+        const record = { trackId: refused.trackId, title: refused.title, artist: refused.artist };
+        if ((await this.refusal(asking)) !== undefined) return this.submit(asking, record, refused.dedication);
+
+        // Guarded, so two taps on "play it anyway" cannot both insist.
+        if ((await this.repository.spendOverrule(stationKey, id)) === undefined) return 'spent';
+        return this.submit(asking, record, refused.dedication, { insisted: true });
+    }
+
+    /**
      * Why this person would be refused whatever they asked for, or nothing when they may ask. The
      * rules about the person and the line, without the one about the record, for a caller about to
      * take a record in from a provider: a refusal costs nothing, and the library is not grown for it.

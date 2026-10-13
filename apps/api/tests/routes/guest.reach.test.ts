@@ -4,7 +4,7 @@
 // names: `platform.view`, `platform.manage` and `oauth.grant` all admit only a user (see
 // `tests/modules/policy/platform.policies.test.ts`). What keeps it that way is that no route quietly
 // names something weaker. This reads the routers' source, which the contracts generate, and holds
-// every route to one of four answers: a policy that refuses a guest, `requests.ask` on the three
+// every route to one of four answers: a policy that refuses a guest, `requests.ask` on the four
 // routes a guest is for, a `policy: none` route reviewed below, or no policy at all, which is a public
 // route and gives a guest nothing an anonymous caller does not already have. A new route that fits
 // none of them fails here, and the fix is to decide what a guest should be able to do with it.
@@ -21,7 +21,7 @@ const SOURCES = [join(here, '../../src/routes'), join(here, '../../src/mcp')];
 const REFUSES_A_GUEST = new Set(['platform.view', 'platform.manage', 'oauth.grant']);
 
 /** The routes a guest is for. Nothing else may name `requests.ask`. */
-const GUEST_ROUTES = new Set(['GET /requests/search', 'POST /requests', 'GET /requests/mine']);
+const GUEST_ROUTES = new Set(['GET /requests/search', 'POST /requests', 'GET /requests/mine', 'POST /requests/:id/insist']);
 
 /**
  * `policy: none` admits ANY session, a guest's included, so each of these was read for what it does
@@ -75,7 +75,7 @@ describe('what a party guest can reach', () => {
         expect(all.filter(r => r.policy === 'platform.view').length).toBeGreaterThan(50);
     });
 
-    it('names requests.ask on the three routes a guest is for, and nowhere else', () => {
+    it('names requests.ask on the four routes a guest is for, and nowhere else', () => {
         const asking = all.filter(r => r.policy === 'requests.ask').map(r => r.route);
         expect(asking.sort()).toEqual([...GUEST_ROUTES].sort());
     });

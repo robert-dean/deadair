@@ -83,6 +83,12 @@ function memoryTable() {
                 .map(row => row.createdAt)
                 .at(-1),
         ),
+        spendOverrule: vi.fn(async (_: string, id: string) => {
+            const row = rows.find(candidate => candidate.id === id);
+            if (row === undefined || row.status !== 'declined' || row.overrulable !== true) return undefined;
+            delete row.overrulable;
+            return { ...row };
+        }),
         moveTo: vi.fn(
             async (
                 _: string,
@@ -373,6 +379,82 @@ describe('a request the listener insisted on', () => {
 
         expect(row.status).toBe('waiting');
         expect((await desk.grant(row.id))?.status).toBe('queued');
+    });
+});
+
+describe('insisting', () => {
+    const refusedFor = async (desk: RequestDesk, world: World, requester = app()) => {
+        world.resolves = false;
+        const refused = await desk.submit(requester, TEARDROP, { to: 'Mum' });
+        world.resolves = true;
+        return refused;
+    };
+
+    it('writes a new request for the record, marked insisted and placed as overruled, and spends the old one’s overrule', async () => {
+        const world: World = {};
+        const { desk, table, director } = build(world);
+        const refused = await refusedFor(desk, world);
+        world.resolves = false;
+
+        const insisted = await desk.insist(app(), refused.id);
+
+        expect(insisted).toMatchObject({ status: 'queued', insisted: true, trackId: 't-1', requesterName: 'Robin', dedication: { to: 'Mum' } });
+        expect(insisted).not.toMatchObject({ id: refused.id });
+        expect(table.rows.find(row => row.id === refused.id)?.overrulable).toBeUndefined();
+        expect(director.applyEdit).toHaveBeenCalledWith(
+            expect.objectContaining({ kind: 'insertRequested', requestId: (insisted as { id: string }).id }),
+        );
+    });
+
+    it('answers nothing for somebody else’s request, and leaves its overrule alone', async () => {
+        const world: World = {};
+        const { desk, table } = build(world);
+        const refused = await refusedFor(desk, world);
+
+        expect(await desk.insist(app('a-2'), refused.id)).toBeUndefined();
+        expect(table.rows.find(row => row.id === refused.id)?.overrulable).toBe(true);
+    });
+
+    it('will not insist twice on one refusal, or on one nobody may overrule', async () => {
+        const world: World = {};
+        const { desk } = build(world);
+        const refused = await refusedFor(desk, world);
+        await desk.insist(app(), refused.id);
+
+        expect(await desk.insist(app(), refused.id)).toBe('spent');
+
+        const { desk: other } = build({ resolves: false, overrules: false });
+        const outright = await other.submit(app(), TEARDROP);
+        expect(await other.insist(app(), outright.id)).toBe('spent');
+    });
+
+    it('refuses somebody with a request already open as it always would, and keeps the overrule for later', async () => {
+        const world: World = {};
+        const { desk, table } = build(world);
+        const refused = await refusedFor(desk, world);
+        await desk.submit(app(), { trackId: 't-2', title: 'Angel', artist: 'Massive Attack' });
+
+        const answer = await desk.insist(app(), refused.id);
+
+        expect(answer).toMatchObject({ status: 'declined', reason: expect.stringContaining('One at a time') });
+        expect(answer).not.toMatchObject({ insisted: true });
+        expect(table.rows.find(row => row.id === refused.id)?.overrulable).toBe(true);
+    });
+
+    it('waits for an operator on a station that asks for one', async () => {
+        const { desk, table } = build({ approval: 'operator' });
+        table.rows.push({
+            id: 'r-refused',
+            requesterKey: app().key,
+            requesterName: 'Robin',
+            ...TEARDROP,
+            status: 'declined',
+            reason: REFUSED_FOR_TASTE,
+            overrulable: true,
+            createdAt: DateTime.now(),
+        });
+
+        expect(await desk.insist(app(), 'r-refused')).toMatchObject({ status: 'waiting', insisted: true });
     });
 });
 

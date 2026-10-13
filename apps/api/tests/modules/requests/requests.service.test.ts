@@ -35,6 +35,8 @@ interface World {
     settings?: Record<string, string>;
     /** Why the desk would refuse this person whatever they asked for, if it would. */
     refusal?: string;
+    /** What the desk answers an insist with. */
+    insisted?: RequestRow | 'spent';
 }
 
 function build(found?: RequestRow, world: World = {}, authz: AuthorizationContext = user) {
@@ -43,6 +45,7 @@ function build(found?: RequestRow, world: World = {}, authz: AuthorizationContex
         refusal: vi.fn(async (_requester: unknown) => world.refusal),
         grant: vi.fn(async () => undefined),
         decline: vi.fn(async () => undefined),
+        insist: vi.fn(async (_requester: unknown, _id: string) => world.insisted),
     };
     const requestable = new Set(['t-1', ...Object.values(world.copies ?? {})]);
     const repository = {
@@ -240,6 +243,34 @@ describe('RequestsService', () => {
     it('answers 409 for a request already decided, and 404 for none', async () => {
         await expect(build(row({ status: 'aired' })).service.grant('r-1')).rejects.toMatchObject({ statusCode: 409 });
         await expect(build(undefined).service.decline('r-1', {})).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    describe('insisting', () => {
+        it('insists as the caller, on the request they named, and answers the new request', async () => {
+            const { service, desk } = build(undefined, { insisted: row({ id: 'r-2', status: 'pending', insisted: true }) }, guest);
+
+            expect(await service.insist('r-1')).toMatchObject({ id: 'r-2', status: 'pending', insisted: true });
+            expect(desk.insist).toHaveBeenCalledWith(expect.objectContaining({ key: 'guest:g-1', actorId: 'g-1' }), 'r-1');
+        });
+
+        it('answers 404 for somebody else’s request, as for one that does not exist', async () => {
+            const { service } = build();
+
+            await expect(service.insist('r-1')).rejects.toMatchObject({ statusCode: 404 });
+        });
+
+        it('answers 409 for a request that cannot be insisted on, or already was', async () => {
+            const { service } = build(undefined, { insisted: 'spent' });
+
+            await expect(service.insist('r-1')).rejects.toMatchObject({ statusCode: 409 });
+        });
+    });
+
+    it('says whether a refusal may be insisted on, and whether a request was, and nothing on any other', () => {
+        expect(toListenerRequest(row({ status: 'declined', overrulable: true }))).toMatchObject({ overrulable: true });
+        expect(toListenerRequest(row({ insisted: true }))).toMatchObject({ insisted: true });
+        expect(toListenerRequest(row())).not.toHaveProperty('overrulable');
+        expect(toListenerRequest(row())).not.toHaveProperty('insisted');
     });
 
     it('says whether a request came from an app or a chat', () => {

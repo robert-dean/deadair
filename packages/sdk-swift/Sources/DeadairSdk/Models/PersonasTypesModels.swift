@@ -1023,8 +1023,10 @@ public struct Persona: Codable, Equatable, Sendable {
     public var defaultHost: Bool
     /// Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing
     public var presenting: Bool
+    /// Whether this character presents BESIDE the one writing breaks on the broadcast on air: one of the co-hosts the schedule put on for tonight, read from the same running order as `presenting`. Present and true only for them, absent for everybody else, so a client built before it reads no change. Never true alongside `presenting`
+    public var coHosting: Bool?
 
-    public init(id: String, key: String, kind: PersonaKind? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [PersonaQuirk]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, trivia: PersonaTrivia? = nil, samples: [String]? = nil, templates: String? = nil, hosts: [String]? = nil, defaultHost: Bool, presenting: Bool) {
+    public init(id: String, key: String, kind: PersonaKind? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [PersonaQuirk]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, trivia: PersonaTrivia? = nil, samples: [String]? = nil, templates: String? = nil, hosts: [String]? = nil, defaultHost: Bool, presenting: Bool, coHosting: Bool? = nil) {
         self.id = id
         self.key = key
         self.kind = kind
@@ -1052,6 +1054,7 @@ public struct Persona: Codable, Equatable, Sendable {
         self.hosts = hosts
         self.defaultHost = defaultHost
         self.presenting = presenting
+        self.coHosting = coHosting
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -1082,6 +1085,7 @@ public struct Persona: Codable, Equatable, Sendable {
         case hosts = "hosts"
         case defaultHost = "defaultHost"
         case presenting = "presenting"
+        case coHosting = "coHosting"
     }
 
     public init(from decoder: Decoder) throws {
@@ -1113,6 +1117,7 @@ public struct Persona: Codable, Equatable, Sendable {
         self.hosts = try container.decodeIfPresent([String].self, forKey: .hosts)
         self.defaultHost = try container.decode(Bool.self, forKey: .defaultHost)
         self.presenting = try container.decode(Bool.self, forKey: .presenting)
+        self.coHosting = try container.decodeIfPresent(Bool.self, forKey: .coHosting)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -1144,6 +1149,7 @@ public struct Persona: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.hosts, forKey: .hosts)
         try container.encode(self.defaultHost, forKey: .defaultHost)
         try container.encode(self.presenting, forKey: .presenting)
+        try container.encodeIfPresent(self.coHosting, forKey: .coHosting)
     }
 }
 

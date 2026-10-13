@@ -626,6 +626,11 @@ public sealed record Persona
     /// <summary>Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing</summary>
     [JsonPropertyName("presenting")]
     public required bool Presenting { get; init; }
+
+    /// <summary>Whether this character presents BESIDE the one writing breaks on the broadcast on air: one of the co-hosts the schedule put on for tonight, read from the same running order as `presenting`. Present and true only for them, absent for everybody else, so a client built before it reads no change. Never true alongside `presenting`</summary>
+    [JsonPropertyName("coHosting")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? CoHosting { get; init; }
 }
 
 /// <summary>Who the station is when it opens its mouth: the character a model writes in, the phrasings underneath it, the voice that says them, and what it plays</summary>

@@ -84,6 +84,27 @@ newcomer gets the `listener` role through `PermissionsService.writeDirect`, as o
 `oidc_failed` for anything else, or the provider's own error. `OidcSignInRefused` carries the code
 and the sentence.
 
+## Passkeys
+
+**A passkey's relying party is the address the browser is on, held to the addresses the station is
+deployed at.** A self-hosted station has no fixed domain, so `PasskeyRelyingParty` reads it per
+request from `Origin` and answers `{ rpId, rpOrigin }` only when that origin is `SPA_BASE_URL`,
+`APP_BASE_URL` or `stream.publicUrl` (and `localhost` under `NODE_ENV=development`). Echoing the
+origin back unchecked is the tempting fix and the wrong one: a page on another domain would be handed
+a challenge its own passkey could answer, which is the phishing passkeys exist to stop. Every passkey
+call goes through it: registration, passkey sign-in, the passkey second step and invitation
+acceptance. Before it, registration used `'deadair'` and sign-in `localhost`, so no real browser
+could use any of the passkey routes.
+
+**WebAuthn needs a secure context**, so a station opened over plain `http://` on a LAN address offers
+no passkey anywhere: `passkeysAvailable()` in the console is false there and every passkey control is
+hidden rather than failing. The phone apps answer only authenticator codes (`ChallengeFactors.kt`,
+`AccountState.swift`), so a passkey is a browser second step and the invite page says so.
+
+**The station sends a challenge as standard base64 and the browser writes it into clientData as
+base64url.** `auth/webauthn.ts` decodes either, and a scripted authenticator has to encode the same
+way or `fido2-lib` refuses it as "not properly encoded base64url".
+
 ## Invitations
 
 **An invitation is the other way in, and the only one that can make an admin.** An admin names an

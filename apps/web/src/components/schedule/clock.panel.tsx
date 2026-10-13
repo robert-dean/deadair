@@ -11,6 +11,7 @@ import { severityColor } from '../shared/status';
 import { BandEditor, type BandTarget } from './band.editor';
 import { FormatClockDial } from './format.clock.dial';
 import { i18n } from '../../i18n/i18n.setup';
+import { formatWallTime } from '../../i18n/format.locale';
 
 /**
  * The station's format clock, on the page that already answers "what happens when".
@@ -244,7 +245,7 @@ export function whenOf(band: ClockBand): string {
     if (band.at === 'interval') return i18n.t('schedule:clock.every', { count: Math.round((band.everyMs ?? 0) / 60_000) });
 
     const minute = String(band.minute ?? 0).padStart(2, '0');
-    return band.hour === undefined ? `:${minute}` : `${String(band.hour).padStart(2, '0')}:${minute}`;
+    return band.hour === undefined ? `:${minute}` : formatWallTime(band.hour, band.minute ?? 0);
 }
 
 /** A band as the shape a write takes: everything but the id, which the URL carries. */

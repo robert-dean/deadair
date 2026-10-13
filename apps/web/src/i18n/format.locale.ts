@@ -1,3 +1,4 @@
+import { getClock } from '../clock.store';
 import { i18n } from './i18n.setup';
 
 /**
@@ -17,19 +18,36 @@ export function formatLocale(): string {
 }
 
 /**
- * A formatter built once per locale rather than on every call.
+ * The hour cycle a time is drawn on: the operator's clock if they chose one, else `otherwise`, the
+ * habit of whichever screen is asking, else nothing, which leaves it to the locale.
+ *
+ * Spread into the options of any formatter that shows an hour. Settings, Appearance is where the
+ * choice is made, and `clock.store.ts` says why `auto` is not a single rule.
+ */
+export function hourCycle(otherwise?: 'h12' | 'h23'): Pick<Intl.DateTimeFormatOptions, 'hourCycle'> {
+    const clock = getClock();
+    if (clock === '12') return { hourCycle: 'h12' };
+    if (clock === '24') return { hourCycle: 'h23' };
+    return otherwise === undefined ? {} : { hourCycle: otherwise };
+}
+
+/**
+ * A formatter built once per locale and clock rather than on every call.
  *
  * The formatters used to be module constants, which is cheap and which fixes the locale at import:
- * a language change would re-render every word and leave every date as it was.
+ * a language change would re-render every word and leave every date as it was. The clock is in the
+ * key for the same reason, so a formatter that never shows an hour is built once per clock for
+ * nothing, which is three at most.
  */
 export function perLocale<T>(build: (locale: string) => T): () => T {
     const built = new Map<string, T>();
     return () => {
         const locale = formatLocale();
-        let formatter = built.get(locale);
+        const key = `${locale}|${getClock()}`;
+        let formatter = built.get(key);
         if (formatter === undefined) {
             formatter = build(locale);
-            built.set(locale, formatter);
+            built.set(key, formatter);
         }
         return formatter;
     };
@@ -54,13 +72,14 @@ export function weekdayShort(day: number): string {
     return WEEKDAY().format(new Date(Date.UTC(1970, 0, 4 + day)));
 }
 
-const CLOCK = perLocale(locale => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }));
+const CLOCK = perLocale(locale => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', ...hourCycle('h23') }));
 const CLOCK_SECONDS = perLocale(
-    locale => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }),
+    locale => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit', ...hourCycle('h23') }),
 );
 
 /**
- * A wall-clock time on the 24-hour clock, whatever the locale's own habit.
+ * A wall-clock time on the 24-hour clock, whatever the locale's own habit, unless the operator chose
+ * the 12-hour one.
  *
  * The on-air screens are read against `StationClock` in the corner, and a station runs on a
  * 24-hour day; these used to get that by asking for `en-GB`, which settled the language as well.
@@ -69,7 +88,7 @@ export function formatClock(date: Date, options?: { seconds?: boolean }): string
     return (options?.seconds === true ? CLOCK_SECONDS() : CLOCK()).format(date);
 }
 
-/** One formatter per locale and zone, since a zone is fixed for as long as the station keeps it. */
+/** One formatter per locale, clock and zone, since a zone is fixed for as long as the station keeps it. */
 const ZONED: Map<string, Intl.DateTimeFormat> = new Map();
 
 /**
@@ -80,15 +99,34 @@ const ZONED: Map<string, Intl.DateTimeFormat> = new Map();
  * second.
  */
 export function formatClockIn(date: Date, timeZone: string): string | undefined {
-    const key = `${formatLocale()}|${timeZone}`;
+    const key = `${formatLocale()}|${getClock()}|${timeZone}`;
     let formatter = ZONED.get(key);
     if (formatter === undefined) {
         try {
-            formatter = new Intl.DateTimeFormat(formatLocale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone });
+            formatter = new Intl.DateTimeFormat(formatLocale(), { hour: '2-digit', minute: '2-digit', ...hourCycle('h23'), timeZone });
         } catch {
             return undefined;
         }
         ZONED.set(key, formatter);
     }
     return formatter.format(date);
+}
+
+/**
+ * A station wall time given as an hour and a minute, with no date and no zone: a special's hours, a
+ * band's minute past the hour. On the 24-hour clock unless the operator chose the 12-hour one, as
+ * {@link formatClock} is. Drawn in UTC so that no zone can move it.
+ */
+const WALL_TIME = perLocale(locale => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', ...hourCycle('h23'), timeZone: 'UTC' }));
+
+export function formatWallTime(hour: number, minute: number): string {
+    return WALL_TIME().format(new Date(Date.UTC(1970, 0, 1, hour, minute)));
+}
+
+/**
+ * The same choice for the Mantine pickers and the schedule grid, which take a dayjs pattern and a
+ * picker format rather than `Intl` options. `auto` is 24-hour here, which is what they drew before.
+ */
+export function dayjsClock(): { time: string; hour: string; picker: '12h' | '24h' } {
+    return getClock() === '12' ? { time: 'h:mm A', hour: 'h A', picker: '12h' } : { time: 'HH:mm', hour: 'HH:mm', picker: '24h' };
 }

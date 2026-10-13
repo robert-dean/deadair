@@ -4,7 +4,7 @@ import type { ScheduleSlot } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
 import { Eyebrow } from '../shared/eyebrow';
-import { minutesToClock } from './schedule.day';
+import { formatWallTime } from '../../i18n/format.locale';
 import { formatDates, inOrder, isSpecial, nextRun, stateOf, type Special, type SpecialState } from './schedule.specials';
 
 /**
@@ -86,7 +86,7 @@ function SpecialRow({ special, today, airing, onEdit }: { special: Special; toda
             </Table.Td>
             <Table.Td w={130} className="da-num">
                 <Text size="sm" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                    {t('specials.hours', { from: minutesToClock(special.startsAtMinutes), until: minutesToClock(special.endsAtMinutes) })}
+                    {t('specials.hours', { from: wallTime(special.startsAtMinutes), until: wallTime(special.endsAtMinutes) })}
                 </Text>
             </Table.Td>
             <Table.Td>
@@ -123,4 +123,9 @@ interface Props {
     airingId?: string;
     onEdit: (slot: ScheduleSlot) => void;
     onNew: () => void;
+}
+
+/** Minutes past midnight as the operator's clock reads them. */
+function wallTime(minutes: number): string {
+    return formatWallTime(Math.floor(minutes / 60) % 24, minutes % 60);
 }

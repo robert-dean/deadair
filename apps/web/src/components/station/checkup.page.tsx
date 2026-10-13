@@ -23,7 +23,7 @@ import { PhoneCard } from '../shared/phone.card';
 import { readSilence } from '../playout/silence.reading';
 import { StatusLamp } from '../shared/status.lamp';
 import { usePhone } from '../shared/use.phone';
-import { formatCount } from '../../i18n/format.locale';
+import { formatClock, formatCount } from '../../i18n/format.locale';
 
 /**
  * Everything an operator would otherwise visit five pages to read.
@@ -452,7 +452,7 @@ function ago(t: TFunction<'station'>, now: number, then: DateTime): string {
 
 /** The wall-clock hour and minute a scheduled probe is due, in the operator's own zone. */
 function clockTime(at: DateTime): string {
-    return at.toFormat('HH:mm');
+    return formatClock(at.toJSDate());
 }
 
 /** Which plugins are unhappy, and a count of the ones that are fine. */

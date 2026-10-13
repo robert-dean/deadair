@@ -1,6 +1,6 @@
 import type { DateTime } from 'luxon';
 
-import { perLocale } from '../../i18n/format.locale';
+import { hourCycle, perLocale } from '../../i18n/format.locale';
 
 /**
  * A moment as this console receives it: an ISO string off a plugin payload, or the Luxon
@@ -17,11 +17,13 @@ const STAMP = perLocale(
             hour: '2-digit',
             minute: '2-digit',
             second: '2-digit',
-            hour12: true,
+            ...hourCycle('h12'),
         }),
 );
-const FULL = perLocale(locale => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'medium' }));
-const MINUTE = perLocale(locale => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }));
+const FULL = perLocale(locale => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'medium', ...hourCycle() }));
+const MINUTE = perLocale(
+    locale => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', ...hourCycle() }),
+);
 const MINUTE_WITH_WEEKDAY = perLocale(
     locale =>
         new Intl.DateTimeFormat(locale, {
@@ -30,9 +32,10 @@ const MINUTE_WITH_WEEKDAY = perLocale(
             month: 'short',
             hour: '2-digit',
             minute: '2-digit',
+            ...hourCycle(),
         }),
 );
-const TIME_OF_DAY = perLocale(locale => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+const TIME_OF_DAY = perLocale(locale => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit', ...hourCycle() }));
 
 /**
  * When something happened: the date and the wall-clock time to the second, in the operator's own
@@ -49,8 +52,9 @@ const TIME_OF_DAY = perLocale(locale => new Intl.DateTimeFormat(locale, { hour: 
  * feeds used to answer that with a heading wherever the calendar day changed, which every list had
  * to know about; a row that says its own date needs nothing around it.
  *
- * 12-hour explicitly, with a 2-digit hour so the column still lines up, because these are read
- * against the operator's memory of their own day rather than against a clock.
+ * 12-hour unless the operator chose the 24-hour clock, with a 2-digit hour so the column still lines
+ * up, because these are read against the operator's memory of their own day rather than against a
+ * clock.
  *
  * An absent or unparseable value renders as nothing rather than as `Invalid Date`. A value the API
  * never sent and a value it sent wrong look the same here, and neither is worth showing.

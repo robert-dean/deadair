@@ -91,7 +91,11 @@ German station can have an English console and the reverse, and the two must nev
 - **Dates, times and numbers** go through `src/i18n/format.locale.ts`. The format locale is the
   browser's own tag in the language on screen (`en-GB`, not `en`), so a British operator still reads
   British dates. A station time is `formatClock` (24-hour whatever the locale), never `'en-GB'`, which
-  settles the language as well as the clock.
+  settles the language as well as the clock. An operator can override every hour cycle from
+  Settings, Appearance (`clock.store.ts`), so a formatter that shows an hour spreads `hourCycle()`
+  into its options, passing its own habit as the fallback, and never writes `hour12` or
+  `hourCycle` itself; a Mantine picker or the schedule grid takes `dayjsClock()`. `perLocale`
+  keys on the choice too, so a cached formatter does not keep the old clock.
 - **The guard is a test, not the linter.** `eslint.i18n.js` holds a literal-string rule over `src/**`,
   but the shared lint config only warns and CI does not run lint, so
   `tests/i18n/literal.strings.test.ts` runs the rule and fails on a hit. It sees JSX text and the copy

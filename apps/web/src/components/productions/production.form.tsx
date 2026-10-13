@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { usePersonas } from '../../api/personas.queries';
 import { presents } from '../personas/persona.kind';
 import { ErrorAlert } from '../shared/error.alert';
+import { dayjsClock } from '../../i18n/format.locale';
 
 /**
  * Asking the station for a programme.
@@ -283,7 +284,8 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
                         label={t('form.airAt.label')}
                         description={t('form.airAt.description')}
                         placeholder={t('form.airAt.placeholder')}
-                        valueFormat="ddd D MMM, HH:mm"
+                        valueFormat={`ddd D MMM, ${dayjsClock().time}`}
+                        timePickerProps={{ format: dayjsClock().picker }}
                         minDate={new Date()}
                         clearable
                         {...form.getInputProps('airAt')}

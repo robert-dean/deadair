@@ -12,7 +12,7 @@ import { Eyebrow } from '../shared/eyebrow';
 import { MarkdownView } from '../shared/markdown.view';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
-import { formatLocale } from '../../i18n/format.locale';
+import { formatLocale, hourCycle } from '../../i18n/format.locale';
 import { i18n } from '../../i18n/i18n.setup';
 
 /**
@@ -139,7 +139,9 @@ function CheckLine({ releases }: { releases: StationReleases }) {
                 <Text size="sm" c="dimmed">
                     {releases.checkedAt === undefined
                         ? t('releases.checksNotHeard')
-                        : t('releases.checksHeard', { when: releases.checkedAt.toLocaleString(DateTime.DATETIME_MED, { locale: formatLocale() }) })}
+                        : t('releases.checksHeard', {
+                              when: releases.checkedAt.toLocaleString({ ...DateTime.DATETIME_MED, ...hourCycle() }, { locale: formatLocale() }),
+                          })}
                 </Text>
                 <Button variant="light" size="compact-sm" loading={check.isPending} onClick={() => check.mutate()}>
                     {t('releases.checkNow')}

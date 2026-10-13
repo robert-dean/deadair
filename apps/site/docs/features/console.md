@@ -50,6 +50,8 @@ Settings → Appearance offers three ways to read the same console:
 
 The choice is remembered on that browser and changes nothing about the station. The tally stays red in all three, because it is the one colour that means the same thing in every room.
 
+Below the themes, **Clock** sets how times of day read: 12-hour, 24-hour, or as each screen has it. Left as each screen has it, the clocks on the on-air screens run on the station's 24-hour day and the activity feeds read 12-hour. Choosing one puts every time in the console on it, the header clock, the schedule grid and the date pickers included. Like the theme, it is remembered on that browser.
+
 ![Settings, Appearance: the three themes, each drawn in its own colours](/img/console/settings.appearance.webp)
 _Fig. 2. Appearance._
 

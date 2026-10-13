@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { formatClock, formatCount, formatLocale, weekdayShort } from '../../src/i18n/format.locale';
+import { setClock } from '../../src/clock.store';
+import { dayjsClock, formatClock, formatClockIn, formatCount, formatLocale, formatWallTime, weekdayShort } from '../../src/i18n/format.locale';
 
 afterEach(() => {
     vi.unstubAllGlobals();
+    setClock('auto');
 });
 
 function prefer(...languages: string[]): void {
@@ -43,5 +45,21 @@ describe('formatters', () => {
         const afternoon = new Date(2026, 8, 24, 14, 5, 9);
         expect(formatClock(afternoon)).toBe('14:05');
         expect(formatClock(afternoon, { seconds: true })).toBe('14:05:09');
+    });
+
+    it('draws every clock on 12 hours when the operator chose it', () => {
+        prefer('en-GB');
+        setClock('12');
+        const afternoon = new Date(Date.UTC(2026, 8, 24, 14, 5, 9));
+        expect(formatClockIn(afternoon, 'UTC')).toMatch(/^02:05\s?pm$/i);
+        expect(formatWallTime(14, 5)).toMatch(/^02:05\s?pm$/i);
+        expect(dayjsClock()).toEqual({ time: 'h:mm A', hour: 'h A', picker: '12h' });
+    });
+
+    it('keeps 24 hours for a wall time unless told otherwise', () => {
+        prefer('en-US');
+        expect(formatWallTime(14, 5)).toBe('14:05');
+        expect(formatWallTime(0, 30)).toBe('00:30');
+        expect(dayjsClock().picker).toBe('24h');
     });
 });

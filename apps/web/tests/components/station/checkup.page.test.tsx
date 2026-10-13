@@ -111,6 +111,19 @@ describe('CheckupPage', () => {
         expect(screen.getByText('lossless')).toBeInTheDocument();
     });
 
+    /** The speakers the station cannot play itself on are reached through Music Assistant, with the MP3 address above. */
+    it('points at Music Assistant for the speakers the station cannot play itself on', async () => {
+        allWell();
+
+        render(<CheckupPage />);
+
+        expect(
+            await screen.findByText(
+                'For HomePods, Sonos, Chromecast or Alexa speakers, add the MP3 address to Music Assistant as a custom radio station, and it plays the station on any speaker it reaches.',
+            ),
+        ).toBeInTheDocument();
+    });
+
     /**
      * The whole origin, escaped, so a plain-http station on a home network is handed over as http:
      * the app's `deadair://host` shorthand would make it https and point the app at nothing.

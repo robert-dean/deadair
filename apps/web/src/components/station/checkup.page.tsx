@@ -497,6 +497,10 @@ function Plugins({ plugins }: { plugins: PluginSummary[] }) {
  * the server cannot.
  *
  * MP3 is always here and always first, so this is never empty and never needs an empty state.
+ *
+ * The line under the list is for the speakers the station cannot play itself on. Music Assistant
+ * fetches the plain MP3 mount the way a Sonos does, so the address copied above is everything it
+ * needs, and it is how a HomePod hears the station without the station speaking AirPlay.
  */
 function Mounts({ mounts }: { mounts: PlayoutMount[] }) {
     const { t } = useTranslation('station');
@@ -517,6 +521,9 @@ function Mounts({ mounts }: { mounts: PlayoutMount[] }) {
                     <CopyButton value={`${window.location.origin}${mount.path}`} />
                 </Group>
             ))}
+            <Text size="xs" c="dimmed">
+                {t('checkup.listen.musicAssistant')}
+            </Text>
             <AppLink />
         </Stack>
     );

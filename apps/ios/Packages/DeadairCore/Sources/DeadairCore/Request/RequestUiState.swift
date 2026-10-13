@@ -108,19 +108,23 @@ public struct RequestForm: Equatable, Sendable {
 /// One of the listener's own requests, with the line under it.
 ///
 /// The note is the most useful thing to know next: when it aired, why it never will, or who it is
-/// for while it is still on its way.
+/// for while it is still on its way. `mayInsist` is a refusal the station says may be overruled:
+/// turned down for its own taste, and not insisted on yet. The station decides that; the app only
+/// reads it.
 public struct MyRequestRow: Equatable, Sendable, Identifiable {
     public let id: UUID
     public let title: String
     public let artist: String
     public let status: RequestStatus
     public let note: Message?
+    public let mayInsist: Bool
 
     public init(_ request: ListenerRequest, now: Date, calendar: Calendar) {
         id = request.id
         title = request.title
         artist = request.artist
         status = request.status
+        mayInsist = request.status == .declined && request.overrulable == true
         switch request.status {
         case .aired: note = request.airedAt.map { .aired(airedLabel($0, now: now, calendar: calendar)) }
         case .declined, .expired: note = request.reason.map(Message.text)

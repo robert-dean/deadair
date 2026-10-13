@@ -21,6 +21,8 @@ struct RequestScreen: View {
     @State private var chosen: RequestRow?
     @State private var form = RequestForm()
     @State private var sending = false
+    /// The request being insisted on just now, if any.
+    @State private var insisting: UUID?
 
     var body: some View {
         let term = LibrarySearch.term(typed)
@@ -102,7 +104,7 @@ struct RequestScreen: View {
         case .loaded(let rows) where rows.isEmpty:
             Text(String(localized: "You have not asked for anything yet.")).foregroundStyle(.secondary)
         case .loaded(let rows):
-            ForEach(rows) { row in MyRow(row: row) }
+            ForEach(rows) { row in MyRow(row: row, insisting: insisting) { insist(row) } }
         }
     }
 
@@ -124,6 +126,32 @@ struct RequestScreen: View {
                 chosen = nil
                 attempt += 1
                 model.toasts.say(.requestRecordGone)
+            case .failed(status: let status?):
+                model.toasts.say(.operatorNotice(.failed(status: status)))
+            case .failed(status: nil):
+                model.toasts.say(.cantReachStation)
+            case .loading, nil:
+                break
+            }
+        }
+    }
+
+    /// Overruling the station on a refusal makes a new request, decided like any other, so it is told
+    /// the same way a request just sent is.
+    private func insist(_ row: MyRequestRow) {
+        guard insisting == nil else { return }
+        insisting = row.id
+        let id = row.id
+        Task {
+            defer {
+                insisting = nil
+                mineAttempt += 1
+            }
+            switch await model.read({ deadair in try await deadair.requests.insistOnRequest(id: id) }) {
+            case .loaded(let request):
+                model.toasts.say(RequestRules.outcome(request))
+            case .failed(status: 409):
+                model.toasts.say(.requestCannotInsist)
             case .failed(status: let status?):
                 model.toasts.say(.operatorNotice(.failed(status: status)))
             case .failed(status: nil):
@@ -161,6 +189,8 @@ struct RequestScreen: View {
 
     private struct MyRow: View {
         let row: MyRequestRow
+        let insisting: UUID?
+        let insist: () -> Void
 
         var body: some View {
             HStack(alignment: .firstTextBaseline) {
@@ -168,6 +198,16 @@ struct RequestScreen: View {
                     Text(row.title).lineLimit(1)
                     Text(row.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     if let note = row.note { Text(note.words).font(.caption).foregroundStyle(.secondary) }
+                    if row.mayInsist {
+                        Button(action: insist) {
+                            if insisting == row.id { ProgressView() } else { Text(String(localized: "Play it anyway")) }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(insisting != nil)
+                        .padding(.top, 4)
+                        .accessibilityLabel(Text(String(localized: "Play “\(row.title)” anyway")))
+                    }
                 }
                 Spacer()
                 Text(Message.requestState(row.status).words)

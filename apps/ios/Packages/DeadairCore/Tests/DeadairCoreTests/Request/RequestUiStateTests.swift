@@ -19,7 +19,13 @@ struct RequestUiStateTests {
 
     private func date(_ iso: String) -> Date { ISO8601DateFormatter().date(from: iso)! }
 
-    private func request(_ status: RequestStatus, reason: String? = nil, airedAt: String? = nil, dedicateTo: String? = nil) -> ListenerRequest {
+    private func request(
+        _ status: RequestStatus,
+        reason: String? = nil,
+        airedAt: String? = nil,
+        dedicateTo: String? = nil,
+        overrulable: Bool? = nil
+    ) -> ListenerRequest {
         ListenerRequest(
             id: UUID(uuidString: "0C9F3E1A-7B2D-4E8F-A1C3-5D6E7F809A1B")!,
             status: status,
@@ -30,7 +36,8 @@ struct RequestUiStateTests {
             createdAt: date("2026-10-03T20:00:00Z"),
             reason: reason,
             airedAt: airedAt.map(date),
-            dedicateTo: dedicateTo
+            dedicateTo: dedicateTo,
+            overrulable: overrulable
         )
     }
 
@@ -112,5 +119,12 @@ struct RequestUiStateTests {
         #expect(MyRequestRow(request(.declined, reason: "Not tonight."), now: now, calendar: utc).note == .text("Not tonight."))
         #expect(MyRequestRow(request(.queued, dedicateTo: "Alex"), now: now, calendar: utc).note == .requestFor("Alex"))
         #expect(MyRequestRow(request(.pending), now: now, calendar: utc).note == nil)
+    }
+
+    @Test func onlyARefusalTheStationSaysMayBeOverruledOffersToPlayItAnyway() {
+        let now = date("2026-10-03T22:00:00Z")
+        #expect(MyRequestRow(request(.declined, overrulable: true), now: now, calendar: utc).mayInsist)
+        #expect(!MyRequestRow(request(.declined), now: now, calendar: utc).mayInsist)
+        #expect(!MyRequestRow(request(.expired, overrulable: true), now: now, calendar: utc).mayInsist)
     }
 }

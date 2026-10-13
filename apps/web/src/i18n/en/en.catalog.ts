@@ -1,3 +1,4 @@
+import { account } from './account.catalog.ts';
 import { activity } from './activity.catalog.ts';
 import { api } from './api.catalog.ts';
 import { auth } from './auth.catalog.ts';
@@ -41,6 +42,7 @@ import { voices } from './voices.catalog.ts';
  * other locale's catalog is checked against.
  */
 export const en = {
+    account,
     common,
     shell,
     auth,

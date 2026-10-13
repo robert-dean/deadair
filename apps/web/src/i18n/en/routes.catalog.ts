@@ -1,6 +1,7 @@
 /** What the route files draw themselves: the shell's chrome in `__root.tsx`, and the pending screens. */
 export const routes = {
     root: {
+        checkingAccount: 'Checking your account',
         skipToContent: 'Skip to content',
         wordmark: 'deadair',
         jumpTo: 'Jump to anything',

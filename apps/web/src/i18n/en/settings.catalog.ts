@@ -573,7 +573,7 @@ export const settings = {
     },
     security: {
         title: 'How you sign in',
-        intro: 'With an authenticator or a passkey enrolled, every sign-in to this account asks for it after the password. Lose the device and another admin can reset your second step under People.',
+        intro: 'With an authenticator or a passkey enrolled, every sign-in to this account asks for it after the password. Lose the device and an admin can reset your second step under People.',
         unavailable: {
             title: 'Sign-in methods unavailable',
             fallback: 'The station could not read how you sign in.',

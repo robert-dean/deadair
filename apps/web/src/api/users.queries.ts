@@ -54,9 +54,12 @@ export function useUser(id: string | undefined) {
     });
 }
 
-/** Who is signed in, so a person's own row can say so and keep its controls off. */
-export function useCurrentSession() {
-    return useQuery({ queryKey: queryKeys.auth.session(), queryFn: () => sdk.authentication.sessions.readSession() });
+/**
+ * Who is signed in and which roles they hold: what decides whether the console draws the desk or
+ * only the person's own account, and lets a person's own row in People say so.
+ */
+export function useCurrentSession(enabled = true) {
+    return useQuery({ queryKey: queryKeys.auth.session(), queryFn: () => sdk.authentication.sessions.readSession(), enabled, retry: false });
 }
 
 function usePersonMutation<T>(run: (id: string) => Promise<T>) {

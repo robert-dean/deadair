@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActionIcon, Anchor, AppShell, Box, Button, Group, Kbd, ScrollArea, Text } from '@mantine/core';
+import { ActionIcon, Anchor, AppShell, Box, Button, Center, Group, Kbd, Loader, ScrollArea, Text } from '@mantine/core';
 import { useHotkeys } from '@mantine/hooks';
 import { IconSearch } from '@tabler/icons-react';
 import { spotlight } from '@mantine/spotlight';
@@ -13,7 +13,11 @@ import { onboardingRequirementsOptions } from '../api/onboarding.queries';
 import { resolveOnboardingRedirect } from '../api/onboarding.gate';
 import { resolveAuthRedirect } from '../auth/auth.gate';
 import { restoreSession } from '../auth/session.bootstrap';
-import { apiErrorMessage } from '../api/sdk.error';
+import { apiErrorMessage, sdkError } from '../api/sdk.error';
+import { useCurrentSession } from '../api/users.queries';
+import { queryKeys } from '../api/query.keys';
+import { useQueryClient } from '@tanstack/react-query';
+import { AccountView } from '../components/account/account.view';
 import { isAuthenticated, isSessionActive, useSession } from '../auth/session.store';
 import { usePlayoutStatus } from '../api/playout.queries';
 import { useStationAttention } from '../api/station.queries';
@@ -70,6 +74,13 @@ function useLeaveWhenSignedOut(signedIn: boolean): void {
 /** Signed-in pages drawn without the console's shell. */
 const BARE_PATHS: readonly string[] = ['/party-poster'];
 
+/**
+ * Signed-in pages any account may use whatever its role: approving an app that wants to act as you,
+ * and the landing a sign-in comes back to. Everything else is the station's controls, which only an
+ * admin is shown.
+ */
+const ANY_ACCOUNT_PATHS: readonly string[] = ['/oauth/', '/auth/'];
+
 export function RootLayout() {
     const { t } = useTranslation('routes');
     const session = useSession();
@@ -84,10 +95,27 @@ export function RootLayout() {
     const [logoutError, setLogoutError] = useState<string | undefined>(undefined);
     // Polled here rather than on each page: the header's tally draws from it on every screen, and
     // the desk reads the same key from the same cache rather than issuing its own request.
-    const playout = usePlayoutStatus(signedIn);
+    // Which roles the signed-in person holds. The desk is drawn only for an admin; anybody else gets
+    // their own account, and nothing of the station's controls is fetched for them at all.
+    const account = useCurrentSession(signedIn);
+    // Forgotten the moment nobody is signed in, so the next person to sign in on this browser is
+    // asked about afresh rather than drawn with the last one's roles. Logout clears the whole cache
+    // already; a session that simply runs out does not go through it.
+    const queryClient = useQueryClient();
+    useEffect(() => {
+        if (!signedIn) queryClient.removeQueries({ queryKey: queryKeys.auth.session() });
+    }, [queryClient, signedIn]);
+    const isAdmin = account.data?.roles.includes('admin') ?? false;
+    // A 403 is the answer for an account holding no role whatever, which is no admin either. Any
+    // other failure is the API being unwell, which the banner reports, and is not a reason to take
+    // an admin's desk away from them.
+    const noRole = sdkError(account.error)?.status === 403;
+    const roleKnown = account.data !== undefined || account.isError;
+    const desk = signedIn && isAdmin;
+    const playout = usePlayoutStatus(desk);
     // The nav's badges, from the same answer the desk draws as a list — one query, one cache, so a
     // badge saying two and a list showing three is not a state this console can reach.
-    const attention = useStationAttention(signedIn);
+    const attention = useStationAttention(desk);
     // The phone gets a bar across the bottom rather than a drawer behind a burger. A drawer is two
     // gestures to reach any page — open it, then choose — and it covers the thing you were looking
     // at while you decide.
@@ -138,6 +166,27 @@ export function RootLayout() {
     // A page that is the whole screen, drawn without the shell: the party's poster, on a TV across
     // the room, where a header and a rail would only be things for a guest to read instead of the code.
     if (BARE_PATHS.includes(pathname)) return <Outlet />;
+
+    if (signedIn && !ANY_ACCOUNT_PATHS.some(prefix => pathname.startsWith(prefix))) {
+        // Nothing until the roles are known, so a listener never sees the desk flash past.
+        if (!roleKnown) {
+            return (
+                <Center mih="60vh">
+                    <Loader aria-label={t('root.checkingAccount')} />
+                </Center>
+            );
+        }
+        if (noRole || (account.data !== undefined && !isAdmin)) {
+            return (
+                <AccountView
+                    loggingOut={logout.isPending}
+                    onLogout={() => {
+                        void handleLogout();
+                    }}
+                />
+            );
+        }
+    }
 
     return (
         <AppShell

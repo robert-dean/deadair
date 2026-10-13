@@ -337,6 +337,58 @@ export const settings = {
             lastSignIn: '{{role}}, last signed in {{date}}',
             neverSignedIn: '{{role}}, never signed in',
         },
+        invitations: {
+            title: 'Invite somebody',
+            intro: 'An invitation is a link for one address and one role. The person opens it, chooses a password and sets up an authenticator app or a passkey, and has an account. A listener can use it for a week, an admin for two days, and it works once.',
+            form: {
+                email: { label: 'Their address', placeholder: 'friend@example.com' },
+                role: { label: 'Role' },
+                submit: 'Create invitation',
+                errorTitle: 'No invitation made',
+                errorFallback: 'The station did not make the invitation.',
+            },
+            created: 'Invitation for {{email}} is ready. Send them the link.',
+            list: { title: 'Invitations', empty: 'Nobody has been invited yet.' },
+            column: { person: 'Person', role: 'Role', state: 'Status', expires: 'Expires', invitedBy: 'Invited by' },
+            state: {
+                pending: 'Open',
+                accepted: 'Accepted',
+                revoked: 'Withdrawn',
+                expired: 'Run out',
+            },
+            when: {
+                accepted: 'Accepted {{date}}',
+                revoked: 'Withdrawn {{date}}',
+            },
+            unavailable: { title: 'Could not load invitations', fallback: 'The list did not load. Try again in a moment.' },
+            link: {
+                action: 'Link',
+                title: 'Invitation for {{email}}',
+                body: 'Send this to {{email}} however you like: a text, a chat, in person with the code. It works once, and only until {{date}}. Anybody who has it can make the account, so send it to them alone.',
+                qrTitle: 'Invitation QR code',
+                adminConfirm:
+                    'This link makes an admin: whoever opens it first can change everything on the station. Show it only where nobody else can see it.',
+                adminReveal: 'Show the admin link',
+                loopback:
+                    'This console is open at {{origin}}, which only this machine can reach. Open the console at the station’s own address before you send the link, or it will not work for them.',
+            },
+            again: {
+                action: 'Send again',
+                title: 'Make a new link for {{email}}?',
+                body: 'The link they have now stops working, and a new one lasts for the full time again. Send them the new one.',
+                done: 'A new link for {{email}} is ready. The old one no longer works.',
+                errorTitle: 'No new link',
+                errorFallback: 'The invitation is as it was.',
+            },
+            revoke: {
+                action: 'Withdraw',
+                title: 'Withdraw the invitation for {{email}}?',
+                body: 'The link stops working at once. The invitation stays in the list, marked withdrawn, and you can invite them again.',
+                done: 'The invitation for {{email}} is withdrawn',
+                errorTitle: 'Not withdrawn',
+                errorFallback: 'The invitation is as it was.',
+            },
+        },
         drawer: {
             unavailable: { title: 'Could not load this person', fallback: 'Their details did not load. Try again in a moment.' },
             ownAccount: 'This is your account. Your own role and status are changed by another admin.',

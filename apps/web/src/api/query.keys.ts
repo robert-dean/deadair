@@ -31,6 +31,8 @@ export const queryKeys = {
         list: (query: { page: number; pageSize: number; search?: string; role?: string; active?: boolean }) =>
             ['users', 'list', query.page, query.pageSize, query.search ?? '', query.role ?? 'any', query.active ?? 'any'] as const,
         detail: (id: string) => ['users', 'detail', id] as const,
+        /** Every invitation. Inviting, re-inviting or withdrawing answers in terms of the whole list again. */
+        invitations: () => ['users', 'invitations'] as const,
     },
     /** Listener requests, for the operator deciding on them. Granting or declining one answers in terms of the whole list again. */
     /** The party that is on, with its pass. Starting or ending one answers in terms of it. */

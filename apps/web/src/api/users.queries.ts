@@ -1,5 +1,5 @@
 import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { PlatformRole } from '@deadair/sdk';
+import type { InvitationCreate, PlatformRole } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -100,3 +100,38 @@ export function useSignOutUser() {
 export function useResetUserMfa() {
     return usePersonMutation(id => sdk.users.resetUserMFA(id));
 }
+
+/** Every invitation, newest first, each open one with its link. */
+export function useInvitations() {
+    return useQuery({ queryKey: queryKeys.users.invitations(), queryFn: () => sdk.users.invitations.listInvitations() });
+}
+
+/**
+ * Invites an address into a role. An open invitation to the same address is withdrawn first, so this
+ * is also "send it again". Behind the re-verify dialog, and so `retry: false`.
+ */
+export function useCreateInvitation() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        retry: false,
+        mutationFn: (body: InvitationCreate) => sdk.users.invitations.createInvitation({ email: body.email.trim(), role: body.role }),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.users.invitations() });
+        },
+    });
+}
+
+/** Withdraws an invitation. Its link stops working; it stays in the list, marked withdrawn. */
+export function useRevokeInvitation() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        retry: false,
+        mutationFn: ({ id }: { id: string }) => sdk.users.invitations.revokeInvitation(id),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.users.invitations() });
+        },
+    });
+}
+
+/** The address an invitation's link opens: this console's origin, the invite page, the token after `#`. */
+export const invitationLink = (token: string, origin: string = window.location.origin): string => `${origin}/invite#${token}`;

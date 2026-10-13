@@ -322,9 +322,21 @@ export function listenerArtwork(item: RundownItem, publicUrl: string, covers?: C
     if (!origin) return undefined;
 
     const cover = listenerCover(item, covers);
-    if (cover !== undefined) return `${origin}/api/${cover.replace(/^\/+/, '')}`;
+    if (cover !== undefined) return `${origin}/api/${withFilename(cover.replace(/^\/+/, ''))}`;
 
     return stationArtwork(origin);
+}
+
+/**
+ * A proxy path with the filename a hardware player needs before it will fetch it.
+ *
+ * `CoverResolver` adds `/cover.jpg` to the proxy path it answers, but a record picked from a catalog
+ * read already carries the bare `art/source/<token>` in `artworkUrl`, and that never passes through
+ * the resolver. A BluOS player handed that showed nothing at all (measured on air: the cached cover
+ * before it drew, the bare proxy path did not). The route serves the same bytes either way.
+ */
+function withFilename(cover: string): string {
+    return /^art\/source\/[^/]+$/.test(cover) ? `${cover}/cover.jpg` : cover;
 }
 
 /**

@@ -293,6 +293,20 @@ describe('listenerArtwork, through itemAnnotations', () => {
         expect(itemAnnotations(item, reachable()).url).toBe('https://radio.test/api/art/0b1e4a52-1111-4222-8333-444455556666');
     });
 
+    it('gives a bare proxy path the filename a player needs before it will fetch it', () => {
+        // A catalog read hands an uncached cover over as `art/source/<token>`, which never passes
+        // through `CoverResolver` and so never gained its `/cover.jpg`. BluOS drew nothing for it.
+        const item: RundownItem = { ...record(-9), artworkUrl: 'art/source/AbC-123_x' };
+
+        expect(itemAnnotations(item, reachable()).url).toBe('https://radio.test/api/art/source/AbC-123_x/cover.jpg');
+    });
+
+    it('leaves a proxy path that already carries one alone', () => {
+        const item: RundownItem = { ...record(-9), artworkUrl: 'art/source/AbC-123_x/cover.jpg' };
+
+        expect(itemAnnotations(item, reachable()).url).toBe('https://radio.test/api/art/source/AbC-123_x/cover.jpg');
+    });
+
     it("sends the station's logo instead of a provider's URL, which is never put on the wire", () => {
         // Two reasons, either of which is enough. A player will not fetch a URL that does not look
         // like a picture, and this field is broadcast to every listener, so a Subsonic cover URL

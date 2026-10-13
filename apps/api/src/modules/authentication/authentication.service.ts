@@ -45,6 +45,7 @@ import { PasswordRateLimiter } from './password.rate.limiter.js';
 import { AuthenticationServiceOptions } from './authentication.options.js';
 import { ActorsRepository } from '#modules/authentication/repositories/actors.repository.js';
 import { PlatformRoleService } from '#modules/permissions/platform.role.service.js';
+import { PasskeyRelyingParty } from './passkey.relying.party.js';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { OidcSignInRefused } from './oidc.sign.in.refused.js';
 import { allowlistAdmits, resolveSigninAllowlist, resolveSigninProviders } from './signin.settings.js';
@@ -153,6 +154,7 @@ export class AuthenticationService {
         private readonly platformRoles: PlatformRoleService,
         private readonly config: AppConfig,
         private readonly passwordLimiter: PasswordRateLimiter,
+        private readonly passkeyRelyingParty: PasskeyRelyingParty,
     ) {
         this.authenticateHandlerMap = new Map<AuthenticationGrantType, AuthenticationHandlers>();
         this.authenticateHandlerMap.set('client_credentials', {
@@ -898,10 +900,8 @@ export class AuthenticationService {
 
         // We scope the WebAuthn allowlist to the specific credential the MFA challenge offered
         // — the SPA mustn't be able to discover other credentials by trying different ids.
-        const challenge = await this.fidoFactorService.createFidoAuthorizationChallenge(mfa.actor.actorId, fidoFactor.methodId, {
-            rpId: this.options.authenticationFidoRpId,
-            rpOrigin: this.options.authenticationFidoRpOrigin,
-        });
+        const { rpId, rpOrigin } = this.passkeyRelyingParty.resolve();
+        const challenge = await this.fidoFactorService.createFidoAuthorizationChallenge(mfa.actor.actorId, fidoFactor.methodId, { rpId, rpOrigin });
 
         return {
             method: 'fido',
@@ -998,10 +998,8 @@ export class AuthenticationService {
             throw httpError(400);
         }
 
-        const challenge = await this.fidoFactorService.createFidoAuthorizationChallenge(factor.actorId, undefined, {
-            rpId: this.options.authenticationFidoRpId,
-            rpOrigin: this.options.authenticationFidoRpOrigin,
-        });
+        const { rpId, rpOrigin } = this.passkeyRelyingParty.resolve();
+        const challenge = await this.fidoFactorService.createFidoAuthorizationChallenge(factor.actorId, undefined, { rpId, rpOrigin });
 
         return {
             grant_type: 'fido',

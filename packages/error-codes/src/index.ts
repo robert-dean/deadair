@@ -20,6 +20,7 @@ export const ErrorCodes = {
     LAST_ADMIN: 'E10011',
     OWN_ACCOUNT_REFUSED: 'E10012',
     ACCOUNT_DISABLED: 'E10013',
+    PASSKEY_ORIGIN_REFUSED: 'E10014',
 
     // Render / shows (E200xx)
     SHOW_NOT_FOUND: 'E20001',

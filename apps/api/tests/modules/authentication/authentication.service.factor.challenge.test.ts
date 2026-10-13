@@ -32,7 +32,8 @@ const build = () => {
     };
 
     const service = Object.create(AuthenticationService.prototype) as AuthenticationService;
-    Object.assign(service, { mfaChallengeService, fidoFactorService, options: {} });
+    const passkeyRelyingParty = { resolve: () => ({ rpId: 'radio.example', rpOrigin: 'https://radio.example', rpName: 'Radio' }) };
+    Object.assign(service, { mfaChallengeService, fidoFactorService, passkeyRelyingParty, options: {} });
 
     return { service, mfaChallengeService, fidoFactorService };
 };
@@ -79,6 +80,9 @@ describe('starting a factor challenge for a method that is not implemented', () 
         const result = await service.startFactorChallenge({ method: 'fido', mfa_challenge_id: CHALLENGE_ID });
 
         expect(result).toMatchObject({ method: 'fido', fido_challenge_id: 'fido-challenge' });
-        expect(fidoFactorService.createFidoAuthorizationChallenge).toHaveBeenCalledWith(ACTOR_ID, 'key-1', expect.anything());
+        expect(fidoFactorService.createFidoAuthorizationChallenge).toHaveBeenCalledWith(ACTOR_ID, 'key-1', {
+            rpId: 'radio.example',
+            rpOrigin: 'https://radio.example',
+        });
     });
 });

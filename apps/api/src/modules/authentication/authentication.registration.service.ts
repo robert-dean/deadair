@@ -42,6 +42,7 @@ import { httpError, unauthorizedError } from '@maroonedsoftware/errors';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { CacheProvider } from '@maroonedsoftware/cache';
 import { SessionActivityService } from './session.activity.service.js';
+import { PasskeyRelyingParty } from './passkey.relying.party.js';
 import { StrongFactorGate } from './strong.factor.gate.js';
 import { MailService } from '#modules/mail/mail.service.js';
 import { SignInMailLimiter } from './sign.in.mail.limiter.js';
@@ -83,6 +84,7 @@ export class AuthenticationRegistrationService {
         private readonly pkceProvider: PkceProvider,
         private readonly sessionActivity: SessionActivityService,
         private readonly oidcFactorService: OidcFactorService,
+        private readonly passkeyRelyingParty: PasskeyRelyingParty,
     ) {
         this.factorHandlerMap = new Map<AuthenticationFactorMethod, FactorHandlers>();
         this.factorHandlerMap.set('password', {
@@ -458,10 +460,18 @@ export class AuthenticationRegistrationService {
     }
 
     private async registerFidoFactor(actorId: string, request: FidoFactorRegistration): Promise<FidoFactorRegistrationResponse> {
+        // Named by the person's address, which is what their device's passkey list shows beside the
+        // station's name. Their account id would be a uuid nobody recognises.
+        const [email] = await this.emailFactorService.listFactors(actorId, true);
+        const name = email?.value ?? actorId;
+        const { rpId, rpOrigin, rpName } = this.passkeyRelyingParty.resolve();
         const result = await this.fidoFactorService.registerFidoFactor(actorId, {
-            userName: actorId,
-            userDisplayName: actorId,
+            userName: name,
+            userDisplayName: name,
             label: request.label,
+            rpId,
+            rpOrigin,
+            rpName,
         });
 
         return {

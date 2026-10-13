@@ -33,6 +33,7 @@ contract Persona: {
     hosts?: array(string(min=1, max=100)) # The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties
     defaultHost: readonly boolean # The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host
     presenting: readonly boolean # Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing
+    coHosting?: readonly boolean # Whether this character presents BESIDE the one writing breaks on the broadcast on air: one of the co-hosts the schedule put on for tonight, read from the same running order as `presenting`. Present and true only for them, absent for everybody else, so a client built before it reads no change. Never true alongside `presenting`
 }
 
 # One thing a character does on air, and how often it does it

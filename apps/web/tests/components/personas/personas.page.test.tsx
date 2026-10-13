@@ -132,6 +132,22 @@ describe('PersonasPage', () => {
         expect(within(stationsOwn as HTMLElement).queryByText('On air now')).not.toBeInTheDocument();
     });
 
+    // A show with a co-host has two characters on air, and the page used to badge only the one
+    // writing the breaks.
+    it('badges a co-host on air beside the host presenting', async () => {
+        listPersonas.mockResolvedValue({
+            personas: [
+                persona({ id: 'p-2', key: 'wisecrack', label: 'Fran', presenting: true }),
+                persona({ id: 'p-3', key: 'sidekick', label: 'Garth', coHosting: true }),
+            ],
+        });
+        render(<PersonasPage />);
+
+        const cohost = (await screen.findByText('Garth')).parentElement;
+        expect(within(cohost as HTMLElement).getByText('On air now, co-host')).toBeInTheDocument();
+        expect(within(screen.getByText('Fran').parentElement as HTMLElement).getByText('On air now')).toBeInTheDocument();
+    });
+
     it('says "On air now" once when the station\u2019s own host is the one presenting', async () => {
         // The ordinary station, where the two questions have one answer: one badge, not two.
         listPersonas.mockResolvedValue({ personas: [persona({ defaultHost: true, presenting: true })] });

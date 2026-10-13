@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.62.1] — 2026-10-13
+
+- A record whose cover the station had not cached yet now shows its artwork on a BluOS player. The stream advertised that cover as a bare `art/source/<token>` path, which BluOS ignores because it only fetches a URL that ends like an image; it now carries `/cover.jpg` like every other cover the station sends.
+- A break on a co-hosted show wears the portrait of whoever is speaking it, not the lead host's. A break with no picture of its own showed the broadcast host's face whoever was talking, so every one of a co-host's breaks went out under the other presenter's picture. A speaker with no portrait now shows the station's logo rather than the host's face.
+- Check-up's Listen list says how to put the station on HomePods, Sonos, Chromecast or Alexa speakers through Music Assistant: add the MP3 address there as a custom radio station.
+- Voice badges a co-host as on air beside the host presenting. A show the schedule gave a co-host used to mark only the one writing the breaks, so the second presenter looked off air. A persona now carries `coHosting`, read from the same running order as `presenting`.
+
 ## [0.62.0] — 2026-10-13
 
 - The party page offers "Play it anyway" on a request the station turned down for its own taste, and pressing it asks for the record again past those rules. The new request shows in Your requests like any other.
@@ -1392,7 +1399,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.62.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.62.1...HEAD
+[0.62.1]: https://github.com/robert-dean/deadair/compare/v0.62.0...v0.62.1
 [0.62.0]: https://github.com/robert-dean/deadair/compare/v0.61.0...v0.62.0
 [0.61.0]: https://github.com/robert-dean/deadair/compare/v0.60.0...v0.61.0
 [0.60.0]: https://github.com/robert-dean/deadair/compare/v0.59.0...v0.60.0

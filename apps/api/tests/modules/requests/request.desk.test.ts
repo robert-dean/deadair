@@ -8,7 +8,14 @@ import { DateTime } from 'luxon';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 
-import { REQUEST_AIR_WINDOW_MS, REQUEST_PLACE_WINDOW_MS, RequestDesk, type Requester } from '../../../src/modules/requests/request.desk.js';
+import {
+    REFUSED_FOR_TASTE,
+    REFUSED_OUTRIGHT,
+    REQUEST_AIR_WINDOW_MS,
+    REQUEST_PLACE_WINDOW_MS,
+    RequestDesk,
+    type Requester,
+} from '../../../src/modules/requests/request.desk.js';
 import {
     OpenRequestTaken,
     type NewRequest,
@@ -62,6 +69,7 @@ function memoryTable() {
                 artist: request.artist,
                 status: request.status,
                 ...(request.reason === undefined ? {} : { reason: request.reason }),
+                ...(request.insisted === true ? { insisted: true as const } : {}),
                 createdAt: DateTime.now(),
             };
             rows.push(row);
@@ -75,13 +83,29 @@ function memoryTable() {
                 .map(row => row.createdAt)
                 .at(-1),
         ),
-        moveTo: vi.fn(async (_: string, id: string, from: readonly RequestStatus[], to: RequestStatus, reason?: string) => {
+        spendOverrule: vi.fn(async (_: string, id: string) => {
             const row = rows.find(candidate => candidate.id === id);
-            if (row === undefined || !from.includes(row.status)) return undefined;
-            row.status = to;
-            if (reason !== undefined) row.reason = reason;
+            if (row === undefined || row.status !== 'declined' || row.overrulable !== true) return undefined;
+            delete row.overrulable;
             return { ...row };
         }),
+        moveTo: vi.fn(
+            async (
+                _: string,
+                id: string,
+                from: readonly RequestStatus[],
+                to: RequestStatus,
+                reason?: string,
+                options: { overrulable?: boolean } = {},
+            ) => {
+                const row = rows.find(candidate => candidate.id === id);
+                if (row === undefined || !from.includes(row.status)) return undefined;
+                row.status = to;
+                if (reason !== undefined) row.reason = reason;
+                if (options.overrulable === true) row.overrulable = true;
+                return { ...row };
+            },
+        ),
     };
     return repository;
 }
@@ -93,7 +117,10 @@ interface World {
     onAir?: boolean;
     approval?: string;
     lineup?: boolean;
+    /** Whether the record passes the broadcast's rules. */
     resolves?: boolean;
+    /** Whether it passes when overruled: false is a never-play rule, or a clean-only station with no clean copy. */
+    overrules?: boolean;
     audio?: 'local' | 'remote' | 'none';
     fetching?: boolean;
     edit?: { ok: true } | { ok: false; reason: string; message: string };
@@ -121,7 +148,11 @@ function build(world: World = {}) {
             return world.personas ?? [{ label: 'Night Owl', djName: 'Vera Lane' }, { label: 'Newsreader' }];
         }),
     };
-    const resolver = { resolve: vi.fn(async () => (world.resolves === false ? [] : [RESOLVED])) };
+    const resolver = {
+        resolve: vi.fn(async (_picks: unknown, _rules: unknown, options?: { overrule?: boolean }) =>
+            (options?.overrule === true ? world.overrules === false : world.resolves === false) ? [] : [RESOLVED],
+        ),
+    };
     const audio = {
         findForBindings: vi.fn(async () =>
             world.audio === 'none'
@@ -191,18 +222,42 @@ describe('submitting', () => {
         expect(jobs.send).not.toHaveBeenCalledWith('playout.cache_track', expect.anything());
     });
 
-    it('turns down a record the station’s own rules rule out, and says why', async () => {
+    it('turns down a record the station’s own rules rule out, says why, and leaves the listener room to insist', async () => {
         const { desk } = build({ resolves: false });
 
         const row = await desk.submit(app(), TEARDROP);
 
-        expect(row).toMatchObject({ status: 'declined', reason: expect.stringContaining('aired lately') });
+        expect(row).toMatchObject({ status: 'declined', reason: REFUSED_FOR_TASTE, overrulable: true });
     });
 
-    it('turns down a record no source can play', async () => {
+    it('turns down a record nobody can insist on, a never-play rule’s or a clean-only station’s, without that room', async () => {
+        const { desk } = build({ resolves: false, overrules: false });
+
+        const row = await desk.submit(app(), TEARDROP);
+
+        expect(row).toMatchObject({ status: 'declined', reason: REFUSED_OUTRIGHT });
+        expect(row.overrulable).toBeUndefined();
+    });
+
+    it('asks the second time as an overrule would, with the broadcast it would join', async () => {
+        const { desk, resolver } = build({ resolves: false });
+
+        await desk.submit(app(), TEARDROP);
+
+        expect(resolver.resolve).toHaveBeenLastCalledWith(
+            [{ title: 'Teardrop', artist: 'Massive Attack', trackId: 't-1' }],
+            expect.objectContaining({ repeatWindowDays: 0, artistCooldownMinutes: 0 }),
+            expect.objectContaining({ overrule: true, broadcast: { mode: 'rotation' } }),
+        );
+    });
+
+    it('turns down a record no source can play, with no room to insist', async () => {
         const { desk } = build({ audio: 'none' });
 
-        expect((await desk.submit(app(), TEARDROP)).status).toBe('declined');
+        const row = await desk.submit(app(), TEARDROP);
+
+        expect(row.status).toBe('declined');
+        expect(row.overrulable).toBeUndefined();
     });
 
     it('holds a request pending when there is no quiet place near the head just now', async () => {
@@ -285,6 +340,121 @@ describe('submitting', () => {
         await desk.submit(chat(), TEARDROP);
 
         expect(told()).toEqual([]);
+    });
+});
+
+describe('a request the listener insisted on', () => {
+    it('is resolved as overruled, and goes in past the rules that turned it down', async () => {
+        const { desk, resolver } = build({ resolves: false });
+
+        const row = await desk.submit(app(), TEARDROP, undefined, { insisted: true });
+
+        expect(row).toMatchObject({ status: 'queued', insisted: true });
+        expect(resolver.resolve).toHaveBeenCalledTimes(1);
+        expect(resolver.resolve).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ overrule: true }));
+    });
+
+    it('is still turned down by what nobody can overrule, and cannot be insisted on twice', async () => {
+        const { desk } = build({ resolves: false, overrules: false });
+
+        const row = await desk.submit(app(), TEARDROP, undefined, { insisted: true });
+
+        expect(row).toMatchObject({ status: 'declined', reason: REFUSED_OUTRIGHT });
+        expect(row.overrulable).toBeUndefined();
+    });
+
+    it('stays overruled when the tick places it, once its audio has arrived', async () => {
+        const world: World = { resolves: false, audio: 'remote' };
+        const { desk, table } = build(world);
+        const row = await desk.submit(app(), TEARDROP, undefined, { insisted: true });
+        world.audio = 'local';
+
+        expect(await desk.tick()).toBe(1);
+        expect(table.rows.find(candidate => candidate.id === row.id)?.status).toBe('queued');
+    });
+
+    it('waits for the operator like any other, and stays overruled when they grant it', async () => {
+        const { desk } = build({ resolves: false, approval: 'operator' });
+        const row = await desk.submit(app(), TEARDROP, undefined, { insisted: true });
+
+        expect(row.status).toBe('waiting');
+        expect((await desk.grant(row.id))?.status).toBe('queued');
+    });
+});
+
+describe('insisting', () => {
+    const refusedFor = async (desk: RequestDesk, world: World, requester = app()) => {
+        world.resolves = false;
+        const refused = await desk.submit(requester, TEARDROP, { to: 'Mum' });
+        world.resolves = true;
+        return refused;
+    };
+
+    it('writes a new request for the record, marked insisted and placed as overruled, and spends the old one’s overrule', async () => {
+        const world: World = {};
+        const { desk, table, director } = build(world);
+        const refused = await refusedFor(desk, world);
+        world.resolves = false;
+
+        const insisted = await desk.insist(app(), refused.id);
+
+        expect(insisted).toMatchObject({ status: 'queued', insisted: true, trackId: 't-1', requesterName: 'Robin', dedication: { to: 'Mum' } });
+        expect(insisted).not.toMatchObject({ id: refused.id });
+        expect(table.rows.find(row => row.id === refused.id)?.overrulable).toBeUndefined();
+        expect(director.applyEdit).toHaveBeenCalledWith(
+            expect.objectContaining({ kind: 'insertRequested', requestId: (insisted as { id: string }).id }),
+        );
+    });
+
+    it('answers nothing for somebody else’s request, and leaves its overrule alone', async () => {
+        const world: World = {};
+        const { desk, table } = build(world);
+        const refused = await refusedFor(desk, world);
+
+        expect(await desk.insist(app('a-2'), refused.id)).toBeUndefined();
+        expect(table.rows.find(row => row.id === refused.id)?.overrulable).toBe(true);
+    });
+
+    it('will not insist twice on one refusal, or on one nobody may overrule', async () => {
+        const world: World = {};
+        const { desk } = build(world);
+        const refused = await refusedFor(desk, world);
+        await desk.insist(app(), refused.id);
+
+        expect(await desk.insist(app(), refused.id)).toBe('spent');
+
+        const { desk: other } = build({ resolves: false, overrules: false });
+        const outright = await other.submit(app(), TEARDROP);
+        expect(await other.insist(app(), outright.id)).toBe('spent');
+    });
+
+    it('refuses somebody with a request already open as it always would, and keeps the overrule for later', async () => {
+        const world: World = {};
+        const { desk, table } = build(world);
+        const refused = await refusedFor(desk, world);
+        await desk.submit(app(), { trackId: 't-2', title: 'Angel', artist: 'Massive Attack' });
+
+        const answer = await desk.insist(app(), refused.id);
+
+        expect(answer).toMatchObject({ status: 'declined', reason: expect.stringContaining('One at a time') });
+        expect(answer).not.toMatchObject({ insisted: true });
+        expect(table.rows.find(row => row.id === refused.id)?.overrulable).toBe(true);
+    });
+
+    it('waits for an operator on a station that asks for one', async () => {
+        const { desk, table } = build({ approval: 'operator' });
+        table.rows.push({
+            id: 'r-refused',
+            requesterKey: app().key,
+            requesterName: 'Robin',
+            ...TEARDROP,
+            status: 'declined',
+            reason: REFUSED_FOR_TASTE,
+            overrulable: true,
+            createdAt: DateTime.now(),
+        });
+
+        expect(await desk.insist(app(), 'r-refused')).toMatchObject({ status: 'waiting', insisted: true });
     });
 });
 

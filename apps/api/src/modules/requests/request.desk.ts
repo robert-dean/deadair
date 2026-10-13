@@ -7,7 +7,7 @@ import { DEDICATION_CONTEXT, DEDICATION_KIND, DEDICATION_LABEL } from '#modules/
 import { DirectorService } from '#modules/director/director.service.js';
 import { PickResolver } from '#modules/director/pick.resolver.js';
 import { followOnFor } from '#modules/director/request.show.js';
-import { resolveRules, stationRules } from '#modules/director/rotation.rules.js';
+import { NO_RULES, resolveRules, stationRules } from '#modules/director/rotation.rules.js';
 import { StationLineupRepository } from '#modules/director/station.lineup.repository.js';
 import { NowPlayingService } from '#modules/nowplaying/nowplaying.service.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
@@ -53,6 +53,12 @@ export const REQUEST_PLACE_WINDOW_MS = 60 * 60_000;
 /** How long a request may sit in the order unheard before it is written off. */
 export const REQUEST_AIR_WINDOW_MS = 3 * 60 * 60_000;
 
+/** Why the station turned down a record a listener may still insist on. Says nothing about insisting, since a chat cannot. */
+export const REFUSED_FOR_TASTE = 'It has aired lately, or it does not fit this hour.';
+
+/** Why the station turned down a record nobody can insist on: a never-play rule, or a clean-only station with no clean copy. */
+export const REFUSED_OUTRIGHT = 'The station does not play that one.';
+
 /** What became of an attempt to put a request into the running order. */
 export type PlaceOutcome = 'queued' | 'waiting' | 'declined';
 
@@ -86,6 +92,17 @@ export type PlaceOutcome = 'queued' | 'waiting' | 'declined';
  *
  * The record goes through `PickResolver` with the broadcast's own rules, exactly as a mixed-in record
  * does, so a dislike, the repeat window, the period and the advisory policy apply to a request too.
+ *
+ * ## Unless the listener insists
+ *
+ * A refusal for the station's own taste (how often, a dislike, the period, the length) can be
+ * overruled by the listener, once. Which kind of refusal it was is found by resolving the record a
+ * second time the way an overruled request is resolved (`PickResolver.resolve`'s `overrule`), since
+ * the first answer cannot say which rule dropped it; a record that passes the second time is declined
+ * `overrulable`. Insisting writes a NEW request marked `insisted` rather than reopening the old one,
+ * so everything about the person and the line is decided again as for any request, and that request
+ * is resolved as overruled every time it is placed, by the tick and by a grant as much as by submit.
+ * A never-play rule and a clean-only station hold whatever anybody insists.
  *
  * ## Telling a chat
  *
@@ -123,7 +140,12 @@ export class RequestDesk {
      * Take a request. Always answers with a row, a refusal included, so whoever asked can be told why
      * in the same breath: a refusal is a `declined` row whose `reason` says it.
      */
-    async submit(requester: Requester, record: { trackId: string; title: string; artist: string }, dedication?: Dedication): Promise<RequestRow> {
+    async submit(
+        requester: Requester,
+        record: { trackId: string; title: string; artist: string },
+        dedication?: Dedication,
+        options: { insisted?: boolean } = {},
+    ): Promise<RequestRow> {
         const stationKey = this.identity.stationKey;
         const { settings, open, facts } = await this.requesterFacts(requester);
         const decision = arbitrate({ ...facts, trackAlreadyOpen: open.some(request => request.trackId === record.trackId) });
@@ -140,6 +162,7 @@ export class RequestDesk {
             status: decision.ok ? (settings.approval === 'operator' ? 'waiting' : 'pending') : 'declined',
             ...(decision.ok ? {} : { reason: decision.reason }),
             ...(dedication === undefined ? {} : { dedication }),
+            ...(options.insisted === true ? { insisted: true as const } : {}),
         };
         const created = await this.write(request);
         if (created.status !== 'pending') return created;
@@ -148,6 +171,31 @@ export class RequestDesk {
         // everything twice.
         await this.place(created, { quiet: true });
         return (await this.repository.find(stationKey, created.id)) ?? created;
+    }
+
+    /**
+     * The listener insisting on a record the station turned down for its own taste: a NEW request
+     * for it, marked `insisted`, decided like any other and placed as overruled (see the class).
+     *
+     * Answers nothing for a request that is not this person's, so another listener's ids tell them
+     * nothing, and `spent` for one that is not declined and overrulable any more. Somebody the
+     * arbitration would refuse whatever they asked for (one already open, the cooldown, a full line)
+     * is refused with a row as usual and keeps the overrule, so they can insist once that has passed.
+     */
+    async insist(requester: Requester, id: string): Promise<RequestRow | 'spent' | undefined> {
+        const stationKey = this.identity.stationKey;
+        const refused = await this.repository.find(stationKey, id);
+        if (refused === undefined || refused.requesterKey !== requester.key) return undefined;
+        if (refused.status !== 'declined' || refused.overrulable !== true) return 'spent';
+
+        // Under the name they asked by the first time, whatever this caller would be called now.
+        const asking: Requester = { ...requester, name: refused.requesterName };
+        const record = { trackId: refused.trackId, title: refused.title, artist: refused.artist };
+        if ((await this.refusal(asking)) !== undefined) return this.submit(asking, record, refused.dedication);
+
+        // Guarded, so two taps on "play it anyway" cannot both insist.
+        if ((await this.repository.spendOverrule(stationKey, id)) === undefined) return 'spent';
+        return this.submit(asking, record, refused.dedication, { insisted: true });
     }
 
     /**
@@ -286,16 +334,21 @@ export class RequestDesk {
             if (lineup === undefined) return 'waiting';
 
             const rules = resolveRules(lineup.mode, lineup.rules, stationRules(this.config));
-            const [track] = await this.resolver.resolve([{ title: request.title, artist: request.artist, trackId: request.trackId }], rules, {
+            const picks = [{ title: request.title, artist: request.artist, trackId: request.trackId }];
+            const options = {
                 ...(lineup.era === undefined ? {} : { era: lineup.era }),
                 // A never-play rule makes no exception for a listener, so a scoped one is judged
                 // against the broadcast the request would join.
                 broadcast: { mode: lineup.mode, ...(lineup.slotId === undefined ? {} : { slotId: lineup.slotId }) },
                 keepOrder: true,
                 discoveries: 1,
-            });
+            };
+            const overruled = () => this.resolver.resolve(picks, NO_RULES, { ...options, overrule: true });
+            const [track] = request.insisted === true ? await overruled() : await this.resolver.resolve(picks, rules, options);
             if (track === undefined) {
-                await this.refuse(request, 'The station cannot play that one just now: it has aired lately, or this hour’s rules rule it out.', say);
+                // Which kind of no this was, found by asking again as an overrule would (see the class).
+                const overrulable = request.insisted !== true && (await overruled()).length > 0;
+                await this.refuse(request, overrulable ? REFUSED_FOR_TASTE : REFUSED_OUTRIGHT, say, overrulable);
                 return 'declined';
             }
 
@@ -398,8 +451,8 @@ export class RequestDesk {
         }
     }
 
-    private async refuse(request: RequestRow, reason: string, say: (row: RequestRow, text: string) => void): Promise<void> {
-        const declined = await this.repository.moveTo(this.identity.stationKey, request.id, ['pending'], 'declined', reason);
+    private async refuse(request: RequestRow, reason: string, say: (row: RequestRow, text: string) => void, overrulable = false): Promise<void> {
+        const declined = await this.repository.moveTo(this.identity.stationKey, request.id, ['pending'], 'declined', reason, { overrulable });
         if (declined !== undefined) say(declined, `Sorry, not this time: ${declined.title} by ${declined.artist}. ${reason}`);
     }
 

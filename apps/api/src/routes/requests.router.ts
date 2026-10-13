@@ -89,6 +89,26 @@ RequestsRouter.get('/requests/mine', requirePolicy({ policy: 'requests.ask' }), 
 });
 
 /**
+ * Ask again for a record the station turned down for its own taste, overruling it. Only your own request, only one marked `overrulable`, and only once. Answers with the NEW request this makes, decided like any other: it can still wait for an operator, or be refused for who is asking or how full the line is
+ * from [requests.ck](../../data/contracts/requests/requests.ck) `POST /requests/{id}/insist`
+ */
+RequestsRouter.post('/requests/:id/insist', requirePolicy({ policy: 'requests.ask' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const service = ctx.container.get(RequestsService);
+    const result: ListenerRequest = await service.insist(id);
+
+    ctx.status = 201;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * Let a waiting request through. It goes into the running order once its audio is here
  * from [requests.ck](../../data/contracts/requests/requests.ck) `POST /requests/{id}/grant`
  */

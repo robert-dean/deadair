@@ -147,7 +147,7 @@ on the spot and the sender is told to get another. Minting a code refuses an API
 ## Requests
 
 **A request is an API first and a chat command second.** `apps/api/data/contracts/requests/requests.ck`
-is what a listener app calls (`platform.view`: search, ask, follow your own) and what the console decides
+is what a listener app calls (`requests.ask`: search, ask, follow your own) and what the console decides
 with (`platform.manage`: list, grant, decline), so the Android, iOS and desktop SDKs have it without any of
 this module knowing they exist. A chat's `/request` reaches the same `RequestDesk.submit`, so one person
 cannot get round the rules by asking from the other side.
@@ -186,7 +186,7 @@ split in two (`arbitrateRequester`, then the record) so the first half can run b
 **The database holds one open request per person and one per record.** The desk decides from the open
 rows it has just read and then inserts, with nothing locked in between, so two submits that overlap (a
 double tap, or the app and a linked chat at once) both pass the arbitration. Two partial unique indexes
-over the open statuses (migration 0087) refuse the second insert; the repository turns that unique
+over the open statuses (migration 0088) refuse the second insert; the repository turns that unique
 violation into `OpenRequestTaken`, and the desk writes the loser as `declined` with the words the
 arbitration uses for the same thing in sequence. A declined row is outside both indexes. The cap on open
 requests is a count, which no index can hold, so a true race can take the line one over: a lock held
@@ -195,6 +195,21 @@ across placing a request, and so across the director, would be the worse failure
 **The station's own rules still hold.** A request goes through `PickResolver` with the broadcast's rules,
 as a mixed-in record does, so a dislike, the repeat window, the period and the advisory policy apply to it.
 The search a listener picks from stands on the same floor as the model's (playable, not disliked).
+
+**Unless the listener insists, and then only the station's taste gives way.** A refusal for how often
+(the repeat window, the artist cooldown), a dislike, the period or the length is the station's taste,
+which a listener asking twice may outvote. A never-play rule is the operator's instruction and
+`clean-only` is a promise about what airs, so neither gives way, and nor does a record nothing serves.
+Which kind of refusal it was is found by resolving the record again as an overrule would
+(`PickResolver.resolve`'s `overrule`, with `NO_RULES`), because the first answer only says "no"; a record
+that passes the second time is declined `overrulable` (migration 0096) with `REFUSED_FOR_TASTE`, and one
+that does not with `REFUSED_OUTRIGHT`. Neither sentence mentions insisting, since a chat cannot. Insisting
+writes a NEW request marked `insisted`, carrying the record and the dedication over, rather than reopening
+the declined one: the person and the line are decided again exactly as for any request (one at a time,
+the cooldown, the cap, approval), and the two one-open indexes cover it without `moveTo` having to map a
+unique violation. `insisted` is stored rather than passed, because the tick and a grant place the request
+again and each has to resolve it as overruled. Spending the overrule clears `overrulable`, guarded, so
+one refusal is overruled once. A request show's follow-on run is still chosen by the show's own rules.
 
 **Placed by the director, and only with its bytes here.** `insertRequested` puts the record in the first
 quiet gap near the head (see `director.md`), never beside another request. A record whose audio is not local

@@ -76,6 +76,19 @@ public sealed class RequestsClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Insist on request
+    /// Ask again for a record the station turned down for its own taste, overruling it. Only your own request, only one marked `overrulable`, and only once. Answers with the NEW request this makes, decided like any other: it can still wait for an operator, or be refused for who is asking or how full the line is
+    /// </summary>
+    public async Task<ListenerRequest> InsistOnRequestAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("requests", http.Segment(id), "insist"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<ListenerRequest>(response);
+    }
+
+    /// <summary>
     /// Grant request
     /// Let a waiting request through. It goes into the running order once its audio is here
     /// </summary>

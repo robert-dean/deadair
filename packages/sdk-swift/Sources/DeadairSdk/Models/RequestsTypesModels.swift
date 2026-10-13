@@ -318,8 +318,12 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
     public var message: String?
     /// True when a guest at a party asked for it, through the party pass. Absent otherwise
     public var fromParty: Bool?
+    /// True on a declined request whoever asked may still insist on, with `POST /requests/{id}/insist`: the station turned it down for its own taste (aired lately, a cooldown, a dislike, the period, a length) rather than a rule nobody overrules. Absent otherwise, and once it has been insisted on
+    public var overrulable: Bool?
+    /// True when whoever asked insisted on it after the station turned it down, so the station's own taste was overruled. Absent otherwise
+    public var insisted: Bool?
 
-    public init(id: UUID, status: RequestStatus, title: String, artist: String, requesterName: String, source: RequestSource, createdAt: Date, reason: String? = nil, airedAt: Date? = nil, dedicateTo: String? = nil, message: String? = nil, fromParty: Bool? = nil) {
+    public init(id: UUID, status: RequestStatus, title: String, artist: String, requesterName: String, source: RequestSource, createdAt: Date, reason: String? = nil, airedAt: Date? = nil, dedicateTo: String? = nil, message: String? = nil, fromParty: Bool? = nil, overrulable: Bool? = nil, insisted: Bool? = nil) {
         self.id = id
         self.status = status
         self.title = title
@@ -332,6 +336,8 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
         self.dedicateTo = dedicateTo
         self.message = message
         self.fromParty = fromParty
+        self.overrulable = overrulable
+        self.insisted = insisted
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -347,6 +353,8 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
         case dedicateTo = "dedicateTo"
         case message = "message"
         case fromParty = "fromParty"
+        case overrulable = "overrulable"
+        case insisted = "insisted"
     }
 
     public init(from decoder: Decoder) throws {
@@ -363,6 +371,8 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
         self.dedicateTo = try container.decodeIfPresent(String.self, forKey: .dedicateTo)
         self.message = try container.decodeIfPresent(String.self, forKey: .message)
         self.fromParty = try container.decodeIfPresent(Bool.self, forKey: .fromParty)
+        self.overrulable = try container.decodeIfPresent(Bool.self, forKey: .overrulable)
+        self.insisted = try container.decodeIfPresent(Bool.self, forKey: .insisted)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -379,6 +389,8 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.dedicateTo, forKey: .dedicateTo)
         try container.encodeIfPresent(self.message, forKey: .message)
         try container.encodeIfPresent(self.fromParty, forKey: .fromParty)
+        try container.encodeIfPresent(self.overrulable, forKey: .overrulable)
+        try container.encodeIfPresent(self.insisted, forKey: .insisted)
     }
 }
 

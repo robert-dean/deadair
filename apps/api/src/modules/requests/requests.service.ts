@@ -46,6 +46,8 @@ export function toListenerRequest(row: RequestRow): ListenerRequest {
         ...(row.airedAt === undefined ? {} : { airedAt: row.airedAt }),
         ...(row.dedication?.to === undefined ? {} : { dedicateTo: row.dedication.to }),
         ...(row.dedication?.message === undefined ? {} : { message: row.dedication.message }),
+        ...(row.overrulable === true ? { overrulable: true } : {}),
+        ...(row.insisted === true ? { insisted: true } : {}),
     };
 }
 
@@ -148,6 +150,23 @@ export class RequestsService {
         const trackId = await this.copies.resolve(source.pluginId, source.externalId, 'requests.create.getTrack');
         if (trackId === undefined) throw httpError(404).withDetails({ message: 'that provider has no record by that id the station could take in' });
         return trackId;
+    }
+
+    /**
+     * Insist on one of your own refused requests. 404 for one that is not yours, as for one that does
+     * not exist, and 409 for one that cannot be insisted on (any more).
+     */
+    async insist(id: string): Promise<ListenerRequest> {
+        const { key, actorId } = this.authz.requireRequester();
+        // Named in the desk from the request being insisted on, which is the name they asked by.
+        const insisted = await this.desk.insist({ key, name: UNNAMED_REQUESTER, actorId }, id);
+        if (insisted === undefined) throw httpError(404).withDetails({ message: 'no such request' });
+        if (insisted === 'spent') {
+            throw httpError(409).withDetails({
+                message: 'only a request the station turned down for its own taste can be insisted on, and only once',
+            });
+        }
+        return toListenerRequest(insisted);
     }
 
     async mine(): Promise<ListenerRequestList> {

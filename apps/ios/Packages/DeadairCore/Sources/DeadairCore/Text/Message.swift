@@ -182,6 +182,8 @@ public enum Message: Equatable, Sendable {
     case requestRefused(String?)
     /// The record went from the station between the search and the send.
     case requestRecordGone
+    /// A refusal that cannot be overruled, or already was.
+    case requestCannotInsist
     /// Who a request is dedicated to, in the listener's own words.
     case requestFor(String)
     /// Where one of the listener's requests has got to.

@@ -13,6 +13,7 @@ const joinParty = vi.fn();
 const searchRequestableRecords = vi.fn();
 const createRequest = vi.fn();
 const listMyRequests = vi.fn();
+const insistOnRequest = vi.fn();
 const getNowPlaying = vi.fn();
 
 vi.mock('../../src/party/party.client', () => ({
@@ -23,6 +24,7 @@ vi.mock('../../src/party/party.client', () => ({
             searchRequestableRecords: (...args: unknown[]) => searchRequestableRecords(...args),
             createRequest: (...args: unknown[]) => createRequest(...args),
             listMyRequests: () => listMyRequests(),
+            insistOnRequest: (...args: unknown[]) => insistOnRequest(...args),
         },
         nowplaying: { getNowPlaying: () => getNowPlaying() },
     },
@@ -121,5 +123,31 @@ describe('the guest page', () => {
 
         expect(createRequest).toHaveBeenCalledWith({ trackId: 't-1', name: 'Sam', dedicateTo: 'Marcus' });
         expect(searchRequestableRecords).toHaveBeenCalledWith({ q: 'holy', limit: 25 });
+    });
+
+    it('offers to play a refused record anyway, and asks again for it when pressed', async () => {
+        window.history.replaceState(null, '', '/party#dp_abc');
+        const refused = {
+            id: 'r-1',
+            status: 'declined',
+            title: 'Holy Diver',
+            artist: 'Dio',
+            requesterName: 'Sam',
+            source: 'app',
+            createdAt: DateTime.utc(),
+            reason: 'It has aired lately, or it does not fit this hour.',
+            overrulable: true,
+        };
+        listMyRequests.mockResolvedValue({
+            requests: [refused, { ...refused, id: 'r-0', title: 'Rainbow in the Dark', overrulable: undefined }],
+        });
+        insistOnRequest.mockResolvedValue({ ...refused, id: 'r-2', status: 'queued', overrulable: undefined, insisted: true });
+        const user = setupUser();
+        render(<PartyApp />);
+
+        await user.click(await screen.findByRole('button', { name: 'Play “Holy Diver” anyway' }));
+
+        expect(insistOnRequest).toHaveBeenCalledWith('r-1');
+        expect(screen.queryByRole('button', { name: 'Play “Rainbow in the Dark” anyway' })).not.toBeInTheDocument();
     });
 });

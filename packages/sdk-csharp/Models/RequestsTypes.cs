@@ -229,6 +229,16 @@ public sealed record ListenerRequest
     [JsonPropertyName("fromParty")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? FromParty { get; init; }
+
+    /// <summary>True on a declined request whoever asked may still insist on, with `POST /requests/{id}/insist`: the station turned it down for its own taste (aired lately, a cooldown, a dislike, the period, a length) rather than a rule nobody overrules. Absent otherwise, and once it has been insisted on</summary>
+    [JsonPropertyName("overrulable")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Overrulable { get; init; }
+
+    /// <summary>True when whoever asked insisted on it after the station turned it down, so the station's own taste was overruled. Absent otherwise</summary>
+    [JsonPropertyName("insisted")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Insisted { get; init; }
 }
 
 /// <summary>The party, if one is on</summary>

@@ -241,17 +241,33 @@ export class PickResolver {
             keepOrder?: boolean;
             /** The broadcast these picks are for, which a mode- or slot-scoped never-play rule is judged against. */
             broadcast?: PickBroadcast;
+            /**
+             * A listener insisted on this record after the station turned it down, so judge it by the
+             * three things nobody at the radio can overrule and nothing else: a never-play rule, a
+             * `clean-only` advisory policy, and a copy some provider will actually serve.
+             *
+             * Everything else the station decides for itself goes: `rules` (the repeat window, the
+             * cooldown, the caps), a dislike, the period and the length bounds. The first are
+             * preferences about how often, and the last three are the station's taste, which a
+             * listener asking twice is allowed to outvote. A never-play rule is the operator's
+             * instruction rather than taste, and `clean-only` is a promise about what the station
+             * airs, so those two hold however hard anybody asks. The order is kept, as `keepOrder`
+             * keeps it, since there is nothing to space.
+             */
+            overrule?: boolean;
         } = {},
     ): Promise<RundownTrack[]> {
         if (picks.length === 0) return [];
 
-        const { preference = [], era, avoidArtistKeys, seedArtistKey, queuedArtistKeys, want = 0, discoveries, keepOrder, broadcast } = options;
+        const { preference = [], avoidArtistKeys, seedArtistKey, queuedArtistKeys, want = 0, discoveries, broadcast, overrule = false } = options;
+        const era = overrule ? undefined : options.era;
+        const keepOrder = overrule || options.keepOrder;
         const policy = advisoryPolicy(this.config);
 
         const identified = await this.identify(picks, discoveries);
         if (identified.length === 0) return [];
 
-        const eligible = await this.judge(identified, rules, { era, avoidArtistKeys, queuedArtistKeys, want, broadcast });
+        const eligible = await this.judge(identified, rules, { era, avoidArtistKeys, queuedArtistKeys, want, broadcast, overrule });
         if (eligible.length === 0) return [];
 
         const trackIds = eligible.map(entry => entry.trackId);
@@ -296,7 +312,7 @@ export class PickResolver {
             // Judged on the same binding the item is about to be built from, so the draw's SQL and
             // this step read the same fact about the same copy. A binding with no measured duration
             // always fits: see `track.length.ts`.
-            if (!fitsLength(binding.durationMs, bounds)) {
+            if (!overrule && !fitsLength(binding.durationMs, bounds)) {
                 this.logger.warn("director: a chosen track is outside the station's length bounds; skipping it", {
                     track: `${pick.artist}: ${pick.title}`,
                     seconds: Math.round(binding.durationMs! / 1000),
@@ -479,6 +495,7 @@ export class PickResolver {
      * @param avoidArtistKeys - Unioned into the artist-cooldown set before {@link applyRules} runs,
      *   so an artist the caller has flagged is dropped outright rather than merely capped. The
      *   caller scopes this to a narrow window; `judge` itself has no opinion about how wide it is.
+     * @param overrule - Only the never-play rules, for a listener who insisted. See `resolve`.
      */
     private async judge(
         identified: readonly Identified[],
@@ -489,15 +506,22 @@ export class PickResolver {
             queuedArtistKeys,
             want,
             broadcast,
+            overrule,
         }: {
             era?: EraWindow | undefined;
             avoidArtistKeys?: ReadonlySet<string> | undefined;
             queuedArtistKeys?: ReadonlySet<string> | undefined;
             want: number;
             broadcast?: PickBroadcast | undefined;
+            overrule: boolean;
         },
     ): Promise<Identified[]> {
         const trackIds = identified.map(entry => entry.trackId);
+        if (overrule) {
+            // No ratings, no windows and no years to read: none of them can drop an overruled pick.
+            const blocked = await this.neverPlay.blocked(trackIds, broadcast);
+            return blocked.size === 0 ? [...identified] : identified.filter(entry => !blocked.has(entry.trackId));
+        }
         const [blocked, ratings, songKeys, recentArtistKeys, years] = await Promise.all([
             this.neverPlay.blocked(trackIds, broadcast),
             this.candidates.ratingsFor(trackIds),

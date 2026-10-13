@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { ListenerRequest } from '@deadair/sdk';
 import { DateTime } from 'luxon';
 
-import { EMPTY_FORM, isOpen, outcomeOf, requestBody, rowKey, searchTerm } from '../../src/party/party.rules';
+import { EMPTY_FORM, isOpen, mayInsist, outcomeOf, requestBody, rowKey, searchTerm } from '../../src/party/party.rules';
 
 const request = (overrides: Partial<ListenerRequest>): ListenerRequest => ({
     id: 'r-1',
@@ -62,6 +62,12 @@ describe('the rest', () => {
     it('keys a row by its track, or by its source when it has none', () => {
         expect(rowKey({ trackId: 't-1', title: 'x', artist: 'y' })).toBe('t-1');
         expect(rowKey({ source: { pluginId: 'p', externalId: 'e' }, title: 'x', artist: 'y' })).toBe('p:e');
+    });
+
+    it('offers to insist only on a refusal the station says may be overruled', () => {
+        expect(mayInsist(request({ status: 'declined', overrulable: true }))).toBe(true);
+        expect(mayInsist(request({ status: 'declined' }))).toBe(false);
+        expect(mayInsist(request({ status: 'expired', overrulable: true }))).toBe(false);
     });
 
     it('counts waiting, pending and queued as still to come', () => {

@@ -32,6 +32,7 @@ describe('the listed MCP tools', () => {
             'create_request',
             'get_now_playing',
             'get_playout_status',
+            'insist_on_request',
             'list_my_requests',
             'read_current_slot',
             'read_timetable',
@@ -48,6 +49,6 @@ describe('the listed MCP tools', () => {
 
     it('say which of them change something', () => {
         const writes = tools.filter(tool => tool.annotations?.readOnlyHint !== true).map(tool => tool.name);
-        expect(writes.sort()).toEqual(['call_api', 'create_request', 'skip_the_current_item']);
+        expect(writes.sort()).toEqual(['call_api', 'create_request', 'insist_on_request', 'skip_the_current_item']);
     });
 });

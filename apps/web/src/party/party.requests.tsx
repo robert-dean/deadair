@@ -9,7 +9,7 @@ import type { ListenerRequest, RequestableTrack } from '@deadair/sdk';
 import { sdkError } from '../api/sdk.error';
 import { formatClock } from '../i18n/format.locale';
 import { partySdk } from './party.client';
-import { EMPTY_FORM, PARTY_RULES, isOpen, outcomeOf, requestBody, rowKey, searchTerm, type PartyForm } from './party.rules';
+import { EMPTY_FORM, PARTY_RULES, isOpen, mayInsist, outcomeOf, requestBody, rowKey, searchTerm, type PartyForm } from './party.rules';
 import type { StoredGuest } from './party.session';
 
 interface Props {
@@ -82,6 +82,19 @@ export function PartyRequests({ guest, onEnded }: Props) {
         },
     });
 
+    // Overruling the station on a refusal makes a new request, decided like any other, so it is told
+    // the same way a request just sent is.
+    const insist = useMutation({
+        mutationFn: (request: ListenerRequest) => asGuest(() => partySdk.requests.insistOnRequest(request.id)),
+        onSuccess: request => notifications.show({ message: outcomeWords(request) }),
+        onError: error => {
+            const status = sdkError(error)?.status;
+            if (status === 401) return;
+            notifications.show({ color: 'red', message: status === 409 ? t('outcome.spent') : t('outcome.failed') });
+        },
+        onSettled: () => void queryClient.invalidateQueries({ queryKey: ['party', 'mine'] }),
+    });
+
     const outcomeWords = (request: ListenerRequest): string => {
         const outcome = outcomeOf(request);
         if (outcome.kind === 'refused') return outcome.reason ?? t('outcome.refused');
@@ -118,7 +131,12 @@ export function PartyRequests({ guest, onEnded }: Props) {
                     <Text size="sm" c="dimmed">
                         {t('endsAt', { time: formatClock(new Date(guest.expiresAt)) })}
                     </Text>
-                    <MyRequests requests={mine.data?.requests} loading={mine.isPending} />
+                    <MyRequests
+                        requests={mine.data?.requests}
+                        loading={mine.isPending}
+                        insisting={insist.isPending ? insist.variables?.id : undefined}
+                        onInsist={request => insist.mutate(request)}
+                    />
                 </Stack>
             ) : search.isError ? (
                 <Text c="red">{t('search.failed')}</Text>
@@ -171,7 +189,15 @@ export function PartyRequests({ guest, onEnded }: Props) {
     );
 }
 
-function MyRequests({ requests, loading }: { requests: ListenerRequest[] | undefined; loading: boolean }) {
+interface MyRequestsProps {
+    requests: ListenerRequest[] | undefined;
+    loading: boolean;
+    /** The request being insisted on just now, if any. */
+    insisting: string | undefined;
+    onInsist: (request: ListenerRequest) => void;
+}
+
+function MyRequests({ requests, loading, insisting, onInsist }: MyRequestsProps) {
     const { t } = useTranslation('party');
 
     return (
@@ -195,6 +221,20 @@ function MyRequests({ requests, loading }: { requests: ListenerRequest[] | undef
                                 {request.artist}
                             </Text>
                             <Note request={request} />
+                            {mayInsist(request) && (
+                                <Button
+                                    variant="light"
+                                    size="compact-sm"
+                                    mt={6}
+                                    w="fit-content"
+                                    aria-label={t('mine.insistLabel', { title: request.title })}
+                                    loading={insisting === request.id}
+                                    disabled={insisting !== undefined && insisting !== request.id}
+                                    onClick={() => onInsist(request)}
+                                >
+                                    {t('mine.insist')}
+                                </Button>
+                            )}
                         </Stack>
                         <Text size="sm" fw={600} c={isOpen(request.status) ? undefined : 'dimmed'} style={{ whiteSpace: 'nowrap' }}>
                             {t(`state.${request.status}`)}

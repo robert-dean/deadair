@@ -23,6 +23,12 @@ const OPEN: readonly RequestStatus[] = ['waiting', 'pending', 'queued'];
 
 export const isOpen = (status: RequestStatus): boolean => OPEN.includes(status);
 
+/**
+ * Whether the guest may still insist on a refusal: one the station turned down for its own taste, and
+ * not insisted on yet. The station decides that and says so in `overrulable`; the page only reads it.
+ */
+export const mayInsist = (request: ListenerRequest): boolean => request.status === 'declined' && request.overrulable === true;
+
 /** The term worth searching for, or undefined while there is not enough of one. */
 export function searchTerm(typed: string): string | undefined {
     const term = typed.trim();

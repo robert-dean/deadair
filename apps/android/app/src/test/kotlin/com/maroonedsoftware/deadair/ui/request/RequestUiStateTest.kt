@@ -28,7 +28,13 @@ import org.junit.Test
 class RequestUiStateTest {
     private val trackId = "5b0e8a52-3c1f-4d2a-9e7b-0f6c1d2e3a4b"
 
-    private fun request(status: RequestStatus, reason: String? = null, airedAt: String? = null, dedicateTo: String? = null) =
+    private fun request(
+        status: RequestStatus,
+        reason: String? = null,
+        airedAt: String? = null,
+        dedicateTo: String? = null,
+        overrulable: Boolean? = null,
+    ) =
         ListenerRequest(
             id = Uuid.parse("0c9f3e1a-7b2d-4e8f-a1c3-5d6e7f809a1b"),
             status = status,
@@ -40,6 +46,7 @@ class RequestUiStateTest {
             reason = reason,
             airedAt = airedAt?.let(Instant::parse),
             dedicateTo = dedicateTo,
+            overrulable = overrulable,
         )
 
     @Test
@@ -143,5 +150,13 @@ class RequestUiStateTest {
         assertEquals(Message.Text("Not tonight."), MyRequestRow.of(request(RequestStatus.DECLINED, reason = "Not tonight."), now, ZoneOffset.UTC).note)
         assertEquals(Message.RequestFor("Alex"), MyRequestRow.of(request(RequestStatus.QUEUED, dedicateTo = "Alex"), now, ZoneOffset.UTC).note)
         assertNull(MyRequestRow.of(request(RequestStatus.PENDING), now, ZoneOffset.UTC).note)
+    }
+
+    @Test
+    fun `only a refusal the station says may be overruled offers to play it anyway`() {
+        val now = Instant.parse("2026-10-03T22:00:00Z").toEpochMilliseconds()
+        assertTrue(MyRequestRow.of(request(RequestStatus.DECLINED, overrulable = true), now, ZoneOffset.UTC).mayInsist)
+        assertFalse(MyRequestRow.of(request(RequestStatus.DECLINED), now, ZoneOffset.UTC).mayInsist)
+        assertFalse(MyRequestRow.of(request(RequestStatus.EXPIRED, overrulable = true), now, ZoneOffset.UTC).mayInsist)
     }
 }

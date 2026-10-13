@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,6 +36,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
@@ -76,6 +79,9 @@ fun RequestScreen(
     sending: Boolean,
     onSend: (RequestRow) -> Unit,
     onDismiss: () -> Unit,
+    /** The request being insisted on just now, by id, or `null`. */
+    insisting: String?,
+    onInsist: (MyRequestRow) -> Unit,
     snackbarHost: SnackbarHostState,
 ) {
     Scaffold(
@@ -106,7 +112,7 @@ fun RequestScreen(
             }
 
             when (results) {
-                null -> MyRequests(mine, onRetryMine)
+                null -> MyRequests(mine, onRetryMine, insisting, onInsist)
                 LoadState.Loading -> Unit
                 is LoadState.Failed -> ErrorPlaceholder(detailFailure(results.status, R.string.request_nothing_found), onRetry)
                 is LoadState.Loaded ->
@@ -146,7 +152,7 @@ fun RequestScreen(
 }
 
 @Composable
-private fun MyRequests(mine: LoadState<List<MyRequestRow>>?, onRetry: () -> Unit) {
+private fun MyRequests(mine: LoadState<List<MyRequestRow>>?, onRetry: () -> Unit, insisting: String?, onInsist: (MyRequestRow) -> Unit) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item { Caption(stringResource(R.string.request_intro)) }
         item {
@@ -160,12 +166,12 @@ private fun MyRequests(mine: LoadState<List<MyRequestRow>>?, onRetry: () -> Unit
         when (mine) {
             null, LoadState.Loading -> Unit
             is LoadState.Failed -> item { ErrorPlaceholder(detailFailure(mine.status, R.string.my_requests_none), onRetry) }
-            is LoadState.Loaded -> myRows(mine.value)
+            is LoadState.Loaded -> myRows(mine.value, insisting, onInsist)
         }
     }
 }
 
-private fun LazyListScope.myRows(rows: List<MyRequestRow>) {
+private fun LazyListScope.myRows(rows: List<MyRequestRow>, insisting: String?, onInsist: (MyRequestRow) -> Unit) {
     if (rows.isEmpty()) {
         item { Caption(stringResource(R.string.my_requests_none)) }
         return
@@ -178,6 +184,16 @@ private fun LazyListScope.myRows(rows: List<MyRequestRow>) {
                 Column {
                     Text(row.artist, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     row.note?.let { Text(it.resolve(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    if (row.mayInsist) {
+                        val label = stringResource(R.string.request_play_anyway_label, row.title)
+                        FilledTonalButton(
+                            onClick = { onInsist(row) },
+                            enabled = insisting == null,
+                            modifier = Modifier.padding(top = 4.dp).semantics { contentDescription = label },
+                        ) {
+                            Text(stringResource(R.string.request_play_anyway))
+                        }
+                    }
                 }
             },
             trailingContent = {

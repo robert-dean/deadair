@@ -1,7 +1,7 @@
 ---
 title: 'Decline request'
 sidebar_label: 'Decline request'
-sidebar_position: 6
+sidebar_position: 7
 mdx:
     format: 'md'
 ---

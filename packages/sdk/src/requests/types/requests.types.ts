@@ -159,6 +159,10 @@ export interface ListenerRequest {
     message?: string;
     /** True when a guest at a party asked for it, through the party pass. Absent otherwise */
     fromParty?: boolean;
+    /** True on a declined request whoever asked may still insist on, with `POST /requests/{id}/insist`: the station turned it down for its own taste (aired lately, a cooldown, a dislike, the period, a length) rather than a rule nobody overrules. Absent otherwise, and once it has been insisted on */
+    overrulable?: boolean;
+    /** True when whoever asked insisted on it after the station turned it down, so the station's own taste was overruled. Absent otherwise */
+    insisted?: boolean;
 }
 
 /** Rehydrates every wire-encoded scalar in a ListenerRequest into its runtime type. Mutates and returns `raw`. */

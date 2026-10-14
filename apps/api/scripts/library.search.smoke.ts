@@ -212,11 +212,11 @@ try {
         // Edit" in the library, and a refill whose model went quiet aired them in a heavy-metal hour.
         say('telling a word from a fragment of one');
 
-        /** Each fixture row a search found, with whether it matched as whole words. */
+        /** Each fixture row a search found, with whether a STYLE answered it rather than the title or the artist. */
         const matched = async (query: string): Promise<[string, boolean][]> =>
             (await tracks.searchPlayable(query, LIMIT, false))
                 .filter(row => row.title.startsWith(TAG))
-                .map((row): [string, boolean] => [row.title.slice(TAG.length + 1), row.matchesWords === true])
+                .map((row): [string, boolean] => [row.title.slice(TAG.length + 1), row.matchesStyle === true])
                 .sort(([a], [b]) => a.localeCompare(b));
 
         // Untagged, so the vocabulary counted further down is the fixture it always was.
@@ -226,9 +226,10 @@ try {
         await track(other, 'the xzzdiox edit');
         await track(other, 'zzdio, live');
 
+        // Found, and neither by a style: a refill whose model goes quiet must not read a title as an act.
         check('the artist and a title holding the word are found, and a fragment is not', await matched('zzdio'), [
-            ['holy', true],
-            ['zzdio, live', true],
+            ['holy', false],
+            ['zzdio, live', false],
         ]);
         check(
             'a style is a whole word inside a longer tag',
@@ -237,7 +238,7 @@ try {
         );
         check(
             'a search with no text matches every row it answers',
-            (await tracks.searchPlayable('', 5, false)).every(row => row.matchesWords === true),
+            (await tracks.searchPlayable('', 5, false)).every(row => row.matchesStyle === true),
             true,
         );
 

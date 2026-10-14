@@ -589,6 +589,28 @@ describe('Rundown.reconcile', () => {
     });
 });
 
+describe('Rundown.forgetPrepared', () => {
+    it('forgets a planned item, so the director prepares it afresh', () => {
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = orderOf(rundown, ['a', 'b']);
+        const [, b] = order.all();
+
+        expect(rundown.forgetPrepared([b!.id])).toBe(1);
+        expect(rundown.isPrepared(b!.id)).toBe(false);
+    });
+
+    it('leaves an item already handed over alone, because the player is holding it', async () => {
+        // Its form is what lets a reading that names it on air be believed.
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = orderOf(rundown, ['a', 'b']);
+        const pulled = await rundown.next();
+
+        expect(rundown.forgetPrepared([pulled!.item.id])).toBe(0);
+        expect(rundown.isPrepared(pulled!.item.id)).toBe(true);
+        expect(order.all()[0]!.state).toBe('handed');
+    });
+});
+
 describe('Rundown.retract and reset', () => {
     it('announces a reset so the transport can take back what has not aired', async () => {
         const rundown = rundownWith(['a']);

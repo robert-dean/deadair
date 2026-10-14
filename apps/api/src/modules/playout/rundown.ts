@@ -919,12 +919,41 @@ export class Rundown {
         for (const id of handed) {
             this.servedAt.delete(id);
             this.missingSince.delete(id);
-            const item = this.prepared.get(id);
-            this.prepared.delete(id);
-            if (item?.voice?.itemId !== undefined) this.order?.markSkipped(item.voice.itemId);
         }
+        this.forgetPrepared(handed);
         this.emit();
         return handed.length;
+    }
+
+    /**
+     * Forget the playable form of some items the player has not been given, so the director
+     * prepares them afresh.
+     *
+     * For a change the director makes to what an item IS after it was prepared. A break the planner
+     * reopens for rewriting is the case it exists for: its segment goes back to `planned` and loses
+     * its audio, but the form prepared while it was ready stayed here, {@link isPrepared} told the
+     * director there was nothing to do, and the pusher handed the player a segment with no audio,
+     * which was skipped (live on 14 October, a weather segment). Forgotten, it is resolved again when
+     * it is next, and a segment that is not ready by then is the director's to skip or hold.
+     *
+     * Only `planned` items. One handed over is with the player, and its form is what lets a reading
+     * that names it on air be believed ({@link observeOnAir}). A talk-over cue riding a forgotten
+     * record is marked skipped, as in {@link forgetStranded} and for its reason.
+     *
+     * @returns how many it forgot.
+     */
+    forgetPrepared(ids: readonly string[]): number {
+        let forgot = 0;
+        for (const id of ids) {
+            const item = this.prepared.get(id);
+            if (item === undefined || this.stateOf(id) !== 'planned') continue;
+
+            this.prepared.delete(id);
+            if (item.voice?.itemId !== undefined) this.order?.markSkipped(item.voice.itemId);
+            forgot += 1;
+        }
+        if (forgot > 0) this.emit();
+        return forgot;
     }
 
     /**

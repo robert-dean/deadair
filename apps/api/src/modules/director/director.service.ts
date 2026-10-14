@@ -2725,6 +2725,16 @@ export class DirectorService {
                 // the other producer of the same event already lives.
                 const ripened = await planner.ripen(lineup, clock);
                 if (ripened.rewritten.length > 0) {
+                    // The transport may already hold the form these were prepared in while they were
+                    // ready. Left there, the pusher hands a segment that has just lost its audio and
+                    // the player skips it; forgotten, it is prepared again once it is rewritten.
+                    const reopened = new Set(ripened.rewritten);
+                    this.rundown.forgetPrepared(
+                        lineup
+                            .all()
+                            .filter(item => item.kind === 'segment' && reopened.has(item.segmentId))
+                            .map(item => item.id),
+                    );
                     // General on purpose, where `segment_events.reason` is exact. One pass can
                     // reopen breaks for two different faults — the order moved under one and the
                     // clock past another — so a feed line naming a cause would be wrong for half

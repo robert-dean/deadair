@@ -111,7 +111,7 @@ export class BlockRulesRepository extends DataRepository {
 
 type RuleRow = {
     id: string;
-    field: 'genre' | 'tag';
+    field: 'genre' | 'tag' | 'version';
     value: string;
     seasonFrom: string | null;
     seasonTo: string | null;

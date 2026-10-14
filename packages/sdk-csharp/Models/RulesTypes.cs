@@ -21,11 +21,11 @@ public sealed record BlockRule
     [JsonPropertyName("id")]
     public required Guid Id { get; init; }
 
-    /// <summary>`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag</summary>
+    /// <summary>`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag. `version` refuses a version of a record, read from the markers on its title and album: `live` refuses a live recording ("War Pigs - Live", anything from "Live in Nottingham"), and never a title that merely says the word ("Live Wire")</summary>
     [JsonPropertyName("field")]
     public required BlockRuleField Field { get; init; }
 
-    /// <summary>The genre or tag, as you would write it</summary>
+    /// <summary>The genre or tag, as you would write it. For a `version` rule, the version: `live` is the only one</summary>
     [JsonPropertyName("value")]
     public required string Value { get; init; }
 
@@ -76,11 +76,11 @@ public sealed record BlockRule
 /// </summary>
 public sealed record BlockRuleInput
 {
-    /// <summary>`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag</summary>
+    /// <summary>`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag. `version` refuses a version of a record, read from the markers on its title and album: `live` refuses a live recording ("War Pigs - Live", anything from "Live in Nottingham"), and never a title that merely says the word ("Live Wire")</summary>
     [JsonPropertyName("field")]
     public required BlockRuleField Field { get; init; }
 
-    /// <summary>The genre or tag, as you would write it</summary>
+    /// <summary>The genre or tag, as you would write it. For a `version` rule, the version: `live` is the only one</summary>
     [JsonPropertyName("value")]
     public required string Value { get; init; }
 
@@ -169,7 +169,7 @@ public sealed record GenreSteerReading
     public GenreSteer? Steer { get; init; }
 }
 
-/// <summary>`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag</summary>
+/// <summary>`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag. `version` refuses a version of a record, read from the markers on its title and album: `live` refuses a live recording ("War Pigs - Live", anything from "Live in Nottingham"), and never a title that merely says the word ("Live Wire")</summary>
 [JsonConverter(typeof(BlockRuleFieldConverter))]
 public enum BlockRuleField
 {
@@ -184,6 +184,9 @@ public enum BlockRuleField
 
     [JsonStringEnumMemberName("tag")]
     Tag,
+
+    [JsonStringEnumMemberName("version")]
+    Version,
 }
 
 /// <summary>
@@ -215,6 +218,7 @@ public sealed class BlockRuleFieldConverter : JsonConverter<BlockRuleField>
     {
         "genre" => BlockRuleField.Genre,
         "tag" => BlockRuleField.Tag,
+        "version" => BlockRuleField.Version,
         _ => BlockRuleField.Unknown,
     };
 
@@ -222,6 +226,7 @@ public sealed class BlockRuleFieldConverter : JsonConverter<BlockRuleField>
     {
         BlockRuleField.Genre => "genre",
         BlockRuleField.Tag => "tag",
+        BlockRuleField.Version => "version",
         _ => throw new JsonException($"BlockRuleField.{value} has no wire spelling, so it cannot be sent."),
     };
 }

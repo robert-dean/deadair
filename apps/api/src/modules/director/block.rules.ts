@@ -1,5 +1,6 @@
 import type { StationClock } from './clock.bands.js';
 import { refinesGenre, sameTag, words } from './genre.match.js';
+import { isLiveRecording } from './live.version.js';
 import type { StationMode } from './types/director.types.js';
 
 /**
@@ -18,8 +19,31 @@ import type { StationMode } from './types/director.types.js';
  * ({@link ruleContext}) and the active rules narrowed once ({@link activeRules}), never per candidate.
  */
 
-/** What a rule reads. `genre` matches a refinement of the target (`genre.match.ts`); `tag` is exact. */
-export type RuleField = 'genre' | 'tag';
+/**
+ * What a rule reads. `genre` matches a refinement of the target (`genre.match.ts`); `tag` is exact;
+ * `version` reads the version markers a provider wrote on the record's title and album, and its value
+ * names one of {@link RULE_VERSIONS}.
+ */
+export type RuleField = 'genre' | 'tag' | 'version';
+
+/**
+ * The versions a `version` rule can refuse. Only `live` so far (`live.version.ts`), and a closed list
+ * because each one is a parser, not a word to match: a value nothing here understands is dropped by
+ * {@link compileRules} rather than matching everything or nothing.
+ */
+export const RULE_VERSIONS = ['live'] as const;
+
+export type RuleVersion = (typeof RULE_VERSIONS)[number];
+
+/**
+ * What a rule is judged against for one record: its tags, and for a `version` rule its title and its
+ * album's name. Each is read only when a rule holding needs it.
+ */
+export interface RuleRecord {
+    tags: readonly string[];
+    title?: string;
+    album?: string;
+}
 
 /** One rule as it is stored. Every scope is optional, and an absent scope means "always". */
 export interface BlockRule {
@@ -46,6 +70,9 @@ export interface CompiledRule extends BlockRule {
     readonly target: string;
 }
 
+/** Whether a rule reads the record's tags, rather than its title and album. */
+export const readsTags = (rule: BlockRule): boolean => rule.field !== 'version';
+
 /** What a rule is judged against, read once per judging pass. */
 export interface RuleContext {
     /** The station's own clock, from `readClock`. */
@@ -56,9 +83,18 @@ export interface RuleContext {
     slotId?: string;
 }
 
-/** Rules ready to judge with. A rule whose value folds to nothing names no genre and is dropped rather than matching everything. */
+/**
+ * Rules ready to judge with. A rule whose value folds to nothing names no genre and is dropped rather
+ * than matching everything, and so is a `version` rule naming a version this station cannot read.
+ */
 export function compileRules(rules: readonly BlockRule[]): CompiledRule[] {
-    return rules.flatMap(rule => (words(rule.value).length === 0 ? [] : [{ ...rule, target: rule.value.trim() }]));
+    return rules.flatMap(rule => {
+        if (rule.field === 'version') {
+            const version = rule.value.trim().toLowerCase();
+            return (RULE_VERSIONS as readonly string[]).includes(version) ? [{ ...rule, target: version }] : [];
+        }
+        return words(rule.value).length === 0 ? [] : [{ ...rule, target: rule.value.trim() }];
+    });
 }
 
 /**
@@ -96,20 +132,31 @@ export function activeRules(rules: readonly CompiledRule[], context: RuleContext
     return rules.filter(rule => ruleActive(rule, context));
 }
 
-/** Whether one record's tags fall under a rule. */
-export function ruleMatches(rule: CompiledRule, tags: readonly string[]): boolean {
-    return rule.field === 'genre' ? tags.some(tag => refinesGenre(tag, rule.target)) : tags.some(tag => sameTag(tag, rule.target));
+/**
+ * Whether one record falls under a rule.
+ *
+ * A record with no tags falls under no `genre` or `tag` rule: a record nobody described is not
+ * evidence it is the genre a rule was written for. A `version` rule reads the title instead, which
+ * every record has, and a record whose title and album carry no marker falls under nothing.
+ */
+export function ruleMatches(rule: CompiledRule, record: RuleRecord): boolean {
+    switch (rule.field) {
+        case 'version':
+            return record.title !== undefined && rule.target === 'live' && isLiveRecording(record.title, record.album);
+        case 'genre':
+            return record.tags.some(tag => refinesGenre(tag, rule.target));
+        case 'tag':
+            return record.tags.some(tag => sameTag(tag, rule.target));
+    }
 }
 
 /**
  * The first active rule a record falls under, named so a refusal can say which, or `undefined`.
  *
- * Takes rules already narrowed by {@link activeRules}. A record with no tags falls under nothing:
- * a record nobody described is not evidence it is the genre a rule was written for.
+ * Takes rules already narrowed by {@link activeRules}.
  */
-export function blockedBy(rules: readonly CompiledRule[], tags: readonly string[]): CompiledRule | undefined {
-    if (tags.length === 0) return undefined;
-    return rules.find(rule => ruleMatches(rule, tags));
+export function blockedBy(rules: readonly CompiledRule[], record: RuleRecord): CompiledRule | undefined {
+    return rules.find(rule => ruleMatches(rule, record));
 }
 
 /** `MM-DD` as `month * 100 + day`, or `undefined` for anything that is not a real calendar day. */

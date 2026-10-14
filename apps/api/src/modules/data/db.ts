@@ -223,7 +223,7 @@ export interface DeadairArtistSources {
 export interface DeadairBlockRules {
   createdAt: Generated<DateTime>;
   endsAt: DateTime | null;
-  field: "genre" | "tag";
+  field: "genre" | "tag" | "version";
   fromHour: number | null;
   id: Generated<string>;
   modes: Generated<string[]>;

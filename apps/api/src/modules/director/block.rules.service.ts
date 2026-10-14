@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
 import { DateTime } from 'luxon';
-import { ruleActive, type BlockRule as Rule, type RuleContext } from './block.rules.js';
+import { RULE_VERSIONS, ruleActive, type BlockRule as Rule, type RuleContext } from './block.rules.js';
 import { BlockRulesRepository, type BlockRuleDraft, type GenreSteerRow } from './block.rules.repository.js';
 import { readClock } from './clock.bands.js';
 import { stationZone } from './clock.words.js';
@@ -100,10 +100,16 @@ function draftOf(body: BlockRuleInput): BlockRuleDraft {
         throw httpError(400).withDetails({ message: 'a window of hours needs both its first hour and the hour it ends' });
     }
     if (body.value.trim() === '') throw httpError(400).withDetails({ message: 'a rule needs a genre or tag to refuse' });
+    // Checked here as well as by the table, so a version this station cannot read is a sentence rather than a 500.
+    if (body.field === 'version' && !(RULE_VERSIONS as readonly string[]).includes(body.value.trim().toLowerCase())) {
+        throw httpError(400).withDetails({
+            message: `"${body.value.trim()}" is not a version the station can tell apart; ${RULE_VERSIONS.join(', ')} is`,
+        });
+    }
 
     return {
         field: body.field,
-        value: body.value.trim(),
+        value: body.field === 'version' ? body.value.trim().toLowerCase() : body.value.trim(),
         ...(body.seasonFrom === undefined ? {} : { seasonFrom: body.seasonFrom }),
         ...(body.seasonTo === undefined ? {} : { seasonTo: body.seasonTo }),
         ...(body.fromHour === undefined ? {} : { fromHour: body.fromHour }),

@@ -606,6 +606,23 @@ describe('MusicSearchTool', () => {
     });
 });
 
+describe('MusicSearchTool under a version rule', () => {
+    it('shows the model no live recording a provider found, and a title that only says the word', async () => {
+        const { tool } = build({
+            reached: [
+                found('War Pigs - Live', 'Black Sabbath'),
+                found('Sister Christian', 'Night Ranger', { album: 'Live In Tokyo' }),
+                found('Live Wire', 'AC/DC', { album: 'High Voltage' }),
+            ],
+            neverPlay: { rules: [{ id: 'no-live', field: 'version', value: 'live', target: 'live' }], blockedTitles: [] },
+        });
+
+        const { tracks } = await run(tool, { query: 'rock', limit: 10 });
+
+        expect(tracks.map(track => track.title)).toEqual(['Live Wire']);
+    });
+});
+
 describe('MusicSearchTool searching by what a record is about', () => {
     const on = { [LYRIC_SUBJECT_KEYS.enabled]: 'true' };
     const parameters = async (tool: MusicSearchTool) =>

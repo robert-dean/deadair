@@ -11,6 +11,7 @@ import { AiredRecords } from '#modules/shared/aired.records.js';
 import { SearchedRecords } from '#modules/shared/searched.records.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { NeverPlay } from '#modules/director/never.play.js';
+import { blockedBy, readsTags, type CompiledRule } from '#modules/director/block.rules.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { LYRIC_SUBJECT_KEYS, LYRIC_SUBJECTS_DEFAULT } from '#modules/lyrics/lyrics.keys.js';
 import { ProviderSearch, type FoundTrack } from './provider.search.js';
@@ -287,7 +288,9 @@ export class MusicSearchTool implements ToolSource {
         //
         // The seed is the broadcast, which is what makes the library's arbitrary ordering hold still
         // for one programme and move between them. See `searchPlayable`'s order clause.
-        const owned = await this.ownedAllowed(query, limit, cleanOnly, {
+        // The never-play rules holding now, read once for both halves. See `ownedAllowed`.
+        const rules = await this.neverPlay.holding();
+        const owned = await this.ownedAllowed(rules, query, limit, cleanOnly, {
             ...filters,
             ...seedOf(this.identity.current()),
             ...(about === undefined ? {} : { about }),
@@ -299,7 +302,18 @@ export class MusicSearchTool implements ToolSource {
             about === undefined && (owned.length < THIN || settingIsOn(this.config, MUSIC_SEARCH_KEYS.alwaysReach, ALWAYS_REACH_DEFAULT));
         // The conversation's signal goes with it, so a model the gate takes back mid-search stops the
         // provider calls too rather than only the registry's wait on them. See `ProviderSearch.search`.
-        const reached = reaching ? (await this.providers.search(query, filters, MAX_RESULTS, signal === undefined ? {} : { signal })).tracks : [];
+        const searched = reaching ? (await this.providers.search(query, filters, MAX_RESULTS, signal === undefined ? {} : { signal })).tracks : [];
+        // A provider row has a title and an album though no tags, so a version rule can judge it here
+        // where a genre rule cannot: a model is not offered a live recording the station will refuse.
+        const versionRules = rules.filter(rule => !readsTags(rule));
+        const reached =
+            versionRules.length === 0
+                ? searched
+                : searched.filter(
+                      track =>
+                          blockedBy(versionRules, { tags: [], title: track.title, ...(track.album === undefined ? {} : { album: track.album }) }) ===
+                          undefined,
+                  );
 
         const fromProviders = await this.fromProviders(reached, owned);
         const fromLibrary = owned.map(row => this.mark(toOwnedRow(row))).slice(0, ownedAllowance(limit, fromProviders.length));
@@ -340,10 +354,16 @@ export class MusicSearchTool implements ToolSource {
      * its answer with repeats and the floor quietly fills the hour. Asked with no broadcast, so a
      * rule scoped to a mode or a block is not judged here; `PickResolver` judges every pick against
      * the broadcast it is for, and this only keeps the model from being offered what the station
-     * will refuse anyway. Provider rows the catalog has never seen carry no tags and are judged there.
+     * will refuse anyway. Provider rows the catalog has never seen carry no tags and are judged there,
+     * save by a version rule, which reads their title and album in `search`.
      */
-    private async ownedAllowed(query: string, limit: number, cleanOnly: boolean, options: Parameters<TracksRepository['searchPlayable']>[3]) {
-        const rules = await this.neverPlay.holding();
+    private async ownedAllowed(
+        rules: readonly CompiledRule[],
+        query: string,
+        limit: number,
+        cleanOnly: boolean,
+        options: Parameters<TracksRepository['searchPlayable']>[3],
+    ) {
         if (rules.length === 0) return await this.tracks.searchPlayable(query, limit, cleanOnly, options);
 
         const rows = await this.tracks.searchPlayable(query, limit * NEVER_PLAY_OVERFETCH, cleanOnly, options);

@@ -433,6 +433,27 @@ export class CandidatesRepository extends DataRepository {
     }
 
     /**
+     * A batch of records' titles and their albums' names, for a `version` never-play rule
+     * (`live.version.ts`), which reads the version markers a provider wrote there. A record with no
+     * album answers with its title alone.
+     */
+    async namesFor(trackIds: readonly string[]): Promise<Map<string, { title: string; album?: string }>> {
+        const names = new Map<string, { title: string; album?: string }>();
+        if (trackIds.length === 0) return names;
+
+        const rows = await this.db
+            .selectFrom('deadair.tracks')
+            .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
+            .select(['deadair.tracks.id as trackId', 'deadair.tracks.title', 'deadair.albums.name as album'])
+            .where('deadair.tracks.id', 'in', [...trackIds])
+            .execute();
+
+        // `== null` for the rule in `apps/api/CLAUDE.md`: a NULL reads back as `undefined`.
+        for (const row of rows) names.set(row.trackId, { title: row.title, ...(row.album == null ? {} : { album: row.album }) });
+        return names;
+    }
+
+    /**
      * When a batch of works was first released, as far as this catalog knows.
      *
      * {@link ratingsFor}'s sibling, and it exists for the same reason: a pick can arrive from a

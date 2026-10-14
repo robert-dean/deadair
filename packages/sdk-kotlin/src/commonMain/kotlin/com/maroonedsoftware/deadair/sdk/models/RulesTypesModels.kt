@@ -17,9 +17,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class BlockRule(
     val id: Uuid,
-    /** `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag */
+    /** `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag. `version` refuses a version of a record, read from the markers on its title and album: `live` refuses a live recording ("War Pigs - Live", anything from "Live in Nottingham"), and never a title that merely says the word ("Live Wire") */
     val field: BlockRuleField,
-    /** The genre or tag, as you would write it */
+    /** The genre or tag, as you would write it. For a `version` rule, the version: `live` is the only one */
     val value: String,
     /** First day it holds, as `MM-DD`. With `seasonTo`; a season starting after it ends wraps the year end */
     val seasonFrom: String? = null,
@@ -46,9 +46,9 @@ data class BlockRule(
  */
 @Serializable
 data class BlockRuleInput(
-    /** `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag */
+    /** `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag. `version` refuses a version of a record, read from the markers on its title and album: `live` refuses a live recording ("War Pigs - Live", anything from "Live in Nottingham"), and never a title that merely says the word ("Live Wire") */
     val field: BlockRuleField,
-    /** The genre or tag, as you would write it */
+    /** The genre or tag, as you would write it. For a `version` rule, the version: `live` is the only one */
     val value: String,
     /** First day it holds, as `MM-DD`. With `seasonTo`; a season starting after it ends wraps the year end */
     val seasonFrom: String? = null,
@@ -105,11 +105,12 @@ data class GenreSteerReading(
     val steer: GenreSteer? = null,
 )
 
-/** `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag */
+/** `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag. `version` refuses a version of a record, read from the markers on its title and album: `live` refuses a live recording ("War Pigs - Live", anything from "Live in Nottingham"), and never a title that merely says the word ("Live Wire") */
 @Serializable(with = BlockRuleFieldSerializer::class)
 enum class BlockRuleField {
     GENRE,
     TAG,
+    VERSION,
 
     /**
      * A value this SDK does not know, such as a member the service added after it was generated.
@@ -124,6 +125,7 @@ object BlockRuleFieldSerializer : SdkEnumSerializer<BlockRuleField>(
     BlockRuleField.UNKNOWN,
     BlockRuleField.GENRE to "genre",
     BlockRuleField.TAG to "tag",
+    BlockRuleField.VERSION to "version",
 )
 
 @Serializable(with = BlockRuleModesSerializer::class)

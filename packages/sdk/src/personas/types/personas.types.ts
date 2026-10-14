@@ -366,6 +366,8 @@ export interface Persona {
     defaultHost: boolean;
     /** Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing */
     presenting: boolean;
+    /** Whether this character presents BESIDE the one writing breaks on the broadcast on air: one of the co-hosts the schedule put on for tonight, read from the same running order as `presenting`. Present and true only for them, absent for everybody else, so a client built before it reads no change. Never true alongside `presenting` */
+    coHosting?: boolean;
 }
 
 export interface PersonaInput {

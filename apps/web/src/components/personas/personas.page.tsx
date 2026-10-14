@@ -309,6 +309,13 @@ export function PersonasPage() {
                                                 {t('card.onAirNow')}
                                             </Badge>
                                         ) : undefined}
+                                        {/* A co-host is on air too, beside the one writing the
+                                        breaks; without this a two-presenter show badged only one. */}
+                                        {persona.coHosting ? (
+                                            <Badge color="green" variant="light">
+                                                {t('card.coHostingNow')}
+                                            </Badge>
+                                        ) : undefined}
                                         {persona.defaultHost && !persona.presenting ? (
                                             <Badge color="gray" variant="light">
                                                 {t('card.stationsOwn')}
@@ -662,6 +669,7 @@ function ordered(personas: Persona[]): Persona[] {
         (left, right) =>
             rank(kindOf(left)) - rank(kindOf(right)) ||
             Number(right.presenting) - Number(left.presenting) ||
+            Number(right.coHosting ?? false) - Number(left.coHosting ?? false) ||
             Number(right.defaultHost) - Number(left.defaultHost),
     );
 }

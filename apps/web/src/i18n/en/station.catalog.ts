@@ -123,6 +123,8 @@ export const station = {
             title: 'Listen',
             lossless: 'lossless',
             bitrate: '{{kbps}} kbps',
+            musicAssistant:
+                'For HomePods, Sonos, Chromecast or Alexa speakers, add the MP3 address to Music Assistant as a custom radio station, and it plays the station on any speaker it reaches.',
             qrTitle: 'Scan to open this station in the app',
             openInApp: 'Open in the app',
             scan: 'Or scan the code with a phone that has it.',

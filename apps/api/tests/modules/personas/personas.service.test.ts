@@ -28,6 +28,7 @@ function build(
         postFails?: boolean;
         roster?: Persona[];
         ordersHost?: string;
+        ordersCoHosts?: string[];
         ties?: Map<string, string[]>;
     } = {},
 ) {
@@ -60,7 +61,11 @@ function build(
         }),
         // What the broadcast on air says about its own host, which is the input to the whole
         // question below. Undefined is a running order that named nobody.
-        order: vi.fn(() => (options.ordersHost === undefined ? undefined : { personaId: options.ordersHost })),
+        order: vi.fn(() =>
+            options.ordersHost === undefined
+                ? undefined
+                : { personaId: options.ordersHost, ...(options.ordersCoHosts === undefined ? {} : { coHostPersonaIds: options.ordersCoHosts }) },
+        ),
     };
     // Real rather than a double: it is a list of callbacks, and what these tests are about is that
     // the send is registered on it rather than awaited inline.
@@ -207,6 +212,20 @@ describe('PersonasService answering who is presenting', () => {
         // Putting the station's own host on does not take the show off its own: the director keeps
         // the running order's answer, so the page has to keep showing the guest as the one speaking.
         expect(list.personas.find(row => row.id === 'p2')?.presenting).toBe(true);
+    });
+
+    // The page badged only the one writing breaks, so a show with two presenters looked like one.
+    it('marks the co-hosts the broadcast on air put beside its host, and nobody else', async () => {
+        const sidekick = persona({ id: 'p3', key: 'sidekick', defaultHost: false });
+        const { service } = build({ roster: [stationsOwn, guest, sidekick], ordersHost: 'p2', ordersCoHosts: ['p3'] });
+
+        const list = await service.list();
+
+        expect(list.personas.find(row => row.id === 'p3')?.coHosting).toBe(true);
+        expect(list.personas.find(row => row.id === 'p3')?.presenting).toBe(false);
+        // Absent rather than false for everybody else, the host included.
+        expect(list.personas.find(row => row.id === 'p2')).not.toHaveProperty('coHosting');
+        expect(list.personas.find(row => row.id === 'p1')).not.toHaveProperty('coHosting');
     });
 });
 

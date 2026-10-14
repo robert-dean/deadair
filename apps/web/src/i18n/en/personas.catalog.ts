@@ -84,6 +84,7 @@ export const personas = {
     },
     card: {
         onAirNow: 'On air now',
+        coHostingNow: 'On air now, co-host',
         stationsOwn: 'Station’s own',
         speaksAs: 'speaks as {{voice}}',
         voiceWithDescription: '{{voice}}, {{description}}',

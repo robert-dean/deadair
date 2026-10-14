@@ -354,13 +354,17 @@ export class PersonasService {
      * handful of rows, against a page that would otherwise show something untrue.
      */
     private async answer(): Promise<PersonaList> {
+        const order = this.director.order();
         const [roster, presenting, ties] = await Promise.all([
             this.personas.list(),
-            this.personas.presenting(this.director.order()?.personaId),
+            this.personas.presenting(order?.personaId),
             this.personas.callerHosts(),
         ]);
 
-        return { personas: roster.map(persona => toView(persona, presenting?.id, ties.get(persona.id))) };
+        // The co-hosts come off the same snapshot as the host, for the same reason: the console
+        // badged only the one writing breaks, so a show with two presenters showed one on air.
+        const coHosts = new Set((order?.coHostPersonaIds ?? []).filter(id => id !== presenting?.id));
+        return { personas: roster.map(persona => toView(persona, presenting?.id, coHosts, ties.get(persona.id))) };
     }
 
     /**
@@ -499,7 +503,7 @@ export function draftOf(body: PersonaInput): PersonaDraft {
  * A persona as the console reads it. `hosts` are the ties a caller carries, which are a relation
  * rather than part of the row and so are handed in beside it; a host never has any to hand in.
  */
-function toView(persona: Persona, presentingId: string | undefined, hosts?: readonly string[]): PersonaView {
+function toView(persona: Persona, presentingId: string | undefined, coHostIds: ReadonlySet<string>, hosts?: readonly string[]): PersonaView {
     return {
         id: persona.id,
         key: persona.key,
@@ -513,6 +517,7 @@ function toView(persona: Persona, presentingId: string | undefined, hosts?: read
         // persona and the broadcast named nobody), and it has to be distinguishable from a stale
         // list that has not learned who does.
         presenting: persona.id === presentingId,
+        ...(coHostIds.has(persona.id) ? { coHosting: true } : {}),
         ...omitUndefined({
             djName: persona.djName,
             voice: persona.voice,

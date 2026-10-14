@@ -15,7 +15,7 @@ import { ADVISORY_KEY } from '../../../src/modules/director/advisory.policy.js';
 import { CatalogSetGenerator } from '../../../src/modules/director/catalog.set.generator.js';
 import type { CandidatesRepository, CandidateTrack } from '../../../src/modules/director/candidates.repository.js';
 import { PLAY_HISTORY_RETENTION_DAYS, type PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
-import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
+import { artistKey, songKey, spacingKeys } from '../../../src/modules/director/rotation.keys.js';
 import { DEFAULT_RULES, resolveRules } from '../../../src/modules/director/rotation.rules.js';
 import { DEFAULT_SMART_SHUFFLE_DAYS, SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
 import { SKIP_LEAN_KEYS } from '../../../src/modules/director/skip.lean.js';
@@ -40,6 +40,8 @@ const candidate = (title: string, artist: string, rating = 0): CandidateTrack =>
 
 interface Options {
     sample?: CandidateTrack[];
+    /** The acts the library knows as acts of their own, as `knownActs` answers. */
+    knownActs?: string[];
     songKeys?: Set<string>;
     artistKeys?: Set<string>;
     /** Albums the operator likes, as `albumsWithLikes` answers. */
@@ -84,6 +86,7 @@ function drawFrom(library: readonly CandidateTrack[], tags: Record<string, strin
 
 function build(options: Options = {}) {
     const candidates = {
+        knownActs: vi.fn(async (acts: readonly string[]) => new Set(acts.filter(act => (options.knownActs ?? []).includes(act)))),
         sample: vi.fn(async (...args: unknown[]) => {
             if (args[4] !== undefined) return options.steer?.leaning ?? [];
             if (options.library === undefined) return options.sample ?? [];
@@ -223,6 +226,16 @@ describe('CatalogSetGenerator', () => {
         expect(history.lastAiredSince).not.toHaveBeenCalledWith(rotation.repeatWindowDays, 'main');
         expect(repeatWatch.gaveWay).not.toHaveBeenCalled();
         expect(repeatWatch.clear).toHaveBeenCalled();
+    });
+
+    it('holds a known act aired inside the cooldown against a credit naming it in another position', async () => {
+        const { generator } = build({
+            sample: [candidate('One', 'Mira Stone & Theo Park'), candidate('Two', 'Lamb')],
+            artistKeys: new Set(spacingKeys('Ada Vale & Mira Stone')),
+            knownActs: ['mira stone'],
+        });
+
+        expect((await generator.generate({ count: 2, rules: rotation })).map(pick => pick.artist)).toEqual(['Lamb']);
     });
 
     it('drops everything by an artist inside the cooldown', async () => {

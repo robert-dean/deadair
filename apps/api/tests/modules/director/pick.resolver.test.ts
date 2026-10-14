@@ -18,7 +18,7 @@ import type { ProviderTrackLookup } from '../../../src/modules/director/provider
 import type { CatalogResolverService } from '../../../src/modules/catalog/ingest/catalog.resolver.service.js';
 import type { CandidatesRepository, TrackBinding } from '../../../src/modules/director/candidates.repository.js';
 import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
-import { artistKey } from '../../../src/modules/director/rotation.keys.js';
+import { artistKey, spacingKeys } from '../../../src/modules/director/rotation.keys.js';
 import { DEFAULT_RULES, NO_RULES, type ResolvedRules } from '../../../src/modules/director/rotation.rules.js';
 import type { TrackPick } from '../../../src/modules/director/set.generator.js';
 import { TRACK_LENGTH_KEYS } from '../../../src/modules/director/track.length.js';
@@ -71,6 +71,8 @@ interface Options {
     ratings?: Record<string, number>;
     /** Song keys inside the repeat window, as `play_history` would answer them. */
     recentSongs?: string[];
+    /** The acts the library knows as acts of their own, as `knownActs` answers. */
+    knownActs?: string[];
     /** When each recent song last aired, in hours ago, for the repeat window giving way. */
     recentAges?: Record<string, number>;
     /** Artist keys inside the cooldown. */
@@ -110,6 +112,7 @@ const binding = (trackId: string, pluginId = 'deadair.spotify', durationMs?: num
 function build(options: Options = {}) {
     const blockRules = { list: vi.fn(async () => options.blockRules ?? []) } as never;
     const candidates = {
+        knownActs: vi.fn(async (acts: readonly string[]) => new Set(acts.filter(act => (options.knownActs ?? []).includes(act)))),
         tagsFor: vi.fn(async (trackIds: readonly string[]) => new Map(trackIds.flatMap(id => (options.tags?.[id] ? [[id, options.tags[id]!]] : [])))),
         bindingsFor: vi.fn(async (trackIds: readonly string[]) => {
             const found = new Map<string, TrackBinding>();
@@ -722,6 +725,25 @@ describe('PickResolver rules', () => {
             ],
             rules({ repeatWindowDays: 3 }),
             { want: 1 },
+        );
+
+        expect(resolved.map(track => track.trackId)).toEqual(['track-2']);
+    });
+
+    it('drops a credit naming a known act that aired inside the cooldown in another position', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1'), 'track-2': binding('track-2') },
+            metadata: { 'track-1': { title: 'A', credit: 'Mira Stone & Theo Park' }, 'track-2': { title: 'B', credit: 'Two' } },
+            recentArtists: spacingKeys('Ada Vale & Mira Stone'),
+            knownActs: ['mira stone'],
+        });
+
+        const resolved = await resolver.resolve(
+            [
+                { title: 'A', artist: 'Mira Stone & Theo Park', trackId: 'track-1' },
+                { title: 'B', artist: 'Two', trackId: 'track-2' },
+            ],
+            rules({ artistCooldownMinutes: 40 }),
         );
 
         expect(resolved.map(track => track.trackId)).toEqual(['track-2']);

@@ -11,7 +11,7 @@ import { EraWatch } from './era.watch.js';
 import { RepeatWatch } from './repeat.watch.js';
 import { CandidatesRepository, bindsAnything, sampleSize, type CandidateTrack, type EraWindow } from './candidates.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
-import { albumKey, artistKey, creditKey, songKey } from './rotation.keys.js';
+import { actsInJoinedCredits, albumKey, artistKey, creditKey, knownActsOf, songKey, withKnownActs } from './rotation.keys.js';
 import {
     applyRulesHoldingQueue,
     letRepeatsBackIn,
@@ -237,8 +237,22 @@ export class CatalogSetGenerator extends SetGenerator {
         // And when that still leaves the draw short, the repeat window gives way too, longest off air
         // first: a narrow period whose every record aired inside the window would otherwise empty the
         // floor. The window's ages are read only then, so an ordinary refill pays nothing for it.
-        const held = applyRulesHoldingQueue(scored, rules, recent, inputs.queuedArtistKeys, count);
-        const eligible = await this.givingWayToRepeats(scored, held, rules, recent, inputs.queuedArtistKeys, count, songKeys, inputs.avoidSongKeys);
+        //
+        // A known act inside a joined credit counts for all of it: see `knownActsOf`. Asked only when
+        // a joined credit is in play, which is rarely, and a failed read spaces as before.
+        const known = await this.knownActs([
+            ...recent.artistKeys,
+            ...(inputs.queuedArtistKeys ?? []),
+            ...scored.map(c => c.creditKey ?? c.artistKey),
+        ]);
+        const spacing = { songKeys: recent.songKeys, artistKeys: withKnownActs(recent.artistKeys, known) };
+        const queued = inputs.queuedArtistKeys === undefined ? undefined : withKnownActs(inputs.queuedArtistKeys, known);
+        const acted = scored.map(candidate => {
+            const acts = knownActsOf(candidate.creditKey ?? candidate.artistKey, known);
+            return acts === undefined ? candidate : { ...candidate, acts };
+        });
+        const held = applyRulesHoldingQueue(acted, rules, spacing, queued, count);
+        const eligible = await this.givingWayToRepeats(acted, held, rules, spacing, queued, count, songKeys, inputs.avoidSongKeys);
 
         return spaceArtists(drawWeighted(eligible, count)).map(candidate => ({
             title: candidate.track.title,
@@ -246,6 +260,13 @@ export class CatalogSetGenerator extends SetGenerator {
             trackId: candidate.track.trackId,
             ...(candidate.deepCut === true ? { deepCut: true as const } : {}),
         }));
+    }
+
+    /** Which acts inside these credits the library knows, or none when it cannot be asked. See `knownActsOf`. */
+    private async knownActs(credits: readonly string[]): Promise<ReadonlySet<string>> {
+        const acts = actsInJoinedCredits(credits);
+        if (acts.length === 0) return new Set();
+        return this.candidates.knownActs(acts).catch(() => new Set<string>());
     }
 
     /**

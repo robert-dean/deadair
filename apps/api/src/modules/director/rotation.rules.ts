@@ -442,6 +442,13 @@ export interface RotationCandidate {
      */
     creditKey?: string;
     /**
+     * The acts in a joined lead credit that the library knows as acts of their own, for spacing
+     * alone: two candidates naming one of them are one act to `spaceArtists` and
+     * `holdArtistCooldown`. Absent for a credit naming one act, and for anything built without the
+     * library to ask. See `knownActsOf`.
+     */
+    acts?: readonly string[];
+    /**
      * The release this candidate came from, when one is known. Absent for anything the catalog set
      * generator did not draw from its own `albums` join (every `Identified` `PickResolver` judges,
      * for one, since a pick names a work rather than a row until it has been matched) and a

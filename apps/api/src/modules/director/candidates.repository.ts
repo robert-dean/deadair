@@ -358,6 +358,25 @@ export class CandidatesRepository extends DataRepository {
     }
 
     /**
+     * Which of these acts the library knows as an act of its own: a `deadair.artists` row with that
+     * key, not merged into another. For spacing alone (see `knownActsOf`), and asked only about the
+     * acts inside joined credits, so a refill with none asks nothing. The index on `artist_key`
+     * answers it.
+     */
+    async knownActs(acts: readonly string[]): Promise<Set<string>> {
+        if (acts.length === 0) return new Set();
+
+        const rows = await this.db
+            .selectFrom('deadair.artists')
+            .select('artistKey')
+            .where('artistKey', 'in', [...acts])
+            .where('mergedIntoId', 'is', null)
+            .execute();
+
+        return new Set(rows.map(row => row.artistKey));
+    }
+
+    /**
      * How the station feels about a batch of works it did not draw itself.
      *
      * The same {@link effectiveRating} {@link sample} computes, asked of ids rather than

@@ -3,7 +3,7 @@ import { avoidMoodsField, moodsField } from '#modules/lyrics/lyric.moods.js';
 import { stationCover } from '#modules/art/art.source.token.js';
 import type { ChartEntry } from '@deadair/plugin-sdk';
 import { AppConfig } from '@maroonedsoftware/appconfig';
-import { httpError } from '@maroonedsoftware/errors';
+import { httpError, IsHttpError } from '@maroonedsoftware/errors';
 import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
@@ -24,7 +24,9 @@ import { cannotPresent } from '#modules/personas/persona.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
-import { minutesLeftInSlot, type ScheduleSlot } from './schedule.js';
+import { isPlaylistSource, isStationPlaylistSource, minutesLeftInSlot, type ScheduleSlot } from './schedule.js';
+import { resumeIndex } from './playlist.resume.js';
+import { PlaylistPositionRepository } from '#modules/schedule/playlist.position.repository.js';
 import { fitAirtime, lookupsFor, recordBudget } from './chart.airtime.js';
 import { DEFAULT_OVERRUN_MINUTES, OVERRUN_MINUTES_KEY, resolveOverrunMinutes } from '#modules/schedule/changeover.overrun.js';
 import { stationZone } from './clock.words.js';
@@ -174,6 +176,9 @@ export class DirectorConsoleService {
         private readonly plugins: PluginRegistry,
         // A route from one artist to another as a source. See {@link routeTracks}.
         private readonly routes: RouteService,
+        // Read-only here: where a slot that resumes its playlist got to in it. Written on the aired edge
+        // by the director, never from the console. See {@link nextOnSlotPlaylist}.
+        private readonly positions: PlaylistPositionRepository,
     ) {}
 
     /**
@@ -631,6 +636,31 @@ export class DirectorConsoleService {
         if (tracks.length > 0 || night?.prepared === undefined || night.prepared.length === 0) return tracks;
 
         return await this.resolver.vet(night.prepared, { era: this.era(input), broadcast: broadcastOf(input) });
+    }
+
+    /**
+     * The record a slot that resumes its playlist will open on next time, or `undefined` when it would
+     * start from the top: it does not resume, has no playlist, has aired nothing from it yet, or the
+     * record it aired last is no longer among what the station would play from it.
+     *
+     * Read through {@link sourceTracks}, the very list an opening is built from, so the answer is the
+     * record the opening would choose rather than a guess at it, with the station's rules applied as of
+     * now. A playlist the station refuses outright (nothing on it, nothing it may play) has no record
+     * to open on, so that is nothing rather than an error; any other failure to read it is the
+     * caller's to hear about.
+     */
+    async nextOnSlotPlaylist(slot: ScheduleSlot): Promise<RundownTrack | undefined> {
+        if (slot.resumePlaylist !== true || !isPlaylistSource(slot.source)) return undefined;
+
+        const lastKey = await this.positions.lastSongKey(slot.id);
+        if (lastKey === undefined) return undefined;
+
+        const tracks = await this.sourceTracks(playlistInputOf(slot)).catch(error => {
+            if (IsHttpError(error) && error.statusCode === 422) return [];
+            throw error;
+        });
+        const from = resumeIndex(tracks, lastKey);
+        return from === 0 ? undefined : tracks[from];
     }
 
     /**
@@ -1899,6 +1929,23 @@ function pluginOf(input: PutOnAirInput): string | undefined {
 function playlistOf(input: PutOnAirInput): string | undefined {
     if (input.chartId !== undefined) return undefined;
     return input.stationPlaylistId ?? input.playlistId;
+}
+
+/**
+ * The half of a put-on-air a playlist slot's opening reads its records with: the playlist, and the
+ * period and mode the veto judges them by. The same fields the schedule's tick sends for the slot.
+ */
+function playlistInputOf(slot: ScheduleSlot): PutOnAirInput {
+    return {
+        ...(isStationPlaylistSource(slot.source)
+            ? { stationPlaylistId: slot.source.stationPlaylistId }
+            : isPlaylistSource(slot.source)
+              ? { pluginId: slot.source.pluginId, playlistId: slot.source.playlistId }
+              : {}),
+        ...(slot.era?.from === undefined ? {} : { eraFrom: slot.era.from }),
+        ...(slot.era?.to === undefined ? {} : { eraTo: slot.era.to }),
+        mode: slot.mode,
+    };
 }
 
 function runsOut(mode: StationMode, asked: StationOnEnd | undefined, autoExtends: boolean): StationOnEnd {

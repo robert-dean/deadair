@@ -7,12 +7,14 @@ import { requireMcpPolicy, type McpToolHandler, type McpToolHandlerMap, type Mcp
 import { PolicyService } from '@maroonedsoftware/policies';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 import { ScheduleService } from '#src/modules/schedule/schedule.service.js';
+import { SlotPlaylistService } from '#src/modules/director/slot.playlist.service.js';
 import {
     ScheduleNow,
     ScheduleSlotInput,
     ScheduleSlotList,
     ScheduleTimetable,
     ScheduleTimetableQuery,
+    SlotPlaylistPosition,
 } from '../modules/schedule/types/schedule.types.js';
 
 /** The request's scoped container, which a tool resolving per call reads its service and policies from. */
@@ -29,6 +31,8 @@ const ReadCurrentSlotArgs = z.object({});
 const ReadTimetableArgs = z.object({ query: ScheduleTimetableQuery.optional() });
 const UpdateScheduleSlotArgs = z.object({ id: z.string().min(1).max(100), body: ScheduleSlotInput });
 const DeleteScheduleSlotArgs = z.object({ id: z.string().min(1).max(100) });
+const ReadSlotPlaylistPositionArgs = z.object({ id: z.string().min(1).max(100) });
+const RestartSlotPlaylistArgs = z.object({ id: z.string().min(1).max(100) });
 
 /**
  * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `GET /schedule`
@@ -167,6 +171,51 @@ export class DeleteScheduleSlotMcpTool implements McpToolHandler {
     }
 }
 
+/**
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `GET /schedule/{id}/playlist-position`
+ */
+@Injectable()
+export class ReadSlotPlaylistPositionMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'read_slot_playlist_position',
+        description: 'The record a slot that resumes its playlist will open on next time, or nothing when it would start from the top',
+        inputSchema: z.toJSONSchema(ReadSlotPlaylistPositionArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(SlotPlaylistPosition, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.view' });
+        const { id } = await parseAndValidate(args, ReadSlotPlaylistPositionArgs);
+        const result = await container.get(SlotPlaylistService).position(id);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `DELETE /schedule/{id}/playlist-position`
+ */
+@Injectable()
+export class RestartSlotPlaylistMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'restart_slot_playlist',
+        description: 'Forgets where a slot got to in its playlist, so it starts from the top the next time it opens',
+        inputSchema: z.toJSONSchema(RestartSlotPlaylistArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.manage' });
+        const { id } = await parseAndValidate(args, RestartSlotPlaylistArgs);
+        await container.get(SlotPlaylistService).restart(id);
+        return { content: [{ type: 'text', text: 'OK' }] };
+    }
+}
+
 /** Add this file's tools to the tool map. */
 export function registerScheduleMcpTools(map: McpToolHandlerMap, container: Container): void {
     map.set('read_current_slot', container.get(ReadCurrentSlotMcpTool));
@@ -181,6 +230,8 @@ export function registerScheduleMcpCatalog(map: McpToolHandlerMap, container: Co
     map.set('read_timetable', container.get(ReadTimetableMcpTool));
     map.set('update_schedule_slot', container.get(UpdateScheduleSlotMcpTool));
     map.set('delete_schedule_slot', container.get(DeleteScheduleSlotMcpTool));
+    map.set('read_slot_playlist_position', container.get(ReadSlotPlaylistPositionMcpTool));
+    map.set('restart_slot_playlist', container.get(RestartSlotPlaylistMcpTool));
 }
 
 /** Register this file's tool classes on the registry, so the tool maps can resolve them. */
@@ -191,4 +242,6 @@ export function registerScheduleMcpToolClasses(registry: Registry): void {
     registry.register(ReadTimetableMcpTool).useClass(ReadTimetableMcpTool).asSingleton();
     registry.register(UpdateScheduleSlotMcpTool).useClass(UpdateScheduleSlotMcpTool).asSingleton();
     registry.register(DeleteScheduleSlotMcpTool).useClass(DeleteScheduleSlotMcpTool).asSingleton();
+    registry.register(ReadSlotPlaylistPositionMcpTool).useClass(ReadSlotPlaylistPositionMcpTool).asSingleton();
+    registry.register(RestartSlotPlaylistMcpTool).useClass(RestartSlotPlaylistMcpTool).asSingleton();
 }

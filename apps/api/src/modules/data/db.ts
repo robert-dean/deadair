@@ -899,6 +899,12 @@ export interface DeadairProviderPlaylistListings {
   stationKey: Generated<string>;
 }
 
+export interface DeadairSchedulePlaylistPositions {
+  lastSongKey: string;
+  slotId: string;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairSchedulePreparedSets {
   occurrence: DateTime;
   preparedAt: Generated<DateTime>;
@@ -941,6 +947,7 @@ export interface DeadairScheduleSlots {
   personaId: string | null;
   requestFollowOn: number | null;
   requestShow: boolean | null;
+  resumePlaylist: Generated<boolean>;
   sourceChartId: string | null;
   sourceChartOrder: "countdown" | "ranked" | "unordered" | null;
   sourcePlaylistId: string | null;
@@ -1338,6 +1345,7 @@ export interface DB {
   "deadair.productions": DeadairProductions;
   "deadair.pronunciations": DeadairPronunciations;
   "deadair.providerPlaylistListings": DeadairProviderPlaylistListings;
+  "deadair.schedulePlaylistPositions": DeadairSchedulePlaylistPositions;
   "deadair.schedulePreparedSets": DeadairSchedulePreparedSets;
   "deadair.scheduleSlotHosts": DeadairScheduleSlotHosts;
   "deadair.scheduleSlots": DeadairScheduleSlots;

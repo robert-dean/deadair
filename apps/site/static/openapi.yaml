@@ -5770,6 +5770,38 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/ScheduleSlotList'
+    '/schedule/{id}/playlist-position':
+        get:
+            operationId: position
+            summary: 'Read slot playlist position'
+            description: 'The record a slot that resumes its playlist will open on next time, or nothing when it would start from the top'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/SlotPlaylistPosition'
+        delete:
+            operationId: restart
+            summary: 'Restart slot playlist'
+            description: 'Forgets where a slot got to in its playlist, so it starts from the top the next time it opens'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
     '/settings':
         get:
             operationId: read
@@ -15074,6 +15106,9 @@ components:
                 yearly:
                     type: boolean
                     description: 'Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year'
+                resumePlaylist:
+                    type: boolean
+                    description: "Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist"
                 mode:
                     type: string
                     enum: [rotation, setlist, feature]
@@ -15198,6 +15233,18 @@ components:
                     description: 'The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two'
             required: [slotId, label, start, end]
             description: 'One block: this slot, on this day, between these two times'
+        SlotPlaylistPosition:
+            type: object
+            properties:
+                title:
+                    type: string
+                    maxLength: 500
+                    description: "The record the slot opens on next time, as the playlist names it. The station's rules still apply when it opens, so one it will not play by then is passed over"
+                artist:
+                    type: string
+                    maxLength: 500
+                    description: 'Its lead artist'
+            description: 'Where a slot that resumes its playlist will pick it up. Empty when it would start from the top: the slot does not resume, has no playlist, has aired nothing from it yet, or the last record it aired is no longer on it'
         ScheduleNow:
             type: object
             properties:

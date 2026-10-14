@@ -53,6 +53,17 @@ export interface ScheduleOccurrence {
 }
 
 /**
+ * Where a slot that resumes its playlist will pick it up. Empty when it would start from the top: the slot does not resume, has no playlist, has aired nothing from it yet, or the last record it aired is no longer on it
+ * generated from [SlotPlaylistPosition](../../../../../apps/api/data/contracts/schedule/schedule.types.ck)
+ */
+export interface SlotPlaylistPosition {
+    /** The record the slot opens on next time, as the playlist names it. The station's rules still apply when it opens, so one it will not play by then is passed over */
+    title?: string;
+    /** Its lead artist */
+    artist?: string;
+}
+
+/**
  * One stretch of the station's day: from this time, on these days, the station plays this
  * generated from [ScheduleSlot](../../../../../apps/api/data/contracts/schedule/schedule.types.ck)
  */
@@ -109,6 +120,8 @@ export interface ScheduleSlot {
     guestHosts?: SlotGuestHost[];
     /** Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year */
     yearly?: boolean;
+    /** Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist */
+    resumePlaylist?: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
     onEnd: 'extend' | 'repeat' | 'stop';
 }
@@ -165,6 +178,8 @@ export interface ScheduleSlotInput {
     guestHosts?: SlotGuestHost[];
     /** Whether the special repeats every year on the same month and day, such as Halloween. Absent is a one-off. A yearly range may run past New Year and must be shorter than a year */
     yearly?: boolean;
+    /** Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist */
+    resumePlaylist?: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
     onEnd: 'extend' | 'repeat' | 'stop';
 }

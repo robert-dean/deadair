@@ -550,6 +550,7 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         ...specialDatesOf(body),
         ...guestHostsOf(body),
         ...coHostsOf(body),
+        ...(body.resumePlaylist === true ? { resumePlaylist: true } : {}),
         mode: body.mode,
         onEnd: body.onEnd,
     };
@@ -693,6 +694,8 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
                       ...(guest.cooldownDays === undefined ? {} : { cooldownDays: guest.cooldownDays }),
                   })),
               }),
+        // Always sent, false included, so a client reading a slot never has to know what absent means.
+        resumePlaylist: slot.resumePlaylist === true,
         mode: slot.mode,
         onEnd: slot.onEnd,
     };

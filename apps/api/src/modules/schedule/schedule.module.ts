@@ -1,5 +1,6 @@
 import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { PlaylistPositionRepository } from './playlist.position.repository.js';
 import { PreparedSetRepository } from './prepared.set.repository.js';
 import { ScheduleRepository } from './schedule.repository.js';
 import { ScheduleNotices } from './schedule.notices.js';
@@ -33,6 +34,7 @@ export const ScheduleModule: ServerKitModule = {
         // per-run inside the scope the tick opens.
         registry.register(ScheduleRepository).useClass(ScheduleRepository).asScoped();
         registry.register(PreparedSetRepository).useClass(PreparedSetRepository).asScoped();
+        registry.register(PlaylistPositionRepository).useClass(PlaylistPositionRepository).asScoped();
         registry.register(ScheduleService).useClass(ScheduleService).asScoped();
         // A SINGLETON, unlike everything else here, and that is the point of it: the tick is rebuilt
         // on every run, so the mark saying "I have already reported this" has to outlive it.

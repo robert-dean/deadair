@@ -34,11 +34,15 @@ import type { RouteLink } from '../../../src/modules/director/route.planner.js';
 import { SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import type { PersonaKind } from '../../../src/modules/personas/persona.js';
+import type { PlaylistPositionRepository } from '../../../src/modules/schedule/playlist.position.repository.js';
+import type { ScheduleSlot } from '../../../src/modules/director/schedule.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
 interface Options {
+    /** The song key of the last record a slot resuming its playlist aired, or absent for none. */
+    lastSongKey?: string;
     /** A route's stops, each with the record chosen for it, or absent for no route between the two. */
     route?: { name: string; trackId: string; title: string; link?: RouteLink }[];
     /** A playlist the station owns, by its rows, or absent for one it does not hold. */
@@ -359,6 +363,8 @@ function build(options: Options = {}) {
         ),
         tracks: vi.fn(async () => options.stationPlaylist?.rows ?? []),
     } as unknown as StationPlaylistsRepository;
+    // Where a slot that resumes its playlist got to. Nothing stored unless a case says so.
+    const positions = { lastSongKey: vi.fn(async () => options.lastSongKey) } as unknown as PlaylistPositionRepository;
     const cutAgainst: string[][] = [];
     const pusher = {
         skipCurrent: vi.fn(async () => {
@@ -399,8 +405,10 @@ function build(options: Options = {}) {
                     ({ 'deadair.lastfm': { manifest: { name: 'Last.fm' } }, 'deadair.spotify': { manifest: { name: 'Spotify' } } })[id],
             } as never,
             routes as never,
+            positions,
         ),
         routes,
+        positions,
         pusher,
         art,
         cutAgainst,
@@ -2595,5 +2603,66 @@ describe('DirectorConsoleService.requestBreak', () => {
 
         const keys = vi.mocked(director.requestBreak).mock.calls.map(([request]) => request.key);
         expect(new Set(keys).size).toBe(3);
+    });
+});
+
+// The schedule page's preview of where a resuming slot will pick its playlist up. It reads the same
+// list an opening does, so a record the station's rules pass over is passed over here too.
+describe('DirectorConsoleService.nextOnSlotPlaylist', () => {
+    const playlistSlot = (overrides: Partial<ScheduleSlot> = {}): ScheduleSlot => ({
+        id: '00000000-0000-4000-8000-0000000000aa',
+        label: 'Late night',
+        startsAtMinutes: 1320,
+        endsAtMinutes: 60,
+        days: [],
+        source: { pluginId: 'deadair.spotify', playlistId: 'pl_1' },
+        resumePlaylist: true,
+        mode: 'setlist',
+        onEnd: 'extend',
+        ...overrides,
+    });
+    const records = [
+        { id: 'trk_1', title: 'Mysterons', artists: ['Portishead'] },
+        { id: 'trk_2', title: 'Sour Times', artists: ['Portishead'] },
+        { id: 'trk_3', title: 'Roads', artists: ['Portishead'] },
+    ];
+
+    it('answers the record after the one the slot aired last', async () => {
+        const { service } = build({ tracks: records, lastSongKey: songKey('Sour Times', ['Portishead']) });
+
+        expect(await service.nextOnSlotPlaylist(playlistSlot())).toMatchObject({ title: 'Roads', artist: 'Portishead' });
+    });
+
+    it('answers nothing when the slot would start from the top', async () => {
+        const fromTop = [undefined, songKey('Roads', ['Portishead']), songKey('Wandering Star', ['Portishead'])];
+        for (const lastSongKey of fromTop) {
+            const { service } = build({ tracks: records, ...(lastSongKey === undefined ? {} : { lastSongKey }) });
+            expect(await service.nextOnSlotPlaylist(playlistSlot())).toBeUndefined();
+        }
+    });
+
+    it('answers nothing, and reads nothing, for a slot that does not resume or has no playlist', async () => {
+        const { service, playlists, positions } = build({ tracks: records, lastSongKey: songKey('Sour Times', ['Portishead']) });
+
+        expect(await service.nextOnSlotPlaylist(playlistSlot({ resumePlaylist: false }))).toBeUndefined();
+        expect(await service.nextOnSlotPlaylist(playlistSlot({ source: { chartId: 'deadair.lastfm:top' } }))).toBeUndefined();
+        expect(positions.lastSongKey).not.toHaveBeenCalled();
+        expect(playlists.getPlaylistTracks).not.toHaveBeenCalled();
+    });
+
+    it('passes over a record the station would not play, as the opening does', async () => {
+        const { service } = build({
+            tracks: records,
+            lastSongKey: songKey('Mysterons', ['Portishead']),
+            vet: tracks => tracks.filter(track => track.title !== 'Sour Times'),
+        });
+
+        expect(await service.nextOnSlotPlaylist(playlistSlot())).toMatchObject({ title: 'Roads' });
+    });
+
+    it('answers nothing for a playlist with nothing on it to play, rather than failing', async () => {
+        const { service } = build({ tracks: [], lastSongKey: songKey('Mysterons', ['Portishead']) });
+
+        expect(await service.nextOnSlotPlaylist(playlistSlot())).toBeUndefined();
     });
 });

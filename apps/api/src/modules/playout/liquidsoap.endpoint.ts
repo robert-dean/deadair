@@ -96,10 +96,11 @@ export class LiquidsoapEndpoint {
      *
      * Pushed in rather than read on demand because it lives in the database
      * behind a scoped repository, and this is a singleton that the reconcile loop
-     * hits every couple of seconds. `PlayoutModule.ready` reads it once, in a
-     * scope of its own, after `StreamModule.ready` has seeded and materialized
-     * it — the same value that reached `radio.env`, so the two ends of the bridge
-     * cannot disagree.
+     * hits every couple of seconds. `StreamModule.ready` pushes it, right after
+     * seeding and materializing it, so it is the same value that reached
+     * `radio.env` and the two ends of the bridge cannot disagree. It is pushed
+     * there and not in `PlayoutModule.ready` because `RenderModule.ready` runs
+     * in between and signs measurement URLs with it.
      */
     useSecret(secret: string): void {
         this.bridgeSecret = secret;

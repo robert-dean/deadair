@@ -309,7 +309,7 @@ const EXPIRED_PRODUCTION = 'it was made too long ago to air: what it says about 
  * One per process, for the reason `Rundown` and `PlayoutPusher` are: it holds
  * subscriptions and the running order, and a per-request copy would hand every
  * caller a different, empty view of what is on air. Its database work therefore
- * runs in a scope it opens per unit of work, the pattern `PlayoutModule.ready`
+ * runs in a scope it opens per unit of work, the pattern `StreamModule.ready`
  * uses.
  *
  * **It only ever commits while `active`.** That flag is the station's own

@@ -1476,19 +1476,83 @@ describe('StationLineup requests', () => {
         const lineup = lineupWith(['a', 'b', 'c']);
         hand(lineup, 1);
 
-        expect(lineup.insertRequested(track('r'), 'req-1')).toEqual({ ok: true });
+        expect(lineup.insertRequested(track('r'), 'req-1')).toEqual({ result: { ok: true }, dropped: [] });
 
         expect(idsOf(lineup.all())).toEqual(['a', 'b', 'r', 'c']);
         expect(lineup.all()[2]).toMatchObject({ kind: 'track', state: 'planned', requestId: 'req-1' });
     });
 
-    it("steps past a break rather than moving the break's words", () => {
+    it('steps past a bulletin rather than moving its words', () => {
         const lineup = lineupWith(['a', 'b', 'c']);
-        lineup.insertSegment('talk', 1);
+        lineup.insertSegment('news', 1, undefined, 'news');
 
         lineup.insertRequested(track('r'), 'req-1');
 
-        expect(idsOf(lineup.all())).toEqual(['a', 'segment:talk', 'b', 'r', 'c']);
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:news', 'b', 'r', 'c']);
+    });
+
+    // Breaks sit a record or two apart near the head, so stepping past every one cost a request a
+    // record or two, or refused it outright. A break is disposable and a request is not.
+    it('takes the place of a talk break when that is the first gap', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('talk', 1, undefined, 'talkbreak');
+
+        const { result, dropped } = lineup.insertRequested(track('r'), 'req-1');
+
+        expect(result).toEqual({ ok: true });
+        expect(dropped).toEqual([expect.objectContaining({ segmentId: 'talk', state: 'removed' })]);
+        expect(idsOf(lineup.all().filter(item => item.state !== 'removed'))).toEqual(['a', 'r', 'b', 'c']);
+    });
+
+    it("takes an ident and a talk break standing together, and an unkinded break as the station's own", () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('talk', 1);
+        lineup.insertSegment('ident', 1, undefined, 'ident');
+
+        const { dropped } = lineup.insertRequested(track('r'), 'req-1');
+
+        expect(dropped.map(item => (item.kind === 'segment' ? item.segmentId : item.id))).toEqual(['ident', 'talk']);
+        expect(idsOf(lineup.all().filter(item => item.state !== 'removed'))).toEqual(['a', 'r', 'b', 'c']);
+    });
+
+    it('still prefers a quiet gap when it comes first', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('talk', 2, undefined, 'talkbreak');
+
+        const { dropped } = lineup.insertRequested(track('r'), 'req-1');
+
+        expect(dropped).toEqual([]);
+        expect(idsOf(lineup.all())).toEqual(['a', 'r', 'b', 'segment:talk', 'c']);
+    });
+
+    it.each([
+        ['somebody put there', (lineup: StationLineup) => lineup.insertSegment('held', 1, undefined, 'talkbreak', true)],
+        ['riding the next record', (lineup: StationLineup) => lineup.insertSegment('held', 1, { atMs: 4000 }, 'talkbreak')],
+        ['one beat of a production', (lineup: StationLineup) => lineup.insertGroup('show', [{ segmentId: 'held' }], 1, 'talkbreak')],
+        ['a changeover', (lineup: StationLineup) => lineup.insertSegment('held', 1, undefined, 'changeover')],
+        ['a welcome', (lineup: StationLineup) => lineup.insertSegment('held', 1, undefined, 'welcome')],
+        ['a story', (lineup: StationLineup) => lineup.insertSegment('held', 1, undefined, 'story')],
+    ])('leaves a break %s where it is', (_, plant) => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        plant(lineup);
+
+        const { dropped } = lineup.insertRequested(track('r'), 'req-1');
+
+        expect(dropped).toEqual([]);
+        const ids = idsOf(lineup.all());
+        expect(ids.indexOf('r')).toBeGreaterThan(ids.indexOf('segment:held') + 1);
+    });
+
+    it('takes no break for a record mixed in from a playlist', () => {
+        const lineup = lineupWith(['a', 'b', 'c', 'd']);
+        lineup.insertSegment('one', 1, undefined, 'talkbreak');
+        lineup.insertSegment('two', 3, undefined, 'talkbreak');
+        lineup.insertSegment('three', 5, undefined, 'talkbreak');
+        const anchor = lineup.all().find(item => item.kind === 'track' && item.track.externalId === 'a')!.id;
+
+        lineup.interleave([{ afterItemId: anchor, track: track('x') }]);
+
+        expect(lineup.all().filter(item => item.state === 'removed')).toEqual([]);
     });
 
     it('puts a second request behind the first, never beside it', () => {
@@ -1503,11 +1567,11 @@ describe('StationLineup requests', () => {
 
     it('refuses rather than burying a request far down the order', () => {
         const lineup = lineupWith(['a', 'b', 'c']);
-        lineup.insertSegment('one', 1);
-        lineup.insertSegment('two', 3);
-        lineup.insertSegment('three', 5);
+        lineup.insertSegment('one', 1, undefined, 'news');
+        lineup.insertSegment('two', 3, undefined, 'news');
+        lineup.insertSegment('three', 5, undefined, 'news');
 
-        expect(lineup.insertRequested(track('r'), 'req-1')).toMatchObject({ ok: false, reason: 'no-gap' });
+        expect(lineup.insertRequested(track('r'), 'req-1')).toMatchObject({ result: { ok: false, reason: 'no-gap' }, dropped: [] });
         expect(idsOf(lineup.all())).not.toContain('r');
     });
 
@@ -1515,7 +1579,7 @@ describe('StationLineup requests', () => {
         const lineup = lineupWith(['a']);
         hand(lineup, 1);
 
-        expect(lineup.insertRequested(track('r'), 'req-1')).toEqual({ ok: true });
+        expect(lineup.insertRequested(track('r'), 'req-1').result).toEqual({ ok: true });
         expect(idsOf(lineup.all())).toEqual(['a', 'r']);
     });
 
@@ -1602,10 +1666,10 @@ describe('StationLineup following a request', () => {
         lineup.insertRequested(track('r1'), 'req-1');
         lineup.followRequest('req-1', [track('w'), track('x'), track('y'), track('z')]);
 
-        expect(lineup.insertRequested(track('r2'), 'req-2')).toMatchObject({ ok: false, reason: 'no-gap' });
+        expect(lineup.insertRequested(track('r2'), 'req-2').result).toMatchObject({ ok: false, reason: 'no-gap' });
 
         hand(lineup, 4);
-        expect(lineup.insertRequested(track('r2'), 'req-2')).toEqual({ ok: true });
+        expect(lineup.insertRequested(track('r2'), 'req-2').result).toEqual({ ok: true });
         expect(idsOf(lineup.all())).toEqual(['a', 'r1', 'w', 'x', 'y', 'z', 'r2']);
     });
 
@@ -1717,11 +1781,11 @@ describe('StationLineup dedications', () => {
 
     it('puts neither in when there is no quiet place', () => {
         const lineup = lineupWith(['a', 'b', 'c']);
-        lineup.insertSegment('one', 1);
-        lineup.insertSegment('two', 3);
-        lineup.insertSegment('three', 5);
+        lineup.insertSegment('one', 1, undefined, 'news');
+        lineup.insertSegment('two', 3, undefined, 'news');
+        lineup.insertSegment('three', 5, undefined, 'news');
 
-        expect(lineup.insertRequested(track('r'), 'req-1', { segmentId: 'ded', segmentKind: 'dedication' }).ok).toBe(false);
+        expect(lineup.insertRequested(track('r'), 'req-1', { segmentId: 'ded', segmentKind: 'dedication' }).result.ok).toBe(false);
         expect(idsOf(lineup.all())).not.toContain('segment:ded');
     });
 });

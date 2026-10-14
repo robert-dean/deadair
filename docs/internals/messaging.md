@@ -212,7 +212,8 @@ again and each has to resolve it as overruled. Spending the overrule clears `ove
 one refusal is overruled once. A request show's follow-on run is still chosen by the show's own rules.
 
 **Placed by the director, and only with its bytes here.** `insertRequested` puts the record in the first
-quiet gap near the head (see `director.md`), never beside another request. A record whose audio is not local
+gap near the head (see `director.md`), taking the place of the station's own talk break or ident there if
+that is what stands in it, and never beside another request. A record whose audio is not local
 is fetched (`playout.cache_track`) and the request waits `pending`; so does one that found no gap. The
 moment a fetched record is on disk (`TrackAudioService.onKept`), `RequestAudioWatch` offers every pending
 request again, because the order moves on at each boundary and a request placed a minute late can land

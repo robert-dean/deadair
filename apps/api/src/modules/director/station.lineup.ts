@@ -173,6 +173,19 @@ export interface Interleaved {
 const MAX_INTERLEAVE_DRIFT = 2;
 
 /**
+ * The kinds of segment a listener's request may take the place of: the station's own talk breaks and
+ * its idents, sung or spoken.
+ *
+ * A break is disposable by design (it is retired whenever it cannot be produced in time) and a
+ * record somebody asked for is not, so when the only way to air a request a record sooner is to drop
+ * one of these, the request wins. Everything else holds its place: a bulletin and a changeover are
+ * due when they are due, a welcome is for somebody who has just arrived, a story belongs to a run of
+ * them, and a dedication is a listener's own words. Absent is read as the station's own break, as
+ * {@link StationLineupSegmentItem.segmentKind} says.
+ */
+const GIVES_WAY_TO_A_REQUEST: ReadonlySet<string> = new Set(['talkbreak', 'ident', 'jingle']);
+
+/**
  * Something the station says rather than plays: an ident, a stinger, a talk break.
  *
  * **It holds the segment's id and nothing else about it.** `deadair.segments` is
@@ -1235,10 +1248,16 @@ export class StationLineup implements LiveOrder {
     }
 
     /**
-     * Put a record a listener asked for into the first quiet gap near the head of the order.
+     * Put a record a listener asked for into the first gap near the head of the order, taking the
+     * place of the station's own break there if it has to.
      *
      * {@link interleave}'s placement, for its reason: a gap between two records is the only place a
-     * record can go without falsifying a break's "that was X" or "coming up, Y". The search starts
+     * record can go without falsifying a break's "that was X" or "coming up, Y". Unlike a mixed-in
+     * record, a request may also go where a talk break or an ident stands between two records, which
+     * comes out of the order with it ({@link GIVES_WAY_TO_A_REQUEST}): breaks sit a record or two
+     * apart near the head, and stepping past them cost a request one or two records, or refused it
+     * outright. The first place either way wins, and the segments taken come back as `dropped` so the
+     * caller can retire their rows. The search starts
      * at the first planned record past what the player holds, or past the last request already in
      * the order when that is further on, so two requests never land side by side and a second waits
      * its turn behind the first. Nothing near enough is refused as `no-gap` rather than pushed
@@ -1253,7 +1272,7 @@ export class StationLineup implements LiveOrder {
      * again about whatever follows. Its writer names the record too, so the claim check at hand-over
      * is the last line of the same rule.
      */
-    insertRequested(track: RundownTrack, requestId: string, dedication?: { segmentId: string; segmentKind: string }): EditResult {
+    insertRequested(track: RundownTrack, requestId: string, dedication?: { segmentId: string; segmentKind: string }): ShuffleResult {
         const committed = this.committedThrough();
         let lastRequest = -1;
         this.itemList.forEach((item, index) => {
@@ -1262,8 +1281,18 @@ export class StationLineup implements LiveOrder {
         const floor = Math.max(committed, lastRequest + 1);
 
         const start = this.itemList.findIndex((item, index) => index >= floor && item.kind === 'track' && item.state === 'planned');
-        const gap = start < 0 ? (floor >= this.itemList.length ? this.itemList.length : undefined) : this.quietGapFrom(start);
-        if (gap === undefined) return refuse('no-gap', 'there is no quiet place near the head of the order for a record just now');
+        const found =
+            start < 0
+                ? floor >= this.itemList.length
+                    ? { at: this.itemList.length, taken: [] }
+                    : undefined
+                : this.gapFrom(start, givesWayToARequest);
+        if (found === undefined)
+            return { result: refuse('no-gap', 'there is no quiet place near the head of the order for a record just now'), dropped: [] };
+        const { at: gap, taken } = found;
+        // Marked rather than spliced, as `remove` marks a break, so `BreakPlanner` does not plant a
+        // fresh one straight back into the gap the request now fills.
+        for (const segment of taken) segment.state = 'removed';
 
         const item: StationLineupTrackItem = { id: randomUUID(), kind: 'track', state: 'planned', track, requestId, pinned: true };
         const lines: StationLineupItem[] =
@@ -1282,7 +1311,7 @@ export class StationLineup implements LiveOrder {
                       item,
                   ];
         this.itemList.splice(gap, 0, ...lines);
-        return OK;
+        return { result: OK, dropped: taken };
     }
 
     /**
@@ -1291,6 +1320,25 @@ export class StationLineup implements LiveOrder {
      * `undefined` when there is nowhere within {@link MAX_INTERLEAVE_DRIFT} records.
      */
     private quietGapFrom(from: number): number | undefined {
+        return this.gapFrom(from, (_line): _line is StationLineupSegmentItem => false)?.at;
+    }
+
+    /**
+     * Where a record can go in at or just after the record at `from`, and the segments it would have
+     * to take the place of to go there: none for a quiet gap, or the run between two records when
+     * every one of them `mayTake` allows. The first such place wins, quiet or not.
+     *
+     * Taking the whole run is what keeps every claim true. Of the breaks either side of the new
+     * record, the one before still introduces the record it was written to introduce, and the one
+     * after still back-announces the record in front of it; the only words that would have been
+     * about the gap are the ones taken out with it.
+     *
+     * `undefined` when there is nowhere within {@link MAX_INTERLEAVE_DRIFT} records.
+     */
+    private gapFrom(
+        from: number,
+        mayTake: (line: StationLineupItem) => line is StationLineupSegmentItem,
+    ): { at: number; taken: StationLineupSegmentItem[] } | undefined {
         const committed = this.committedThrough();
         let passed = 0;
 
@@ -1302,11 +1350,20 @@ export class StationLineup implements LiveOrder {
             // not happen is a record going in AHEAD of something the player already holds.
             if (item.mixedIn || item.requestId !== undefined || index + 1 < committed) continue;
 
-            // The next line that will actually be heard. A segment already cut from the order says
-            // nothing and claims nothing, so it does not make a gap noisy. A record following a
-            // request is a fine place to start from but never to land in front of, so a run is only
-            // ever joined at its end.
-            const next = this.itemList.slice(index + 1).find(line => line.state !== 'removed');
+            // The next line that will actually be heard, once whatever may be taken is out of the
+            // way. A segment already cut from the order says nothing and claims nothing, so it does
+            // not make a gap noisy. A record following a request is a fine place to start from but
+            // never to land in front of, so a run is only ever joined at its end.
+            const taken: StationLineupSegmentItem[] = [];
+            let next: StationLineupItem | undefined;
+            for (const line of this.itemList.slice(index + 1)) {
+                if (line.state === 'removed') continue;
+                if (!mayTake(line)) {
+                    next = line;
+                    break;
+                }
+                taken.push(line);
+            }
             if (
                 next === undefined ||
                 (next.kind === 'track' &&
@@ -1315,7 +1372,7 @@ export class StationLineup implements LiveOrder {
                     next.requestId === undefined &&
                     next.followsRequestId === undefined)
             )
-                return index + 1;
+                return { at: index + 1, taken };
         }
         return undefined;
     }
@@ -2027,6 +2084,24 @@ export const isPinned = (item: StationLineupItem): boolean => {
  * break writers in, and the running order has no business depending on them.
  */
 const isDedication = (item: StationLineupItem): item is StationLineupSegmentItem => item.kind === 'segment' && item.segmentKind === 'dedication';
+
+/**
+ * Whether a listener's request may take this line's place: a planned break or ident the station
+ * chose for itself, standing alone. See {@link GIVES_WAY_TO_A_REQUEST}.
+ *
+ * Never one somebody put there (`pinned`), a beat of a production (`groupId`), a cue riding the
+ * record after it (`over`), a dedication (`dedicates`), or anything that knows how long it runs
+ * (`durationMs`, which only somebody else's programme carries).
+ */
+const givesWayToARequest = (line: StationLineupItem): line is StationLineupSegmentItem =>
+    line.kind === 'segment' &&
+    line.state === 'planned' &&
+    line.pinned !== true &&
+    line.groupId === undefined &&
+    line.over === undefined &&
+    line.dedicates === undefined &&
+    line.durationMs === undefined &&
+    GIVES_WAY_TO_A_REQUEST.has(line.segmentKind ?? 'talkbreak');
 
 /** Whether a line can still be heard: not cut, not passed over, not given up on for want of audio. */
 const willAir = (item: StationLineupItem): boolean => item.state !== 'removed' && item.state !== 'skipped' && item.state !== 'unavailable';

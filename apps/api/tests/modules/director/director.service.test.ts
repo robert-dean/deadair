@@ -3180,6 +3180,22 @@ describe('DirectorService editing what is on air', () => {
         expect(lineup.all().some(item => item.kind === 'segment')).toBe(false);
     });
 
+    it('retires the segment row behind a break a listener request took the place of', async () => {
+        const { director, lineup, segmentStub, seed } = build({
+            items: ['a', 'b', 'c', 'd'],
+            segments: [{ id: 'talk-1', kind: 'talkbreak', state: 'planned', label: 'Talk break', source: 'render' }],
+        });
+        await seed();
+        await director.start();
+        const next = lineup.all().findIndex((item, index) => index >= lineup.committedThrough() && item.kind === 'track');
+        lineup.insertSegment('talk-1', next + 1, undefined, 'talkbreak');
+
+        expect(await director.applyEdit({ kind: 'insertRequested', track: track('r'), requestId: 'req-1' })).toEqual({ ok: true });
+
+        expect(segmentStub.markFailed).toHaveBeenCalledWith('talk-1', expect.stringContaining('listener request took its place'), 'planned');
+        expect(lineup.all().find(item => item.kind === 'segment')?.state).toBe('removed');
+    });
+
     it('airs the shuffled order from its new head rather than from the record it had prepared', async () => {
         // What an idle station did with a shuffle. The first record was prepared and, with nobody
         // listening, never handed over, so the shuffle moved it down the order. The player was

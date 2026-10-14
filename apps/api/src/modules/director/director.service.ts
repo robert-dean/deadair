@@ -1860,8 +1860,16 @@ export class DirectorService {
         if (edit.kind === 'remove') await this.collectRemoved(lineup, edit.itemId);
         // The same half for a shuffle, which drops every break planted into the sequence it just
         // replaced. `BreakPlanner` plants the shuffled tail again on the commit pass below, so what
-        // is retired here is only the rows behind the breaks that were describing the old one.
-        if (dropped.length > 0) await this.retireSegments(lineup, dropped, 'the operator shuffled the running order');
+        // is retired here is only the rows behind the breaks that were describing the old one. A
+        // listener's request drops the break or ident whose place it took, and nothing replants that.
+        if (dropped.length > 0)
+            await this.retireSegments(
+                lineup,
+                dropped,
+                edit.kind === 'insertRequested'
+                    ? 'a listener request took its place in the running order'
+                    : 'the operator shuffled the running order',
+            );
         // An edit to the tail says nothing about what is already with the player, so nothing is
         // retracted. It can leave room for something new, though — a removal shortens the order —
         // so the pass runs.
@@ -2113,9 +2121,10 @@ export class DirectorService {
     /**
      * Apply one edit, and say what it took out of the order.
      *
-     * `dropped` is empty for every edit but the shuffle: the others leave every item where it was,
-     * or — for a removal — leave it in the order carrying a mark. Answering in one shape keeps
-     * {@link edit} from having to know which of the four is the odd one.
+     * `dropped` is empty for every edit but the shuffle and a listener's request: the others leave
+     * every item where it was, or — for a removal — leave it in the order carrying a mark. A request
+     * may take the place of a break, whose row has to be retired as a shuffled-out one's is.
+     * Answering in one shape keeps {@link edit} from having to know which ones are the odd ones.
      *
      * The two arms this cannot take are the two that reach past `planned` into what the player is
      * holding, so each has its own method and its own answer: {@link skipTo} and
@@ -2151,7 +2160,7 @@ export class DirectorService {
                 return { result: lineup.insertTrack(edit.track, edit.atIndex ?? lineup.size()), dropped: [] };
 
             case 'insertRequested':
-                return { result: lineup.insertRequested(edit.track, edit.requestId, edit.dedication), dropped: [] };
+                return lineup.insertRequested(edit.track, edit.requestId, edit.dedication);
         }
     }
 

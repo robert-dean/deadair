@@ -168,7 +168,7 @@ function build(options: Options = {}) {
             if (edit.kind === 'insertTrack') return order.insertTrack(edit.track, edit.atIndex ?? order.size());
             if (edit.kind === 'skipTo') return order.skipTo(edit.itemId).result;
             if (edit.kind === 'vetoDisliked') return order.veto(edit.itemIds).result;
-            if (edit.kind === 'insertRequested') return order.insertRequested(edit.track, edit.requestId);
+            if (edit.kind === 'insertRequested') return order.insertRequested(edit.track, edit.requestId).result;
             return order.insertSegment(edit.segmentId, edit.atIndex ?? order.size());
         }),
     } as unknown as DirectorService;

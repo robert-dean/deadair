@@ -183,6 +183,13 @@ data class StationAirData(
     val programme: String? = null,
 )
 
+/** Who a request is dedicated to, and what the listener wanted said. The listener's own words */
+@Serializable
+data class RequestDedication(
+    val to: String? = null,
+    val message: String? = null,
+)
+
 /** Every event destination, oldest first */
 @Serializable
 data class EventDestinationList(
@@ -256,6 +263,26 @@ data class EventEnvelope(
     val data: Map<String, JsonElement>,
 )
 
+/** `data` of `request.received`: a listener asked for a record, from an app, the console, a party pass or a chat */
+@Serializable
+data class RequestReceivedData(
+    val requestId: Uuid,
+    val trackId: Uuid,
+    val title: String,
+    val artist: String,
+    /** What the listener is called, as the station names them */
+    val requesterName: String,
+    /** Where they asked from. `app` covers the console, the listener apps and a party pass */
+    val via: RequestReceivedDataVia,
+    /** How it stands now: waiting on an operator, waiting on its audio, in the running order, or declined */
+    val status: RequestReceivedDataStatus,
+    /** Why it was declined, as the listener is told */
+    val reason: String? = null,
+    /** The listener asked for it again after the station turned it down for its own taste */
+    val insisted: Boolean? = null,
+    val dedication: RequestDedication? = null,
+)
+
 /** One kind of event the station sends */
 @Serializable
 data class EventType(
@@ -311,4 +338,30 @@ enum class StationAirDataReason {
     STOPPED,
     @SerialName("ranOut")
     RAN_OUT,
+}
+
+/** Where they asked from. `app` covers the console, the listener apps and a party pass */
+@Serializable
+enum class RequestReceivedDataVia {
+    @SerialName("app")
+    APP,
+    @SerialName("chat")
+    CHAT,
+}
+
+/** How it stands now: waiting on an operator, waiting on its audio, in the running order, or declined */
+@Serializable
+enum class RequestReceivedDataStatus {
+    @SerialName("waiting")
+    WAITING,
+    @SerialName("pending")
+    PENDING,
+    @SerialName("queued")
+    QUEUED,
+    @SerialName("aired")
+    AIRED,
+    @SerialName("declined")
+    DECLINED,
+    @SerialName("expired")
+    EXPIRED,
 }

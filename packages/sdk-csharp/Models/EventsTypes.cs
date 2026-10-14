@@ -342,6 +342,18 @@ public sealed record StationAirData
     public string? Programme { get; init; }
 }
 
+/// <summary>Who a request is dedicated to, and what the listener wanted said. The listener's own words</summary>
+public sealed record RequestDedication
+{
+    [JsonPropertyName("to")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? To { get; init; }
+
+    [JsonPropertyName("message")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Message { get; init; }
+}
+
 /// <summary>Every event destination, oldest first</summary>
 public sealed record EventDestinationList
 {
@@ -465,6 +477,48 @@ public sealed record EventEnvelope
     public required Dictionary<string, JsonElement> Data { get; init; }
 }
 
+/// <summary>`data` of `request.received`: a listener asked for a record, from an app, the console, a party pass or a chat</summary>
+public sealed record RequestReceivedData
+{
+    [JsonPropertyName("requestId")]
+    public required Guid RequestId { get; init; }
+
+    [JsonPropertyName("trackId")]
+    public required Guid TrackId { get; init; }
+
+    [JsonPropertyName("title")]
+    public required string Title { get; init; }
+
+    [JsonPropertyName("artist")]
+    public required string Artist { get; init; }
+
+    /// <summary>What the listener is called, as the station names them</summary>
+    [JsonPropertyName("requesterName")]
+    public required string RequesterName { get; init; }
+
+    /// <summary>Where they asked from. `app` covers the console, the listener apps and a party pass</summary>
+    [JsonPropertyName("via")]
+    public required RequestReceivedDataVia Via { get; init; }
+
+    /// <summary>How it stands now: waiting on an operator, waiting on its audio, in the running order, or declined</summary>
+    [JsonPropertyName("status")]
+    public required RequestReceivedDataStatus Status { get; init; }
+
+    /// <summary>Why it was declined, as the listener is told</summary>
+    [JsonPropertyName("reason")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Reason { get; init; }
+
+    /// <summary>The listener asked for it again after the station turned it down for its own taste</summary>
+    [JsonPropertyName("insisted")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Insisted { get; init; }
+
+    [JsonPropertyName("dedication")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RequestDedication? Dedication { get; init; }
+}
+
 /// <summary>One kind of event the station sends</summary>
 public sealed record EventType
 {
@@ -538,4 +592,38 @@ public enum StationAirDataReason
 
     [JsonStringEnumMemberName("ranOut")]
     RanOut,
+}
+
+/// <summary>Where they asked from. `app` covers the console, the listener apps and a party pass</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<RequestReceivedDataVia>))]
+public enum RequestReceivedDataVia
+{
+    [JsonStringEnumMemberName("app")]
+    App,
+
+    [JsonStringEnumMemberName("chat")]
+    Chat,
+}
+
+/// <summary>How it stands now: waiting on an operator, waiting on its audio, in the running order, or declined</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<RequestReceivedDataStatus>))]
+public enum RequestReceivedDataStatus
+{
+    [JsonStringEnumMemberName("waiting")]
+    Waiting,
+
+    [JsonStringEnumMemberName("pending")]
+    Pending,
+
+    [JsonStringEnumMemberName("queued")]
+    Queued,
+
+    [JsonStringEnumMemberName("aired")]
+    Aired,
+
+    [JsonStringEnumMemberName("declined")]
+    Declined,
+
+    [JsonStringEnumMemberName("expired")]
+    Expired,
 }

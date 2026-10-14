@@ -6,6 +6,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
+import { StationBus } from '../../../src/modules/shared/station.bus.js';
 import type { Logger } from '@maroonedsoftware/logger';
 
 import {
@@ -169,6 +170,8 @@ function build(world: World = {}) {
         ),
     };
 
+    // Real: a map of listeners. A test that cares what was announced subscribes.
+    const bus = new StationBus(logger);
     const desk = new RequestDesk(
         table as unknown as RequestsRepository,
         { stationKey: 'main' } as never,
@@ -186,15 +189,27 @@ function build(world: World = {}) {
         segments as never,
         personas as never,
         jobs as never,
+        bus,
         logger,
     );
     const told = () => jobs.send.mock.calls.filter(call => call[0] === 'messaging.announce').map(call => (call[1] as { text: string }).text);
-    return { desk, table, jobs, director, resolver, segments, told };
+    return { desk, table, jobs, director, resolver, segments, told, bus };
 }
 
 beforeEach(() => vi.clearAllMocks());
 
 describe('submitting', () => {
+    it('announces each request as it stands once taken, a refusal included', async () => {
+        const { desk, bus } = build();
+        const heard = vi.fn();
+        bus.subscribe('request.received', heard);
+
+        const row = await desk.submit(app(), TEARDROP);
+
+        expect(heard).toHaveBeenCalledOnce();
+        expect(heard).toHaveBeenCalledWith(expect.objectContaining({ id: row.id, title: row.title, status: row.status, via: 'app' }));
+    });
+
     it('places a request whose audio is here, through the director, and answers it queued', async () => {
         const { desk, director } = build();
 

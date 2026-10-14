@@ -200,9 +200,10 @@ describe('the event types', () => {
             'programme.started',
             'station.onAir',
             'station.offAir',
+            'request.received',
             DESTINATION_TEST,
         ]);
         expect(types.at(-1)).toMatchObject({ subscribable: false, example: { type: DESTINATION_TEST, station: { key: 'main', name: 'Dead Air' } } });
-        expect(types.filter(type => type.subscribable)).toHaveLength(6);
+        expect(types.filter(type => type.subscribable)).toHaveLength(7);
     });
 });

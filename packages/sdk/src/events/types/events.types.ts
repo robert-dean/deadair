@@ -225,6 +225,15 @@ export interface StationAirData {
 }
 
 /**
+ * Who a request is dedicated to, and what the listener wanted said. The listener's own words
+ * generated from [RequestDedication](../../../../../apps/api/data/contracts/events/events.types.ck)
+ */
+export interface RequestDedication {
+    to?: string;
+    message?: string;
+}
+
+/**
  * Every event destination, oldest first
  * generated from [EventDestinationList](../../../../../apps/api/data/contracts/events/events.types.ck)
  */
@@ -296,6 +305,28 @@ export interface EventEnvelope {
     station: EventStation;
     /** What the type says it holds. `/events/types` gives an example of each */
     data: Record<string, unknown>;
+}
+
+/**
+ * `data` of `request.received`: a listener asked for a record, from an app, the console, a party pass or a chat
+ * generated from [RequestReceivedData](../../../../../apps/api/data/contracts/events/events.types.ck)
+ */
+export interface RequestReceivedData {
+    requestId: string;
+    trackId: string;
+    title: string;
+    artist: string;
+    /** What the listener is called, as the station names them */
+    requesterName: string;
+    /** Where they asked from. `app` covers the console, the listener apps and a party pass */
+    via: 'app' | 'chat';
+    /** How it stands now: waiting on an operator, waiting on its audio, in the running order, or declined */
+    status: 'waiting' | 'pending' | 'queued' | 'aired' | 'declined' | 'expired';
+    /** Why it was declined, as the listener is told */
+    reason?: string;
+    /** The listener asked for it again after the station turned it down for its own taste */
+    insisted?: boolean;
+    dedication?: RequestDedication;
 }
 
 /**

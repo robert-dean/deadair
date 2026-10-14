@@ -627,6 +627,34 @@ public struct StationAirData: Codable, Equatable, Sendable {
     }
 }
 
+/// Who a request is dedicated to, and what the listener wanted said. The listener's own words
+public struct RequestDedication: Codable, Equatable, Sendable {
+    public var to: String?
+    public var message: String?
+
+    public init(to: String? = nil, message: String? = nil) {
+        self.to = to
+        self.message = message
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case to = "to"
+        case message = "message"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.to = try container.decodeIfPresent(String.self, forKey: .to)
+        self.message = try container.decodeIfPresent(String.self, forKey: .message)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.to, forKey: .to)
+        try container.encodeIfPresent(self.message, forKey: .message)
+    }
+}
+
 /// Every event destination, oldest first
 public struct EventDestinationList: Codable, Equatable, Sendable {
     public var destinations: [EventDestination]
@@ -882,6 +910,79 @@ public struct EventEnvelope: Codable, Equatable, Sendable {
     }
 }
 
+/// `data` of `request.received`: a listener asked for a record, from an app, the console, a party pass or a chat
+public struct RequestReceivedData: Codable, Equatable, Sendable {
+    public var requestId: UUID
+    public var trackId: UUID
+    public var title: String
+    public var artist: String
+    /// What the listener is called, as the station names them
+    public var requesterName: String
+    /// Where they asked from. `app` covers the console, the listener apps and a party pass
+    public var via: RequestReceivedDataVia
+    /// How it stands now: waiting on an operator, waiting on its audio, in the running order, or declined
+    public var status: RequestReceivedDataStatus
+    /// Why it was declined, as the listener is told
+    public var reason: String?
+    /// The listener asked for it again after the station turned it down for its own taste
+    public var insisted: Bool?
+    public var dedication: RequestDedication?
+
+    public init(requestId: UUID, trackId: UUID, title: String, artist: String, requesterName: String, via: RequestReceivedDataVia, status: RequestReceivedDataStatus, reason: String? = nil, insisted: Bool? = nil, dedication: RequestDedication? = nil) {
+        self.requestId = requestId
+        self.trackId = trackId
+        self.title = title
+        self.artist = artist
+        self.requesterName = requesterName
+        self.via = via
+        self.status = status
+        self.reason = reason
+        self.insisted = insisted
+        self.dedication = dedication
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case requestId = "requestId"
+        case trackId = "trackId"
+        case title = "title"
+        case artist = "artist"
+        case requesterName = "requesterName"
+        case via = "via"
+        case status = "status"
+        case reason = "reason"
+        case insisted = "insisted"
+        case dedication = "dedication"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.requestId = try container.decode(UUID.self, forKey: .requestId)
+        self.trackId = try container.decode(UUID.self, forKey: .trackId)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.artist = try container.decode(String.self, forKey: .artist)
+        self.requesterName = try container.decode(String.self, forKey: .requesterName)
+        self.via = try container.decode(RequestReceivedDataVia.self, forKey: .via)
+        self.status = try container.decode(RequestReceivedDataStatus.self, forKey: .status)
+        self.reason = try container.decodeIfPresent(String.self, forKey: .reason)
+        self.insisted = try container.decodeIfPresent(Bool.self, forKey: .insisted)
+        self.dedication = try container.decodeIfPresent(RequestDedication.self, forKey: .dedication)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.requestId, forKey: .requestId)
+        try container.encode(self.trackId, forKey: .trackId)
+        try container.encode(self.title, forKey: .title)
+        try container.encode(self.artist, forKey: .artist)
+        try container.encode(self.requesterName, forKey: .requesterName)
+        try container.encode(self.via, forKey: .via)
+        try container.encode(self.status, forKey: .status)
+        try container.encodeIfPresent(self.reason, forKey: .reason)
+        try container.encodeIfPresent(self.insisted, forKey: .insisted)
+        try container.encodeIfPresent(self.dedication, forKey: .dedication)
+    }
+}
+
 /// One kind of event the station sends
 public struct EventType: Codable, Equatable, Sendable {
     public var type: String
@@ -969,4 +1070,20 @@ public enum StationAirDataReason: String, Codable, CaseIterable, Sendable {
     case resumed = "resumed"
     case stopped = "stopped"
     case ranOut = "ranOut"
+}
+
+/// Where they asked from. `app` covers the console, the listener apps and a party pass
+public enum RequestReceivedDataVia: String, Codable, CaseIterable, Sendable {
+    case app = "app"
+    case chat = "chat"
+}
+
+/// How it stands now: waiting on an operator, waiting on its audio, in the running order, or declined
+public enum RequestReceivedDataStatus: String, Codable, CaseIterable, Sendable {
+    case waiting = "waiting"
+    case pending = "pending"
+    case queued = "queued"
+    case aired = "aired"
+    case declined = "declined"
+    case expired = "expired"
 }

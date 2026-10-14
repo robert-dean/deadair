@@ -68,6 +68,19 @@ its subscriber on opposite sides of `modules.ts`. It becomes `station.onAir` or 
 length, and a state event like the four above, so a late retry of it cannot undo what came after. The
 moment carried is when the director decided, not when the subscriber got round to it.
 
+**A request arriving comes over the bus too**, from `RequestDesk.submit`, for the same reason: the
+desk is registered before `events`. It is published once the row is written and, when it could be,
+placed, so `status` is what the listener is told, and a refusal is a request received like any
+other. Not from `AfterCommit`, deliberately: the subscriber reads nothing back, and a request from a
+chat is submitted in a scope no request middleware runs, where an after-commit task would never run
+at all. `request.received` is NOT a state event (it says nothing about what is on air), so it is never
+dropped as stale, and it stays worth sending for an hour.
+
+**A dedication goes out in the listener's own words.** That is listener text leaving the station,
+which the activity feed's rule ("never a third party's text") would refuse for the feed. It is
+carried here because the receiver is the operator's own server and the words are what a dedication
+is; nothing the station itself says is built from them.
+
 ## Late, stale, and switched off
 
 **A delivery is an EVENT, not an attempt.** `events.deliver` is one job per destination per event,

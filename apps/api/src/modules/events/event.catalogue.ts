@@ -4,6 +4,7 @@ import type {
     EventType,
     ProductionStartedData,
     ProgrammeStartedData,
+    RequestReceivedData,
     StationAirData,
     TalkStartedData,
     TrackStartedData,
@@ -26,6 +27,9 @@ export const STATION_ON_AIR = 'station.onAir';
 /** The station came off air. */
 export const STATION_OFF_AIR = 'station.offAir';
 
+/** A listener asked for a record. */
+export const REQUEST_RECEIVED = 'request.received';
+
 /** One kind of event the station sends, as `/events/types` describes it. */
 interface CatalogueEntry {
     type: string;
@@ -34,6 +38,17 @@ interface CatalogueEntry {
     /** What `data` holds, filled in with believable values. */
     exampleData: Record<string, unknown>;
 }
+
+const exampleRequest: RequestReceivedData = {
+    requestId: '2d4f6a8c-0e1a-4c3e-9f5b-7d9f1b3d5f7a',
+    trackId: '3e8a1f42-9b6c-4d27-a5e0-71c2f8d9b4a6',
+    title: 'Pink Moon',
+    artist: 'Nick Drake',
+    requesterName: 'Sam',
+    via: 'app',
+    status: 'queued',
+    dedication: { to: 'Alex', message: 'For the drive home' },
+};
 
 const exampleOnAir: StationAirData = { reason: 'programme', programme: 'Late Night Lows' };
 const exampleOffAir: StationAirData = { reason: 'stopped' };
@@ -129,6 +144,13 @@ const CATALOGUE: readonly CatalogueEntry[] = [
         description: 'The station came off air: somebody stopped it (`stopped`), or its running order ran out and said to stop (`ranOut`).',
         subscribable: true,
         exampleData: exampleOffAir,
+    },
+    {
+        type: REQUEST_RECEIVED,
+        description:
+            "A listener asked for a record, from an app, the console, a party pass or a chat. `status` is how it stands once taken, a refusal included. `dedication` is the listener's own words.",
+        subscribable: true,
+        exampleData: exampleRequest,
     },
     {
         type: DESTINATION_TEST,

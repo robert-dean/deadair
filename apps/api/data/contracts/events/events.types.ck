@@ -135,3 +135,21 @@ contract StationAirData: { # `data` of `station.onAir` and `station.offAir`: the
     reason: enum(programme, resumed, stopped, ranOut) # A new running order, the stopped one started again, somebody stopping it, or the running order running out
     programme?: string # The running order's name, when going on air with a new one that has one
 }
+
+contract RequestDedication: { # Who a request is dedicated to, and what the listener wanted said. The listener's own words
+    to?: string
+    message?: string
+}
+
+contract RequestReceivedData: { # `data` of `request.received`: a listener asked for a record, from an app, the console, a party pass or a chat
+    requestId: uuid
+    trackId: uuid
+    title: string
+    artist: string
+    requesterName: string # What the listener is called, as the station names them
+    via: enum(app, chat) # Where they asked from. `app` covers the console, the listener apps and a party pass
+    status: enum(waiting, pending, queued, aired, declined, expired) # How it stands now: waiting on an operator, waiting on its audio, in the running order, or declined
+    reason?: string # Why it was declined, as the listener is told
+    insisted?: boolean # The listener asked for it again after the station turned it down for its own taste
+    dedication?: RequestDedication
+}

@@ -6,7 +6,14 @@
 import { DateTime } from 'luxon';
 import { describe, expect, it, vi } from 'vitest';
 
-import { AIR_CHANGE_WINDOW_MS, EventAnnouncer, airChangedEvent, airedEvent } from '../../../src/modules/events/event.announcer.js';
+import {
+    AIR_CHANGE_WINDOW_MS,
+    EventAnnouncer,
+    REQUEST_WINDOW_MS,
+    airChangedEvent,
+    airedEvent,
+    requestReceivedEvent,
+} from '../../../src/modules/events/event.announcer.js';
 import { EventDestinationsRepository } from '../../../src/modules/events/event.destinations.repository.js';
 import type { RundownItem } from '../../../src/modules/playout/rundown.js';
 import { ProductionRepository } from '../../../src/modules/productions/production.repository.js';
@@ -50,6 +57,7 @@ describe('airedEvent', () => {
         expect(event).toEqual({
             type: 'track.started',
             notAfter: AIRED_AT + 124_000,
+            state: true,
             data: {
                 itemId: 'item-1',
                 title: 'Pink Moon',
@@ -182,11 +190,13 @@ describe('the station going on and off air', () => {
             type: 'station.onAir',
             data: { reason: 'programme', programme: 'Late Night Lows' },
             notAfter: AIRED_AT + AIR_CHANGE_WINDOW_MS,
+            state: true,
         });
         expect(airChangedEvent({ on: false, reason: 'ranOut', at: AIRED_AT })).toEqual({
             type: 'station.offAir',
             data: { reason: 'ranOut' },
             notAfter: AIRED_AT + AIR_CHANGE_WINDOW_MS,
+            state: true,
         });
     });
 
@@ -223,5 +233,77 @@ describe('the station going on and off air', () => {
         bus.publish('air.changed', { on: true, reason: 'resumed', at: AIRED_AT + 1 });
         await new Promise(resolve => setTimeout(resolve, 10));
         expect(jobs.send).toHaveBeenCalledOnce();
+    });
+});
+
+describe('a listener request', () => {
+    it('becomes request.received, not a state event, worth sending for an hour', () => {
+        const event = requestReceivedEvent({
+            id: 'req-1',
+            trackId: 'trk-1',
+            title: 'Pink Moon',
+            artist: 'Nick Drake',
+            requesterName: 'Sam',
+            via: 'chat',
+            status: 'declined',
+            reason: 'It played an hour ago.',
+            dedication: { to: 'Alex' },
+            at: AIRED_AT,
+        });
+
+        expect(event).toEqual({
+            type: 'request.received',
+            state: false,
+            notAfter: AIRED_AT + REQUEST_WINDOW_MS,
+            data: {
+                requestId: 'req-1',
+                trackId: 'trk-1',
+                title: 'Pink Moon',
+                artist: 'Nick Drake',
+                requesterName: 'Sam',
+                via: 'chat',
+                status: 'declined',
+                reason: 'It played an hour ago.',
+                dedication: { to: 'Alex' },
+            },
+        });
+    });
+
+    it('is heard off the bus and sent as an event that is not about what is on air', async () => {
+        const repositories = new Map<unknown, unknown>([[EventDestinationsRepository, { subscribedTo: vi.fn(async () => ['dest-1']) }]]);
+        const container = {
+            createScopedContainer: () => ({ get: (token: unknown) => repositories.get(token), disposeAsync: async () => undefined }),
+        };
+        const jobs = { send: vi.fn(async () => 'job') };
+        const bus = new StationBus({ warn: vi.fn() } as never);
+        const config = { get: (_: string, fallback: unknown) => fallback };
+        const announcer = new EventAnnouncer(
+            { onAired: () => () => undefined } as never,
+            bus,
+            jobs as never,
+            container as never,
+            new StationIdentity(),
+            config as never,
+            { warn: vi.fn() } as never,
+        );
+        announcer.start();
+
+        bus.publish('request.received', {
+            id: 'req-1',
+            trackId: 'trk-1',
+            title: 'T',
+            artist: 'A',
+            requesterName: 'Sam',
+            via: 'app',
+            status: 'queued',
+            at: AIRED_AT,
+        });
+
+        await vi.waitFor(() => expect(jobs.send).toHaveBeenCalledOnce());
+        expect(jobs.send).toHaveBeenCalledWith(
+            'events.deliver',
+            expect.objectContaining({ envelope: expect.objectContaining({ type: 'request.received' }), state: false }),
+        );
+        announcer.stop();
     });
 });

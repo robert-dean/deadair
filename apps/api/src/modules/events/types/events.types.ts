@@ -220,6 +220,16 @@ export const StationAirData = z.strictObject({
 export type StationAirData = z.infer<typeof StationAirData>;
 
 /**
+ * Who a request is dedicated to, and what the listener wanted said. The listener's own words
+ * generated from [RequestDedication](../../../../data/contracts/events/events.types.ck)
+ */
+export const RequestDedication = z.strictObject({
+    to: z.string().optional(),
+    message: z.string().optional(),
+});
+export type RequestDedication = z.infer<typeof RequestDedication>;
+
+/**
  * Every event destination, oldest first
  * generated from [EventDestinationList](../../../../data/contracts/events/events.types.ck)
  */
@@ -263,6 +273,29 @@ export const EventEnvelope = z.strictObject({
     data: z.record(z.string(), z.unknown()).describe('What the type says it holds. `/events/types` gives an example of each'),
 });
 export type EventEnvelope = z.infer<typeof EventEnvelope>;
+
+/**
+ * `data` of `request.received`: a listener asked for a record, from an app, the console, a party pass or a chat
+ * generated from [RequestReceivedData](../../../../data/contracts/events/events.types.ck)
+ */
+export const RequestReceivedData = z.strictObject({
+    requestId: z.uuid(),
+    trackId: z.uuid(),
+    title: z.string(),
+    artist: z.string(),
+    requesterName: z.string().describe('What the listener is called, as the station names them'),
+    via: z.enum(['app', 'chat']).describe('Where they asked from. `app` covers the console, the listener apps and a party pass'),
+    status: z
+        .enum(['waiting', 'pending', 'queued', 'aired', 'declined', 'expired'])
+        .describe('How it stands now: waiting on an operator, waiting on its audio, in the running order, or declined'),
+    reason: z.string().optional().describe('Why it was declined, as the listener is told'),
+    insisted: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe('The listener asked for it again after the station turned it down for its own taste'),
+    dedication: RequestDedication.optional(),
+});
+export type RequestReceivedData = z.infer<typeof RequestReceivedData>;
 
 /**
  * One kind of event the station sends

@@ -99,6 +99,34 @@ export interface StationEvents {
      * when the director decided, so a subscriber that does slow work still reports the right moment.
      */
     'air.changed': { on: boolean; reason: 'programme' | 'resumed' | 'stopped' | 'ranOut'; programme?: string; at: number };
+
+    /**
+     * A listener asked for a record: from an app, the console, a party pass or a chat.
+     *
+     * Published by `RequestDesk.submit` once the row is written and, when it could be, placed, so
+     * `status` is what the listener is told: `waiting` on an operator, `pending` on its audio,
+     * `queued` in the running order, or `declined` with the `reason` they are given. A refusal is a
+     * request received too. The subscriber is `events`, registered after `requests` and so out of
+     * its reach. Not from `AfterCommit`, deliberately: nothing here is read back, and a request from a
+     * chat is submitted in a scope no request middleware runs, where an after-commit task would never
+     * run at all.
+     *
+     * `dedication` is the listener's own words, untrusted, carried because the operator's own
+     * receiver may want them.
+     */
+    'request.received': {
+        id: string;
+        trackId: string;
+        title: string;
+        artist: string;
+        requesterName: string;
+        via: 'app' | 'chat';
+        status: 'waiting' | 'pending' | 'queued' | 'aired' | 'declined' | 'expired';
+        reason?: string;
+        insisted?: true;
+        dedication?: { to?: string; message?: string };
+        at: number;
+    };
 }
 
 export type StationEventKind = keyof StationEvents;

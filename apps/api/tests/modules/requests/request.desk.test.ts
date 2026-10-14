@@ -16,6 +16,7 @@ import {
     RequestDesk,
     type Requester,
 } from '../../../src/modules/requests/request.desk.js';
+import { RequestPlacements } from '../../../src/modules/requests/request.placements.js';
 import {
     OpenRequestTaken,
     type NewRequest,
@@ -183,6 +184,7 @@ function build(world: World = {}) {
         audio as never,
         { isFetching: () => world.fetching ?? false } as never,
         director as never,
+        new RequestPlacements(),
         segments as never,
         personas as never,
         jobs as never,
@@ -559,6 +561,27 @@ describe('the tick', () => {
 
         expect(table.rows[0]).toMatchObject({ status: 'expired', reason: 'It could not be fitted in within the hour.' });
         expect(told()[0]).toContain('has lapsed');
+    });
+
+    it('puts a request into the order once when two placements of it overlap', async () => {
+        const world: World = { audio: 'remote' };
+        const { desk, director } = build(world);
+        const row = await desk.submit(app(), TEARDROP);
+        world.audio = 'local';
+
+        const outcomes = await Promise.all([desk.place(row), desk.place(row)]);
+
+        expect(director.applyEdit).toHaveBeenCalledTimes(1);
+        expect(outcomes.sort()).toEqual(['queued', 'waiting']);
+    });
+
+    it('leaves alone a request queued since the row in hand was read', async () => {
+        const { desk, director } = build();
+        const row = await desk.submit(app(), TEARDROP);
+        director.applyEdit.mockClear();
+
+        expect(await desk.place(row)).toBe('waiting');
+        expect(director.applyEdit).not.toHaveBeenCalled();
     });
 
     it('writes off a queued request that never aired', async () => {

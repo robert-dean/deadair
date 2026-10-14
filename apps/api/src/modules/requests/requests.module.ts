@@ -4,6 +4,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Redis } from 'ioredis';
 import { RequestAiredWatch } from './request.aired.watch.js';
 import { RequestDesk } from './request.desk.js';
+import { RequestPlacements } from './request.placements.js';
 import { RequestsRepository } from './requests.repository.js';
 import { RequestProviderSearch } from './request.provider.search.js';
 import { RequestSearchLimiter } from './request.search.limiter.js';
@@ -27,6 +28,8 @@ export const RequestsModule: ServerKitModule = {
     setup: async (registry: Registry, _: AppConfig) => {
         registry.register(RequestsRepository).useClass(RequestsRepository).asScoped();
         registry.register(RequestDesk).useClass(RequestDesk).asScoped();
+        // A singleton, since the desk is scoped and the turn it holds has to outlive every scope that places.
+        registry.register(RequestPlacements).useClass(RequestPlacements).asSingleton();
         // A singleton over the one Redis client, as `SignInMailLimiter` is: the budget is shared by every
         // request, and a scoped limiter would build two Redis-backed limiters per search to say so.
         registry

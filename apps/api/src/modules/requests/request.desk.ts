@@ -18,6 +18,7 @@ import { errorText } from '#modules/shared/error.text.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { UNNAMED_REQUESTER, screenName } from './listener.text.js';
+import { RequestPlacements } from './request.placements.js';
 import { TRACK_ALREADY_OPEN, arbitrate, arbitrateRequester, oneAtATime, type RequesterFacts } from './request.arbiter.js';
 import {
     OpenRequestTaken,
@@ -130,6 +131,7 @@ export class RequestDesk {
         private readonly audio: TrackAudioRepository,
         private readonly trackAudio: TrackAudioService,
         private readonly director: DirectorService,
+        private readonly placements: RequestPlacements,
         private readonly segments: SegmentRepository,
         private readonly personas: PersonaRepository,
         private readonly jobs: PgBossJobBroker,
@@ -323,8 +325,21 @@ export class RequestDesk {
      * sources rule out is `declined`, since that will not change in the next minute.
      *
      * `quiet` for a caller answering the person itself, so a chat is not told the same thing twice.
+     *
+     * One placement of a request at a time ({@link RequestPlacements}), and only of a request that is
+     * still `pending` once it has the turn: the row a caller holds may be a list read a moment ago, and
+     * something else may have queued or let go of it since. Either way the answer is `waiting`, which
+     * tells nobody anything.
      */
     async place(request: RequestRow, options: { quiet?: boolean } = {}): Promise<PlaceOutcome> {
+        const outcome = await this.placements.exclusively(request.id, async () => {
+            const current = await this.repository.find(this.identity.stationKey, request.id);
+            return current?.status === 'pending' ? this.placeNow(current, options) : 'waiting';
+        });
+        return outcome ?? 'waiting';
+    }
+
+    private async placeNow(request: RequestRow, options: { quiet?: boolean }): Promise<PlaceOutcome> {
         const say = (row: RequestRow, text: string) => {
             if (options.quiet !== true) this.tell(row, text);
         };

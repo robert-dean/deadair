@@ -5,7 +5,7 @@
 // both a generation call and the `/models` probe, on the wire.
 
 import { describe, expect, it } from 'vitest';
-import { streamText } from 'ai';
+import { APICallError, streamText } from 'ai';
 import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 import { openAiCompatibleArm, parseHeaderLines } from '../src/openai.compat.provider.js';
@@ -110,5 +110,49 @@ describe('a header the row configures', () => {
         await arm.fetchModels();
 
         expect(host.calls[0]?.headers?.authorization).toBe('Bearer sk-test');
+    });
+});
+
+describe('telling a refused value from a refused field', () => {
+    /** A 400 as `@ai-sdk/openai-compatible` raises it, with the server's body attached. */
+    function refusal(message: string, statusCode = 400): APICallError {
+        return new APICallError({
+            message: 'Bad Request',
+            url: 'https://models.test/v1/chat/completions',
+            requestBodyValues: {},
+            statusCode,
+            responseBody: JSON.stringify({ error: { message } }),
+        });
+    }
+
+    const arm = openAiCompatibleArm(createFakePluginHost(), { baseUrl: 'https://models.test/v1' });
+
+    it('reads a body quoting the value as a refused value', () => {
+        const error = refusal("Unsupported value: 'reasoning_effort' does not support 'none' with this model.");
+
+        expect(arm.isReasoningValueRefusal?.(error, 'none')).toBe(true);
+        expect(arm.isReasoningRefusal(error)).toBe(true);
+    });
+
+    it('reads a body saying the value is not allowed as a refused value, quoted or not', () => {
+        expect(arm.isReasoningValueRefusal?.(refusal('reasoning_effort: none is not allowed for this model'), 'none')).toBe(true);
+        expect(arm.isReasoningValueRefusal?.(refusal('Invalid reasoning_effort for this model'), 'none')).toBe(true);
+    });
+
+    it('keeps a body that only says the argument is unrecognized a refused field', () => {
+        const error = refusal('Unrecognized request argument supplied: reasoning_effort');
+
+        expect(arm.isReasoningValueRefusal?.(error, 'none')).toBe(false);
+        expect(arm.isReasoningRefusal(error)).toBe(true);
+    });
+
+    it('does not read a body quoting a different value as a refusal of this one', () => {
+        expect(arm.isReasoningValueRefusal?.(refusal("reasoning_effort 'high' is too expensive"), 'none')).toBe(false);
+    });
+
+    it('takes neither a body that does not name the field nor a status other than 400', () => {
+        expect(arm.isReasoningValueRefusal?.(refusal("'none' is not supported"), 'none')).toBe(false);
+        expect(arm.isReasoningValueRefusal?.(refusal("reasoning_effort does not support 'none'", 500), 'none')).toBe(false);
+        expect(arm.isReasoningValueRefusal?.(new Error("reasoning_effort does not support 'none'"), 'none')).toBe(false);
     });
 });

@@ -19,6 +19,7 @@ import { StationBus } from '#modules/shared/station.bus.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { UNNAMED_REQUESTER, screenName } from './listener.text.js';
+import { RequestPlacements } from './request.placements.js';
 import { TRACK_ALREADY_OPEN, arbitrate, arbitrateRequester, oneAtATime, type RequesterFacts } from './request.arbiter.js';
 import {
     OpenRequestTaken,
@@ -77,8 +78,8 @@ export type PlaceOutcome = 'queued' | 'waiting' | 'declined';
  * A request is placed by posting `insertRequested`, never by writing the order: the director is the
  * only writer of what airs. It is posted only with the record's audio already on this machine, so it
  * never holds the commit pass behind a download. A record that is not here yet is fetched and the
- * request waits as `pending`; `RequestsTickJob` offers it again, as it does one that found no quiet
- * place near the head of the order.
+ * request waits as `pending`; `RequestAudioWatch` offers it again the moment the fetch lands, and
+ * `RequestsTickJob` every minute, as it does one that found no quiet place near the head of the order.
  *
  * ## Two at once
  *
@@ -131,6 +132,7 @@ export class RequestDesk {
         private readonly audio: TrackAudioRepository,
         private readonly trackAudio: TrackAudioService,
         private readonly director: DirectorService,
+        private readonly placements: RequestPlacements,
         private readonly segments: SegmentRepository,
         private readonly personas: PersonaRepository,
         private readonly jobs: PgBossJobBroker,
@@ -323,6 +325,18 @@ export class RequestDesk {
         return placed;
     }
 
+    /**
+     * Offer every pending request to the running order again, without letting any go. Answers how
+     * many were placed. Run by `RequestAudioWatch` when a record's audio arrives.
+     */
+    async placePending(): Promise<number> {
+        let placed = 0;
+        for (const request of await this.repository.open(this.identity.stationKey)) {
+            if (request.status === 'pending' && (await this.place(request)) === 'queued') placed += 1;
+        }
+        return placed;
+    }
+
     /** A request's record has just gone to air. Marks every queued request for it heard, and tells whoever asked. */
     async aired(trackId: string): Promise<number> {
         const stationKey = this.identity.stationKey;
@@ -345,8 +359,21 @@ export class RequestDesk {
      * sources rule out is `declined`, since that will not change in the next minute.
      *
      * `quiet` for a caller answering the person itself, so a chat is not told the same thing twice.
+     *
+     * One placement of a request at a time ({@link RequestPlacements}), and only of a request that is
+     * still `pending` once it has the turn: the row a caller holds may be a list read a moment ago, and
+     * something else may have queued or let go of it since. Either way the answer is `waiting`, which
+     * tells nobody anything.
      */
     async place(request: RequestRow, options: { quiet?: boolean } = {}): Promise<PlaceOutcome> {
+        const outcome = await this.placements.exclusively(request.id, async () => {
+            const current = await this.repository.find(this.identity.stationKey, request.id);
+            return current?.status === 'pending' ? this.placeNow(current, options) : 'waiting';
+        });
+        return outcome ?? 'waiting';
+    }
+
+    private async placeNow(request: RequestRow, options: { quiet?: boolean }): Promise<PlaceOutcome> {
         const say = (row: RequestRow, text: string) => {
             if (options.quiet !== true) this.tell(row, text);
         };

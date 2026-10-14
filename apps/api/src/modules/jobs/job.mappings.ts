@@ -689,9 +689,11 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         },
     },
 
-    // Every minute: a request waiting on its audio or on a quiet place near the head of the order is
-    // waiting on something measured in minutes, and this is its retry. No job-level retry, for the
-    // prune jobs' reason: the next minute is the retry. `expiresIn` sits under the interval.
+    // Every minute: a request waiting on a quiet place near the head of the order is waiting on
+    // something measured in minutes, and this is its retry. One waiting on its audio is offered again
+    // the moment the audio lands (`RequestAudioWatch`), so for that this is the fallback. It is also
+    // what lets go of a request that waited too long. No job-level retry, for the prune jobs' reason:
+    // the next minute is the retry. `expiresIn` sits under the interval.
     'requests.tick': {
         job: RequestsTickJob,
         cron: '* * * * *',

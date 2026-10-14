@@ -9,6 +9,15 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.67.0] — 2026-10-14
+
+- A character can now be several kinds at once. Each persona has `kinds`, the set of things it may be cast as (`host`, `caller`, `guest`, `newsreader`), alongside the single `kind` it had before, so one character can host a show and drop by somebody else's without being written twice. Anybody with `host` can present; anybody with `caller` or `guest` can be cast into a phone-in or a visit, and their ties to hosts work as they always did; the newsreader may host too, and still reads every bulletin alone. Nobody is cast onto a show they are presenting that night. `kind` is still answered and still accepted: it is the kind in the set that ranks highest, host first, so a client built before `kinds` reads the answer it always did, and a client that sends only `kind` gets a character of that one kind.
+
+  On Voice, Characters, a character's editor has **What they do**, with a box for each job (Hosts, Rings in, Reads the news, Drops by), and a character who does several is listed once with a badge for each of the others. The ties to hosts are worded "Drops by" for somebody who only drops by.
+
+  An exported character file is now `deadair.persona/3` and carries `kinds`. A `deadair.persona/2` file still imports as it stands, its `kind` read as a character of that one kind, and the import preview badges every job a character does besides hosting.
+- Director: an act named in a brief no longer also counts as every shorter act whose name is part of it. A brief naming "Dirty Honey" and "The Darkness" was read as naming "Honey", a Polish pop group, and "Darkness", a Spanish metal band, because both were in the library. Each got a record of its own, and "Honey" seeded the similar-artists walk, which put a run of Polish pop into a rock show. A name now counts only where it stands on its own rather than beside another capitalised word.
+
 ## [0.66.0] — 2026-10-14
 
 - Productions: a show with co-hosts now gets a banter, its presenters trading lines for a few minutes, every half hour without a format clock band. The spacing is the new **Minutes between banters** setting under Breaks, timed from the last banter the show aired, and 0 turns it off. A show presented by one host, a setlist, a feature and a show told not to talk get none.
@@ -1427,7 +1436,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.66.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.67.0...HEAD
+[0.67.0]: https://github.com/robert-dean/deadair/compare/v0.66.0...v0.67.0
 [0.66.0]: https://github.com/robert-dean/deadair/compare/v0.65.0...v0.66.0
 [0.65.0]: https://github.com/robert-dean/deadair/compare/v0.64.0...v0.65.0
 [0.64.0]: https://github.com/robert-dean/deadair/compare/v0.63.0...v0.64.0

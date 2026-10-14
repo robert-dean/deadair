@@ -128,8 +128,10 @@ describe('SegmentRepository.recast', () => {
         const statements: Statement[] = [];
         await new SegmentRepository(fakeDb([], statements), identity()).recast(['seg-1'], 'persona-1');
 
-        expect(statements[0]?.sql).toMatch(/not exists \(select "reader"\."id" from "deadair"\."personas" as "reader"/);
-        expect(statements[0]?.parameters).toContain('newsreader');
+        expect(statements[0]?.sql).toMatch(
+            /not \("deadair"\."segments"\."kind" in \(\$\d+\) and exists \(select "reader"\."id" from "deadair"\."personas" as "reader" where "reader"\."id" = "deadair"\."segments"\."persona_id" and 'newsreader' = any\("reader"\."kinds"\)\)\)/,
+        );
+        expect(statements[0]?.parameters).toContain('news');
     });
 });
 

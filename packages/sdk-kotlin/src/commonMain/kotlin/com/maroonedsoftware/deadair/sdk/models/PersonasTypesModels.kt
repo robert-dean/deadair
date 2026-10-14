@@ -365,7 +365,7 @@ data class Persona(
     val samples: List<String>? = null,
     /** This character's own break phrasings, one per line. Empty means the station's own five */
     val templates: String? = null,
-    /** The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties */
+    /** The hosts this character rings in to or drops by on, when it is a `caller` or a `guest`, as persona ids. A tied character is cast only into a phone-in or a visit one of them presents; absent or empty turns up on whoever is presenting. Sent on a character that is neither, it is refused, and every id must be one of this station's hosts. Deleting a host, or making it something that cannot present, unties the characters tied to it rather than silencing them. Saving a caller or a guest without it clears its ties */
     val hosts: List<String>? = null,
     /** The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host */
     val defaultHost: Boolean,
@@ -425,7 +425,7 @@ data class PersonaInput(
     val samples: List<String>? = null,
     /** This character's own break phrasings, one per line. Empty means the station's own five */
     val templates: String? = null,
-    /** The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties */
+    /** The hosts this character rings in to or drops by on, when it is a `caller` or a `guest`, as persona ids. A tied character is cast only into a phone-in or a visit one of them presents; absent or empty turns up on whoever is presenting. Sent on a character that is neither, it is refused, and every id must be one of this station's hosts. Deleting a host, or making it something that cannot present, unties the characters tied to it rather than silencing them. Saving a caller or a guest without it clears its ties */
     val hosts: List<String>? = null,
 )
 

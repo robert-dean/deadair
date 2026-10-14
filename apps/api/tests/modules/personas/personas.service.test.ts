@@ -15,7 +15,6 @@ const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 const persona = (over: Partial<Persona> = {}): Persona => ({
     id: 'p1',
     key: 'pirate',
-    kind: 'host',
     kinds: ['host'],
     label: 'Pirate captain',
     style: 'a pirate captain who runs a radio station',
@@ -145,7 +144,7 @@ describe('PersonasService putting a persona on air', () => {
         // Somebody who phones IN cannot present the station. The database refuses it too, and this
         // is the half that answers the operator with a sentence rather than a constraint violation
         // — which also means `setDefaultHost` is never reached, so there is nothing to undo.
-        const { service, personas, director, activity } = build({ setDefaultHost: persona({ kind: 'caller', defaultHost: false }) });
+        const { service, personas, director, activity } = build({ setDefaultHost: persona({ kinds: ['caller' as const], defaultHost: false }) });
 
         await expect(service.setDefaultHost('p1')).rejects.toMatchObject({ statusCode: 400 });
 
@@ -155,7 +154,9 @@ describe('PersonasService putting a persona on air', () => {
     });
 
     it('refuses to put a guest on air, in words about a guest', async () => {
-        const { service, personas } = build({ setDefaultHost: persona({ kind: 'guest', label: 'Touring guitarist', defaultHost: false }) });
+        const { service, personas } = build({
+            setDefaultHost: persona({ kinds: ['guest' as const], label: 'Touring guitarist', defaultHost: false }),
+        });
 
         await expect(service.setDefaultHost('p1')).rejects.toMatchObject({
             statusCode: 400,
@@ -237,8 +238,8 @@ describe('PersonasService answering who is presenting', () => {
 describe('PersonasService tying a caller to the hosts it rings', () => {
     const host = persona({ id: 'h1', key: 'conspiracy', label: 'Conspiracy host', defaultHost: true });
     const otherHost = persona({ id: 'h2', key: 'classic', label: 'Classic host', defaultHost: false });
-    const skeptic = persona({ id: 'c1', key: 'skeptic', kind: 'caller', label: 'Caller who wants proof', defaultHost: false });
-    const pedant = persona({ id: 'c2', key: 'pedant', kind: 'caller', label: 'Caller who knows better', defaultHost: false });
+    const skeptic = persona({ id: 'c1', key: 'skeptic', kinds: ['caller' as const], label: 'Caller who wants proof', defaultHost: false });
+    const pedant = persona({ id: 'c2', key: 'pedant', kinds: ['caller' as const], label: 'Caller who knows better', defaultHost: false });
     const roster = [host, otherHost, skeptic, pedant];
 
     const input = (over: Record<string, unknown> = {}) =>
@@ -277,6 +278,17 @@ describe('PersonasService tying a caller to the hosts it rings', () => {
         await service.create(input({ key: 'guitarist', kind: 'guest', label: 'Touring guitarist', hosts: ['h1'] }));
 
         expect(personas.setHosts).toHaveBeenCalledWith('new-id', ['h1']);
+    });
+
+    // A host who also drops by is tied like any guest: the tie is about where a character turns up,
+    // and being able to present does not change that. Nor does it untie the callers ringing them.
+    it('ties a host who also drops by, and keeps the callers who ring them', async () => {
+        const { service, personas } = tying();
+
+        await service.update('h2', input({ key: 'classic', kinds: ['host', 'guest'], label: 'Classic host', hosts: ['h1'] }));
+
+        expect(personas.setHosts).toHaveBeenCalledWith('h2', ['h1']);
+        expect(personas.untieHost).not.toHaveBeenCalled();
     });
 
     it('refuses hosts on a host, and writes nothing', async () => {
@@ -330,7 +342,7 @@ describe('PersonasService tying a caller to the hosts it rings', () => {
 
 describe('the newsreader', () => {
     it('cannot be made the station’s host, and is told why in its own words', async () => {
-        const reader = persona({ id: 'n1', key: 'newsdesk', kind: 'newsreader', label: 'The newsdesk', defaultHost: false });
+        const reader = persona({ id: 'n1', key: 'newsdesk', kinds: ['newsreader' as const], label: 'The newsdesk', defaultHost: false });
         const { service, personas } = build({ setDefaultHost: reader });
 
         await expect(service.setDefaultHost('n1')).rejects.toMatchObject({

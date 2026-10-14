@@ -10,7 +10,7 @@ import type { Production } from '../../../src/modules/productions/production.js'
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 
-const caller = (key: string) => ({ id: `id-${key}`, key, kind: 'caller' as const, label: key, style: 'somebody', voice: key, defaultHost: false });
+const caller = (key: string) => ({ id: `id-${key}`, key, kinds: ['caller' as const], label: key, style: 'somebody', voice: key, defaultHost: false });
 
 const production = (over: Partial<Production> = {}): Production =>
     ({
@@ -27,7 +27,7 @@ const production = (over: Partial<Production> = {}): Production =>
 
 function build(
     options: {
-        roster?: (Omit<ReturnType<typeof caller>, 'kind'> & { kind: 'caller' | 'guest' | 'host' })[];
+        roster?: (Omit<ReturnType<typeof caller>, 'kinds'> & { kinds: ('caller' | 'guest' | 'host')[] })[];
         heard?: Map<string, number>;
         rosterThrows?: boolean;
         kinds?: string;
@@ -38,7 +38,7 @@ function build(
         playsThrow?: boolean;
         facts?: Map<string, string[]>;
         /** The broadcast on air and who presents beside its host, for a banter. */
-        onAir?: { broadcastId: string; coHostPersonaIds: string[] };
+        onAir?: { broadcastId: string; coHostPersonaIds: string[]; regularPersonaId?: string };
     } = {},
 ) {
     const personas = {
@@ -48,7 +48,7 @@ function build(
                 : {
                       id: 'host-1',
                       key: 'classic',
-                      kind: 'host',
+                      kinds: ['host'],
                       label: 'Classic',
                       style: 'warm',
                       voice: 'classic',
@@ -174,7 +174,7 @@ describe('casting the callers who ring this host', () => {
         await caster.cast(production({ personaId: 'host-1' }), 9);
 
         expect(personas.presenting).toHaveBeenCalledWith('host-1');
-        expect(personas.castable).toHaveBeenCalledWith('host-1');
+        expect(personas.castable).toHaveBeenCalledWith('host-1', 'caller', []);
     });
 
     it('asks for the untied alone when the station presents as nobody', async () => {
@@ -182,7 +182,7 @@ describe('casting the callers who ring this host', () => {
 
         await caster.cast(production(), 9);
 
-        expect(personas.castable).toHaveBeenCalledWith(undefined);
+        expect(personas.castable).toHaveBeenCalledWith(undefined, 'caller', []);
     });
 
     it('rotates over the callers that came back and nobody else', async () => {
@@ -262,14 +262,14 @@ describe('the records a keen host brings to a call', () => {
 });
 
 describe('casting a visit', () => {
-    const guest = (key: string) => ({ ...caller(key), kind: 'guest' as const });
+    const guest = (key: string) => ({ ...caller(key), kinds: ['guest' as const] });
 
     it('casts one guest, least recently heard, from the guests this host may have', async () => {
         const { caster, personas } = build({ roster: [guest('guitarist'), guest('chef')], heard: new Map([['id-guitarist', 100]]) });
 
         const cast = await caster.cast(production({ kind: 'visit' }), 9);
 
-        expect(personas.castable).toHaveBeenCalledWith('host-1', 'guest');
+        expect(personas.castable).toHaveBeenCalledWith('host-1', 'guest', []);
         expect(cast.map(member => member.role)).toEqual(['host', 'guest']);
         expect(cast[1]?.personaKey).toBe('chef');
     });
@@ -280,6 +280,30 @@ describe('casting a visit', () => {
         expect((await caster.cast(production({ kind: 'visit' }), 9)).map(member => member.role)).toEqual(['host', 'guest']);
     });
 
+    // A character may present AND drop by, so the caster has to say who is already on the show: a
+    // guest host's regular, and the co-hosts beside them, never visit the show they are on.
+    it('casts nobody onto a show they are presenting tonight', async () => {
+        const { caster, personas } = build({
+            roster: [guest('chef')],
+            onAir: { broadcastId: 'b-1', coHostPersonaIds: ['id-lemmy'], regularPersonaId: 'id-ozzy' },
+        });
+
+        await caster.cast(production({ kind: 'visit', broadcastId: 'b-1' }), 9);
+
+        expect(personas.castable).toHaveBeenCalledWith('host-1', 'guest', ['id-lemmy', 'id-ozzy']);
+    });
+
+    it('takes nobody off the list for a production commissioned for another broadcast', async () => {
+        const { caster, personas } = build({
+            roster: [guest('chef')],
+            onAir: { broadcastId: 'b-2', coHostPersonaIds: ['id-lemmy'], regularPersonaId: 'id-ozzy' },
+        });
+
+        await caster.cast(production({ kind: 'visit', broadcastId: 'b-1' }), 9);
+
+        expect(personas.castable).toHaveBeenCalledWith('host-1', 'guest', []);
+    });
+
     it('fails rather than airing the host alone under a guest’s billing when there is nobody to visit', async () => {
         const { caster } = build({ roster: [] });
 
@@ -288,7 +312,7 @@ describe('casting a visit', () => {
 });
 
 describe('casting a banter', () => {
-    const host = (key: string) => ({ ...caller(key), kind: 'host' as const });
+    const host = (key: string) => ({ ...caller(key), kinds: ['host' as const] });
 
     it('casts the co-hosts presenting beside the host tonight, in the order the broadcast holds them', async () => {
         const { caster } = build({

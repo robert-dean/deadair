@@ -638,8 +638,15 @@ describe('WriteBreakJob', () => {
     });
 
     describe('a show with co-hosts', () => {
-        const ozzy = { id: 'ozzy', key: 'ozzysghost', label: "Ozzy's Ghost", djName: "Ozzy's Ghost", kind: 'host' } as Persona;
-        const lemmy = { id: 'lemmy', key: 'lemmy', label: "Lemmy's Ghost", djName: "Lemmy's Ghost", kind: 'host', voice: 'lemmy' } as Persona;
+        const ozzy = { id: 'ozzy', key: 'ozzysghost', label: "Ozzy's Ghost", djName: "Ozzy's Ghost", kinds: ['host' as const] } as Persona;
+        const lemmy = {
+            id: 'lemmy',
+            key: 'lemmy',
+            label: "Lemmy's Ghost",
+            djName: "Lemmy's Ghost",
+            kinds: ['host' as const],
+            voice: 'lemmy',
+        } as Persona;
         const show = (): StationLineup => {
             const lineup = new StationLineup({
                 name: 'The Boneyard',
@@ -694,6 +701,39 @@ describe('WriteBreakJob', () => {
 
             expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ persona: ozzy, coPresenters: ["Lemmy's Ghost"] }));
         });
+
+        // The newsreader may present as well. Whether a break is shared round is a question about the
+        // BREAK: their bulletin is theirs alone, and their talk breaks pass round like anybody's.
+        describe('led by a host who also reads the news', () => {
+            const anchor = { ...ozzy, kinds: ['host' as const, 'newsreader' as const] } as Persona;
+
+            it('shares their talk breaks with the co-hosts', async () => {
+                const { job, writers } = harness({
+                    lineup: show(),
+                    persona: anchor,
+                    coHosts: [lemmy],
+                    heard: new Map([
+                        ['ozzy', 200],
+                        ['lemmy', 100],
+                    ]),
+                });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ persona: lemmy, coPresenters: ["Ozzy's Ghost"] }));
+            });
+
+            it('reads their bulletin alone, with nobody beside them', async () => {
+                const { job, writers } = harness({ lineup: show(), persona: anchor, coHosts: [lemmy], segment: planned({ kind: 'news' }) });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                const asked = (writers.write as unknown as { mock: { calls: [{ persona?: Persona; coPresenters?: string[] }][] } }).mock
+                    .calls[0]?.[0];
+                expect(asked?.persona).toBe(anchor);
+                expect(asked?.coPresenters ?? []).toEqual([]);
+            });
+        });
     });
 
     describe('a guest host sitting in', () => {
@@ -711,8 +751,8 @@ describe('WriteBreakJob', () => {
             lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
             return lineup;
         };
-        const rockzo = { id: 'rockzo', key: 'rockzo', label: 'Dr. Rockzo', kind: 'host' } as Persona;
-        const ozzy = { id: 'ozzy', key: 'ozzysghost', label: "Ozzy's Ghost", djName: "Ozzy's Ghost", kind: 'host' } as Persona;
+        const rockzo = { id: 'rockzo', key: 'rockzo', label: 'Dr. Rockzo', kinds: ['host' as const] } as Persona;
+        const ozzy = { id: 'ozzy', key: 'ozzysghost', label: "Ozzy's Ghost", djName: "Ozzy's Ghost", kinds: ['host' as const] } as Persona;
 
         it('tells the writers whose show it is, by on-air name', async () => {
             const { job, writers } = harness({ lineup: guestNight(), persona: rockzo, regular: ozzy });
@@ -723,7 +763,7 @@ describe('WriteBreakJob', () => {
         });
 
         it('says nothing of it for a bulletin the newsreader reads', async () => {
-            const reader = { id: 'reader', key: 'newsreader', label: 'Newsreader', kind: 'newsreader' } as Persona;
+            const reader = { id: 'reader', key: 'newsreader', label: 'Newsreader', kinds: ['newsreader' as const] } as Persona;
             const { job, writers } = harness({ lineup: guestNight(), persona: reader, regular: ozzy });
 
             await job.run({ segmentId: 'seg-1' });
@@ -780,6 +820,7 @@ describe('WriteBreakJob', () => {
             ({
                 id: 'p-1',
                 key: 'conspiracy',
+                kinds: ['host'],
                 label: 'Overnight host',
                 style: 'an overnight host',
                 defaultHost: true,
@@ -998,7 +1039,6 @@ describe('WriteBreakJob', () => {
                 key: 'conspiracy',
                 label: 'Overnight host',
                 style: 'an overnight host',
-                kind: 'host',
                 kinds: ['host'],
                 defaultHost: true,
                 preoccupations,
@@ -1046,7 +1086,6 @@ describe('WriteBreakJob', () => {
             key: 'ozzysghost',
             label: "Ozzy's Ghost",
             style: 'a ghost',
-            kind: 'host',
             kinds: ['host'],
             defaultHost: true,
             quirks: [{ text: 'Call your show the Boneyard' }, { text: 'Yell for Sharon', cadence: 'often' }],
@@ -2030,7 +2069,15 @@ describe('WriteBreakJob', () => {
 // choosing not to reach for it has made a judgement about its own sentence, and appending a sound to
 // words somebody else shaped is two rules that disagree.
 describe('WriteBreakJob putting a pad in by itself', () => {
-    const withBoard = { key: 'wisecrack', id: 'p-1', label: 'Wisecrack', kind: 'host', style: 'dry', defaultHost: true, soundboard: 'wisecrack' };
+    const withBoard = {
+        key: 'wisecrack',
+        id: 'p-1',
+        label: 'Wisecrack',
+        kinds: ['host' as const],
+        style: 'dry',
+        defaultHost: true,
+        soundboard: 'wisecrack',
+    };
     const rack = [
         {
             id: 'pad-1',

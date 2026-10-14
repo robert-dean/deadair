@@ -15,7 +15,6 @@ import type { PersonaStory } from '../../../src/modules/personas/persona.story.j
 const persona = (over: Partial<Persona> = {}): Persona => ({
     id: '9f1d0a5e-0000-4000-8000-000000000001',
     key: 'overnight',
-    kind: 'host',
     kinds: ['host'],
     label: 'The overnight host',
     style: 'a voice for the small hours',
@@ -93,7 +92,7 @@ describe('personaForFile', () => {
     // A caller is shareable exactly as a host is, and `kind` is what says which. It travelling
     // wrongly would be a phone-in voice arriving as a presenter the far side can put on air.
     it('carries what a character is for', () => {
-        expect(personaForFile(persona({ kind: 'caller' }), [])).toMatchObject({ kind: 'caller' });
+        expect(personaForFile(persona({ kinds: ['caller' as const] }), [])).toMatchObject({ kind: 'caller' });
     });
 
     // An absent optional is absent rather than explicitly empty, so a round trip does not turn "the

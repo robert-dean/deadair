@@ -84,15 +84,22 @@ export class PersonaRepository extends DataRepository {
      *
      * `undefined` is a station presenting as nobody in particular, and it casts only the untied —
      * a regular rings a host, and a programme with no host has nobody for them to ring.
+     *
+     * **Nobody is cast onto a show they are presenting.** A character may be a host AND a guest, so
+     * the host is never castable onto their own programme, and `presenting` names everybody else on
+     * it tonight (the co-hosts, and the regular host a guest host is sitting in for) so none of them
+     * rings in to or drops by a show they are already on.
      */
-    async castable(hostId?: string, kind: 'caller' | 'guest' = 'caller'): Promise<Persona[]> {
+    async castable(hostId?: string, kind: 'caller' | 'guest' = 'caller', presenting: readonly string[] = []): Promise<Persona[]> {
+        const onTheShow = [...new Set([...(hostId === undefined ? [] : [hostId]), ...presenting])];
         const rows = await this.db
             .selectFrom('deadair.personas as caller')
             .selectAll('caller')
             .where('caller.stationKey', '=', this.station.stationKey)
             // Callers for a phone-in, guests for a visit. The ties are the same table for both: a
             // tie says which hosts somebody belongs with, whether they ring or drop by.
-            .where('caller.kind', '=', kind)
+            .where(sql<boolean>`${kind} = any(${sql.ref('caller.kinds')})`)
+            .$if(onTheShow.length > 0, query => query.where('caller.id', 'not in', onTheShow))
             .where(eb => {
                 const untied = eb.not(
                     eb.exists(eb.selectFrom('deadair.callerHosts as tie').select('tie.hostId').whereRef('tie.callerId', '=', 'caller.id')),
@@ -209,7 +216,7 @@ export class PersonaRepository extends DataRepository {
             .selectFrom('deadair.personas')
             .selectAll()
             .where('stationKey', '=', this.station.stationKey)
-            .where('kind', '=', 'newsreader')
+            .where(sql<boolean>`'newsreader' = any(${sql.ref('kinds')})`)
             .executeTakeFirst();
 
         return row === undefined ? undefined : toPersona(row);
@@ -468,7 +475,6 @@ function toPersona(row: {
         // character nothing knows what to do with. `personaKinds` drops what it does not know and
         // reads an empty set as `host`, which is what the table meant before callers existed.
         kinds,
-        kind: primaryKind(kinds),
         label: row.label,
         style: row.style,
         defaultHost: row.defaultHost,

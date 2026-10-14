@@ -37,7 +37,7 @@
  *   should say so out loud rather than letting it be discovered.
  */
 
-import type { Persona } from './persona.js';
+import { primaryKind, type Persona } from './persona.js';
 import { quirksForView } from './persona.sheet.js';
 import type { PersonaStory, PersonaStoryDetail } from './persona.story.js';
 import type { PersonaStoryBeat } from './persona.story.beat.js';
@@ -86,7 +86,7 @@ export function personaForFile(persona: Persona, stories: readonly PersonaStory[
         label: persona.label,
         style: persona.style,
         ...omitUndefined({
-            kind: persona.kind,
+            kind: primaryKind(persona.kinds),
             djName: persona.djName,
             voice: persona.voice,
             soundboard: persona.soundboard,

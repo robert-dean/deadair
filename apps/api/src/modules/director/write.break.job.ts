@@ -10,7 +10,7 @@ import { padCanSting, PadRepository } from '#modules/render/pad.repository.js';
 import { padEveryBreaks, padsAreOn } from '#modules/render/pad.settings.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { PersonaTellingRepository } from '#modules/personas/persona.telling.repository.js';
-import type { Persona } from '#modules/personas/persona.js';
+import { hasKind, NEWSREADER_READS, type Persona } from '#modules/personas/persona.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository, type PadHit, type Segment } from '#modules/render/segment.repository.js';
 import { isCarriedKind } from './carried.kind.js';
@@ -514,10 +514,16 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         presenting: Persona | undefined,
     ): Promise<{ persona: Persona | undefined; coPresenters: string[] }> {
         const ids = lineup.coHostPersonaIds;
-        if (ids.length === 0 || presenting === undefined || presenting.kind === 'newsreader') return { persona: presenting, coPresenters: [] };
+        // A bulletin is the newsreader's alone, with nobody beside them. Asked of the BREAK rather than
+        // of the persona, because the newsreader may be tonight's host too, and every other break of
+        // theirs is an ordinary one to share round.
+        const bulletin = presenting !== undefined && NEWSREADER_READS.has(kind) && hasKind(presenting, 'newsreader');
+        if (ids.length === 0 || presenting === undefined || bulletin) return { persona: presenting, coPresenters: [] };
 
         const found = await Promise.all(ids.map(id => this.personas.find(id).catch(() => undefined)));
-        const coHosts = found.filter((persona): persona is Persona => persona?.kind === 'host' && persona.id !== presenting.id);
+        const coHosts = found.filter(
+            (persona): persona is Persona => persona !== undefined && hasKind(persona, 'host') && persona.id !== presenting.id,
+        );
         const everyone = [presenting, ...coHosts];
 
         let speaker = presenting;

@@ -15,6 +15,7 @@ import type { DirectorService } from '../../../src/modules/director/director.ser
 import type { PersonaRepository } from '../../../src/modules/personas/persona.repository.js';
 import type { ScheduleSlot } from '../../../src/modules/director/schedule.js';
 import type { ScheduleSlotInput } from '../../../src/modules/schedule/types/schedule.types.js';
+import type { PersonaKind } from '../../../src/modules/personas/persona.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -33,7 +34,7 @@ function build(
         slots?: ScheduleSlot[];
         airing?: string;
         settings?: Record<string, string>;
-        personas?: Record<string, { kind: string; label: string }>;
+        personas?: Record<string, { kinds: PersonaKind[]; label: string }>;
     } = {},
 ) {
     const slots = {
@@ -274,7 +275,10 @@ describe('ScheduleService.update', () => {
     describe('guest hosts', () => {
         const ROCKZO = '0a0b0c0d-0000-4000-8000-0000000000aa';
         const CALLER = '0a0b0c0d-0000-4000-8000-0000000000bb';
-        const personas = { [ROCKZO]: { kind: 'host', label: 'Dr. Rockzo' }, [CALLER]: { kind: 'caller', label: 'The Pedant' } };
+        const personas = {
+            [ROCKZO]: { kinds: ['host' as const], label: 'Dr. Rockzo' },
+            [CALLER]: { kinds: ['caller' as const], label: 'The Pedant' },
+        };
 
         it('stores a random guest and hands them back the same way', async () => {
             const service = build({ slots: [slot('b', 990, 0)], personas });
@@ -323,7 +327,10 @@ describe('ScheduleService.update', () => {
 
         it('stores co-hosts beside the guest hosts and hands both back', async () => {
             const LEMMY = '0a0b0c0d-0000-4000-8000-0000000000cc';
-            const service = build({ slots: [slot('b', 990, 0)], personas: { ...personas, [LEMMY]: { kind: 'host', label: "Lemmy's Ghost" } } });
+            const service = build({
+                slots: [slot('b', 990, 0)],
+                personas: { ...personas, [LEMMY]: { kinds: ['host' as const], label: "Lemmy's Ghost" } },
+            });
 
             const { slots } = await service.update(
                 'b',

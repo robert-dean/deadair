@@ -179,7 +179,7 @@ const check = (ok: boolean, said: string) => {
     if (!ok) failures += 1;
 };
 
-const host = (await personas.list()).find(persona => persona.kind !== 'caller');
+const host = (await personas.list()).find(persona => persona.kinds.includes('host'));
 if (host === undefined) {
     loud.error('personas: this station has no host to audition. Seed one and run this again.');
     await db.destroy();

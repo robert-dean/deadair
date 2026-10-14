@@ -225,7 +225,13 @@ async function findsWhatCanBeSpokenAgain(): Promise<void> {
  */
 async function recasts(): Promise<void> {
     const personas = new PersonaRepository(db, new StationIdentity());
-    const outgoing = await personas.create({ key: `${KIND}.outgoing`, kinds: ['host'], label: 'Outgoing', style: 'A voice', voice: 'outgoing-voice' });
+    const outgoing = await personas.create({
+        key: `${KIND}.outgoing`,
+        kinds: ['host'],
+        label: 'Outgoing',
+        style: 'A voice',
+        voice: 'outgoing-voice',
+    });
     const incoming = await personas.create({
         key: `${KIND}.incoming`,
         kinds: ['host'],

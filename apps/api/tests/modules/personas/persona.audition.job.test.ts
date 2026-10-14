@@ -33,7 +33,6 @@ type RecordedBreak = {
 const persona = (over: Partial<Persona> = {}): Persona => ({
     id: 'p1',
     key: 'pirate',
-    kind: 'host',
     kinds: ['host'],
     label: 'Pirate captain',
     style: 'a pirate captain who runs a radio station',

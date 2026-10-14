@@ -7,6 +7,7 @@ import { readClock } from '#modules/director/clock.bands.js';
 import { stationZone } from '#modules/director/clock.words.js';
 import { DirectorService } from '#modules/director/director.service.js';
 import type { ChartOrder } from '#modules/director/chart.picks.js';
+import { hasKind } from '#modules/personas/persona.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { coHostsFor, hostFor, type NightHost } from '#modules/director/slot.visits.js';
 import {
@@ -495,7 +496,7 @@ export class ScheduleService {
 
             const persona = UUID.test(guest.personaId) ? await this.personas.find(guest.personaId) : undefined;
             if (persona === undefined) throw httpError(400).withDetails({ message: `there is no character "${guest.personaId}" to sit in` });
-            if (persona.kind !== 'host') {
+            if (!hasKind(persona, 'host')) {
                 throw httpError(400).withDetails({
                     message: `${persona.label || 'that character'} is not a host, and only a host can present a show`,
                 });

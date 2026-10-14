@@ -61,20 +61,22 @@ export const NEWSREADER_READS: ReadonlySet<string> = new Set(['news']);
 export const DEFAULT_PERSONA_KIND: PersonaKind = 'host';
 
 /**
- * Why a persona of this kind cannot present the station, as one sentence, or nothing for a host.
+ * Why a persona cannot present the station, as one sentence, or nothing for anybody who may.
  *
- * One wording for every place that refuses (making it the station's host, recasting a show onto it),
- * so a newsreader is not told it is a caller, which `recast` used to say of anybody who was not a host.
+ * Presenting is the `host` kind and nothing else, whatever else a character is. The sentence names
+ * the first other kind the character has, so a newsreader is not told it is a caller, which `recast`
+ * used to say of anybody who was not a host. One wording for every place that refuses (making it the
+ * station's host, recasting a show onto it, putting it on a schedule slot).
  */
-export function cannotPresent(persona: { kind: PersonaKind; label: string }): string | undefined {
-    switch (persona.kind) {
-        case 'host':
-            return undefined;
+export function cannotPresent(persona: { kinds: readonly PersonaKind[]; label: string }): string | undefined {
+    if (persona.kinds.includes('host')) return undefined;
+
+    switch (persona.kinds[0]) {
         case 'newsreader':
             return `"${persona.label}" reads the news, and the newsreader cannot present the station`;
         case 'guest':
             return `"${persona.label}" is a guest who drops by the studio, and a guest cannot present the station`;
-        case 'caller':
+        default:
             return `"${persona.label}" is a caller, and a caller cannot present the station`;
     }
 }
@@ -168,11 +170,6 @@ export interface PersonaDraft extends PersonaSheet {
 /** A persona as it is stored. */
 export interface Persona extends PersonaDraft {
     id: string;
-    /**
-     * {@link primaryKind} of {@link PersonaDraft.kinds}, derived on read and stored beside it for
-     * clients built before a character could be several things. Nothing in this code decides on it.
-     */
-    kind: PersonaKind;
     /**
      * Whether this is the station's OWN host: who presents when the broadcast on air names nobody.
      *

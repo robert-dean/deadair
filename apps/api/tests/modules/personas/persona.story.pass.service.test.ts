@@ -15,7 +15,6 @@ import type { PersonaStory } from '../../../src/modules/personas/persona.story.j
 const persona = (over: Partial<Persona> = {}): Persona => ({
     id: 'p1',
     key: 'overnight',
-    kind: 'host',
     kinds: ['host'],
     label: 'The overnight host',
     style: 'a quiet presenter who has done the small hours for twenty years',

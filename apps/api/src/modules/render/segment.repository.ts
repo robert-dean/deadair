@@ -4,6 +4,7 @@ import type { DateTime } from 'luxon';
 import { isSpeechDelivery, type SpeechDelivery } from '@deadair/plugin-sdk';
 
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
+import { NEWSREADER_READS } from '#modules/personas/persona.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import type { BreakContext } from '#modules/director/break.request.js';
 import { isSegmentExtension, type SegmentExtension } from './segment.store.js';
@@ -1316,15 +1317,20 @@ export class SegmentRepository extends DataRepository {
             }
             // The newsreader's bulletins are not the outgoing host's to give back: whoever presents,
             // the news is still read by the newsreader, so rewriting them would only say them again.
+            // A BULLETIN read by them rather than anything they said: the newsreader may be a host
+            // as well, and their other breaks are the outgoing host's like anybody's.
             clauses.push(
                 eb.not(
-                    eb.exists(
-                        eb
-                            .selectFrom('deadair.personas as reader')
-                            .select('reader.id')
-                            .whereRef('reader.id', '=', 'deadair.segments.personaId')
-                            .where('reader.kind', '=', 'newsreader'),
-                    ),
+                    eb.and([
+                        eb('deadair.segments.kind', 'in', [...NEWSREADER_READS]),
+                        eb.exists(
+                            eb
+                                .selectFrom('deadair.personas as reader')
+                                .select('reader.id')
+                                .whereRef('reader.id', '=', 'deadair.segments.personaId')
+                                .where(sql<boolean>`'newsreader' = any(${sql.ref('reader.kinds')})`),
+                        ),
+                    ]),
                 ),
             );
             clauses.push(eb('deadair.segments.productionId', 'is', null));

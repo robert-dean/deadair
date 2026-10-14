@@ -4,7 +4,14 @@ import { Kysely, sql } from 'kysely';
 import type { DateTime } from 'luxon';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
-import { isChartSource, isStationPlaylistSource, type ScheduleSlot, type ScheduleSlotSource, type SlotPerson } from '#modules/director/schedule.js';
+import {
+    isChartSource,
+    isPlaylistSource,
+    isStationPlaylistSource,
+    type ScheduleSlot,
+    type ScheduleSlotSource,
+    type SlotPerson,
+} from '#modules/director/schedule.js';
 
 /**
  * The slots an operator has written.
@@ -67,6 +74,15 @@ export class ScheduleRepository extends DataRepository {
 
     /** Answers `undefined` for a slot this station does not have, which is a 404 and not a throw. */
     async update(id: string, draft: ScheduleSlotDraft): Promise<ScheduleSlot | undefined> {
+        // Read before it is overwritten, because it is the only record of which playlist the slot's
+        // place was kept in. See below.
+        const before = await this.db
+            .selectFrom('deadair.scheduleSlots')
+            .select(['sourcePluginId', 'sourcePlaylistId', 'sourceChartId', 'sourceStationPlaylistId'])
+            .where('id', '=', id)
+            .where('stationKey', '=', this.station.stationKey)
+            .executeTakeFirst();
+
         const row = await this.db
             .updateTable('deadair.scheduleSlots')
             .set(columnsOf(draft))
@@ -81,6 +97,13 @@ export class ScheduleRepository extends DataRepository {
         // A set prepared for this slot was chosen against the brief this edit replaced. Deleting a
         // slot needs no line of its own: the foreign key cascades. See migration 0080.
         await this.db.deleteFrom('deadair.schedulePreparedSets').where('slotId', '=', row.id).execute();
+        // Where the slot got to in its playlist goes only when the edit changed WHICH source it plays.
+        // A place in one playlist means nothing in another, but renaming the show or moving its hours
+        // is not a reason to start a long playlist from the top again. Turning resuming off keeps the
+        // place too, so turning it back on carries on rather than starting over. See migration 0102.
+        if (before !== undefined && sourceChanged(before, row)) {
+            await this.db.deleteFrom('deadair.schedulePlaylistPositions').where('slotId', '=', row.id).execute();
+        }
         return { ...toSlot(row), ...peopleOf(draft) };
     }
 
@@ -189,6 +212,9 @@ function columnsOf(draft: ScheduleSlotDraft) {
         startsOn: draft.dates === undefined ? null : sql<DateTime>`${draft.dates.from}::date`,
         endsOn: draft.dates === undefined ? null : sql<DateTime>`${draft.dates.to}::date`,
         yearly: draft.dates?.yearly ?? false,
+        // Only on a playlist, so a slot whose source moves to a chart does not carry a choice that means
+        // nothing there back to the console as though it still applied.
+        resumePlaylist: draft.resumePlaylist === true && isPlaylistSource(draft.source),
         mode: draft.mode,
         onEnd: draft.onEnd,
     };
@@ -199,6 +225,21 @@ const peopleOf = (draft: ScheduleSlotDraft): Pick<ScheduleSlot, 'guestHosts' | '
     ...(draft.guestHosts === undefined || draft.guestHosts.length === 0 ? {} : { guestHosts: draft.guestHosts }),
     ...(draft.coHosts === undefined || draft.coHosts.length === 0 ? {} : { coHosts: draft.coHosts }),
 });
+
+/** The columns that name a slot's source. */
+interface SourceColumns {
+    sourcePluginId: string | null;
+    sourcePlaylistId: string | null;
+    sourceChartId: string | null;
+    sourceStationPlaylistId: string | null;
+}
+
+/** Whether an edit changed which source a slot plays, comparing the stored columns before and after. */
+const sourceChanged = (before: SourceColumns, after: SourceColumns): boolean =>
+    before.sourcePluginId !== after.sourcePluginId ||
+    before.sourcePlaylistId !== after.sourcePlaylistId ||
+    before.sourceChartId !== after.sourceChartId ||
+    before.sourceStationPlaylistId !== after.sourceStationPlaylistId;
 
 /** A stored row as a slot person, dropping what is absent per the `== null` rule. */
 function toPerson(row: { personaId: string; days: unknown; everyN: number | null; cooldownDays: number | null }): SlotPerson {
@@ -249,6 +290,7 @@ function toSlot(row: {
     startsOn: DateTime | null;
     endsOn: DateTime | null;
     yearly: boolean;
+    resumePlaylist: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
     onEnd: 'extend' | 'repeat' | 'stop';
 }): ScheduleSlot {
@@ -296,6 +338,7 @@ function toSlot(row: {
         ...(row.startsOn == null || row.endsOn == null
             ? {}
             : { dates: { from: row.startsOn.toISODate() ?? '', to: row.endsOn.toISODate() ?? '', yearly: row.yearly } }),
+        ...(row.resumePlaylist ? { resumePlaylist: true } : {}),
         mode: row.mode,
         onEnd: row.onEnd,
     };

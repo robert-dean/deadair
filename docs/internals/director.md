@@ -16,7 +16,9 @@ Read the ones covering whatever you are about to change. The always-loaded index
 **One running order per station, owned by the director, and it is not a library.**
 `deadair.station_lineup` holds it as one jsonb document of items, each carrying its own state
 (`planned → handed → airing → played`, with `skipped` off the side). There is no cursor and no
-revision: the position IS the states, so the plan and what actually aired cannot disagree. It is
+revision: the position IS the states, so the plan and what actually aired cannot disagree. (A slot
+that resumes its playlist keeps a place in that PLAYLIST, `schedule_playlist_positions`, which is
+prepared material for its next opening and never a position in the running order; see below.) It is
 built from a playlist when the station goes on air and CONSUMED — prepared material is a playlist,
 and the rule that keeps the two honest is that if it is airing it is a lineup and if it is prepared
 it is a playlist. Memory is the authority and the row is the record: an acknowledged edit is written
@@ -130,6 +132,34 @@ one worker plus the job's own "already prepared" check is what makes that cheap.
 the next boundary prepares nothing, and one that lapses before it is preparing for exactly the show it
 lapses into. Chart and provider-playlist slots are not prepared: their opening is known only by reading
 the source, which the changeover does anyway, and a chart reads by looking up every entry.
+
+**A playlist slot can pick its playlist up where it left off, and the place it keeps is in the
+playlist, never in the running order** (migration 0102, `director/playlist.resume.ts`). A playlist slot
+airs its playlist in the playlist's own order, and `sourceTracks` reads it whole at every opening. A long
+playlist on a short recurring slot therefore aired its first hour every night and never the rest, and an
+operator's takeover ending inside the block was a second opening that started it over mid-show. A slot
+with `resume_playlist` keeps one fact beside it in `schedule_playlist_positions`, one row per slot as a
+prepared set is: the song key of the last record from its playlist that AIRED. At the schedule's own
+changeover onto that slot, `resumedOpening` turns the vetted list round to start just after that record,
+keeping the rest at the end, so a block that reaches the end carries on into the beginning; a key that is
+no longer in the list (taken off the playlist, or passed over by the veto) starts it from the top, as
+does a place that cannot be read. A song key rather than a row number, because a provider's playlist has
+no stable row position and a record added near the top would skip or repeat every record after it.
+The place moves on the aired edge (`DirectorService.rememberPlaylistPlace`), beside the history row and
+for its reason: a record handed over and retracted was never heard. Only a record the broadcast OPENED
+with moves it (`StationLineupTrackItem.opening`, set by `replaceFrom` and kept on the item through a
+restart), on an order the schedule placed for that slot and built from a playlist, because a refill, a
+request, a mix-in or an edit is not on the playlist however much it sounds like it. The one upsert also
+asks the slot row whether it still resumes and still names that playlist, since an operator can edit the
+slot while its block is on. It is a `void`ed scoped call rather than a job: one local row, nothing waits
+on it, and losing one costs a single record airing twice across two openings. Editing the slot's SOURCE
+deletes the place, since a place in one playlist means nothing in another; any other edit, turning
+resuming off included, keeps it. `GET /schedule/{id}/playlist-position` answers the record the next
+opening would start on, read through the same `sourceTracks`, and `DELETE` starts it from the top. This
+stays inside the ownership rule for the prepared set's reasons: the opening is still built whole at the
+changeover and handed to the director as tracks, and the slot row still holds no current state.
+`on_end: 'repeat'` replays the airing's own order exactly as before, and a chart is never resumed: it is
+already cut to the time the slot has left, from number one.
 
 **A show that comes into force with no warning is prepared before it changes over, and the show going
 off stays on while it is** (`ScheduleTickJob.holdForOpening`, `schedule/opening.wait.ts`). The look-ahead

@@ -32,6 +32,7 @@ import {
 } from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
 import { GuestHostsField, guestHostsOf, guestRowOf, guestRowProblem, type GuestRow } from './guest.hosts.field';
+import { ResumePlaylistField } from './playlist.resume.field';
 import { DAYS, minutesToClock, clockToMinutes } from './schedule.day';
 import { weekdayShort } from '../../i18n/format.locale';
 
@@ -135,6 +136,9 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             // The same three-way, and only beside a playlist, the station's own or a provider's:
             // nothing else is ever mixed into.
             ...(values.mixInSimilar && mixesInto(source) ? { mixInSimilar: true } : {}),
+            // Sent only when it is ON, and only beside a playlist: absent is no, and nothing else has a
+            // place to pick up from.
+            ...(values.resumePlaylist && mixesInto(source) ? { resumePlaylist: true } : {}),
             // Both ends or neither; the validator above has already refused one without the other.
             // `yearly` only when it is on, since absent is a one-off.
             ...(special && values.dates[0] && values.dates[1]
@@ -303,6 +307,17 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
 
                     <ShapeNote what="block" />
 
+                    {/* Beside the shape, because it is the other half of how the block plays its
+                        playlist: the shape says what happens at the end of it, this says where it
+                        starts. Only under a playlist, for the chart fields' reason above. */}
+                    {mixesInto(splitSource(form.values.source)) ? (
+                        <ResumePlaylistField
+                            input={form.getInputProps('resumePlaylist', { type: 'checkbox' })}
+                            {...(slot === undefined ? {} : { slotId: slot.id })}
+                            saved={slot?.resumePlaylist === true && form.values.source === valuesOf(target).source}
+                        />
+                    ) : undefined}
+
                     {form.values.mode === 'setlist' ? <TalkField {...form.getInputProps('breaks', { type: 'checkbox' })} /> : undefined}
 
                     <CallinsField {...form.getInputProps('callins', { type: 'checkbox' })} />
@@ -424,6 +439,8 @@ interface FormValues {
     callins: boolean;
     /** Ticked sends `true`; unticked sends nothing, which leaves `rotation.mixInSimilar` standing. Drawn only for a playlist. */
     mixInSimilar: boolean;
+    /** Ticked sends `resumePlaylist: true`; unticked sends nothing, which is no. Drawn only for a playlist. See `ResumePlaylistField`. */
+    resumePlaylist: boolean;
     /** A special's first and last date as `YYYY-MM-DD`, null until picked. Unused on a weekly slot. */
     dates: [string | null, string | null];
     /** Ticked sends `yearly: true`; unticked sends nothing, which is a one-off. */
@@ -473,6 +490,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         avoidMoods: slot?.avoidMoods ?? [],
         callins: slot?.callins ?? false,
         mixInSimilar: slot?.mixInSimilar ?? false,
+        resumePlaylist: slot?.resumePlaylist === true,
         dates: [slot?.startsOn ?? null, slot?.endsOn ?? null],
         yearly: slot?.yearly ?? false,
         breaks: slot?.breaks === true,

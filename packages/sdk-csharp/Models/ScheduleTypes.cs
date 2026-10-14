@@ -89,6 +89,20 @@ public sealed record ScheduleOccurrence
     public required string End { get; init; }
 }
 
+/// <summary>Where a slot that resumes its playlist will pick it up. Empty when it would start from the top: the slot does not resume, has no playlist, has aired nothing from it yet, or the last record it aired is no longer on it</summary>
+public sealed record SlotPlaylistPosition
+{
+    /// <summary>The record the slot opens on next time, as the playlist names it. The station's rules still apply when it opens, so one it will not play by then is passed over</summary>
+    [JsonPropertyName("title")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Title { get; init; }
+
+    /// <summary>Its lead artist</summary>
+    [JsonPropertyName("artist")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Artist { get; init; }
+}
+
 /// <summary>One stretch of the station's day: from this time, on these days, the station plays this</summary>
 public sealed record ScheduleSlot
 {
@@ -220,6 +234,11 @@ public sealed record ScheduleSlot
     [JsonPropertyName("yearly")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Yearly { get; init; }
+
+    /// <summary>Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist</summary>
+    [JsonPropertyName("resumePlaylist")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ResumePlaylist { get; init; }
 
     [JsonPropertyName("mode")]
     public required ScheduleSlotMode Mode { get; init; }
@@ -356,6 +375,11 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("yearly")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Yearly { get; init; }
+
+    /// <summary>Whether a playlist slot picks its playlist up where it left off: each time it opens, it starts with the record after the last one from the playlist that aired, rather than from the top. Absent is no. A record no longer on the playlist starts it from the top again, and so does changing the slot's source. Ignored for a chart or a slot with no playlist</summary>
+    [JsonPropertyName("resumePlaylist")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ResumePlaylist { get; init; }
 
     [JsonPropertyName("mode")]
     public required ScheduleSlotMode Mode { get; init; }

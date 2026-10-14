@@ -100,4 +100,29 @@ public sealed class ScheduleClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<ScheduleSlotList>(response);
     }
+
+    /// <summary>
+    /// Read slot playlist position
+    /// The record a slot that resumes its playlist will open on next time, or nothing when it would start from the top
+    /// </summary>
+    public async Task<SlotPlaylistPosition> ReadSlotPlaylistPositionAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("schedule", http.Segment(id), "playlist-position"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<SlotPlaylistPosition>(response);
+    }
+
+    /// <summary>
+    /// Restart slot playlist
+    /// Forgets where a slot got to in its playlist, so it starts from the top the next time it opens
+    /// </summary>
+    public async Task RestartSlotPlaylistAsync(string id, CancellationToken cancellationToken = default)
+    {
+        await http.ExecuteAsync(
+            HttpMethod.Delete,
+            http.Path("schedule", http.Segment(id), "playlist-position"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
 }

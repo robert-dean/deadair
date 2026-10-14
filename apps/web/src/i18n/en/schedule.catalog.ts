@@ -118,6 +118,17 @@ export const schedule = {
             'Leave it empty for a slot the station fills itself. A playlist the station keeps starts on time however long it is, because it is not read from a provider when the block begins.',
         savingNote: 'Saving changes nothing that is on air now. The station moves when this slot next begins.',
         nameRequired: 'A slot needs a name',
+        resume: {
+            label: 'Pick the playlist up where it left off',
+            description:
+                'Each time this slot opens, it starts with the record after the last one from its playlist that aired, rather than from the top, so a long playlist gets all the way through over several nights. A record taken off the playlist starts it from the top again, and so does choosing a different playlist.',
+            next: 'Next time it opens on {{title}} by {{artist}}.',
+            fromTop: 'Next time it starts from the top.',
+            readFailed: 'Where it got to could not be read.',
+            restart: 'Start from the top',
+            restartFailed: 'It could not be started from the top.',
+            unsaved: 'Save the slot to see where it will pick up.',
+        },
         coHosts: {
             label: 'Co-hosts',
             description:

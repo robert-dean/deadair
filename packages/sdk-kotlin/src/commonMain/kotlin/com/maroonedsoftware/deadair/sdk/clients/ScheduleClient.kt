@@ -6,6 +6,7 @@ import com.maroonedsoftware.deadair.sdk.models.ScheduleSlotInput
 import com.maroonedsoftware.deadair.sdk.models.ScheduleSlotList
 import com.maroonedsoftware.deadair.sdk.models.ScheduleTimetable
 import com.maroonedsoftware.deadair.sdk.models.ScheduleTimetableQuery
+import com.maroonedsoftware.deadair.sdk.models.SlotPlaylistPosition
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 import io.ktor.http.HttpMethod
 
@@ -78,5 +79,26 @@ class ScheduleClient(private val http: SdkHttp) {
             path("schedule", segment(id))
         }
         return http.decodeJson(response)
+    }
+
+    /**
+     * Read slot playlist position
+     * The record a slot that resumes its playlist will open on next time, or nothing when it would start from the top
+     */
+    suspend fun readSlotPlaylistPosition(id: String): SlotPlaylistPosition {
+        val response = http.execute(HttpMethod.Get) {
+            path("schedule", segment(id), "playlist-position")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Restart slot playlist
+     * Forgets where a slot got to in its playlist, so it starts from the top the next time it opens
+     */
+    suspend fun restartSlotPlaylist(id: String) {
+        http.execute(HttpMethod.Delete) {
+            path("schedule", segment(id), "playlist-position")
+        }
     }
 }

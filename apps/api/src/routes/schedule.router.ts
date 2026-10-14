@@ -1,12 +1,14 @@
 import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { ScheduleService } from '#src/modules/schedule/schedule.service.js';
+import { SlotPlaylistService } from '#src/modules/director/slot.playlist.service.js';
 import {
     ScheduleNow,
     ScheduleSlotInput,
     ScheduleSlotList,
     ScheduleTimetable,
     ScheduleTimetableQuery,
+    SlotPlaylistPosition,
 } from '../modules/schedule/types/schedule.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
@@ -111,4 +113,42 @@ ScheduleRouter.delete('/schedule/:id', requirePolicy({ policy: 'platform.manage'
     ctx.status = 200;
     ctx.type = 'application/json';
     ctx.body = result;
+});
+
+/**
+ * The record a slot that resumes its playlist will open on next time, or nothing when it would start from the top
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `GET /schedule/{id}/playlist-position`
+ */
+ScheduleRouter.get('/schedule/:id/playlist-position', requirePolicy({ policy: 'platform.view' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.string().min(1).max(100),
+        }),
+    );
+
+    const service = ctx.container.get(SlotPlaylistService);
+    const result: SlotPlaylistPosition = await service.position(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Forgets where a slot got to in its playlist, so it starts from the top the next time it opens
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck) `DELETE /schedule/{id}/playlist-position`
+ */
+ScheduleRouter.delete('/schedule/:id/playlist-position', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.string().min(1).max(100),
+        }),
+    );
+
+    const service = ctx.container.get(SlotPlaylistService);
+    await service.restart(id);
+
+    ctx.status = 204;
 });

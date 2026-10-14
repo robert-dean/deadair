@@ -59,4 +59,19 @@ public final class ScheduleClient: Sendable {
         let response = try await http.execute(request)
         return try http.decodeJSON(ScheduleSlotList.self, from: response)
     }
+
+    /// Read slot playlist position
+    /// The record a slot that resumes its playlist will open on next time, or nothing when it would start from the top
+    public func readSlotPlaylistPosition(id: String) async throws -> SlotPlaylistPosition {
+        let request = try SdkRequest(method: "GET", path: ["schedule", http.segment(id), "playlist-position"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(SlotPlaylistPosition.self, from: response)
+    }
+
+    /// Restart slot playlist
+    /// Forgets where a slot got to in its playlist, so it starts from the top the next time it opens
+    public func restartSlotPlaylist(id: String) async throws {
+        let request = try SdkRequest(method: "DELETE", path: ["schedule", http.segment(id), "playlist-position"])
+        _ = try await http.execute(request)
+    }
 }

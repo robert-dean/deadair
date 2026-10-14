@@ -90,6 +90,8 @@ function useListWrite<TArgs>(mutationFn: (args: TArgs) => Promise<ScheduleSlotLi
             // they are standing in watches the page say nothing is scheduled, which is the one thing
             // it must never say while being wrong about it.
             void queryClient.invalidateQueries({ queryKey: queryKeys.schedule.current() });
+            // And where a resuming slot will pick its playlist up, which an edit to its source forgets.
+            void queryClient.invalidateQueries({ queryKey: ['schedule', 'playlist-position'] });
         },
     });
 }
@@ -99,3 +101,32 @@ export const useCreateSlot = () => useListWrite((body: ScheduleSlotInput) => sdk
 export const useUpdateSlot = () => useListWrite(({ id, body }: { id: string; body: ScheduleSlotInput }) => sdk.schedule.updateScheduleSlot(id, body));
 
 export const useDeleteSlot = () => useListWrite((id: string) => sdk.schedule.deleteScheduleSlot(id));
+
+/**
+ * The record a slot that resumes its playlist will open on next time, or an empty answer when it
+ * would start from the top.
+ *
+ * Asked only while the editor is open on a slot that resumes, because the station reads the whole
+ * playlist to answer it: the same read the opening makes, so the answer is the record the opening
+ * would choose. Not polled, and stale at once: the place moves every time a record from the playlist
+ * airs, so the editor asks afresh each time it opens rather than trusting a minute-old answer.
+ */
+export function useSlotPlaylistPosition(id: string | undefined, enabled: boolean) {
+    return useQuery({
+        queryKey: queryKeys.schedule.playlistPosition(id ?? ''),
+        queryFn: () => sdk.schedule.readSlotPlaylistPosition(id ?? ''),
+        enabled: enabled && id !== undefined,
+        staleTime: 0,
+    });
+}
+
+/** Start a slot's playlist from the top the next time it opens. */
+export function useRestartSlotPlaylist() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => sdk.schedule.restartSlotPlaylist(id),
+        onSuccess: (_answer, id) => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.schedule.playlistPosition(id) });
+        },
+    });
+}

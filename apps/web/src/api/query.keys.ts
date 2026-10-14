@@ -195,6 +195,8 @@ export const queryKeys = {
         current: () => ['schedule', 'current'] as const,
         /** The day drawn as blocks. Keyed on the window, since a different range is a different page rather than a stale one. */
         timetable: (from: string | undefined, days: number) => ['schedule', 'timetable', from ?? 'today', days] as const,
+        /** Where a slot that resumes its playlist will pick it up. Per slot, and it moves every time a record from it airs. */
+        playlistPosition: (id: string) => ['schedule', 'playlist-position', id] as const,
     },
     productions: {
         list: () => ['productions', 'list'] as const,

@@ -252,9 +252,23 @@ export interface ScheduleSlot {
      * presented by one voice.
      */
     coHosts?: readonly SlotPerson[];
+    /**
+     * Whether a playlist slot picks its playlist up where it left off, rather than from the top.
+     *
+     * Absent is no, and only `true` is ever stored on a slot read back. Where the playlist got to is
+     * NOT here: a slot is configuration and never holds current state (migration 0017), so the place
+     * is a row beside it in `schedule_playlist_positions` (migration 0102). Means nothing for a chart
+     * or for a slot with no playlist.
+     */
+    resumePlaylist?: boolean;
     mode: StationLineupMode;
     onEnd: StationLineupOnEnd;
 }
+
+/** Whether a slot's source is a playlist, of either kind: the only sources a slot can resume. */
+export const isPlaylistSource = (
+    source: ScheduleSlotSource | undefined,
+): source is { pluginId: string; playlistId: string } | { stationPlaylistId: string } => source !== undefined && !isChartSource(source);
 
 /** Whether this slot runs on a given weekday. Empty `days` is every day. */
 const runsOn = (slot: ScheduleSlot, weekday: number): boolean => slot.days.length === 0 || slot.days.includes(weekday);

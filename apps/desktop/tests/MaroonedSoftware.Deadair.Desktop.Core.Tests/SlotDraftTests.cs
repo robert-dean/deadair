@@ -172,6 +172,14 @@ public class SlotDraftTests
     }
 
     [Fact]
+    public void ASlotThatResumesItsPlaylistStillResumesAfterASave_ThoughTheEditorDoesNotDrawIt()
+    {
+        var input = SlotDraft.From(Slot() with { ResumePlaylist = true }).ToInput()!;
+
+        Assert.True(input.ResumePlaylist);
+    }
+
+    [Fact]
     public void AWeeklySlotSendsNoDates()
     {
         var input = SlotDraft.From(Slot()).ToInput()!;

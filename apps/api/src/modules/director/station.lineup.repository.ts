@@ -270,6 +270,7 @@ const toItems = (value: unknown): StationLineupItem[] => {
                   mixedIn?: unknown;
                   requestId?: unknown;
                   followsRequestId?: unknown;
+                  opening?: unknown;
                   pinned?: unknown;
                   track?: Partial<RundownTrack>;
               }
@@ -334,6 +335,8 @@ const toItems = (value: unknown): StationLineupItem[] => {
                 ...(line.mixedIn === true ? { mixedIn: true } : {}),
                 ...(typeof line.requestId === 'string' ? { requestId: line.requestId } : {}),
                 ...(typeof line.followsRequestId === 'string' ? { followsRequestId: line.followsRequestId } : {}),
+                // Only a literal `true`, as `mixedIn` is: it moves a resuming slot's place in its playlist.
+                ...(line.opening === true ? { opening: true as const } : {}),
                 ...(line.pinned === true ? { pinned: true as const } : {}),
             });
         }

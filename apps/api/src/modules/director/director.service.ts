@@ -52,6 +52,8 @@ import { breakPicture, breakPictureKeys, breakPicturesFrom, type BreakPictures }
 import { CandidatesRepository } from './candidates.repository.js';
 import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult, type OrderEdit, type ResumeResult } from './director.mailbox.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
+import { playlistKeyOf } from './playlist.resume.js';
+import { PlaylistPositionRepository } from '#modules/schedule/playlist.position.repository.js';
 import { resolveRules, stationRules, type ResolvedRules } from './rotation.rules.js';
 import { MAIN_SLOT, StationAirRepository, type StationAir } from './station.air.repository.js';
 import {
@@ -3607,6 +3609,8 @@ export class DirectorService {
             this.logger.warn(`director: could not record what aired (${errorText(error)})`),
         );
 
+        this.rememberPlaylistPlace(item);
+
         // The same edge, the same posture, and deliberately a separate call rather than a step
         // inside the write above: the history row steers what the station plays next and this
         // tells somebody else's service what it played, so one failing must not cost the other.
@@ -3635,6 +3639,40 @@ export class DirectorService {
                 ...(broadcastId === undefined ? {} : { broadcastId }),
             });
         }).catch(error => this.logger.warn(`director: could not queue what aired for scrobbling (${errorText(error)})`));
+    }
+
+    /**
+     * Move a resuming slot's place in its playlist on to the record that just aired.
+     *
+     * On this edge, rather than when the record was committed or handed over, for the reason the
+     * history row beside it is: a record can be handed to the player and then retracted, and a place
+     * moved on by one nobody heard would skip it at the next opening. Only a record the broadcast
+     * OPENED with counts (`StationLineupTrackItem.opening`), on a running order the schedule put on for a
+     * slot and built from a playlist; a refill, a request, a mix-in or an operator's edit is not on the
+     * playlist. Whether the slot still resumes, and still names that playlist, is the repository's
+     * question, asked in the one statement that writes.
+     *
+     * A plain scoped call, `void`ed, and not a job or a director command. It changes nothing that
+     * airs, so it is not a command. It is one local upsert, neither slow nor outbound, and nothing needs
+     * it retried: the next record from the playlist writes the place again a few minutes later, and
+     * losing one costs at most that record airing twice across two openings. So it takes the history
+     * write's posture on the same edge, for the same reason, and a failure is a warning.
+     */
+    private rememberPlaylistPlace(item: RundownItem): void {
+        const lineup = this.lineup;
+        if (lineup === undefined || lineup.placedBy !== 'schedule') return;
+
+        const slotId = lineup.slotId;
+        const playlistId = lineup.sourcePlaylistId;
+        if (slotId === undefined || playlistId === undefined) return;
+
+        const line = lineup.find(item.id);
+        if (line?.kind !== 'track' || line.opening !== true) return;
+
+        const playlist = { ...(lineup.sourcePluginId === undefined ? {} : { pluginId: lineup.sourcePluginId }), playlistId };
+        void inScope(this.container, async scope => scope.get(PlaylistPositionRepository).advance(slotId, playlist, playlistKeyOf(item))).catch(
+            error => this.logger.warn(`director: could not remember where the slot got to in its playlist (${errorText(error)})`),
+        );
     }
 
     /**

@@ -1,6 +1,13 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
-import type { ScheduleNow, ScheduleSlotInput, ScheduleSlotList, ScheduleTimetable, ScheduleTimetableQuery } from './types/schedule.types.js';
+import type {
+    ScheduleNow,
+    ScheduleSlotInput,
+    ScheduleSlotList,
+    ScheduleTimetable,
+    ScheduleTimetableQuery,
+    SlotPlaylistPosition,
+} from './types/schedule.types.js';
 
 export class ScheduleClient {
     constructor(private fetch: SdkFetch) {}
@@ -68,5 +75,22 @@ export class ScheduleClient {
     async deleteScheduleSlot(id: string): Promise<ScheduleSlotList> {
         const result = await this.fetch(`/schedule/${encodeURIComponent(id)}`, { method: 'DELETE' });
         return await parseJson<ScheduleSlotList>(result);
+    }
+
+    /**
+     * @name Read slot playlist position
+     * @description The record a slot that resumes its playlist will open on next time, or nothing when it would start from the top
+     */
+    async readSlotPlaylistPosition(id: string): Promise<SlotPlaylistPosition> {
+        const result = await this.fetch(`/schedule/${encodeURIComponent(id)}/playlist-position`, { method: 'GET' });
+        return await parseJson<SlotPlaylistPosition>(result);
+    }
+
+    /**
+     * @name Restart slot playlist
+     * @description Forgets where a slot got to in its playlist, so it starts from the top the next time it opens
+     */
+    async restartSlotPlaylist(id: string): Promise<void> {
+        await this.fetch(`/schedule/${encodeURIComponent(id)}/playlist-position`, { method: 'DELETE' });
     }
 }

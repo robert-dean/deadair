@@ -4,6 +4,7 @@ options {
     }
     services: {
         ScheduleService: "#src/modules/schedule/schedule.service.js"
+        SlotPlaylistService: "#src/modules/director/slot.playlist.service.js"
     }
     security: {
         # The floor is the WRITE end, as in personas beside it: this file is one read and three
@@ -124,5 +125,32 @@ operation /schedule/{id}: {
                 application/json: ScheduleSlotList
             }
         }
+    }
+}
+
+# A slot that resumes its playlist keeps its place BESIDE the slot rather than on it, so this is a
+# route of its own rather than a field on the slot: the place moves every time a record airs, and a
+# slot list that changed with it would never read the same twice.
+
+operation /schedule/{id}/playlist-position: {
+    params: {
+        id: string(min=1, max=100)
+    }
+    get: { # The record a slot that resumes its playlist will open on next time, or nothing when it would start from the top
+        name: Read slot playlist position
+        service: SlotPlaylistService.position
+        security: {
+            # A read, like the list above.
+            policy: platform.view
+        }
+        response: {
+            200: {
+                application/json: SlotPlaylistPosition
+            }
+        }
+    }
+    delete: { # Forgets where a slot got to in its playlist, so it starts from the top the next time it opens
+        name: Restart slot playlist
+        service: SlotPlaylistService.restart
     }
 }

@@ -3,10 +3,10 @@
 
 package com.maroonedsoftware.deadair.sdk.models
 
+import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
@@ -301,67 +301,139 @@ data class EventTypeList(
 )
 
 /** Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count */
-@Serializable
+@Serializable(with = EventDestinationDisabledReasonSerializer::class)
 enum class EventDestinationDisabledReason {
-    @SerialName("failing")
     FAILING,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [EventDestinationDisabledReason] by its wire spelling. A spelling it does not know reads as [EventDestinationDisabledReason.UNKNOWN]. */
+object EventDestinationDisabledReasonSerializer : SdkEnumSerializer<EventDestinationDisabledReason>(
+    "EventDestinationDisabledReason",
+    EventDestinationDisabledReason.UNKNOWN,
+    EventDestinationDisabledReason.FAILING to "failing",
+)
 
 /** `dropped` is an event no longer worth sending, such as a record that finished playing while its destination was down */
-@Serializable
+@Serializable(with = EventDeliveryOutcomeSerializer::class)
 enum class EventDeliveryOutcome {
-    @SerialName("delivered")
     DELIVERED,
-    @SerialName("failed")
     FAILED,
-    @SerialName("dropped")
     DROPPED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [EventDeliveryOutcome] by its wire spelling. A spelling it does not know reads as [EventDeliveryOutcome.UNKNOWN]. */
+object EventDeliveryOutcomeSerializer : SdkEnumSerializer<EventDeliveryOutcome>(
+    "EventDeliveryOutcome",
+    EventDeliveryOutcome.UNKNOWN,
+    EventDeliveryOutcome.DELIVERED to "delivered",
+    EventDeliveryOutcome.FAILED to "failed",
+    EventDeliveryOutcome.DROPPED to "dropped",
+)
 
 /** A podcast episode as published, or something the station reads out itself */
-@Serializable
+@Serializable(with = ProgrammeStartedDataSourceSerializer::class)
 enum class ProgrammeStartedDataSource {
-    @SerialName("podcast")
     PODCAST,
-    @SerialName("narration")
     NARRATION,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [ProgrammeStartedDataSource] by its wire spelling. A spelling it does not know reads as [ProgrammeStartedDataSource.UNKNOWN]. */
+object ProgrammeStartedDataSourceSerializer : SdkEnumSerializer<ProgrammeStartedDataSource>(
+    "ProgrammeStartedDataSource",
+    ProgrammeStartedDataSource.UNKNOWN,
+    ProgrammeStartedDataSource.PODCAST to "podcast",
+    ProgrammeStartedDataSource.NARRATION to "narration",
+)
 
 /** A new running order, the stopped one started again, somebody stopping it, or the running order running out */
-@Serializable
+@Serializable(with = StationAirDataReasonSerializer::class)
 enum class StationAirDataReason {
-    @SerialName("programme")
     PROGRAMME,
-    @SerialName("resumed")
     RESUMED,
-    @SerialName("stopped")
     STOPPED,
-    @SerialName("ranOut")
     RAN_OUT,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [StationAirDataReason] by its wire spelling. A spelling it does not know reads as [StationAirDataReason.UNKNOWN]. */
+object StationAirDataReasonSerializer : SdkEnumSerializer<StationAirDataReason>(
+    "StationAirDataReason",
+    StationAirDataReason.UNKNOWN,
+    StationAirDataReason.PROGRAMME to "programme",
+    StationAirDataReason.RESUMED to "resumed",
+    StationAirDataReason.STOPPED to "stopped",
+    StationAirDataReason.RAN_OUT to "ranOut",
+)
 
 /** Where they asked from. `app` covers the console, the listener apps and a party pass */
-@Serializable
+@Serializable(with = RequestReceivedDataViaSerializer::class)
 enum class RequestReceivedDataVia {
-    @SerialName("app")
     APP,
-    @SerialName("chat")
     CHAT,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
+/** Reads and writes [RequestReceivedDataVia] by its wire spelling. A spelling it does not know reads as [RequestReceivedDataVia.UNKNOWN]. */
+object RequestReceivedDataViaSerializer : SdkEnumSerializer<RequestReceivedDataVia>(
+    "RequestReceivedDataVia",
+    RequestReceivedDataVia.UNKNOWN,
+    RequestReceivedDataVia.APP to "app",
+    RequestReceivedDataVia.CHAT to "chat",
+)
+
 /** How it stands now: waiting on an operator, waiting on its audio, in the running order, or declined */
-@Serializable
+@Serializable(with = RequestReceivedDataStatusSerializer::class)
 enum class RequestReceivedDataStatus {
-    @SerialName("waiting")
     WAITING,
-    @SerialName("pending")
     PENDING,
-    @SerialName("queued")
     QUEUED,
-    @SerialName("aired")
     AIRED,
-    @SerialName("declined")
     DECLINED,
-    @SerialName("expired")
     EXPIRED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [RequestReceivedDataStatus] by its wire spelling. A spelling it does not know reads as [RequestReceivedDataStatus.UNKNOWN]. */
+object RequestReceivedDataStatusSerializer : SdkEnumSerializer<RequestReceivedDataStatus>(
+    "RequestReceivedDataStatus",
+    RequestReceivedDataStatus.UNKNOWN,
+    RequestReceivedDataStatus.WAITING to "waiting",
+    RequestReceivedDataStatus.PENDING to "pending",
+    RequestReceivedDataStatus.QUEUED to "queued",
+    RequestReceivedDataStatus.AIRED to "aired",
+    RequestReceivedDataStatus.DECLINED to "declined",
+    RequestReceivedDataStatus.EXPIRED to "expired",
+)

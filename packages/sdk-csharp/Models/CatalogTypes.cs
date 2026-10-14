@@ -15,9 +15,15 @@ namespace MaroonedSoftware.Deadair.Sdk.Models;
 /// What the station has been told about a record. `neutral` is the absence of an opinion rather than
 /// a middling one, and it is what rating something back to nothing means.
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<Rating>))]
+[JsonConverter(typeof(RatingConverter))]
 public enum Rating
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("liked")]
     Liked,
 
@@ -26,6 +32,48 @@ public enum Rating
 
     [JsonStringEnumMemberName("disliked")]
     Disliked,
+}
+
+/// <summary>
+/// Reads and writes <see cref="Rating"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="Rating.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class RatingConverter : JsonConverter<Rating>
+{
+    public override Rating Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for Rating, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, Rating value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override Rating ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, Rating value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static Rating FromWire(string? text) => text switch
+    {
+        "liked" => Rating.Liked,
+        "neutral" => Rating.Neutral,
+        "disliked" => Rating.Disliked,
+        _ => Rating.Unknown,
+    };
+
+    private static string ToWire(Rating value) => value switch
+    {
+        Rating.Liked => "liked",
+        Rating.Neutral => "neutral",
+        Rating.Disliked => "disliked",
+        _ => throw new JsonException($"Rating.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>
@@ -311,9 +359,15 @@ public sealed record ClearEnrichmentQuery
 /// contract whose only content is which two keys it drops. A key the row cannot answer falls back to
 /// name order rather than failing: an ordering nobody can serve is a page an operator cannot open.
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<CatalogSort>))]
+[JsonConverter(typeof(CatalogSortConverter))]
 public enum CatalogSort
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("name")]
     Name,
 
@@ -331,6 +385,52 @@ public enum CatalogSort
 }
 
 /// <summary>
+/// Reads and writes <see cref="CatalogSort"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="CatalogSort.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class CatalogSortConverter : JsonConverter<CatalogSort>
+{
+    public override CatalogSort Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for CatalogSort, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, CatalogSort value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override CatalogSort ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, CatalogSort value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static CatalogSort FromWire(string? text) => text switch
+    {
+        "name" => CatalogSort.Name,
+        "albums" => CatalogSort.Albums,
+        "tracks" => CatalogSort.Tracks,
+        "year" => CatalogSort.Year,
+        "rating" => CatalogSort.Rating,
+        _ => CatalogSort.Unknown,
+    };
+
+    private static string ToWire(CatalogSort value) => value switch
+    {
+        CatalogSort.Name => "name",
+        CatalogSort.Albums => "albums",
+        CatalogSort.Tracks => "tracks",
+        CatalogSort.Year => "year",
+        CatalogSort.Rating => "rating",
+        _ => throw new JsonException($"CatalogSort.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+/// <summary>
 /// Which records to show, by what the station has of them rather than by what they are.
 ///
 ///   cached      the audio is on this machine, so it can be committed to the running order now
@@ -339,9 +439,15 @@ public enum CatalogSort
 ///   benched     every copy written off, which is the one state that means it CANNOT air
 ///   failing     a fetch has failed and is backing off. Not benched yet, and often the state before it
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<TrackState>))]
+[JsonConverter(typeof(TrackStateConverter))]
 public enum TrackState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("cached")]
     Cached,
 
@@ -359,6 +465,52 @@ public enum TrackState
 }
 
 /// <summary>
+/// Reads and writes <see cref="TrackState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="TrackState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class TrackStateConverter : JsonConverter<TrackState>
+{
+    public override TrackState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for TrackState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, TrackState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override TrackState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, TrackState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static TrackState FromWire(string? text) => text switch
+    {
+        "cached" => TrackState.Cached,
+        "uncached" => TrackState.Uncached,
+        "unmeasured" => TrackState.Unmeasured,
+        "benched" => TrackState.Benched,
+        "failing" => TrackState.Failing,
+        _ => TrackState.Unknown,
+    };
+
+    private static string ToWire(TrackState value) => value switch
+    {
+        TrackState.Cached => "cached",
+        TrackState.Uncached => "uncached",
+        TrackState.Unmeasured => "unmeasured",
+        TrackState.Benched => "benched",
+        TrackState.Failing => "failing",
+        _ => throw new JsonException($"TrackState.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+/// <summary>
 /// What a track list is ordered BY. Its own enum for `TrackQuery`'s own reason: none of these keys
 /// means anything about an artist, and `name` is spelled `title` on a song.
 ///
@@ -366,9 +518,15 @@ public enum TrackState
 /// is no ordering of it an operator would agree with: a benched record and an unmeasured one are not
 /// more or less than each other.
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<TrackSort>))]
+[JsonConverter(typeof(TrackSortConverter))]
 public enum TrackSort
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("title")]
     Title,
 
@@ -386,6 +544,54 @@ public enum TrackSort
 
     [JsonStringEnumMemberName("rating")]
     Rating,
+}
+
+/// <summary>
+/// Reads and writes <see cref="TrackSort"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="TrackSort.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class TrackSortConverter : JsonConverter<TrackSort>
+{
+    public override TrackSort Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for TrackSort, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, TrackSort value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override TrackSort ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, TrackSort value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static TrackSort FromWire(string? text) => text switch
+    {
+        "title" => TrackSort.Title,
+        "artist" => TrackSort.Artist,
+        "album" => TrackSort.Album,
+        "year" => TrackSort.Year,
+        "duration" => TrackSort.Duration,
+        "rating" => TrackSort.Rating,
+        _ => TrackSort.Unknown,
+    };
+
+    private static string ToWire(TrackSort value) => value switch
+    {
+        TrackSort.Title => "title",
+        TrackSort.Artist => "artist",
+        TrackSort.Album => "album",
+        TrackSort.Year => "year",
+        TrackSort.Duration => "duration",
+        TrackSort.Rating => "rating",
+        _ => throw new JsonException($"TrackSort.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>
@@ -1642,9 +1848,15 @@ public sealed record AlbumEnrichmentDetailInput
 }
 
 /// <summary>Nobody sings on it; where the singing is; or nothing to go on</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<VocalMarkersDetailKind>))]
+[JsonConverter(typeof(VocalMarkersDetailKindConverter))]
 public enum VocalMarkersDetailKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown2 = 0,
+
     [JsonStringEnumMemberName("instrumental")]
     Instrumental,
 
@@ -1655,10 +1867,58 @@ public enum VocalMarkersDetailKind
     Unknown,
 }
 
+/// <summary>
+/// Reads and writes <see cref="VocalMarkersDetailKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="VocalMarkersDetailKind.Unknown2"/> rather than failing the payload.
+/// </summary>
+public sealed class VocalMarkersDetailKindConverter : JsonConverter<VocalMarkersDetailKind>
+{
+    public override VocalMarkersDetailKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for VocalMarkersDetailKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, VocalMarkersDetailKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override VocalMarkersDetailKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, VocalMarkersDetailKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static VocalMarkersDetailKind FromWire(string? text) => text switch
+    {
+        "instrumental" => VocalMarkersDetailKind.Instrumental,
+        "ranges" => VocalMarkersDetailKind.Ranges,
+        "unknown" => VocalMarkersDetailKind.Unknown,
+        _ => VocalMarkersDetailKind.Unknown2,
+    };
+
+    private static string ToWire(VocalMarkersDetailKind value) => value switch
+    {
+        VocalMarkersDetailKind.Instrumental => "instrumental",
+        VocalMarkersDetailKind.Ranges => "ranges",
+        VocalMarkersDetailKind.Unknown => "unknown",
+        _ => throw new JsonException($"VocalMarkersDetailKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>An operator's correction, the record's timed lyrics, or neither</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<VocalMarkersDetailSource>))]
+[JsonConverter(typeof(VocalMarkersDetailSourceConverter))]
 public enum VocalMarkersDetailSource
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("override")]
     Override,
 
@@ -1669,10 +1929,58 @@ public enum VocalMarkersDetailSource
     None,
 }
 
+/// <summary>
+/// Reads and writes <see cref="VocalMarkersDetailSource"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="VocalMarkersDetailSource.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class VocalMarkersDetailSourceConverter : JsonConverter<VocalMarkersDetailSource>
+{
+    public override VocalMarkersDetailSource Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for VocalMarkersDetailSource, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, VocalMarkersDetailSource value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override VocalMarkersDetailSource ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, VocalMarkersDetailSource value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static VocalMarkersDetailSource FromWire(string? text) => text switch
+    {
+        "override" => VocalMarkersDetailSource.Override,
+        "lyrics" => VocalMarkersDetailSource.Lyrics,
+        "none" => VocalMarkersDetailSource.None,
+        _ => VocalMarkersDetailSource.Unknown,
+    };
+
+    private static string ToWire(VocalMarkersDetailSource value) => value switch
+    {
+        VocalMarkersDetailSource.Override => "override",
+        VocalMarkersDetailSource.Lyrics => "lyrics",
+        VocalMarkersDetailSource.None => "none",
+        _ => throw new JsonException($"VocalMarkersDetailSource.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>The words are here; a source says nobody sings on it; or no source has an answer yet</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<TrackLyricsKind>))]
+[JsonConverter(typeof(TrackLyricsKindConverter))]
 public enum TrackLyricsKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("words")]
     Words,
 
@@ -1681,4 +1989,46 @@ public enum TrackLyricsKind
 
     [JsonStringEnumMemberName("none")]
     None,
+}
+
+/// <summary>
+/// Reads and writes <see cref="TrackLyricsKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="TrackLyricsKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class TrackLyricsKindConverter : JsonConverter<TrackLyricsKind>
+{
+    public override TrackLyricsKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for TrackLyricsKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, TrackLyricsKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override TrackLyricsKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, TrackLyricsKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static TrackLyricsKind FromWire(string? text) => text switch
+    {
+        "words" => TrackLyricsKind.Words,
+        "instrumental" => TrackLyricsKind.Instrumental,
+        "none" => TrackLyricsKind.None,
+        _ => TrackLyricsKind.Unknown,
+    };
+
+    private static string ToWire(TrackLyricsKind value) => value switch
+    {
+        TrackLyricsKind.Words => "words",
+        TrackLyricsKind.Instrumental => "instrumental",
+        TrackLyricsKind.None => "none",
+        _ => throw new JsonException($"TrackLyricsKind.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

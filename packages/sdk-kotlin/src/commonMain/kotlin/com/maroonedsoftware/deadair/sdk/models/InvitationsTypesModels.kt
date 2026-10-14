@@ -3,11 +3,11 @@
 
 package com.maroonedsoftware.deadair.sdk.models
 
+import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.serialization.KSerializer
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -23,17 +23,29 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /** Where an invitation stands. `expired` is a pending invitation whose time ran out */
-@Serializable
+@Serializable(with = InvitationStateSerializer::class)
 enum class InvitationState {
-    @SerialName("pending")
     PENDING,
-    @SerialName("accepted")
     ACCEPTED,
-    @SerialName("revoked")
     REVOKED,
-    @SerialName("expired")
     EXPIRED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [InvitationState] by its wire spelling. A spelling it does not know reads as [InvitationState.UNKNOWN]. */
+object InvitationStateSerializer : SdkEnumSerializer<InvitationState>(
+    "InvitationState",
+    InvitationState.UNKNOWN,
+    InvitationState.PENDING to "pending",
+    InvitationState.ACCEPTED to "accepted",
+    InvitationState.REVOKED to "revoked",
+    InvitationState.EXPIRED to "expired",
+)
 
 /** Invite somebody by their address */
 @Serializable
@@ -67,13 +79,25 @@ data class InvitationDetails(
 )
 
 /** How the person will prove it is them after their password: an authenticator app, or a passkey */
-@Serializable
+@Serializable(with = InvitationSecondStepSerializer::class)
 enum class InvitationSecondStep {
-    @SerialName("authenticator")
     AUTHENTICATOR,
-    @SerialName("fido")
     FIDO,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [InvitationSecondStep] by its wire spelling. A spelling it does not know reads as [InvitationSecondStep.UNKNOWN]. */
+object InvitationSecondStepSerializer : SdkEnumSerializer<InvitationSecondStep>(
+    "InvitationSecondStep",
+    InvitationSecondStep.UNKNOWN,
+    InvitationSecondStep.AUTHENTICATOR to "authenticator",
+    InvitationSecondStep.FIDO to "fido",
+)
 
 /** An authenticator app to scan, for an invitation being accepted */
 @Serializable

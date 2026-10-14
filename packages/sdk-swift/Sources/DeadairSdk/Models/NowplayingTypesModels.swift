@@ -298,16 +298,104 @@ public struct NowPlaying: Codable, Equatable, Sendable {
 }
 
 /// `record` is music. `break` is the station speaking on its own between two records (an ident, a bulletin, a talk break), with `artist` empty and `title` the break's own label. A presenter talking over the start of a record is not a break: the record is what is on air, and it stays `record`. Absent means `record`, which is all a station older than this field ever reported
-public enum NowPlayingTrackKind: String, Codable, CaseIterable, Sendable {
-    case record = "record"
-    case `break` = "break"
+public enum NowPlayingTrackKind: Codable, CaseIterable, Hashable, Sendable {
+    case record
+    case `break`
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [NowPlayingTrackKind] = [.record, .`break`]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .record: return "record"
+        case .`break`: return "break"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "record": self = .record
+        case "break": self = .`break`
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "NowPlayingTrackKind.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// `hls` is the master playlist rather than an Icecast mount, which is why this enum has an arm `PlayoutMount` does not
-public enum NowPlayingMountFormat: String, Codable, CaseIterable, Sendable {
-    case mp3 = "mp3"
-    case opus = "opus"
-    case aac = "aac"
-    case flac = "flac"
-    case hls = "hls"
+public enum NowPlayingMountFormat: Codable, CaseIterable, Hashable, Sendable {
+    case mp3
+    case opus
+    case aac
+    case flac
+    case hls
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [NowPlayingMountFormat] = [.mp3, .opus, .aac, .flac, .hls]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .mp3: return "mp3"
+        case .opus: return "opus"
+        case .aac: return "aac"
+        case .flac: return "flac"
+        case .hls: return "hls"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "mp3": self = .mp3
+        case "opus": self = .opus
+        case "aac": self = .aac
+        case "flac": self = .flac
+        case "hls": self = .hls
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "NowPlayingMountFormat.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

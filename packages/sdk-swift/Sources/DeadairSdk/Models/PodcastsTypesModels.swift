@@ -637,8 +637,51 @@ public struct OwnShowListInput: Codable, Equatable, Sendable {
 }
 
 /// How much of the model an episode is worth. Absent is the station's default
-public enum OwnShowWritingMode: String, Codable, CaseIterable, Sendable {
-    case quick = "quick"
-    case outlined = "outlined"
-    case polished = "polished"
+public enum OwnShowWritingMode: Codable, CaseIterable, Hashable, Sendable {
+    case quick
+    case outlined
+    case polished
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [OwnShowWritingMode] = [.quick, .outlined, .polished]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .quick: return "quick"
+        case .outlined: return "outlined"
+        case .polished: return "polished"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "quick": self = .quick
+        case "outlined": self = .outlined
+        case "polished": self = .polished
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "OwnShowWritingMode.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

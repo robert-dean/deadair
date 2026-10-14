@@ -3,9 +3,9 @@
 
 package com.maroonedsoftware.deadair.sdk.models
 
+import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** One thing a character does on air, and how often it does it */
@@ -828,397 +828,853 @@ data class PersonaImportResult(
 class PersonaImportResultInput
 
 /** What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air; a `newsreader` reads every news bulletin, in its own character and voice, whoever is hosting, and the station has at most one; a `guest` drops by the studio for a short chat with the host on a `visit` and, like a caller, never presents. Absent means `host`, so a form written before callers existed still means what it meant */
-@Serializable
+@Serializable(with = PersonaKindSerializer::class)
 enum class PersonaKind {
-    @SerialName("host")
     HOST,
-    @SerialName("caller")
     CALLER,
-    @SerialName("newsreader")
     NEWSREADER,
-    @SerialName("guest")
     GUEST,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaKind] by its wire spelling. A spelling it does not know reads as [PersonaKind.UNKNOWN]. */
+object PersonaKindSerializer : SdkEnumSerializer<PersonaKind>(
+    "PersonaKind",
+    PersonaKind.UNKNOWN,
+    PersonaKind.HOST to "host",
+    PersonaKind.CALLER to "caller",
+    PersonaKind.NEWSREADER to "newsreader",
+    PersonaKind.GUEST to "guest",
+)
 
 /** How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one */
-@Serializable
+@Serializable(with = PersonaBrevitySerializer::class)
 enum class PersonaBrevity {
-    @SerialName("short")
     SHORT,
-    @SerialName("one-line")
     ONE_LINE,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaBrevity] by its wire spelling. A spelling it does not know reads as [PersonaBrevity.UNKNOWN]. */
+object PersonaBrevitySerializer : SdkEnumSerializer<PersonaBrevity>(
+    "PersonaBrevity",
+    PersonaBrevity.UNKNOWN,
+    PersonaBrevity.SHORT to "short",
+    PersonaBrevity.ONE_LINE to "one-line",
+)
 
 /** How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal */
-@Serializable
+@Serializable(with = PersonaLatitudeSerializer::class)
 enum class PersonaLatitude {
-    @SerialName("loose")
     LOOSE,
-    @SerialName("unleashed")
     UNLEASHED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaLatitude] by its wire spelling. A spelling it does not know reads as [PersonaLatitude.UNKNOWN]. */
+object PersonaLatitudeSerializer : SdkEnumSerializer<PersonaLatitude>(
+    "PersonaLatitude",
+    PersonaLatitude.UNKNOWN,
+    PersonaLatitude.LOOSE to "loose",
+    PersonaLatitude.UNLEASHED to "unleashed",
+)
 
 /** How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree */
-@Serializable
+@Serializable(with = PersonaChattinessSerializer::class)
 enum class PersonaChattiness {
-    @SerialName("reserved")
     RESERVED,
-    @SerialName("sparing")
     SPARING,
-    @SerialName("ordinary")
     ORDINARY,
-    @SerialName("chatty")
     CHATTY,
-    @SerialName("relentless")
     RELENTLESS,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaChattiness] by its wire spelling. A spelling it does not know reads as [PersonaChattiness.UNKNOWN]. */
+object PersonaChattinessSerializer : SdkEnumSerializer<PersonaChattiness>(
+    "PersonaChattiness",
+    PersonaChattiness.UNKNOWN,
+    PersonaChattiness.RESERVED to "reserved",
+    PersonaChattiness.SPARING to "sparing",
+    PersonaChattiness.ORDINARY to "ordinary",
+    PersonaChattiness.CHATTY to "chatty",
+    PersonaChattiness.RELENTLESS to "relentless",
+)
 
 /** How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says */
-@Serializable
+@Serializable(with = PersonaStorytellingSerializer::class)
 enum class PersonaStorytelling {
-    @SerialName("never")
     NEVER,
-    @SerialName("occasionally")
     OCCASIONALLY,
-    @SerialName("often")
     OFTEN,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaStorytelling] by its wire spelling. A spelling it does not know reads as [PersonaStorytelling.UNKNOWN]. */
+object PersonaStorytellingSerializer : SdkEnumSerializer<PersonaStorytelling>(
+    "PersonaStorytelling",
+    PersonaStorytelling.UNKNOWN,
+    PersonaStorytelling.NEVER to "never",
+    PersonaStorytelling.OCCASIONALLY to "occasionally",
+    PersonaStorytelling.OFTEN to "often",
+)
 
 /** Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is */
-@Serializable
+@Serializable(with = PersonaGrowthSerializer::class)
 enum class PersonaGrowth {
-    @SerialName("proposes")
     PROPOSES,
-    @SerialName("self-directed")
     SELF_DIRECTED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaGrowth] by its wire spelling. A spelling it does not know reads as [PersonaGrowth.UNKNOWN]. */
+object PersonaGrowthSerializer : SdkEnumSerializer<PersonaGrowth>(
+    "PersonaGrowth",
+    PersonaGrowth.UNKNOWN,
+    PersonaGrowth.PROPOSES to "proposes",
+    PersonaGrowth.SELF_DIRECTED to "self-directed",
+)
 
 /** How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says */
-@Serializable
+@Serializable(with = PersonaTriviaSerializer::class)
 enum class PersonaTrivia {
-    @SerialName("keen")
     KEEN,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaTrivia] by its wire spelling. A spelling it does not know reads as [PersonaTrivia.UNKNOWN]. */
+object PersonaTriviaSerializer : SdkEnumSerializer<PersonaTrivia>(
+    "PersonaTrivia",
+    PersonaTrivia.UNKNOWN,
+    PersonaTrivia.KEEN to "keen",
+)
 
 /** How often it applies. Absent is `always`: a rule, sent on every break. The others are something the character does now and then, and the station picks which ordinary talk breaks, at most one such quirk to a break, so the text should not say "now and then" itself */
-@Serializable
+@Serializable(with = PersonaQuirkCadenceSerializer::class)
 enum class PersonaQuirkCadence {
-    @SerialName("always")
     ALWAYS,
-    @SerialName("often")
     OFTEN,
-    @SerialName("occasionally")
     OCCASIONALLY,
-    @SerialName("rarely")
     RARELY,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PersonaQuirkCadence] by its wire spelling. A spelling it does not know reads as [PersonaQuirkCadence.UNKNOWN]. */
+object PersonaQuirkCadenceSerializer : SdkEnumSerializer<PersonaQuirkCadence>(
+    "PersonaQuirkCadence",
+    PersonaQuirkCadence.UNKNOWN,
+    PersonaQuirkCadence.ALWAYS to "always",
+    PersonaQuirkCadence.OFTEN to "often",
+    PersonaQuirkCadence.OCCASIONALLY to "occasionally",
+    PersonaQuirkCadence.RARELY to "rarely",
+)
+
+@Serializable(with = PersonaDraftViewBrevitySerializer::class)
 enum class PersonaDraftViewBrevity {
-    @SerialName("short")
     SHORT,
-    @SerialName("one-line")
     ONE_LINE,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PersonaDraftViewBrevity] by its wire spelling. A spelling it does not know reads as [PersonaDraftViewBrevity.UNKNOWN]. */
+object PersonaDraftViewBrevitySerializer : SdkEnumSerializer<PersonaDraftViewBrevity>(
+    "PersonaDraftViewBrevity",
+    PersonaDraftViewBrevity.UNKNOWN,
+    PersonaDraftViewBrevity.SHORT to "short",
+    PersonaDraftViewBrevity.ONE_LINE to "one-line",
+)
+
+@Serializable(with = PersonaDraftViewLatitudeSerializer::class)
 enum class PersonaDraftViewLatitude {
-    @SerialName("loose")
     LOOSE,
-    @SerialName("unleashed")
     UNLEASHED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PersonaDraftViewLatitude] by its wire spelling. A spelling it does not know reads as [PersonaDraftViewLatitude.UNKNOWN]. */
+object PersonaDraftViewLatitudeSerializer : SdkEnumSerializer<PersonaDraftViewLatitude>(
+    "PersonaDraftViewLatitude",
+    PersonaDraftViewLatitude.UNKNOWN,
+    PersonaDraftViewLatitude.LOOSE to "loose",
+    PersonaDraftViewLatitude.UNLEASHED to "unleashed",
+)
+
+@Serializable(with = PersonaDraftViewChattinessSerializer::class)
 enum class PersonaDraftViewChattiness {
-    @SerialName("reserved")
     RESERVED,
-    @SerialName("sparing")
     SPARING,
-    @SerialName("ordinary")
     ORDINARY,
-    @SerialName("chatty")
     CHATTY,
-    @SerialName("relentless")
     RELENTLESS,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PersonaDraftViewChattiness] by its wire spelling. A spelling it does not know reads as [PersonaDraftViewChattiness.UNKNOWN]. */
+object PersonaDraftViewChattinessSerializer : SdkEnumSerializer<PersonaDraftViewChattiness>(
+    "PersonaDraftViewChattiness",
+    PersonaDraftViewChattiness.UNKNOWN,
+    PersonaDraftViewChattiness.RESERVED to "reserved",
+    PersonaDraftViewChattiness.SPARING to "sparing",
+    PersonaDraftViewChattiness.ORDINARY to "ordinary",
+    PersonaDraftViewChattiness.CHATTY to "chatty",
+    PersonaDraftViewChattiness.RELENTLESS to "relentless",
+)
+
+@Serializable(with = PersonaDraftViewStorytellingSerializer::class)
 enum class PersonaDraftViewStorytelling {
-    @SerialName("never")
     NEVER,
-    @SerialName("occasionally")
     OCCASIONALLY,
-    @SerialName("often")
     OFTEN,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PersonaDraftViewStorytelling] by its wire spelling. A spelling it does not know reads as [PersonaDraftViewStorytelling.UNKNOWN]. */
+object PersonaDraftViewStorytellingSerializer : SdkEnumSerializer<PersonaDraftViewStorytelling>(
+    "PersonaDraftViewStorytelling",
+    PersonaDraftViewStorytelling.UNKNOWN,
+    PersonaDraftViewStorytelling.NEVER to "never",
+    PersonaDraftViewStorytelling.OCCASIONALLY to "occasionally",
+    PersonaDraftViewStorytelling.OFTEN to "often",
+)
+
+@Serializable(with = PersonaDraftViewTriviaSerializer::class)
 enum class PersonaDraftViewTrivia {
-    @SerialName("keen")
     KEEN,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaDraftViewTrivia] by its wire spelling. A spelling it does not know reads as [PersonaDraftViewTrivia.UNKNOWN]. */
+object PersonaDraftViewTriviaSerializer : SdkEnumSerializer<PersonaDraftViewTrivia>(
+    "PersonaDraftViewTrivia",
+    PersonaDraftViewTrivia.UNKNOWN,
+    PersonaDraftViewTrivia.KEEN to "keen",
+)
 
 /** `said` is what this character did, rendered beside the show's memory. `trait` is who it has become, rendered beside the sheet */
-@Serializable
+@Serializable(with = PersonaNoteKindSerializer::class)
 enum class PersonaNoteKind {
-    @SerialName("said")
     SAID,
-    @SerialName("trait")
     TRAIT,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaNoteKind] by its wire spelling. A spelling it does not know reads as [PersonaNoteKind.UNKNOWN]. */
+object PersonaNoteKindSerializer : SdkEnumSerializer<PersonaNoteKind>(
+    "PersonaNoteKind",
+    PersonaNoteKind.UNKNOWN,
+    PersonaNoteKind.SAID to "said",
+    PersonaNoteKind.TRAIT to "trait",
+)
 
 /** `active` is carried into breaks. `rejected` outlives the pass that proposed it, or the same scripts propose it again forever */
-@Serializable
+@Serializable(with = PersonaNoteState2Serializer::class)
 enum class PersonaNoteState2 {
-    @SerialName("active")
     ACTIVE,
-    @SerialName("suggested")
     SUGGESTED,
-    @SerialName("rejected")
     REJECTED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaNoteState2] by its wire spelling. A spelling it does not know reads as [PersonaNoteState2.UNKNOWN]. */
+object PersonaNoteState2Serializer : SdkEnumSerializer<PersonaNoteState2>(
+    "PersonaNoteState2",
+    PersonaNoteState2.UNKNOWN,
+    PersonaNoteState2.ACTIVE to "active",
+    PersonaNoteState2.SUGGESTED to "suggested",
+    PersonaNoteState2.REJECTED to "rejected",
+)
 
 /** Who says so. `model` is the distil pass reading this character's own history back */
-@Serializable
+@Serializable(with = PersonaNoteOriginSerializer::class)
 enum class PersonaNoteOrigin {
-    @SerialName("operator")
     OPERATOR,
-    @SerialName("model")
     MODEL,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PersonaNoteOrigin] by its wire spelling. A spelling it does not know reads as [PersonaNoteOrigin.UNKNOWN]. */
+object PersonaNoteOriginSerializer : SdkEnumSerializer<PersonaNoteOrigin>(
+    "PersonaNoteOrigin",
+    PersonaNoteOrigin.UNKNOWN,
+    PersonaNoteOrigin.OPERATOR to "operator",
+    PersonaNoteOrigin.MODEL to "model",
+)
+
+@Serializable(with = PersonaNoteWriteKindSerializer::class)
 enum class PersonaNoteWriteKind {
-    @SerialName("said")
     SAID,
-    @SerialName("trait")
     TRAIT,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PersonaNoteWriteKind] by its wire spelling. A spelling it does not know reads as [PersonaNoteWriteKind.UNKNOWN]. */
+object PersonaNoteWriteKindSerializer : SdkEnumSerializer<PersonaNoteWriteKind>(
+    "PersonaNoteWriteKind",
+    PersonaNoteWriteKind.UNKNOWN,
+    PersonaNoteWriteKind.SAID to "said",
+    PersonaNoteWriteKind.TRAIT to "trait",
+)
+
+@Serializable(with = PersonaNoteStateStateSerializer::class)
 enum class PersonaNoteStateState {
-    @SerialName("active")
     ACTIVE,
-    @SerialName("suggested")
     SUGGESTED,
-    @SerialName("rejected")
     REJECTED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaNoteStateState] by its wire spelling. A spelling it does not know reads as [PersonaNoteStateState.UNKNOWN]. */
+object PersonaNoteStateStateSerializer : SdkEnumSerializer<PersonaNoteStateState>(
+    "PersonaNoteStateState",
+    PersonaNoteStateState.UNKNOWN,
+    PersonaNoteStateState.ACTIVE to "active",
+    PersonaNoteStateState.SUGGESTED to "suggested",
+    PersonaNoteStateState.REJECTED to "rejected",
+)
 
 /** `active` can be told. `rejected` outlives the pass that proposed it, or the same catalogue proposes it forever */
-@Serializable
+@Serializable(with = PersonaStoryState2Serializer::class)
 enum class PersonaStoryState2 {
-    @SerialName("active")
     ACTIVE,
-    @SerialName("suggested")
     SUGGESTED,
-    @SerialName("rejected")
     REJECTED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaStoryState2] by its wire spelling. A spelling it does not know reads as [PersonaStoryState2.UNKNOWN]. */
+object PersonaStoryState2Serializer : SdkEnumSerializer<PersonaStoryState2>(
+    "PersonaStoryState2",
+    PersonaStoryState2.UNKNOWN,
+    PersonaStoryState2.ACTIVE to "active",
+    PersonaStoryState2.SUGGESTED to "suggested",
+    PersonaStoryState2.REJECTED to "rejected",
+)
 
 /** Who says so. `model` is the enrichment pass writing from what the station already holds */
-@Serializable
+@Serializable(with = PersonaStoryOriginSerializer::class)
 enum class PersonaStoryOrigin {
-    @SerialName("operator")
     OPERATOR,
-    @SerialName("model")
     MODEL,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaStoryOrigin] by its wire spelling. A spelling it does not know reads as [PersonaStoryOrigin.UNKNOWN]. */
+object PersonaStoryOriginSerializer : SdkEnumSerializer<PersonaStoryOrigin>(
+    "PersonaStoryOrigin",
+    PersonaStoryOrigin.UNKNOWN,
+    PersonaStoryOrigin.OPERATOR to "operator",
+    PersonaStoryOrigin.MODEL to "model",
+)
 
 /** An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end */
-@Serializable
+@Serializable(with = PersonaStoryKindSerializer::class)
 enum class PersonaStoryKind {
-    @SerialName("anecdote")
     ANECDOTE,
-    @SerialName("arc")
     ARC,
-    @SerialName("bit")
     BIT,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PersonaStoryKind] by its wire spelling. A spelling it does not know reads as [PersonaStoryKind.UNKNOWN]. */
+object PersonaStoryKindSerializer : SdkEnumSerializer<PersonaStoryKind>(
+    "PersonaStoryKind",
+    PersonaStoryKind.UNKNOWN,
+    PersonaStoryKind.ANECDOTE to "anecdote",
+    PersonaStoryKind.ARC to "arc",
+    PersonaStoryKind.BIT to "bit",
+)
+
+@Serializable(with = PersonaStoryDetailStateSerializer::class)
 enum class PersonaStoryDetailState {
-    @SerialName("active")
     ACTIVE,
-    @SerialName("suggested")
     SUGGESTED,
-    @SerialName("rejected")
     REJECTED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PersonaStoryDetailState] by its wire spelling. A spelling it does not know reads as [PersonaStoryDetailState.UNKNOWN]. */
+object PersonaStoryDetailStateSerializer : SdkEnumSerializer<PersonaStoryDetailState>(
+    "PersonaStoryDetailState",
+    PersonaStoryDetailState.UNKNOWN,
+    PersonaStoryDetailState.ACTIVE to "active",
+    PersonaStoryDetailState.SUGGESTED to "suggested",
+    PersonaStoryDetailState.REJECTED to "rejected",
+)
+
+@Serializable(with = PersonaStoryDetailOriginSerializer::class)
 enum class PersonaStoryDetailOrigin {
-    @SerialName("operator")
     OPERATOR,
-    @SerialName("model")
     MODEL,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaStoryDetailOrigin] by its wire spelling. A spelling it does not know reads as [PersonaStoryDetailOrigin.UNKNOWN]. */
+object PersonaStoryDetailOriginSerializer : SdkEnumSerializer<PersonaStoryDetailOrigin>(
+    "PersonaStoryDetailOrigin",
+    PersonaStoryDetailOrigin.UNKNOWN,
+    PersonaStoryDetailOrigin.OPERATOR to "operator",
+    PersonaStoryDetailOrigin.MODEL to "model",
+)
 
 /** What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is */
-@Serializable
+@Serializable(with = PersonaStoryWriteKindSerializer::class)
 enum class PersonaStoryWriteKind {
-    @SerialName("anecdote")
     ANECDOTE,
-    @SerialName("arc")
     ARC,
-    @SerialName("bit")
     BIT,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PersonaStoryWriteKind] by its wire spelling. A spelling it does not know reads as [PersonaStoryWriteKind.UNKNOWN]. */
+object PersonaStoryWriteKindSerializer : SdkEnumSerializer<PersonaStoryWriteKind>(
+    "PersonaStoryWriteKind",
+    PersonaStoryWriteKind.UNKNOWN,
+    PersonaStoryWriteKind.ANECDOTE to "anecdote",
+    PersonaStoryWriteKind.ARC to "arc",
+    PersonaStoryWriteKind.BIT to "bit",
+)
+
+@Serializable(with = PersonaStoryBeatStateSerializer::class)
 enum class PersonaStoryBeatState {
-    @SerialName("active")
     ACTIVE,
-    @SerialName("suggested")
     SUGGESTED,
-    @SerialName("rejected")
     REJECTED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PersonaStoryBeatState] by its wire spelling. A spelling it does not know reads as [PersonaStoryBeatState.UNKNOWN]. */
+object PersonaStoryBeatStateSerializer : SdkEnumSerializer<PersonaStoryBeatState>(
+    "PersonaStoryBeatState",
+    PersonaStoryBeatState.UNKNOWN,
+    PersonaStoryBeatState.ACTIVE to "active",
+    PersonaStoryBeatState.SUGGESTED to "suggested",
+    PersonaStoryBeatState.REJECTED to "rejected",
+)
+
+@Serializable(with = PersonaStoryBeatOriginSerializer::class)
 enum class PersonaStoryBeatOrigin {
-    @SerialName("operator")
     OPERATOR,
-    @SerialName("model")
     MODEL,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PersonaStoryBeatOrigin] by its wire spelling. A spelling it does not know reads as [PersonaStoryBeatOrigin.UNKNOWN]. */
+object PersonaStoryBeatOriginSerializer : SdkEnumSerializer<PersonaStoryBeatOrigin>(
+    "PersonaStoryBeatOrigin",
+    PersonaStoryBeatOrigin.UNKNOWN,
+    PersonaStoryBeatOrigin.OPERATOR to "operator",
+    PersonaStoryBeatOrigin.MODEL to "model",
+)
+
+@Serializable(with = PersonaStoryStateStateSerializer::class)
 enum class PersonaStoryStateState {
-    @SerialName("active")
     ACTIVE,
-    @SerialName("suggested")
     SUGGESTED,
-    @SerialName("rejected")
     REJECTED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaStoryStateState] by its wire spelling. A spelling it does not know reads as [PersonaStoryStateState.UNKNOWN]. */
+object PersonaStoryStateStateSerializer : SdkEnumSerializer<PersonaStoryStateState>(
+    "PersonaStoryStateState",
+    PersonaStoryStateState.UNKNOWN,
+    PersonaStoryStateState.ACTIVE to "active",
+    PersonaStoryStateState.SUGGESTED to "suggested",
+    PersonaStoryStateState.REJECTED to "rejected",
+)
 
 /** Absent means `host`, as everywhere else */
-@Serializable
+@Serializable(with = PersonaFilePersonaKindSerializer::class)
 enum class PersonaFilePersonaKind {
-    @SerialName("host")
     HOST,
-    @SerialName("caller")
     CALLER,
-    @SerialName("newsreader")
     NEWSREADER,
-    @SerialName("guest")
     GUEST,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaFilePersonaKind] by its wire spelling. A spelling it does not know reads as [PersonaFilePersonaKind.UNKNOWN]. */
+object PersonaFilePersonaKindSerializer : SdkEnumSerializer<PersonaFilePersonaKind>(
+    "PersonaFilePersonaKind",
+    PersonaFilePersonaKind.UNKNOWN,
+    PersonaFilePersonaKind.HOST to "host",
+    PersonaFilePersonaKind.CALLER to "caller",
+    PersonaFilePersonaKind.NEWSREADER to "newsreader",
+    PersonaFilePersonaKind.GUEST to "guest",
+)
 
 /** Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it */
-@Serializable
+@Serializable(with = PersonaFileStoryKindSerializer::class)
 enum class PersonaFileStoryKind {
-    @SerialName("anecdote")
     ANECDOTE,
-    @SerialName("arc")
     ARC,
-    @SerialName("bit")
     BIT,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaFileStoryKind] by its wire spelling. A spelling it does not know reads as [PersonaFileStoryKind.UNKNOWN]. */
+object PersonaFileStoryKindSerializer : SdkEnumSerializer<PersonaFileStoryKind>(
+    "PersonaFileStoryKind",
+    PersonaFileStoryKind.UNKNOWN,
+    PersonaFileStoryKind.ANECDOTE to "anecdote",
+    PersonaFileStoryKind.ARC to "arc",
+    PersonaFileStoryKind.BIT to "bit",
+)
 
 /** Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet */
-@Serializable
+@Serializable(with = PersonaFileStoryStateSerializer::class)
 enum class PersonaFileStoryState {
-    @SerialName("active")
     ACTIVE,
-    @SerialName("rejected")
     REJECTED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaFileStoryState] by its wire spelling. A spelling it does not know reads as [PersonaFileStoryState.UNKNOWN]. */
+object PersonaFileStoryStateSerializer : SdkEnumSerializer<PersonaFileStoryState>(
+    "PersonaFileStoryState",
+    PersonaFileStoryState.UNKNOWN,
+    PersonaFileStoryState.ACTIVE to "active",
+    PersonaFileStoryState.REJECTED to "rejected",
+)
 
 /** Absent means `active`, exactly as a story's does */
-@Serializable
+@Serializable(with = PersonaFileStoryBeatStateSerializer::class)
 enum class PersonaFileStoryBeatState {
-    @SerialName("active")
     ACTIVE,
-    @SerialName("rejected")
     REJECTED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PersonaFileStoryBeatState] by its wire spelling. A spelling it does not know reads as [PersonaFileStoryBeatState.UNKNOWN]. */
+object PersonaFileStoryBeatStateSerializer : SdkEnumSerializer<PersonaFileStoryBeatState>(
+    "PersonaFileStoryBeatState",
+    PersonaFileStoryBeatState.UNKNOWN,
+    PersonaFileStoryBeatState.ACTIVE to "active",
+    PersonaFileStoryBeatState.REJECTED to "rejected",
+)
+
+@Serializable(with = PersonaFileStoryDetailStateSerializer::class)
 enum class PersonaFileStoryDetailState {
-    @SerialName("active")
     ACTIVE,
-    @SerialName("rejected")
     REJECTED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PersonaFileStoryDetailState] by its wire spelling. A spelling it does not know reads as [PersonaFileStoryDetailState.UNKNOWN]. */
+object PersonaFileStoryDetailStateSerializer : SdkEnumSerializer<PersonaFileStoryDetailState>(
+    "PersonaFileStoryDetailState",
+    PersonaFileStoryDetailState.UNKNOWN,
+    PersonaFileStoryDetailState.ACTIVE to "active",
+    PersonaFileStoryDetailState.REJECTED to "rejected",
+)
+
+@Serializable(with = PersonaImportEntryKindSerializer::class)
 enum class PersonaImportEntryKind {
-    @SerialName("host")
     HOST,
-    @SerialName("caller")
     CALLER,
-    @SerialName("newsreader")
     NEWSREADER,
-    @SerialName("guest")
     GUEST,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaImportEntryKind] by its wire spelling. A spelling it does not know reads as [PersonaImportEntryKind.UNKNOWN]. */
+object PersonaImportEntryKindSerializer : SdkEnumSerializer<PersonaImportEntryKind>(
+    "PersonaImportEntryKind",
+    PersonaImportEntryKind.UNKNOWN,
+    PersonaImportEntryKind.HOST to "host",
+    PersonaImportEntryKind.CALLER to "caller",
+    PersonaImportEntryKind.NEWSREADER to "newsreader",
+    PersonaImportEntryKind.GUEST to "guest",
+)
 
 /** Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again */
-@Serializable
+@Serializable(with = PersonaImportEntryOutcomeSerializer::class)
 enum class PersonaImportEntryOutcome {
-    @SerialName("create")
     CREATE,
-    @SerialName("update")
     UPDATE,
-    @SerialName("skip")
     SKIP,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaImportEntryOutcome] by its wire spelling. A spelling it does not know reads as [PersonaImportEntryOutcome.UNKNOWN]. */
+object PersonaImportEntryOutcomeSerializer : SdkEnumSerializer<PersonaImportEntryOutcome>(
+    "PersonaImportEntryOutcome",
+    PersonaImportEntryOutcome.UNKNOWN,
+    PersonaImportEntryOutcome.CREATE to "create",
+    PersonaImportEntryOutcome.UPDATE to "update",
+    PersonaImportEntryOutcome.SKIP to "skip",
+)
 
 /** Which sort, so a console can group or ignore by it rather than parsing the sentence */
-@Serializable
+@Serializable(with = PersonaImportNoticeKindSerializer::class)
 enum class PersonaImportNoticeKind {
-    @SerialName("format")
     FORMAT,
-    @SerialName("duplicate")
     DUPLICATE,
-    @SerialName("on-air")
     ON_AIR,
-    @SerialName("clears")
     CLEARS,
-    @SerialName("voice")
     VOICE,
-    @SerialName("soundboard")
     SOUNDBOARD,
-    @SerialName("phrasing")
     PHRASING,
-    @SerialName("markers")
     MARKERS,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaImportNoticeKind] by its wire spelling. A spelling it does not know reads as [PersonaImportNoticeKind.UNKNOWN]. */
+object PersonaImportNoticeKindSerializer : SdkEnumSerializer<PersonaImportNoticeKind>(
+    "PersonaImportNoticeKind",
+    PersonaImportNoticeKind.UNKNOWN,
+    PersonaImportNoticeKind.FORMAT to "format",
+    PersonaImportNoticeKind.DUPLICATE to "duplicate",
+    PersonaImportNoticeKind.ON_AIR to "on-air",
+    PersonaImportNoticeKind.CLEARS to "clears",
+    PersonaImportNoticeKind.VOICE to "voice",
+    PersonaImportNoticeKind.SOUNDBOARD to "soundboard",
+    PersonaImportNoticeKind.PHRASING to "phrasing",
+    PersonaImportNoticeKind.MARKERS to "markers",
+)
 
 /** `cancelled` keeps whatever breaks were already written */
-@Serializable
+@Serializable(with = PersonaAuditionSummaryStateSerializer::class)
 enum class PersonaAuditionSummaryState {
-    @SerialName("queued")
     QUEUED,
-    @SerialName("running")
     RUNNING,
-    @SerialName("done")
     DONE,
-    @SerialName("failed")
     FAILED,
-    @SerialName("cancelled")
     CANCELLED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaAuditionSummaryState] by its wire spelling. A spelling it does not know reads as [PersonaAuditionSummaryState.UNKNOWN]. */
+object PersonaAuditionSummaryStateSerializer : SdkEnumSerializer<PersonaAuditionSummaryState>(
+    "PersonaAuditionSummaryState",
+    PersonaAuditionSummaryState.UNKNOWN,
+    PersonaAuditionSummaryState.QUEUED to "queued",
+    PersonaAuditionSummaryState.RUNNING to "running",
+    PersonaAuditionSummaryState.DONE to "done",
+    PersonaAuditionSummaryState.FAILED to "failed",
+    PersonaAuditionSummaryState.CANCELLED to "cancelled",
+)
 
 /** What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced */
-@Serializable
+@Serializable(with = PersonaTellingSourceSerializer::class)
 enum class PersonaTellingSource {
-    @SerialName("break")
     BREAK,
-    @SerialName("production")
     PRODUCTION,
-    @SerialName("backfill")
     BACKFILL,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
+/** Reads and writes [PersonaTellingSource] by its wire spelling. A spelling it does not know reads as [PersonaTellingSource.UNKNOWN]. */
+object PersonaTellingSourceSerializer : SdkEnumSerializer<PersonaTellingSource>(
+    "PersonaTellingSource",
+    PersonaTellingSource.UNKNOWN,
+    PersonaTellingSource.BREAK to "break",
+    PersonaTellingSource.PRODUCTION to "production",
+    PersonaTellingSource.BACKFILL to "backfill",
+)
+
 /** Whether the story was handed over as something the writer MAY use, or as the thing the break was for */
-@Serializable
+@Serializable(with = PersonaTellingModeSerializer::class)
 enum class PersonaTellingMode {
-    @SerialName("offered")
     OFFERED,
-    @SerialName("told")
     TOLD,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PersonaTellingMode] by its wire spelling. A spelling it does not know reads as [PersonaTellingMode.UNKNOWN]. */
+object PersonaTellingModeSerializer : SdkEnumSerializer<PersonaTellingMode>(
+    "PersonaTellingMode",
+    PersonaTellingMode.UNKNOWN,
+    PersonaTellingMode.OFFERED to "offered",
+    PersonaTellingMode.TOLD to "told",
+)

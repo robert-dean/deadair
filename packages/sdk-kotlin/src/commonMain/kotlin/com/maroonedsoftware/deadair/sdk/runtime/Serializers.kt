@@ -19,6 +19,33 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 
 /**
+ * The serializer behind every generated enum class: each one is an `object` extending this with its
+ * entries and their wire spellings.
+ *
+ * A service that adds an enum member must not break an older client, so a spelling with no entry
+ * decodes to [unknown] rather than throwing. Encoding [unknown] throws instead: it has no wire
+ * spelling, and inventing one would send the service a value it never defined.
+ *
+ * The descriptor is a primitive string, so an enum also works as a map key.
+ */
+open class SdkEnumSerializer<T : Enum<T>>(
+    serialName: String,
+    private val unknown: T,
+    vararg members: Pair<T, String>,
+) : KSerializer<T> {
+    private val toWire: Map<T, String> = members.toMap()
+    private val fromWire: Map<String, T> = members.associate { (entry, wire) -> wire to entry }
+
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor(serialName, PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): T = fromWire[decoder.decodeString()] ?: unknown
+
+    override fun serialize(encoder: Encoder, value: T) {
+        encoder.encodeString(toWire[value] ?: throw SerializationException("${descriptor.serialName}.$value has no wire spelling, so it cannot be sent"))
+    }
+}
+
+/**
  * An exact decimal number. Travels as a quoted JSON string, never as a JSON number: by the time a
  * number reaches this type it has already been through a double, so the precision the contract
  * asked for is gone. Strict JSON decoding rejects an unquoted number for this reason.

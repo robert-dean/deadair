@@ -4,9 +4,50 @@ import Foundation
 /// Whether a call produced what it was asked for. Two values on purpose: every finer distinction —
 /// timed out, was preempted, came back empty — is a fact the caller knew and the recorder did not, so
 /// it lives in `detail` where it can be named
-public enum TraceOutcome: String, Codable, CaseIterable, Sendable {
-    case ok = "ok"
-    case failed = "failed"
+public enum TraceOutcome: Codable, CaseIterable, Hashable, Sendable {
+    case ok
+    case failed
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [TraceOutcome] = [.ok, .failed]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .ok: return "ok"
+        case .failed: return "failed"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "ok": self = .ok
+        case "failed": self = .failed
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "TraceOutcome.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// One decision, folded: a job execution or a request

@@ -14,9 +14,15 @@ using MaroonedSoftware.Deadair.Sdk.Runtime;
 namespace MaroonedSoftware.Deadair.Sdk.Models;
 
 /// <summary>Denotes the authorization flow to use</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<AuthenticationGrantType>))]
+[JsonConverter(typeof(AuthenticationGrantTypeConverter))]
 public enum AuthenticationGrantType
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("client_credentials")]
     ClientCredentials,
 
@@ -42,10 +48,68 @@ public enum AuthenticationGrantType
     Oidc,
 }
 
+/// <summary>
+/// Reads and writes <see cref="AuthenticationGrantType"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="AuthenticationGrantType.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class AuthenticationGrantTypeConverter : JsonConverter<AuthenticationGrantType>
+{
+    public override AuthenticationGrantType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for AuthenticationGrantType, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, AuthenticationGrantType value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override AuthenticationGrantType ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, AuthenticationGrantType value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static AuthenticationGrantType FromWire(string? text) => text switch
+    {
+        "client_credentials" => AuthenticationGrantType.ClientCredentials,
+        "password" => AuthenticationGrantType.Password,
+        "refresh_token" => AuthenticationGrantType.RefreshToken,
+        "link" => AuthenticationGrantType.Link,
+        "code" => AuthenticationGrantType.Code,
+        "fido" => AuthenticationGrantType.Fido,
+        "authenticator" => AuthenticationGrantType.Authenticator,
+        "oidc" => AuthenticationGrantType.Oidc,
+        _ => AuthenticationGrantType.Unknown,
+    };
+
+    private static string ToWire(AuthenticationGrantType value) => value switch
+    {
+        AuthenticationGrantType.ClientCredentials => "client_credentials",
+        AuthenticationGrantType.Password => "password",
+        AuthenticationGrantType.RefreshToken => "refresh_token",
+        AuthenticationGrantType.Link => "link",
+        AuthenticationGrantType.Code => "code",
+        AuthenticationGrantType.Fido => "fido",
+        AuthenticationGrantType.Authenticator => "authenticator",
+        AuthenticationGrantType.Oidc => "oidc",
+        _ => throw new JsonException($"AuthenticationGrantType.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>Denotes the authorization flow to use</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PasswordlessAuthenticationGrantType>))]
+[JsonConverter(typeof(PasswordlessAuthenticationGrantTypeConverter))]
 public enum PasswordlessAuthenticationGrantType
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("link")]
     Link,
 
@@ -59,10 +123,60 @@ public enum PasswordlessAuthenticationGrantType
     Oidc,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PasswordlessAuthenticationGrantType"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PasswordlessAuthenticationGrantType.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PasswordlessAuthenticationGrantTypeConverter : JsonConverter<PasswordlessAuthenticationGrantType>
+{
+    public override PasswordlessAuthenticationGrantType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PasswordlessAuthenticationGrantType, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PasswordlessAuthenticationGrantType value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PasswordlessAuthenticationGrantType ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PasswordlessAuthenticationGrantType value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PasswordlessAuthenticationGrantType FromWire(string? text) => text switch
+    {
+        "link" => PasswordlessAuthenticationGrantType.Link,
+        "code" => PasswordlessAuthenticationGrantType.Code,
+        "fido" => PasswordlessAuthenticationGrantType.Fido,
+        "oidc" => PasswordlessAuthenticationGrantType.Oidc,
+        _ => PasswordlessAuthenticationGrantType.Unknown,
+    };
+
+    private static string ToWire(PasswordlessAuthenticationGrantType value) => value switch
+    {
+        PasswordlessAuthenticationGrantType.Link => "link",
+        PasswordlessAuthenticationGrantType.Code => "code",
+        PasswordlessAuthenticationGrantType.Fido => "fido",
+        PasswordlessAuthenticationGrantType.Oidc => "oidc",
+        _ => throw new JsonException($"PasswordlessAuthenticationGrantType.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>The type of the factor</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<AuthenticationFactorMethod>))]
+[JsonConverter(typeof(AuthenticationFactorMethodConverter))]
 public enum AuthenticationFactorMethod
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("phone")]
     Phone,
 
@@ -82,10 +196,64 @@ public enum AuthenticationFactorMethod
     Oidc,
 }
 
+/// <summary>
+/// Reads and writes <see cref="AuthenticationFactorMethod"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="AuthenticationFactorMethod.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class AuthenticationFactorMethodConverter : JsonConverter<AuthenticationFactorMethod>
+{
+    public override AuthenticationFactorMethod Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for AuthenticationFactorMethod, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, AuthenticationFactorMethod value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override AuthenticationFactorMethod ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, AuthenticationFactorMethod value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static AuthenticationFactorMethod FromWire(string? text) => text switch
+    {
+        "phone" => AuthenticationFactorMethod.Phone,
+        "password" => AuthenticationFactorMethod.Password,
+        "email" => AuthenticationFactorMethod.Email,
+        "authenticator" => AuthenticationFactorMethod.Authenticator,
+        "fido" => AuthenticationFactorMethod.Fido,
+        "oidc" => AuthenticationFactorMethod.Oidc,
+        _ => AuthenticationFactorMethod.Unknown,
+    };
+
+    private static string ToWire(AuthenticationFactorMethod value) => value switch
+    {
+        AuthenticationFactorMethod.Phone => "phone",
+        AuthenticationFactorMethod.Password => "password",
+        AuthenticationFactorMethod.Email => "email",
+        AuthenticationFactorMethod.Authenticator => "authenticator",
+        AuthenticationFactorMethod.Fido => "fido",
+        AuthenticationFactorMethod.Oidc => "oidc",
+        _ => throw new JsonException($"AuthenticationFactorMethod.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>The kind of the factor</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<AuthenticationFactorKind>))]
+[JsonConverter(typeof(AuthenticationFactorKindConverter))]
 public enum AuthenticationFactorKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("knowledge")]
     Knowledge,
 
@@ -94,6 +262,48 @@ public enum AuthenticationFactorKind
 
     [JsonStringEnumMemberName("biometric")]
     Biometric,
+}
+
+/// <summary>
+/// Reads and writes <see cref="AuthenticationFactorKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="AuthenticationFactorKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class AuthenticationFactorKindConverter : JsonConverter<AuthenticationFactorKind>
+{
+    public override AuthenticationFactorKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for AuthenticationFactorKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, AuthenticationFactorKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override AuthenticationFactorKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, AuthenticationFactorKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static AuthenticationFactorKind FromWire(string? text) => text switch
+    {
+        "knowledge" => AuthenticationFactorKind.Knowledge,
+        "possession" => AuthenticationFactorKind.Possession,
+        "biometric" => AuthenticationFactorKind.Biometric,
+        _ => AuthenticationFactorKind.Unknown,
+    };
+
+    private static string ToWire(AuthenticationFactorKind value) => value switch
+    {
+        AuthenticationFactorKind.Knowledge => "knowledge",
+        AuthenticationFactorKind.Possession => "possession",
+        AuthenticationFactorKind.Biometric => "biometric",
+        _ => throw new JsonException($"AuthenticationFactorKind.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>Represents an authentication token</summary>
@@ -269,9 +479,15 @@ public sealed record PublicKeyCredentialDescriptor
 }
 
 /// <summary>The transport used by the authenticator</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<FidoAuthenticatorTransport>))]
+[JsonConverter(typeof(FidoAuthenticatorTransportConverter))]
 public enum FidoAuthenticatorTransport
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("hybrid")]
     Hybrid,
 
@@ -286,6 +502,52 @@ public enum FidoAuthenticatorTransport
 
     [JsonStringEnumMemberName("usb")]
     Usb,
+}
+
+/// <summary>
+/// Reads and writes <see cref="FidoAuthenticatorTransport"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="FidoAuthenticatorTransport.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class FidoAuthenticatorTransportConverter : JsonConverter<FidoAuthenticatorTransport>
+{
+    public override FidoAuthenticatorTransport Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for FidoAuthenticatorTransport, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, FidoAuthenticatorTransport value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override FidoAuthenticatorTransport ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, FidoAuthenticatorTransport value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static FidoAuthenticatorTransport FromWire(string? text) => text switch
+    {
+        "hybrid" => FidoAuthenticatorTransport.Hybrid,
+        "ble" => FidoAuthenticatorTransport.Ble,
+        "internal" => FidoAuthenticatorTransport.Internal,
+        "nfc" => FidoAuthenticatorTransport.Nfc,
+        "usb" => FidoAuthenticatorTransport.Usb,
+        _ => FidoAuthenticatorTransport.Unknown,
+    };
+
+    private static string ToWire(FidoAuthenticatorTransport value) => value switch
+    {
+        FidoAuthenticatorTransport.Hybrid => "hybrid",
+        FidoAuthenticatorTransport.Ble => "ble",
+        FidoAuthenticatorTransport.Internal => "internal",
+        FidoAuthenticatorTransport.Nfc => "nfc",
+        FidoAuthenticatorTransport.Usb => "usb",
+        _ => throw new JsonException($"FidoAuthenticatorTransport.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>Request to complete an OIDC sign-in flow</summary>
@@ -468,14 +730,60 @@ public sealed record SessionRevoke
 }
 
 /// <summary>A platform-wide role held on `platform:main`. `admin` grants every operation; `listener` grants the reads</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PlatformRole>))]
+[JsonConverter(typeof(PlatformRoleConverter))]
 public enum PlatformRole
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("admin")]
     Admin,
 
     [JsonStringEnumMemberName("listener")]
     Listener,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PlatformRole"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PlatformRole.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PlatformRoleConverter : JsonConverter<PlatformRole>
+{
+    public override PlatformRole Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PlatformRole, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PlatformRole value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PlatformRole ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PlatformRole value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PlatformRole FromWire(string? text) => text switch
+    {
+        "admin" => PlatformRole.Admin,
+        "listener" => PlatformRole.Listener,
+        _ => PlatformRole.Unknown,
+    };
+
+    private static string ToWire(PlatformRole value) => value switch
+    {
+        PlatformRole.Admin => "admin",
+        PlatformRole.Listener => "listener",
+        _ => throw new JsonException($"PlatformRole.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>A successful authentication record</summary>
@@ -540,14 +848,60 @@ public sealed record ActorPreferences
 }
 
 /// <summary>What an API key may be granted. `view` covers every route a listener may read; `manage` covers the rest, and includes `view`</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ApiKeyScope>))]
+[JsonConverter(typeof(ApiKeyScopeConverter))]
 public enum ApiKeyScope
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("view")]
     View,
 
     [JsonStringEnumMemberName("manage")]
     Manage,
+}
+
+/// <summary>
+/// Reads and writes <see cref="ApiKeyScope"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ApiKeyScope.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ApiKeyScopeConverter : JsonConverter<ApiKeyScope>
+{
+    public override ApiKeyScope Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ApiKeyScope, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ApiKeyScope value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ApiKeyScope ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ApiKeyScope value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ApiKeyScope FromWire(string? text) => text switch
+    {
+        "view" => ApiKeyScope.View,
+        "manage" => ApiKeyScope.Manage,
+        _ => ApiKeyScope.Unknown,
+    };
+
+    private static string ToWire(ApiKeyScope value) => value switch
+    {
+        ApiKeyScope.View => "view",
+        ApiKeyScope.Manage => "manage",
+        _ => throw new JsonException($"ApiKeyScope.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 public sealed record BaseAuthenticationRequest
@@ -1475,14 +1829,60 @@ public sealed class AuthenticationTokenResponseConverter : JsonConverter<Authent
 }
 
 /// <summary>The authenticator attachment</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PublicKeyCredentialAuthenticatorAttachment>))]
+[JsonConverter(typeof(PublicKeyCredentialAuthenticatorAttachmentConverter))]
 public enum PublicKeyCredentialAuthenticatorAttachment
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("cross-platform")]
     CrossPlatform,
 
     [JsonStringEnumMemberName("platform")]
     Platform,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PublicKeyCredentialAuthenticatorAttachment"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PublicKeyCredentialAuthenticatorAttachment.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PublicKeyCredentialAuthenticatorAttachmentConverter : JsonConverter<PublicKeyCredentialAuthenticatorAttachment>
+{
+    public override PublicKeyCredentialAuthenticatorAttachment Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PublicKeyCredentialAuthenticatorAttachment, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PublicKeyCredentialAuthenticatorAttachment value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PublicKeyCredentialAuthenticatorAttachment ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PublicKeyCredentialAuthenticatorAttachment value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PublicKeyCredentialAuthenticatorAttachment FromWire(string? text) => text switch
+    {
+        "cross-platform" => PublicKeyCredentialAuthenticatorAttachment.CrossPlatform,
+        "platform" => PublicKeyCredentialAuthenticatorAttachment.Platform,
+        _ => PublicKeyCredentialAuthenticatorAttachment.Unknown,
+    };
+
+    private static string ToWire(PublicKeyCredentialAuthenticatorAttachment value) => value switch
+    {
+        PublicKeyCredentialAuthenticatorAttachment.CrossPlatform => "cross-platform",
+        PublicKeyCredentialAuthenticatorAttachment.Platform => "platform",
+        _ => throw new JsonException($"PublicKeyCredentialAuthenticatorAttachment.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 public sealed record SimpleClientExtensionResultsCredProps
@@ -1540,9 +1940,15 @@ public sealed class AuthenticationLoginStartConverter : JsonConverter<Authentica
     }
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PublicKeyCredentialDescriptorTransports>))]
+[JsonConverter(typeof(PublicKeyCredentialDescriptorTransportsConverter))]
 public enum PublicKeyCredentialDescriptorTransports
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("usb")]
     Usb,
 
@@ -1559,10 +1965,62 @@ public enum PublicKeyCredentialDescriptorTransports
     Hybrid,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PublicKeyCredentialDescriptorTransports"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PublicKeyCredentialDescriptorTransports.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PublicKeyCredentialDescriptorTransportsConverter : JsonConverter<PublicKeyCredentialDescriptorTransports>
+{
+    public override PublicKeyCredentialDescriptorTransports Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PublicKeyCredentialDescriptorTransports, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PublicKeyCredentialDescriptorTransports value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PublicKeyCredentialDescriptorTransports ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PublicKeyCredentialDescriptorTransports value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PublicKeyCredentialDescriptorTransports FromWire(string? text) => text switch
+    {
+        "usb" => PublicKeyCredentialDescriptorTransports.Usb,
+        "nfc" => PublicKeyCredentialDescriptorTransports.Nfc,
+        "ble" => PublicKeyCredentialDescriptorTransports.Ble,
+        "internal" => PublicKeyCredentialDescriptorTransports.Internal,
+        "hybrid" => PublicKeyCredentialDescriptorTransports.Hybrid,
+        _ => PublicKeyCredentialDescriptorTransports.Unknown,
+    };
+
+    private static string ToWire(PublicKeyCredentialDescriptorTransports value) => value switch
+    {
+        PublicKeyCredentialDescriptorTransports.Usb => "usb",
+        PublicKeyCredentialDescriptorTransports.Nfc => "nfc",
+        PublicKeyCredentialDescriptorTransports.Ble => "ble",
+        PublicKeyCredentialDescriptorTransports.Internal => "internal",
+        PublicKeyCredentialDescriptorTransports.Hybrid => "hybrid",
+        _ => throw new JsonException($"PublicKeyCredentialDescriptorTransports.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>The attestation</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<FidoPublicKeyCredentialRequestOptionsAttestation>))]
+[JsonConverter(typeof(FidoPublicKeyCredentialRequestOptionsAttestationConverter))]
 public enum FidoPublicKeyCredentialRequestOptionsAttestation
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("direct")]
     Direct,
 
@@ -1573,10 +2031,58 @@ public enum FidoPublicKeyCredentialRequestOptionsAttestation
     None,
 }
 
+/// <summary>
+/// Reads and writes <see cref="FidoPublicKeyCredentialRequestOptionsAttestation"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="FidoPublicKeyCredentialRequestOptionsAttestation.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class FidoPublicKeyCredentialRequestOptionsAttestationConverter : JsonConverter<FidoPublicKeyCredentialRequestOptionsAttestation>
+{
+    public override FidoPublicKeyCredentialRequestOptionsAttestation Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for FidoPublicKeyCredentialRequestOptionsAttestation, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, FidoPublicKeyCredentialRequestOptionsAttestation value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override FidoPublicKeyCredentialRequestOptionsAttestation ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, FidoPublicKeyCredentialRequestOptionsAttestation value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static FidoPublicKeyCredentialRequestOptionsAttestation FromWire(string? text) => text switch
+    {
+        "direct" => FidoPublicKeyCredentialRequestOptionsAttestation.Direct,
+        "indirect" => FidoPublicKeyCredentialRequestOptionsAttestation.Indirect,
+        "none" => FidoPublicKeyCredentialRequestOptionsAttestation.None,
+        _ => FidoPublicKeyCredentialRequestOptionsAttestation.Unknown,
+    };
+
+    private static string ToWire(FidoPublicKeyCredentialRequestOptionsAttestation value) => value switch
+    {
+        FidoPublicKeyCredentialRequestOptionsAttestation.Direct => "direct",
+        FidoPublicKeyCredentialRequestOptionsAttestation.Indirect => "indirect",
+        FidoPublicKeyCredentialRequestOptionsAttestation.None => "none",
+        _ => throw new JsonException($"FidoPublicKeyCredentialRequestOptionsAttestation.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>Whether the authenticator must verify the user</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<FidoPublicKeyCredentialRequestOptionsUserVerification>))]
+[JsonConverter(typeof(FidoPublicKeyCredentialRequestOptionsUserVerificationConverter))]
 public enum FidoPublicKeyCredentialRequestOptionsUserVerification
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("required")]
     Required,
 
@@ -1585,6 +2091,48 @@ public enum FidoPublicKeyCredentialRequestOptionsUserVerification
 
     [JsonStringEnumMemberName("discouraged")]
     Discouraged,
+}
+
+/// <summary>
+/// Reads and writes <see cref="FidoPublicKeyCredentialRequestOptionsUserVerification"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="FidoPublicKeyCredentialRequestOptionsUserVerification.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class FidoPublicKeyCredentialRequestOptionsUserVerificationConverter : JsonConverter<FidoPublicKeyCredentialRequestOptionsUserVerification>
+{
+    public override FidoPublicKeyCredentialRequestOptionsUserVerification Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for FidoPublicKeyCredentialRequestOptionsUserVerification, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, FidoPublicKeyCredentialRequestOptionsUserVerification value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override FidoPublicKeyCredentialRequestOptionsUserVerification ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, FidoPublicKeyCredentialRequestOptionsUserVerification value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static FidoPublicKeyCredentialRequestOptionsUserVerification FromWire(string? text) => text switch
+    {
+        "required" => FidoPublicKeyCredentialRequestOptionsUserVerification.Required,
+        "preferred" => FidoPublicKeyCredentialRequestOptionsUserVerification.Preferred,
+        "discouraged" => FidoPublicKeyCredentialRequestOptionsUserVerification.Discouraged,
+        _ => FidoPublicKeyCredentialRequestOptionsUserVerification.Unknown,
+    };
+
+    private static string ToWire(FidoPublicKeyCredentialRequestOptionsUserVerification value) => value switch
+    {
+        FidoPublicKeyCredentialRequestOptionsUserVerification.Required => "required",
+        FidoPublicKeyCredentialRequestOptionsUserVerification.Preferred => "preferred",
+        FidoPublicKeyCredentialRequestOptionsUserVerification.Discouraged => "discouraged",
+        _ => throw new JsonException($"FidoPublicKeyCredentialRequestOptionsUserVerification.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 [JsonConverter(typeof(AuthenticationLoginStartResponseConverter))]
@@ -1724,9 +2272,15 @@ public sealed class FactorChallengeStartResponseConverter : JsonConverter<Factor
 }
 
 /// <summary>The verification method</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<SessionFactorMethod>))]
+[JsonConverter(typeof(SessionFactorMethodConverter))]
 public enum SessionFactorMethod
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("phone")]
     Phone,
 
@@ -1746,10 +2300,64 @@ public enum SessionFactorMethod
     Oidc,
 }
 
+/// <summary>
+/// Reads and writes <see cref="SessionFactorMethod"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="SessionFactorMethod.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class SessionFactorMethodConverter : JsonConverter<SessionFactorMethod>
+{
+    public override SessionFactorMethod Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for SessionFactorMethod, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, SessionFactorMethod value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override SessionFactorMethod ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, SessionFactorMethod value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static SessionFactorMethod FromWire(string? text) => text switch
+    {
+        "phone" => SessionFactorMethod.Phone,
+        "password" => SessionFactorMethod.Password,
+        "authenticator" => SessionFactorMethod.Authenticator,
+        "email" => SessionFactorMethod.Email,
+        "fido" => SessionFactorMethod.Fido,
+        "oidc" => SessionFactorMethod.Oidc,
+        _ => SessionFactorMethod.Unknown,
+    };
+
+    private static string ToWire(SessionFactorMethod value) => value switch
+    {
+        SessionFactorMethod.Phone => "phone",
+        SessionFactorMethod.Password => "password",
+        SessionFactorMethod.Authenticator => "authenticator",
+        SessionFactorMethod.Email => "email",
+        SessionFactorMethod.Fido => "fido",
+        SessionFactorMethod.Oidc => "oidc",
+        _ => throw new JsonException($"SessionFactorMethod.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>MFA category for the factor</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<SessionFactorKind>))]
+[JsonConverter(typeof(SessionFactorKindConverter))]
 public enum SessionFactorKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("knowledge")]
     Knowledge,
 
@@ -1760,10 +2368,58 @@ public enum SessionFactorKind
     Biometric,
 }
 
+/// <summary>
+/// Reads and writes <see cref="SessionFactorKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="SessionFactorKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class SessionFactorKindConverter : JsonConverter<SessionFactorKind>
+{
+    public override SessionFactorKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for SessionFactorKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, SessionFactorKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override SessionFactorKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, SessionFactorKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static SessionFactorKind FromWire(string? text) => text switch
+    {
+        "knowledge" => SessionFactorKind.Knowledge,
+        "possession" => SessionFactorKind.Possession,
+        "biometric" => SessionFactorKind.Biometric,
+        _ => SessionFactorKind.Unknown,
+    };
+
+    private static string ToWire(SessionFactorKind value) => value switch
+    {
+        SessionFactorKind.Knowledge => "knowledge",
+        SessionFactorKind.Possession => "possession",
+        SessionFactorKind.Biometric => "biometric",
+        _ => throw new JsonException($"SessionFactorKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>The factor that satisfied the primary authentication, or `apikey` for a request made with one of the account's API keys</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<LoginFactorType>))]
+[JsonConverter(typeof(LoginFactorTypeConverter))]
 public enum LoginFactorType
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("phone")]
     Phone,
 
@@ -1784,4 +2440,54 @@ public enum LoginFactorType
 
     [JsonStringEnumMemberName("apikey")]
     Apikey,
+}
+
+/// <summary>
+/// Reads and writes <see cref="LoginFactorType"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="LoginFactorType.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class LoginFactorTypeConverter : JsonConverter<LoginFactorType>
+{
+    public override LoginFactorType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for LoginFactorType, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, LoginFactorType value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override LoginFactorType ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, LoginFactorType value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static LoginFactorType FromWire(string? text) => text switch
+    {
+        "phone" => LoginFactorType.Phone,
+        "password" => LoginFactorType.Password,
+        "authenticator" => LoginFactorType.Authenticator,
+        "email" => LoginFactorType.Email,
+        "fido" => LoginFactorType.Fido,
+        "oidc" => LoginFactorType.Oidc,
+        "apikey" => LoginFactorType.Apikey,
+        _ => LoginFactorType.Unknown,
+    };
+
+    private static string ToWire(LoginFactorType value) => value switch
+    {
+        LoginFactorType.Phone => "phone",
+        LoginFactorType.Password => "password",
+        LoginFactorType.Authenticator => "authenticator",
+        LoginFactorType.Email => "email",
+        LoginFactorType.Fido => "fido",
+        LoginFactorType.Oidc => "oidc",
+        LoginFactorType.Apikey => "apikey",
+        _ => throw new JsonException($"LoginFactorType.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

@@ -117,6 +117,11 @@ class RequestUiStateTest {
     }
 
     @Test
+    fun `a status a newer station sends that this build cannot read says only that it is in`() {
+        assertEquals(Message.RequestTaken("Blue Monday"), requestOutcome(request(RequestStatus.UNKNOWN)))
+    }
+
+    @Test
     fun `a request the operator must approve says so`() {
         assertEquals(Message.RequestWaiting("Blue Monday"), requestOutcome(request(RequestStatus.WAITING)))
     }

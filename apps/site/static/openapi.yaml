@@ -651,7 +651,7 @@ paths:
             parameters:
                 - name: page
                   in: query
-                  required: true
+                  required: false
                   description: 'The page number'
                   schema:
                       type: integer
@@ -660,7 +660,7 @@ paths:
                       description: 'The page number'
                 - name: pageSize
                   in: query
-                  required: true
+                  required: false
                   description: 'The page size'
                   schema:
                       type: integer
@@ -670,7 +670,7 @@ paths:
                       description: 'The page size'
                 - name: sort
                   in: query
-                  required: true
+                  required: false
                   description: 'The sort order'
                   schema:
                       type: string
@@ -757,7 +757,7 @@ paths:
                       format: uuid
                 - name: page
                   in: query
-                  required: true
+                  required: false
                   description: 'The page number'
                   schema:
                       type: integer
@@ -766,7 +766,7 @@ paths:
                       description: 'The page number'
                 - name: pageSize
                   in: query
-                  required: true
+                  required: false
                   description: 'The page size'
                   schema:
                       type: integer
@@ -776,7 +776,7 @@ paths:
                       description: 'The page size'
                 - name: sort
                   in: query
-                  required: true
+                  required: false
                   description: 'The sort order'
                   schema:
                       type: string
@@ -843,7 +843,7 @@ paths:
             parameters:
                 - name: page
                   in: query
-                  required: true
+                  required: false
                   description: 'The page number'
                   schema:
                       type: integer
@@ -852,7 +852,7 @@ paths:
                       description: 'The page number'
                 - name: pageSize
                   in: query
-                  required: true
+                  required: false
                   description: 'The page size'
                   schema:
                       type: integer
@@ -862,7 +862,7 @@ paths:
                       description: 'The page size'
                 - name: sort
                   in: query
-                  required: true
+                  required: false
                   description: 'The sort order'
                   schema:
                       type: string
@@ -948,7 +948,7 @@ paths:
                       format: uuid
                 - name: page
                   in: query
-                  required: true
+                  required: false
                   description: 'The page number'
                   schema:
                       type: integer
@@ -957,7 +957,7 @@ paths:
                       description: 'The page number'
                 - name: pageSize
                   in: query
-                  required: true
+                  required: false
                   description: 'The page size'
                   schema:
                       type: integer
@@ -967,7 +967,7 @@ paths:
                       description: 'The page size'
                 - name: sort
                   in: query
-                  required: true
+                  required: false
                   description: 'The sort order'
                   schema:
                       type: string
@@ -1280,7 +1280,7 @@ paths:
             parameters:
                 - name: page
                   in: query
-                  required: true
+                  required: false
                   description: 'The page number'
                   schema:
                       type: integer
@@ -1289,7 +1289,7 @@ paths:
                       description: 'The page number'
                 - name: pageSize
                   in: query
-                  required: true
+                  required: false
                   description: 'The page size'
                   schema:
                       type: integer
@@ -1299,7 +1299,7 @@ paths:
                       description: 'The page size'
                 - name: sort
                   in: query
-                  required: true
+                  required: false
                   description: 'The sort order'
                   schema:
                       type: string
@@ -4974,7 +4974,7 @@ paths:
                       format: uuid
                 - name: rendition
                   in: query
-                  required: true
+                  required: false
                   description: 'A purpose the station interprets rather than a format the caller picks, so what `share` means can change without any caller changing'
                   schema:
                       '$ref': '#/components/schemas/SegmentAudioRendition'
@@ -6325,7 +6325,7 @@ paths:
             parameters:
                 - name: page
                   in: query
-                  required: true
+                  required: false
                   description: 'The page number'
                   schema:
                       type: integer
@@ -6334,7 +6334,7 @@ paths:
                       description: 'The page number'
                 - name: pageSize
                   in: query
-                  required: true
+                  required: false
                   description: 'The page size'
                   schema:
                       type: integer
@@ -6344,7 +6344,7 @@ paths:
                       description: 'The page size'
                 - name: sort
                   in: query
-                  required: true
+                  required: false
                   description: 'The sort order'
                   schema:
                       type: string

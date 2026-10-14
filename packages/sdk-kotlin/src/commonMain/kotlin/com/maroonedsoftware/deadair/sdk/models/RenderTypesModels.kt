@@ -3,10 +3,10 @@
 
 package com.maroonedsoftware.deadair.sdk.models
 
+import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** One thing the station can play that is not a record */
@@ -83,15 +83,27 @@ data class Voice(
 )
 
 /** Whether there are words, and if not, which way it went wrong */
-@Serializable
+@Serializable(with = ScriptOutcomeSerializer::class)
 enum class ScriptOutcome {
-    @SerialName("written")
     WRITTEN,
-    @SerialName("declined")
     DECLINED,
-    @SerialName("failed")
     FAILED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [ScriptOutcome] by its wire spelling. A spelling it does not know reads as [ScriptOutcome.UNKNOWN]. */
+object ScriptOutcomeSerializer : SdkEnumSerializer<ScriptOutcome>(
+    "ScriptOutcome",
+    ScriptOutcome.UNKNOWN,
+    ScriptOutcome.WRITTEN to "written",
+    ScriptOutcome.DECLINED to "declined",
+    ScriptOutcome.FAILED to "failed",
+)
 
 /** A record a writer was told about, kept as it was told */
 @Serializable
@@ -128,15 +140,27 @@ data class ScriptPromptMessage(
  * operator does, and it has to be distinguishable from never having listened, which is the field
  * being absent on the attempt.
  */
-@Serializable
+@Serializable(with = ScriptRatingSerializer::class)
 enum class ScriptRating {
-    @SerialName("liked")
     LIKED,
-    @SerialName("neutral")
     NEUTRAL,
-    @SerialName("disliked")
     DISLIKED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [ScriptRating] by its wire spelling. A spelling it does not know reads as [ScriptRating.UNKNOWN]. */
+object ScriptRatingSerializer : SdkEnumSerializer<ScriptRating>(
+    "ScriptRating",
+    ScriptRating.UNKNOWN,
+    ScriptRating.LIKED to "liked",
+    ScriptRating.NEUTRAL to "neutral",
+    ScriptRating.DISLIKED to "disliked",
+)
 
 /** Words to hear before anything has aired them */
 @Serializable
@@ -227,15 +251,27 @@ data class PronunciationQuery(
  * Where in a break a sound may fall. `start` is before the first word, `end` after the last, and
  * `middle` anywhere between two words
  */
-@Serializable
+@Serializable(with = PadPlacementSerializer::class)
 enum class PadPlacement {
-    @SerialName("start")
     START,
-    @SerialName("middle")
     MIDDLE,
-    @SerialName("end")
     END,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PadPlacement] by its wire spelling. A spelling it does not know reads as [PadPlacement.UNKNOWN]. */
+object PadPlacementSerializer : SdkEnumSerializer<PadPlacement>(
+    "PadPlacement",
+    PadPlacement.UNKNOWN,
+    PadPlacement.START to "start",
+    PadPlacement.MIDDLE to "middle",
+    PadPlacement.END to "end",
+)
 
 /**
  * A sound arriving from the browser, as multipart form parts.
@@ -344,13 +380,25 @@ data class PadScanResult(
 )
 
 /** Which copy of a segment's audio. `original` is what the station airs. `share` is a small copy made for a listener to send on, AAC in an .m4a, never aired */
-@Serializable
+@Serializable(with = SegmentAudioRenditionSerializer::class)
 enum class SegmentAudioRendition {
-    @SerialName("original")
     ORIGINAL,
-    @SerialName("share")
     SHARE,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [SegmentAudioRendition] by its wire spelling. A spelling it does not know reads as [SegmentAudioRendition.UNKNOWN]. */
+object SegmentAudioRenditionSerializer : SdkEnumSerializer<SegmentAudioRendition>(
+    "SegmentAudioRendition",
+    SegmentAudioRendition.UNKNOWN,
+    SegmentAudioRendition.ORIGINAL to "original",
+    SegmentAudioRendition.SHARE to "share",
+)
 
 /** Everything the station can play that is not a record */
 @Serializable
@@ -583,86 +631,182 @@ data class PadListInput(
 )
 
 /** One state per stage of making it. Only `ready` can go on air; the station skips anything else rather than waiting for it */
-@Serializable
+@Serializable(with = SegmentStateSerializer::class)
 enum class SegmentState {
-    @SerialName("planned")
     PLANNED,
-    @SerialName("writing")
     WRITING,
-    @SerialName("written")
     WRITTEN,
-    @SerialName("rendering")
     RENDERING,
-    @SerialName("ready")
     READY,
-    @SerialName("failed")
     FAILED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [SegmentState] by its wire spelling. A spelling it does not know reads as [SegmentState.UNKNOWN]. */
+object SegmentStateSerializer : SdkEnumSerializer<SegmentState>(
+    "SegmentState",
+    SegmentState.UNKNOWN,
+    SegmentState.PLANNED to "planned",
+    SegmentState.WRITING to "writing",
+    SegmentState.WRITTEN to "written",
+    SegmentState.RENDERING to "rendering",
+    SegmentState.READY to "ready",
+    SegmentState.FAILED to "failed",
+)
 
 /** `active` is said. `suggested` is proposed and says nothing yet. `rejected` outlives the pass that proposed it, or the same article proposes it again forever */
-@Serializable
+@Serializable(with = PronunciationStateSerializer::class)
 enum class PronunciationState {
-    @SerialName("active")
     ACTIVE,
-    @SerialName("suggested")
     SUGGESTED,
-    @SerialName("rejected")
     REJECTED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PronunciationState] by its wire spelling. A spelling it does not know reads as [PronunciationState.UNKNOWN]. */
+object PronunciationStateSerializer : SdkEnumSerializer<PronunciationState>(
+    "PronunciationState",
+    PronunciationState.UNKNOWN,
+    PronunciationState.ACTIVE to "active",
+    PronunciationState.SUGGESTED to "suggested",
+    PronunciationState.REJECTED to "rejected",
+)
 
 /** Who says so. `gloss` is a pronunciation key an encyclopaedia article printed for itself */
-@Serializable
+@Serializable(with = PronunciationOriginSerializer::class)
 enum class PronunciationOrigin {
-    @SerialName("operator")
     OPERATOR,
-    @SerialName("gloss")
     GLOSS,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PronunciationOrigin] by its wire spelling. A spelling it does not know reads as [PronunciationOrigin.UNKNOWN]. */
+object PronunciationOriginSerializer : SdkEnumSerializer<PronunciationOrigin>(
+    "PronunciationOrigin",
+    PronunciationOrigin.UNKNOWN,
+    PronunciationOrigin.OPERATOR to "operator",
+    PronunciationOrigin.GLOSS to "gloss",
+)
 
 /** What the article was about */
-@Serializable
+@Serializable(with = PronunciationSubjectKindSerializer::class)
 enum class PronunciationSubjectKind {
-    @SerialName("track")
     TRACK,
-    @SerialName("album")
     ALBUM,
-    @SerialName("artist")
     ARTIST,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PronunciationSubjectKind] by its wire spelling. A spelling it does not know reads as [PronunciationSubjectKind.UNKNOWN]. */
+object PronunciationSubjectKindSerializer : SdkEnumSerializer<PronunciationSubjectKind>(
+    "PronunciationSubjectKind",
+    PronunciationSubjectKind.UNKNOWN,
+    PronunciationSubjectKind.TRACK to "track",
+    PronunciationSubjectKind.ALBUM to "album",
+    PronunciationSubjectKind.ARTIST to "artist",
+)
+
+@Serializable(with = PronunciationStateWriteStateSerializer::class)
 enum class PronunciationStateWriteState {
-    @SerialName("active")
     ACTIVE,
-    @SerialName("suggested")
     SUGGESTED,
-    @SerialName("rejected")
     REJECTED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PronunciationStateWriteState] by its wire spelling. A spelling it does not know reads as [PronunciationStateWriteState.UNKNOWN]. */
+object PronunciationStateWriteStateSerializer : SdkEnumSerializer<PronunciationStateWriteState>(
+    "PronunciationStateWriteState",
+    PronunciationStateWriteState.UNKNOWN,
+    PronunciationStateWriteState.ACTIVE to "active",
+    PronunciationStateWriteState.SUGGESTED to "suggested",
+    PronunciationStateWriteState.REJECTED to "rejected",
+)
 
 /** Absent is all of it */
-@Serializable
+@Serializable(with = PronunciationQueryStateSerializer::class)
 enum class PronunciationQueryState {
-    @SerialName("active")
     ACTIVE,
-    @SerialName("suggested")
     SUGGESTED,
-    @SerialName("rejected")
     REJECTED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PronunciationQueryState] by its wire spelling. A spelling it does not know reads as [PronunciationQueryState.UNKNOWN]. */
+object PronunciationQueryStateSerializer : SdkEnumSerializer<PronunciationQueryState>(
+    "PronunciationQueryState",
+    PronunciationQueryState.UNKNOWN,
+    PronunciationQueryState.ACTIVE to "active",
+    PronunciationQueryState.SUGGESTED to "suggested",
+    PronunciationQueryState.REJECTED to "rejected",
+)
+
+@Serializable(with = PadState2Serializer::class)
 enum class PadState2 {
-    @SerialName("active")
     ACTIVE,
-    @SerialName("rejected")
     REJECTED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PadState2] by its wire spelling. A spelling it does not know reads as [PadState2.UNKNOWN]. */
+object PadState2Serializer : SdkEnumSerializer<PadState2>(
+    "PadState2",
+    PadState2.UNKNOWN,
+    PadState2.ACTIVE to "active",
+    PadState2.REJECTED to "rejected",
+)
+
+@Serializable(with = PadStateStateSerializer::class)
 enum class PadStateState {
-    @SerialName("active")
     ACTIVE,
-    @SerialName("rejected")
     REJECTED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PadStateState] by its wire spelling. A spelling it does not know reads as [PadStateState.UNKNOWN]. */
+object PadStateStateSerializer : SdkEnumSerializer<PadStateState>(
+    "PadStateState",
+    PadStateState.UNKNOWN,
+    PadStateState.ACTIVE to "active",
+    PadStateState.REJECTED to "rejected",
+)

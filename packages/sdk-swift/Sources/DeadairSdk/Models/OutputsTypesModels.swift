@@ -273,20 +273,116 @@ public struct OutputDeviceList: Codable, Equatable, Sendable {
     }
 }
 
-public enum OutputMountFormat: String, Codable, CaseIterable, Sendable {
-    case mp3 = "mp3"
-    case opus = "opus"
-    case aac = "aac"
-    case flac = "flac"
-    case hls = "hls"
+public enum OutputMountFormat: Codable, CaseIterable, Hashable, Sendable {
+    case mp3
+    case opus
+    case aac
+    case flac
+    case hls
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [OutputMountFormat] = [.mp3, .opus, .aac, .flac, .hls]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .mp3: return "mp3"
+        case .opus: return "opus"
+        case .aac: return "aac"
+        case .flac: return "flac"
+        case .hls: return "hls"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "mp3": self = .mp3
+        case "opus": self = .opus
+        case "aac": self = .aac
+        case "flac": self = .flac
+        case "hls": self = .hls
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "OutputMountFormat.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// As the speaker reports it now. `opening` and `buffering` are a stream starting, not a failure; `stopped` with the station's stream still loaded is played again on its own; `unreachable` is a speaker that did not answer, which the station waits out
-public enum OutputCastPhase: String, Codable, CaseIterable, Sendable {
-    case idle = "idle"
-    case opening = "opening"
-    case buffering = "buffering"
-    case playing = "playing"
-    case stopped = "stopped"
-    case unreachable = "unreachable"
+public enum OutputCastPhase: Codable, CaseIterable, Hashable, Sendable {
+    case idle
+    case opening
+    case buffering
+    case playing
+    case stopped
+    case unreachable
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [OutputCastPhase] = [.idle, .opening, .buffering, .playing, .stopped, .unreachable]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .idle: return "idle"
+        case .opening: return "opening"
+        case .buffering: return "buffering"
+        case .playing: return "playing"
+        case .stopped: return "stopped"
+        case .unreachable: return "unreachable"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "idle": self = .idle
+        case "opening": self = .opening
+        case "buffering": self = .buffering
+        case "playing": self = .playing
+        case "stopped": self = .stopped
+        case "unreachable": self = .unreachable
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "OutputCastPhase.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

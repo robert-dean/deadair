@@ -82,12 +82,12 @@
         "zod": "^4.6.5"
     },
     "devDependencies": {
-        "@contractkit/cli": "^0.11.9",
-        "@contractkit/plugin-csharp": "^0.3.1",
-        "@contractkit/plugin-docs": "^0.8.0",
-        "@contractkit/plugin-kotlin": "^0.2.1",
-        "@contractkit/plugin-swift": "^0.2.1",
-        "@contractkit/plugin-typescript": "^0.41.0",
+        "@contractkit/cli": "^0.11.10",
+        "@contractkit/plugin-csharp": "^0.4.0",
+        "@contractkit/plugin-docs": "^0.9.0",
+        "@contractkit/plugin-kotlin": "^0.3.0",
+        "@contractkit/plugin-swift": "^0.3.0",
+        "@contractkit/plugin-typescript": "^0.42.0",
         "@deadair/plugin-musicbrainz": "workspace:*",
         "@deadair/plugin-spotify": "workspace:*",
         "@maroonedsoftware/permissions-dsl": "^0.5.7",

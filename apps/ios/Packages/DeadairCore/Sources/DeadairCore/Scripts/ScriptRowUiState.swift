@@ -32,6 +32,8 @@ public struct ScriptRowUiState: Equatable, Sendable {
         case .written: .ok
         case .declined: .standby
         case .failed: .fault
+        // An outcome a newer station names that this build cannot read: neither good news nor a fault.
+        case .unknown: .standby
         }
     }
 

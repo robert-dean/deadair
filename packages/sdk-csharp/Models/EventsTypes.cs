@@ -545,17 +545,67 @@ public sealed record EventTypeList
 }
 
 /// <summary>Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<EventDestinationDisabledReason>))]
+[JsonConverter(typeof(EventDestinationDisabledReasonConverter))]
 public enum EventDestinationDisabledReason
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("failing")]
     Failing,
 }
 
+/// <summary>
+/// Reads and writes <see cref="EventDestinationDisabledReason"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="EventDestinationDisabledReason.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class EventDestinationDisabledReasonConverter : JsonConverter<EventDestinationDisabledReason>
+{
+    public override EventDestinationDisabledReason Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for EventDestinationDisabledReason, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, EventDestinationDisabledReason value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override EventDestinationDisabledReason ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, EventDestinationDisabledReason value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static EventDestinationDisabledReason FromWire(string? text) => text switch
+    {
+        "failing" => EventDestinationDisabledReason.Failing,
+        _ => EventDestinationDisabledReason.Unknown,
+    };
+
+    private static string ToWire(EventDestinationDisabledReason value) => value switch
+    {
+        EventDestinationDisabledReason.Failing => "failing",
+        _ => throw new JsonException($"EventDestinationDisabledReason.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>`dropped` is an event no longer worth sending, such as a record that finished playing while its destination was down</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<EventDeliveryOutcome>))]
+[JsonConverter(typeof(EventDeliveryOutcomeConverter))]
 public enum EventDeliveryOutcome
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("delivered")]
     Delivered,
 
@@ -566,10 +616,58 @@ public enum EventDeliveryOutcome
     Dropped,
 }
 
+/// <summary>
+/// Reads and writes <see cref="EventDeliveryOutcome"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="EventDeliveryOutcome.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class EventDeliveryOutcomeConverter : JsonConverter<EventDeliveryOutcome>
+{
+    public override EventDeliveryOutcome Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for EventDeliveryOutcome, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, EventDeliveryOutcome value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override EventDeliveryOutcome ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, EventDeliveryOutcome value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static EventDeliveryOutcome FromWire(string? text) => text switch
+    {
+        "delivered" => EventDeliveryOutcome.Delivered,
+        "failed" => EventDeliveryOutcome.Failed,
+        "dropped" => EventDeliveryOutcome.Dropped,
+        _ => EventDeliveryOutcome.Unknown,
+    };
+
+    private static string ToWire(EventDeliveryOutcome value) => value switch
+    {
+        EventDeliveryOutcome.Delivered => "delivered",
+        EventDeliveryOutcome.Failed => "failed",
+        EventDeliveryOutcome.Dropped => "dropped",
+        _ => throw new JsonException($"EventDeliveryOutcome.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>A podcast episode as published, or something the station reads out itself</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ProgrammeStartedDataSource>))]
+[JsonConverter(typeof(ProgrammeStartedDataSourceConverter))]
 public enum ProgrammeStartedDataSource
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("podcast")]
     Podcast,
 
@@ -577,10 +675,56 @@ public enum ProgrammeStartedDataSource
     Narration,
 }
 
+/// <summary>
+/// Reads and writes <see cref="ProgrammeStartedDataSource"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ProgrammeStartedDataSource.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ProgrammeStartedDataSourceConverter : JsonConverter<ProgrammeStartedDataSource>
+{
+    public override ProgrammeStartedDataSource Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ProgrammeStartedDataSource, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ProgrammeStartedDataSource value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ProgrammeStartedDataSource ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ProgrammeStartedDataSource value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ProgrammeStartedDataSource FromWire(string? text) => text switch
+    {
+        "podcast" => ProgrammeStartedDataSource.Podcast,
+        "narration" => ProgrammeStartedDataSource.Narration,
+        _ => ProgrammeStartedDataSource.Unknown,
+    };
+
+    private static string ToWire(ProgrammeStartedDataSource value) => value switch
+    {
+        ProgrammeStartedDataSource.Podcast => "podcast",
+        ProgrammeStartedDataSource.Narration => "narration",
+        _ => throw new JsonException($"ProgrammeStartedDataSource.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>A new running order, the stopped one started again, somebody stopping it, or the running order running out</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<StationAirDataReason>))]
+[JsonConverter(typeof(StationAirDataReasonConverter))]
 public enum StationAirDataReason
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("programme")]
     Programme,
 
@@ -594,10 +738,60 @@ public enum StationAirDataReason
     RanOut,
 }
 
+/// <summary>
+/// Reads and writes <see cref="StationAirDataReason"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="StationAirDataReason.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class StationAirDataReasonConverter : JsonConverter<StationAirDataReason>
+{
+    public override StationAirDataReason Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for StationAirDataReason, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, StationAirDataReason value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override StationAirDataReason ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, StationAirDataReason value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static StationAirDataReason FromWire(string? text) => text switch
+    {
+        "programme" => StationAirDataReason.Programme,
+        "resumed" => StationAirDataReason.Resumed,
+        "stopped" => StationAirDataReason.Stopped,
+        "ranOut" => StationAirDataReason.RanOut,
+        _ => StationAirDataReason.Unknown,
+    };
+
+    private static string ToWire(StationAirDataReason value) => value switch
+    {
+        StationAirDataReason.Programme => "programme",
+        StationAirDataReason.Resumed => "resumed",
+        StationAirDataReason.Stopped => "stopped",
+        StationAirDataReason.RanOut => "ranOut",
+        _ => throw new JsonException($"StationAirDataReason.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>Where they asked from. `app` covers the console, the listener apps and a party pass</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<RequestReceivedDataVia>))]
+[JsonConverter(typeof(RequestReceivedDataViaConverter))]
 public enum RequestReceivedDataVia
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("app")]
     App,
 
@@ -605,10 +799,56 @@ public enum RequestReceivedDataVia
     Chat,
 }
 
+/// <summary>
+/// Reads and writes <see cref="RequestReceivedDataVia"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="RequestReceivedDataVia.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class RequestReceivedDataViaConverter : JsonConverter<RequestReceivedDataVia>
+{
+    public override RequestReceivedDataVia Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for RequestReceivedDataVia, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, RequestReceivedDataVia value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override RequestReceivedDataVia ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, RequestReceivedDataVia value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static RequestReceivedDataVia FromWire(string? text) => text switch
+    {
+        "app" => RequestReceivedDataVia.App,
+        "chat" => RequestReceivedDataVia.Chat,
+        _ => RequestReceivedDataVia.Unknown,
+    };
+
+    private static string ToWire(RequestReceivedDataVia value) => value switch
+    {
+        RequestReceivedDataVia.App => "app",
+        RequestReceivedDataVia.Chat => "chat",
+        _ => throw new JsonException($"RequestReceivedDataVia.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>How it stands now: waiting on an operator, waiting on its audio, in the running order, or declined</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<RequestReceivedDataStatus>))]
+[JsonConverter(typeof(RequestReceivedDataStatusConverter))]
 public enum RequestReceivedDataStatus
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("waiting")]
     Waiting,
 
@@ -626,4 +866,52 @@ public enum RequestReceivedDataStatus
 
     [JsonStringEnumMemberName("expired")]
     Expired,
+}
+
+/// <summary>
+/// Reads and writes <see cref="RequestReceivedDataStatus"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="RequestReceivedDataStatus.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class RequestReceivedDataStatusConverter : JsonConverter<RequestReceivedDataStatus>
+{
+    public override RequestReceivedDataStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for RequestReceivedDataStatus, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, RequestReceivedDataStatus value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override RequestReceivedDataStatus ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, RequestReceivedDataStatus value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static RequestReceivedDataStatus FromWire(string? text) => text switch
+    {
+        "waiting" => RequestReceivedDataStatus.Waiting,
+        "pending" => RequestReceivedDataStatus.Pending,
+        "queued" => RequestReceivedDataStatus.Queued,
+        "aired" => RequestReceivedDataStatus.Aired,
+        "declined" => RequestReceivedDataStatus.Declined,
+        "expired" => RequestReceivedDataStatus.Expired,
+        _ => RequestReceivedDataStatus.Unknown,
+    };
+
+    private static string ToWire(RequestReceivedDataStatus value) => value switch
+    {
+        RequestReceivedDataStatus.Waiting => "waiting",
+        RequestReceivedDataStatus.Pending => "pending",
+        RequestReceivedDataStatus.Queued => "queued",
+        RequestReceivedDataStatus.Aired => "aired",
+        RequestReceivedDataStatus.Declined => "declined",
+        RequestReceivedDataStatus.Expired => "expired",
+        _ => throw new JsonException($"RequestReceivedDataStatus.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

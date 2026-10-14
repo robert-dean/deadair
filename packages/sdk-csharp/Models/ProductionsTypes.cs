@@ -236,9 +236,15 @@ public sealed record ProductionListInput
     public required List<ProductionInput> Productions { get; init; }
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<ProductionCastMemberRole>))]
+[JsonConverter(typeof(ProductionCastMemberRoleConverter))]
 public enum ProductionCastMemberRole
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("host")]
     Host,
 
@@ -252,10 +258,60 @@ public enum ProductionCastMemberRole
     Cohost,
 }
 
+/// <summary>
+/// Reads and writes <see cref="ProductionCastMemberRole"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ProductionCastMemberRole.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ProductionCastMemberRoleConverter : JsonConverter<ProductionCastMemberRole>
+{
+    public override ProductionCastMemberRole Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ProductionCastMemberRole, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ProductionCastMemberRole value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ProductionCastMemberRole ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ProductionCastMemberRole value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ProductionCastMemberRole FromWire(string? text) => text switch
+    {
+        "host" => ProductionCastMemberRole.Host,
+        "caller" => ProductionCastMemberRole.Caller,
+        "guest" => ProductionCastMemberRole.Guest,
+        "cohost" => ProductionCastMemberRole.Cohost,
+        _ => ProductionCastMemberRole.Unknown,
+    };
+
+    private static string ToWire(ProductionCastMemberRole value) => value switch
+    {
+        ProductionCastMemberRole.Host => "host",
+        ProductionCastMemberRole.Caller => "caller",
+        ProductionCastMemberRole.Guest => "guest",
+        ProductionCastMemberRole.Cohost => "cohost",
+        _ => throw new JsonException($"ProductionCastMemberRole.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>How many passes to spend on it</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ProductionWritingMode>))]
+[JsonConverter(typeof(ProductionWritingModeConverter))]
 public enum ProductionWritingMode
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("quick")]
     Quick,
 
@@ -266,10 +322,58 @@ public enum ProductionWritingMode
     Polished,
 }
 
+/// <summary>
+/// Reads and writes <see cref="ProductionWritingMode"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ProductionWritingMode.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ProductionWritingModeConverter : JsonConverter<ProductionWritingMode>
+{
+    public override ProductionWritingMode Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ProductionWritingMode, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ProductionWritingMode value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ProductionWritingMode ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ProductionWritingMode value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ProductionWritingMode FromWire(string? text) => text switch
+    {
+        "quick" => ProductionWritingMode.Quick,
+        "outlined" => ProductionWritingMode.Outlined,
+        "polished" => ProductionWritingMode.Polished,
+        _ => ProductionWritingMode.Unknown,
+    };
+
+    private static string ToWire(ProductionWritingMode value) => value switch
+    {
+        ProductionWritingMode.Quick => "quick",
+        ProductionWritingMode.Outlined => "outlined",
+        ProductionWritingMode.Polished => "polished",
+        _ => throw new JsonException($"ProductionWritingMode.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>`researching` is its sources being read for notes. `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ProductionState>))]
+[JsonConverter(typeof(ProductionStateConverter))]
 public enum ProductionState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("planned")]
     Planned,
 
@@ -304,10 +408,74 @@ public enum ProductionState
     Cancelled,
 }
 
+/// <summary>
+/// Reads and writes <see cref="ProductionState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ProductionState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ProductionStateConverter : JsonConverter<ProductionState>
+{
+    public override ProductionState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ProductionState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ProductionState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ProductionState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ProductionState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ProductionState FromWire(string? text) => text switch
+    {
+        "planned" => ProductionState.Planned,
+        "researching" => ProductionState.Researching,
+        "outlining" => ProductionState.Outlining,
+        "drafting" => ProductionState.Drafting,
+        "checking" => ProductionState.Checking,
+        "rendering" => ProductionState.Rendering,
+        "stitching" => ProductionState.Stitching,
+        "ready" => ProductionState.Ready,
+        "aired" => ProductionState.Aired,
+        "failed" => ProductionState.Failed,
+        "cancelled" => ProductionState.Cancelled,
+        _ => ProductionState.Unknown,
+    };
+
+    private static string ToWire(ProductionState value) => value switch
+    {
+        ProductionState.Planned => "planned",
+        ProductionState.Researching => "researching",
+        ProductionState.Outlining => "outlining",
+        ProductionState.Drafting => "drafting",
+        ProductionState.Checking => "checking",
+        ProductionState.Rendering => "rendering",
+        ProductionState.Stitching => "stitching",
+        ProductionState.Ready => "ready",
+        ProductionState.Aired => "aired",
+        ProductionState.Failed => "failed",
+        ProductionState.Cancelled => "cancelled",
+        _ => throw new JsonException($"ProductionState.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>Absent takes the station's `render.productionWritingMode`</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ProductionRequestWritingMode>))]
+[JsonConverter(typeof(ProductionRequestWritingModeConverter))]
 public enum ProductionRequestWritingMode
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("quick")]
     Quick,
 
@@ -316,4 +484,46 @@ public enum ProductionRequestWritingMode
 
     [JsonStringEnumMemberName("polished")]
     Polished,
+}
+
+/// <summary>
+/// Reads and writes <see cref="ProductionRequestWritingMode"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ProductionRequestWritingMode.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ProductionRequestWritingModeConverter : JsonConverter<ProductionRequestWritingMode>
+{
+    public override ProductionRequestWritingMode Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ProductionRequestWritingMode, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ProductionRequestWritingMode value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ProductionRequestWritingMode ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ProductionRequestWritingMode value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ProductionRequestWritingMode FromWire(string? text) => text switch
+    {
+        "quick" => ProductionRequestWritingMode.Quick,
+        "outlined" => ProductionRequestWritingMode.Outlined,
+        "polished" => ProductionRequestWritingMode.Polished,
+        _ => ProductionRequestWritingMode.Unknown,
+    };
+
+    private static string ToWire(ProductionRequestWritingMode value) => value switch
+    {
+        ProductionRequestWritingMode.Quick => "quick",
+        ProductionRequestWritingMode.Outlined => "outlined",
+        ProductionRequestWritingMode.Polished => "polished",
+        _ => throw new JsonException($"ProductionRequestWritingMode.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

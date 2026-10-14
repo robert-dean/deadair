@@ -12,9 +12,15 @@ using MaroonedSoftware.Deadair.Sdk.Runtime;
 namespace MaroonedSoftware.Deadair.Sdk.Models;
 
 /// <summary>Which part of the console owns a setting. Every one of these but `schedule`, `personas`, `phrasings` and `providers` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes, `personas` on the characters page, beside the names it stands behind, `phrasings` on the Voice page's Phrasings tab, beside everything else about what the station says, and `providers` on the Providers section, which draws each capability beside the plugins that answer it rather than as a form of text fields.</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<SettingGroup>))]
+[JsonConverter(typeof(SettingGroupConverter))]
 public enum SettingGroup
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("station")]
     Station,
 
@@ -62,6 +68,74 @@ public enum SettingGroup
 
     [JsonStringEnumMemberName("providers")]
     Providers,
+}
+
+/// <summary>
+/// Reads and writes <see cref="SettingGroup"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="SettingGroup.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class SettingGroupConverter : JsonConverter<SettingGroup>
+{
+    public override SettingGroup Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for SettingGroup, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, SettingGroup value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override SettingGroup ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, SettingGroup value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static SettingGroup FromWire(string? text) => text switch
+    {
+        "station" => SettingGroup.Station,
+        "stream" => SettingGroup.Stream,
+        "housekeeping" => SettingGroup.Housekeeping,
+        "mail" => SettingGroup.Mail,
+        "signin" => SettingGroup.Signin,
+        "rotation" => SettingGroup.Rotation,
+        "breaks" => SettingGroup.Breaks,
+        "bulletins" => SettingGroup.Bulletins,
+        "playout" => SettingGroup.Playout,
+        "render" => SettingGroup.Render,
+        "llm" => SettingGroup.Llm,
+        "analysis" => SettingGroup.Analysis,
+        "schedule" => SettingGroup.Schedule,
+        "personas" => SettingGroup.Personas,
+        "phrasings" => SettingGroup.Phrasings,
+        "providers" => SettingGroup.Providers,
+        _ => SettingGroup.Unknown,
+    };
+
+    private static string ToWire(SettingGroup value) => value switch
+    {
+        SettingGroup.Station => "station",
+        SettingGroup.Stream => "stream",
+        SettingGroup.Housekeeping => "housekeeping",
+        SettingGroup.Mail => "mail",
+        SettingGroup.Signin => "signin",
+        SettingGroup.Rotation => "rotation",
+        SettingGroup.Breaks => "breaks",
+        SettingGroup.Bulletins => "bulletins",
+        SettingGroup.Playout => "playout",
+        SettingGroup.Render => "render",
+        SettingGroup.Llm => "llm",
+        SettingGroup.Analysis => "analysis",
+        SettingGroup.Schedule => "schedule",
+        SettingGroup.Personas => "personas",
+        SettingGroup.Phrasings => "phrasings",
+        SettingGroup.Providers => "providers",
+        _ => throw new JsonException($"SettingGroup.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>

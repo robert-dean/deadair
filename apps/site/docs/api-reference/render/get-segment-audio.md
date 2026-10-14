@@ -23,7 +23,7 @@ Security: public
 | Attribute   | Type                    | Required | Description                                                                                                                          |
 | ----------- | ----------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `id`        | `string`                | Yes      | Path parameter.                                                                                                                      |
-| `rendition` | `SegmentAudioRendition` | Yes      | A purpose the station interprets rather than a format the caller picks, so what `share` means can change without any caller changing |
+| `rendition` | `SegmentAudioRendition` | No       | A purpose the station interprets rather than a format the caller picks, so what `share` means can change without any caller changing |
 
 </details>
 

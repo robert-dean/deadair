@@ -201,7 +201,48 @@ public struct ClockBandListInput: Codable, Equatable, Sendable {
 }
 
 /// `clock` is a time of day and `interval` is a spacing rule for a kind the station's own interval does not cover
-public enum ClockBandAt: String, Codable, CaseIterable, Sendable {
-    case clock = "clock"
-    case interval = "interval"
+public enum ClockBandAt: Codable, CaseIterable, Hashable, Sendable {
+    case clock
+    case interval
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ClockBandAt] = [.clock, .interval]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .clock: return "clock"
+        case .interval: return "interval"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "clock": self = .clock
+        case "interval": self = .interval
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ClockBandAt.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

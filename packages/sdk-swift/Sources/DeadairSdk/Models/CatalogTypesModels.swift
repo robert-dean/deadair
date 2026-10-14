@@ -3,10 +3,53 @@ import Foundation
 
 /// What the station has been told about a record. `neutral` is the absence of an opinion rather than
 /// a middling one, and it is what rating something back to nothing means.
-public enum Rating: String, Codable, CaseIterable, Sendable {
-    case liked = "liked"
-    case neutral = "neutral"
-    case disliked = "disliked"
+public enum Rating: Codable, CaseIterable, Hashable, Sendable {
+    case liked
+    case neutral
+    case disliked
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [Rating] = [.liked, .neutral, .disliked]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .liked: return "liked"
+        case .neutral: return "neutral"
+        case .disliked: return "disliked"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "liked": self = .liked
+        case "neutral": self = .neutral
+        case "disliked": self = .disliked
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "Rating.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// One provider's copy of a record, with whatever the station holds of it.
@@ -497,12 +540,59 @@ public struct ClearEnrichmentQuery: Codable, Equatable, Sendable {
 /// One enum for both lists rather than two, because the alternative is a second near-identical
 /// contract whose only content is which two keys it drops. A key the row cannot answer falls back to
 /// name order rather than failing: an ordering nobody can serve is a page an operator cannot open.
-public enum CatalogSort: String, Codable, CaseIterable, Sendable {
-    case name = "name"
-    case albums = "albums"
-    case tracks = "tracks"
-    case year = "year"
-    case rating = "rating"
+public enum CatalogSort: Codable, CaseIterable, Hashable, Sendable {
+    case name
+    case albums
+    case tracks
+    case year
+    case rating
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [CatalogSort] = [.name, .albums, .tracks, .year, .rating]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .name: return "name"
+        case .albums: return "albums"
+        case .tracks: return "tracks"
+        case .year: return "year"
+        case .rating: return "rating"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "name": self = .name
+        case "albums": self = .albums
+        case "tracks": self = .tracks
+        case "year": self = .year
+        case "rating": self = .rating
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "CatalogSort.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Which records to show, by what the station has of them rather than by what they are.
@@ -512,12 +602,59 @@ public enum CatalogSort: String, Codable, CaseIterable, Sendable {
 ///   unmeasured  no trustworthy measurement, so no cue points and no level decided before air
 ///   benched     every copy written off, which is the one state that means it CANNOT air
 ///   failing     a fetch has failed and is backing off. Not benched yet, and often the state before it
-public enum TrackState: String, Codable, CaseIterable, Sendable {
-    case cached = "cached"
-    case uncached = "uncached"
-    case unmeasured = "unmeasured"
-    case benched = "benched"
-    case failing = "failing"
+public enum TrackState: Codable, CaseIterable, Hashable, Sendable {
+    case cached
+    case uncached
+    case unmeasured
+    case benched
+    case failing
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [TrackState] = [.cached, .uncached, .unmeasured, .benched, .failing]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .cached: return "cached"
+        case .uncached: return "uncached"
+        case .unmeasured: return "unmeasured"
+        case .benched: return "benched"
+        case .failing: return "failing"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "cached": self = .cached
+        case "uncached": self = .uncached
+        case "unmeasured": self = .unmeasured
+        case "benched": self = .benched
+        case "failing": self = .failing
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "TrackState.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// What a track list is ordered BY. Its own enum for `TrackQuery`'s own reason: none of these keys
@@ -526,13 +663,62 @@ public enum TrackState: String, Codable, CaseIterable, Sendable {
 /// `state` is deliberately absent. It is three independent booleans rather than one column, so there
 /// is no ordering of it an operator would agree with: a benched record and an unmeasured one are not
 /// more or less than each other.
-public enum TrackSort: String, Codable, CaseIterable, Sendable {
-    case title = "title"
-    case artist = "artist"
-    case album = "album"
-    case year = "year"
-    case duration = "duration"
-    case rating = "rating"
+public enum TrackSort: Codable, CaseIterable, Hashable, Sendable {
+    case title
+    case artist
+    case album
+    case year
+    case duration
+    case rating
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [TrackSort] = [.title, .artist, .album, .year, .duration, .rating]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .title: return "title"
+        case .artist: return "artist"
+        case .album: return "album"
+        case .year: return "year"
+        case .duration: return "duration"
+        case .rating: return "rating"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "title": self = .title
+        case "artist": self = .artist
+        case "album": self = .album
+        case "year": self = .year
+        case "duration": self = .duration
+        case "rating": self = .rating
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "TrackSort.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// How much of the library is in each state, over the whole filtered set rather than this page.
@@ -2825,22 +3011,151 @@ public struct AlbumEnrichmentDetailInput: Codable, Equatable, Sendable {
 }
 
 /// Nobody sings on it; where the singing is; or nothing to go on
-public enum VocalMarkersDetailKind: String, Codable, CaseIterable, Sendable {
-    case instrumental = "instrumental"
-    case ranges = "ranges"
-    case unknown = "unknown"
+public enum VocalMarkersDetailKind: Codable, CaseIterable, Hashable, Sendable {
+    case instrumental
+    case ranges
+    case unknown
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown2
+
+    /// The members the contract declares. `unknown2` is not one of them.
+    public static let allCases: [VocalMarkersDetailKind] = [.instrumental, .ranges, .unknown]
+
+    /// The wire spelling, or `nil` for `unknown2`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .instrumental: return "instrumental"
+        case .ranges: return "ranges"
+        case .unknown: return "unknown"
+        case .unknown2: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "instrumental": self = .instrumental
+        case "ranges": self = .ranges
+        case "unknown": self = .unknown
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown2
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "VocalMarkersDetailKind.unknown2 has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// An operator's correction, the record's timed lyrics, or neither
-public enum VocalMarkersDetailSource: String, Codable, CaseIterable, Sendable {
-    case override = "override"
-    case lyrics = "lyrics"
-    case none = "none"
+public enum VocalMarkersDetailSource: Codable, CaseIterable, Hashable, Sendable {
+    case override
+    case lyrics
+    case none
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [VocalMarkersDetailSource] = [.override, .lyrics, .none]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .override: return "override"
+        case .lyrics: return "lyrics"
+        case .none: return "none"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "override": self = .override
+        case "lyrics": self = .lyrics
+        case "none": self = .none
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "VocalMarkersDetailSource.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// The words are here; a source says nobody sings on it; or no source has an answer yet
-public enum TrackLyricsKind: String, Codable, CaseIterable, Sendable {
-    case words = "words"
-    case instrumental = "instrumental"
-    case none = "none"
+public enum TrackLyricsKind: Codable, CaseIterable, Hashable, Sendable {
+    case words
+    case instrumental
+    case none
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [TrackLyricsKind] = [.words, .instrumental, .none]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .words: return "words"
+        case .instrumental: return "instrumental"
+        case .none: return "none"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "words": self = .words
+        case "instrumental": self = .instrumental
+        case "none": self = .none
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "TrackLyricsKind.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

@@ -177,7 +177,48 @@ public struct PersonaPortraitList: Codable, Equatable, Sendable {
 }
 
 /// Whether these are the bytes this repository ships or ones somebody uploaded over them
-public enum BreakArtworkSource: String, Codable, CaseIterable, Sendable {
-    case shipped = "shipped"
-    case `operator` = "operator"
+public enum BreakArtworkSource: Codable, CaseIterable, Hashable, Sendable {
+    case shipped
+    case `operator`
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [BreakArtworkSource] = [.shipped, .`operator`]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .shipped: return "shipped"
+        case .`operator`: return "operator"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "shipped": self = .shipped
+        case "operator": self = .`operator`
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "BreakArtworkSource.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

@@ -31,18 +31,108 @@ public struct RequestableSource: Codable, Equatable, Sendable {
     }
 }
 
-public enum RequestStatus: String, Codable, CaseIterable, Sendable {
-    case waiting = "waiting"
-    case pending = "pending"
-    case queued = "queued"
-    case aired = "aired"
-    case declined = "declined"
-    case expired = "expired"
+public enum RequestStatus: Codable, CaseIterable, Hashable, Sendable {
+    case waiting
+    case pending
+    case queued
+    case aired
+    case declined
+    case expired
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [RequestStatus] = [.waiting, .pending, .queued, .aired, .declined, .expired]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .waiting: return "waiting"
+        case .pending: return "pending"
+        case .queued: return "queued"
+        case .aired: return "aired"
+        case .declined: return "declined"
+        case .expired: return "expired"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "waiting": self = .waiting
+        case "pending": self = .pending
+        case "queued": self = .queued
+        case "aired": self = .aired
+        case "declined": self = .declined
+        case "expired": self = .expired
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "RequestStatus.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
-public enum RequestSource: String, Codable, CaseIterable, Sendable {
-    case app = "app"
-    case chat = "chat"
+public enum RequestSource: Codable, CaseIterable, Hashable, Sendable {
+    case app
+    case chat
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [RequestSource] = [.app, .chat]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .app: return "app"
+        case .chat: return "chat"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "app": self = .app
+        case "chat": self = .chat
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "RequestSource.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Turn a request down

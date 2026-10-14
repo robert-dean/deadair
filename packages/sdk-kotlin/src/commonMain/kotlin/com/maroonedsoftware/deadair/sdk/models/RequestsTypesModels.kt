@@ -3,10 +3,10 @@
 
 package com.maroonedsoftware.deadair.sdk.models
 
+import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** A music provider's copy of a record the station has not taken in yet */
@@ -18,29 +18,53 @@ data class RequestableSource(
     val externalId: String,
 )
 
-@Serializable
+@Serializable(with = RequestStatusSerializer::class)
 enum class RequestStatus {
-    @SerialName("waiting")
     WAITING,
-    @SerialName("pending")
     PENDING,
-    @SerialName("queued")
     QUEUED,
-    @SerialName("aired")
     AIRED,
-    @SerialName("declined")
     DECLINED,
-    @SerialName("expired")
     EXPIRED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [RequestStatus] by its wire spelling. A spelling it does not know reads as [RequestStatus.UNKNOWN]. */
+object RequestStatusSerializer : SdkEnumSerializer<RequestStatus>(
+    "RequestStatus",
+    RequestStatus.UNKNOWN,
+    RequestStatus.WAITING to "waiting",
+    RequestStatus.PENDING to "pending",
+    RequestStatus.QUEUED to "queued",
+    RequestStatus.AIRED to "aired",
+    RequestStatus.DECLINED to "declined",
+    RequestStatus.EXPIRED to "expired",
+)
+
+@Serializable(with = RequestSourceSerializer::class)
 enum class RequestSource {
-    @SerialName("app")
     APP,
-    @SerialName("chat")
     CHAT,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [RequestSource] by its wire spelling. A spelling it does not know reads as [RequestSource.UNKNOWN]. */
+object RequestSourceSerializer : SdkEnumSerializer<RequestSource>(
+    "RequestSource",
+    RequestSource.UNKNOWN,
+    RequestSource.APP to "app",
+    RequestSource.CHAT to "chat",
+)
 
 /** Turn a request down */
 @Serializable

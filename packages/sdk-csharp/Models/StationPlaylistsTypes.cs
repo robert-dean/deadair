@@ -364,9 +364,15 @@ public sealed record PlaylistImportInput
 }
 
 /// <summary>Which of those `text` is. Absent works it out from the text</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PlaylistImportInputFormat>))]
+[JsonConverter(typeof(PlaylistImportInputFormatConverter))]
 public enum PlaylistImportInputFormat
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("m3u")]
     M3u,
 
@@ -377,10 +383,58 @@ public enum PlaylistImportInputFormat
     Text,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PlaylistImportInputFormat"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PlaylistImportInputFormat.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PlaylistImportInputFormatConverter : JsonConverter<PlaylistImportInputFormat>
+{
+    public override PlaylistImportInputFormat Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PlaylistImportInputFormat, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PlaylistImportInputFormat value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PlaylistImportInputFormat ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PlaylistImportInputFormat value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PlaylistImportInputFormat FromWire(string? text) => text switch
+    {
+        "m3u" => PlaylistImportInputFormat.M3u,
+        "csv" => PlaylistImportInputFormat.Csv,
+        "text" => PlaylistImportInputFormat.Text,
+        _ => PlaylistImportInputFormat.Unknown,
+    };
+
+    private static string ToWire(PlaylistImportInputFormat value) => value switch
+    {
+        PlaylistImportInputFormat.M3u => "m3u",
+        PlaylistImportInputFormat.Csv => "csv",
+        PlaylistImportInputFormat.Text => "text",
+        _ => throw new JsonException($"PlaylistImportInputFormat.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>`matched`: the library holds it. `toAdd`: it names a provider's copy, which the station can add to its library. `toLookUp`: it names only a record, which the station has to search its providers for</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PlaylistImportEntryOutcome>))]
+[JsonConverter(typeof(PlaylistImportEntryOutcomeConverter))]
 public enum PlaylistImportEntryOutcome
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("matched")]
     Matched,
 
@@ -389,4 +443,46 @@ public enum PlaylistImportEntryOutcome
 
     [JsonStringEnumMemberName("toLookUp")]
     ToLookUp,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PlaylistImportEntryOutcome"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PlaylistImportEntryOutcome.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PlaylistImportEntryOutcomeConverter : JsonConverter<PlaylistImportEntryOutcome>
+{
+    public override PlaylistImportEntryOutcome Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PlaylistImportEntryOutcome, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PlaylistImportEntryOutcome value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PlaylistImportEntryOutcome ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PlaylistImportEntryOutcome value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PlaylistImportEntryOutcome FromWire(string? text) => text switch
+    {
+        "matched" => PlaylistImportEntryOutcome.Matched,
+        "toAdd" => PlaylistImportEntryOutcome.ToAdd,
+        "toLookUp" => PlaylistImportEntryOutcome.ToLookUp,
+        _ => PlaylistImportEntryOutcome.Unknown,
+    };
+
+    private static string ToWire(PlaylistImportEntryOutcome value) => value switch
+    {
+        PlaylistImportEntryOutcome.Matched => "matched",
+        PlaylistImportEntryOutcome.ToAdd => "toAdd",
+        PlaylistImportEntryOutcome.ToLookUp => "toLookUp",
+        _ => throw new JsonException($"PlaylistImportEntryOutcome.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

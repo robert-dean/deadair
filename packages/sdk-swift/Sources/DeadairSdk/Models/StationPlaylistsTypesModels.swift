@@ -710,15 +710,101 @@ public struct PlaylistImportInput: Codable, Equatable, Sendable {
 }
 
 /// Which of those `text` is. Absent works it out from the text
-public enum PlaylistImportInputFormat: String, Codable, CaseIterable, Sendable {
-    case m3u = "m3u"
-    case csv = "csv"
-    case text = "text"
+public enum PlaylistImportInputFormat: Codable, CaseIterable, Hashable, Sendable {
+    case m3u
+    case csv
+    case text
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [PlaylistImportInputFormat] = [.m3u, .csv, .text]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .m3u: return "m3u"
+        case .csv: return "csv"
+        case .text: return "text"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "m3u": self = .m3u
+        case "csv": self = .csv
+        case "text": self = .text
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PlaylistImportInputFormat.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// `matched`: the library holds it. `toAdd`: it names a provider's copy, which the station can add to its library. `toLookUp`: it names only a record, which the station has to search its providers for
-public enum PlaylistImportEntryOutcome: String, Codable, CaseIterable, Sendable {
-    case matched = "matched"
-    case toAdd = "toAdd"
-    case toLookUp = "toLookUp"
+public enum PlaylistImportEntryOutcome: Codable, CaseIterable, Hashable, Sendable {
+    case matched
+    case toAdd
+    case toLookUp
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [PlaylistImportEntryOutcome] = [.matched, .toAdd, .toLookUp]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .matched: return "matched"
+        case .toAdd: return "toAdd"
+        case .toLookUp: return "toLookUp"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "matched": self = .matched
+        case "toAdd": self = .toAdd
+        case "toLookUp": self = .toLookUp
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PlaylistImportEntryOutcome.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

@@ -48,9 +48,10 @@ public func chooseMount(_ mounts: [NowPlayingMount], wanted: StreamFormat?) -> M
         return MountChoice(path: mp3.path, format: .mp3, fellBack: true)
     }
     // The contract says this cannot happen. If it ever does, the first mount the station named
-    // beats refusing to play anything.
+    // beats refusing to play anything, and one in a format this build cannot read is labelled MP3,
+    // the format every station publishes, since it has to be labelled something.
     let first = mounts[0]
-    return MountChoice(path: first.path, format: StreamFormat(wire: first.format), fellBack: true)
+    return MountChoice(path: first.path, format: StreamFormat(wire: first.format) ?? .mp3, fellBack: true)
 }
 
 /// Which formats the picker may offer, from what the station says it publishes.

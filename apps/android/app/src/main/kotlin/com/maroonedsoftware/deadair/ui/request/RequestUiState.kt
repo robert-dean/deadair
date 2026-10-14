@@ -97,6 +97,8 @@ fun requestOutcome(request: ListenerRequest): Message =
         RequestStatus.WAITING -> Message.RequestWaiting(request.title)
         RequestStatus.PENDING, RequestStatus.QUEUED, RequestStatus.AIRED -> Message.RequestOnItsWay(request.title)
         RequestStatus.DECLINED, RequestStatus.EXPIRED -> Message.RequestRefused(request.reason)
+        // A status a newer station sends that this build cannot read: it was taken, and that is all that is known.
+        RequestStatus.UNKNOWN -> Message.RequestTaken(request.title)
     }
 
 /** Whether the station may still play it. The open states, as the console counts them. */

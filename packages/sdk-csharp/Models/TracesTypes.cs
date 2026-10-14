@@ -16,14 +16,60 @@ namespace MaroonedSoftware.Deadair.Sdk.Models;
 /// timed out, was preempted, came back empty — is a fact the caller knew and the recorder did not, so
 /// it lives in `detail` where it can be named
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<TraceOutcome>))]
+[JsonConverter(typeof(TraceOutcomeConverter))]
 public enum TraceOutcome
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("ok")]
     Ok,
 
     [JsonStringEnumMemberName("failed")]
     Failed,
+}
+
+/// <summary>
+/// Reads and writes <see cref="TraceOutcome"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="TraceOutcome.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class TraceOutcomeConverter : JsonConverter<TraceOutcome>
+{
+    public override TraceOutcome Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for TraceOutcome, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, TraceOutcome value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override TraceOutcome ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, TraceOutcome value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static TraceOutcome FromWire(string? text) => text switch
+    {
+        "ok" => TraceOutcome.Ok,
+        "failed" => TraceOutcome.Failed,
+        _ => TraceOutcome.Unknown,
+    };
+
+    private static string ToWire(TraceOutcome value) => value switch
+    {
+        TraceOutcome.Ok => "ok",
+        TraceOutcome.Failed => "failed",
+        _ => throw new JsonException($"TraceOutcome.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>One decision, folded: a job execution or a request</summary>

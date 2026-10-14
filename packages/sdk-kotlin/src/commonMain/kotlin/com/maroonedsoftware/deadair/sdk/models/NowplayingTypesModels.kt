@@ -3,9 +3,9 @@
 
 package com.maroonedsoftware.deadair.sdk.models
 
+import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** What a listener is hearing right now: a record, or the station talking */
@@ -99,25 +99,49 @@ data class NowPlaying(
 )
 
 /** `record` is music. `break` is the station speaking on its own between two records (an ident, a bulletin, a talk break), with `artist` empty and `title` the break's own label. A presenter talking over the start of a record is not a break: the record is what is on air, and it stays `record`. Absent means `record`, which is all a station older than this field ever reported */
-@Serializable
+@Serializable(with = NowPlayingTrackKindSerializer::class)
 enum class NowPlayingTrackKind {
-    @SerialName("record")
     RECORD,
-    @SerialName("break")
     BREAK,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
+/** Reads and writes [NowPlayingTrackKind] by its wire spelling. A spelling it does not know reads as [NowPlayingTrackKind.UNKNOWN]. */
+object NowPlayingTrackKindSerializer : SdkEnumSerializer<NowPlayingTrackKind>(
+    "NowPlayingTrackKind",
+    NowPlayingTrackKind.UNKNOWN,
+    NowPlayingTrackKind.RECORD to "record",
+    NowPlayingTrackKind.BREAK to "break",
+)
+
 /** `hls` is the master playlist rather than an Icecast mount, which is why this enum has an arm `PlayoutMount` does not */
-@Serializable
+@Serializable(with = NowPlayingMountFormatSerializer::class)
 enum class NowPlayingMountFormat {
-    @SerialName("mp3")
     MP3,
-    @SerialName("opus")
     OPUS,
-    @SerialName("aac")
     AAC,
-    @SerialName("flac")
     FLAC,
-    @SerialName("hls")
     HLS,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [NowPlayingMountFormat] by its wire spelling. A spelling it does not know reads as [NowPlayingMountFormat.UNKNOWN]. */
+object NowPlayingMountFormatSerializer : SdkEnumSerializer<NowPlayingMountFormat>(
+    "NowPlayingMountFormat",
+    NowPlayingMountFormat.UNKNOWN,
+    NowPlayingMountFormat.MP3 to "mp3",
+    NowPlayingMountFormat.OPUS to "opus",
+    NowPlayingMountFormat.AAC to "aac",
+    NowPlayingMountFormat.FLAC to "flac",
+    NowPlayingMountFormat.HLS to "hls",
+)

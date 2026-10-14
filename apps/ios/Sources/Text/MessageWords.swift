@@ -98,6 +98,7 @@ extension Message {
         case .outcome(.written): String(localized: "Written")
         case .outcome(.declined): String(localized: "Declined")
         case .outcome(.failed): String(localized: "Failed")
+        case .outcome(.unknown): String(localized: "Unknown")
         case .writer("model"): String(localized: "Model")
         case .writer("deterministic"): String(localized: "Floor")
         case .writer(let other): other
@@ -137,6 +138,7 @@ extension Message {
         case .chartOrder(.countdown): String(localized: "Countdown, ending on number one")
         case .chartOrder(.ranked): String(localized: "Number one first")
         case .chartOrder(.unordered): String(localized: "No fixed order")
+        case .chartOrder(.unknown): String(localized: "Unknown")
         case .airConfirm(let what): String(localized: "Air \(what) to everyone?")
         case .playlistUnavailable: String(localized: "This playlist is unavailable.")
         case .added(let title): String(localized: "Added “\(title)”.")
@@ -145,6 +147,7 @@ extension Message {
 
         case .requestWaiting(let title): String(localized: "“\(title)” is in. The station’s operator will look at it.")
         case .requestOnItsWay(let title): String(localized: "“\(title)” is on its way.")
+        case .requestTaken(let title): String(localized: "“\(title)” is in.")
         case .requestRefused(let reason): reason ?? String(localized: "The station turned that one down.")
         case .requestRecordGone: String(localized: "The station cannot play that record any more.")
         case .requestCannotInsist: String(localized: "That one cannot be asked for again.")
@@ -172,6 +175,7 @@ extension SilenceCause {
         case .noAudience: String(localized: "Ready")
         case .notDriving: String(localized: "Not driving")
         case .starved: String(localized: "Off the running order")
+        case .unknown: String(localized: "Not known to this app")
         }
     }
 
@@ -190,6 +194,7 @@ extension SilenceCause {
         case .noAudience: String(localized: "Waiting for a listener")
         case .notDriving: String(localized: "The mount is not being held")
         case .starved: String(localized: "The mount is airing the local bed")
+        case .unknown: String(localized: "The station gave a reason this version of the app does not know")
         }
     }
 }
@@ -247,6 +252,7 @@ extension StationItemState {
         case .skipped: String(localized: "Skipped")
         case .unavailable: String(localized: "Unavailable")
         case .removed: String(localized: "Removed")
+        case .unknown: String(localized: "Unknown")
         }
     }
 }
@@ -364,6 +370,7 @@ extension RequestStatus {
         case .aired: String(localized: "Played")
         case .declined: String(localized: "Turned down")
         case .expired: String(localized: "Not played")
+        case .unknown: String(localized: "Unknown")
         }
     }
 }

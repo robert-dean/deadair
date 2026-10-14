@@ -12,9 +12,15 @@ using MaroonedSoftware.Deadair.Sdk.Runtime;
 namespace MaroonedSoftware.Deadair.Sdk.Models;
 
 /// <summary>Which part of the station an entry came from, and the console's one filter axis</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ActivityModule>))]
+[JsonConverter(typeof(ActivityModuleConverter))]
 public enum ActivityModule
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("playout")]
     Playout,
 
@@ -38,13 +44,69 @@ public enum ActivityModule
 }
 
 /// <summary>
+/// Reads and writes <see cref="ActivityModule"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ActivityModule.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ActivityModuleConverter : JsonConverter<ActivityModule>
+{
+    public override ActivityModule Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ActivityModule, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ActivityModule value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ActivityModule ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ActivityModule value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ActivityModule FromWire(string? text) => text switch
+    {
+        "playout" => ActivityModule.Playout,
+        "director" => ActivityModule.Director,
+        "render" => ActivityModule.Render,
+        "catalog" => ActivityModule.Catalog,
+        "plugins" => ActivityModule.Plugins,
+        "storage" => ActivityModule.Storage,
+        "events" => ActivityModule.Events,
+        _ => ActivityModule.Unknown,
+    };
+
+    private static string ToWire(ActivityModule value) => value switch
+    {
+        ActivityModule.Playout => "playout",
+        ActivityModule.Director => "director",
+        ActivityModule.Render => "render",
+        ActivityModule.Catalog => "catalog",
+        ActivityModule.Plugins => "plugins",
+        ActivityModule.Storage => "storage",
+        ActivityModule.Events => "events",
+        _ => throw new JsonException($"ActivityModule.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+/// <summary>
 /// How an entry reads, not how bad it is. There is deliberately no `waiting`: a station idling for
 /// want of a listener says so in its own words and stays `info`, for the same reason the transport
 /// reports it as `ready` rather than as a mild fault
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ActivitySeverity>))]
+[JsonConverter(typeof(ActivitySeverityConverter))]
 public enum ActivitySeverity
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("info")]
     Info,
 
@@ -53,6 +115,48 @@ public enum ActivitySeverity
 
     [JsonStringEnumMemberName("fault")]
     Fault,
+}
+
+/// <summary>
+/// Reads and writes <see cref="ActivitySeverity"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ActivitySeverity.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ActivitySeverityConverter : JsonConverter<ActivitySeverity>
+{
+    public override ActivitySeverity Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ActivitySeverity, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ActivitySeverity value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ActivitySeverity ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ActivitySeverity value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ActivitySeverity FromWire(string? text) => text switch
+    {
+        "info" => ActivitySeverity.Info,
+        "warn" => ActivitySeverity.Warn,
+        "fault" => ActivitySeverity.Fault,
+        _ => ActivitySeverity.Unknown,
+    };
+
+    private static string ToWire(ActivitySeverity value) => value switch
+    {
+        ActivitySeverity.Info => "info",
+        ActivitySeverity.Warn => "warn",
+        ActivitySeverity.Fault => "fault",
+        _ => throw new JsonException($"ActivitySeverity.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>One thing that happened, from whichever of the feed's sources holds it</summary>

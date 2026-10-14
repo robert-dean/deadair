@@ -423,9 +423,15 @@ public sealed record ScheduleSlotListInput
 }
 
 /// <summary>Which way round that chart is played. Absent is `countdown`, which ends on number one. Ignored without `sourceChartId`</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ScheduleSlotSourceChartOrder>))]
+[JsonConverter(typeof(ScheduleSlotSourceChartOrderConverter))]
 public enum ScheduleSlotSourceChartOrder
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("countdown")]
     Countdown,
 
@@ -436,9 +442,57 @@ public enum ScheduleSlotSourceChartOrder
     Unordered,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<ScheduleSlotMoods>))]
+/// <summary>
+/// Reads and writes <see cref="ScheduleSlotSourceChartOrder"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ScheduleSlotSourceChartOrder.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ScheduleSlotSourceChartOrderConverter : JsonConverter<ScheduleSlotSourceChartOrder>
+{
+    public override ScheduleSlotSourceChartOrder Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ScheduleSlotSourceChartOrder, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ScheduleSlotSourceChartOrder value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ScheduleSlotSourceChartOrder ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ScheduleSlotSourceChartOrder value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ScheduleSlotSourceChartOrder FromWire(string? text) => text switch
+    {
+        "countdown" => ScheduleSlotSourceChartOrder.Countdown,
+        "ranked" => ScheduleSlotSourceChartOrder.Ranked,
+        "unordered" => ScheduleSlotSourceChartOrder.Unordered,
+        _ => ScheduleSlotSourceChartOrder.Unknown,
+    };
+
+    private static string ToWire(ScheduleSlotSourceChartOrder value) => value switch
+    {
+        ScheduleSlotSourceChartOrder.Countdown => "countdown",
+        ScheduleSlotSourceChartOrder.Ranked => "ranked",
+        ScheduleSlotSourceChartOrder.Unordered => "unordered",
+        _ => throw new JsonException($"ScheduleSlotSourceChartOrder.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(ScheduleSlotMoodsConverter))]
 public enum ScheduleSlotMoods
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("love")]
     Love,
 
@@ -461,9 +515,65 @@ public enum ScheduleSlotMoods
     Fear,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<ScheduleSlotMode>))]
+/// <summary>
+/// Reads and writes <see cref="ScheduleSlotMoods"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ScheduleSlotMoods.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ScheduleSlotMoodsConverter : JsonConverter<ScheduleSlotMoods>
+{
+    public override ScheduleSlotMoods Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ScheduleSlotMoods, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ScheduleSlotMoods value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ScheduleSlotMoods ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ScheduleSlotMoods value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ScheduleSlotMoods FromWire(string? text) => text switch
+    {
+        "love" => ScheduleSlotMoods.Love,
+        "happiness" => ScheduleSlotMoods.Happiness,
+        "comfort" => ScheduleSlotMoods.Comfort,
+        "sadness" => ScheduleSlotMoods.Sadness,
+        "loneliness" => ScheduleSlotMoods.Loneliness,
+        "anger" => ScheduleSlotMoods.Anger,
+        "fear" => ScheduleSlotMoods.Fear,
+        _ => ScheduleSlotMoods.Unknown,
+    };
+
+    private static string ToWire(ScheduleSlotMoods value) => value switch
+    {
+        ScheduleSlotMoods.Love => "love",
+        ScheduleSlotMoods.Happiness => "happiness",
+        ScheduleSlotMoods.Comfort => "comfort",
+        ScheduleSlotMoods.Sadness => "sadness",
+        ScheduleSlotMoods.Loneliness => "loneliness",
+        ScheduleSlotMoods.Anger => "anger",
+        ScheduleSlotMoods.Fear => "fear",
+        _ => throw new JsonException($"ScheduleSlotMoods.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(ScheduleSlotModeConverter))]
 public enum ScheduleSlotMode
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("rotation")]
     Rotation,
 
@@ -474,9 +584,57 @@ public enum ScheduleSlotMode
     Feature,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<ScheduleSlotOnEnd>))]
+/// <summary>
+/// Reads and writes <see cref="ScheduleSlotMode"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ScheduleSlotMode.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ScheduleSlotModeConverter : JsonConverter<ScheduleSlotMode>
+{
+    public override ScheduleSlotMode Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ScheduleSlotMode, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ScheduleSlotMode value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ScheduleSlotMode ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ScheduleSlotMode value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ScheduleSlotMode FromWire(string? text) => text switch
+    {
+        "rotation" => ScheduleSlotMode.Rotation,
+        "setlist" => ScheduleSlotMode.Setlist,
+        "feature" => ScheduleSlotMode.Feature,
+        _ => ScheduleSlotMode.Unknown,
+    };
+
+    private static string ToWire(ScheduleSlotMode value) => value switch
+    {
+        ScheduleSlotMode.Rotation => "rotation",
+        ScheduleSlotMode.Setlist => "setlist",
+        ScheduleSlotMode.Feature => "feature",
+        _ => throw new JsonException($"ScheduleSlotMode.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(ScheduleSlotOnEndConverter))]
 public enum ScheduleSlotOnEnd
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("extend")]
     Extend,
 
@@ -485,4 +643,46 @@ public enum ScheduleSlotOnEnd
 
     [JsonStringEnumMemberName("stop")]
     Stop,
+}
+
+/// <summary>
+/// Reads and writes <see cref="ScheduleSlotOnEnd"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ScheduleSlotOnEnd.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ScheduleSlotOnEndConverter : JsonConverter<ScheduleSlotOnEnd>
+{
+    public override ScheduleSlotOnEnd Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ScheduleSlotOnEnd, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ScheduleSlotOnEnd value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ScheduleSlotOnEnd ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ScheduleSlotOnEnd value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ScheduleSlotOnEnd FromWire(string? text) => text switch
+    {
+        "extend" => ScheduleSlotOnEnd.Extend,
+        "repeat" => ScheduleSlotOnEnd.Repeat,
+        "stop" => ScheduleSlotOnEnd.Stop,
+        _ => ScheduleSlotOnEnd.Unknown,
+    };
+
+    private static string ToWire(ScheduleSlotOnEnd value) => value switch
+    {
+        ScheduleSlotOnEnd.Extend => "extend",
+        ScheduleSlotOnEnd.Repeat => "repeat",
+        ScheduleSlotOnEnd.Stop => "stop",
+        _ => throw new JsonException($"ScheduleSlotOnEnd.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

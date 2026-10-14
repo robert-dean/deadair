@@ -29,6 +29,8 @@ public enum RequestRules {
         case .waiting: .requestWaiting(request.title)
         case .pending, .queued, .aired: .requestOnItsWay(request.title)
         case .declined, .expired: .requestRefused(request.reason)
+        // A status a newer station sends that this build cannot read: it was taken, and that is all that is known.
+        case .unknown: .requestTaken(request.title)
         }
     }
 }

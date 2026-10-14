@@ -271,6 +271,9 @@ sealed interface Message {
     /** A request is in and the station is finding it a place. */
     data class RequestOnItsWay(val title: String) : Message
 
+    /** A request is in, with a status a newer station sends that this build cannot read. */
+    data class RequestTaken(val title: String) : Message
+
     /** The station turned a request down. `reason` is the station's own sentence, and absent for a plain no. */
     data class RequestRefused(val reason: String?) : Message
 

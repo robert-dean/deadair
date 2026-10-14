@@ -3,9 +3,9 @@
 
 package com.maroonedsoftware.deadair.sdk.models
 
+import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** The plugin playlist to load into the running order */
@@ -90,48 +90,72 @@ data class StreamConfigWarning(
  * Which gate is keeping the station quiet, or `airing` when none of them is. Ordered by cause: a
  * stalled transport loop makes every reading under it stale, so it is ruled out first
  */
-@Serializable
+@Serializable(with = SilenceCauseSerializer::class)
 enum class SilenceCause {
-    @SerialName("airing")
     AIRING,
-    @SerialName("transportStalled")
     TRANSPORT_STALLED,
-    @SerialName("controlDenied")
     CONTROL_DENIED,
-    @SerialName("streamUnreachable")
     STREAM_UNREACHABLE,
-    @SerialName("configNotAdopted")
     CONFIG_NOT_ADOPTED,
-    @SerialName("stoodDown")
     STOOD_DOWN,
-    @SerialName("noProgramme")
     NO_PROGRAMME,
-    @SerialName("noAudience")
     NO_AUDIENCE,
-    @SerialName("warmingUp")
     WARMING_UP,
-    @SerialName("waitingOnAudio")
     WAITING_ON_AUDIO,
-    @SerialName("notDriving")
     NOT_DRIVING,
-    @SerialName("starved")
     STARVED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [SilenceCause] by its wire spelling. A spelling it does not know reads as [SilenceCause.UNKNOWN]. */
+object SilenceCauseSerializer : SdkEnumSerializer<SilenceCause>(
+    "SilenceCause",
+    SilenceCause.UNKNOWN,
+    SilenceCause.AIRING to "airing",
+    SilenceCause.TRANSPORT_STALLED to "transportStalled",
+    SilenceCause.CONTROL_DENIED to "controlDenied",
+    SilenceCause.STREAM_UNREACHABLE to "streamUnreachable",
+    SilenceCause.CONFIG_NOT_ADOPTED to "configNotAdopted",
+    SilenceCause.STOOD_DOWN to "stoodDown",
+    SilenceCause.NO_PROGRAMME to "noProgramme",
+    SilenceCause.NO_AUDIENCE to "noAudience",
+    SilenceCause.WARMING_UP to "warmingUp",
+    SilenceCause.WAITING_ON_AUDIO to "waitingOnAudio",
+    SilenceCause.NOT_DRIVING to "notDriving",
+    SilenceCause.STARVED to "starved",
+)
 
 /**
  * How one gate is doing. `waiting` is its own state rather than a mild fault, because a station
  * idling for want of a listener and a station that cannot reach its stream are both silent and only
  * one of them is something to go and fix
  */
-@Serializable
+@Serializable(with = SilenceStateSerializer::class)
 enum class SilenceState {
-    @SerialName("ok")
     OK,
-    @SerialName("waiting")
     WAITING,
-    @SerialName("fault")
     FAULT,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [SilenceState] by its wire spelling. A spelling it does not know reads as [SilenceState.UNKNOWN]. */
+object SilenceStateSerializer : SdkEnumSerializer<SilenceState>(
+    "SilenceState",
+    SilenceState.UNKNOWN,
+    SilenceState.OK to "ok",
+    SilenceState.WAITING to "waiting",
+    SilenceState.FAULT to "fault",
+)
 
 /** One mount the station is publishing right now */
 @Serializable
@@ -220,42 +244,90 @@ data class PlayoutStatus(
 )
 
 /** Which way round to play it. Absent is `countdown`, which opens on the lowest rank and ends on number one */
-@Serializable
+@Serializable(with = PlayoutChartInputChartOrderSerializer::class)
 enum class PlayoutChartInputChartOrder {
-    @SerialName("countdown")
     COUNTDOWN,
-    @SerialName("ranked")
     RANKED,
-    @SerialName("unordered")
     UNORDERED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PlayoutChartInputChartOrder] by its wire spelling. A spelling it does not know reads as [PlayoutChartInputChartOrder.UNKNOWN]. */
+object PlayoutChartInputChartOrderSerializer : SdkEnumSerializer<PlayoutChartInputChartOrder>(
+    "PlayoutChartInputChartOrder",
+    PlayoutChartInputChartOrder.UNKNOWN,
+    PlayoutChartInputChartOrder.COUNTDOWN to "countdown",
+    PlayoutChartInputChartOrder.RANKED to "ranked",
+    PlayoutChartInputChartOrder.UNORDERED to "unordered",
+)
 
 /** Which one is behind */
-@Serializable
+@Serializable(with = StreamConfigWarningContainerSerializer::class)
 enum class StreamConfigWarningContainer {
-    @SerialName("icecast")
     ICECAST,
-    @SerialName("liquidsoap")
     LIQUIDSOAP,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [StreamConfigWarningContainer] by its wire spelling. A spelling it does not know reads as [StreamConfigWarningContainer.UNKNOWN]. */
+object StreamConfigWarningContainerSerializer : SdkEnumSerializer<StreamConfigWarningContainer>(
+    "StreamConfigWarningContainer",
+    StreamConfigWarningContainer.UNKNOWN,
+    StreamConfigWarningContainer.ICECAST to "icecast",
+    StreamConfigWarningContainer.LIQUIDSOAP to "liquidsoap",
+)
+
+@Serializable(with = PlayoutMountFormatSerializer::class)
 enum class PlayoutMountFormat {
-    @SerialName("mp3")
     MP3,
-    @SerialName("opus")
     OPUS,
-    @SerialName("aac")
     AAC,
-    @SerialName("flac")
     FLAC,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PlayoutMountFormat] by its wire spelling. A spelling it does not know reads as [PlayoutMountFormat.UNKNOWN]. */
+object PlayoutMountFormatSerializer : SdkEnumSerializer<PlayoutMountFormat>(
+    "PlayoutMountFormat",
+    PlayoutMountFormat.UNKNOWN,
+    PlayoutMountFormat.MP3 to "mp3",
+    PlayoutMountFormat.OPUS to "opus",
+    PlayoutMountFormat.AAC to "aac",
+    PlayoutMountFormat.FLAC to "flac",
+)
 
 /** `starved`: the queue stopped producing while deadair was driving, so the mount fell through to the local bed. `recovered`: it is producing again */
-@Serializable
+@Serializable(with = PlayoutStarveQueryStateSerializer::class)
 enum class PlayoutStarveQueryState {
-    @SerialName("starved")
     STARVED,
-    @SerialName("recovered")
     RECOVERED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PlayoutStarveQueryState] by its wire spelling. A spelling it does not know reads as [PlayoutStarveQueryState.UNKNOWN]. */
+object PlayoutStarveQueryStateSerializer : SdkEnumSerializer<PlayoutStarveQueryState>(
+    "PlayoutStarveQueryState",
+    PlayoutStarveQueryState.UNKNOWN,
+    PlayoutStarveQueryState.STARVED to "starved",
+    PlayoutStarveQueryState.RECOVERED to "recovered",
+)

@@ -3,9 +3,9 @@
 
 package com.maroonedsoftware.deadair.sdk.models
 
+import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -70,10 +70,22 @@ data class PersonaPortraitList(
 )
 
 /** Whether these are the bytes this repository ships or ones somebody uploaded over them */
-@Serializable
+@Serializable(with = BreakArtworkSourceSerializer::class)
 enum class BreakArtworkSource {
-    @SerialName("shipped")
     SHIPPED,
-    @SerialName("operator")
     OPERATOR,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [BreakArtworkSource] by its wire spelling. A spelling it does not know reads as [BreakArtworkSource.UNKNOWN]. */
+object BreakArtworkSourceSerializer : SdkEnumSerializer<BreakArtworkSource>(
+    "BreakArtworkSource",
+    BreakArtworkSource.UNKNOWN,
+    BreakArtworkSource.SHIPPED to "shipped",
+    BreakArtworkSource.OPERATOR to "operator",
+)

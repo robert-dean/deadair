@@ -1047,43 +1047,301 @@ public struct EventTypeList: Codable, Equatable, Sendable {
 }
 
 /// Set when the station turned it off itself, because it kept failing. Turning it back on clears this and the count
-public enum EventDestinationDisabledReason: String, Codable, CaseIterable, Sendable {
-    case failing = "failing"
+public enum EventDestinationDisabledReason: Codable, CaseIterable, Hashable, Sendable {
+    case failing
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [EventDestinationDisabledReason] = [.failing]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .failing: return "failing"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "failing": self = .failing
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "EventDestinationDisabledReason.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// `dropped` is an event no longer worth sending, such as a record that finished playing while its destination was down
-public enum EventDeliveryOutcome: String, Codable, CaseIterable, Sendable {
-    case delivered = "delivered"
-    case failed = "failed"
-    case dropped = "dropped"
+public enum EventDeliveryOutcome: Codable, CaseIterable, Hashable, Sendable {
+    case delivered
+    case failed
+    case dropped
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [EventDeliveryOutcome] = [.delivered, .failed, .dropped]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .delivered: return "delivered"
+        case .failed: return "failed"
+        case .dropped: return "dropped"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "delivered": self = .delivered
+        case "failed": self = .failed
+        case "dropped": self = .dropped
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "EventDeliveryOutcome.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// A podcast episode as published, or something the station reads out itself
-public enum ProgrammeStartedDataSource: String, Codable, CaseIterable, Sendable {
-    case podcast = "podcast"
-    case narration = "narration"
+public enum ProgrammeStartedDataSource: Codable, CaseIterable, Hashable, Sendable {
+    case podcast
+    case narration
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ProgrammeStartedDataSource] = [.podcast, .narration]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .podcast: return "podcast"
+        case .narration: return "narration"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "podcast": self = .podcast
+        case "narration": self = .narration
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ProgrammeStartedDataSource.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// A new running order, the stopped one started again, somebody stopping it, or the running order running out
-public enum StationAirDataReason: String, Codable, CaseIterable, Sendable {
-    case programme = "programme"
-    case resumed = "resumed"
-    case stopped = "stopped"
-    case ranOut = "ranOut"
+public enum StationAirDataReason: Codable, CaseIterable, Hashable, Sendable {
+    case programme
+    case resumed
+    case stopped
+    case ranOut
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [StationAirDataReason] = [.programme, .resumed, .stopped, .ranOut]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .programme: return "programme"
+        case .resumed: return "resumed"
+        case .stopped: return "stopped"
+        case .ranOut: return "ranOut"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "programme": self = .programme
+        case "resumed": self = .resumed
+        case "stopped": self = .stopped
+        case "ranOut": self = .ranOut
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "StationAirDataReason.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Where they asked from. `app` covers the console, the listener apps and a party pass
-public enum RequestReceivedDataVia: String, Codable, CaseIterable, Sendable {
-    case app = "app"
-    case chat = "chat"
+public enum RequestReceivedDataVia: Codable, CaseIterable, Hashable, Sendable {
+    case app
+    case chat
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [RequestReceivedDataVia] = [.app, .chat]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .app: return "app"
+        case .chat: return "chat"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "app": self = .app
+        case "chat": self = .chat
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "RequestReceivedDataVia.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// How it stands now: waiting on an operator, waiting on its audio, in the running order, or declined
-public enum RequestReceivedDataStatus: String, Codable, CaseIterable, Sendable {
-    case waiting = "waiting"
-    case pending = "pending"
-    case queued = "queued"
-    case aired = "aired"
-    case declined = "declined"
-    case expired = "expired"
+public enum RequestReceivedDataStatus: Codable, CaseIterable, Hashable, Sendable {
+    case waiting
+    case pending
+    case queued
+    case aired
+    case declined
+    case expired
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [RequestReceivedDataStatus] = [.waiting, .pending, .queued, .aired, .declined, .expired]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .waiting: return "waiting"
+        case .pending: return "pending"
+        case .queued: return "queued"
+        case .aired: return "aired"
+        case .declined: return "declined"
+        case .expired: return "expired"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "waiting": self = .waiting
+        case "pending": self = .pending
+        case "queued": self = .queued
+        case "aired": self = .aired
+        case "declined": self = .declined
+        case "expired": self = .expired
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "RequestReceivedDataStatus.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

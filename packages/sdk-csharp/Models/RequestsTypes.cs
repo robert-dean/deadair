@@ -23,9 +23,15 @@ public sealed record RequestableSource
     public required string ExternalId { get; init; }
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<RequestStatus>))]
+[JsonConverter(typeof(RequestStatusConverter))]
 public enum RequestStatus
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("waiting")]
     Waiting,
 
@@ -45,14 +51,108 @@ public enum RequestStatus
     Expired,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<RequestSource>))]
+/// <summary>
+/// Reads and writes <see cref="RequestStatus"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="RequestStatus.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class RequestStatusConverter : JsonConverter<RequestStatus>
+{
+    public override RequestStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for RequestStatus, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, RequestStatus value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override RequestStatus ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, RequestStatus value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static RequestStatus FromWire(string? text) => text switch
+    {
+        "waiting" => RequestStatus.Waiting,
+        "pending" => RequestStatus.Pending,
+        "queued" => RequestStatus.Queued,
+        "aired" => RequestStatus.Aired,
+        "declined" => RequestStatus.Declined,
+        "expired" => RequestStatus.Expired,
+        _ => RequestStatus.Unknown,
+    };
+
+    private static string ToWire(RequestStatus value) => value switch
+    {
+        RequestStatus.Waiting => "waiting",
+        RequestStatus.Pending => "pending",
+        RequestStatus.Queued => "queued",
+        RequestStatus.Aired => "aired",
+        RequestStatus.Declined => "declined",
+        RequestStatus.Expired => "expired",
+        _ => throw new JsonException($"RequestStatus.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(RequestSourceConverter))]
 public enum RequestSource
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("app")]
     App,
 
     [JsonStringEnumMemberName("chat")]
     Chat,
+}
+
+/// <summary>
+/// Reads and writes <see cref="RequestSource"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="RequestSource.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class RequestSourceConverter : JsonConverter<RequestSource>
+{
+    public override RequestSource Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for RequestSource, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, RequestSource value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override RequestSource ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, RequestSource value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static RequestSource FromWire(string? text) => text switch
+    {
+        "app" => RequestSource.App,
+        "chat" => RequestSource.Chat,
+        _ => RequestSource.Unknown,
+    };
+
+    private static string ToWire(RequestSource value) => value switch
+    {
+        RequestSource.App => "app",
+        RequestSource.Chat => "chat",
+        _ => throw new JsonException($"RequestSource.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>Turn a request down</summary>

@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.66.0] — 2026-10-14
+
+- Productions: a show with co-hosts now gets a banter, its presenters trading lines for a few minutes, every half hour without a format clock band. The spacing is the new **Minutes between banters** setting under Breaks, timed from the last banter the show aired, and 0 turns it off. A show presented by one host, a setlist, a feature and a show told not to talk get none.
+- Productions: a `banter` band on the format clock is passed over on a show with nobody beside the host. It used to be commissioned anyway and fail at casting, leaving a failed banter on Productions every hour the band came round. A show with co-hosts still gets one at the band's time.
+
 ## [0.65.0] — 2026-10-14
 
 - A schedule block that plays a playlist can pick it up where it left off. Switch on **Pick the playlist up where it left off** in the slot editor, and each time the block opens it starts with the record after the last one from its playlist that aired, rather than from the top, so a long playlist on a short block gets all the way through over several nights. An operator's takeover ending in the middle of the block no longer starts the playlist over. The editor shows the record the block will open on next, and **Start from the top** sends it back to the beginning; a record taken off the playlist, or choosing a different playlist, starts it from the top too. Through the API it is `resumePlaylist` on a slot, with `GET` and `DELETE /schedule/{id}/playlist-position`. The desktop app keeps the setting when it saves a slot.
@@ -1422,7 +1427,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.65.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.66.0...HEAD
+[0.66.0]: https://github.com/robert-dean/deadair/compare/v0.65.0...v0.66.0
 [0.65.0]: https://github.com/robert-dean/deadair/compare/v0.64.0...v0.65.0
 [0.64.0]: https://github.com/robert-dean/deadair/compare/v0.63.0...v0.64.0
 [0.63.0]: https://github.com/robert-dean/deadair/compare/v0.62.1...v0.63.0

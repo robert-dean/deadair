@@ -305,6 +305,107 @@ export const settings = {
             action: 'Register',
         },
     },
+    eventDestinations: {
+        title: 'Event destinations',
+        intro: 'Your own servers the station tells what happens on air: a Home Assistant webhook trigger, an n8n workflow, anything that takes a signed JSON POST. Addresses on your own network are fine.',
+        empty: 'No destinations yet. Add one below and send it a test.',
+        everyEvent: 'Every event',
+        lastDelivered: 'Last delivered {{when}}',
+        unavailable: {
+            title: 'Could not read the event destinations',
+            fallback: 'The station did not answer. Try again in a moment.',
+        },
+        column: {
+            destination: 'Destination',
+            events: 'Sent',
+            state: 'Status',
+        },
+        state: {
+            delivering: 'Delivering',
+            idle: 'Nothing sent yet',
+            off: 'Off',
+            failing_one: 'Failing ({{count}} in a row)',
+            failing_other: 'Failing ({{count}} in a row)',
+            switchedOff_one: 'Turned off by the station',
+            switchedOff_other: 'Turned off by the station',
+        },
+        secret: {
+            title: {
+                created: '{{name}} is ready. Copy its secret now',
+                rotated: 'A new secret for {{name}}. Copy it now',
+            },
+            body: 'This is the only time the station shows it. It signs every delivery, so a receiver that checks signatures needs it; one that does not can ignore it.',
+            how: 'Each delivery carries <code>Deadair-Webhook-Signature</code>: <code>v1=</code> and the hex HMAC-SHA256, with this secret, of the <code>Deadair-Webhook-Timestamp</code> header, a dot, and the body.',
+            done: 'I have copied it',
+        },
+        test: {
+            action: 'Send test',
+            delivered: '{{name}} took the test event',
+            failed: '{{name}} did not take the test event',
+            detail: '{{answered}} in {{ms}} ms.',
+            answered: 'It answered {{status}}',
+            noAnswer: 'No answer',
+            errorFallback: 'The station could not send the test.',
+        },
+        log: {
+            action: 'Log',
+            title: 'What {{name}} has been sent',
+            intro: 'The latest fifty attempts, newest first. A record that finished playing while the destination was down is dropped rather than sent late.',
+            empty: 'Nothing has been sent here yet.',
+            unavailable: 'Could not read the log',
+            detail: 'Attempt {{attempt}}. {{answered}} in {{ms}} ms.',
+            outcome: {
+                delivered: 'Delivered',
+                failed: 'Failed',
+                dropped: 'Dropped',
+            },
+        },
+        form: {
+            name: {
+                label: 'Name',
+                placeholder: 'Hall light',
+            },
+            url: {
+                label: 'Address',
+                placeholder: 'http://homeassistant.local:8123/api/webhook/…',
+            },
+            events: {
+                label: 'Events to send',
+                description: 'Leave empty to send every event, including any the station adds later.',
+            },
+            enabled: 'On',
+        },
+        create: {
+            action: 'Add destination',
+            errorTitle: 'Could not add the destination',
+            errorFallback: 'The station refused it.',
+        },
+        edit: {
+            action: 'Edit',
+            title: 'Edit {{name}}',
+            save: 'Save',
+            cancel: 'Cancel',
+            errorTitle: 'Could not save the destination',
+            errorFallback: 'The station refused the change.',
+            switchedOff_one: 'The station turned this off after {{count}} deliveries in a row did not arrive. Turning it back on clears that.',
+            switchedOff_other: 'The station turned this off after {{count}} deliveries in a row did not arrive. Turning it back on clears that.',
+        },
+        rotate: {
+            action: 'New secret',
+            title: 'Make a new secret for {{name}}?',
+            body: 'The old secret stops working at once, so a receiver that checks signatures refuses every delivery until it has the new one.',
+            errorTitle: 'Could not make a new secret',
+            errorFallback: 'The station did not answer.',
+        },
+        delete: {
+            action: 'Remove',
+            title: 'Remove {{name}}?',
+            body: 'The station stops sending it anything, and its log goes with it.',
+            done: 'Removed {{name}}',
+            errorTitle: 'Could not remove the destination',
+            errorFallback: 'The station did not answer.',
+        },
+    },
     people: {
         title: 'People',
         intro: 'Everybody with an account on the station, the one role each holds, and whether they can still sign in. A person who is switched off keeps everything they had and gets it back when they are switched on again.',
@@ -786,6 +887,10 @@ export const settings = {
         people: {
             label: 'People',
             hint: 'Who has an account, and what each may do',
+        },
+        events: {
+            label: 'Event destinations',
+            hint: 'Your own servers, told what goes on air',
         },
         providers: {
             label: 'Providers',

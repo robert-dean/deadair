@@ -46,6 +46,15 @@ export const queryKeys = {
     messaging: {
         links: () => ['messaging', 'links'] as const,
     },
+    /**
+     * Event destinations and their logs. Every change answers in terms of the whole list again, and a
+     * destination's log is its own key so a test refreshes that one log and nothing else.
+     */
+    events: {
+        destinations: () => ['events', 'destinations'] as const,
+        types: () => ['events', 'types'] as const,
+        deliveries: (id: string) => ['events', 'deliveries', id] as const,
+    },
     /** The station as an OAuth authorization server: a pending approval, and the apps it knows. */
     oauth: {
         /** One app's authorization request, keyed on the query string it arrived with. */

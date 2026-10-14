@@ -282,9 +282,15 @@ public sealed record UserDetailInput
 }
 
 /// <summary>What kind of factor it is</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<UserFactorMethod>))]
+[JsonConverter(typeof(UserFactorMethodConverter))]
 public enum UserFactorMethod
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("email")]
     Email,
 
@@ -304,10 +310,64 @@ public enum UserFactorMethod
     Phone,
 }
 
+/// <summary>
+/// Reads and writes <see cref="UserFactorMethod"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="UserFactorMethod.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class UserFactorMethodConverter : JsonConverter<UserFactorMethod>
+{
+    public override UserFactorMethod Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for UserFactorMethod, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, UserFactorMethod value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override UserFactorMethod ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, UserFactorMethod value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static UserFactorMethod FromWire(string? text) => text switch
+    {
+        "email" => UserFactorMethod.Email,
+        "password" => UserFactorMethod.Password,
+        "authenticator" => UserFactorMethod.Authenticator,
+        "fido" => UserFactorMethod.Fido,
+        "oidc" => UserFactorMethod.Oidc,
+        "phone" => UserFactorMethod.Phone,
+        _ => UserFactorMethod.Unknown,
+    };
+
+    private static string ToWire(UserFactorMethod value) => value switch
+    {
+        UserFactorMethod.Email => "email",
+        UserFactorMethod.Password => "password",
+        UserFactorMethod.Authenticator => "authenticator",
+        UserFactorMethod.Fido => "fido",
+        UserFactorMethod.Oidc => "oidc",
+        UserFactorMethod.Phone => "phone",
+        _ => throw new JsonException($"UserFactorMethod.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>What it proves</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<UserFactorKind>))]
+[JsonConverter(typeof(UserFactorKindConverter))]
 public enum UserFactorKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("knowledge")]
     Knowledge,
 
@@ -316,4 +376,46 @@ public enum UserFactorKind
 
     [JsonStringEnumMemberName("biometric")]
     Biometric,
+}
+
+/// <summary>
+/// Reads and writes <see cref="UserFactorKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="UserFactorKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class UserFactorKindConverter : JsonConverter<UserFactorKind>
+{
+    public override UserFactorKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for UserFactorKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, UserFactorKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override UserFactorKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, UserFactorKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static UserFactorKind FromWire(string? text) => text switch
+    {
+        "knowledge" => UserFactorKind.Knowledge,
+        "possession" => UserFactorKind.Possession,
+        "biometric" => UserFactorKind.Biometric,
+        _ => UserFactorKind.Unknown,
+    };
+
+    private static string ToWire(UserFactorKind value) => value switch
+    {
+        UserFactorKind.Knowledge => "knowledge",
+        UserFactorKind.Possession => "possession",
+        UserFactorKind.Biometric => "biometric",
+        _ => throw new JsonException($"UserFactorKind.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

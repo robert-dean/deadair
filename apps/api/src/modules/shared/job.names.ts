@@ -38,4 +38,5 @@ export type JobNames =
     | 'narrations.refresh'
     | 'narrations.render'
     | 'messaging.announce'
+    | 'events.deliver'
     | 'requests.tick';

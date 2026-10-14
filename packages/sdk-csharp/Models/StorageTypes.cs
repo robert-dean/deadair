@@ -12,9 +12,15 @@ using MaroonedSoftware.Deadair.Sdk.Runtime;
 namespace MaroonedSoftware.Deadair.Sdk.Models;
 
 /// <summary>Which store, as a stable id the console can key off rather than a name it renders.</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<StorageStoreId>))]
+[JsonConverter(typeof(StorageStoreIdConverter))]
 public enum StorageStoreId
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("tracks")]
     Tracks,
 
@@ -26,6 +32,50 @@ public enum StorageStoreId
 
     [JsonStringEnumMemberName("voices")]
     Voices,
+}
+
+/// <summary>
+/// Reads and writes <see cref="StorageStoreId"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="StorageStoreId.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class StorageStoreIdConverter : JsonConverter<StorageStoreId>
+{
+    public override StorageStoreId Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for StorageStoreId, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, StorageStoreId value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override StorageStoreId ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, StorageStoreId value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static StorageStoreId FromWire(string? text) => text switch
+    {
+        "tracks" => StorageStoreId.Tracks,
+        "art" => StorageStoreId.Art,
+        "segments" => StorageStoreId.Segments,
+        "voices" => StorageStoreId.Voices,
+        _ => StorageStoreId.Unknown,
+    };
+
+    private static string ToWire(StorageStoreId value) => value switch
+    {
+        StorageStoreId.Tracks => "tracks",
+        StorageStoreId.Art => "art",
+        StorageStoreId.Segments => "segments",
+        StorageStoreId.Voices => "voices",
+        _ => throw new JsonException($"StorageStoreId.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>

@@ -283,13 +283,95 @@ public struct StationPiecePage: Codable, Equatable, Sendable {
 }
 
 /// How it is worked through: `serial` from the beginning in order, `latest` its newest piece and nothing once that has aired
-public enum StationSeriesOrder: String, Codable, CaseIterable, Sendable {
-    case serial = "serial"
-    case latest = "latest"
+public enum StationSeriesOrder: Codable, CaseIterable, Hashable, Sendable {
+    case serial
+    case latest
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [StationSeriesOrder] = [.serial, .latest]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .serial: return "serial"
+        case .latest: return "latest"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "serial": self = .serial
+        case "latest": self = .latest
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "StationSeriesOrder.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// How its series is worked through, copied onto the piece by every refresh
-public enum StationPieceOrder: String, Codable, CaseIterable, Sendable {
-    case serial = "serial"
-    case latest = "latest"
+public enum StationPieceOrder: Codable, CaseIterable, Hashable, Sendable {
+    case serial
+    case latest
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [StationPieceOrder] = [.serial, .latest]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .serial: return "serial"
+        case .latest: return "latest"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "serial": self = .serial
+        case "latest": self = .latest
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "StationPieceOrder.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

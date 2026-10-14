@@ -32,7 +32,7 @@
             "deadair.segment_events.from_state": "'planned' | 'writing' | 'written' | 'rendering' | 'ready' | 'failed' | null",
             "deadair.segment_events.to_state": "'planned' | 'writing' | 'written' | 'rendering' | 'ready' | 'failed'",
             "deadair.script_history.outcome": "'written' | 'declined' | 'failed'",
-            "deadair.station_events.module": "'playout' | 'director' | 'render' | 'catalog' | 'plugins' | 'storage'",
+            "deadair.station_events.module": "'playout' | 'director' | 'render' | 'catalog' | 'plugins' | 'storage' | 'events'",
             "deadair.station_events.severity": "Generated<'info' | 'warn' | 'fault'>",
             "deadair.personas.kind": "Generated<'host' | 'caller' | 'newsreader' | 'guest'>",
             "deadair.break_requests.urgency": "'interrupt' | 'next' | 'soon' | 'whenever'",
@@ -77,7 +77,9 @@
             "deadair.schedule_slot_hosts.role": "'guest' | 'cohost'",
             "deadair.own_shows.writing_mode": "'quick' | 'outlined' | 'polished' | null",
             "deadair.invitations.role": "'admin' | 'listener'",
-            "deadair.invitations.state": "Generated<'pending' | 'accepted' | 'revoked'>"
+            "deadair.invitations.state": "Generated<'pending' | 'accepted' | 'revoked'>",
+            "deadair.event_deliveries.outcome": "'delivered' | 'failed' | 'dropped'",
+            "deadair.event_destinations.disabled_reason": "'failing' | null"
         }
     },
     "partitions": false,

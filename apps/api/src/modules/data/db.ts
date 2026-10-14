@@ -294,6 +294,38 @@ export interface DeadairConsoleLanguages {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairEventDeliveries {
+  attempt: Generated<number>;
+  createdAt: Generated<DateTime>;
+  destinationId: string;
+  durationMs: Generated<number>;
+  error: string | null;
+  eventId: string;
+  eventType: string;
+  httpStatus: number | null;
+  id: Generated<string>;
+  outcome: "delivered" | "failed" | "dropped";
+}
+
+export interface DeadairEventDestinations {
+  consecutiveFailures: Generated<number>;
+  createdAt: Generated<DateTime>;
+  createdBy: string | null;
+  disabledReason: "failing" | null;
+  enabled: Generated<boolean>;
+  events: Generated<string[]>;
+  id: Generated<string>;
+  lastDeliveredAt: DateTime | null;
+  lastFailedAt: DateTime | null;
+  lastFailure: string | null;
+  lastStateAt: DateTime | null;
+  name: string;
+  secretSealed: string;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+  url: string;
+}
+
 export interface DeadairFactExtractions {
   albumId: string | null;
   artistId: string | null;
@@ -1036,7 +1068,7 @@ export interface DeadairStationEvents {
   detail: string;
   id: Generated<string>;
   kind: string;
-  module: "playout" | "director" | "render" | "catalog" | "plugins" | "storage";
+  module: "playout" | "director" | "render" | "catalog" | "plugins" | "storage" | "events";
   severity: Generated<"info" | "warn" | "fault">;
   stationKey: Generated<string>;
 }
@@ -1260,6 +1292,8 @@ export interface DB {
   "deadair.clockBands": DeadairClockBands;
   "deadair.consoleLanguageChoices": DeadairConsoleLanguageChoices;
   "deadair.consoleLanguages": DeadairConsoleLanguages;
+  "deadair.eventDeliveries": DeadairEventDeliveries;
+  "deadair.eventDestinations": DeadairEventDestinations;
   "deadair.factExtractions": DeadairFactExtractions;
   "deadair.facts": DeadairFacts;
   "deadair.genreSteers": DeadairGenreSteers;

@@ -2,9 +2,50 @@
 import Foundation
 
 /// An action a source will permit on one playlist's items. Item-scoped: neither value covers the playlist's own name or description
-public enum PlaylistPermission: String, Codable, CaseIterable, Sendable {
-    case read = "read"
-    case edit = "edit"
+public enum PlaylistPermission: Codable, CaseIterable, Hashable, Sendable {
+    case read
+    case edit
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [PlaylistPermission] = [.read, .edit]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .read: return "read"
+        case .edit: return "edit"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "read": self = .read
+        case "edit": self = .edit
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PlaylistPermission.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// One record as its PROVIDER describes it, plus what the catalog can say about the same copy.

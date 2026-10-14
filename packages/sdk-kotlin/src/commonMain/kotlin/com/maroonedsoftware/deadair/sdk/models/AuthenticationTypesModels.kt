@@ -4,6 +4,7 @@
 package com.maroonedsoftware.deadair.sdk.models
 
 import com.maroonedsoftware.deadair.sdk.runtime.BigInt
+import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -25,66 +26,114 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /** Denotes the authorization flow to use */
-@Serializable
+@Serializable(with = AuthenticationGrantTypeSerializer::class)
 enum class AuthenticationGrantType {
-    @SerialName("client_credentials")
     CLIENT_CREDENTIALS,
-    @SerialName("password")
     PASSWORD,
-    @SerialName("refresh_token")
     REFRESH_TOKEN,
-    @SerialName("link")
     LINK,
-    @SerialName("code")
     CODE,
-    @SerialName("fido")
     FIDO,
-    @SerialName("authenticator")
     AUTHENTICATOR,
-    @SerialName("oidc")
     OIDC,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [AuthenticationGrantType] by its wire spelling. A spelling it does not know reads as [AuthenticationGrantType.UNKNOWN]. */
+object AuthenticationGrantTypeSerializer : SdkEnumSerializer<AuthenticationGrantType>(
+    "AuthenticationGrantType",
+    AuthenticationGrantType.UNKNOWN,
+    AuthenticationGrantType.CLIENT_CREDENTIALS to "client_credentials",
+    AuthenticationGrantType.PASSWORD to "password",
+    AuthenticationGrantType.REFRESH_TOKEN to "refresh_token",
+    AuthenticationGrantType.LINK to "link",
+    AuthenticationGrantType.CODE to "code",
+    AuthenticationGrantType.FIDO to "fido",
+    AuthenticationGrantType.AUTHENTICATOR to "authenticator",
+    AuthenticationGrantType.OIDC to "oidc",
+)
 
 /** Denotes the authorization flow to use */
-@Serializable
+@Serializable(with = PasswordlessAuthenticationGrantTypeSerializer::class)
 enum class PasswordlessAuthenticationGrantType {
-    @SerialName("link")
     LINK,
-    @SerialName("code")
     CODE,
-    @SerialName("fido")
     FIDO,
-    @SerialName("oidc")
     OIDC,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PasswordlessAuthenticationGrantType] by its wire spelling. A spelling it does not know reads as [PasswordlessAuthenticationGrantType.UNKNOWN]. */
+object PasswordlessAuthenticationGrantTypeSerializer : SdkEnumSerializer<PasswordlessAuthenticationGrantType>(
+    "PasswordlessAuthenticationGrantType",
+    PasswordlessAuthenticationGrantType.UNKNOWN,
+    PasswordlessAuthenticationGrantType.LINK to "link",
+    PasswordlessAuthenticationGrantType.CODE to "code",
+    PasswordlessAuthenticationGrantType.FIDO to "fido",
+    PasswordlessAuthenticationGrantType.OIDC to "oidc",
+)
 
 /** The type of the factor */
-@Serializable
+@Serializable(with = AuthenticationFactorMethodSerializer::class)
 enum class AuthenticationFactorMethod {
-    @SerialName("phone")
     PHONE,
-    @SerialName("password")
     PASSWORD,
-    @SerialName("email")
     EMAIL,
-    @SerialName("authenticator")
     AUTHENTICATOR,
-    @SerialName("fido")
     FIDO,
-    @SerialName("oidc")
     OIDC,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
+/** Reads and writes [AuthenticationFactorMethod] by its wire spelling. A spelling it does not know reads as [AuthenticationFactorMethod.UNKNOWN]. */
+object AuthenticationFactorMethodSerializer : SdkEnumSerializer<AuthenticationFactorMethod>(
+    "AuthenticationFactorMethod",
+    AuthenticationFactorMethod.UNKNOWN,
+    AuthenticationFactorMethod.PHONE to "phone",
+    AuthenticationFactorMethod.PASSWORD to "password",
+    AuthenticationFactorMethod.EMAIL to "email",
+    AuthenticationFactorMethod.AUTHENTICATOR to "authenticator",
+    AuthenticationFactorMethod.FIDO to "fido",
+    AuthenticationFactorMethod.OIDC to "oidc",
+)
+
 /** The kind of the factor */
-@Serializable
+@Serializable(with = AuthenticationFactorKindSerializer::class)
 enum class AuthenticationFactorKind {
-    @SerialName("knowledge")
     KNOWLEDGE,
-    @SerialName("possession")
     POSSESSION,
-    @SerialName("biometric")
     BIOMETRIC,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [AuthenticationFactorKind] by its wire spelling. A spelling it does not know reads as [AuthenticationFactorKind.UNKNOWN]. */
+object AuthenticationFactorKindSerializer : SdkEnumSerializer<AuthenticationFactorKind>(
+    "AuthenticationFactorKind",
+    AuthenticationFactorKind.UNKNOWN,
+    AuthenticationFactorKind.KNOWLEDGE to "knowledge",
+    AuthenticationFactorKind.POSSESSION to "possession",
+    AuthenticationFactorKind.BIOMETRIC to "biometric",
+)
 
 /** The name of an identity provider the station offers, as the operator set it under Settings, Sign-in and security. `GET /auth/login/oidc/providers` lists them */
 typealias OidcProvider = String
@@ -199,19 +248,31 @@ data class PublicKeyCredentialDescriptor(
 )
 
 /** The transport used by the authenticator */
-@Serializable
+@Serializable(with = FidoAuthenticatorTransportSerializer::class)
 enum class FidoAuthenticatorTransport {
-    @SerialName("hybrid")
     HYBRID,
-    @SerialName("ble")
     BLE,
-    @SerialName("internal")
     INTERNAL,
-    @SerialName("nfc")
     NFC,
-    @SerialName("usb")
     USB,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [FidoAuthenticatorTransport] by its wire spelling. A spelling it does not know reads as [FidoAuthenticatorTransport.UNKNOWN]. */
+object FidoAuthenticatorTransportSerializer : SdkEnumSerializer<FidoAuthenticatorTransport>(
+    "FidoAuthenticatorTransport",
+    FidoAuthenticatorTransport.UNKNOWN,
+    FidoAuthenticatorTransport.HYBRID to "hybrid",
+    FidoAuthenticatorTransport.BLE to "ble",
+    FidoAuthenticatorTransport.INTERNAL to "internal",
+    FidoAuthenticatorTransport.NFC to "nfc",
+    FidoAuthenticatorTransport.USB to "usb",
+)
 
 /** Request to complete an OIDC sign-in flow */
 @Serializable
@@ -325,13 +386,25 @@ data class SessionRevoke(
 )
 
 /** A platform-wide role held on `platform:main`. `admin` grants every operation; `listener` grants the reads */
-@Serializable
+@Serializable(with = PlatformRoleSerializer::class)
 enum class PlatformRole {
-    @SerialName("admin")
     ADMIN,
-    @SerialName("listener")
     LISTENER,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PlatformRole] by its wire spelling. A spelling it does not know reads as [PlatformRole.UNKNOWN]. */
+object PlatformRoleSerializer : SdkEnumSerializer<PlatformRole>(
+    "PlatformRole",
+    PlatformRole.UNKNOWN,
+    PlatformRole.ADMIN to "admin",
+    PlatformRole.LISTENER to "listener",
+)
 
 /** A successful authentication record */
 @Serializable
@@ -370,13 +443,25 @@ data class ActorPreferences(
 )
 
 /** What an API key may be granted. `view` covers every route a listener may read; `manage` covers the rest, and includes `view` */
-@Serializable
+@Serializable(with = ApiKeyScopeSerializer::class)
 enum class ApiKeyScope {
-    @SerialName("view")
     VIEW,
-    @SerialName("manage")
     MANAGE,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [ApiKeyScope] by its wire spelling. A spelling it does not know reads as [ApiKeyScope.UNKNOWN]. */
+object ApiKeyScopeSerializer : SdkEnumSerializer<ApiKeyScope>(
+    "ApiKeyScope",
+    ApiKeyScope.UNKNOWN,
+    ApiKeyScope.VIEW to "view",
+    ApiKeyScope.MANAGE to "manage",
+)
 
 @Serializable
 data class BaseAuthenticationRequest(
@@ -936,13 +1021,25 @@ object AuthenticationTokenResponseSerializer : KSerializer<AuthenticationTokenRe
 }
 
 /** The authenticator attachment */
-@Serializable
+@Serializable(with = PublicKeyCredentialAuthenticatorAttachmentSerializer::class)
 enum class PublicKeyCredentialAuthenticatorAttachment {
-    @SerialName("cross-platform")
     CROSS_PLATFORM,
-    @SerialName("platform")
     PLATFORM,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PublicKeyCredentialAuthenticatorAttachment] by its wire spelling. A spelling it does not know reads as [PublicKeyCredentialAuthenticatorAttachment.UNKNOWN]. */
+object PublicKeyCredentialAuthenticatorAttachmentSerializer : SdkEnumSerializer<PublicKeyCredentialAuthenticatorAttachment>(
+    "PublicKeyCredentialAuthenticatorAttachment",
+    PublicKeyCredentialAuthenticatorAttachment.UNKNOWN,
+    PublicKeyCredentialAuthenticatorAttachment.CROSS_PLATFORM to "cross-platform",
+    PublicKeyCredentialAuthenticatorAttachment.PLATFORM to "platform",
+)
 
 @Serializable
 data class SimpleClientExtensionResultsCredProps(
@@ -980,41 +1077,77 @@ object AuthenticationLoginStartSerializer : KSerializer<AuthenticationLoginStart
     }
 }
 
-@Serializable
+@Serializable(with = PublicKeyCredentialDescriptorTransportsSerializer::class)
 enum class PublicKeyCredentialDescriptorTransports {
-    @SerialName("usb")
     USB,
-    @SerialName("nfc")
     NFC,
-    @SerialName("ble")
     BLE,
-    @SerialName("internal")
     INTERNAL,
-    @SerialName("hybrid")
     HYBRID,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PublicKeyCredentialDescriptorTransports] by its wire spelling. A spelling it does not know reads as [PublicKeyCredentialDescriptorTransports.UNKNOWN]. */
+object PublicKeyCredentialDescriptorTransportsSerializer : SdkEnumSerializer<PublicKeyCredentialDescriptorTransports>(
+    "PublicKeyCredentialDescriptorTransports",
+    PublicKeyCredentialDescriptorTransports.UNKNOWN,
+    PublicKeyCredentialDescriptorTransports.USB to "usb",
+    PublicKeyCredentialDescriptorTransports.NFC to "nfc",
+    PublicKeyCredentialDescriptorTransports.BLE to "ble",
+    PublicKeyCredentialDescriptorTransports.INTERNAL to "internal",
+    PublicKeyCredentialDescriptorTransports.HYBRID to "hybrid",
+)
 
 /** The attestation */
-@Serializable
+@Serializable(with = FidoPublicKeyCredentialRequestOptionsAttestationSerializer::class)
 enum class FidoPublicKeyCredentialRequestOptionsAttestation {
-    @SerialName("direct")
     DIRECT,
-    @SerialName("indirect")
     INDIRECT,
-    @SerialName("none")
     NONE,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
+/** Reads and writes [FidoPublicKeyCredentialRequestOptionsAttestation] by its wire spelling. A spelling it does not know reads as [FidoPublicKeyCredentialRequestOptionsAttestation.UNKNOWN]. */
+object FidoPublicKeyCredentialRequestOptionsAttestationSerializer : SdkEnumSerializer<FidoPublicKeyCredentialRequestOptionsAttestation>(
+    "FidoPublicKeyCredentialRequestOptionsAttestation",
+    FidoPublicKeyCredentialRequestOptionsAttestation.UNKNOWN,
+    FidoPublicKeyCredentialRequestOptionsAttestation.DIRECT to "direct",
+    FidoPublicKeyCredentialRequestOptionsAttestation.INDIRECT to "indirect",
+    FidoPublicKeyCredentialRequestOptionsAttestation.NONE to "none",
+)
+
 /** Whether the authenticator must verify the user */
-@Serializable
+@Serializable(with = FidoPublicKeyCredentialRequestOptionsUserVerificationSerializer::class)
 enum class FidoPublicKeyCredentialRequestOptionsUserVerification {
-    @SerialName("required")
     REQUIRED,
-    @SerialName("preferred")
     PREFERRED,
-    @SerialName("discouraged")
     DISCOURAGED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [FidoPublicKeyCredentialRequestOptionsUserVerification] by its wire spelling. A spelling it does not know reads as [FidoPublicKeyCredentialRequestOptionsUserVerification.UNKNOWN]. */
+object FidoPublicKeyCredentialRequestOptionsUserVerificationSerializer : SdkEnumSerializer<FidoPublicKeyCredentialRequestOptionsUserVerification>(
+    "FidoPublicKeyCredentialRequestOptionsUserVerification",
+    FidoPublicKeyCredentialRequestOptionsUserVerification.UNKNOWN,
+    FidoPublicKeyCredentialRequestOptionsUserVerification.REQUIRED to "required",
+    FidoPublicKeyCredentialRequestOptionsUserVerification.PREFERRED to "preferred",
+    FidoPublicKeyCredentialRequestOptionsUserVerification.DISCOURAGED to "discouraged",
+)
 
 @Serializable(with = AuthenticationLoginStartResponseSerializer::class)
 sealed interface AuthenticationLoginStartResponse
@@ -1103,48 +1236,84 @@ object FactorChallengeStartResponseSerializer : KSerializer<FactorChallengeStart
 }
 
 /** The verification method */
-@Serializable
+@Serializable(with = SessionFactorMethodSerializer::class)
 enum class SessionFactorMethod {
-    @SerialName("phone")
     PHONE,
-    @SerialName("password")
     PASSWORD,
-    @SerialName("authenticator")
     AUTHENTICATOR,
-    @SerialName("email")
     EMAIL,
-    @SerialName("fido")
     FIDO,
-    @SerialName("oidc")
     OIDC,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [SessionFactorMethod] by its wire spelling. A spelling it does not know reads as [SessionFactorMethod.UNKNOWN]. */
+object SessionFactorMethodSerializer : SdkEnumSerializer<SessionFactorMethod>(
+    "SessionFactorMethod",
+    SessionFactorMethod.UNKNOWN,
+    SessionFactorMethod.PHONE to "phone",
+    SessionFactorMethod.PASSWORD to "password",
+    SessionFactorMethod.AUTHENTICATOR to "authenticator",
+    SessionFactorMethod.EMAIL to "email",
+    SessionFactorMethod.FIDO to "fido",
+    SessionFactorMethod.OIDC to "oidc",
+)
 
 /** MFA category for the factor */
-@Serializable
+@Serializable(with = SessionFactorKindSerializer::class)
 enum class SessionFactorKind {
-    @SerialName("knowledge")
     KNOWLEDGE,
-    @SerialName("possession")
     POSSESSION,
-    @SerialName("biometric")
     BIOMETRIC,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
+/** Reads and writes [SessionFactorKind] by its wire spelling. A spelling it does not know reads as [SessionFactorKind.UNKNOWN]. */
+object SessionFactorKindSerializer : SdkEnumSerializer<SessionFactorKind>(
+    "SessionFactorKind",
+    SessionFactorKind.UNKNOWN,
+    SessionFactorKind.KNOWLEDGE to "knowledge",
+    SessionFactorKind.POSSESSION to "possession",
+    SessionFactorKind.BIOMETRIC to "biometric",
+)
+
 /** The factor that satisfied the primary authentication, or `apikey` for a request made with one of the account's API keys */
-@Serializable
+@Serializable(with = LoginFactorTypeSerializer::class)
 enum class LoginFactorType {
-    @SerialName("phone")
     PHONE,
-    @SerialName("password")
     PASSWORD,
-    @SerialName("authenticator")
     AUTHENTICATOR,
-    @SerialName("email")
     EMAIL,
-    @SerialName("fido")
     FIDO,
-    @SerialName("oidc")
     OIDC,
-    @SerialName("apikey")
     APIKEY,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [LoginFactorType] by its wire spelling. A spelling it does not know reads as [LoginFactorType.UNKNOWN]. */
+object LoginFactorTypeSerializer : SdkEnumSerializer<LoginFactorType>(
+    "LoginFactorType",
+    LoginFactorType.UNKNOWN,
+    LoginFactorType.PHONE to "phone",
+    LoginFactorType.PASSWORD to "password",
+    LoginFactorType.AUTHENTICATOR to "authenticator",
+    LoginFactorType.EMAIL to "email",
+    LoginFactorType.FIDO to "fido",
+    LoginFactorType.OIDC to "oidc",
+    LoginFactorType.APIKEY to "apikey",
+)

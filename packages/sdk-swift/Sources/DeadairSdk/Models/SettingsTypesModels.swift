@@ -2,23 +2,92 @@
 import Foundation
 
 /// Which part of the console owns a setting. Every one of these but `schedule`, `personas`, `phrasings` and `providers` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes, `personas` on the characters page, beside the names it stands behind, `phrasings` on the Voice page's Phrasings tab, beside everything else about what the station says, and `providers` on the Providers section, which draws each capability beside the plugins that answer it rather than as a form of text fields.
-public enum SettingGroup: String, Codable, CaseIterable, Sendable {
-    case station = "station"
-    case stream = "stream"
-    case housekeeping = "housekeeping"
-    case mail = "mail"
-    case signin = "signin"
-    case rotation = "rotation"
-    case breaks = "breaks"
-    case bulletins = "bulletins"
-    case playout = "playout"
-    case render = "render"
-    case llm = "llm"
-    case analysis = "analysis"
-    case schedule = "schedule"
-    case personas = "personas"
-    case phrasings = "phrasings"
-    case providers = "providers"
+public enum SettingGroup: Codable, CaseIterable, Hashable, Sendable {
+    case station
+    case stream
+    case housekeeping
+    case mail
+    case signin
+    case rotation
+    case breaks
+    case bulletins
+    case playout
+    case render
+    case llm
+    case analysis
+    case schedule
+    case personas
+    case phrasings
+    case providers
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [SettingGroup] = [.station, .stream, .housekeeping, .mail, .signin, .rotation, .breaks, .bulletins, .playout, .render, .llm, .analysis, .schedule, .personas, .phrasings, .providers]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .station: return "station"
+        case .stream: return "stream"
+        case .housekeeping: return "housekeeping"
+        case .mail: return "mail"
+        case .signin: return "signin"
+        case .rotation: return "rotation"
+        case .breaks: return "breaks"
+        case .bulletins: return "bulletins"
+        case .playout: return "playout"
+        case .render: return "render"
+        case .llm: return "llm"
+        case .analysis: return "analysis"
+        case .schedule: return "schedule"
+        case .personas: return "personas"
+        case .phrasings: return "phrasings"
+        case .providers: return "providers"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "station": self = .station
+        case "stream": self = .stream
+        case "housekeeping": self = .housekeeping
+        case "mail": self = .mail
+        case "signin": self = .signin
+        case "rotation": self = .rotation
+        case "breaks": self = .breaks
+        case "bulletins": self = .bulletins
+        case "playout": self = .playout
+        case "render": self = .render
+        case "llm": self = .llm
+        case "analysis": self = .analysis
+        case "schedule": self = .schedule
+        case "personas": self = .personas
+        case "phrasings": self = .phrasings
+        case "providers": self = .providers
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "SettingGroup.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// A submitted settings form. Partial: a key that is present is written, a key that is absent is left

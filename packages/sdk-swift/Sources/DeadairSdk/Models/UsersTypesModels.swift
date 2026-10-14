@@ -502,18 +502,110 @@ public struct UserDetailInput: Codable, Equatable, Sendable {
 }
 
 /// What kind of factor it is
-public enum UserFactorMethod: String, Codable, CaseIterable, Sendable {
-    case email = "email"
-    case password = "password"
-    case authenticator = "authenticator"
-    case fido = "fido"
-    case oidc = "oidc"
-    case phone = "phone"
+public enum UserFactorMethod: Codable, CaseIterable, Hashable, Sendable {
+    case email
+    case password
+    case authenticator
+    case fido
+    case oidc
+    case phone
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [UserFactorMethod] = [.email, .password, .authenticator, .fido, .oidc, .phone]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .email: return "email"
+        case .password: return "password"
+        case .authenticator: return "authenticator"
+        case .fido: return "fido"
+        case .oidc: return "oidc"
+        case .phone: return "phone"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "email": self = .email
+        case "password": self = .password
+        case "authenticator": self = .authenticator
+        case "fido": self = .fido
+        case "oidc": self = .oidc
+        case "phone": self = .phone
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "UserFactorMethod.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// What it proves
-public enum UserFactorKind: String, Codable, CaseIterable, Sendable {
-    case knowledge = "knowledge"
-    case possession = "possession"
-    case biometric = "biometric"
+public enum UserFactorKind: Codable, CaseIterable, Hashable, Sendable {
+    case knowledge
+    case possession
+    case biometric
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [UserFactorKind] = [.knowledge, .possession, .biometric]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .knowledge: return "knowledge"
+        case .possession: return "possession"
+        case .biometric: return "biometric"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "knowledge": self = .knowledge
+        case "possession": self = .possession
+        case "biometric": self = .biometric
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "UserFactorKind.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

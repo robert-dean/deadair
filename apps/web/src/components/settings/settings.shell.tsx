@@ -26,6 +26,7 @@ export type SettingsSectionId =
     | 'languages'
     | 'security'
     | 'people'
+    | 'events'
     | 'rotation'
     | 'breaks'
     | 'bulletins'
@@ -71,7 +72,7 @@ export interface SettingsSection {
 }
 
 /** The sections that open with a sentence under their heading: every one that draws a group, and Providers. */
-type BlurbedSectionId = Exclude<SettingsSectionId, 'appearance' | 'languages' | 'people' | 'artwork' | 'storage' | 'grants' | 'plugins'>;
+type BlurbedSectionId = Exclude<SettingsSectionId, 'appearance' | 'languages' | 'people' | 'events' | 'artwork' | 'storage' | 'grants' | 'plugins'>;
 
 /**
  * One entry of the list below. Its words are getters that read the catalog each time they are asked
@@ -157,6 +158,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // Beside Sign-in and security, being the other half of who gets in: that section says how anybody
     // signs in, this one says who has an account, the role each holds, and whether they still can.
     section('people'),
+    // After People, being the other way something outside the console reaches the station's doings:
+    // not a person signing in, but a server of the operator's own being told what goes on air.
+    section('events'),
     // Rotation was one section holding what the station plays, how often it talks, what goes into a
     // bulletin and every word it says around them: forty-two fields and six boxes of phrasings under
     // one save. Split along `SettingGroup` in `settings.types.ck`, as Station was; the phrasings went
@@ -199,6 +203,7 @@ export const SETTINGS_ROUTES: Record<
     | '/settings/languages'
     | '/settings/security'
     | '/settings/people'
+    | '/settings/events'
     | '/settings/rotation'
     | '/settings/breaks'
     | '/settings/bulletins'
@@ -220,6 +225,7 @@ export const SETTINGS_ROUTES: Record<
     languages: '/settings/languages',
     security: '/settings/security',
     people: '/settings/people',
+    events: '/settings/events',
     rotation: '/settings/rotation',
     breaks: '/settings/breaks',
     bulletins: '/settings/bulletins',

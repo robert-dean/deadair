@@ -179,9 +179,15 @@ public sealed record NowPlaying
 }
 
 /// <summary>`record` is music. `break` is the station speaking on its own between two records (an ident, a bulletin, a talk break), with `artist` empty and `title` the break's own label. A presenter talking over the start of a record is not a break: the record is what is on air, and it stays `record`. Absent means `record`, which is all a station older than this field ever reported</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<NowPlayingTrackKind>))]
+[JsonConverter(typeof(NowPlayingTrackKindConverter))]
 public enum NowPlayingTrackKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("record")]
     Record,
 
@@ -189,10 +195,56 @@ public enum NowPlayingTrackKind
     Break,
 }
 
+/// <summary>
+/// Reads and writes <see cref="NowPlayingTrackKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="NowPlayingTrackKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class NowPlayingTrackKindConverter : JsonConverter<NowPlayingTrackKind>
+{
+    public override NowPlayingTrackKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for NowPlayingTrackKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, NowPlayingTrackKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override NowPlayingTrackKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, NowPlayingTrackKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static NowPlayingTrackKind FromWire(string? text) => text switch
+    {
+        "record" => NowPlayingTrackKind.Record,
+        "break" => NowPlayingTrackKind.Break,
+        _ => NowPlayingTrackKind.Unknown,
+    };
+
+    private static string ToWire(NowPlayingTrackKind value) => value switch
+    {
+        NowPlayingTrackKind.Record => "record",
+        NowPlayingTrackKind.Break => "break",
+        _ => throw new JsonException($"NowPlayingTrackKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>`hls` is the master playlist rather than an Icecast mount, which is why this enum has an arm `PlayoutMount` does not</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<NowPlayingMountFormat>))]
+[JsonConverter(typeof(NowPlayingMountFormatConverter))]
 public enum NowPlayingMountFormat
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("mp3")]
     Mp3,
 
@@ -207,4 +259,50 @@ public enum NowPlayingMountFormat
 
     [JsonStringEnumMemberName("hls")]
     Hls,
+}
+
+/// <summary>
+/// Reads and writes <see cref="NowPlayingMountFormat"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="NowPlayingMountFormat.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class NowPlayingMountFormatConverter : JsonConverter<NowPlayingMountFormat>
+{
+    public override NowPlayingMountFormat Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for NowPlayingMountFormat, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, NowPlayingMountFormat value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override NowPlayingMountFormat ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, NowPlayingMountFormat value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static NowPlayingMountFormat FromWire(string? text) => text switch
+    {
+        "mp3" => NowPlayingMountFormat.Mp3,
+        "opus" => NowPlayingMountFormat.Opus,
+        "aac" => NowPlayingMountFormat.Aac,
+        "flac" => NowPlayingMountFormat.Flac,
+        "hls" => NowPlayingMountFormat.Hls,
+        _ => NowPlayingMountFormat.Unknown,
+    };
+
+    private static string ToWire(NowPlayingMountFormat value) => value switch
+    {
+        NowPlayingMountFormat.Mp3 => "mp3",
+        NowPlayingMountFormat.Opus => "opus",
+        NowPlayingMountFormat.Aac => "aac",
+        NowPlayingMountFormat.Flac => "flac",
+        NowPlayingMountFormat.Hls => "hls",
+        _ => throw new JsonException($"NowPlayingMountFormat.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

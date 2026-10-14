@@ -217,6 +217,7 @@
     <string name="silence_label_no_audience">Ready</string>
     <string name="silence_label_not_driving">Not driving</string>
     <string name="silence_label_starved">Off the running order</string>
+    <string name="silence_label_unknown">Not known to this app</string>
     <string name="silence_title_airing">On air</string>
     <string name="silence_title_transport_stalled">The transport loop has stopped</string>
     <string name="silence_title_control_denied">The stream is refusing the bridge secret</string>
@@ -229,6 +230,7 @@
     <string name="silence_title_no_audience">Waiting for a listener</string>
     <string name="silence_title_not_driving">The mount is not being held</string>
     <string name="silence_title_starved">The mount is airing the local bed</string>
+    <string name="silence_title_unknown">The station gave a reason this version of the app does not know</string>
 
     <!-- Now playing's Lyrics button and the sheet it opens, for a signed-in listener. The words themselves are the station's -->
     <string name="lyrics">Lyrics</string>
@@ -467,6 +469,7 @@
     <string name="my_requests_none">You have not asked for anything yet.</string>
     <string name="request_waiting">“%1$s” is in. The station\'s operator will look at it.</string>
     <string name="request_on_its_way">“%1$s” is on its way.</string>
+    <string name="request_taken">“%1$s” is in.</string>
     <string name="request_refused">The station turned that one down.</string>
     <string name="request_for">For %1$s</string>
     <string name="request_play_anyway">Play it anyway</string>
@@ -630,4 +633,6 @@
         <item quantity="one">%1$d day</item>
         <item quantity="other">%1$d days</item>
     </plurals>
+    <!-- A value a newer station sends that this build of the app has no word for. -->
+    <string name="value_unknown">Unknown</string>
 </resources>

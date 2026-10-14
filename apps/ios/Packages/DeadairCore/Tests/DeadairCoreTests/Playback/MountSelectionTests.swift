@@ -60,6 +60,10 @@ struct MountSelectionTests {
         }
     }
 
+    @Test func readsAFormatANewerStationNamesAsNoFormat() {
+        #expect(StreamFormat(wire: .unknown) == nil)
+    }
+
     @Test func automaticPlaysHlsWhereTheStationPublishesIt() {
         #expect(chooseMount(published, wanted: nil) == MountChoice(path: "/live.m3u8", format: .hls, fellBack: false))
     }

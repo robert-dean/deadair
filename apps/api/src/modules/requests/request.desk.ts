@@ -15,6 +15,7 @@ import { TrackAudioRepository } from '#modules/playout/audio/track.audio.reposit
 import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { StationBus } from '#modules/shared/station.bus.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { UNNAMED_REQUESTER, screenName } from './listener.text.js';
@@ -133,6 +134,9 @@ export class RequestDesk {
         private readonly segments: SegmentRepository,
         private readonly personas: PersonaRepository,
         private readonly jobs: PgBossJobBroker,
+        // A request arriving, for subscribers registered after this module: `events`, which tells an
+        // operator's own servers.
+        private readonly bus: StationBus,
         private readonly logger: Logger,
     ) {}
 
@@ -165,12 +169,30 @@ export class RequestDesk {
             ...(options.insisted === true ? { insisted: true as const } : {}),
         };
         const created = await this.write(request);
-        if (created.status !== 'pending') return created;
+        if (created.status !== 'pending') return this.received(created);
 
         // Quietly: whoever asked is answered with the row this returns, so a notice as well would say
         // everything twice.
         await this.place(created, { quiet: true });
-        return (await this.repository.find(stationKey, created.id)) ?? created;
+        return this.received((await this.repository.find(stationKey, created.id)) ?? created);
+    }
+
+    /** Say that a request arrived, as it now stands, and hand the row back. */
+    private received(row: RequestRow): RequestRow {
+        this.bus.publish('request.received', {
+            id: row.id,
+            trackId: row.trackId,
+            title: row.title,
+            artist: row.artist,
+            requesterName: row.requesterName,
+            via: row.chat === undefined ? 'app' : 'chat',
+            status: row.status,
+            ...(row.reason === undefined ? {} : { reason: row.reason }),
+            ...(row.insisted === true ? { insisted: true as const } : {}),
+            ...(row.dedication === undefined ? {} : { dedication: row.dedication }),
+            at: Date.now(),
+        });
+        return row;
     }
 
     /**

@@ -384,38 +384,228 @@ public struct ProductionListInput: Codable, Equatable, Sendable {
     }
 }
 
-public enum ProductionCastMemberRole: String, Codable, CaseIterable, Sendable {
-    case host = "host"
-    case caller = "caller"
-    case guest = "guest"
-    case cohost = "cohost"
+public enum ProductionCastMemberRole: Codable, CaseIterable, Hashable, Sendable {
+    case host
+    case caller
+    case guest
+    case cohost
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ProductionCastMemberRole] = [.host, .caller, .guest, .cohost]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .host: return "host"
+        case .caller: return "caller"
+        case .guest: return "guest"
+        case .cohost: return "cohost"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "host": self = .host
+        case "caller": self = .caller
+        case "guest": self = .guest
+        case "cohost": self = .cohost
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ProductionCastMemberRole.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// How many passes to spend on it
-public enum ProductionWritingMode: String, Codable, CaseIterable, Sendable {
-    case quick = "quick"
-    case outlined = "outlined"
-    case polished = "polished"
+public enum ProductionWritingMode: Codable, CaseIterable, Hashable, Sendable {
+    case quick
+    case outlined
+    case polished
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ProductionWritingMode] = [.quick, .outlined, .polished]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .quick: return "quick"
+        case .outlined: return "outlined"
+        case .polished: return "polished"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "quick": self = .quick
+        case "outlined": self = .outlined
+        case "polished": self = .polished
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ProductionWritingMode.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// `researching` is its sources being read for notes. `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not
-public enum ProductionState: String, Codable, CaseIterable, Sendable {
-    case planned = "planned"
-    case researching = "researching"
-    case outlining = "outlining"
-    case drafting = "drafting"
-    case checking = "checking"
-    case rendering = "rendering"
-    case stitching = "stitching"
-    case ready = "ready"
-    case aired = "aired"
-    case failed = "failed"
-    case cancelled = "cancelled"
+public enum ProductionState: Codable, CaseIterable, Hashable, Sendable {
+    case planned
+    case researching
+    case outlining
+    case drafting
+    case checking
+    case rendering
+    case stitching
+    case ready
+    case aired
+    case failed
+    case cancelled
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ProductionState] = [.planned, .researching, .outlining, .drafting, .checking, .rendering, .stitching, .ready, .aired, .failed, .cancelled]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .planned: return "planned"
+        case .researching: return "researching"
+        case .outlining: return "outlining"
+        case .drafting: return "drafting"
+        case .checking: return "checking"
+        case .rendering: return "rendering"
+        case .stitching: return "stitching"
+        case .ready: return "ready"
+        case .aired: return "aired"
+        case .failed: return "failed"
+        case .cancelled: return "cancelled"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "planned": self = .planned
+        case "researching": self = .researching
+        case "outlining": self = .outlining
+        case "drafting": self = .drafting
+        case "checking": self = .checking
+        case "rendering": self = .rendering
+        case "stitching": self = .stitching
+        case "ready": self = .ready
+        case "aired": self = .aired
+        case "failed": self = .failed
+        case "cancelled": self = .cancelled
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ProductionState.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Absent takes the station's `render.productionWritingMode`
-public enum ProductionRequestWritingMode: String, Codable, CaseIterable, Sendable {
-    case quick = "quick"
-    case outlined = "outlined"
-    case polished = "polished"
+public enum ProductionRequestWritingMode: Codable, CaseIterable, Hashable, Sendable {
+    case quick
+    case outlined
+    case polished
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ProductionRequestWritingMode] = [.quick, .outlined, .polished]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .quick: return "quick"
+        case .outlined: return "outlined"
+        case .polished: return "polished"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "quick": self = .quick
+        case "outlined": self = .outlined
+        case "polished": self = .polished
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ProductionRequestWritingMode.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

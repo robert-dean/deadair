@@ -35,6 +35,7 @@ import { Route as SettingsAppearanceRouteImport } from './routes/settings/appear
 import { Route as SettingsArtworkRouteImport } from './routes/settings/artwork'
 import { Route as SettingsBreaksRouteImport } from './routes/settings/breaks'
 import { Route as SettingsBulletinsRouteImport } from './routes/settings/bulletins'
+import { Route as SettingsEventsRouteImport } from './routes/settings/events'
 import { Route as SettingsGrantsRouteImport } from './routes/settings/grants'
 import { Route as SettingsHousekeepingRouteImport } from './routes/settings/housekeeping'
 import { Route as SettingsLanguagesRouteImport } from './routes/settings/languages'
@@ -189,6 +190,11 @@ const SettingsBulletinsRoute = SettingsBulletinsRouteImport.update({
   path: '/settings/bulletins',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsEventsRoute = SettingsEventsRouteImport.update({
+  id: '/settings/events',
+  path: '/settings/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsGrantsRoute = SettingsGrantsRouteImport.update({
   id: '/settings/grants',
   path: '/settings/grants',
@@ -329,6 +335,7 @@ export interface FileRoutesByFullPath {
   '/settings/artwork': typeof SettingsArtworkRoute
   '/settings/breaks': typeof SettingsBreaksRoute
   '/settings/bulletins': typeof SettingsBulletinsRoute
+  '/settings/events': typeof SettingsEventsRoute
   '/settings/grants': typeof SettingsGrantsRoute
   '/settings/housekeeping': typeof SettingsHousekeepingRoute
   '/settings/languages': typeof SettingsLanguagesRoute
@@ -380,6 +387,7 @@ export interface FileRoutesByTo {
   '/settings/artwork': typeof SettingsArtworkRoute
   '/settings/breaks': typeof SettingsBreaksRoute
   '/settings/bulletins': typeof SettingsBulletinsRoute
+  '/settings/events': typeof SettingsEventsRoute
   '/settings/grants': typeof SettingsGrantsRoute
   '/settings/housekeeping': typeof SettingsHousekeepingRoute
   '/settings/languages': typeof SettingsLanguagesRoute
@@ -432,6 +440,7 @@ export interface FileRoutesById {
   '/settings/artwork': typeof SettingsArtworkRoute
   '/settings/breaks': typeof SettingsBreaksRoute
   '/settings/bulletins': typeof SettingsBulletinsRoute
+  '/settings/events': typeof SettingsEventsRoute
   '/settings/grants': typeof SettingsGrantsRoute
   '/settings/housekeeping': typeof SettingsHousekeepingRoute
   '/settings/languages': typeof SettingsLanguagesRoute
@@ -485,6 +494,7 @@ export interface FileRouteTypes {
     | '/settings/artwork'
     | '/settings/breaks'
     | '/settings/bulletins'
+    | '/settings/events'
     | '/settings/grants'
     | '/settings/housekeeping'
     | '/settings/languages'
@@ -536,6 +546,7 @@ export interface FileRouteTypes {
     | '/settings/artwork'
     | '/settings/breaks'
     | '/settings/bulletins'
+    | '/settings/events'
     | '/settings/grants'
     | '/settings/housekeeping'
     | '/settings/languages'
@@ -587,6 +598,7 @@ export interface FileRouteTypes {
     | '/settings/artwork'
     | '/settings/breaks'
     | '/settings/bulletins'
+    | '/settings/events'
     | '/settings/grants'
     | '/settings/housekeeping'
     | '/settings/languages'
@@ -639,6 +651,7 @@ export interface RootRouteChildren {
   SettingsArtworkRoute: typeof SettingsArtworkRoute
   SettingsBreaksRoute: typeof SettingsBreaksRoute
   SettingsBulletinsRoute: typeof SettingsBulletinsRoute
+  SettingsEventsRoute: typeof SettingsEventsRoute
   SettingsGrantsRoute: typeof SettingsGrantsRoute
   SettingsHousekeepingRoute: typeof SettingsHousekeepingRoute
   SettingsLanguagesRoute: typeof SettingsLanguagesRoute
@@ -852,6 +865,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsBulletinsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/events': {
+      id: '/settings/events'
+      path: '/settings/events'
+      fullPath: '/settings/events'
+      preLoaderRoute: typeof SettingsEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/grants': {
       id: '/settings/grants'
       path: '/settings/grants'
@@ -1039,6 +1059,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsArtworkRoute: SettingsArtworkRoute,
   SettingsBreaksRoute: SettingsBreaksRoute,
   SettingsBulletinsRoute: SettingsBulletinsRoute,
+  SettingsEventsRoute: SettingsEventsRoute,
   SettingsGrantsRoute: SettingsGrantsRoute,
   SettingsHousekeepingRoute: SettingsHousekeepingRoute,
   SettingsLanguagesRoute: SettingsLanguagesRoute,

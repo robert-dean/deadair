@@ -12,9 +12,15 @@ using MaroonedSoftware.Deadair.Sdk.Runtime;
 namespace MaroonedSoftware.Deadair.Sdk.Models;
 
 /// <summary>Lifecycle state of a plugin the host knows about</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PluginStatus>))]
+[JsonConverter(typeof(PluginStatusConverter))]
 public enum PluginStatus
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("discovered")]
     Discovered,
 
@@ -32,12 +38,64 @@ public enum PluginStatus
 }
 
 /// <summary>
+/// Reads and writes <see cref="PluginStatus"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PluginStatus.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PluginStatusConverter : JsonConverter<PluginStatus>
+{
+    public override PluginStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PluginStatus, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PluginStatus value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PluginStatus ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PluginStatus value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PluginStatus FromWire(string? text) => text switch
+    {
+        "discovered" => PluginStatus.Discovered,
+        "disabled" => PluginStatus.Disabled,
+        "misconfigured" => PluginStatus.Misconfigured,
+        "active" => PluginStatus.Active,
+        "failed" => PluginStatus.Failed,
+        _ => PluginStatus.Unknown,
+    };
+
+    private static string ToWire(PluginStatus value) => value switch
+    {
+        PluginStatus.Discovered => "discovered",
+        PluginStatus.Disabled => "disabled",
+        PluginStatus.Misconfigured => "misconfigured",
+        PluginStatus.Active => "active",
+        PluginStatus.Failed => "failed",
+        _ => throw new JsonException($"PluginStatus.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+/// <summary>
 /// Where the station found a plugin: shipped inside the image, or installed by the operator into the plugins
 /// directory on the data volume. Says nothing about trust; both kinds run inside the station with its privileges
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PluginOrigin>))]
+[JsonConverter(typeof(PluginOriginConverter))]
 public enum PluginOrigin
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("bundled")]
     Bundled,
 
@@ -45,9 +103,55 @@ public enum PluginOrigin
     Installed,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<ConfigFieldType>))]
+/// <summary>
+/// Reads and writes <see cref="PluginOrigin"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PluginOrigin.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PluginOriginConverter : JsonConverter<PluginOrigin>
+{
+    public override PluginOrigin Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PluginOrigin, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PluginOrigin value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PluginOrigin ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PluginOrigin value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PluginOrigin FromWire(string? text) => text switch
+    {
+        "bundled" => PluginOrigin.Bundled,
+        "installed" => PluginOrigin.Installed,
+        _ => PluginOrigin.Unknown,
+    };
+
+    private static string ToWire(PluginOrigin value) => value switch
+    {
+        PluginOrigin.Bundled => "bundled",
+        PluginOrigin.Installed => "installed",
+        _ => throw new JsonException($"PluginOrigin.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(ConfigFieldTypeConverter))]
 public enum ConfigFieldType
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("string")]
     String,
 
@@ -80,13 +184,75 @@ public enum ConfigFieldType
 }
 
 /// <summary>
+/// Reads and writes <see cref="ConfigFieldType"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ConfigFieldType.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ConfigFieldTypeConverter : JsonConverter<ConfigFieldType>
+{
+    public override ConfigFieldType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ConfigFieldType, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ConfigFieldType value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ConfigFieldType ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ConfigFieldType value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ConfigFieldType FromWire(string? text) => text switch
+    {
+        "string" => ConfigFieldType.String,
+        "text" => ConfigFieldType.Text,
+        "url" => ConfigFieldType.Url,
+        "secret" => ConfigFieldType.Secret,
+        "number" => ConfigFieldType.Number,
+        "boolean" => ConfigFieldType.Boolean,
+        "select" => ConfigFieldType.Select,
+        "multiselect" => ConfigFieldType.Multiselect,
+        "list" => ConfigFieldType.List,
+        "note" => ConfigFieldType.Note,
+        _ => ConfigFieldType.Unknown,
+    };
+
+    private static string ToWire(ConfigFieldType value) => value switch
+    {
+        ConfigFieldType.String => "string",
+        ConfigFieldType.Text => "text",
+        ConfigFieldType.Url => "url",
+        ConfigFieldType.Secret => "secret",
+        ConfigFieldType.Number => "number",
+        ConfigFieldType.Boolean => "boolean",
+        ConfigFieldType.Select => "select",
+        ConfigFieldType.Multiselect => "multiselect",
+        ConfigFieldType.List => "list",
+        ConfigFieldType.Note => "note",
+        _ => throw new JsonException($"ConfigFieldType.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+/// <summary>
 /// What a `number` field's value is measured in. The stored value is always in this unit; only the
 /// control the operator touches changes, so a byte count stays a byte count everywhere it is read and
 /// a `fraction` stays the share between 0 and 1 that the code multiplying by it wants
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ConfigFieldUnit>))]
+[JsonConverter(typeof(ConfigFieldUnitConverter))]
 public enum ConfigFieldUnit
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("bytes")]
     Bytes,
 
@@ -95,19 +261,105 @@ public enum ConfigFieldUnit
 }
 
 /// <summary>
+/// Reads and writes <see cref="ConfigFieldUnit"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ConfigFieldUnit.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ConfigFieldUnitConverter : JsonConverter<ConfigFieldUnit>
+{
+    public override ConfigFieldUnit Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ConfigFieldUnit, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ConfigFieldUnit value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ConfigFieldUnit ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ConfigFieldUnit value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ConfigFieldUnit FromWire(string? text) => text switch
+    {
+        "bytes" => ConfigFieldUnit.Bytes,
+        "fraction" => ConfigFieldUnit.Fraction,
+        _ => ConfigFieldUnit.Unknown,
+    };
+
+    private static string ToWire(ConfigFieldUnit value) => value switch
+    {
+        ConfigFieldUnit.Bytes => "bytes",
+        ConfigFieldUnit.Fraction => "fraction",
+        _ => throw new JsonException($"ConfigFieldUnit.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+/// <summary>
 /// The control a field asks to be drawn with, where the ordinary one for its type reads badly. Opt-in
 /// per field rather than inferred, because a slider is right for a value you feel for and wrong for
 /// one you have to hit exactly, and `tags` is right for a comma-separated line that is really a SET
 /// and wrong for one that is prose. Nothing about the stored value changes either way
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ConfigFieldControl>))]
+[JsonConverter(typeof(ConfigFieldControlConverter))]
 public enum ConfigFieldControl
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("slider")]
     Slider,
 
     [JsonStringEnumMemberName("tags")]
     Tags,
+}
+
+/// <summary>
+/// Reads and writes <see cref="ConfigFieldControl"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ConfigFieldControl.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ConfigFieldControlConverter : JsonConverter<ConfigFieldControl>
+{
+    public override ConfigFieldControl Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ConfigFieldControl, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ConfigFieldControl value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ConfigFieldControl ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ConfigFieldControl value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ConfigFieldControl FromWire(string? text) => text switch
+    {
+        "slider" => ConfigFieldControl.Slider,
+        "tags" => ConfigFieldControl.Tags,
+        _ => ConfigFieldControl.Unknown,
+    };
+
+    private static string ToWire(ConfigFieldControl value) => value switch
+    {
+        ConfigFieldControl.Slider => "slider",
+        ConfigFieldControl.Tags => "tags",
+        _ => throw new JsonException($"ConfigFieldControl.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>One choice of a `select` config field</summary>
@@ -125,9 +377,15 @@ public sealed record ConfigFieldOption
 /// station's own tables, the platform's zone list, the enabled plugins that can do one of five jobs,
 /// or the models the selected model plugin currently offers. Resolved by the console either way
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ConfigFieldOptionSource>))]
+[JsonConverter(typeof(ConfigFieldOptionSourceConverter))]
 public enum ConfigFieldOptionSource
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("station.newsCategories")]
     StationNewsCategories,
 
@@ -162,6 +420,64 @@ public enum ConfigFieldOptionSource
     LlmModels,
 }
 
+/// <summary>
+/// Reads and writes <see cref="ConfigFieldOptionSource"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ConfigFieldOptionSource.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ConfigFieldOptionSourceConverter : JsonConverter<ConfigFieldOptionSource>
+{
+    public override ConfigFieldOptionSource Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ConfigFieldOptionSource, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ConfigFieldOptionSource value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ConfigFieldOptionSource ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ConfigFieldOptionSource value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ConfigFieldOptionSource FromWire(string? text) => text switch
+    {
+        "station.newsCategories" => ConfigFieldOptionSource.StationNewsCategories,
+        "station.newsFeeds" => ConfigFieldOptionSource.StationNewsFeeds,
+        "station.podcastShows" => ConfigFieldOptionSource.StationPodcastShows,
+        "station.narrationSeries" => ConfigFieldOptionSource.StationNarrationSeries,
+        "intl.timeZones" => ConfigFieldOptionSource.IntlTimeZones,
+        "plugins.speech" => ConfigFieldOptionSource.PluginsSpeech,
+        "plugins.llm" => ConfigFieldOptionSource.PluginsLlm,
+        "plugins.mixer" => ConfigFieldOptionSource.PluginsMixer,
+        "plugins.analysis" => ConfigFieldOptionSource.PluginsAnalysis,
+        "plugins.similarity" => ConfigFieldOptionSource.PluginsSimilarity,
+        "llm.models" => ConfigFieldOptionSource.LlmModels,
+        _ => ConfigFieldOptionSource.Unknown,
+    };
+
+    private static string ToWire(ConfigFieldOptionSource value) => value switch
+    {
+        ConfigFieldOptionSource.StationNewsCategories => "station.newsCategories",
+        ConfigFieldOptionSource.StationNewsFeeds => "station.newsFeeds",
+        ConfigFieldOptionSource.StationPodcastShows => "station.podcastShows",
+        ConfigFieldOptionSource.StationNarrationSeries => "station.narrationSeries",
+        ConfigFieldOptionSource.IntlTimeZones => "intl.timeZones",
+        ConfigFieldOptionSource.PluginsSpeech => "plugins.speech",
+        ConfigFieldOptionSource.PluginsLlm => "plugins.llm",
+        ConfigFieldOptionSource.PluginsMixer => "plugins.mixer",
+        ConfigFieldOptionSource.PluginsAnalysis => "plugins.analysis",
+        ConfigFieldOptionSource.PluginsSimilarity => "plugins.similarity",
+        ConfigFieldOptionSource.LlmModels => "llm.models",
+        _ => throw new JsonException($"ConfigFieldOptionSource.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>A row a `list` field offers to start from instead of an empty one. Adding a row from it fills the cells it names, by column key, and nothing records which preset a row came from</summary>
 public sealed record ConfigFieldPreset
 {
@@ -179,14 +495,60 @@ public sealed record ConfigFieldPreset
 /// and `ordered` stores a list of them; see `plugins/plugin.providers.ts`, which both this and the
 /// station read the pairing from
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ProviderMode>))]
+[JsonConverter(typeof(ProviderModeConverter))]
 public enum ProviderMode
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("one")]
     One,
 
     [JsonStringEnumMemberName("ordered")]
     Ordered,
+}
+
+/// <summary>
+/// Reads and writes <see cref="ProviderMode"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ProviderMode.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ProviderModeConverter : JsonConverter<ProviderMode>
+{
+    public override ProviderMode Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ProviderMode, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ProviderMode value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ProviderMode ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ProviderMode value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ProviderMode FromWire(string? text) => text switch
+    {
+        "one" => ProviderMode.One,
+        "ordered" => ProviderMode.Ordered,
+        _ => ProviderMode.Unknown,
+    };
+
+    private static string ToWire(ProviderMode value) => value switch
+    {
+        ProviderMode.One => "one",
+        ProviderMode.Ordered => "ordered",
+        _ => throw new JsonException($"ProviderMode.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>
@@ -200,9 +562,15 @@ public sealed record PluginImport
     public required byte[] File { get; init; }
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PluginLogLevel>))]
+[JsonConverter(typeof(PluginLogLevelConverter))]
 public enum PluginLogLevel
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("debug")]
     Debug,
 
@@ -216,6 +584,50 @@ public enum PluginLogLevel
     Error,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PluginLogLevel"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PluginLogLevel.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PluginLogLevelConverter : JsonConverter<PluginLogLevel>
+{
+    public override PluginLogLevel Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PluginLogLevel, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PluginLogLevel value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PluginLogLevel ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PluginLogLevel value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PluginLogLevel FromWire(string? text) => text switch
+    {
+        "debug" => PluginLogLevel.Debug,
+        "info" => PluginLogLevel.Info,
+        "warn" => PluginLogLevel.Warn,
+        "error" => PluginLogLevel.Error,
+        _ => PluginLogLevel.Unknown,
+    };
+
+    private static string ToWire(PluginLogLevel value) => value switch
+    {
+        PluginLogLevel.Debug => "debug",
+        PluginLogLevel.Info => "info",
+        PluginLogLevel.Warn => "warn",
+        PluginLogLevel.Error => "error",
+        _ => throw new JsonException($"PluginLogLevel.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>A submitted settings form. Secret values arrive in here and are never echoed back</summary>
 public sealed record PluginConfigInput
 {
@@ -227,14 +639,60 @@ public sealed record PluginConfigInput
 /// What a plugin may do with a capability it asked for. Denied is the default and needs no row: a
 /// capability is refused until somebody allows it, so "never answered" and "refused" are one state
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<GrantDecision>))]
+[JsonConverter(typeof(GrantDecisionConverter))]
 public enum GrantDecision
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("allowed")]
     Allowed,
 
     [JsonStringEnumMemberName("denied")]
     Denied,
+}
+
+/// <summary>
+/// Reads and writes <see cref="GrantDecision"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="GrantDecision.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class GrantDecisionConverter : JsonConverter<GrantDecision>
+{
+    public override GrantDecision Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for GrantDecision, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, GrantDecision value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override GrantDecision ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, GrantDecision value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static GrantDecision FromWire(string? text) => text switch
+    {
+        "allowed" => GrantDecision.Allowed,
+        "denied" => GrantDecision.Denied,
+        _ => GrantDecision.Unknown,
+    };
+
+    private static string ToWire(GrantDecision value) => value switch
+    {
+        GrantDecision.Allowed => "allowed",
+        GrantDecision.Denied => "denied",
+        _ => throw new JsonException($"GrantDecision.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>Outcome of the plugin's own `testConnection()`</summary>
@@ -902,9 +1360,15 @@ public sealed record PluginDetailInput
     public required PluginLogLevel LogLevel { get; init; }
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<ConfigFieldColumnType>))]
+[JsonConverter(typeof(ConfigFieldColumnTypeConverter))]
 public enum ConfigFieldColumnType
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("string")]
     String,
 
@@ -916,6 +1380,50 @@ public enum ConfigFieldColumnType
 
     [JsonStringEnumMemberName("secret")]
     Secret,
+}
+
+/// <summary>
+/// Reads and writes <see cref="ConfigFieldColumnType"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ConfigFieldColumnType.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ConfigFieldColumnTypeConverter : JsonConverter<ConfigFieldColumnType>
+{
+    public override ConfigFieldColumnType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ConfigFieldColumnType, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ConfigFieldColumnType value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ConfigFieldColumnType ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ConfigFieldColumnType value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ConfigFieldColumnType FromWire(string? text) => text switch
+    {
+        "string" => ConfigFieldColumnType.String,
+        "url" => ConfigFieldColumnType.Url,
+        "select" => ConfigFieldColumnType.Select,
+        "secret" => ConfigFieldColumnType.Secret,
+        _ => ConfigFieldColumnType.Unknown,
+    };
+
+    private static string ToWire(ConfigFieldColumnType value) => value switch
+    {
+        ConfigFieldColumnType.String => "string",
+        ConfigFieldColumnType.Url => "url",
+        ConfigFieldColumnType.Select => "select",
+        ConfigFieldColumnType.Secret => "secret",
+        _ => throw new JsonException($"ConfigFieldColumnType.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 [JsonConverter(typeof(ConfigFieldDescriptorDefaultConverter))]

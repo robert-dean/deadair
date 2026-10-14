@@ -722,10 +722,53 @@ public struct MfaEnrollAuthenticatorVerify: Codable, Equatable, Sendable {
 }
 
 /// A second-factor method a user may enroll
-public enum EnrollmentMethod: String, Codable, CaseIterable, Sendable {
-    case authenticator = "authenticator"
-    case phone = "phone"
-    case fido = "fido"
+public enum EnrollmentMethod: Codable, CaseIterable, Hashable, Sendable {
+    case authenticator
+    case phone
+    case fido
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [EnrollmentMethod] = [.authenticator, .phone, .fido]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .authenticator: return "authenticator"
+        case .phone: return "phone"
+        case .fido: return "fido"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "authenticator": self = .authenticator
+        case "phone": self = .phone
+        case "fido": self = .fido
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "EnrollmentMethod.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Begin enrolling an SMS phone factor during a pending login MFA challenge (no session — authorized by the challenge)
@@ -1179,10 +1222,53 @@ public struct FidoFactorAttestationPubKeyCredParams: Codable, Equatable, Sendabl
 }
 
 /// The attestation
-public enum FidoFactorAttestationAttestation: String, Codable, CaseIterable, Sendable {
-    case direct = "direct"
-    case indirect = "indirect"
-    case none = "none"
+public enum FidoFactorAttestationAttestation: Codable, CaseIterable, Hashable, Sendable {
+    case direct
+    case indirect
+    case none
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [FidoFactorAttestationAttestation] = [.direct, .indirect, .none]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .direct: return "direct"
+        case .indirect: return "indirect"
+        case .none: return "none"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "direct": self = .direct
+        case "indirect": self = .indirect
+        case "none": self = .none
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "FidoFactorAttestationAttestation.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 public indirect enum AuthenticationFactorRegistrationResponse: Codable, Equatable, Sendable {

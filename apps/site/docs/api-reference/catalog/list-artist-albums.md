@@ -23,11 +23,11 @@ Security: authenticated (policy: platform.view)
 | Attribute  | Type              | Required | Description               |
 | ---------- | ----------------- | -------- | ------------------------- |
 | `id`       | `string`          | Yes      | Path parameter.           |
-| `page`     | `number`          | Yes      | The page number           |
-| `pageSize` | `number`          | Yes      | The page size             |
-| `sort`     | `'asc' \| 'desc'` | Yes      | The sort order            |
 | `total`    | `number`          | Yes      | The total number of items |
+| `page`     | `number`          | No       | The page number           |
+| `pageSize` | `number`          | No       | The page size             |
 | `search`   | `string`          | No       |                           |
+| `sort`     | `'asc' \| 'desc'` | No       | The sort order            |
 | `sortBy`   | `CatalogSort`     | No       |                           |
 
 </details>

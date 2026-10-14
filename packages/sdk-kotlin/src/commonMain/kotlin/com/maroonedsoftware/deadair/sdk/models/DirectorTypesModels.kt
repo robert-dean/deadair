@@ -3,43 +3,79 @@
 
 package com.maroonedsoftware.deadair.sdk.models
 
+import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** What kind of programming the station is running, which decides the rules it runs under */
-@Serializable
+@Serializable(with = StationModeSerializer::class)
 enum class StationMode {
-    @SerialName("rotation")
     ROTATION,
-    @SerialName("setlist")
     SETLIST,
-    @SerialName("feature")
     FEATURE,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [StationMode] by its wire spelling. A spelling it does not know reads as [StationMode.UNKNOWN]. */
+object StationModeSerializer : SdkEnumSerializer<StationMode>(
+    "StationMode",
+    StationMode.UNKNOWN,
+    StationMode.ROTATION to "rotation",
+    StationMode.SETLIST to "setlist",
+    StationMode.FEATURE to "feature",
+)
 
 /** What the mount lease is renewed against: `audience` airs only while somebody is listening, `always` airs whenever there is a programme */
-@Serializable
+@Serializable(with = AirModeSerializer::class)
 enum class AirMode {
-    @SerialName("audience")
     AUDIENCE,
-    @SerialName("always")
     ALWAYS,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
+/** Reads and writes [AirMode] by its wire spelling. A spelling it does not know reads as [AirMode.UNKNOWN]. */
+object AirModeSerializer : SdkEnumSerializer<AirMode>(
+    "AirMode",
+    AirMode.UNKNOWN,
+    AirMode.AUDIENCE to "audience",
+    AirMode.ALWAYS to "always",
+)
+
 /** Who chose what is on air. `schedule` is a block the clock changed over to and `sustaining` is what it plays in the hours no block claims — both are the schedule driving. `operator` is a person, including one who took over inside a scheduled block, and it holds until the next block begins. `off` is a station stood down */
-@Serializable
+@Serializable(with = AirSourceSerializer::class)
 enum class AirSource {
-    @SerialName("off")
     OFF,
-    @SerialName("schedule")
     SCHEDULE,
-    @SerialName("sustaining")
     SUSTAINING,
-    @SerialName("operator")
     OPERATOR,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [AirSource] by its wire spelling. A spelling it does not know reads as [AirSource.UNKNOWN]. */
+object AirSourceSerializer : SdkEnumSerializer<AirSource>(
+    "AirSource",
+    AirSource.UNKNOWN,
+    AirSource.OFF to "off",
+    AirSource.SCHEDULE to "schedule",
+    AirSource.SUSTAINING to "sustaining",
+    AirSource.OPERATOR to "operator",
+)
 
 /** How long to keep the schedule off the running order */
 @Serializable
@@ -49,34 +85,58 @@ data class HoldStationInput(
 )
 
 /** What the station does when the running order runs out */
-@Serializable
+@Serializable(with = StationOnEndSerializer::class)
 enum class StationOnEnd {
-    @SerialName("extend")
     EXTEND,
-    @SerialName("repeat")
     REPEAT,
-    @SerialName("stop")
     STOP,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
+/** Reads and writes [StationOnEnd] by its wire spelling. A spelling it does not know reads as [StationOnEnd.UNKNOWN]. */
+object StationOnEndSerializer : SdkEnumSerializer<StationOnEnd>(
+    "StationOnEnd",
+    StationOnEnd.UNKNOWN,
+    StationOnEnd.EXTEND to "extend",
+    StationOnEnd.REPEAT to "repeat",
+    StationOnEnd.STOP to "stop",
+)
+
 /** Where an item of the running order has got to. `handed` is a promise and `airing` is a fact, which is the distinction everything here is built around. The three terminal states that are not `played` are three different facts on a page that has to say why the station is silent: `skipped` is the station passing over an item it reached, `removed` is an operator taking one out before its turn, and `unavailable` is a record the station could not obtain the audio for — the only one of the three an operator can act on, since it names a copy rather than a decision */
-@Serializable
+@Serializable(with = StationItemStateSerializer::class)
 enum class StationItemState {
-    @SerialName("planned")
     PLANNED,
-    @SerialName("handed")
     HANDED,
-    @SerialName("airing")
     AIRING,
-    @SerialName("played")
     PLAYED,
-    @SerialName("skipped")
     SKIPPED,
-    @SerialName("unavailable")
     UNAVAILABLE,
-    @SerialName("removed")
     REMOVED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [StationItemState] by its wire spelling. A spelling it does not know reads as [StationItemState.UNKNOWN]. */
+object StationItemStateSerializer : SdkEnumSerializer<StationItemState>(
+    "StationItemState",
+    StationItemState.UNKNOWN,
+    StationItemState.PLANNED to "planned",
+    StationItemState.HANDED to "handed",
+    StationItemState.AIRING to "airing",
+    StationItemState.PLAYED to "played",
+    StationItemState.SKIPPED to "skipped",
+    StationItemState.UNAVAILABLE to "unavailable",
+    StationItemState.REMOVED to "removed",
+)
 
 /** Change who is presenting the broadcast that is on air */
 @Serializable
@@ -125,34 +185,58 @@ data class ReplanStationInput(
 )
 
 /** A kind of break an operator can ask for by name. Only the kinds that need nothing but a moment to be written: a welcome, a changeover or a dedication is ABOUT something that happened, and the station asks for those itself */
-@Serializable
+@Serializable(with = RequestableBreakKindSerializer::class)
 enum class RequestableBreakKind {
-    @SerialName("news")
     NEWS,
-    @SerialName("weather")
     WEATHER,
-    @SerialName("almanac")
     ALMANAC,
-    @SerialName("talkbreak")
     TALKBREAK,
-    @SerialName("story")
     STORY,
-    @SerialName("jingle")
     JINGLE,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
+/** Reads and writes [RequestableBreakKind] by its wire spelling. A spelling it does not know reads as [RequestableBreakKind.UNKNOWN]. */
+object RequestableBreakKindSerializer : SdkEnumSerializer<RequestableBreakKind>(
+    "RequestableBreakKind",
+    RequestableBreakKind.UNKNOWN,
+    RequestableBreakKind.NEWS to "news",
+    RequestableBreakKind.WEATHER to "weather",
+    RequestableBreakKind.ALMANAC to "almanac",
+    RequestableBreakKind.TALKBREAK to "talkbreak",
+    RequestableBreakKind.STORY to "story",
+    RequestableBreakKind.JINGLE to "jingle",
+)
+
 /** How soon a requested break wants to be heard. `interrupt` and `next` are written and spoken before they take a place in the running order, so they cannot reach their slot unready; `interrupt` lands at the first boundary that leaves time to write and speak it, `next` between the record on air and the one after. `soon` and `whenever` are planted like a break the station planned for itself, within a few records or at the next ordinary slot */
-@Serializable
+@Serializable(with = BreakUrgencySerializer::class)
 enum class BreakUrgency {
-    @SerialName("interrupt")
     INTERRUPT,
-    @SerialName("next")
     NEXT,
-    @SerialName("soon")
     SOON,
-    @SerialName("whenever")
     WHENEVER,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [BreakUrgency] by its wire spelling. A spelling it does not know reads as [BreakUrgency.UNKNOWN]. */
+object BreakUrgencySerializer : SdkEnumSerializer<BreakUrgency>(
+    "BreakUrgency",
+    BreakUrgency.UNKNOWN,
+    BreakUrgency.INTERRUPT to "interrupt",
+    BreakUrgency.NEXT to "next",
+    BreakUrgency.SOON to "soon",
+    BreakUrgency.WHENEVER to "whenever",
+)
 
 /** What the station made of a request to say something */
 @Serializable
@@ -372,66 +456,126 @@ data class StationOrder(
 )
 
 /** Whether this is a record or something the station says: an ident, a stinger, a talk break */
-@Serializable
+@Serializable(with = StationOrderItemKindSerializer::class)
 enum class StationOrderItemKind {
-    @SerialName("track")
     TRACK,
-    @SerialName("segment")
     SEGMENT,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [StationOrderItemKind] by its wire spelling. A spelling it does not know reads as [StationOrderItemKind.UNKNOWN]. */
+object StationOrderItemKindSerializer : SdkEnumSerializer<StationOrderItemKind>(
+    "StationOrderItemKind",
+    StationOrderItemKind.UNKNOWN,
+    StationOrderItemKind.TRACK to "track",
+    StationOrderItemKind.SEGMENT to "segment",
+)
+
+@Serializable(with = StationOrderItemSegmentStateSerializer::class)
 enum class StationOrderItemSegmentState {
-    @SerialName("planned")
     PLANNED,
-    @SerialName("writing")
     WRITING,
-    @SerialName("written")
     WRITTEN,
-    @SerialName("rendering")
     RENDERING,
-    @SerialName("ready")
     READY,
-    @SerialName("failed")
     FAILED,
-    @SerialName("gone")
     GONE,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [StationOrderItemSegmentState] by its wire spelling. A spelling it does not know reads as [StationOrderItemSegmentState.UNKNOWN]. */
+object StationOrderItemSegmentStateSerializer : SdkEnumSerializer<StationOrderItemSegmentState>(
+    "StationOrderItemSegmentState",
+    StationOrderItemSegmentState.UNKNOWN,
+    StationOrderItemSegmentState.PLANNED to "planned",
+    StationOrderItemSegmentState.WRITING to "writing",
+    StationOrderItemSegmentState.WRITTEN to "written",
+    StationOrderItemSegmentState.RENDERING to "rendering",
+    StationOrderItemSegmentState.READY to "ready",
+    StationOrderItemSegmentState.FAILED to "failed",
+    StationOrderItemSegmentState.GONE to "gone",
+)
 
 /** Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId` */
-@Serializable
+@Serializable(with = PutOnAirInputChartOrderSerializer::class)
 enum class PutOnAirInputChartOrder {
-    @SerialName("countdown")
     COUNTDOWN,
-    @SerialName("ranked")
     RANKED,
-    @SerialName("unordered")
     UNORDERED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [PutOnAirInputChartOrder] by its wire spelling. A spelling it does not know reads as [PutOnAirInputChartOrder.UNKNOWN]. */
+object PutOnAirInputChartOrderSerializer : SdkEnumSerializer<PutOnAirInputChartOrder>(
+    "PutOnAirInputChartOrder",
+    PutOnAirInputChartOrder.UNKNOWN,
+    PutOnAirInputChartOrder.COUNTDOWN to "countdown",
+    PutOnAirInputChartOrder.RANKED to "ranked",
+    PutOnAirInputChartOrder.UNORDERED to "unordered",
+)
+
+@Serializable(with = PutOnAirInputMoodsSerializer::class)
 enum class PutOnAirInputMoods {
-    @SerialName("love")
     LOVE,
-    @SerialName("happiness")
     HAPPINESS,
-    @SerialName("comfort")
     COMFORT,
-    @SerialName("sadness")
     SADNESS,
-    @SerialName("loneliness")
     LONELINESS,
-    @SerialName("anger")
     ANGER,
-    @SerialName("fear")
     FEAR,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [PutOnAirInputMoods] by its wire spelling. A spelling it does not know reads as [PutOnAirInputMoods.UNKNOWN]. */
+object PutOnAirInputMoodsSerializer : SdkEnumSerializer<PutOnAirInputMoods>(
+    "PutOnAirInputMoods",
+    PutOnAirInputMoods.UNKNOWN,
+    PutOnAirInputMoods.LOVE to "love",
+    PutOnAirInputMoods.HAPPINESS to "happiness",
+    PutOnAirInputMoods.COMFORT to "comfort",
+    PutOnAirInputMoods.SADNESS to "sadness",
+    PutOnAirInputMoods.LONELINESS to "loneliness",
+    PutOnAirInputMoods.ANGER to "anger",
+    PutOnAirInputMoods.FEAR to "fear",
+)
 
 /** How this stop connects to the one before: a record the two are credited on together, or a similarity source naming them alike. Absent on the first stop */
-@Serializable
+@Serializable(with = RouteStopLinkSerializer::class)
 enum class RouteStopLink {
-    @SerialName("credit")
     CREDIT,
-    @SerialName("similar")
     SIMILAR,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [RouteStopLink] by its wire spelling. A spelling it does not know reads as [RouteStopLink.UNKNOWN]. */
+object RouteStopLinkSerializer : SdkEnumSerializer<RouteStopLink>(
+    "RouteStopLink",
+    RouteStopLink.UNKNOWN,
+    RouteStopLink.CREDIT to "credit",
+    RouteStopLink.SIMILAR to "similar",
+)

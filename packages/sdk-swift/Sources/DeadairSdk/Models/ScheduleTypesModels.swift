@@ -659,30 +659,210 @@ public struct ScheduleSlotListInput: Codable, Equatable, Sendable {
 }
 
 /// Which way round that chart is played. Absent is `countdown`, which ends on number one. Ignored without `sourceChartId`
-public enum ScheduleSlotSourceChartOrder: String, Codable, CaseIterable, Sendable {
-    case countdown = "countdown"
-    case ranked = "ranked"
-    case unordered = "unordered"
+public enum ScheduleSlotSourceChartOrder: Codable, CaseIterable, Hashable, Sendable {
+    case countdown
+    case ranked
+    case unordered
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ScheduleSlotSourceChartOrder] = [.countdown, .ranked, .unordered]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .countdown: return "countdown"
+        case .ranked: return "ranked"
+        case .unordered: return "unordered"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "countdown": self = .countdown
+        case "ranked": self = .ranked
+        case "unordered": self = .unordered
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ScheduleSlotSourceChartOrder.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
-public enum ScheduleSlotMoods: String, Codable, CaseIterable, Sendable {
-    case love = "love"
-    case happiness = "happiness"
-    case comfort = "comfort"
-    case sadness = "sadness"
-    case loneliness = "loneliness"
-    case anger = "anger"
-    case fear = "fear"
+public enum ScheduleSlotMoods: Codable, CaseIterable, Hashable, Sendable {
+    case love
+    case happiness
+    case comfort
+    case sadness
+    case loneliness
+    case anger
+    case fear
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ScheduleSlotMoods] = [.love, .happiness, .comfort, .sadness, .loneliness, .anger, .fear]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .love: return "love"
+        case .happiness: return "happiness"
+        case .comfort: return "comfort"
+        case .sadness: return "sadness"
+        case .loneliness: return "loneliness"
+        case .anger: return "anger"
+        case .fear: return "fear"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "love": self = .love
+        case "happiness": self = .happiness
+        case "comfort": self = .comfort
+        case "sadness": self = .sadness
+        case "loneliness": self = .loneliness
+        case "anger": self = .anger
+        case "fear": self = .fear
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ScheduleSlotMoods.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
-public enum ScheduleSlotMode: String, Codable, CaseIterable, Sendable {
-    case rotation = "rotation"
-    case setlist = "setlist"
-    case feature = "feature"
+public enum ScheduleSlotMode: Codable, CaseIterable, Hashable, Sendable {
+    case rotation
+    case setlist
+    case feature
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ScheduleSlotMode] = [.rotation, .setlist, .feature]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .rotation: return "rotation"
+        case .setlist: return "setlist"
+        case .feature: return "feature"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "rotation": self = .rotation
+        case "setlist": self = .setlist
+        case "feature": self = .feature
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ScheduleSlotMode.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
-public enum ScheduleSlotOnEnd: String, Codable, CaseIterable, Sendable {
-    case extend = "extend"
-    case `repeat` = "repeat"
-    case stop = "stop"
+public enum ScheduleSlotOnEnd: Codable, CaseIterable, Hashable, Sendable {
+    case extend
+    case `repeat`
+    case stop
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ScheduleSlotOnEnd] = [.extend, .`repeat`, .stop]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .extend: return "extend"
+        case .`repeat`: return "repeat"
+        case .stop: return "stop"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "extend": self = .extend
+        case "repeat": self = .`repeat`
+        case "stop": self = .stop
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ScheduleSlotOnEnd.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

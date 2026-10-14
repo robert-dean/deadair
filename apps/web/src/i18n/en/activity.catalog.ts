@@ -15,6 +15,7 @@ export const activity = {
         catalog: 'Catalog',
         plugins: 'Plugins',
         storage: 'Storage',
+        events: 'Event destinations',
     },
     severity: {
         all: 'All',

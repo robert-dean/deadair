@@ -3,10 +3,10 @@
 
 package com.maroonedsoftware.deadair.sdk.models
 
+import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
@@ -14,15 +14,27 @@ import kotlinx.serialization.json.JsonElement
  * What the station has been told about a record. `neutral` is the absence of an opinion rather than
  * a middling one, and it is what rating something back to nothing means.
  */
-@Serializable
+@Serializable(with = RatingSerializer::class)
 enum class Rating {
-    @SerialName("liked")
     LIKED,
-    @SerialName("neutral")
     NEUTRAL,
-    @SerialName("disliked")
     DISLIKED,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [Rating] by its wire spelling. A spelling it does not know reads as [Rating.UNKNOWN]. */
+object RatingSerializer : SdkEnumSerializer<Rating>(
+    "Rating",
+    Rating.UNKNOWN,
+    Rating.LIKED to "liked",
+    Rating.NEUTRAL to "neutral",
+    Rating.DISLIKED to "disliked",
+)
 
 /**
  * One provider's copy of a record, with whatever the station holds of it.
@@ -222,19 +234,31 @@ data class ClearEnrichmentQuery(
  * contract whose only content is which two keys it drops. A key the row cannot answer falls back to
  * name order rather than failing: an ordering nobody can serve is a page an operator cannot open.
  */
-@Serializable
+@Serializable(with = CatalogSortSerializer::class)
 enum class CatalogSort {
-    @SerialName("name")
     NAME,
-    @SerialName("albums")
     ALBUMS,
-    @SerialName("tracks")
     TRACKS,
-    @SerialName("year")
     YEAR,
-    @SerialName("rating")
     RATING,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [CatalogSort] by its wire spelling. A spelling it does not know reads as [CatalogSort.UNKNOWN]. */
+object CatalogSortSerializer : SdkEnumSerializer<CatalogSort>(
+    "CatalogSort",
+    CatalogSort.UNKNOWN,
+    CatalogSort.NAME to "name",
+    CatalogSort.ALBUMS to "albums",
+    CatalogSort.TRACKS to "tracks",
+    CatalogSort.YEAR to "year",
+    CatalogSort.RATING to "rating",
+)
 
 /**
  * Which records to show, by what the station has of them rather than by what they are.
@@ -245,19 +269,31 @@ enum class CatalogSort {
  *   benched     every copy written off, which is the one state that means it CANNOT air
  *   failing     a fetch has failed and is backing off. Not benched yet, and often the state before it
  */
-@Serializable
+@Serializable(with = TrackStateSerializer::class)
 enum class TrackState {
-    @SerialName("cached")
     CACHED,
-    @SerialName("uncached")
     UNCACHED,
-    @SerialName("unmeasured")
     UNMEASURED,
-    @SerialName("benched")
     BENCHED,
-    @SerialName("failing")
     FAILING,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [TrackState] by its wire spelling. A spelling it does not know reads as [TrackState.UNKNOWN]. */
+object TrackStateSerializer : SdkEnumSerializer<TrackState>(
+    "TrackState",
+    TrackState.UNKNOWN,
+    TrackState.CACHED to "cached",
+    TrackState.UNCACHED to "uncached",
+    TrackState.UNMEASURED to "unmeasured",
+    TrackState.BENCHED to "benched",
+    TrackState.FAILING to "failing",
+)
 
 /**
  * What a track list is ordered BY. Its own enum for `TrackQuery`'s own reason: none of these keys
@@ -267,21 +303,33 @@ enum class TrackState {
  * is no ordering of it an operator would agree with: a benched record and an unmeasured one are not
  * more or less than each other.
  */
-@Serializable
+@Serializable(with = TrackSortSerializer::class)
 enum class TrackSort {
-    @SerialName("title")
     TITLE,
-    @SerialName("artist")
     ARTIST,
-    @SerialName("album")
     ALBUM,
-    @SerialName("year")
     YEAR,
-    @SerialName("duration")
     DURATION,
-    @SerialName("rating")
     RATING,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [TrackSort] by its wire spelling. A spelling it does not know reads as [TrackSort.UNKNOWN]. */
+object TrackSortSerializer : SdkEnumSerializer<TrackSort>(
+    "TrackSort",
+    TrackSort.UNKNOWN,
+    TrackSort.TITLE to "title",
+    TrackSort.ARTIST to "artist",
+    TrackSort.ALBUM to "album",
+    TrackSort.YEAR to "year",
+    TrackSort.DURATION to "duration",
+    TrackSort.RATING to "rating",
+)
 
 /**
  * How much of the library is in each state, over the whole filtered set rather than this page.
@@ -973,34 +1021,70 @@ data class AlbumEnrichmentDetailInput(
 )
 
 /** Nobody sings on it; where the singing is; or nothing to go on */
-@Serializable
+@Serializable(with = VocalMarkersDetailKindSerializer::class)
 enum class VocalMarkersDetailKind {
-    @SerialName("instrumental")
     INSTRUMENTAL,
-    @SerialName("ranges")
     RANGES,
-    @SerialName("unknown")
+    UNKNOWN,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN2,
+}
+
+/** Reads and writes [VocalMarkersDetailKind] by its wire spelling. A spelling it does not know reads as [VocalMarkersDetailKind.UNKNOWN2]. */
+object VocalMarkersDetailKindSerializer : SdkEnumSerializer<VocalMarkersDetailKind>(
+    "VocalMarkersDetailKind",
+    VocalMarkersDetailKind.UNKNOWN2,
+    VocalMarkersDetailKind.INSTRUMENTAL to "instrumental",
+    VocalMarkersDetailKind.RANGES to "ranges",
+    VocalMarkersDetailKind.UNKNOWN to "unknown",
+)
+
+/** An operator's correction, the record's timed lyrics, or neither */
+@Serializable(with = VocalMarkersDetailSourceSerializer::class)
+enum class VocalMarkersDetailSource {
+    OVERRIDE,
+    LYRICS,
+    NONE,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
     UNKNOWN,
 }
 
-/** An operator's correction, the record's timed lyrics, or neither */
-@Serializable
-enum class VocalMarkersDetailSource {
-    @SerialName("override")
-    OVERRIDE,
-    @SerialName("lyrics")
-    LYRICS,
-    @SerialName("none")
-    NONE,
-}
+/** Reads and writes [VocalMarkersDetailSource] by its wire spelling. A spelling it does not know reads as [VocalMarkersDetailSource.UNKNOWN]. */
+object VocalMarkersDetailSourceSerializer : SdkEnumSerializer<VocalMarkersDetailSource>(
+    "VocalMarkersDetailSource",
+    VocalMarkersDetailSource.UNKNOWN,
+    VocalMarkersDetailSource.OVERRIDE to "override",
+    VocalMarkersDetailSource.LYRICS to "lyrics",
+    VocalMarkersDetailSource.NONE to "none",
+)
 
 /** The words are here; a source says nobody sings on it; or no source has an answer yet */
-@Serializable
+@Serializable(with = TrackLyricsKindSerializer::class)
 enum class TrackLyricsKind {
-    @SerialName("words")
     WORDS,
-    @SerialName("instrumental")
     INSTRUMENTAL,
-    @SerialName("none")
     NONE,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [TrackLyricsKind] by its wire spelling. A spelling it does not know reads as [TrackLyricsKind.UNKNOWN]. */
+object TrackLyricsKindSerializer : SdkEnumSerializer<TrackLyricsKind>(
+    "TrackLyricsKind",
+    TrackLyricsKind.UNKNOWN,
+    TrackLyricsKind.WORDS to "words",
+    TrackLyricsKind.INSTRUMENTAL to "instrumental",
+    TrackLyricsKind.NONE to "none",
+)

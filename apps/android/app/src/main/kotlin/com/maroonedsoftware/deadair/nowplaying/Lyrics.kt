@@ -82,7 +82,8 @@ fun lyricsUiState(answer: NowPlayingLyrics?, heardStartedAt: Long?, playhead: Pl
     val lyrics = answer?.lyrics ?: return LyricsUiState.Hidden
     if (heardStartedAt == null || answer.startedAt != heardStartedAt) return LyricsUiState.Hidden
     return when (lyrics.kind) {
-        TrackLyricsKind.NONE, TrackLyricsKind.INSTRUMENTAL -> LyricsUiState.Hidden
+        // `UNKNOWN` is a kind a newer station sends that this build cannot read, so there are no words to show.
+        TrackLyricsKind.NONE, TrackLyricsKind.INSTRUMENTAL, TrackLyricsKind.UNKNOWN -> LyricsUiState.Hidden
         TrackLyricsKind.WORDS -> {
             val lines = lyrics.synced
             val plain = lyrics.plain

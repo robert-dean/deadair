@@ -15,6 +15,8 @@ export * from './charts/types/index.js';
 export * from './deadair.sdk.js';
 export * from './director/director.client.js';
 export * from './director/types/index.js';
+export * from './events/events.client.js';
+export * from './events/types/index.js';
 export * from './history/history.client.js';
 export * from './history/types/index.js';
 export * from './languages/languages.client.js';

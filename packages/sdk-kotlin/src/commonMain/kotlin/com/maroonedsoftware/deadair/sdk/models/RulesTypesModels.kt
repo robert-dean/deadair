@@ -3,10 +3,10 @@
 
 package com.maroonedsoftware.deadair.sdk.models
 
+import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -106,20 +106,44 @@ data class GenreSteerReading(
 )
 
 /** `genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag */
-@Serializable
+@Serializable(with = BlockRuleFieldSerializer::class)
 enum class BlockRuleField {
-    @SerialName("genre")
     GENRE,
-    @SerialName("tag")
     TAG,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
 
-@Serializable
+/** Reads and writes [BlockRuleField] by its wire spelling. A spelling it does not know reads as [BlockRuleField.UNKNOWN]. */
+object BlockRuleFieldSerializer : SdkEnumSerializer<BlockRuleField>(
+    "BlockRuleField",
+    BlockRuleField.UNKNOWN,
+    BlockRuleField.GENRE to "genre",
+    BlockRuleField.TAG to "tag",
+)
+
+@Serializable(with = BlockRuleModesSerializer::class)
 enum class BlockRuleModes {
-    @SerialName("rotation")
     ROTATION,
-    @SerialName("setlist")
     SETLIST,
-    @SerialName("feature")
     FEATURE,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [BlockRuleModes] by its wire spelling. A spelling it does not know reads as [BlockRuleModes.UNKNOWN]. */
+object BlockRuleModesSerializer : SdkEnumSerializer<BlockRuleModes>(
+    "BlockRuleModes",
+    BlockRuleModes.UNKNOWN,
+    BlockRuleModes.ROTATION to "rotation",
+    BlockRuleModes.SETLIST to "setlist",
+    BlockRuleModes.FEATURE to "feature",
+)

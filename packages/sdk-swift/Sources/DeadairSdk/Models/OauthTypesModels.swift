@@ -26,10 +26,53 @@ public struct OAuthAuthorizationQuery: Codable, Equatable, Sendable {
 }
 
 /// How the station knows an app: registered by an operator, registered by itself, or described by a document on its own website
-public enum OAuthClientKind: String, Codable, CaseIterable, Sendable {
-    case preregistered = "preregistered"
-    case dynamic = "dynamic"
-    case metadataDocument = "metadata_document"
+public enum OAuthClientKind: Codable, CaseIterable, Hashable, Sendable {
+    case preregistered
+    case dynamic
+    case metadataDocument
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [OAuthClientKind] = [.preregistered, .dynamic, .metadataDocument]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .preregistered: return "preregistered"
+        case .dynamic: return "dynamic"
+        case .metadataDocument: return "metadata_document"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "preregistered": self = .preregistered
+        case "dynamic": self = .dynamic
+        case "metadata_document": self = .metadataDocument
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "OAuthClientKind.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// A request with something wrong that the app should be told about: send the browser back to it
@@ -129,9 +172,50 @@ public struct OAuthAuthorizationDecision: Codable, Equatable, Sendable {
 }
 
 /// What a connected app may do on the station. `view` reads it; `manage` changes it and includes `view`. Never more than the person approving it may do
-public enum OAuthGrantScope: String, Codable, CaseIterable, Sendable {
-    case view = "view"
-    case manage = "manage"
+public enum OAuthGrantScope: Codable, CaseIterable, Hashable, Sendable {
+    case view
+    case manage
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [OAuthGrantScope] = [.view, .manage]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .view: return "view"
+        case .manage: return "manage"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "view": self = .view
+        case "manage": self = .manage
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "OAuthGrantScope.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Where to send the browser now
@@ -159,10 +243,53 @@ public struct OAuthAuthorizationOutcome: Codable, Equatable, Sendable {
 }
 
 /// How the app proves itself at the token endpoint. `none` is a public client, which is what apps on somebody's own device are
-public enum OAuthClientAuthMethod: String, Codable, CaseIterable, Sendable {
-    case none = "none"
-    case clientSecretPost = "client_secret_post"
-    case clientSecretBasic = "client_secret_basic"
+public enum OAuthClientAuthMethod: Codable, CaseIterable, Hashable, Sendable {
+    case none
+    case clientSecretPost
+    case clientSecretBasic
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [OAuthClientAuthMethod] = [.none, .clientSecretPost, .clientSecretBasic]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .none: return "none"
+        case .clientSecretPost: return "client_secret_post"
+        case .clientSecretBasic: return "client_secret_basic"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "none": self = .none
+        case "client_secret_post": self = .clientSecretPost
+        case "client_secret_basic": self = .clientSecretBasic
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "OAuthClientAuthMethod.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// An app the signed-in person has let act as them
@@ -553,7 +680,48 @@ public indirect enum OAuthAuthorizationContextResult: Codable, Equatable, Sendab
 }
 
 /// Created by an operator, or registered by itself
-public enum OAuthClientSummaryKind: String, Codable, CaseIterable, Sendable {
-    case preregistered = "preregistered"
-    case dynamic = "dynamic"
+public enum OAuthClientSummaryKind: Codable, CaseIterable, Hashable, Sendable {
+    case preregistered
+    case dynamic
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [OAuthClientSummaryKind] = [.preregistered, .dynamic]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .preregistered: return "preregistered"
+        case .dynamic: return "dynamic"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "preregistered": self = .preregistered
+        case "dynamic": self = .dynamic
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "OAuthClientSummaryKind.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }

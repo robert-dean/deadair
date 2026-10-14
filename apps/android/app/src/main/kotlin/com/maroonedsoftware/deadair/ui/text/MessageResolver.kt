@@ -101,6 +101,7 @@ fun Message.resolve(): String =
                     StationMode.ROTATION -> R.string.mode_rotation
                     StationMode.SETLIST -> R.string.mode_setlist
                     StationMode.FEATURE -> R.string.mode_feature
+                    StationMode.UNKNOWN -> R.string.value_unknown
                 },
             )
         is Message.OnEnd ->
@@ -109,6 +110,7 @@ fun Message.resolve(): String =
                     StationOnEnd.EXTEND -> R.string.on_end_extend
                     StationOnEnd.REPEAT -> R.string.on_end_repeat
                     StationOnEnd.STOP -> R.string.on_end_stop
+                    StationOnEnd.UNKNOWN -> R.string.value_unknown
                 },
             )
         Message.EraOutOfRange -> stringResource(R.string.plan_era_out_of_range, ERA_YEARS.first, ERA_YEARS.last)
@@ -125,6 +127,7 @@ fun Message.resolve(): String =
                     SilenceCause.STOOD_DOWN -> R.string.silence_label_stood_down
                     SilenceCause.NO_PROGRAMME -> R.string.silence_label_no_programme
                     SilenceCause.WARMING_UP -> R.string.silence_label_warming_up
+                    SilenceCause.UNKNOWN -> R.string.silence_label_unknown
                     SilenceCause.WAITING_ON_AUDIO -> R.string.silence_label_waiting_on_audio
                     SilenceCause.NO_AUDIENCE -> R.string.silence_label_no_audience
                     SilenceCause.NOT_DRIVING -> R.string.silence_label_not_driving
@@ -162,7 +165,8 @@ fun Message.resolve(): String =
                         RequestableBreakKind.NEWS -> stringResource(R.string.notice_break_asked_news)
                         RequestableBreakKind.WEATHER -> stringResource(R.string.notice_break_asked_weather)
                         RequestableBreakKind.TALKBREAK -> stringResource(R.string.notice_break_asked_talk)
-                        RequestableBreakKind.ALMANAC, RequestableBreakKind.STORY, RequestableBreakKind.JINGLE -> stringResource(R.string.notice_break_asked)
+                        RequestableBreakKind.ALMANAC, RequestableBreakKind.STORY, RequestableBreakKind.JINGLE, RequestableBreakKind.UNKNOWN ->
+                            stringResource(R.string.notice_break_asked)
                     }
                 // The reason is the station's words, as a `Message.Text` is: a clause in its own language, quoted rather than translated.
                 is Notice.BreakDeclined -> it.reason?.let { reason -> stringResource(R.string.notice_break_declined_because, reason) } ?: stringResource(R.string.notice_break_declined)
@@ -187,10 +191,12 @@ fun Message.resolve(): String =
                     StationItemState.SKIPPED -> R.string.item_skipped
                     StationItemState.UNAVAILABLE -> R.string.item_unavailable
                     StationItemState.REMOVED -> R.string.item_removed
+                    StationItemState.UNKNOWN -> R.string.value_unknown
                 },
             )
         is Message.RequestWaiting -> stringResource(R.string.request_waiting, title)
         is Message.RequestOnItsWay -> stringResource(R.string.request_on_its_way, title)
+        is Message.RequestTaken -> stringResource(R.string.request_taken, title)
         is Message.RequestRefused -> reason ?: stringResource(R.string.request_refused)
         is Message.RequestFor -> stringResource(R.string.request_for, name)
         is Message.RequestState ->
@@ -202,6 +208,7 @@ fun Message.resolve(): String =
                     RequestStatus.AIRED -> R.string.request_state_aired
                     RequestStatus.DECLINED -> R.string.request_state_declined
                     RequestStatus.EXPIRED -> R.string.request_state_expired
+                    RequestStatus.UNKNOWN -> R.string.value_unknown
                 },
             )
         is Message.Field ->
@@ -236,6 +243,7 @@ fun Message.resolve(): String =
                     PlayoutChartInputChartOrder.COUNTDOWN -> R.string.chart_order_countdown
                     PlayoutChartInputChartOrder.RANKED -> R.string.chart_order_ranked
                     PlayoutChartInputChartOrder.UNORDERED -> R.string.chart_order_unordered
+                    PlayoutChartInputChartOrder.UNKNOWN -> R.string.value_unknown
                 },
             )
         is Message.Outcome ->
@@ -244,6 +252,7 @@ fun Message.resolve(): String =
                     ScriptOutcome.WRITTEN -> R.string.outcome_written
                     ScriptOutcome.DECLINED -> R.string.outcome_declined
                     ScriptOutcome.FAILED -> R.string.outcome_failed
+                    ScriptOutcome.UNKNOWN -> R.string.value_unknown
                 },
             )
         is Message.Writer ->
@@ -286,6 +295,7 @@ fun Message.resolve(): String =
                     SilenceCause.STOOD_DOWN -> R.string.silence_title_stood_down
                     SilenceCause.NO_PROGRAMME -> R.string.silence_title_no_programme
                     SilenceCause.WARMING_UP -> R.string.silence_title_warming_up
+                    SilenceCause.UNKNOWN -> R.string.silence_title_unknown
                     SilenceCause.WAITING_ON_AUDIO -> R.string.silence_title_waiting_on_audio
                     SilenceCause.NO_AUDIENCE -> R.string.silence_title_no_audience
                     SilenceCause.NOT_DRIVING -> R.string.silence_title_not_driving

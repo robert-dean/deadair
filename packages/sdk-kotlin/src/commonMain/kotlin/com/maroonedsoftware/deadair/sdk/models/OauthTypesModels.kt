@@ -3,11 +3,11 @@
 
 package com.maroonedsoftware.deadair.sdk.models
 
+import com.maroonedsoftware.deadair.sdk.runtime.SdkEnumSerializer
 import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.serialization.KSerializer
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -30,15 +30,27 @@ data class OAuthAuthorizationQuery(
 )
 
 /** How the station knows an app: registered by an operator, registered by itself, or described by a document on its own website */
-@Serializable
+@Serializable(with = OAuthClientKindSerializer::class)
 enum class OAuthClientKind {
-    @SerialName("preregistered")
     PREREGISTERED,
-    @SerialName("dynamic")
     DYNAMIC,
-    @SerialName("metadata_document")
     METADATA_DOCUMENT,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [OAuthClientKind] by its wire spelling. A spelling it does not know reads as [OAuthClientKind.UNKNOWN]. */
+object OAuthClientKindSerializer : SdkEnumSerializer<OAuthClientKind>(
+    "OAuthClientKind",
+    OAuthClientKind.UNKNOWN,
+    OAuthClientKind.PREREGISTERED to "preregistered",
+    OAuthClientKind.DYNAMIC to "dynamic",
+    OAuthClientKind.METADATA_DOCUMENT to "metadata_document",
+)
 
 /** A request with something wrong that the app should be told about: send the browser back to it */
 @Serializable
@@ -68,13 +80,25 @@ data class OAuthAuthorizationDecision(
 )
 
 /** What a connected app may do on the station. `view` reads it; `manage` changes it and includes `view`. Never more than the person approving it may do */
-@Serializable
+@Serializable(with = OAuthGrantScopeSerializer::class)
 enum class OAuthGrantScope {
-    @SerialName("view")
     VIEW,
-    @SerialName("manage")
     MANAGE,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [OAuthGrantScope] by its wire spelling. A spelling it does not know reads as [OAuthGrantScope.UNKNOWN]. */
+object OAuthGrantScopeSerializer : SdkEnumSerializer<OAuthGrantScope>(
+    "OAuthGrantScope",
+    OAuthGrantScope.UNKNOWN,
+    OAuthGrantScope.VIEW to "view",
+    OAuthGrantScope.MANAGE to "manage",
+)
 
 /** Where to send the browser now */
 @Serializable
@@ -84,15 +108,27 @@ data class OAuthAuthorizationOutcome(
 )
 
 /** How the app proves itself at the token endpoint. `none` is a public client, which is what apps on somebody's own device are */
-@Serializable
+@Serializable(with = OAuthClientAuthMethodSerializer::class)
 enum class OAuthClientAuthMethod {
-    @SerialName("none")
     NONE,
-    @SerialName("client_secret_post")
     CLIENT_SECRET_POST,
-    @SerialName("client_secret_basic")
     CLIENT_SECRET_BASIC,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [OAuthClientAuthMethod] by its wire spelling. A spelling it does not know reads as [OAuthClientAuthMethod.UNKNOWN]. */
+object OAuthClientAuthMethodSerializer : SdkEnumSerializer<OAuthClientAuthMethod>(
+    "OAuthClientAuthMethod",
+    OAuthClientAuthMethod.UNKNOWN,
+    OAuthClientAuthMethod.NONE to "none",
+    OAuthClientAuthMethod.CLIENT_SECRET_POST to "client_secret_post",
+    OAuthClientAuthMethod.CLIENT_SECRET_BASIC to "client_secret_basic",
+)
 
 /** An app the signed-in person has let act as them */
 @Serializable
@@ -231,10 +267,22 @@ object OAuthAuthorizationContextResultSerializer : KSerializer<OAuthAuthorizatio
 }
 
 /** Created by an operator, or registered by itself */
-@Serializable
+@Serializable(with = OAuthClientSummaryKindSerializer::class)
 enum class OAuthClientSummaryKind {
-    @SerialName("preregistered")
     PREREGISTERED,
-    @SerialName("dynamic")
     DYNAMIC,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
 }
+
+/** Reads and writes [OAuthClientSummaryKind] by its wire spelling. A spelling it does not know reads as [OAuthClientSummaryKind.UNKNOWN]. */
+object OAuthClientSummaryKindSerializer : SdkEnumSerializer<OAuthClientSummaryKind>(
+    "OAuthClientSummaryKind",
+    OAuthClientSummaryKind.UNKNOWN,
+    OAuthClientSummaryKind.PREREGISTERED to "preregistered",
+    OAuthClientSummaryKind.DYNAMIC to "dynamic",
+)

@@ -2,11 +2,56 @@
 import Foundation
 
 /// Where an invitation stands. `expired` is a pending invitation whose time ran out
-public enum InvitationState: String, Codable, CaseIterable, Sendable {
-    case pending = "pending"
-    case accepted = "accepted"
-    case revoked = "revoked"
-    case expired = "expired"
+public enum InvitationState: Codable, CaseIterable, Hashable, Sendable {
+    case pending
+    case accepted
+    case revoked
+    case expired
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [InvitationState] = [.pending, .accepted, .revoked, .expired]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .pending: return "pending"
+        case .accepted: return "accepted"
+        case .revoked: return "revoked"
+        case .expired: return "expired"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "pending": self = .pending
+        case "accepted": self = .accepted
+        case "revoked": self = .revoked
+        case "expired": self = .expired
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "InvitationState.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Invite somebody by their address
@@ -112,9 +157,50 @@ public struct InvitationDetails: Codable, Equatable, Sendable {
 }
 
 /// How the person will prove it is them after their password: an authenticator app, or a passkey
-public enum InvitationSecondStep: String, Codable, CaseIterable, Sendable {
-    case authenticator = "authenticator"
-    case fido = "fido"
+public enum InvitationSecondStep: Codable, CaseIterable, Hashable, Sendable {
+    case authenticator
+    case fido
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [InvitationSecondStep] = [.authenticator, .fido]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .authenticator: return "authenticator"
+        case .fido: return "fido"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "authenticator": self = .authenticator
+        case "fido": self = .fido
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "InvitationSecondStep.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// An authenticator app to scan, for an invitation being accepted

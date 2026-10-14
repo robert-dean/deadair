@@ -46,7 +46,8 @@ data class TransportUiState(
                 AirSource.SCHEDULE -> Message.SchedulePutThisOn
                 AirSource.SUSTAINING -> Message.BetweenBlocks
                 AirSource.OPERATOR -> Message.YouPutThisOn
-                AirSource.OFF, null -> null
+                // A source a newer station names that this build cannot read: say nothing rather than guess who.
+                AirSource.OFF, AirSource.UNKNOWN, null -> null
             }
 
     /**

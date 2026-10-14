@@ -12,9 +12,15 @@ using MaroonedSoftware.Deadair.Sdk.Runtime;
 namespace MaroonedSoftware.Deadair.Sdk.Models;
 
 /// <summary>Where an invitation stands. `expired` is a pending invitation whose time ran out</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<InvitationState>))]
+[JsonConverter(typeof(InvitationStateConverter))]
 public enum InvitationState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("pending")]
     Pending,
 
@@ -26,6 +32,50 @@ public enum InvitationState
 
     [JsonStringEnumMemberName("expired")]
     Expired,
+}
+
+/// <summary>
+/// Reads and writes <see cref="InvitationState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="InvitationState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class InvitationStateConverter : JsonConverter<InvitationState>
+{
+    public override InvitationState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for InvitationState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, InvitationState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override InvitationState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, InvitationState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static InvitationState FromWire(string? text) => text switch
+    {
+        "pending" => InvitationState.Pending,
+        "accepted" => InvitationState.Accepted,
+        "revoked" => InvitationState.Revoked,
+        "expired" => InvitationState.Expired,
+        _ => InvitationState.Unknown,
+    };
+
+    private static string ToWire(InvitationState value) => value switch
+    {
+        InvitationState.Pending => "pending",
+        InvitationState.Accepted => "accepted",
+        InvitationState.Revoked => "revoked",
+        InvitationState.Expired => "expired",
+        _ => throw new JsonException($"InvitationState.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>Invite somebody by their address</summary>
@@ -74,14 +124,60 @@ public sealed record InvitationDetails
 }
 
 /// <summary>How the person will prove it is them after their password: an authenticator app, or a passkey</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<InvitationSecondStep>))]
+[JsonConverter(typeof(InvitationSecondStepConverter))]
 public enum InvitationSecondStep
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("authenticator")]
     Authenticator,
 
     [JsonStringEnumMemberName("fido")]
     Fido,
+}
+
+/// <summary>
+/// Reads and writes <see cref="InvitationSecondStep"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="InvitationSecondStep.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class InvitationSecondStepConverter : JsonConverter<InvitationSecondStep>
+{
+    public override InvitationSecondStep Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for InvitationSecondStep, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, InvitationSecondStep value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override InvitationSecondStep ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, InvitationSecondStep value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static InvitationSecondStep FromWire(string? text) => text switch
+    {
+        "authenticator" => InvitationSecondStep.Authenticator,
+        "fido" => InvitationSecondStep.Fido,
+        _ => InvitationSecondStep.Unknown,
+    };
+
+    private static string ToWire(InvitationSecondStep value) => value switch
+    {
+        InvitationSecondStep.Authenticator => "authenticator",
+        InvitationSecondStep.Fido => "fido",
+        _ => throw new JsonException($"InvitationSecondStep.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>An authenticator app to scan, for an invitation being accepted</summary>

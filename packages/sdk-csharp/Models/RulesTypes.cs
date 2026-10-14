@@ -170,9 +170,15 @@ public sealed record GenreSteerReading
 }
 
 /// <summary>`genre` refuses any record tagged with this genre or a kind of it (`Punk Rock` under `Punk`, never `Pop` under `Pop Punk`, never `Trap` under `Rap`). `tag` refuses a record carrying exactly this tag</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<BlockRuleField>))]
+[JsonConverter(typeof(BlockRuleFieldConverter))]
 public enum BlockRuleField
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("genre")]
     Genre,
 
@@ -180,9 +186,55 @@ public enum BlockRuleField
     Tag,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<BlockRuleModes>))]
+/// <summary>
+/// Reads and writes <see cref="BlockRuleField"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="BlockRuleField.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class BlockRuleFieldConverter : JsonConverter<BlockRuleField>
+{
+    public override BlockRuleField Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for BlockRuleField, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, BlockRuleField value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override BlockRuleField ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, BlockRuleField value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static BlockRuleField FromWire(string? text) => text switch
+    {
+        "genre" => BlockRuleField.Genre,
+        "tag" => BlockRuleField.Tag,
+        _ => BlockRuleField.Unknown,
+    };
+
+    private static string ToWire(BlockRuleField value) => value switch
+    {
+        BlockRuleField.Genre => "genre",
+        BlockRuleField.Tag => "tag",
+        _ => throw new JsonException($"BlockRuleField.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(BlockRuleModesConverter))]
 public enum BlockRuleModes
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("rotation")]
     Rotation,
 
@@ -191,4 +243,46 @@ public enum BlockRuleModes
 
     [JsonStringEnumMemberName("feature")]
     Feature,
+}
+
+/// <summary>
+/// Reads and writes <see cref="BlockRuleModes"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="BlockRuleModes.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class BlockRuleModesConverter : JsonConverter<BlockRuleModes>
+{
+    public override BlockRuleModes Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for BlockRuleModes, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, BlockRuleModes value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override BlockRuleModes ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, BlockRuleModes value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static BlockRuleModes FromWire(string? text) => text switch
+    {
+        "rotation" => BlockRuleModes.Rotation,
+        "setlist" => BlockRuleModes.Setlist,
+        "feature" => BlockRuleModes.Feature,
+        _ => BlockRuleModes.Unknown,
+    };
+
+    private static string ToWire(BlockRuleModes value) => value switch
+    {
+        BlockRuleModes.Rotation => "rotation",
+        BlockRuleModes.Setlist => "setlist",
+        BlockRuleModes.Feature => "feature",
+        _ => throw new JsonException($"BlockRuleModes.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

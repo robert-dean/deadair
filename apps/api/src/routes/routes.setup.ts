@@ -39,6 +39,7 @@ import { OAuthProtocolRouter } from './oauth.protocol.router.js';
 import { OauthRouter } from './oauth.router.js';
 import { McpRouter } from '../mcp/mcp.router.js';
 import { MessagingRouter } from './messaging.router.js';
+import { EventsRouter } from './events.router.js';
 import { RequestsRouter } from './requests.router.js';
 import { RequestsPartyRouter } from './requests.party.router.js';
 import { UsersRouter } from './users.router.js';
@@ -96,6 +97,7 @@ export const routers = [
     StorageRouter,
     OnboardingRouter,
     MessagingRouter,
+    EventsRouter,
     RequestsRouter,
     RequestsPartyRouter,
     UsersRouter,

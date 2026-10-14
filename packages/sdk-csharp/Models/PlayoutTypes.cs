@@ -149,9 +149,15 @@ public sealed record StreamConfigWarning
 /// Which gate is keeping the station quiet, or `airing` when none of them is. Ordered by cause: a
 /// stalled transport loop makes every reading under it stale, so it is ruled out first
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<SilenceCause>))]
+[JsonConverter(typeof(SilenceCauseConverter))]
 public enum SilenceCause
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("airing")]
     Airing,
 
@@ -190,13 +196,79 @@ public enum SilenceCause
 }
 
 /// <summary>
+/// Reads and writes <see cref="SilenceCause"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="SilenceCause.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class SilenceCauseConverter : JsonConverter<SilenceCause>
+{
+    public override SilenceCause Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for SilenceCause, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, SilenceCause value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override SilenceCause ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, SilenceCause value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static SilenceCause FromWire(string? text) => text switch
+    {
+        "airing" => SilenceCause.Airing,
+        "transportStalled" => SilenceCause.TransportStalled,
+        "controlDenied" => SilenceCause.ControlDenied,
+        "streamUnreachable" => SilenceCause.StreamUnreachable,
+        "configNotAdopted" => SilenceCause.ConfigNotAdopted,
+        "stoodDown" => SilenceCause.StoodDown,
+        "noProgramme" => SilenceCause.NoProgramme,
+        "noAudience" => SilenceCause.NoAudience,
+        "warmingUp" => SilenceCause.WarmingUp,
+        "waitingOnAudio" => SilenceCause.WaitingOnAudio,
+        "notDriving" => SilenceCause.NotDriving,
+        "starved" => SilenceCause.Starved,
+        _ => SilenceCause.Unknown,
+    };
+
+    private static string ToWire(SilenceCause value) => value switch
+    {
+        SilenceCause.Airing => "airing",
+        SilenceCause.TransportStalled => "transportStalled",
+        SilenceCause.ControlDenied => "controlDenied",
+        SilenceCause.StreamUnreachable => "streamUnreachable",
+        SilenceCause.ConfigNotAdopted => "configNotAdopted",
+        SilenceCause.StoodDown => "stoodDown",
+        SilenceCause.NoProgramme => "noProgramme",
+        SilenceCause.NoAudience => "noAudience",
+        SilenceCause.WarmingUp => "warmingUp",
+        SilenceCause.WaitingOnAudio => "waitingOnAudio",
+        SilenceCause.NotDriving => "notDriving",
+        SilenceCause.Starved => "starved",
+        _ => throw new JsonException($"SilenceCause.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+/// <summary>
 /// How one gate is doing. `waiting` is its own state rather than a mild fault, because a station
 /// idling for want of a listener and a station that cannot reach its stream are both silent and only
 /// one of them is something to go and fix
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<SilenceState>))]
+[JsonConverter(typeof(SilenceStateConverter))]
 public enum SilenceState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("ok")]
     Ok,
 
@@ -205,6 +277,48 @@ public enum SilenceState
 
     [JsonStringEnumMemberName("fault")]
     Fault,
+}
+
+/// <summary>
+/// Reads and writes <see cref="SilenceState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="SilenceState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class SilenceStateConverter : JsonConverter<SilenceState>
+{
+    public override SilenceState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for SilenceState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, SilenceState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override SilenceState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, SilenceState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static SilenceState FromWire(string? text) => text switch
+    {
+        "ok" => SilenceState.Ok,
+        "waiting" => SilenceState.Waiting,
+        "fault" => SilenceState.Fault,
+        _ => SilenceState.Unknown,
+    };
+
+    private static string ToWire(SilenceState value) => value switch
+    {
+        SilenceState.Ok => "ok",
+        SilenceState.Waiting => "waiting",
+        SilenceState.Fault => "fault",
+        _ => throw new JsonException($"SilenceState.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>One mount the station is publishing right now</summary>
@@ -350,9 +464,15 @@ public sealed record PlayoutStatus
 }
 
 /// <summary>Which way round to play it. Absent is `countdown`, which opens on the lowest rank and ends on number one</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PlayoutChartInputChartOrder>))]
+[JsonConverter(typeof(PlayoutChartInputChartOrderConverter))]
 public enum PlayoutChartInputChartOrder
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("countdown")]
     Countdown,
 
@@ -363,10 +483,58 @@ public enum PlayoutChartInputChartOrder
     Unordered,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PlayoutChartInputChartOrder"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PlayoutChartInputChartOrder.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PlayoutChartInputChartOrderConverter : JsonConverter<PlayoutChartInputChartOrder>
+{
+    public override PlayoutChartInputChartOrder Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PlayoutChartInputChartOrder, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PlayoutChartInputChartOrder value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PlayoutChartInputChartOrder ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PlayoutChartInputChartOrder value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PlayoutChartInputChartOrder FromWire(string? text) => text switch
+    {
+        "countdown" => PlayoutChartInputChartOrder.Countdown,
+        "ranked" => PlayoutChartInputChartOrder.Ranked,
+        "unordered" => PlayoutChartInputChartOrder.Unordered,
+        _ => PlayoutChartInputChartOrder.Unknown,
+    };
+
+    private static string ToWire(PlayoutChartInputChartOrder value) => value switch
+    {
+        PlayoutChartInputChartOrder.Countdown => "countdown",
+        PlayoutChartInputChartOrder.Ranked => "ranked",
+        PlayoutChartInputChartOrder.Unordered => "unordered",
+        _ => throw new JsonException($"PlayoutChartInputChartOrder.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>Which one is behind</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<StreamConfigWarningContainer>))]
+[JsonConverter(typeof(StreamConfigWarningContainerConverter))]
 public enum StreamConfigWarningContainer
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("icecast")]
     Icecast,
 
@@ -374,9 +542,55 @@ public enum StreamConfigWarningContainer
     Liquidsoap,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PlayoutMountFormat>))]
+/// <summary>
+/// Reads and writes <see cref="StreamConfigWarningContainer"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="StreamConfigWarningContainer.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class StreamConfigWarningContainerConverter : JsonConverter<StreamConfigWarningContainer>
+{
+    public override StreamConfigWarningContainer Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for StreamConfigWarningContainer, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, StreamConfigWarningContainer value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override StreamConfigWarningContainer ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, StreamConfigWarningContainer value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static StreamConfigWarningContainer FromWire(string? text) => text switch
+    {
+        "icecast" => StreamConfigWarningContainer.Icecast,
+        "liquidsoap" => StreamConfigWarningContainer.Liquidsoap,
+        _ => StreamConfigWarningContainer.Unknown,
+    };
+
+    private static string ToWire(StreamConfigWarningContainer value) => value switch
+    {
+        StreamConfigWarningContainer.Icecast => "icecast",
+        StreamConfigWarningContainer.Liquidsoap => "liquidsoap",
+        _ => throw new JsonException($"StreamConfigWarningContainer.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PlayoutMountFormatConverter))]
 public enum PlayoutMountFormat
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("mp3")]
     Mp3,
 
@@ -390,13 +604,103 @@ public enum PlayoutMountFormat
     Flac,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PlayoutMountFormat"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PlayoutMountFormat.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PlayoutMountFormatConverter : JsonConverter<PlayoutMountFormat>
+{
+    public override PlayoutMountFormat Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PlayoutMountFormat, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PlayoutMountFormat value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PlayoutMountFormat ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PlayoutMountFormat value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PlayoutMountFormat FromWire(string? text) => text switch
+    {
+        "mp3" => PlayoutMountFormat.Mp3,
+        "opus" => PlayoutMountFormat.Opus,
+        "aac" => PlayoutMountFormat.Aac,
+        "flac" => PlayoutMountFormat.Flac,
+        _ => PlayoutMountFormat.Unknown,
+    };
+
+    private static string ToWire(PlayoutMountFormat value) => value switch
+    {
+        PlayoutMountFormat.Mp3 => "mp3",
+        PlayoutMountFormat.Opus => "opus",
+        PlayoutMountFormat.Aac => "aac",
+        PlayoutMountFormat.Flac => "flac",
+        _ => throw new JsonException($"PlayoutMountFormat.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>`starved`: the queue stopped producing while deadair was driving, so the mount fell through to the local bed. `recovered`: it is producing again</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PlayoutStarveQueryState>))]
+[JsonConverter(typeof(PlayoutStarveQueryStateConverter))]
 public enum PlayoutStarveQueryState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("starved")]
     Starved,
 
     [JsonStringEnumMemberName("recovered")]
     Recovered,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PlayoutStarveQueryState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PlayoutStarveQueryState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PlayoutStarveQueryStateConverter : JsonConverter<PlayoutStarveQueryState>
+{
+    public override PlayoutStarveQueryState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PlayoutStarveQueryState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PlayoutStarveQueryState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PlayoutStarveQueryState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PlayoutStarveQueryState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PlayoutStarveQueryState FromWire(string? text) => text switch
+    {
+        "starved" => PlayoutStarveQueryState.Starved,
+        "recovered" => PlayoutStarveQueryState.Recovered,
+        _ => PlayoutStarveQueryState.Unknown,
+    };
+
+    private static string ToWire(PlayoutStarveQueryState value) => value switch
+    {
+        PlayoutStarveQueryState.Starved => "starved",
+        PlayoutStarveQueryState.Recovered => "recovered",
+        _ => throw new JsonException($"PlayoutStarveQueryState.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

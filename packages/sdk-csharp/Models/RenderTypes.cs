@@ -141,9 +141,15 @@ public sealed record Voice
 }
 
 /// <summary>Whether there are words, and if not, which way it went wrong</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ScriptOutcome>))]
+[JsonConverter(typeof(ScriptOutcomeConverter))]
 public enum ScriptOutcome
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("written")]
     Written,
 
@@ -152,6 +158,48 @@ public enum ScriptOutcome
 
     [JsonStringEnumMemberName("failed")]
     Failed,
+}
+
+/// <summary>
+/// Reads and writes <see cref="ScriptOutcome"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ScriptOutcome.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ScriptOutcomeConverter : JsonConverter<ScriptOutcome>
+{
+    public override ScriptOutcome Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ScriptOutcome, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ScriptOutcome value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ScriptOutcome ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ScriptOutcome value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ScriptOutcome FromWire(string? text) => text switch
+    {
+        "written" => ScriptOutcome.Written,
+        "declined" => ScriptOutcome.Declined,
+        "failed" => ScriptOutcome.Failed,
+        _ => ScriptOutcome.Unknown,
+    };
+
+    private static string ToWire(ScriptOutcome value) => value switch
+    {
+        ScriptOutcome.Written => "written",
+        ScriptOutcome.Declined => "declined",
+        ScriptOutcome.Failed => "failed",
+        _ => throw new JsonException($"ScriptOutcome.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>A record a writer was told about, kept as it was told</summary>
@@ -206,9 +254,15 @@ public sealed record ScriptPromptMessage
 /// operator does, and it has to be distinguishable from never having listened, which is the field
 /// being absent on the attempt.
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ScriptRating>))]
+[JsonConverter(typeof(ScriptRatingConverter))]
 public enum ScriptRating
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("liked")]
     Liked,
 
@@ -217,6 +271,48 @@ public enum ScriptRating
 
     [JsonStringEnumMemberName("disliked")]
     Disliked,
+}
+
+/// <summary>
+/// Reads and writes <see cref="ScriptRating"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ScriptRating.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ScriptRatingConverter : JsonConverter<ScriptRating>
+{
+    public override ScriptRating Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ScriptRating, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ScriptRating value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ScriptRating ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ScriptRating value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ScriptRating FromWire(string? text) => text switch
+    {
+        "liked" => ScriptRating.Liked,
+        "neutral" => ScriptRating.Neutral,
+        "disliked" => ScriptRating.Disliked,
+        _ => ScriptRating.Unknown,
+    };
+
+    private static string ToWire(ScriptRating value) => value switch
+    {
+        ScriptRating.Liked => "liked",
+        ScriptRating.Neutral => "neutral",
+        ScriptRating.Disliked => "disliked",
+        _ => throw new JsonException($"ScriptRating.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>Words to hear before anything has aired them</summary>
@@ -362,9 +458,15 @@ public sealed record PronunciationQuery
 /// Where in a break a sound may fall. `start` is before the first word, `end` after the last, and
 /// `middle` anywhere between two words
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PadPlacement>))]
+[JsonConverter(typeof(PadPlacementConverter))]
 public enum PadPlacement
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("start")]
     Start,
 
@@ -373,6 +475,48 @@ public enum PadPlacement
 
     [JsonStringEnumMemberName("end")]
     End,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PadPlacement"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PadPlacement.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PadPlacementConverter : JsonConverter<PadPlacement>
+{
+    public override PadPlacement Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PadPlacement, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PadPlacement value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PadPlacement ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PadPlacement value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PadPlacement FromWire(string? text) => text switch
+    {
+        "start" => PadPlacement.Start,
+        "middle" => PadPlacement.Middle,
+        "end" => PadPlacement.End,
+        _ => PadPlacement.Unknown,
+    };
+
+    private static string ToWire(PadPlacement value) => value switch
+    {
+        PadPlacement.Start => "start",
+        PadPlacement.Middle => "middle",
+        PadPlacement.End => "end",
+        _ => throw new JsonException($"PadPlacement.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>
@@ -535,14 +679,60 @@ public sealed record PadScanResult
 }
 
 /// <summary>Which copy of a segment's audio. `original` is what the station airs. `share` is a small copy made for a listener to send on, AAC in an .m4a, never aired</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<SegmentAudioRendition>))]
+[JsonConverter(typeof(SegmentAudioRenditionConverter))]
 public enum SegmentAudioRendition
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("original")]
     Original,
 
     [JsonStringEnumMemberName("share")]
     Share,
+}
+
+/// <summary>
+/// Reads and writes <see cref="SegmentAudioRendition"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="SegmentAudioRendition.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class SegmentAudioRenditionConverter : JsonConverter<SegmentAudioRendition>
+{
+    public override SegmentAudioRendition Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for SegmentAudioRendition, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, SegmentAudioRendition value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override SegmentAudioRendition ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, SegmentAudioRendition value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static SegmentAudioRendition FromWire(string? text) => text switch
+    {
+        "original" => SegmentAudioRendition.Original,
+        "share" => SegmentAudioRendition.Share,
+        _ => SegmentAudioRendition.Unknown,
+    };
+
+    private static string ToWire(SegmentAudioRendition value) => value switch
+    {
+        SegmentAudioRendition.Original => "original",
+        SegmentAudioRendition.Share => "share",
+        _ => throw new JsonException($"SegmentAudioRendition.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>Everything the station can play that is not a record</summary>
@@ -990,9 +1180,15 @@ public sealed record PadListInput
 }
 
 /// <summary>One state per stage of making it. Only `ready` can go on air; the station skips anything else rather than waiting for it</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<SegmentState>))]
+[JsonConverter(typeof(SegmentStateConverter))]
 public enum SegmentState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("planned")]
     Planned,
 
@@ -1012,10 +1208,64 @@ public enum SegmentState
     Failed,
 }
 
+/// <summary>
+/// Reads and writes <see cref="SegmentState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="SegmentState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class SegmentStateConverter : JsonConverter<SegmentState>
+{
+    public override SegmentState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for SegmentState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, SegmentState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override SegmentState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, SegmentState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static SegmentState FromWire(string? text) => text switch
+    {
+        "planned" => SegmentState.Planned,
+        "writing" => SegmentState.Writing,
+        "written" => SegmentState.Written,
+        "rendering" => SegmentState.Rendering,
+        "ready" => SegmentState.Ready,
+        "failed" => SegmentState.Failed,
+        _ => SegmentState.Unknown,
+    };
+
+    private static string ToWire(SegmentState value) => value switch
+    {
+        SegmentState.Planned => "planned",
+        SegmentState.Writing => "writing",
+        SegmentState.Written => "written",
+        SegmentState.Rendering => "rendering",
+        SegmentState.Ready => "ready",
+        SegmentState.Failed => "failed",
+        _ => throw new JsonException($"SegmentState.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>`active` is said. `suggested` is proposed and says nothing yet. `rejected` outlives the pass that proposed it, or the same article proposes it again forever</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PronunciationState>))]
+[JsonConverter(typeof(PronunciationStateConverter))]
 public enum PronunciationState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("active")]
     Active,
 
@@ -1026,10 +1276,58 @@ public enum PronunciationState
     Rejected,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PronunciationState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PronunciationState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PronunciationStateConverter : JsonConverter<PronunciationState>
+{
+    public override PronunciationState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PronunciationState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PronunciationState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PronunciationState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PronunciationState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PronunciationState FromWire(string? text) => text switch
+    {
+        "active" => PronunciationState.Active,
+        "suggested" => PronunciationState.Suggested,
+        "rejected" => PronunciationState.Rejected,
+        _ => PronunciationState.Unknown,
+    };
+
+    private static string ToWire(PronunciationState value) => value switch
+    {
+        PronunciationState.Active => "active",
+        PronunciationState.Suggested => "suggested",
+        PronunciationState.Rejected => "rejected",
+        _ => throw new JsonException($"PronunciationState.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>Who says so. `gloss` is a pronunciation key an encyclopaedia article printed for itself</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PronunciationOrigin>))]
+[JsonConverter(typeof(PronunciationOriginConverter))]
 public enum PronunciationOrigin
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("operator")]
     Operator,
 
@@ -1037,10 +1335,56 @@ public enum PronunciationOrigin
     Gloss,
 }
 
+/// <summary>
+/// Reads and writes <see cref="PronunciationOrigin"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PronunciationOrigin.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PronunciationOriginConverter : JsonConverter<PronunciationOrigin>
+{
+    public override PronunciationOrigin Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PronunciationOrigin, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PronunciationOrigin value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PronunciationOrigin ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PronunciationOrigin value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PronunciationOrigin FromWire(string? text) => text switch
+    {
+        "operator" => PronunciationOrigin.Operator,
+        "gloss" => PronunciationOrigin.Gloss,
+        _ => PronunciationOrigin.Unknown,
+    };
+
+    private static string ToWire(PronunciationOrigin value) => value switch
+    {
+        PronunciationOrigin.Operator => "operator",
+        PronunciationOrigin.Gloss => "gloss",
+        _ => throw new JsonException($"PronunciationOrigin.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
 /// <summary>What the article was about</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PronunciationSubjectKind>))]
+[JsonConverter(typeof(PronunciationSubjectKindConverter))]
 public enum PronunciationSubjectKind
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("track")]
     Track,
 
@@ -1051,9 +1395,57 @@ public enum PronunciationSubjectKind
     Artist,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PronunciationStateWriteState>))]
+/// <summary>
+/// Reads and writes <see cref="PronunciationSubjectKind"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PronunciationSubjectKind.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PronunciationSubjectKindConverter : JsonConverter<PronunciationSubjectKind>
+{
+    public override PronunciationSubjectKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PronunciationSubjectKind, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PronunciationSubjectKind value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PronunciationSubjectKind ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PronunciationSubjectKind value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PronunciationSubjectKind FromWire(string? text) => text switch
+    {
+        "track" => PronunciationSubjectKind.Track,
+        "album" => PronunciationSubjectKind.Album,
+        "artist" => PronunciationSubjectKind.Artist,
+        _ => PronunciationSubjectKind.Unknown,
+    };
+
+    private static string ToWire(PronunciationSubjectKind value) => value switch
+    {
+        PronunciationSubjectKind.Track => "track",
+        PronunciationSubjectKind.Album => "album",
+        PronunciationSubjectKind.Artist => "artist",
+        _ => throw new JsonException($"PronunciationSubjectKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PronunciationStateWriteStateConverter))]
 public enum PronunciationStateWriteState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("active")]
     Active,
 
@@ -1062,12 +1454,60 @@ public enum PronunciationStateWriteState
 
     [JsonStringEnumMemberName("rejected")]
     Rejected,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PronunciationStateWriteState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PronunciationStateWriteState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PronunciationStateWriteStateConverter : JsonConverter<PronunciationStateWriteState>
+{
+    public override PronunciationStateWriteState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PronunciationStateWriteState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PronunciationStateWriteState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PronunciationStateWriteState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PronunciationStateWriteState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PronunciationStateWriteState FromWire(string? text) => text switch
+    {
+        "active" => PronunciationStateWriteState.Active,
+        "suggested" => PronunciationStateWriteState.Suggested,
+        "rejected" => PronunciationStateWriteState.Rejected,
+        _ => PronunciationStateWriteState.Unknown,
+    };
+
+    private static string ToWire(PronunciationStateWriteState value) => value switch
+    {
+        PronunciationStateWriteState.Active => "active",
+        PronunciationStateWriteState.Suggested => "suggested",
+        PronunciationStateWriteState.Rejected => "rejected",
+        _ => throw new JsonException($"PronunciationStateWriteState.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>Absent is all of it</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<PronunciationQueryState>))]
+[JsonConverter(typeof(PronunciationQueryStateConverter))]
 public enum PronunciationQueryState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("active")]
     Active,
 
@@ -1078,9 +1518,57 @@ public enum PronunciationQueryState
     Rejected,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PadState2>))]
+/// <summary>
+/// Reads and writes <see cref="PronunciationQueryState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PronunciationQueryState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PronunciationQueryStateConverter : JsonConverter<PronunciationQueryState>
+{
+    public override PronunciationQueryState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PronunciationQueryState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PronunciationQueryState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PronunciationQueryState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PronunciationQueryState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PronunciationQueryState FromWire(string? text) => text switch
+    {
+        "active" => PronunciationQueryState.Active,
+        "suggested" => PronunciationQueryState.Suggested,
+        "rejected" => PronunciationQueryState.Rejected,
+        _ => PronunciationQueryState.Unknown,
+    };
+
+    private static string ToWire(PronunciationQueryState value) => value switch
+    {
+        PronunciationQueryState.Active => "active",
+        PronunciationQueryState.Suggested => "suggested",
+        PronunciationQueryState.Rejected => "rejected",
+        _ => throw new JsonException($"PronunciationQueryState.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PadState2Converter))]
 public enum PadState2
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("active")]
     Active,
 
@@ -1088,12 +1576,98 @@ public enum PadState2
     Rejected,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PadStateState>))]
+/// <summary>
+/// Reads and writes <see cref="PadState2"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PadState2.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PadState2Converter : JsonConverter<PadState2>
+{
+    public override PadState2 Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PadState2, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PadState2 value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PadState2 ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PadState2 value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PadState2 FromWire(string? text) => text switch
+    {
+        "active" => PadState2.Active,
+        "rejected" => PadState2.Rejected,
+        _ => PadState2.Unknown,
+    };
+
+    private static string ToWire(PadState2 value) => value switch
+    {
+        PadState2.Active => "active",
+        PadState2.Rejected => "rejected",
+        _ => throw new JsonException($"PadState2.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PadStateStateConverter))]
 public enum PadStateState
 {
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
     [JsonStringEnumMemberName("active")]
     Active,
 
     [JsonStringEnumMemberName("rejected")]
     Rejected,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PadStateState"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PadStateState.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PadStateStateConverter : JsonConverter<PadStateState>
+{
+    public override PadStateState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PadStateState, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PadStateState value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PadStateState ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PadStateState value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PadStateState FromWire(string? text) => text switch
+    {
+        "active" => PadStateState.Active,
+        "rejected" => PadStateState.Rejected,
+        _ => PadStateState.Unknown,
+    };
+
+    private static string ToWire(PadStateState value) => value switch
+    {
+        PadStateState.Active => "active",
+        PadStateState.Rejected => "rejected",
+        _ => throw new JsonException($"PadStateState.{value} has no wire spelling, so it cannot be sent."),
+    };
 }

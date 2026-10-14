@@ -46,6 +46,8 @@ Each of these adds one thing to a station that is already on air, and none depen
   from the Desk.
 - [Put the station on a chat platform](./chat-platforms.md): a bot on Telegram, Discord or Slack that
   says what is playing, takes requests, and lets you run the station from a chat.
+- [Light up an On Air sign with Home Assistant](./home-assistant.md): the station telling your own servers
+  what goes on air, so a light can follow it, and Home Assistant driving the station back.
 
 ## More
 

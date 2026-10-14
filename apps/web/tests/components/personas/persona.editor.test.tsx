@@ -124,6 +124,87 @@ describe('PersonaEditor, who a caller rings', () => {
     });
 });
 
+// A character may do several things. The editor's share is ticking them, drawing each half of the
+// sheet for whoever does that job, and sending the set rather than the one kind it opened as.
+describe('PersonaEditor, what a character does', () => {
+    it('ticks what the character already does', async () => {
+        render(
+            <PersonaEditor
+                persona={{ ...believer, kinds: ['host', 'guest'] }}
+                kind="host"
+                opened
+                onClose={() => {}}
+                onSubmit={() => {}}
+                saving={false}
+            />,
+        );
+
+        expect(await screen.findByRole('checkbox', { name: 'Hosts' })).toBeChecked();
+        expect(screen.getByRole('checkbox', { name: 'Drops by' })).toBeChecked();
+        expect(screen.getByRole('checkbox', { name: 'Rings in' })).not.toBeChecked();
+    });
+
+    it('draws the ties for a host who also drops by, and offers every host but them', async () => {
+        const user = setupUser();
+        open(() => {});
+
+        await user.click(await screen.findByRole('checkbox', { name: 'Drops by' }));
+        await user.click(await screen.findByRole('combobox', { name: 'Drops by' }));
+
+        expect(await screen.findByRole('option', { name: 'Classic host' })).toBeInTheDocument();
+        expect(screen.queryByRole('option', { name: 'Conspiracy host' })).not.toBeInTheDocument();
+    });
+
+    it('saves the kinds in the order the station ranks them, with the ties', async () => {
+        const onSubmit = vi.fn();
+        const user = setupUser();
+        open(onSubmit);
+
+        await user.click(await screen.findByRole('checkbox', { name: 'Drops by' }));
+        await user.click(await screen.findByRole('combobox', { name: 'Drops by' }));
+        await user.click(await screen.findByRole('option', { name: 'Classic host' }));
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit.mock.calls[0]![0]).toMatchObject({ kinds: ['host', 'guest'], hosts: ['p-2'] });
+        expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('kind');
+    });
+
+    it('drops the phrasings once the character no longer presents', async () => {
+        const user = setupUser();
+        open(() => {});
+
+        expect(await screen.findByLabelText('Phrasings', { exact: false })).toBeInTheDocument();
+        await user.click(screen.getByRole('checkbox', { name: 'Hosts' }));
+        await user.click(screen.getByRole('checkbox', { name: 'Rings in' }));
+
+        expect(screen.queryByLabelText('Phrasings', { exact: false })).not.toBeInTheDocument();
+    });
+
+    it('will not save a character who does nothing', async () => {
+        const onSubmit = vi.fn();
+        const user = setupUser();
+        open(onSubmit);
+
+        await user.click(await screen.findByRole('checkbox', { name: 'Hosts' }));
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit).not.toHaveBeenCalled();
+        expect(await screen.findByText('Tick at least one thing this character does')).toBeInTheDocument();
+    });
+
+    it('closes the newsreader box while somebody else reads the news', async () => {
+        roster.push({ ...believer, id: 'n-1', key: 'newsreader', kind: 'newsreader', kinds: ['newsreader'], label: 'Walter' });
+        try {
+            open(() => {});
+
+            expect(await screen.findByRole('checkbox', { name: 'Reads the news' })).toBeDisabled();
+            expect(screen.getByText('Walter reads the news, and a station has one newsreader.')).toBeInTheDocument();
+        } finally {
+            roster.pop();
+        }
+    });
+});
+
 // A quirk is a row with a rung since quirks carried a cadence. What has to hold still is that the
 // rung survives the round trip: a save that dropped it would turn "yell for Sharon, rarely" back
 // into a rule sent on every break, with nothing on screen saying so.

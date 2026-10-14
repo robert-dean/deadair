@@ -1,10 +1,27 @@
 import type { Persona, PersonaInput } from '@deadair/sdk';
 
-/** What a character is for. Absent on the wire means `host`, which is what every row was before callers. */
+/** What a character may be cast as. Absent on the wire means `host`, which is what every row was before callers. */
 export type PersonaKind = NonNullable<PersonaInput['kind']>;
 
-/** What a persona is for, with the absent case resolved the one way the API resolves it (`DEFAULT_PERSONA_KIND`). */
-export const kindOf = (persona: Persona): PersonaKind => persona.kind ?? 'host';
+/** Every kind, in the order the API ranks them (`PERSONA_KINDS`): the first one a character has is its heading. */
+export const PERSONA_KINDS: readonly PersonaKind[] = ['host', 'caller', 'newsreader', 'guest'];
+
+/**
+ * What a persona may be cast as, with the absent cases resolved the one way the API resolves them:
+ * `kinds` if the row has them, else its one `kind`, else `host`. In the API's order, so the first is
+ * the heading it is listed under.
+ */
+export const kindsOf = (persona: Pick<Persona, 'kind' | 'kinds'>): PersonaKind[] => {
+    const held = new Set<PersonaKind>(persona.kinds ?? [persona.kind ?? 'host']);
+    const kinds = PERSONA_KINDS.filter(kind => held.has(kind));
+    return kinds.length > 0 ? kinds : ['host'];
+};
+
+/** The one kind a persona is listed under: the first of {@link kindsOf}, so anybody who presents is a host. */
+export const kindOf = (persona: Pick<Persona, 'kind' | 'kinds'>): PersonaKind => kindsOf(persona)[0] ?? 'host';
+
+/** Whether this character may be cast as `kind`. */
+export const hasKind = (persona: Pick<Persona, 'kind' | 'kinds'>, kind: PersonaKind): boolean => kindsOf(persona).includes(kind);
 
 /**
  * Whether this character can be put on air.
@@ -16,8 +33,8 @@ export const kindOf = (persona: Persona): PersonaKind => persona.kind ?? 'host';
  * any persona that existed, so a caller picked from that menu presented the show and the breaks were
  * written in a character whose whole premise is that it is phoning IN.
  *
- * It is a predicate rather than a copied `kind !== 'caller'` because that comparison was already
- * written twice and each new picker was a fourth chance to forget it. The contract's word is the
- * authority: a caller "is cast per programme, and can never be put on air".
+ * It is a predicate rather than a copied comparison because that comparison was already written twice
+ * and each new picker was a fourth chance to forget it. Presenting is the `host` kind, whatever else a
+ * character is: a host who also drops by somebody else's show still presents their own.
  */
-export const presents = (persona: Persona): boolean => kindOf(persona) === 'host';
+export const presents = (persona: Pick<Persona, 'kind' | 'kinds'>): boolean => hasKind(persona, 'host');

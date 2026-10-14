@@ -17,9 +17,11 @@ A block on the Programme timetable can name its own host, and can add more prese
 
 Each of those "in character" quirks has a setting for how often it applies. **Always** is a rule, sent on every break. **Often**, **Occasionally** and **Rarely** make it something the character does now and then: the station picks which talk breaks, about one in two, one in four or one in ten, never more than one such quirk in a break, and never in the news, a welcome or the weather. Leave "now and then" out of the words themselves. A rule that says "once in a while" goes out on every break, and a model with no memory of the last one reads it as "not this time", every time.
 
-A station can also have one **newsreader** ("New newsreader" on the roster, offered while there is none). Every news bulletin is then written in the newsreader's character and read in its voice, whoever is hosting; without one, the host reads the news as before. The newsreader never presents a show.
+A station can also have one **newsreader** ("New newsreader" on the roster, offered while there is none). Every news bulletin is then written in the newsreader's character and read in its voice, whoever is hosting; without one, the host reads the news as before. A newsreader presents a show only if it is a host as well.
 
-A **guest** is somebody who drops by the studio for a short chat with the host: a touring guitarist, a record-shop owner. Like a caller a guest never presents, has no phrasings, and can be tied to the hosts whose shows they visit. No guests ship; write your own. See [Phone-ins](./phone-ins.md#guests-in-the-studio).
+A **guest** is somebody who drops by the studio for a short chat with the host: a touring guitarist, a record-shop owner. Like a caller, a guest can be tied to the hosts whose shows they visit. No guests ship; write your own. See [Phone-ins](./phone-ins.md#guests-in-the-studio).
+
+One character can do several of these jobs. **What they do**, near the top of a character's editor, has a box for each: **Hosts**, **Rings in**, **Reads the news** and **Drops by**. Tick as many as you like, and it stays one character, with one sheet, one voice and one notebook. A host who also drops by can guest-host one show and visit another. A character who only rings in or drops by has no phrasings and no picture, because those belong to whoever presents. Nobody is cast into a phone-in or a visit on a show they are presenting that night, and only one character can read the news.
 
 A new character can start from a description, which a model turns into a sheet you edit before saving. The roster exports to a file and imports from one. Nine hosts and five callers ship, each with its own voice, and "Restore built-ins" puts back any that are missing.
 
@@ -175,4 +177,4 @@ That is safe to try because it can be undone. Every time a character carries one
 
 ## In the console
 
-Voice, Characters is the roster, grouped into hosts, the newsreader, callers and guests. "New host" adds a host; "New caller or guest…" holds New caller, New guest and, while there is none, New newsreader. Each card's menu opens its Notebook, Stories and Memory; callers and guests are covered in [Phone-ins](./phone-ins.md). Voice, Voices says which voice reads which character, and Voice, What it said can be narrowed to one character.
+Voice, Characters is the roster, grouped into hosts, the newsreader, callers and guests. A character who does several jobs is listed once, under the first of those, with a badge for each of the others. "New host" adds a host; "New caller or guest…" holds New caller, New guest and, while there is none, New newsreader. Each card's menu opens its Notebook, Stories and Memory; callers and guests are covered in [Phone-ins](./phone-ins.md). Voice, Voices says which voice reads which character, and Voice, What it said can be narrowed to one character.

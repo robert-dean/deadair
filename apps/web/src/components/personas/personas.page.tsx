@@ -30,7 +30,7 @@ import { severityColor, toneColor } from '../shared/status';
 import { usePhone } from '../shared/use.phone';
 import { PersonaDeleteModal } from './persona.delete.modal';
 import { PersonaEditor } from './persona.editor';
-import { kindOf, type PersonaKind } from './persona.kind';
+import { hasKind, kindOf, kindsOf, presents, type PersonaKind } from './persona.kind';
 import { PersonaImportModal } from './persona.import';
 import { PersonaNotesPanel } from './persona.notes';
 import { PersonaStoriesPanel } from './persona.stories';
@@ -200,7 +200,7 @@ export function PersonasPage() {
                                 </Menu.Item>
                                 {/* Only while the station has none: it reads the news in one voice,
                                     and the database refuses a second. */}
-                                {all.some(persona => kindOf(persona) === 'newsreader') ? undefined : (
+                                {all.some(persona => hasKind(persona, 'newsreader')) ? undefined : (
                                     <Menu.Item
                                         onClick={() => {
                                             setWriting('newsreader');
@@ -234,7 +234,7 @@ export function PersonasPage() {
 
             {/* What an unnamed host is called. Above the roster rather than on the station card,
                 because every host below with a name of its own overrides it. */}
-            <PresenterNamePanel hosts={all.filter(persona => kindOf(persona) === 'host')} />
+            <PresenterNamePanel hosts={all.filter(presents)} />
 
             {/* How long a story in parts or a running joke rests between tellings. Beside the name
                 for the same reason: it is about every character below, not about one of them. */}
@@ -326,6 +326,16 @@ export function PersonasPage() {
                                                 {persona.djName}
                                             </Badge>
                                         ) : undefined}
+                                        {/* Listed once, under the first kind it has, and badged with
+                                        the rest: a host who also drops by somebody else's show is
+                                        one character, not a host card and a guest card. */}
+                                        {kindsOf(persona)
+                                            .slice(1)
+                                            .map(kind => (
+                                                <Badge key={kind} variant="outline" color="gray">
+                                                    {t(`card.alsoKind.${kind}`)}
+                                                </Badge>
+                                            ))}
                                     </Group>
                                     {/* Unconstrained free text: without a clamp, a long style sentence
                                     sets the card's own height, and on a phone a wrapped action row
@@ -397,7 +407,7 @@ export function PersonasPage() {
                                     somebody who phones in cannot present the station, and the API
                                     and the database both say so. A button that always fails is a
                                     question the page should not have asked. */}
-                                    {persona.defaultHost || kindOf(persona) !== 'host' ? undefined : (
+                                    {persona.defaultHost || !presents(persona) ? undefined : (
                                         <Button
                                             variant="light"
                                             size="compact-sm"
@@ -609,10 +619,13 @@ function RingsIn({ persona, roster }: { persona: Persona; roster: readonly Perso
         return host === undefined ? [] : [host.label];
     });
     if (names.length === 0) return undefined;
+    // One list of ties narrows both jobs, so it is worded for the one they do: somebody who only
+    // drops by does not ring in.
+    const line = hasKind(persona, 'caller') ? t('card.ringsIn', { names: names.join(', ') }) : t('card.dropsBy', { names: names.join(', ') });
 
     return (
         <Text size="xs" c="dimmed">
-            {t('card.ringsIn', { names: names.join(', ') })}
+            {line}
         </Text>
     );
 }
@@ -712,10 +725,10 @@ function matching(personas: Persona[], filter: string): Persona[] {
 function summarise(persona: Persona, t: TFunction<'personas'>): string | undefined {
     const parts: string[] = [];
 
-    // A caller (or a guest) is deliberately not asked about phrasings: they are the station's floor under a
-    // break, and a caller writes no breaks. Saying one has none would report the design as a gap.
+    // Only somebody who presents is asked about phrasings: they are the station's floor under a break,
+    // and a caller or a guest writes no breaks. Saying one has none would report the design as a gap.
     const phrasings = (persona.templates ?? '').split('\n').filter(line => line.trim().length > 0).length;
-    if (phrasings === 0 && kindOf(persona) !== 'caller' && kindOf(persona) !== 'guest') {
+    if (phrasings === 0 && presents(persona)) {
         parts.push(t('card.summary.noPhrasings'));
     }
 

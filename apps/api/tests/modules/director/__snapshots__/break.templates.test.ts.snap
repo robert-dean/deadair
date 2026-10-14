@@ -1099,10 +1099,10 @@ exports[`the shipped pools, word for word > renders the news pool exactly as it 
         "opening": "Here's the news",
         "saysNext": true,
         "saysPrevious": false,
-        "script": "Here's the news on The Far Frequency, with Sam. A bridge reopened. Now, Hangar 18.",
-        "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+        "script": "Here's the news on The Far Frequency, with Sam. A bridge reopened. Now, Megadeth with Hangar 18.",
+        "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.artist}} with {{next.title}}.]]",
       },
-      "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+      "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.artist}} with {{next.title}}.]]",
     },
     {
       "rendered": {
@@ -1163,9 +1163,9 @@ exports[`the shipped pools, word for word > renders the news pool exactly as it 
         "saysNext": false,
         "saysPrevious": false,
         "script": "Here's the news on The Far Frequency, with Sam. A bridge reopened.",
-        "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+        "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.artist}} with {{next.title}}.]]",
       },
-      "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+      "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.artist}} with {{next.title}}.]]",
     },
     {
       "rendered": {
@@ -1225,10 +1225,10 @@ exports[`the shipped pools, word for word > renders the news pool exactly as it 
         "opening": "Here's the news",
         "saysNext": true,
         "saysPrevious": false,
-        "script": "Here's the news on The Far Frequency, with Sam. A bridge reopened. Now, Hangar 18.",
-        "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+        "script": "Here's the news on The Far Frequency, with Sam. A bridge reopened. Now, Megadeth with Hangar 18.",
+        "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.artist}} with {{next.title}}.]]",
       },
-      "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+      "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.artist}} with {{next.title}}.]]",
     },
     {
       "rendered": {
@@ -1289,9 +1289,9 @@ exports[`the shipped pools, word for word > renders the news pool exactly as it 
         "saysNext": false,
         "saysPrevious": false,
         "script": "Here's the news on The Far Frequency, with Sam. A bridge reopened.",
-        "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+        "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.artist}} with {{next.title}}.]]",
       },
-      "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+      "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.artist}} with {{next.title}}.]]",
     },
     {
       "rendered": {
@@ -1351,10 +1351,10 @@ exports[`the shipped pools, word for word > renders the news pool exactly as it 
         "opening": "Here's the news",
         "saysNext": true,
         "saysPrevious": false,
-        "script": "Here's the news on The Far Frequency. A bridge reopened. Now, Hangar 18.",
-        "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+        "script": "Here's the news on The Far Frequency. A bridge reopened. Now, Megadeth with Hangar 18.",
+        "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.artist}} with {{next.title}}.]]",
       },
-      "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+      "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.artist}} with {{next.title}}.]]",
     },
     {
       "rendered": {
@@ -1396,10 +1396,10 @@ exports[`the shipped pools, word for word > renders the news pool exactly as it 
         "opening": "Here's the news",
         "saysNext": true,
         "saysPrevious": false,
-        "script": "Here's the news on Deadair (Deluxe Edition), with Sam. A bridge reopened. Now, Paranoid.",
-        "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+        "script": "Here's the news on Deadair (Deluxe Edition), with Sam. A bridge reopened. Now, Black Sabbath with Paranoid.",
+        "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.artist}} with {{next.title}}.]]",
       },
-      "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+      "template": "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.artist}} with {{next.title}}.]]",
     },
     {
       "rendered": {

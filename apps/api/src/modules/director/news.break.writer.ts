@@ -90,7 +90,7 @@ export const NEWS_KEYS = {
  */
 export const NEWS_TEMPLATES: readonly string[] = [
     'Now the news[[ with {{dj.name}}]]. {{news.headlines}}[[ Next up, {{next.artist}} with {{next.title}}.]]',
-    "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
+    "Here's the news[[ on {{station.name}}]][[, with {{dj.name}}]]. {{news.headlines}}[[ Now, {{next.artist}} with {{next.title}}.]]",
     "[[{{greeting}}. ]][[I'm {{dj.name}}. ]]Time for the headlines. {{news.headlines}}[[ Then, {{next.artist}}.]]",
     "It's {{clock.rough}}, and this is the news[[ on {{station.name}}]][[ with {{dj.name}}]]. {{news.headlines}}",
     // The two that say what this bulletin is ABOUT, which is what makes a categorised band sound
@@ -222,12 +222,111 @@ export class NewsBreakWriter extends BreakWriter {
  * `BulletinSource` did that once for both writers. See {@link BreakStory.headline}.
  */
 export function headlinesOf(stories: readonly BreakStory[]): string | undefined {
-    const read = stories
-        .map(story => [story.headline.trim(), openingSentence(story)].filter(part => part.length > 0).join(' '))
+    const read = withoutTeaserOnly(stories)
+        .map(story => [sentenceCased(story.headline.trim(), story), openingSentence(story)].filter(part => part.length > 0).join(' '))
         .filter(part => part.length > 0)
         .join(' ');
 
-    return read.length === 0 ? undefined : read;
+    return read.length === 0 ? undefined : withoutDoubledWords(read);
+}
+
+/**
+ * The stories that have an article behind them, when any do.
+ *
+ * A story with no body has only its teaser to read, and a teaser is copy written to make somebody
+ * click: aired on 2026-10-14 as "Character.ai Bankruptcy Is First AI Bubble Domino to Fall. New
+ * music genre just dropped." Between real reporting it is the one item a listener learns nothing
+ * from. It is kept when EVERY story is like that, because a feed the station cannot read articles
+ * from is still a bulletin, and passing over the slot is worse than reading teasers.
+ */
+function withoutTeaserOnly(stories: readonly BreakStory[]): readonly BreakStory[] {
+    const reported = stories.filter(story => (story.body ?? '').trim().length > 0);
+    return reported.length > 0 ? reported : stories;
+}
+
+/**
+ * Small words that are never right twice in a row.
+ *
+ * A closed list rather than any repeated word, because "had had" and "that that" are English and a
+ * floor that "fixes" them is wrong in a confident voice. These are the ones a publisher's typo
+ * produces ("amidst an an ongoing pay dispute", aired 2026-10-14) and a sentence never needs.
+ */
+const NEVER_DOUBLED = ['a', 'an', 'the', 'to', 'of', 'in', 'on', 'at', 'for', 'and', 'or', 'with', 'by', 'from'];
+
+const DOUBLED_WORD = new RegExp(`\\b(${NEVER_DOUBLED.join('|')})(\\s+\\1)+\\b`, 'giu');
+
+/** The read with a publisher's doubled small words said once. */
+function withoutDoubledWords(text: string): string {
+    return text.replace(DOUBLED_WORD, '$1');
+}
+
+/** A run of letters, with the apostrophes a contraction or possessive carries. */
+const WORD = /\p{L}[\p{L}'’]*/gu;
+
+/** A word written as a capital and then lower case, the shape Title Case gives every word. */
+const CAPITALISED = /^\p{Lu}[\p{Ll}'’]*$/u;
+
+/**
+ * How many long words a headline needs, all capitalised, before it is taken for Title Case.
+ *
+ * Long words only, because house styles that title-case still leave "to", "and" and "of" alone, and
+ * the longer prepositions in {@link STYLE_DEPENDENT} are left out for the same reason. Three of them,
+ * because a short headline can be nothing but names and still be written as a sentence.
+ */
+const TITLE_CASE_MIN_WORDS = 3;
+
+/** Words one house style capitalises in a title and another does not, so neither answer means anything. */
+const STYLE_DEPENDENT = new Set(['with', 'from', 'into', 'onto', 'upon', 'over', 'than', 'that', 'this']);
+
+/**
+ * A Title Case headline in the case a sentence is written in, and anything else as it came.
+ *
+ * Some publishers capitalise every word ("These Women Were Trying to Escape Domestic Abuse"), which
+ * reads as shouting between headlines that do not. A word keeps its capital when it starts a
+ * sentence, when it is not plain capital-then-lower-case (AI, ICE, OpenAI, iPhone), or when the
+ * story's own text writes it capitalised mid-sentence, which is how "Ukraine" survives and
+ * "Domestic" does not. A proper noun the story never names again is lowered, and the speech engine
+ * says it the same either way.
+ */
+export function sentenceCased(headline: string, story: Pick<BreakStory, 'body' | 'summary'> = {}): string {
+    const named = namedIn(`${story.summary ?? ''} ${story.body ?? ''}`);
+    // A name the story vouches for says nothing about the house style, so it is not counted: "Ray
+    // Brown at 100 with Christian McBride and John Clayton" is a sentence that happens to be names.
+    const long = [...headline.matchAll(WORD)]
+        .slice(1)
+        .map(([word]) => word)
+        .filter(word => word.replace(/['’]/g, '').length >= 4 && !STYLE_DEPENDENT.has(word.toLowerCase()) && !named.has(word))
+        // A brand's own casing (iPhone, eBay) is the same in every house style.
+        .filter(word => !/^\p{Ll}.*\p{Lu}/u.test(word));
+    if (long.length < TITLE_CASE_MIN_WORDS || !long.every(word => /^\p{Lu}/u.test(word))) return headline;
+
+    return headline.replace(WORD, (word, offset: number) => {
+        if (!CAPITALISED.test(word) || word === 'I' || named.has(word)) return word;
+        if (startsSentence(headline, offset)) return word;
+        return word.toLowerCase();
+    });
+}
+
+/**
+ * The words a text writes as names: capitalised mid-sentence, or capitalised only ever at the start
+ * of one and never written in lower case (a teaser that opens "Christian McBride and…").
+ */
+function namedIn(text: string): Set<string> {
+    const named = new Set<string>();
+    const opening = new Set<string>();
+    const lower = new Set<string>();
+    for (const [word] of text.matchAll(WORD)) if (/^\p{Ll}/u.test(word)) lower.add(word);
+    for (const match of text.matchAll(WORD)) {
+        if (!CAPITALISED.test(match[0])) continue;
+        (startsSentence(text, match.index) ? opening : named).add(match[0]);
+    }
+    for (const word of opening) if (!lower.has(word.toLowerCase())) named.add(word);
+    return named;
+}
+
+/** Whether the word at `offset` opens a sentence (or the clause after a colon). */
+function startsSentence(text: string, offset: number): boolean {
+    return /(^|[.!?:]\s+)["'‘“(]?$/u.test(text.slice(0, offset));
 }
 
 /**

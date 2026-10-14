@@ -7,7 +7,14 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 
 import type { BreakStory, BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
-import { NEWS_KEYS, NEWS_KIND, NEWS_TEMPLATES, NewsBreakWriter } from '../../../src/modules/director/news.break.writer.js';
+import {
+    headlinesOf,
+    NEWS_KEYS,
+    NEWS_KIND,
+    NEWS_TEMPLATES,
+    NewsBreakWriter,
+    sentenceCased,
+} from '../../../src/modules/director/news.break.writer.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -112,6 +119,36 @@ describe('reading the headlines', () => {
 
         expect(written?.script).toContain('Inquiry continues.');
         expect(written?.script).not.toContain('heard evidence');
+    });
+
+    // Aired 2026-10-14 between two reported stories: "Character.ai Bankruptcy Is First AI Bubble
+    // Domino to Fall. New music genre just dropped." A teaser is written to be clicked, not heard.
+    it('leaves out a story with only a teaser to read when other stories have an article', () => {
+        const read = headlinesOf([
+            { headline: 'Strike across Ireland.', body: 'Public sector workers walked out over pay.' },
+            { headline: 'Launcher refreshed.', summary: 'New music genre just dropped.' },
+            { headline: 'Bare headline.' },
+        ]);
+
+        expect(read).toBe('Strike across Ireland. Public sector workers walked out over pay.');
+    });
+
+    it('still reads teasers when no story has an article, rather than passing over the slot', () => {
+        expect(headlinesOf([{ headline: 'Launcher refreshed.', summary: 'Epic has a new launcher.' }, story('Bare headline.')])).toBe(
+            'Launcher refreshed. Epic has a new launcher. Bare headline.',
+        );
+    });
+
+    it("says a publisher's doubled small word once, and leaves real English alone", () => {
+        const read = headlinesOf([
+            { headline: 'Strike across Ireland.', body: 'It comes amidst an an ongoing pay dispute. The workers had had enough.' },
+            { headline: 'The the bridge reopens.', body: 'It was closed for for four years, and that that is that.' },
+        ]);
+
+        expect(read).toContain('amidst an ongoing pay dispute.');
+        expect(read).toContain('The bridge reopens.');
+        expect(read).toContain('closed for four years');
+        expect(read).toContain('that that is that');
     });
 
     it('declines when there is nothing to report, rather than announcing a bulletin with no news in it', async () => {
@@ -232,5 +269,40 @@ describe('the phrasings an operator owns', () => {
         const written = await new NewsBreakWriter(one, logger).write(request({ recent: ['Now the news. Something happened.'] }));
 
         expect(written?.script.startsWith('Time for the headlines.')).toBe(true);
+    });
+});
+
+describe('Title Case headlines', () => {
+    it('writes a Title Case headline as a sentence, keeping acronyms and odd capitals', () => {
+        expect(sentenceCased('Character.ai Bankruptcy Is First AI Bubble Domino to Fall.')).toBe(
+            'Character.ai bankruptcy is first AI bubble domino to fall.',
+        );
+        expect(sentenceCased('These Women Were Trying to Escape Domestic Abuse. ICE Detained Them Instead.')).toBe(
+            'These women were trying to escape domestic abuse. ICE detained them instead.',
+        );
+        expect(sentenceCased('OpenAI Says Its New iPhone App Is Coming Soon.')).toBe('OpenAI says its new iPhone app is coming soon.');
+    });
+
+    it("keeps the capital on a name the story's own text capitalises mid-sentence", () => {
+        const story = { body: 'Officials in New Mexico and the city of El Paso approved the plans in 2024.' };
+        expect(sentenceCased('New Mexico and El Paso Spent Millions on Climate Plans.', story)).toBe(
+            'New Mexico and El Paso spent millions on climate plans.',
+        );
+    });
+
+    it('leaves a headline already written as a sentence exactly as it came', () => {
+        for (const headline of ["Burnham says he wants to 'repair bridges' between Ukraine and US.", 'Pope Leo Visits Kenya.']) {
+            expect(sentenceCased(headline)).toBe(headline);
+        }
+    });
+
+    it('does not take a headline full of names the story vouches for as Title Case', () => {
+        const headline = 'Two Bass Hit: Ray Brown at 100 with Christian McBride and John Clayton.';
+        const story = { summary: 'Christian McBride and John Clayton celebrate the centennial of their mentor, the legendary bassist Ray Brown.' };
+        expect(sentenceCased(headline, story)).toBe(headline);
+    });
+
+    it('is applied to what the bulletin reads', () => {
+        expect(headlinesOf([story('Netflix Shares Tumble After Earnings Miss.')])).toBe('Netflix shares tumble after earnings miss.');
     });
 });

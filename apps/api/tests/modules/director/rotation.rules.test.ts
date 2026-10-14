@@ -19,6 +19,7 @@ import {
     filterByHistory,
     FRESH_FLOOR,
     holdArtistCooldown,
+    letRepeatsBackIn,
     MIX_IN_EVERY_RANGE,
     NO_RULES,
     stationAutoExtends,
@@ -747,5 +748,51 @@ describe('applyRulesHoldingQueue', () => {
     it('is exactly applyRules with nothing queued', () => {
         expect(applyRulesHoldingQueue(offered, DEFAULT_RULES, none, undefined, 3)).toEqual(applyRules(offered, DEFAULT_RULES, none));
         expect(applyRulesHoldingQueue(offered, DEFAULT_RULES, none, new Set(), 3)).toEqual(applyRules(offered, DEFAULT_RULES, none));
+    });
+});
+
+describe('letRepeatsBackIn', () => {
+    const at = (hoursAgo: number) => ({ toMillis: () => Date.now() - hoursAgo * 3_600_000 });
+    const offered = [candidate('A', ['One']), candidate('B', ['Two']), candidate('C', ['Three'])];
+    const window = new Map([
+        [songKey('A', ['One']), at(2)],
+        [songKey('B', ['Two']), at(48)],
+        [songKey('C', ['Three']), at(24)],
+    ]);
+    const recent = { songKeys: new Set(window.keys()), artistKeys: new Set<string>() };
+    const held = (rules = DEFAULT_RULES) => applyRulesHoldingQueue(offered, rules, recent, undefined, 2);
+
+    it('lets the longest off air back in, and no more than it needs', () => {
+        const kept = letRepeatsBackIn(offered, held(), DEFAULT_RULES, recent, undefined, 2, window);
+
+        expect(kept.map(c => c.songKey)).toEqual([songKey('B', ['Two']), songKey('C', ['Three'])]);
+    });
+
+    it('changes nothing when the batch is already full', () => {
+        const fresh = [candidate('D', ['Four']), ...offered];
+        const kept = applyRulesHoldingQueue(fresh, DEFAULT_RULES, recent, undefined, 1);
+
+        expect(letRepeatsBackIn(fresh, kept, DEFAULT_RULES, recent, undefined, 1, window)).toEqual(kept);
+    });
+
+    it('never lets back a record another rule refuses', () => {
+        const disliked = [candidate('B', ['Two'], -1), candidate('A', ['One'])];
+        const cooled = { ...recent, artistKeys: new Set([artistKey(['One'])]) };
+
+        expect(letRepeatsBackIn(disliked, [], DEFAULT_RULES, cooled, undefined, 2, window)).toEqual([]);
+    });
+
+    it('never lets back a song the window did not refuse', () => {
+        const holding = { ...recent, songKeys: new Set([...recent.songKeys, songKey('D', ['Four'])]) };
+
+        expect(letRepeatsBackIn([candidate('D', ['Four'])], [], DEFAULT_RULES, holding, undefined, 1, window)).toEqual([]);
+    });
+
+    it('counts the per-artist cap across what was held and what it lets back', () => {
+        const rules = { ...DEFAULT_RULES, maxPerArtist: 1 };
+        const same = [candidate('E', ['Two']), candidate('B', ['Two'])];
+        const kept = applyRulesHoldingQueue(same, rules, recent, undefined, 2);
+
+        expect(letRepeatsBackIn(same, kept, rules, recent, undefined, 2, window).map(c => c.songKey)).toEqual([songKey('E', ['Two'])]);
     });
 });

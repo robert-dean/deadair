@@ -8,10 +8,19 @@ import { StationIdentity } from '#modules/shared/station.identity.js';
 import { advisoryPolicy, demandsClean, type AdvisoryPolicy } from './advisory.policy.js';
 import { AdvisoryWatch } from './advisory.watch.js';
 import { EraWatch } from './era.watch.js';
+import { RepeatWatch } from './repeat.watch.js';
 import { CandidatesRepository, bindsAnything, sampleSize, type CandidateTrack, type EraWindow } from './candidates.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { albumKey, artistKey, creditKey, songKey } from './rotation.keys.js';
-import { applyRulesHoldingQueue, spaceArtists, weightOf, type RotationCandidate } from './rotation.rules.js';
+import {
+    applyRulesHoldingQueue,
+    letRepeatsBackIn,
+    spaceArtists,
+    weightOf,
+    type RecentlyAired,
+    type ResolvedRules,
+    type RotationCandidate,
+} from './rotation.rules.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { freshnessOf, historyDaysFor, resolveSmartShuffle } from './smart.shuffle.js';
 import { resolveSkipLean, skipDaysFor } from './skip.lean.js';
@@ -90,6 +99,8 @@ export class CatalogSetGenerator extends SetGenerator {
         private readonly neverPlay: NeverPlay,
         /** What the operator cut short with Skip, for the skip lean. */
         private readonly skips: TrackSkipsRepository,
+        /** Says when the repeat window had to give way to fill a batch. */
+        private readonly repeatWatch: RepeatWatch,
     ) {
         super();
     }
@@ -222,7 +233,12 @@ export class CatalogSetGenerator extends SetGenerator {
         //
         // Artists queued inside the cooldown are held here too, and let back in rather than leaving
         // the draw short: this is the floor, and on a small library holding them could empty it.
-        const eligible = applyRulesHoldingQueue(scored, rules, recent, inputs.queuedArtistKeys, count);
+        //
+        // And when that still leaves the draw short, the repeat window gives way too, longest off air
+        // first: a narrow period whose every record aired inside the window would otherwise empty the
+        // floor. The window's ages are read only then, so an ordinary refill pays nothing for it.
+        const held = applyRulesHoldingQueue(scored, rules, recent, inputs.queuedArtistKeys, count);
+        const eligible = await this.givingWayToRepeats(scored, held, rules, recent, inputs.queuedArtistKeys, count, songKeys, inputs.avoidSongKeys);
 
         return spaceArtists(drawWeighted(eligible, count)).map(candidate => ({
             title: candidate.track.title,
@@ -230,6 +246,39 @@ export class CatalogSetGenerator extends SetGenerator {
             trackId: candidate.track.trackId,
             ...(candidate.deepCut === true ? { deepCut: true as const } : {}),
         }));
+    }
+
+    /**
+     * `held`, with the repeat window giving way when it leaves the draw short. See `letRepeatsBackIn`.
+     *
+     * `holding` is what the running order already holds, which is never let back in. The window's
+     * ages are read only when a draw is short and the window holds anything, so an
+     * ordinary refill pays no round trip for them. A failed read costs the give-way and never the
+     * batch: the answer is then the one this binding gave before it could give way at all.
+     */
+    private async givingWayToRepeats<T extends RotationCandidate>(
+        candidates: readonly T[],
+        held: readonly T[],
+        rules: ResolvedRules,
+        recent: RecentlyAired,
+        queued: ReadonlySet<string> | undefined,
+        want: number,
+        window: ReadonlySet<string>,
+        holding: ReadonlySet<string> | undefined,
+    ): Promise<T[]> {
+        if (held.length >= want || window.size === 0) {
+            this.repeatWatch.clear();
+            return [...held];
+        }
+
+        const ages = await this.history.lastAiredSince(rules.repeatWindowDays, this.identity.stationKey).catch(() => new Map<string, DateTime>());
+        // A song the running order already holds is in `recent` for that reason, not for the window,
+        // and giving way must never queue it twice.
+        const aired = holding === undefined ? ages : new Map([...ages].filter(([key]) => !holding.has(key)));
+        const eligible = letRepeatsBackIn(candidates, held, rules, recent, queued, want, aired);
+        const letBack = eligible.length - held.length;
+        if (letBack > 0) this.repeatWatch.gaveWay(letBack, rules.repeatWindowDays);
+        return eligible;
     }
 
     /**

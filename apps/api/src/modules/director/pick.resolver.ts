@@ -17,6 +17,7 @@ import { artistKey, creditKey, songKey } from './rotation.keys.js';
 import { recordSpacingLength } from './air.estimate.js';
 import {
     applyRulesHoldingQueue,
+    letRepeatsBackIn,
     holdArtistCooldown,
     rejectDisliked,
     spaceArtists,
@@ -569,7 +570,25 @@ export class PickResolver {
 
         // The queued artists ride the same check as the aired ones and give way only when holding
         // them would leave the batch short. See `applyRulesHoldingQueue`.
-        const eligible = applyRulesHoldingQueue(inPeriod, rules, { songKeys, artistKeys }, queuedArtistKeys, want);
+        //
+        // The repeat window gives way after them, longest off air first, and only when the batch is
+        // still short. It has to be judged here as well as in the floor: a floor that let a repeat
+        // back in would otherwise hand this a pick it then drops. See `letRepeatsBackIn`. The ages
+        // are read only then, and a failed read costs the give-way and never the batch.
+        const recent = { songKeys, artistKeys };
+        const held = applyRulesHoldingQueue(inPeriod, rules, recent, queuedArtistKeys, want);
+        const eligible =
+            held.length >= want || songKeys.size === 0
+                ? held
+                : letRepeatsBackIn(
+                      inPeriod,
+                      held,
+                      rules,
+                      recent,
+                      queuedArtistKeys,
+                      want,
+                      await this.history.lastAiredSince(rules.repeatWindowDays, this.identity.stationKey).catch(() => new Map()),
+                  );
         if (eligible.length < inPeriod.length) {
             this.logger.debug('director: the rotation rules dropped some chosen tracks', {
                 offered: inPeriod.length,

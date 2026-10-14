@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 // A pick names a work; an item has to name a COPY, because that is what the
 // player is handed. Everything worth testing here is a way of failing to make
 // that step: a work no provider still serves, a name the catalog has never seen,
@@ -70,6 +71,8 @@ interface Options {
     ratings?: Record<string, number>;
     /** Song keys inside the repeat window, as `play_history` would answer them. */
     recentSongs?: string[];
+    /** When each recent song last aired, in hours ago, for the repeat window giving way. */
+    recentAges?: Record<string, number>;
     /** Artist keys inside the cooldown. */
     recentArtists?: string[];
     /**
@@ -142,6 +145,10 @@ function build(options: Options = {}) {
     const history = {
         songKeysSince: vi.fn(async (days: number) => new Set(days > 0 ? (options.recentSongs ?? []) : [])),
         artistKeysSince: vi.fn(async (minutes: number) => new Set(minutes > 0 ? (options.recentArtists ?? []) : [])),
+        lastAiredSince: vi.fn(
+            async (days: number) =>
+                new Map(days > 0 ? Object.entries(options.recentAges ?? {}).map(([key, hours]) => [key, DateTime.utc().minus({ hours })]) : []),
+        ),
     } as unknown as PlayHistoryRepository;
 
     const tracks = {
@@ -699,6 +706,22 @@ describe('PickResolver rules', () => {
                 { title: 'B', artist: 'Two', trackId: 'track-2' },
             ],
             rules({ repeatWindowDays: 3 }),
+        );
+
+        expect(resolved.map(track => track.trackId)).toEqual(['track-2']);
+    });
+
+    it('lets the longest off air back in when the window would leave the batch short', async () => {
+        // The floor gives way the same way, so a repeat it let back in has to survive here too.
+        const { resolver } = build({ ...twoTracks, recentSongs: ['one:a', 'two:b'], recentAges: { 'one:a': 2, 'two:b': 48 } });
+
+        const resolved = await resolver.resolve(
+            [
+                { title: 'A', artist: 'One', trackId: 'track-1' },
+                { title: 'B', artist: 'Two', trackId: 'track-2' },
+            ],
+            rules({ repeatWindowDays: 3 }),
+            { want: 1 },
         );
 
         expect(resolved.map(track => track.trackId)).toEqual(['track-2']);

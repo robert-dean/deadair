@@ -696,6 +696,73 @@ export const applyRulesHoldingQueue = <T extends RotationCandidate>(
 };
 
 /**
+ * Let records the repeat window refused back in, longest off air first, when the batch would
+ * otherwise come back short.
+ *
+ * The window is library-wide and a draw is not: a period, a policy or a small library narrows what
+ * may air while three days of airplay stays three days of airplay. Once every record a narrowed draw
+ * can reach has aired inside the window, each one is refused, the floor comes back empty and the
+ * running order runs down. That is the failure {@link applyRulesHoldingQueue} answers for a queued
+ * artist, and the answer here is the same one: a rule that gives way rather than starve the batch.
+ *
+ * **Only the window gives way.** A record is let back in only when the window alone refused it:
+ * re-judged by every other rule with its own aired songs taken out of `recent`, so a dislike, an
+ * artist inside the cooldown, the per-artist cap and anything else in `recent.songKeys` (a song the
+ * running order already holds, which a caller unions in) still refuse it. Longest off air first,
+ * because the choice is no longer between a fresh record and a repeat but between repeats, and the
+ * oldest is the one a listener is least likely to have just heard.
+ *
+ * It must be applied wherever the window is, which is the floor's draw and `PickResolver`: a floor
+ * that let a repeat back in would hand the resolver a pick the resolver then drops.
+ *
+ * @param held - What the rules kept, from {@link applyRulesHoldingQueue} over the same candidates.
+ * @param aired - When each song inside the window last aired: the window's own rows, and nothing
+ *   else. A song absent here is never let back in.
+ * @returns `held` when it already reaches `want`, otherwise `held` and the repeats admitted, in the
+ *   order the candidates were offered.
+ */
+export const letRepeatsBackIn = <T extends RotationCandidate>(
+    candidates: readonly T[],
+    held: readonly T[],
+    rules: ResolvedRules,
+    recent: RecentlyAired,
+    queued: ReadonlySet<string> | undefined,
+    want: number,
+    aired: ReadonlyMap<string, { toMillis(): number }>,
+): T[] => {
+    if (held.length >= want || aired.size === 0) return [...held];
+
+    const songKeys = new Set([...recent.songKeys].filter(key => !aired.has(key)));
+    const kept = new Set(held);
+    const reserve = applyRulesHoldingQueue(candidates, rules, { songKeys, artistKeys: recent.artistKeys }, queued, want)
+        .filter(candidate => !kept.has(candidate) && aired.has(candidate.songKey))
+        .sort((a, b) => (aired.get(a.songKey)?.toMillis() ?? 0) - (aired.get(b.songKey)?.toMillis() ?? 0));
+
+    // The per-artist cap counts what is already held, since the two halves were capped apart. The
+    // song set keeps two rows holding one work from both being let back in.
+    const perArtist = new Map<string, number>();
+    const songs = new Set<string>();
+    for (const candidate of held) {
+        perArtist.set(candidate.artistKey, (perArtist.get(candidate.artistKey) ?? 0) + 1);
+        songs.add(candidate.songKey);
+    }
+    const admitted = new Set<T>(held);
+    for (const candidate of reserve) {
+        if (admitted.size >= want) break;
+        const seen = perArtist.get(candidate.artistKey) ?? 0;
+        if ((rules.maxPerArtist > 0 && seen >= rules.maxPerArtist) || songs.has(candidate.songKey)) continue;
+        perArtist.set(candidate.artistKey, seen + 1);
+        songs.add(candidate.songKey);
+        admitted.add(candidate);
+    }
+
+    return capPerAlbum(
+        candidates.filter(candidate => admitted.has(candidate)),
+        rules.maxPerAlbum,
+    );
+};
+
+/**
  * Reorder so the same artist is never back to back.
  *
  * Cosmetic in a way the other rules are not: it changes nothing about WHICH

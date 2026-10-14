@@ -8,6 +8,11 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.13.1] — 2026-10-14
+
+- A schedule slot, and a broadcast put on air by hand, can name moods to steer away from with `avoidMoods`. A record a model judged to be in one is half as likely to be picked for the whole of the slot, and never kept off the air for it: the judgement is right about half the time, so refusing a record outright stays a never-play rule's job. The console's slot editor sets them under **Steers away from**, and the desktop app keeps a slot's avoided moods when it saves the slot.
+- A value a newer station sends that this version of the app does not know, such as a new kind of activity or a new reason the station is quiet, no longer stops a screen from loading. The app shows it as unknown, or leaves it out where nothing sensible can be said, and carries on.
+
 ## [0.13.0] — 2026-10-12
 
 - A production can be handed sources to read: pasted text, each with a title. Given sources and no notes, the station reads them before writing anything and keeps as notes only the claims whose words it can find in them, so a podcast made from an article states nothing as fact that the article does not say. One whose sources give nothing usable fails with the reason rather than being written from general knowledge. Productions have a new state, `researching`, while their sources are being read; the console and the desktop app call it "reading its sources", and it can be stopped like any other stage. The console's production form has a Sources section. In the API, `ProductionRequest` and `Production` carry an optional `sources` list, and a source with no text is refused.
@@ -135,7 +140,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.1...HEAD
+[0.13.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.13.0...desktop-v0.13.1
 [0.13.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.12.0...desktop-v0.13.0
 [0.12.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.11.0...desktop-v0.12.0
 [0.11.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.10.0...desktop-v0.11.0

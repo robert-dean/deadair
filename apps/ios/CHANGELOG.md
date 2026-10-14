@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.12.1] — 2026-10-14
+
+- A value a newer station sends that this version of the app does not know, such as a new kind of activity or a new reason the station is quiet, no longer stops a screen from loading. The app shows it as unknown, or leaves it out where nothing sensible can be said, and carries on.
+
 ## [0.12.0] — 2026-10-13
 
 - The request screen offers "Play it anyway" on a request the station turned down for its own taste, and pressing it asks for the record again past those rules.

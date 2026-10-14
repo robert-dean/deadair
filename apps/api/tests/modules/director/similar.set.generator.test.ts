@@ -39,6 +39,10 @@ interface Options {
     historyFails?: boolean;
     /** The acts the brief names, longest off air first. None unless a case says so. */
     named?: string[];
+    /** The artist keys aired inside the cooldown. None unless a case says so. */
+    aired?: string[];
+    /** A cooldown that cannot be read, for the case about degrading rather than failing. */
+    cooldownFails?: boolean;
 }
 
 function build(options: Options = {}) {
@@ -64,7 +68,11 @@ function build(options: Options = {}) {
         if (options.historyFails) throw new Error('the database went away');
         return days > 0 ? (options.lastAired ?? new Map<string, DateTime>()) : new Map<string, DateTime>();
     });
-    const history = { recentArtists, lastAiredSince } as unknown as PlayHistoryRepository;
+    const artistKeysSince = vi.fn(async (_minutes: number, _station: string) => {
+        if (options.cooldownFails) throw new Error('the database went away');
+        return new Set(options.aired ?? []);
+    });
+    const history = { recentArtists, lastAiredSince, artistKeysSince } as unknown as PlayHistoryRepository;
     const logger = stubLogger();
 
     const identity = new StationIdentity();
@@ -89,6 +97,7 @@ function build(options: Options = {}) {
         topTracks,
         recentArtists,
         lastAiredSince,
+        artistKeysSince,
         logger,
     };
 }
@@ -246,6 +255,35 @@ describe('seeding', () => {
         const avoidSongKeys = new Set([songKey('Overcome', ['Tricky'])]);
 
         expect(await generator.generate(inputs({ count: 4, avoidSongKeys }))).toEqual([]);
+    });
+
+    it('passes over a neighbour the cooldown holds, rather than fetching records the resolver drops', async () => {
+        const { generator, topTracks, artistKeysSince } = build({
+            similar: [{ name: 'Tricky' }, { name: 'Morcheeba' }],
+            aired: ['tricky'],
+        });
+
+        const picks = await generator.generate(inputs({ count: 10 }));
+
+        expect(artistKeysSince).toHaveBeenCalledWith(rules.artistCooldownMinutes, 'main');
+        expect(picks.map(pick => pick.artist)).toEqual(['Morcheeba']);
+        expect(topTracks).not.toHaveBeenCalledWith(expect.objectContaining({ name: 'Tricky' }), expect.any(Number));
+    });
+
+    it('passes over a neighbour already queued or in the lineup', async () => {
+        const { generator } = build({
+            similar: [{ name: 'Tricky' }, { name: 'Morcheeba' }, { name: 'Lamb' }],
+        });
+
+        const picks = await generator.generate(inputs({ count: 10, queuedArtistKeys: new Set(['tricky']), avoidArtistKeys: new Set(['morcheeba']) }));
+
+        expect(picks.map(pick => pick.artist)).toEqual(['Lamb']);
+    });
+
+    it('holds only the lineup when the cooldown cannot be read, rather than naming nothing', async () => {
+        const { generator } = build({ similar: [{ name: 'Tricky' }], cooldownFails: true });
+
+        expect(await generator.generate(inputs({ count: 10 }))).toHaveLength(1);
     });
 
     it('names records and never a catalog id, because it has not read the catalog', async () => {

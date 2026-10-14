@@ -10,11 +10,12 @@ import { DateTime } from 'luxon';
 
 import type { AdvisoryWatch } from '../../../src/modules/director/advisory.watch.js';
 import type { EraWatch } from '../../../src/modules/director/era.watch.js';
+import type { RepeatWatch } from '../../../src/modules/director/repeat.watch.js';
 import { ADVISORY_KEY } from '../../../src/modules/director/advisory.policy.js';
 import { CatalogSetGenerator } from '../../../src/modules/director/catalog.set.generator.js';
 import type { CandidatesRepository, CandidateTrack } from '../../../src/modules/director/candidates.repository.js';
 import { PLAY_HISTORY_RETENTION_DAYS, type PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
-import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
+import { artistKey, songKey, spacingKeys } from '../../../src/modules/director/rotation.keys.js';
 import { DEFAULT_RULES, resolveRules } from '../../../src/modules/director/rotation.rules.js';
 import { DEFAULT_SMART_SHUFFLE_DAYS, SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
 import { SKIP_LEAN_KEYS } from '../../../src/modules/director/skip.lean.js';
@@ -39,6 +40,8 @@ const candidate = (title: string, artist: string, rating = 0): CandidateTrack =>
 
 interface Options {
     sample?: CandidateTrack[];
+    /** The acts the library knows as acts of their own, as `knownActs` answers. */
+    knownActs?: string[];
     songKeys?: Set<string>;
     artistKeys?: Set<string>;
     /** Albums the operator likes, as `albumsWithLikes` answers. */
@@ -83,6 +86,7 @@ function drawFrom(library: readonly CandidateTrack[], tags: Record<string, strin
 
 function build(options: Options = {}) {
     const candidates = {
+        knownActs: vi.fn(async (acts: readonly string[]) => new Set(acts.filter(act => (options.knownActs ?? []).includes(act)))),
         sample: vi.fn(async (...args: unknown[]) => {
             if (args[4] !== undefined) return options.steer?.leaning ?? [];
             if (options.library === undefined) return options.sample ?? [];
@@ -127,6 +131,7 @@ function build(options: Options = {}) {
 
     const watch = { starved: vi.fn(), clear: vi.fn() } as unknown as AdvisoryWatch;
     const eraWatch = { starved: vi.fn(), clear: vi.fn() } as unknown as EraWatch;
+    const repeatWatch = { gaveWay: vi.fn(), clear: vi.fn() } as unknown as RepeatWatch;
     const labels = {
         moodsForTracks: vi.fn(async () => {
             if (options.moodsFail) throw new Error('the labels table is gone');
@@ -146,7 +151,9 @@ function build(options: Options = {}) {
             labels,
             new NeverPlay(rules, candidates, config),
             skips,
+            repeatWatch,
         ),
+        repeatWatch,
         skips,
         labels,
         candidates,
@@ -174,6 +181,61 @@ describe('CatalogSetGenerator', () => {
         const picks = await generator.generate({ count: 2, rules: rotation });
 
         expect(picks.map(pick => pick.title)).toEqual(['B']);
+    });
+
+    it('lets the longest off air back in when the window would otherwise empty a narrow draw', async () => {
+        // A period whose every record aired in the last three days: refused outright, this floor came
+        // back empty and the running order ran down.
+        const now = DateTime.utc();
+        const { generator, repeatWatch } = build({
+            sample: [candidate('A', 'One'), candidate('B', 'Two'), candidate('C', 'Three')],
+            songKeys: new Set([songKey('A', ['One']), songKey('B', ['Two']), songKey('C', ['Three'])]),
+            lastAired: new Map([
+                [songKey('A', ['One']), now.minus({ hours: 2 })],
+                [songKey('B', ['Two']), now.minus({ days: 2 })],
+                [songKey('C', ['Three']), now.minus({ days: 1 })],
+            ]),
+        });
+
+        const picks = await generator.generate({ count: 2, rules: rotation });
+
+        expect(picks.map(pick => pick.title).sort()).toEqual(['B', 'C']);
+        expect(repeatWatch.gaveWay).toHaveBeenCalledWith(2, rotation.repeatWindowDays);
+    });
+
+    it('never lets back a record the lineup already holds, whatever its age', async () => {
+        const now = DateTime.utc();
+        const held = songKey('A', ['One']);
+        const { generator } = build({
+            sample: [candidate('A', 'One')],
+            songKeys: new Set([held]),
+            lastAired: new Map([[held, now.minus({ days: 2 })]]),
+        });
+
+        expect(await generator.generate({ count: 1, rules: rotation, avoidSongKeys: new Set([held]) })).toEqual([]);
+    });
+
+    it('says nothing and reads no ages when the window leaves enough', async () => {
+        const { generator, history, repeatWatch } = build({
+            sample: [candidate('A', 'One'), candidate('B', 'Two')],
+            songKeys: new Set([songKey('A', ['One'])]),
+        });
+
+        await generator.generate({ count: 1, rules: rotation });
+
+        expect(history.lastAiredSince).not.toHaveBeenCalledWith(rotation.repeatWindowDays, 'main');
+        expect(repeatWatch.gaveWay).not.toHaveBeenCalled();
+        expect(repeatWatch.clear).toHaveBeenCalled();
+    });
+
+    it('holds a known act aired inside the cooldown against a credit naming it in another position', async () => {
+        const { generator } = build({
+            sample: [candidate('One', 'Mira Stone & Theo Park'), candidate('Two', 'Lamb')],
+            artistKeys: new Set(spacingKeys('Ada Vale & Mira Stone')),
+            knownActs: ['mira stone'],
+        });
+
+        expect((await generator.generate({ count: 2, rules: rotation })).map(pick => pick.artist)).toEqual(['Lamb']);
     });
 
     it('drops everything by an artist inside the cooldown', async () => {

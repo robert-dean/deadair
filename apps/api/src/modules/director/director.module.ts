@@ -40,6 +40,7 @@ import { NeverPlay } from './never.play.js';
 import { AdvisoryWatch } from './advisory.watch.js';
 import { BreakFloorWatch } from './break.floor.watch.js';
 import { EraWatch } from './era.watch.js';
+import { RepeatWatch } from './repeat.watch.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { ChartSetGenerator } from './chart.set.generator.js';
 import { ModelSetGenerator } from './model.set.generator.js';
@@ -114,6 +115,8 @@ export const DirectorModule: ServerKitModule = {
         // reported on, so an operator who narrows a decade after reading the first row is answered
         // again rather than suppressed. See `EraWatch`.
         registry.register(EraWatch).useClass(EraWatch).asSingleton();
+        // The repeat window giving way to fill a batch, for the same reason. See `RepeatWatch`.
+        registry.register(RepeatWatch).useClass(RepeatWatch).asSingleton();
         registry.register(CatalogSetGenerator).useClass(CatalogSetGenerator).asScoped();
         // How the model binding tells the job that a break took the model off it, which is the one
         // way a refill can come back thin that is worth asking again about. SCOPED, unlike the watch

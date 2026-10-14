@@ -5,13 +5,16 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    actsInJoinedCredits,
     artistActs,
     artistCreditsOverlap,
     artistKey,
     creditKey,
     isArtistHeld,
+    knownActsOf,
     sameAct,
     spacingKeys,
+    withKnownActs,
 } from '../../../src/modules/director/rotation.keys.js';
 
 describe('artistActs', () => {
@@ -115,5 +118,52 @@ describe('sameAct', () => {
         expect(sameAct(act('Cat Stevens'), act('Yusuf / Cat Stevens'))).toBe(true);
         expect(sameAct(act('Air'), act('Air Supply'))).toBe(false);
         expect(sameAct({ artistKey: artistKey(['Cat Stevens']) }, { artistKey: 'yusuf / cat stevens' })).toBe(true);
+    });
+});
+
+describe('a tail act the library knows', () => {
+    const known = new Set(['mira stone']);
+
+    it('asks only about the acts inside joined credits', () => {
+        expect(actsInJoinedCredits(['Ada Vale & Mira Stone', 'Portishead', 'yusuf / cat stevens'])).toEqual([
+            'ada vale',
+            'mira stone',
+            'yusuf',
+            'cat stevens',
+        ]);
+        expect(actsInJoinedCredits(['Portishead', 'Air Supply'])).toEqual([]);
+    });
+
+    it('names the known acts of a joined credit, and nothing for one naming a single act', () => {
+        expect(knownActsOf('Ada Vale & Mira Stone', known)).toEqual(['mira stone']);
+        expect(knownActsOf('Mira Stone', known)).toBeUndefined();
+        expect(knownActsOf('Sly & Robbie', known)).toBeUndefined();
+    });
+
+    it('holds the act against a credit that names it in another position', () => {
+        const held = withKnownActs(new Set(spacingKeys('Ada Vale & Mira Stone')), known);
+
+        expect(isArtistHeld(held, artistKey(['Mira Stone & Theo Park']), creditKey('Mira Stone & Theo Park'))).toBe(true);
+        expect(isArtistHeld(held, artistKey(['Juno Reyes & Mira Stone']), creditKey('Juno Reyes & Mira Stone'))).toBe(true);
+    });
+
+    it('holds nothing extra for an act the library does not know', () => {
+        const held = withKnownActs(new Set(spacingKeys('Ada Vale & Mira Stone')), new Set());
+
+        expect(isArtistHeld(held, artistKey(['Mira Stone & Theo Park']), creditKey('Mira Stone & Theo Park'))).toBe(false);
+    });
+
+    it('still keeps a shared first act apart when the library does not know it', () => {
+        const held = withKnownActs(new Set(spacingKeys('Sly & Robbie')), known);
+
+        expect(isArtistHeld(held, artistKey(['Sly & the Family Stone']), creditKey('Sly & the Family Stone'))).toBe(false);
+    });
+
+    it('makes two candidates naming the same known act one act', () => {
+        const a = { artistKey: artistKey(['A & Mira Stone']), creditKey: creditKey('A & Mira Stone'), acts: ['mira stone'] };
+        const b = { artistKey: artistKey(['Mira Stone & B']), creditKey: creditKey('Mira Stone & B'), acts: ['mira stone'] };
+
+        expect(sameAct(a, b)).toBe(true);
+        expect(sameAct({ ...a, acts: undefined }, { ...b, acts: undefined })).toBe(false);
     });
 });

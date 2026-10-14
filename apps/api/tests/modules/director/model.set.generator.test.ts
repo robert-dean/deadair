@@ -65,6 +65,8 @@ interface Options {
     lastAired?: Map<string, DateTime>;
     /** A history that cannot be read. */
     historyFails?: boolean;
+    /** The artist keys aired inside the cooldown. None unless a case says so. */
+    aired?: string[];
     /** The acts the brief names, longest off air first. */
     namedArtists?: BriefArtist[];
 }
@@ -142,7 +144,11 @@ function build(options: Options = {}) {
         if (options.historyFails) throw new Error('the database went away');
         return days > 0 ? (options.lastAired ?? new Map<string, DateTime>()) : new Map<string, DateTime>();
     });
-    const history = { lastAiredSince } as unknown as PlayHistoryRepository;
+    const artistKeysSince = vi.fn(async (minutes: number) => {
+        if (options.historyFails) throw new Error('the database went away');
+        return new Set(minutes > 0 ? (options.aired ?? []) : []);
+    });
+    const history = { lastAiredSince, artistKeysSince } as unknown as PlayHistoryRepository;
     const aired = new AiredRecords();
 
     // The brief names nobody unless a case says otherwise.
@@ -274,6 +280,28 @@ describe('ModelSetGenerator', () => {
         const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
         const user = request.messages.find(message => message.role === 'user')?.content ?? '';
         expect(user).toMatch(/"windowlicker" by aphex twin/);
+    });
+
+    it('names the artists the rules will refuse, so it does not spend picks on them', async () => {
+        const { generator, converse } = build({ enabled: true, aired: ['portishead'] });
+
+        await generator.generate(
+            inputs(5, { queuedArtistKeys: new Set(['tricky']), avoidArtistKeys: new Set(['yusuf cat stevens', 'yusuf / cat stevens', 'tricky']) }),
+        );
+
+        const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+        const user = request.messages.find(message => message.role === 'user')?.content ?? '';
+        expect(user).toContain('choose someone else unless nothing else fits: portishead; tricky; yusuf / cat stevens');
+    });
+
+    it('names nobody when nothing is held', async () => {
+        const { generator, converse } = build({ enabled: true });
+
+        await generator.generate(inputs(5));
+
+        const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+        const user = request.messages.find(message => message.role === 'user')?.content ?? '';
+        expect(user).not.toContain('choose someone else');
     });
 
     it("hands the model the brief's own acts, longest off air first, with how long ago each aired", async () => {

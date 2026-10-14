@@ -171,6 +171,7 @@ export class SimilarSetGenerator extends SetGenerator {
         });
         const now = DateTime.utc();
         const freshness = (song: string): number => freshnessOf(lastAired.get(song), now, smartShuffle.horizonDays);
+        const held = await this.heldArtists(inputs);
 
         const picks: TrackPick[] = [];
         // Absent unless the broadcast named one, and `bindsAnything` is what tells a window with no
@@ -181,7 +182,7 @@ export class SimilarSetGenerator extends SetGenerator {
         const era = bindsAnything(inputs.era) ? inputs.era : undefined;
         const walk: NeighbourWalk = {
             takenSongs: new Set(inputs.avoidSongKeys ?? []),
-            takenArtists: new Set<string>(),
+            takenArtists: held,
             ...(era === undefined ? {} : { era }),
             freshness,
         };
@@ -268,6 +269,28 @@ export class SimilarSetGenerator extends SetGenerator {
             this.logger.warn(`director: could not read what has been playing (${errorText(error)})`);
             return [];
         }
+    }
+
+    /**
+     * The artists the walk starts holding: aired inside the cooldown, queued near this batch, or
+     * already in the lineup's tail.
+     *
+     * The seeds ARE the artists just aired, so a neighbour of one is often another seed, and a walk
+     * that started holding nobody fetched that neighbour's top tracks only for `PickResolver` to drop
+     * every one: an upstream call per record, and a share of the batch handed to the floor without
+     * anybody saying why. Holding them here spends the calls on neighbours that can air. The resolver
+     * still judges whatever comes back, and a queued artist it would let back in rather than come
+     * back short costs only this binding's share, which the floor tops up.
+     */
+    private async heldArtists(inputs: SetInputs): Promise<Set<string>> {
+        const aired = await this.history
+            .artistKeysSince(inputs.rules.artistCooldownMinutes, this.identity.stationKey)
+            .catch((error: unknown): Set<string> => {
+                // A walk holding only the lineup is the one this was before, which is a fine answer.
+                this.logger.debug(`director: the similarity walk could not read the cooldown, so it holds only the lineup (${errorText(error)})`);
+                return new Set();
+            });
+        return new Set([...aired, ...(inputs.avoidArtistKeys ?? []), ...(inputs.queuedArtistKeys ?? [])]);
     }
 
     /**

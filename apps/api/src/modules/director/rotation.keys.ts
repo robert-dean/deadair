@@ -56,7 +56,7 @@ export const albumKey = (artists: readonly string[], album: string): string => `
  * {@link normalizeKey} never emits (it turns every slash into a space), so a credit key with this in
  * it is always a joined credit and a plain artist key never is.
  */
-const ACT_SEPARATOR = ' / ';
+export const ACT_SEPARATOR = ' / ';
 
 /** A run of characters that are not part of any word, in any script. */
 const NON_WORD_RUN = /[^\p{L}\p{N}\p{M}]+/gu;
@@ -169,6 +169,64 @@ export const isArtistHeld = (held: ReadonlySet<string>, key: string, credit: str
     return false;
 };
 
-/** Whether two candidates count as one act for spacing: the same key, or overlapping credits. */
-export const sameAct = (a: { artistKey: string; creditKey?: string }, b: { artistKey: string; creditKey?: string }): boolean =>
-    a.artistKey === b.artistKey || artistCreditsOverlap(a.creditKey ?? a.artistKey, b.creditKey ?? b.artistKey);
+/**
+ * Whether two candidates count as one act for spacing: the same key, overlapping credits, or a
+ * known act both credits name (see {@link knownActsOf}).
+ */
+export const sameAct = (
+    a: { artistKey: string; creditKey?: string; acts?: readonly string[] },
+    b: { artistKey: string; creditKey?: string; acts?: readonly string[] },
+): boolean =>
+    a.artistKey === b.artistKey ||
+    artistCreditsOverlap(a.creditKey ?? a.artistKey, b.creditKey ?? b.artistKey) ||
+    (a.acts !== undefined && b.acts !== undefined && a.acts.some(act => b.acts!.includes(act)));
+
+/**
+ * Every act inside the joined credits among `credits`: what to ask the library about before
+ * {@link withKnownActs} and {@link knownActsOf} can say which of them are acts in their own right.
+ * A credit naming one act contributes nothing, so a batch with no joined credit asks nothing.
+ *
+ * Takes raw credits, {@link creditKey}s or a spacing set's entries alike.
+ */
+export const actsInJoinedCredits = (credits: Iterable<string>): string[] => {
+    const acts = new Set<string>();
+    for (const credit of credits) {
+        const named = artistActs(credit);
+        if (named.length > 1) for (const act of named) acts.add(act);
+    }
+    return [...acts];
+};
+
+/**
+ * The acts of a joined credit that the library knows as acts of their own, or `undefined` for a
+ * credit naming one act or naming none the library knows.
+ *
+ * What lets "Ada Vale & Mira Stone" and "Mira Stone & Theo Park" count as one act for spacing,
+ * which {@link artistCreditsOverlap} cannot: neither credit is inside the other, and sharing an act
+ * is not containing one ("Sly & Robbie" and "Sly & the Family Stone"). What tells the two cases apart
+ * is the library: Mira Stone also leads credits alone, and "Sly" leads none. `known` is the set of
+ * `deadair.artists` keys among the acts asked about.
+ */
+export const knownActsOf = (credit: string, known: ReadonlySet<string>): string[] | undefined => {
+    if (known.size === 0) return undefined;
+    const named = artistActs(credit);
+    if (named.length < 2) return undefined;
+    const acts = named.filter(act => known.has(act));
+    return acts.length === 0 ? undefined : acts;
+};
+
+/**
+ * A spacing set with each known act inside its joined credits added as a key of its own.
+ *
+ * So an aired or queued "A & Mira Stone" holds `mira stone` outright, and {@link isArtistHeld}
+ * then finds it inside a candidate's "Mira Stone & Theo Park" by the overlap it already asks. An
+ * act the library does not know is never added, which is what keeps "Sly & Robbie" from holding
+ * "Sly & the Family Stone". The entries added are plain keys, so a caller asking `.has(key)` gets
+ * exactly the answer it always did for any candidate that is not that act.
+ */
+export const withKnownActs = (held: ReadonlySet<string>, known: ReadonlySet<string>): ReadonlySet<string> => {
+    if (known.size === 0 || held.size === 0) return held;
+    const added = new Set(held);
+    for (const entry of held) for (const act of knownActsOf(entry, known) ?? []) added.add(act);
+    return added.size === held.size ? held : added;
+};

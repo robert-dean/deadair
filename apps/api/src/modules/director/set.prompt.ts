@@ -152,6 +152,15 @@ export interface SetPromptRequest {
     /** Titles already in the running order, as `"Title" by Artist`, which must not be chosen again. */
     avoid: readonly string[];
     /**
+     * Artists the rotation rules will refuse right now: aired inside the cooldown, queued near this
+     * batch, or in the order's tail. Absent or empty says nothing.
+     *
+     * Told rather than left to be found out, because a pick by one of them is dropped by
+     * `PickResolver` whatever the prompt said, and every such pick is a place in the batch the model
+     * spent on nothing. The resolver stays the enforcement: this only saves the model the wasted picks.
+     */
+    heldArtists?: readonly string[];
+    /**
      * What the operator asked this broadcast to play, in their own words.
      *
      * In the USER turn rather than among the standing rules, because it is what this refill is for
@@ -575,7 +584,30 @@ function userPrompt(request: SetPromptRequest): string {
         }
     }
 
+    const held = heldArtistsLine(request.heldArtists);
+    if (held !== undefined) lines.push('', held);
+
     return lines.join('\n');
+}
+
+/**
+ * The artists the rules will refuse, as one line, or nothing.
+ *
+ * Capped like the avoid list and for its reason: context to check an answer against, not a list to
+ * work through. Artists rather than records, so it carries none of the {@link NEVER_ECHO} hazard:
+ * naming an act the model should pass over offers it no record to echo.
+ */
+function heldArtistsLine(held: readonly string[] | undefined): string | undefined {
+    const names = [...new Set(held ?? [])];
+    if (names.length === 0) return undefined;
+
+    const shown = names.slice(0, MAX_AVOID_SHOWN);
+    const rest = names.length - shown.length;
+    return (
+        'Artists just played or already queued, so choose someone else unless nothing else fits: ' +
+        shown.join('; ') +
+        (rest > 0 ? ` (and ${rest} more)` : '')
+    );
 }
 
 /**

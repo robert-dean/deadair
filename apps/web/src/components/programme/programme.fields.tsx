@@ -1,4 +1,4 @@
-import { Group, Input, NumberInput, Select, Stack, Text, Textarea, Checkbox } from '@mantine/core';
+import { Group, Input, MultiSelect, NumberInput, Select, Stack, Text, Textarea, Checkbox } from '@mantine/core';
 import type { GetInputPropsReturnType } from '@mantine/form';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -356,6 +356,43 @@ export function MoodStagesField({ value, onChange }: { value: readonly Mood[]; o
                 ))}
             </Stack>
         </Input.Wrapper>
+    );
+}
+
+/** How many moods a slot may steer away from: the API's own limit, all seven but one. */
+export const MAX_AVOIDED_MOODS = MOODS.length - 1;
+
+/**
+ * The moods it steers away from, for the whole slot, or none.
+ *
+ * {@link MoodStagesField}'s lean the other way up and held to the same standing: a record judged to be
+ * in one is half as likely, never refused, and the description says so and points at the never-play
+ * rules for a real refusal. A set rather than stages, so one multi-select. A mood the slot leans into
+ * is offered disabled, because choosing it here would cancel the lean out and say nothing.
+ */
+export function AvoidMoodsField({
+    value,
+    leaning,
+    onChange,
+}: {
+    value: readonly Mood[];
+    leaning: readonly Mood[];
+    onChange: (moods: Mood[]) => void;
+}) {
+    const { t } = useTranslation('programme');
+    const data = MOODS.map(mood => ({ value: mood, label: t(`mood.options.${mood}`), disabled: leaning.includes(mood) && !value.includes(mood) }));
+
+    return (
+        <MultiSelect
+            label={t('avoidMoods.label')}
+            description={t('avoidMoods.description')}
+            placeholder={value.length === 0 ? t('avoidMoods.none') : undefined}
+            data={data}
+            value={[...value]}
+            onChange={next => onChange(next as Mood[])}
+            maxValues={MAX_AVOIDED_MOODS}
+            clearable
+        />
     );
 }
 

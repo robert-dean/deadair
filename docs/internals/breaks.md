@@ -278,7 +278,9 @@ same read hands the records' lines to `BreakWriteRequest.lyricLines`, which noth
 freshness table calls `not-spoken`, and the talk writer passes them to `AnswerGuard.lyrics`.
 `quotedLyricIn` refuses a script sharing six words in a row with one (`runOf`, so a line shorter than
 that is never matched whole: a title is often a line of its own lyric, and naming the record is the
-job). It sits in `readAnswer` and `writeDecline` in the same place, after the factual checks, and the
+job). It reads the script with the record names taken out (`withoutRecordNames`), because a title of
+six words or more that is sung in its chorus, "Can't Get You out of My Head", was refused for being
+back-announced; a script that carries on past the title into the line still shares the rest of it. It sits in `readAnswer` and `writeDecline` in the same place, after the factual checks, and the
 `quoted-lyric` reason it stores never carries the words that matched, since `script_history.reason`
 would then be a second copy of the text. The subject and the guard are read together and fail
 together, so a break is never shown a subject it is not also guarded against quoting from.

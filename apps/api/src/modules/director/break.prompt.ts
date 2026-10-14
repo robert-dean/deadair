@@ -3199,12 +3199,15 @@ const inventedFigureIn = (script: string, guard: AnswerGuard): string | undefine
  * The lyric line a script quotes {@link SUBJECT_ECHO_WORDS} words of in a row, or `undefined`.
  *
  * `runOf`'s rule, so a line shorter than the run is never matched whole: a title is often a line of
- * the lyric, and naming the record is the job. Judged against the whole script rather than one with
- * the record names taken out, because a title long enough to be six words of the lyric is still the
- * lyric when it is read out as a sentence.
+ * the lyric, and naming the record is the job. Judged with the record names taken out
+ * ({@link withoutRecordNames}), because that rule only spares a title SHORTER than the run.
+ * `Can't Get You out of My Head` is seven words and sits inside its own chorus, so a break that
+ * back-announced it was refused for quoting a lyric when it had only said what the record was
+ * called. A script that carries on past the title into the line still shares the rest of it, so
+ * the quote this exists for is still caught.
  */
 const quotedLyricIn = (script: string, guard: AnswerGuard): string | undefined =>
-    guard.lyrics === undefined || guard.lyrics.length === 0 ? undefined : runOf(guard.lyrics, script, SUBJECT_ECHO_WORDS);
+    guard.lyrics === undefined || guard.lyrics.length === 0 ? undefined : runOf(guard.lyrics, withoutRecordNames(script, guard), SUBJECT_ECHO_WORDS);
 
 /**
  * The weather a break described when it was given no reading to describe, or `undefined`.

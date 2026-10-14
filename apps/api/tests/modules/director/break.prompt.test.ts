@@ -95,6 +95,24 @@ describe('what a record is about, and its words', () => {
     it('asks nothing when it was given no lyric', () => {
         expect(readAnswer('Saw it written and I saw it say, that was Nick Drake.', {})).toBeDefined();
     });
+
+    describe('a title longer than the run, sung inside its own chorus', () => {
+        const record = { title: 'Leave the Light On for Me Tonight', artist: 'The Harbour Lamps' };
+        const chorus = ['Oh, leave the light on for me tonight, my darling', 'The river keeps on running past the door'];
+
+        it('lets a script name it', () => {
+            const script = 'That was Leave the Light On for Me Tonight by The Harbour Lamps, and here is something slower.';
+
+            expect(readAnswer(script, { lyrics: chorus, names: [record] })).toBeDefined();
+            expect(writeDecline(script, { lyrics: chorus, names: [record] })).toBeUndefined();
+        });
+
+        it('still refuses a script that carries on into the lyric past the title', () => {
+            const script = 'Leave the Light On for Me Tonight, and the river keeps on running past the door. The Harbour Lamps.';
+
+            expect(writeDecline(script, { lyrics: chorus, names: [record] })?.fault).toBe('quoted-lyric');
+        });
+    });
 });
 
 describe('the intro of the record coming up', () => {

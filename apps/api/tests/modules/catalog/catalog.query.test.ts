@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { columnFor, hasWholeWords, likeContains, regexWholeWords } from '../../../src/modules/catalog/catalog.query.js';
+import { columnFor, hasWholeWords, likeContains, namesAsAnAct, regexWholeWords } from '../../../src/modules/catalog/catalog.query.js';
 
 describe('likeContains', () => {
     it('wraps an ordinary term so it matches anywhere in the value', () => {
@@ -62,6 +62,39 @@ describe('hasWholeWords', () => {
 });
 
 // Only `library.search.smoke.ts` runs the Postgres side; this pins the shape it is handed.
+describe('namesAsAnAct', () => {
+    const wayne = "Queen, Led Zeppelin, Heart, Guns N' Roses, Rival Sons, The Struts, Dirty Honey, The Darkness. Big riffs.";
+
+    it('finds the acts a brief lists', () => {
+        expect(namesAsAnAct(wayne, 'Queen')).toBe(true);
+        expect(namesAsAnAct(wayne, 'Heart')).toBe(true);
+        expect(namesAsAnAct(wayne, "Guns N' Roses")).toBe(true);
+        expect(namesAsAnAct(wayne, 'The Darkness')).toBe(true);
+        expect(namesAsAnAct(wayne, 'Dirty Honey')).toBe(true);
+    });
+
+    it('does not find an act that is only the end or the start of a longer name', () => {
+        expect(namesAsAnAct(wayne, 'Honey')).toBe(false);
+        expect(namesAsAnAct(wayne, 'Darkness')).toBe(false);
+        expect(namesAsAnAct(wayne, 'Roses')).toBe(false);
+        expect(namesAsAnAct(wayne, 'Sons')).toBe(false);
+        expect(namesAsAnAct(wayne, 'Led')).toBe(false);
+        expect(namesAsAnAct('Alison Krauss & Union Station', 'Union')).toBe(false);
+    });
+
+    it('finds an act when any one of its mentions stands alone', () => {
+        expect(namesAsAnAct('Heart Of Glass is not it, but Heart, Boston and Journey are', 'Heart')).toBe(true);
+        expect(namesAsAnAct('Alison Krauss & Union Station', 'Alison Krauss')).toBe(true);
+    });
+
+    it('stays case-sensitive and whole-word', () => {
+        expect(namesAsAnAct('Heavy metal, loud.', 'Loud')).toBe(false);
+        expect(namesAsAnAct('Classics: Dio.', 'Dio')).toBe(true);
+        expect(namesAsAnAct('Classics: Diopter.', 'Dio')).toBe(false);
+        expect(namesAsAnAct('anything', '  ')).toBe(false);
+    });
+});
+
 describe('regexWholeWords', () => {
     it('bounds the term by anything that is not a letter or digit, and escapes it', () => {
         expect(regexWholeWords('Dio')).toBe('(^|[^[:alnum:]])Dio([^[:alnum:]]|$)');

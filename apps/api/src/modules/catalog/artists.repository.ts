@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { ExpressionBuilder, sql } from 'kysely';
 import { DataRepository } from '../data/data.repository.js';
 import { DB } from '../data/db.js';
-import { CatalogListQuery, columnFor, directionFor, hasWholeWords, likeContains } from './catalog.query.js';
+import { CatalogListQuery, columnFor, directionFor, likeContains, namesAsAnAct } from './catalog.query.js';
 import { artistArtUrl } from './catalog.art.js';
 import { withStationCover } from '#modules/art/art.source.token.js';
 
@@ -64,7 +64,7 @@ export class ArtistsRepository extends DataRepository {
      * station can look up, and nothing else in the sentence has to be parsed to find them. The
      * database narrows by plain containment (`strpos`, which is case-sensitive, as this is) and the
      * whole-word test runs here, because the escaping a name would need inside a SQL regular
-     * expression is a second dialect of {@link hasWholeWords} for no gain: the narrowed set is a
+     * expression is a second dialect of {@link namesAsAnAct} for no gain: the narrowed set is a
      * handful of rows.
      *
      * **Case-sensitive on purpose.** A brief capitalises the acts it names and not its ordinary
@@ -72,6 +72,9 @@ export class ArtistsRepository extends DataRepository {
      * cannot tell apart is a name that IS a capitalised word in the brief: an act called "Death"
      * would be found in "Death and black: Obituary". That is one extra record from an artist the
      * operator wrote the word for, and every caller treats these as leads, never as rules.
+     *
+     * **A whole word inside a longer name is not this act.** "Honey" is a whole word of "Dirty Honey",
+     * and finding it put a Polish pop group into a rock show; see {@link namesAsAnAct}.
      *
      * Disliked artists and merged rows are left out. Single characters are too, since a brief's "A"
      * is never an act.
@@ -88,7 +91,7 @@ export class ArtistsRepository extends DataRepository {
             .where(sql<boolean>`strpos(${text}, deadair.artists.name) > 0`)
             .execute();
 
-        return rows.filter(row => hasWholeWords(text, row.name, { caseSensitive: true })).map(row => ({ name: row.name, artistKey: row.artistKey }));
+        return rows.filter(row => namesAsAnAct(text, row.name)).map(row => ({ name: row.name, artistKey: row.artistKey }));
     }
 
     async listArtists(query: CatalogListQuery) {

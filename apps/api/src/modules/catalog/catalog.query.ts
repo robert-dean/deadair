@@ -120,6 +120,41 @@ export function hasWholeWords(text: string, search: string, options: { caseSensi
     return new RegExp(`(^|[^\\p{L}\\p{N}])${words}([^\\p{L}\\p{N}]|$)`, options.caseSensitive === true ? 'u' : 'iu').test(text);
 }
 
+/**
+ * Whether `text` names `name` as an act of its own, rather than as part of a longer name around it.
+ *
+ * {@link hasWholeWords}, case-sensitive, and then one more test: an occurrence glued by nothing but
+ * whitespace to a capitalised word on either side is a piece of a longer name, not this one. Measured
+ * on the live station, 2026-10-14: a brief naming "Dirty Honey" and "The Darkness" found the library's
+ * "Honey", a Polish pop group, and "Darkness", a Spanish metal band, both as whole words. Each got a
+ * record, and "Honey" seeded the similarity walk, which put five Polish pop records into a rock show.
+ *
+ * A name passes when ANY of its occurrences stands alone, so a brief that names "Heart" in a list and
+ * also says "Heart Of Glass" still names it. What this cannot tell apart is a capitalised ordinary
+ * word directly before an act ("Mostly Queen"), which loses that act as a lead. Leads are all these
+ * are, and losing one costs the brief nothing the model will not read for itself; inventing one put
+ * the wrong genre on air.
+ */
+export function namesAsAnAct(text: string, name: string): boolean {
+    const words = wordsOf(name);
+    if (words.length === 0) return false;
+
+    const pattern = new RegExp(`(?<![\\p{L}\\p{N}])${words}(?![\\p{L}\\p{N}])`, 'gu');
+    for (const match of text.matchAll(pattern)) {
+        const before = text.slice(0, match.index);
+        const after = text.slice(match.index + match[0].length);
+        if (CAPITALISED_WORD_BEFORE.test(before) || CAPITALISED_WORD_AFTER.test(after)) continue;
+        return true;
+    }
+    return false;
+}
+
+/** A capitalised word ending the text, then only whitespace: "Dirty " before "Honey", "N' " before "Roses". */
+const CAPITALISED_WORD_BEFORE = /\p{Lu}[\p{L}\p{N}'’.&-]*\s+$/u;
+
+/** Only whitespace, then a capitalised word: " Station" after "Union". */
+const CAPITALISED_WORD_AFTER = /^\s+\p{Lu}/u;
+
 /** The term's words, each escaped, joined by "any run of whitespace". Shared so the two dialects cannot drift. */
 function wordsOf(search: string): string {
     return search

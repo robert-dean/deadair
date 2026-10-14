@@ -627,6 +627,11 @@ is stated in three places because it was previously contradicted in three: the o
 `describeStory`'s own doc. The floor underneath is unaffected: it reads each headline verbatim followed by the
 story's opening sentence where it has a usable one (`openingSentence` in `news.break.writer.ts`), which is what a
 writer that cannot rephrase is for; a bulletin that falls through is a plainer bulletin, not a wrong one.
+Three edits to what it reads change no fact, and each answers a bulletin aired on 2026-10-14: a Title Case
+headline is written as a sentence (`sentenceCased`, keeping acronyms, brand casing and any word the story's
+own text capitalises mid-sentence), a doubled small word ("an an") is said once from a closed list that leaves
+"had had" alone, and a story with no article, only a teaser, is left out when another story has one, because
+a teaser is written to be clicked ("New music genre just dropped") and is read only when it is all there is.
 
 **The reader says who they are.** A newsreader opens with their name ("This is Walter, here's the news"), and
 the station's bulletins went out anonymous for as long as the role sentence was the only place the name

@@ -399,6 +399,8 @@ export interface StationLineupBinding {
      * `director/mood.lean.ts`.
      */
     moods?: readonly LyricMood[];
+    /** The moods this broadcast steers away from, for the whole of it. A lean on the draw, never a filter. */
+    avoidMoods?: readonly LyricMood[];
     /**
      * Who is HOSTING this broadcast, as distinct from who the station is when nobody said.
      *
@@ -714,6 +716,11 @@ export class StationLineup implements LiveOrder {
     /** The moods this broadcast leans into, as stages in order, or `undefined` for none. */
     get moods(): readonly LyricMood[] | undefined {
         return this.binding.moods;
+    }
+
+    /** The moods this broadcast steers away from, or `undefined` for none. */
+    get avoidMoods(): readonly LyricMood[] | undefined {
+        return this.binding.avoidMoods;
     }
 
     // ── reading ────────────────────────────────────────────────────────────────

@@ -762,6 +762,11 @@ public sealed record PutOnAirInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<PutOnAirInputMoods>? Moods { get; init; }
 
+    /// <summary>The moods this broadcast steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it. Absent or empty avoids nothing</summary>
+    [JsonPropertyName("avoidMoods")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PutOnAirInputAvoidMoods>? AvoidMoods { get; init; }
+
     /// <summary>Whether the host talks between the records. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says</summary>
     [JsonPropertyName("breaks")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -1293,6 +1298,87 @@ public sealed class PutOnAirInputMoodsConverter : JsonConverter<PutOnAirInputMoo
         PutOnAirInputMoods.Anger => "anger",
         PutOnAirInputMoods.Fear => "fear",
         _ => throw new JsonException($"PutOnAirInputMoods.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PutOnAirInputAvoidMoodsConverter))]
+public enum PutOnAirInputAvoidMoods
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("love")]
+    Love,
+
+    [JsonStringEnumMemberName("happiness")]
+    Happiness,
+
+    [JsonStringEnumMemberName("comfort")]
+    Comfort,
+
+    [JsonStringEnumMemberName("sadness")]
+    Sadness,
+
+    [JsonStringEnumMemberName("loneliness")]
+    Loneliness,
+
+    [JsonStringEnumMemberName("anger")]
+    Anger,
+
+    [JsonStringEnumMemberName("fear")]
+    Fear,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PutOnAirInputAvoidMoods"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PutOnAirInputAvoidMoods.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PutOnAirInputAvoidMoodsConverter : JsonConverter<PutOnAirInputAvoidMoods>
+{
+    public override PutOnAirInputAvoidMoods Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PutOnAirInputAvoidMoods, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PutOnAirInputAvoidMoods value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PutOnAirInputAvoidMoods ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PutOnAirInputAvoidMoods value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PutOnAirInputAvoidMoods FromWire(string? text) => text switch
+    {
+        "love" => PutOnAirInputAvoidMoods.Love,
+        "happiness" => PutOnAirInputAvoidMoods.Happiness,
+        "comfort" => PutOnAirInputAvoidMoods.Comfort,
+        "sadness" => PutOnAirInputAvoidMoods.Sadness,
+        "loneliness" => PutOnAirInputAvoidMoods.Loneliness,
+        "anger" => PutOnAirInputAvoidMoods.Anger,
+        "fear" => PutOnAirInputAvoidMoods.Fear,
+        _ => PutOnAirInputAvoidMoods.Unknown,
+    };
+
+    private static string ToWire(PutOnAirInputAvoidMoods value) => value switch
+    {
+        PutOnAirInputAvoidMoods.Love => "love",
+        PutOnAirInputAvoidMoods.Happiness => "happiness",
+        PutOnAirInputAvoidMoods.Comfort => "comfort",
+        PutOnAirInputAvoidMoods.Sadness => "sadness",
+        PutOnAirInputAvoidMoods.Loneliness => "loneliness",
+        PutOnAirInputAvoidMoods.Anger => "anger",
+        PutOnAirInputAvoidMoods.Fear => "fear",
+        _ => throw new JsonException($"PutOnAirInputAvoidMoods.{value} has no wire spelling, so it cannot be sent."),
     };
 }
 

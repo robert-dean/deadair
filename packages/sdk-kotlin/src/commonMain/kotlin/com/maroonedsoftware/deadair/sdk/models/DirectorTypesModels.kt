@@ -340,6 +340,8 @@ data class PutOnAirInput(
     val eraTo: Long? = null,
     /** The moods this broadcast leans into, as stages in order across the schedule slot it fills. Off the schedule, only the first is used. Records a model has judged to be in the mood are a little more likely to be picked; nothing is ever kept off the air for it. Absent or empty is no lean */
     val moods: List<PutOnAirInputMoods>? = null,
+    /** The moods this broadcast steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it. Absent or empty avoids nothing */
+    val avoidMoods: List<PutOnAirInputAvoidMoods>? = null,
     /** Whether the host talks between the records. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says */
     val breaks: Boolean? = null,
     /** Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent is no calls: there is no station-wide default behind it */
@@ -557,6 +559,36 @@ object PutOnAirInputMoodsSerializer : SdkEnumSerializer<PutOnAirInputMoods>(
     PutOnAirInputMoods.LONELINESS to "loneliness",
     PutOnAirInputMoods.ANGER to "anger",
     PutOnAirInputMoods.FEAR to "fear",
+)
+
+@Serializable(with = PutOnAirInputAvoidMoodsSerializer::class)
+enum class PutOnAirInputAvoidMoods {
+    LOVE,
+    HAPPINESS,
+    COMFORT,
+    SADNESS,
+    LONELINESS,
+    ANGER,
+    FEAR,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [PutOnAirInputAvoidMoods] by its wire spelling. A spelling it does not know reads as [PutOnAirInputAvoidMoods.UNKNOWN]. */
+object PutOnAirInputAvoidMoodsSerializer : SdkEnumSerializer<PutOnAirInputAvoidMoods>(
+    "PutOnAirInputAvoidMoods",
+    PutOnAirInputAvoidMoods.UNKNOWN,
+    PutOnAirInputAvoidMoods.LOVE to "love",
+    PutOnAirInputAvoidMoods.HAPPINESS to "happiness",
+    PutOnAirInputAvoidMoods.COMFORT to "comfort",
+    PutOnAirInputAvoidMoods.SADNESS to "sadness",
+    PutOnAirInputAvoidMoods.LONELINESS to "loneliness",
+    PutOnAirInputAvoidMoods.ANGER to "anger",
+    PutOnAirInputAvoidMoods.FEAR to "fear",
 )
 
 /** How this stop connects to the one before: a record the two are credited on together, or a similarity source naming them alike. Absent on the first stop */

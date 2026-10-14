@@ -185,6 +185,8 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var eraTo: Int?
     /// The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean
     public var moods: [ScheduleSlotMoods]?
+    /// The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing
+    public var avoidMoods: [ScheduleSlotAvoidMoods]?
     /// Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says
     public var breaks: Bool?
     /// Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says
@@ -210,7 +212,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.id = id
         self.label = label
         self.startsAtMinutes = startsAtMinutes
@@ -226,6 +228,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.eraFrom = eraFrom
         self.eraTo = eraTo
         self.moods = moods
+        self.avoidMoods = avoidMoods
         self.breaks = breaks
         self.callins = callins
         self.mixInSimilar = mixInSimilar
@@ -257,6 +260,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         case eraFrom = "eraFrom"
         case eraTo = "eraTo"
         case moods = "moods"
+        case avoidMoods = "avoidMoods"
         case breaks = "breaks"
         case callins = "callins"
         case mixInSimilar = "mixInSimilar"
@@ -289,6 +293,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.eraFrom = try container.decodeIfPresent(Int.self, forKey: .eraFrom)
         self.eraTo = try container.decodeIfPresent(Int.self, forKey: .eraTo)
         self.moods = try container.decodeIfPresent([ScheduleSlotMoods].self, forKey: .moods)
+        self.avoidMoods = try container.decodeIfPresent([ScheduleSlotAvoidMoods].self, forKey: .avoidMoods)
         self.breaks = try container.decodeIfPresent(Bool.self, forKey: .breaks)
         self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
         self.mixInSimilar = try container.decodeIfPresent(Bool.self, forKey: .mixInSimilar)
@@ -321,6 +326,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.eraFrom, forKey: .eraFrom)
         try container.encodeIfPresent(self.eraTo, forKey: .eraTo)
         try container.encodeIfPresent(self.moods, forKey: .moods)
+        try container.encodeIfPresent(self.avoidMoods, forKey: .avoidMoods)
         try container.encodeIfPresent(self.breaks, forKey: .breaks)
         try container.encodeIfPresent(self.callins, forKey: .callins)
         try container.encodeIfPresent(self.mixInSimilar, forKey: .mixInSimilar)
@@ -366,6 +372,8 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var eraTo: Int?
     /// The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean
     public var moods: [ScheduleSlotMoods]?
+    /// The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing
+    public var avoidMoods: [ScheduleSlotAvoidMoods]?
     /// Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says
     public var breaks: Bool?
     /// Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says
@@ -391,7 +399,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, startsOn: String? = nil, endsOn: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.label = label
         self.startsAtMinutes = startsAtMinutes
         self.endsAtMinutes = endsAtMinutes
@@ -406,6 +414,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.eraFrom = eraFrom
         self.eraTo = eraTo
         self.moods = moods
+        self.avoidMoods = avoidMoods
         self.breaks = breaks
         self.callins = callins
         self.mixInSimilar = mixInSimilar
@@ -436,6 +445,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         case eraFrom = "eraFrom"
         case eraTo = "eraTo"
         case moods = "moods"
+        case avoidMoods = "avoidMoods"
         case breaks = "breaks"
         case callins = "callins"
         case mixInSimilar = "mixInSimilar"
@@ -467,6 +477,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.eraFrom = try container.decodeIfPresent(Int.self, forKey: .eraFrom)
         self.eraTo = try container.decodeIfPresent(Int.self, forKey: .eraTo)
         self.moods = try container.decodeIfPresent([ScheduleSlotMoods].self, forKey: .moods)
+        self.avoidMoods = try container.decodeIfPresent([ScheduleSlotAvoidMoods].self, forKey: .avoidMoods)
         self.breaks = try container.decodeIfPresent(Bool.self, forKey: .breaks)
         self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
         self.mixInSimilar = try container.decodeIfPresent(Bool.self, forKey: .mixInSimilar)
@@ -498,6 +509,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.eraFrom, forKey: .eraFrom)
         try container.encodeIfPresent(self.eraTo, forKey: .eraTo)
         try container.encodeIfPresent(self.moods, forKey: .moods)
+        try container.encodeIfPresent(self.avoidMoods, forKey: .avoidMoods)
         try container.encodeIfPresent(self.breaks, forKey: .breaks)
         try container.encodeIfPresent(self.callins, forKey: .callins)
         try container.encodeIfPresent(self.mixInSimilar, forKey: .mixInSimilar)
@@ -762,6 +774,67 @@ public enum ScheduleSlotMoods: Codable, CaseIterable, Hashable, Sendable {
             throw EncodingError.invalidValue(
                 self,
                 EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ScheduleSlotMoods.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+public enum ScheduleSlotAvoidMoods: Codable, CaseIterable, Hashable, Sendable {
+    case love
+    case happiness
+    case comfort
+    case sadness
+    case loneliness
+    case anger
+    case fear
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ScheduleSlotAvoidMoods] = [.love, .happiness, .comfort, .sadness, .loneliness, .anger, .fear]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .love: return "love"
+        case .happiness: return "happiness"
+        case .comfort: return "comfort"
+        case .sadness: return "sadness"
+        case .loneliness: return "loneliness"
+        case .anger: return "anger"
+        case .fear: return "fear"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "love": self = .love
+        case "happiness": self = .happiness
+        case "comfort": self = .comfort
+        case "sadness": self = .sadness
+        case "loneliness": self = .loneliness
+        case "anger": self = .anger
+        case "fear": self = .fear
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ScheduleSlotAvoidMoods.unknown has no wire spelling, so it cannot be sent")
             )
         }
         var container = encoder.singleValueContainer()

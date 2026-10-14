@@ -85,6 +85,8 @@ data class ScheduleSlot(
     val eraTo: Long? = null,
     /** The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean */
     val moods: List<ScheduleSlotMoods>? = null,
+    /** The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing */
+    val avoidMoods: List<ScheduleSlotAvoidMoods>? = null,
     /** Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says */
     val breaks: Boolean? = null,
     /** Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says */
@@ -141,6 +143,8 @@ data class ScheduleSlotInput(
     val eraTo: Long? = null,
     /** The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean */
     val moods: List<ScheduleSlotMoods>? = null,
+    /** The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing */
+    val avoidMoods: List<ScheduleSlotAvoidMoods>? = null,
     /** Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says */
     val breaks: Boolean? = null,
     /** Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says */
@@ -258,6 +262,36 @@ object ScheduleSlotMoodsSerializer : SdkEnumSerializer<ScheduleSlotMoods>(
     ScheduleSlotMoods.LONELINESS to "loneliness",
     ScheduleSlotMoods.ANGER to "anger",
     ScheduleSlotMoods.FEAR to "fear",
+)
+
+@Serializable(with = ScheduleSlotAvoidMoodsSerializer::class)
+enum class ScheduleSlotAvoidMoods {
+    LOVE,
+    HAPPINESS,
+    COMFORT,
+    SADNESS,
+    LONELINESS,
+    ANGER,
+    FEAR,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [ScheduleSlotAvoidMoods] by its wire spelling. A spelling it does not know reads as [ScheduleSlotAvoidMoods.UNKNOWN]. */
+object ScheduleSlotAvoidMoodsSerializer : SdkEnumSerializer<ScheduleSlotAvoidMoods>(
+    "ScheduleSlotAvoidMoods",
+    ScheduleSlotAvoidMoods.UNKNOWN,
+    ScheduleSlotAvoidMoods.LOVE to "love",
+    ScheduleSlotAvoidMoods.HAPPINESS to "happiness",
+    ScheduleSlotAvoidMoods.COMFORT to "comfort",
+    ScheduleSlotAvoidMoods.SADNESS to "sadness",
+    ScheduleSlotAvoidMoods.LONELINESS to "loneliness",
+    ScheduleSlotAvoidMoods.ANGER to "anger",
+    ScheduleSlotAvoidMoods.FEAR to "fear",
 )
 
 @Serializable(with = ScheduleSlotModeSerializer::class)

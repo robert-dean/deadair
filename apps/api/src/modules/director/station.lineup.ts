@@ -148,6 +148,16 @@ export interface StationLineupTrackItem extends StationLineupLine {
      * first one's run to play out rather than cutting it short.
      */
     followsRequestId?: string;
+    /**
+     * This record is one the broadcast OPENED with: the records its source named when it went on air,
+     * rather than a refill, a request, a mix-in or an operator's edit. See {@link StationLineup.replaceFrom}.
+     *
+     * On the item by {@link mixedIn}'s rule. What reads it is the aired edge, for a slot that resumes
+     * its playlist: only a record the playlist named moves the slot's place in it, and a record a
+     * generator topped the show up with is not on the playlist however much it sounds like it. A
+     * replay under `on_end: 'repeat'` keeps it, since it is the same item played again.
+     */
+    opening?: true;
 }
 
 /**
@@ -1090,7 +1100,7 @@ export class StationLineup implements LiveOrder {
      * business — a new running order is not a reason to cut a listener off mid-record.
      */
     replaceFrom(tracks: readonly RundownTrack[]): void {
-        this.itemList = tracks.map(toItem);
+        this.itemList = tracks.map(track => ({ ...toItem(track), opening: true as const }));
     }
 
     /**

@@ -32,6 +32,8 @@ import { ProductionRepository } from '../../../src/modules/productions/productio
 import { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { PodcastEpisodeRepository } from '../../../src/modules/podcasts/podcast.episode.repository.js';
 import { PersonaTellingRepository } from '../../../src/modules/personas/persona.telling.repository.js';
+import { PlaylistPositionRepository } from '../../../src/modules/schedule/playlist.position.repository.js';
+import { songKey } from '../../../src/modules/director/rotation.keys.js';
 import { PodcastScheduler } from '../../../src/modules/podcasts/podcast.scheduler.js';
 import { ArtRepository } from '../../../src/modules/art/art.repository.js';
 import { CandidatesRepository } from '../../../src/modules/director/candidates.repository.js';
@@ -235,6 +237,8 @@ function build(options: Options = {}) {
     // The third thing marked on that edge: whether a story a break carried was actually heard, which
     // is what keeps a part of one owed until a listener could have got it.
     const personaTellings = { markAired: vi.fn(async () => {}) };
+    // The fourth: where a slot that resumes its playlist got to in it.
+    const positions = { advance: vi.fn(async (_slotId: string, _playlist: { pluginId?: string; playlistId: string }, _songKey: string) => {}) };
 
     // Produced episodes. `unfinished` answers nothing by default, so the commit pass's injection
     // step is a no-op unless a test says otherwise; `moveTo` is what a changeover uses to hand back
@@ -469,7 +473,9 @@ function build(options: Options = {}) {
                                               ? podcastEpisodes
                                               : token === PersonaTellingRepository
                                                 ? personaTellings
-                                                : history,
+                                                : token === PlaylistPositionRepository
+                                                  ? positions
+                                                  : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -534,6 +540,7 @@ function build(options: Options = {}) {
         podcastScheduler,
         podcastEpisodes,
         personaTellings,
+        positions,
         airRepository,
         audience,
         activity,
@@ -1412,6 +1419,90 @@ describe('DirectorService standing down', () => {
         await new Promise(resolve => setImmediate(resolve));
 
         expect(director.status().active).toBe(true);
+    });
+});
+
+describe("DirectorService moving a resuming slot's place in its playlist", () => {
+    const SLOT = '00000000-0000-4000-8000-0000000000aa';
+    const scheduled = {
+        name: 'Late night',
+        mode: 'setlist' as const,
+        onEnd: 'extend' as const,
+        source: 'import',
+        placedBy: 'schedule' as const,
+        slotId: SLOT,
+        sourcePluginId: 'deadair.spotify',
+        sourcePlaylistId: 'pl_1',
+    };
+
+    it('moves it on to the record that aired, when that record is one the broadcast opened with', async () => {
+        const { director, rundown, positions, seed } = build();
+        await seed();
+        await director.start();
+        await director.post({ kind: 'putOnAir', binding: scheduled, tracks: [track('x'), track('y')] });
+        expect(positions.advance).not.toHaveBeenCalled();
+
+        await airNext(rundown);
+
+        expect(positions.advance).toHaveBeenCalledOnce();
+        expect(positions.advance).toHaveBeenCalledWith(SLOT, { pluginId: 'deadair.spotify', playlistId: 'pl_1' }, songKey('Track x', ['An Artist']));
+    });
+
+    it('names a playlist the station owns with no plugin beside it', async () => {
+        const { director, rundown, positions, seed } = build();
+        await seed();
+        await director.start();
+        const { sourcePluginId: _plugin, ...owned } = scheduled;
+        await director.post({ kind: 'putOnAir', binding: { ...owned, sourcePlaylistId: 'station-pl' }, tracks: [track('x')] });
+
+        await airNext(rundown);
+
+        expect(positions.advance).toHaveBeenCalledWith(SLOT, { playlistId: 'station-pl' }, songKey('Track x', ['An Artist']));
+    });
+
+    it('leaves it alone for a record the broadcast was topped up with, which is not on the playlist', async () => {
+        const { director, rundown, positions, history, seed } = build();
+        await seed();
+        await director.start();
+        await director.post({ kind: 'putOnAir', binding: scheduled, tracks: [track('x')] });
+        await director.post({ kind: 'appendTracks', tracks: [track('refill')], broadcastId: director.order()!.broadcastId });
+
+        await airNext(rundown);
+        await airNext(rundown);
+
+        // Both aired, so the second was heard and passed over rather than never reached.
+        expect(vi.mocked(history.record).mock.calls.map(([row]) => row.item.externalId)).toEqual(['x', 'refill']);
+
+        expect(positions.advance).toHaveBeenCalledOnce();
+        expect(positions.advance.mock.calls[0]![2]).toBe(songKey('Track x', ['An Artist']));
+    });
+
+    it('leaves it alone for a broadcast an operator put on, or one that belongs to no slot or no playlist', async () => {
+        const { slotId: _slot, ...noSlot } = scheduled;
+        const { sourcePluginId: _plugin, sourcePlaylistId: _playlist, ...noPlaylist } = scheduled;
+        for (const binding of [{ ...scheduled, placedBy: 'operator' as const }, noSlot, noPlaylist]) {
+            const { director, rundown, positions, seed } = build();
+            await seed();
+            await director.start();
+            await director.post({ kind: 'putOnAir', binding, tracks: [track('x')] });
+
+            await airNext(rundown);
+
+            expect(positions.advance).not.toHaveBeenCalled();
+        }
+    });
+
+    it('still records the history row when the place cannot be written', async () => {
+        const { director, rundown, positions, history, seed } = build();
+        positions.advance.mockRejectedValue(new Error('the database went away'));
+        await seed();
+        await director.start();
+        await director.post({ kind: 'putOnAir', binding: scheduled, tracks: [track('x')] });
+        vi.mocked(history.record).mockClear();
+
+        await airNext(rundown);
+
+        expect(history.record).toHaveBeenCalledOnce();
     });
 });
 

@@ -25,7 +25,7 @@ import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { isPlaylistSource, isStationPlaylistSource, minutesLeftInSlot, type ScheduleSlot } from './schedule.js';
-import { resumeIndex } from './playlist.resume.js';
+import { resumeAfter, resumeIndex } from './playlist.resume.js';
 import { PlaylistPositionRepository } from '#modules/schedule/playlist.position.repository.js';
 import { fitAirtime, lookupsFor, recordBudget } from './chart.airtime.js';
 import { DEFAULT_OVERRUN_MINUTES, OVERRUN_MINUTES_KEY, resolveOverrunMinutes } from '#modules/schedule/changeover.overrun.js';
@@ -480,7 +480,14 @@ export class DirectorConsoleService {
         // Read after the slot rather than before it, because a chart is cut to the time the slot has
         // left: see `chart.airtime.ts`. Only a chart, and only inside a slot; a station with no
         // schedule airs the whole document, as it always did.
-        const tracks = await this.openingTracks(input, night, slot === undefined ? undefined : this.airtimeLeft(slot, input, mode));
+        //
+        // Then turned round to start where the slot left off, when it is a slot that resumes its
+        // playlist. See {@link resumedOpening}.
+        const tracks = await this.resumedOpening(
+            onSlot,
+            input,
+            await this.openingTracks(input, night, slot === undefined ? undefined : this.airtimeLeft(slot, input, mode)),
+        );
 
         const binding: StationLineupBinding = {
             name: input.name ?? (await this.nameFor(input)),
@@ -636,6 +643,39 @@ export class DirectorConsoleService {
         if (tracks.length > 0 || night?.prepared === undefined || night.prepared.length === 0) return tracks;
 
         return await this.resolver.vet(night.prepared, { era: this.era(input), broadcast: broadcastOf(input) });
+    }
+
+    /**
+     * A playlist slot's opening, started just after the last record from its playlist that aired.
+     *
+     * Only for the schedule's own changeover onto a slot that resumes, and only when the opening was
+     * actually read from that slot's playlist: a block started without its source (the read failed),
+     * or anything an operator put on by hand, opens as it always did. That covers both ways a block
+     * opens, the clock reaching its start and an operator's takeover ending inside it, because the tick
+     * puts the slot back on air through here either way, and the second is exactly the one that used to
+     * start the playlist over part-way through the show.
+     *
+     * Rotated after the veto rather than before, so the place is looked for among the records the
+     * station will actually play: one it now passes over starts the playlist from the top, as a record
+     * taken off the playlist does. The whole list is kept, turned round, so a block that reaches the end
+     * carries on into the beginning. `onEnd: 'repeat'` replays this order as it stands, and a chart is
+     * never a playlist, so neither changes.
+     *
+     * Never fatal: a place that cannot be read is a playlist that starts from the top, which is what
+     * every playlist slot did before this existed.
+     */
+    private async resumedOpening(onSlot: ScheduleSlot | undefined, input: PutOnAirInput, tracks: RundownTrack[]): Promise<RundownTrack[]> {
+        if (onSlot?.resumePlaylist !== true || tracks.length === 0 || !namesSlotPlaylist(input, onSlot)) return tracks;
+
+        const lastKey = await this.positions.lastSongKey(onSlot.id).catch(error => {
+            this.logger.warn(`director: could not read where the slot got to in its playlist, so it starts from the top (${errorText(error)})`);
+            return undefined;
+        });
+        const resumed = resumeAfter(tracks, lastKey);
+        if (resumed[0] !== tracks[0]) {
+            this.logger.info('director: the slot picks its playlist up where it left off', { slot: onSlot.id, opensOn: resumed[0]?.title });
+        }
+        return resumed;
     }
 
     /**
@@ -1946,6 +1986,14 @@ function playlistInputOf(slot: ScheduleSlot): PutOnAirInput {
         ...(slot.era?.to === undefined ? {} : { eraTo: slot.era.to }),
         mode: slot.mode,
     };
+}
+
+/** Whether a put-on-air reads its records from the playlist the slot names, of either kind. */
+function namesSlotPlaylist(input: PutOnAirInput, slot: ScheduleSlot): boolean {
+    if (isStationPlaylistSource(slot.source)) return input.stationPlaylistId === slot.source.stationPlaylistId;
+    if (!isPlaylistSource(slot.source)) return false;
+
+    return input.stationPlaylistId === undefined && input.pluginId === slot.source.pluginId && input.playlistId === slot.source.playlistId;
 }
 
 function runsOut(mode: StationMode, asked: StationOnEnd | undefined, autoExtends: boolean): StationOnEnd {

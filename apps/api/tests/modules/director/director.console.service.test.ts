@@ -2606,9 +2606,9 @@ describe('DirectorConsoleService.requestBreak', () => {
     });
 });
 
-// The schedule page's preview of where a resuming slot will pick its playlist up. It reads the same
-// list an opening does, so a record the station's rules pass over is passed over here too.
-describe('DirectorConsoleService.nextOnSlotPlaylist', () => {
+// A slot that resumes its playlist: the opening that starts where it left off, and the schedule page's
+// preview of that, which reads the same list an opening does so the two cannot disagree.
+describe('DirectorConsoleService and a slot that resumes its playlist', () => {
     const playlistSlot = (overrides: Partial<ScheduleSlot> = {}): ScheduleSlot => ({
         id: '00000000-0000-4000-8000-0000000000aa',
         label: 'Late night',
@@ -2658,6 +2658,71 @@ describe('DirectorConsoleService.nextOnSlotPlaylist', () => {
         });
 
         expect(await service.nextOnSlotPlaylist(playlistSlot())).toMatchObject({ title: 'Roads' });
+    });
+
+    describe('opening the slot', () => {
+        const opened = (posted: DirectorCommand[]) => {
+            const command = posted.at(-1);
+            if (command?.kind !== 'putOnAir') throw new Error('expected the station to be put on air');
+            return command.tracks.map(track => track.title);
+        };
+        const fromPlaylist = { pluginId: 'deadair.spotify', playlistId: 'pl_1', mode: 'setlist' as const };
+
+        it('starts just after the record from its playlist that aired last, and carries the rest round', async () => {
+            const { service, posted } = build({ tracks: records, lastSongKey: songKey('Mysterons', ['Portishead']) });
+
+            await service.putOnAir(fromPlaylist, playlistSlot());
+
+            expect(opened(posted())).toEqual(['Sour Times', 'Roads', 'Mysterons']);
+        });
+
+        it('starts from the top when that record is no longer on the playlist', async () => {
+            const { service, posted } = build({ tracks: records, lastSongKey: songKey('Wandering Star', ['Portishead']) });
+
+            await service.putOnAir(fromPlaylist, playlistSlot());
+
+            expect(opened(posted())).toEqual(['Mysterons', 'Sour Times', 'Roads']);
+        });
+
+        it('starts from the top when the place cannot be read', async () => {
+            const { service, posted, positions } = build({ tracks: records });
+            vi.mocked(positions.lastSongKey).mockRejectedValue(new Error('the database went away'));
+
+            await service.putOnAir(fromPlaylist, playlistSlot());
+
+            expect(opened(posted())).toEqual(['Mysterons', 'Sour Times', 'Roads']);
+        });
+
+        it('leaves a slot that does not resume in its playlist order, and asks nothing', async () => {
+            const { service, posted, positions } = build({ tracks: records, lastSongKey: songKey('Mysterons', ['Portishead']) });
+
+            await service.putOnAir(fromPlaylist, playlistSlot({ resumePlaylist: false }));
+
+            expect(opened(posted())).toEqual(['Mysterons', 'Sour Times', 'Roads']);
+            expect(positions.lastSongKey).not.toHaveBeenCalled();
+        });
+
+        it('leaves the same playlist put on by an operator in its own order, even inside the slot', async () => {
+            const { service, posted, positions } = build({
+                tracks: records,
+                lastSongKey: songKey('Mysterons', ['Portishead']),
+                slot: playlistSlot(),
+            });
+
+            await service.putOnAir(fromPlaylist);
+
+            expect(opened(posted())).toEqual(['Mysterons', 'Sour Times', 'Roads']);
+            expect(positions.lastSongKey).not.toHaveBeenCalled();
+        });
+
+        it('leaves anything but the slot playlist alone, such as a block started without its source', async () => {
+            const { service, positions } = build({ tracks: records, lastSongKey: songKey('Mysterons', ['Portishead']) });
+
+            await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_other', mode: 'setlist' }, playlistSlot());
+            await service.putOnAir({ mode: 'rotation' }, playlistSlot());
+
+            expect(positions.lastSongKey).not.toHaveBeenCalled();
+        });
     });
 
     it('answers nothing for a playlist with nothing on it to play, rather than failing', async () => {

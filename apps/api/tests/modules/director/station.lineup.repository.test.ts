@@ -75,6 +75,13 @@ const items = (): StationLineupItem[] => [
         mixedIn: true,
     },
     {
+        id: 'item-opening',
+        kind: 'track',
+        state: 'planned',
+        track: { pluginId: 'spotify', externalId: 'ext-o', title: 'The First', artist: 'Somebody', artists: ['Somebody'] },
+        opening: true,
+    },
+    {
         id: 'item-requested',
         kind: 'track',
         state: 'planned',
@@ -201,6 +208,9 @@ describe('StationLineupRepository round trip', () => {
         // And a record the station mixed in stays badged, while one the playlist named carries nothing.
         expect(byId.get('item-mixed-in')).toMatchObject({ mixedIn: true });
         expect(byId.get('item-track')).not.toHaveProperty('mixedIn');
+        // And a record the broadcast opened with still says so, or a resuming slot's place stops moving at a restart.
+        expect(byId.get('item-opening')).toMatchObject({ opening: true });
+        expect(byId.get('item-mixed-in')).not.toHaveProperty('opening');
         // And a record a listener asked for still says whose request it is, so it is recognised when it airs.
         expect(byId.get('item-requested')).toMatchObject({ requestId: 'request-1' });
         expect(byId.get('item-track')).not.toHaveProperty('requestId');

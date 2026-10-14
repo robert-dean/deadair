@@ -49,6 +49,28 @@ const hand = (lineup: StationLineup, count: number): StationLineupItem[] => {
     return items;
 };
 
+describe('StationLineup and the records a broadcast opened with', () => {
+    it('marks every record it was built from, and none it was topped up with', () => {
+        const lineup = lineupWith(['a', 'b']);
+        lineup.append([track('refill')]);
+
+        expect(lineup.all().map(item => (item.kind === 'track' ? item.opening : undefined))).toEqual([true, true, undefined]);
+        expect(lineup.all()[2]).not.toHaveProperty('opening');
+    });
+
+    it('keeps the mark on a record replayed under repeat, which is the same item played again', () => {
+        const lineup = new StationLineup({ ...binding(), onEnd: 'repeat' });
+        lineup.replaceFrom([track('a')]);
+        const [item] = hand(lineup, 1);
+        lineup.markAiring(item!.id);
+        lineup.markPlayed(item!.id);
+
+        lineup.resetPlayed();
+
+        expect(lineup.all()[0]).toMatchObject({ state: 'planned', opening: true });
+    });
+});
+
 describe('StationLineup committing', () => {
     it('offers the planned items in order, and marking them is a separate step', () => {
         // `nextPlanned` is pure on purpose: the director has a segment to look up
@@ -1097,7 +1119,7 @@ describe('StationLineup snapshots', () => {
             source: 'import',
             sourcePluginId: 'deadair.spotify',
             sourcePlaylistId: 'p1',
-            items: [{ id: expect.any(String), kind: 'track', state: 'handed', track: track('a') }],
+            items: [{ id: expect.any(String), kind: 'track', state: 'handed', track: track('a'), opening: true }],
         });
     });
 });

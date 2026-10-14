@@ -18,7 +18,7 @@
  * The two fields it adds back are the two `toDraftView` deliberately withholds, and the reason it
  * withholds them does not apply here. `soundboard` is left out of a GENERATED draft because a model
  * inventing a board names a rack that does not exist; a file comes off a real install, where the board
- * is a fact. `kind` is left out because the generator only ever writes hosts.
+ * is a fact. `kinds` is left out because the generator only ever writes hosts.
  *
  * ## What does not travel, and why each one
  *
@@ -37,7 +37,7 @@
  *   should say so out loud rather than letting it be discovered.
  */
 
-import { primaryKind, type Persona } from './persona.js';
+import type { Persona } from './persona.js';
 import { quirksForView } from './persona.sheet.js';
 import type { PersonaStory, PersonaStoryDetail } from './persona.story.js';
 import type { PersonaStoryBeat } from './persona.story.beat.js';
@@ -54,8 +54,15 @@ import type { PersonaFilePersona, PersonaFileStory, PersonaFileStoryBeat, Person
  * `/2` since a quirk became `{ text, cadence }` rather than a string. A `/1` file is upgraded by the
  * console as it reads the file (`persona.file.upgrade.ts` in `apps/web`), because the route validates
  * the new shape and a station's own old exports should still import.
+ *
+ * `/3` since a character carries `kinds` rather than one `kind`. A `/2` file needs no upgrade: the
+ * route still reads its `kind` as a character of that one kind, so {@link READABLE_PERSONA_FILE_FORMATS}
+ * holds both and neither draws the "this file says it is something else" notice.
  */
-export const PERSONA_FILE_FORMAT = 'deadair.persona/2';
+export const PERSONA_FILE_FORMAT = 'deadair.persona/3';
+
+/** Every format the route reads as it stands, without a notice: this one, and `/2`, whose `kind` still means what it did. */
+export const READABLE_PERSONA_FILE_FORMATS: ReadonlySet<string> = new Set([PERSONA_FILE_FORMAT, 'deadair.persona/2']);
 
 /**
  * The states a story can be in ON THE WAY OUT, which is two of the stored three.
@@ -86,7 +93,7 @@ export function personaForFile(persona: Persona, stories: readonly PersonaStory[
         label: persona.label,
         style: persona.style,
         ...omitUndefined({
-            kind: primaryKind(persona.kinds),
+            kinds: [...persona.kinds],
             djName: persona.djName,
             voice: persona.voice,
             soundboard: persona.soundboard,

@@ -61,7 +61,7 @@ describe('personaForFile', () => {
 
         expect(file).toMatchObject({
             key: 'overnight',
-            kind: 'host',
+            kinds: ['host'],
             label: 'The overnight host',
             style: 'a voice for the small hours',
             djName: 'Vega',
@@ -89,10 +89,17 @@ describe('personaForFile', () => {
         expect(file).not.toHaveProperty('defaultHost');
     });
 
-    // A caller is shareable exactly as a host is, and `kind` is what says which. It travelling
+    // A caller is shareable exactly as a host is, and `kinds` is what says which. It travelling
     // wrongly would be a phone-in voice arriving as a presenter the far side can put on air.
     it('carries what a character is for', () => {
-        expect(personaForFile(persona({ kinds: ['caller' as const] }), [])).toMatchObject({ kind: 'caller' });
+        expect(personaForFile(persona({ kinds: ['caller' as const] }), [])).toMatchObject({ kinds: ['caller'] });
+    });
+
+    it('carries every job a character does, and not the one kind a file used to', () => {
+        const file = personaForFile(persona({ kinds: ['host' as const, 'guest' as const] }), []);
+
+        expect(file.kinds).toEqual(['host', 'guest']);
+        expect(file).not.toHaveProperty('kind');
     });
 
     // An absent optional is absent rather than explicitly empty, so a round trip does not turn "the
@@ -186,9 +193,10 @@ describe('travels', () => {
 describe('the format stamp', () => {
     // Weak evidence by design — this repo edits migrations in place, so a version cannot promise a
     // shape — but it has to be stable, or every file already written stops being readable. It moved
-    // to `/2` when a quirk became an object, and the console upgrades a `/1` file as it reads one.
+    // to `/2` when a quirk became an object, and the console upgrades a `/1` file as it reads one. It
+    // moved to `/3` when a character carried `kinds`, and a `/2` file still reads as it stands.
     it('is the version an import will recognise', () => {
-        expect(PERSONA_FILE_FORMAT).toBe('deadair.persona/2');
+        expect(PERSONA_FILE_FORMAT).toBe('deadair.persona/3');
     });
 });
 

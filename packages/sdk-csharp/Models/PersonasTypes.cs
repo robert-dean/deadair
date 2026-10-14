@@ -988,9 +988,15 @@ public sealed record PersonaImportEntry
     [JsonPropertyName("label")]
     public required string Label { get; init; }
 
+    /// <summary>The one of `kinds` that ranks highest, host first, for a console built before `kinds`</summary>
     [JsonPropertyName("kind")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PersonaImportEntryKind? Kind { get; init; }
+
+    /// <summary>What the character will be cast as here: the file's `kinds`, else its one `kind`, else `host`</summary>
+    [JsonPropertyName("kinds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PersonaImportEntryKinds>? Kinds { get; init; }
 
     /// <summary>Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again</summary>
     [JsonPropertyName("outcome")]
@@ -1326,10 +1332,15 @@ public sealed record PersonaFilePersona
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Templates { get; init; }
 
-    /// <summary>Absent means `host`, as everywhere else</summary>
+    /// <summary>The one kind a `deadair.persona/2` file carries, read as a character of that kind alone. Absent, with no `kinds`, means `host`, as everywhere else</summary>
     [JsonPropertyName("kind")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PersonaFilePersonaKind? Kind { get; init; }
+
+    /// <summary>What the character may be cast as, in any combination. Wins over `kind` when a file has both</summary>
+    [JsonPropertyName("kinds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PersonaFilePersonaKinds>? Kinds { get; init; }
 
     [JsonPropertyName("stories")]
     public required List<PersonaFileStory> Stories { get; init; }
@@ -3182,7 +3193,7 @@ public sealed class PersonaStoryStateStateConverter : JsonConverter<PersonaStory
     };
 }
 
-/// <summary>Absent means `host`, as everywhere else</summary>
+/// <summary>The one kind a `deadair.persona/2` file carries, read as a character of that kind alone. Absent, with no `kinds`, means `host`, as everywhere else</summary>
 [JsonConverter(typeof(PersonaFilePersonaKindConverter))]
 public enum PersonaFilePersonaKind
 {
@@ -3246,6 +3257,72 @@ public sealed class PersonaFilePersonaKindConverter : JsonConverter<PersonaFileP
         PersonaFilePersonaKind.Newsreader => "newsreader",
         PersonaFilePersonaKind.Guest => "guest",
         _ => throw new JsonException($"PersonaFilePersonaKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaFilePersonaKindsConverter))]
+public enum PersonaFilePersonaKinds
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("host")]
+    Host,
+
+    [JsonStringEnumMemberName("caller")]
+    Caller,
+
+    [JsonStringEnumMemberName("newsreader")]
+    Newsreader,
+
+    [JsonStringEnumMemberName("guest")]
+    Guest,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PersonaFilePersonaKinds"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaFilePersonaKinds.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaFilePersonaKindsConverter : JsonConverter<PersonaFilePersonaKinds>
+{
+    public override PersonaFilePersonaKinds Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaFilePersonaKinds, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaFilePersonaKinds value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaFilePersonaKinds ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaFilePersonaKinds value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaFilePersonaKinds FromWire(string? text) => text switch
+    {
+        "host" => PersonaFilePersonaKinds.Host,
+        "caller" => PersonaFilePersonaKinds.Caller,
+        "newsreader" => PersonaFilePersonaKinds.Newsreader,
+        "guest" => PersonaFilePersonaKinds.Guest,
+        _ => PersonaFilePersonaKinds.Unknown,
+    };
+
+    private static string ToWire(PersonaFilePersonaKinds value) => value switch
+    {
+        PersonaFilePersonaKinds.Host => "host",
+        PersonaFilePersonaKinds.Caller => "caller",
+        PersonaFilePersonaKinds.Newsreader => "newsreader",
+        PersonaFilePersonaKinds.Guest => "guest",
+        _ => throw new JsonException($"PersonaFilePersonaKinds.{value} has no wire spelling, so it cannot be sent."),
     };
 }
 
@@ -3481,6 +3558,7 @@ public sealed class PersonaFileStoryDetailStateConverter : JsonConverter<Persona
     };
 }
 
+/// <summary>The one of `kinds` that ranks highest, host first, for a console built before `kinds`</summary>
 [JsonConverter(typeof(PersonaImportEntryKindConverter))]
 public enum PersonaImportEntryKind
 {
@@ -3544,6 +3622,72 @@ public sealed class PersonaImportEntryKindConverter : JsonConverter<PersonaImpor
         PersonaImportEntryKind.Newsreader => "newsreader",
         PersonaImportEntryKind.Guest => "guest",
         _ => throw new JsonException($"PersonaImportEntryKind.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PersonaImportEntryKindsConverter))]
+public enum PersonaImportEntryKinds
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("host")]
+    Host,
+
+    [JsonStringEnumMemberName("caller")]
+    Caller,
+
+    [JsonStringEnumMemberName("newsreader")]
+    Newsreader,
+
+    [JsonStringEnumMemberName("guest")]
+    Guest,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PersonaImportEntryKinds"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PersonaImportEntryKinds.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PersonaImportEntryKindsConverter : JsonConverter<PersonaImportEntryKinds>
+{
+    public override PersonaImportEntryKinds Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PersonaImportEntryKinds, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PersonaImportEntryKinds value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PersonaImportEntryKinds ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PersonaImportEntryKinds value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PersonaImportEntryKinds FromWire(string? text) => text switch
+    {
+        "host" => PersonaImportEntryKinds.Host,
+        "caller" => PersonaImportEntryKinds.Caller,
+        "newsreader" => PersonaImportEntryKinds.Newsreader,
+        "guest" => PersonaImportEntryKinds.Guest,
+        _ => PersonaImportEntryKinds.Unknown,
+    };
+
+    private static string ToWire(PersonaImportEntryKinds value) => value switch
+    {
+        PersonaImportEntryKinds.Host => "host",
+        PersonaImportEntryKinds.Caller => "caller",
+        PersonaImportEntryKinds.Newsreader => "newsreader",
+        PersonaImportEntryKinds.Guest => "guest",
+        _ => throw new JsonException($"PersonaImportEntryKinds.{value} has no wire spelling, so it cannot be sent."),
     };
 }
 

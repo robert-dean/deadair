@@ -544,7 +544,10 @@ data class PersonaImportEntry(
     /** What identifies this character across two installs */
     val key: String,
     val label: String,
+    /** The one of `kinds` that ranks highest, host first, for a console built before `kinds` */
     val kind: PersonaImportEntryKind? = null,
+    /** What the character will be cast as here: the file's `kinds`, else its one `kind`, else `host` */
+    val kinds: List<PersonaImportEntryKinds>? = null,
     /** Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again */
     val outcome: PersonaImportEntryOutcome,
     val storiesNew: Long,
@@ -719,8 +722,10 @@ data class PersonaFilePersona(
     val trivia: PersonaDraftViewTrivia? = null,
     val samples: List<String>? = null,
     val templates: String? = null,
-    /** Absent means `host`, as everywhere else */
+    /** The one kind a `deadair.persona/2` file carries, read as a character of that kind alone. Absent, with no `kinds`, means `host`, as everywhere else */
     val kind: PersonaFilePersonaKind? = null,
+    /** What the character may be cast as, in any combination. Wins over `kind` when a file has both */
+    val kinds: List<PersonaFilePersonaKinds>? = null,
     val stories: List<PersonaFileStory>,
 )
 
@@ -1446,7 +1451,7 @@ object PersonaStoryStateStateSerializer : SdkEnumSerializer<PersonaStoryStateSta
     PersonaStoryStateState.REJECTED to "rejected",
 )
 
-/** Absent means `host`, as everywhere else */
+/** The one kind a `deadair.persona/2` file carries, read as a character of that kind alone. Absent, with no `kinds`, means `host`, as everywhere else */
 @Serializable(with = PersonaFilePersonaKindSerializer::class)
 enum class PersonaFilePersonaKind {
     HOST,
@@ -1469,6 +1474,30 @@ object PersonaFilePersonaKindSerializer : SdkEnumSerializer<PersonaFilePersonaKi
     PersonaFilePersonaKind.CALLER to "caller",
     PersonaFilePersonaKind.NEWSREADER to "newsreader",
     PersonaFilePersonaKind.GUEST to "guest",
+)
+
+@Serializable(with = PersonaFilePersonaKindsSerializer::class)
+enum class PersonaFilePersonaKinds {
+    HOST,
+    CALLER,
+    NEWSREADER,
+    GUEST,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [PersonaFilePersonaKinds] by its wire spelling. A spelling it does not know reads as [PersonaFilePersonaKinds.UNKNOWN]. */
+object PersonaFilePersonaKindsSerializer : SdkEnumSerializer<PersonaFilePersonaKinds>(
+    "PersonaFilePersonaKinds",
+    PersonaFilePersonaKinds.UNKNOWN,
+    PersonaFilePersonaKinds.HOST to "host",
+    PersonaFilePersonaKinds.CALLER to "caller",
+    PersonaFilePersonaKinds.NEWSREADER to "newsreader",
+    PersonaFilePersonaKinds.GUEST to "guest",
 )
 
 /** Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it */
@@ -1556,6 +1585,7 @@ object PersonaFileStoryDetailStateSerializer : SdkEnumSerializer<PersonaFileStor
     PersonaFileStoryDetailState.REJECTED to "rejected",
 )
 
+/** The one of `kinds` that ranks highest, host first, for a console built before `kinds` */
 @Serializable(with = PersonaImportEntryKindSerializer::class)
 enum class PersonaImportEntryKind {
     HOST,
@@ -1578,6 +1608,30 @@ object PersonaImportEntryKindSerializer : SdkEnumSerializer<PersonaImportEntryKi
     PersonaImportEntryKind.CALLER to "caller",
     PersonaImportEntryKind.NEWSREADER to "newsreader",
     PersonaImportEntryKind.GUEST to "guest",
+)
+
+@Serializable(with = PersonaImportEntryKindsSerializer::class)
+enum class PersonaImportEntryKinds {
+    HOST,
+    CALLER,
+    NEWSREADER,
+    GUEST,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [PersonaImportEntryKinds] by its wire spelling. A spelling it does not know reads as [PersonaImportEntryKinds.UNKNOWN]. */
+object PersonaImportEntryKindsSerializer : SdkEnumSerializer<PersonaImportEntryKinds>(
+    "PersonaImportEntryKinds",
+    PersonaImportEntryKinds.UNKNOWN,
+    PersonaImportEntryKinds.HOST to "host",
+    PersonaImportEntryKinds.CALLER to "caller",
+    PersonaImportEntryKinds.NEWSREADER to "newsreader",
+    PersonaImportEntryKinds.GUEST to "guest",
 )
 
 /** Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again */

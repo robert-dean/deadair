@@ -1,6 +1,11 @@
 import type { PersonaFile } from '@deadair/sdk';
 
-/** What the station writes now, and what a file of the shape before it says it is. */
+/**
+ * What a `/1` file becomes, and what a file of the shape before it says it is.
+ *
+ * `/2` rather than the station's newest stamp: a `/1` file carries one `kind`, which is the `/2` shape,
+ * and the station reads a `/2` file as it stands. A `/3` file needs nothing done to it.
+ */
 export const PERSONA_FILE_FORMAT = 'deadair.persona/2';
 const FIRST_FORMAT = 'deadair.persona/1';
 

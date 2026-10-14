@@ -736,7 +736,14 @@ export type PersonaFileStory = z.infer<typeof PersonaFileStory>;
 export const PersonaImportEntry = z.strictObject({
     key: z.string().min(1).max(100).describe('What identifies this character across two installs'),
     label: z.string().min(1).max(200),
-    kind: z.enum(['host', 'caller', 'newsreader', 'guest']).optional(),
+    kind: z
+        .enum(['host', 'caller', 'newsreader', 'guest'])
+        .optional()
+        .describe('The one of `kinds` that ranks highest, host first, for a console built before `kinds`'),
+    kinds: z
+        .array(z.enum(['host', 'caller', 'newsreader', 'guest']))
+        .optional()
+        .describe("What the character will be cast as here: the file's `kinds`, else its one `kind`, else `host`"),
     outcome: z
         .enum(['create', 'update', 'skip'])
         .describe(
@@ -916,7 +923,18 @@ export type PersonaStoryListInput = z.infer<typeof PersonaStoryListInput>;
  * generated from [PersonaFilePersona](../../../../data/contracts/personas/personas.types.ck)
  */
 export const PersonaFilePersona = PersonaDraftView.extend({
-    kind: z.enum(['host', 'caller', 'newsreader', 'guest']).optional().describe('Absent means `host`, as everywhere else'),
+    kind: z
+        .enum(['host', 'caller', 'newsreader', 'guest'])
+        .optional()
+        .describe(
+            'The one kind a `deadair.persona/2` file carries, read as a character of that kind alone. Absent, with no `kinds`, means `host`, as everywhere else',
+        ),
+    kinds: z
+        .array(z.enum(['host', 'caller', 'newsreader', 'guest']))
+        .min(1)
+        .max(4)
+        .optional()
+        .describe('What the character may be cast as, in any combination. Wins over `kind` when a file has both'),
     soundboard: z
         .string()
         .max(200)

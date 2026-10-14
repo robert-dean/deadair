@@ -534,7 +534,10 @@ export interface PersonaImportEntry {
     /** What identifies this character across two installs */
     key: string;
     label: string;
+    /** The one of `kinds` that ranks highest, host first, for a console built before `kinds` */
     kind?: 'host' | 'caller' | 'newsreader' | 'guest';
+    /** What the character will be cast as here: the file's `kinds`, else its one `kind`, else `host` */
+    kinds?: ('host' | 'caller' | 'newsreader' | 'guest')[];
     /** Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again */
     outcome: 'create' | 'update' | 'skip';
     storiesNew: number;
@@ -692,8 +695,10 @@ export interface PersonaStoryListInput {
  * generated from [PersonaFilePersona](../../../../../apps/api/data/contracts/personas/personas.types.ck)
  */
 export interface PersonaFilePersona extends Omit<PersonaDraftView, 'soundboard'> {
-    /** Absent means `host`, as everywhere else */
+    /** The one kind a `deadair.persona/2` file carries, read as a character of that kind alone. Absent, with no `kinds`, means `host`, as everywhere else */
     kind?: 'host' | 'caller' | 'newsreader' | 'guest';
+    /** What the character may be cast as, in any combination. Wins over `kind` when a file has both */
+    kinds?: ('host' | 'caller' | 'newsreader' | 'guest')[];
     /** The board this character reaches for. Carried even though the receiving station may not hold it: a persona naming a rack that does not exist and one with no rack are the same state, and the import says which it got */
     soundboard?: string;
     stories: PersonaFileStory[];

@@ -11669,7 +11669,15 @@ components:
                       kind:
                           type: string
                           enum: [host, caller, newsreader, guest]
-                          description: 'Absent means `host`, as everywhere else'
+                          description: 'The one kind a `deadair.persona/2` file carries, read as a character of that kind alone. Absent, with no `kinds`, means `host`, as everywhere else'
+                      kinds:
+                          type: array
+                          items:
+                              type: string
+                              enum: [host, caller, newsreader, guest]
+                          minItems: 1
+                          maxItems: 4
+                          description: 'What the character may be cast as, in any combination. Wins over `kind` when a file has both'
                       soundboard:
                           type: string
                           maxLength: 200
@@ -11787,6 +11795,14 @@ components:
                     type: string
                     enum: [host, caller, newsreader, guest]
                     readOnly: true
+                    description: 'The one of `kinds` that ranks highest, host first, for a console built before `kinds`'
+                kinds:
+                    type: array
+                    items:
+                        type: string
+                        enum: [host, caller, newsreader, guest]
+                    readOnly: true
+                    description: "What the character will be cast as here: the file's `kinds`, else its one `kind`, else `host`"
                 outcome:
                     type: string
                     enum: [create, update, skip]

@@ -193,7 +193,8 @@ contract PersonaFile: {
 # exactly what travels, plus the two fields a model is deliberately not asked for and a real install
 # always knows: what the character is FOR, and which rack it has to hand
 contract PersonaFilePersona: PersonaDraftView & {
-    kind?: enum(host, caller, newsreader, guest) # Absent means `host`, as everywhere else
+    kind?: enum(host, caller, newsreader, guest) # The one kind a `deadair.persona/2` file carries, read as a character of that kind alone. Absent, with no `kinds`, means `host`, as everywhere else
+    kinds?: array(enum(host, caller, newsreader, guest), min=1, max=4) # What the character may be cast as, in any combination. Wins over `kind` when a file has both
     soundboard?: string(max=200) # The board this character reaches for. Carried even though the receiving station may not hold it: a persona naming a rack that does not exist and one with no rack are the same state, and the import says which it got
     stories: array(PersonaFileStory)
 }
@@ -240,7 +241,8 @@ contract PersonaImportPlan: {
 contract PersonaImportEntry: {
     key: readonly string(min=1, max=100) # What identifies this character across two installs
     label: readonly string(min=1, max=200)
-    kind?: readonly enum(host, caller, newsreader, guest)
+    kind?: readonly enum(host, caller, newsreader, guest) # The one of `kinds` that ranks highest, host first, for a console built before `kinds`
+    kinds?: readonly array(enum(host, caller, newsreader, guest)) # What the character will be cast as here: the file's `kinds`, else its one `kind`, else `host`
     outcome: readonly enum(create, update, skip) # Whether this station holds a character under this key already, and if so whether the import was asked to replace it. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote. A skip writes nothing at all, and its counts and notices say what replacing it WOULD do, so a console can offer the choice without asking again
     storiesNew: readonly int(min=0)
     storiesHeld: readonly int(min=0) # Already here under the same handle, so importing would skip them

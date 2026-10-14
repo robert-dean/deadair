@@ -40,6 +40,7 @@ was shipped first and was wrong.
 | the model, the gate, the tool loop | [`docs/internals/llm.md`](docs/internals/llm.md) |
 | signing in through an identity provider, the allowlist, linked sign-ins, apps connecting over OAuth, the MCP endpoint | [`docs/internals/authentication.md`](docs/internals/authentication.md) |
 | the station on chat platforms (Telegram, Discord, Slack and the like), chat commands, the poller, listener requests | [`docs/internals/messaging.md`](docs/internals/messaging.md) |
+| event destinations: the station POSTing signed events to an operator's own servers (Home Assistant and the like), their secrets, the delivery log | [`docs/internals/events.md`](docs/internals/events.md) |
 | the Dockerfile, the image variants, CI | [`docs/internals/deployment.md`](docs/internals/deployment.md) |
 
 Each of those is sectioned, so the answer to one question is a heading rather than a file. Several
@@ -93,7 +94,7 @@ pointing at something that has never existed:
   subscriber on opposite sides of the module list): `apps/api/CLAUDE.md` § "How work is dispatched".
 - `apps/api/README.md` for the boot sequence, DI scoping convention and middleware. Its module and
   route tables were checked against `src/modules/modules.ts` and `src/routes/routes.setup.ts` on
-  2026-10-11 and listed all 48 modules and all 44 routers in registration order then. Those two
+  2026-10-14 and listed all 49 modules and all 45 routers in registration order then. Those two
   files stay the source of truth: verify against them before relying on an entry.
 - `README.md` and `docs/licensing.md` are written for whoever RUNS this rather than for whoever
   works on it. Keep them true.
@@ -164,7 +165,7 @@ deploy/, unraid/                  how somebody else installs it
 `plugins`, `jobs`, `playlists`, `charts`, `similarity`, `news`, `search`, `weather`, `almanac`,
 `podcasts`, `narrations`, `topics`, `scrobble`, `llm`, `personas`, `schedule`, `render`, `playout`,
 `nowplaying`, `analysis`, `lyrics`, `director`, `storage`, `activity`, `history`, `enrichment`, `productions`,
-`station`, `requests`, `messaging`, `outputs`, `mcp`. **`src/modules/modules.ts` is the source of
+`station`, `requests`, `messaging`, `events`, `outputs`, `mcp`. **`src/modules/modules.ts` is the source of
 truth and the order is load-bearing** — see [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md). Check it
 before assuming a subsystem exists.
 

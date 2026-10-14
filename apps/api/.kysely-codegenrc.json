@@ -77,7 +77,8 @@
             "deadair.schedule_slot_hosts.role": "'guest' | 'cohost'",
             "deadair.own_shows.writing_mode": "'quick' | 'outlined' | 'polished' | null",
             "deadair.invitations.role": "'admin' | 'listener'",
-            "deadair.invitations.state": "Generated<'pending' | 'accepted' | 'revoked'>"
+            "deadair.invitations.state": "Generated<'pending' | 'accepted' | 'revoked'>",
+            "deadair.event_deliveries.outcome": "'delivered' | 'failed' | 'dropped'"
         }
     },
     "partitions": false,

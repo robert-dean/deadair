@@ -1883,6 +1883,143 @@ paths:
                                 '$ref': '#/components/schemas/BlockRuleList'
                 '404':
                     description: 'Not found'
+    '/events/types':
+        get:
+            operationId: listTypes
+            summary: 'List event types'
+            description: 'Every kind of event the station sends, each with an example of what a destination receives'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/EventTypeList'
+    '/events/destinations':
+        get:
+            operationId: listEventDestinations
+            summary: 'List event destinations'
+            description: 'Every event destination, oldest first'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/EventDestinationList'
+        post:
+            operationId: createEventDestination
+            summary: 'Create event destination'
+            description: 'Add an event destination. The answer carries its signing secret, which is not shown again'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/EventDestinationCreate'
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/EventDestinationCreated'
+    '/events/destinations/{id}':
+        patch:
+            operationId: updateEventDestination
+            summary: 'Update event destination'
+            description: "Change an event destination's name, address, or whether it is on"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/EventDestinationUpdate'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/EventDestination'
+        delete:
+            operationId: deleteEventDestination
+            summary: 'Delete event destination'
+            description: 'Remove an event destination and its delivery log'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '204':
+                    description: 'No content'
+    '/events/destinations/{id}/secret':
+        post:
+            operationId: rotateSecret
+            summary: 'Rotate event destination secret'
+            description: 'Make a new signing secret for a destination. The old one stops working at once'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/EventDestinationSecret'
+    '/events/destinations/{id}/test':
+        post:
+            operationId: test
+            summary: 'Test event destination'
+            description: 'Send a destination a test event now, and say what it answered. Sent even when the destination is off'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/EventTestResult'
+    '/events/destinations/{id}/deliveries':
+        get:
+            operationId: listDeliveries
+            summary: 'List event deliveries'
+            description: "A destination's latest delivery attempts, newest first"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/EventDeliveryList'
     '/history':
         get:
             operationId: readHistory
@@ -9632,6 +9769,205 @@ components:
                     description: 'How long it lasts, from now'
             required: [genres, hours]
             description: 'Lean the station toward some genres for a number of hours'
+        EventDestination:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    readOnly: true
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'What the operator calls it'
+                url:
+                    type: string
+                    minLength: 1
+                    maxLength: 2000
+                    description: "Where events are POSTed. http or https, and allowed to be on the station's own network. A redirect is never followed"
+                enabled:
+                    type: boolean
+                    description: 'Off sends nothing'
+                createdAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                updatedAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+            required: [id, name, url, enabled, createdAt, updatedAt]
+            description: "Somewhere the station sends what happens on it: an operator's own server, sent a signed POST per event"
+        EventDestinationList:
+            type: object
+            properties:
+                destinations:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/EventDestination'
+            required: [destinations]
+            description: 'Every event destination, oldest first'
+        EventDestinationCreate:
+            type: object
+            properties:
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                url:
+                    type: string
+                    minLength: 1
+                    maxLength: 2000
+                enabled:
+                    type: boolean
+                    description: 'Defaults to on'
+            required: [name, url]
+            description: 'A new event destination'
+        EventDestinationUpdate:
+            type: object
+            properties:
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                url:
+                    type: string
+                    minLength: 1
+                    maxLength: 2000
+                enabled:
+                    type: boolean
+            description: 'Changes to an event destination. Only what is sent changes'
+        EventDestinationSecret:
+            type: object
+            properties:
+                secret:
+                    type: string
+                    description: 'Put this in the receiver. Each delivery carries `Deadair-Webhook-Signature: v1=<hex HMAC-SHA256 of "<Deadair-Webhook-Timestamp>.<body>">`'
+            required: [secret]
+            description: 'The secret deliveries to a destination are signed with. Shown only when it is made, so keep it'
+        EventDestinationCreated:
+            allOf:
+                - '$ref': '#/components/schemas/EventDestination'
+                - '$ref': '#/components/schemas/EventDestinationSecret'
+            description: 'A destination just made, with its secret'
+        EventDelivery:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                eventId:
+                    type: string
+                    format: uuid
+                    description: "The event's own id, which every attempt at it shares"
+                eventType:
+                    type: string
+                    maxLength: 100
+                attempt:
+                    type: integer
+                    minimum: 1
+                outcome:
+                    type: string
+                    enum: [delivered, failed, dropped]
+                    description: '`dropped` is an event no longer worth sending, such as a record that finished playing while its destination was down'
+                httpStatus:
+                    type: integer
+                    description: 'What the destination answered, when it answered at all'
+                durationMs:
+                    type: integer
+                    minimum: 0
+                error:
+                    type: string
+                    maxLength: 1000
+                    description: "What went wrong, in the station's words. Never the destination's response body"
+                createdAt:
+                    type: string
+                    format: date-time
+            required: [id, eventId, eventType, attempt, outcome, durationMs, createdAt]
+            description: 'One attempt at sending an event to a destination'
+        EventDeliveryList:
+            type: object
+            properties:
+                deliveries:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/EventDelivery'
+            required: [deliveries]
+            description: "A destination's latest delivery attempts, newest first. The station keeps the latest fifty"
+        EventTestResult:
+            type: object
+            properties:
+                delivered:
+                    type: boolean
+                httpStatus:
+                    type: integer
+                    description: 'What the destination answered, when it answered at all'
+                durationMs:
+                    type: integer
+                    minimum: 0
+                error:
+                    type: string
+                    maxLength: 1000
+                    description: "Why it was not delivered, in the station's words"
+            required: [delivered, durationMs]
+            description: 'What a test delivery came to'
+        EventStation:
+            type: object
+            properties:
+                key:
+                    type: string
+                name:
+                    type: string
+            required: [key, name]
+            description: 'Which station sent an event'
+        EventEnvelope:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    description: "The event's own id. A redelivery of the same event carries the same one"
+                type:
+                    type: string
+                    maxLength: 100
+                    description: 'What happened, such as `track.started`'
+                occurredAt:
+                    type: string
+                    description: 'When, as an ISO-8601 instant in UTC'
+                station:
+                    '$ref': '#/components/schemas/EventStation'
+                data:
+                    type: object
+                    additionalProperties: {}
+                    description: 'What the type says it holds. `/events/types` gives an example of each'
+            required: [id, type, occurredAt, station, data]
+            description: 'One event, as a destination receives it. The same shape for every type: read `type`, then `data`'
+        EventType:
+            type: object
+            properties:
+                type:
+                    type: string
+                    maxLength: 100
+                description:
+                    type: string
+                    description: 'When it is sent, and what its `data` holds'
+                subscribable:
+                    type: boolean
+                    description: 'False for the test event, which only a test delivery sends'
+                example:
+                    '$ref': '#/components/schemas/EventEnvelope'
+            required: [type, description, subscribable, example]
+            description: 'One kind of event the station sends'
+        EventTypeList:
+            type: object
+            properties:
+                types:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/EventType'
+            required: [types]
+            description: 'Every kind of event the station sends'
         HistoryEntry:
             type: object
             properties:

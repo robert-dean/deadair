@@ -1,0 +1,107 @@
+# Internals: event destinations
+
+How the station tells an operator's own servers what happens on it: a signed POST per event to a
+home automation hub, a workflow tool, or anything else that takes a webhook. The module is
+`apps/api/src/modules/events`; its routes are `apps/api/data/contracts/events/events.ck`.
+
+Every paragraph here records a decision and the obvious alternative it was chosen over. Read the
+ones covering whatever you are about to change. The always-loaded index is
+[`CLAUDE.md`](../../CLAUDE.md).
+
+## Three words, kept apart
+
+**An event is what happened; a destination is where it is sent; a webhook is the transport.** The
+feature is "event destinations", not "webhooks", for two reasons. Today every destination is an HTTP
+webhook, but the thing an operator configures is a destination, and naming it after its transport
+would have to change the day a second one (MQTT, say) arrives. And "webhooks" is kept for the OTHER
+direction: a platform pushing INTO the station, under `/webhooks/*`, which the audit middleware
+already classifies as a webhook caller and which a route guard in
+`tests/server/middleware/authorization.context.middleware.test.ts` keeps empty until something
+verifies a vendor's signature. A route for this feature under `/webhooks/` would collide with both.
+
+**None of this is `station_events`.** That table is the activity feed's record of a moment, written
+as a sentence for a person. An event here is the same kind of moment written for a machine. Copy and
+docs say "station events" for the feed and "event destinations" for this, and never a bare
+"events" for either.
+
+## Not a plugin, and not the messaging path
+
+**A core module, because there is nothing for a plugin to own.** The chat plugins exist because each
+platform has its own protocol; a webhook has one. A plugin also cannot be called with events, so the
+host would still own the fan-out, the subscriptions and the routes, and the plugin would hold a list
+of URLs and secrets as config fields, which is a table pretending not to be one.
+
+**The shape of `MessagingAnnouncer`, not its code.** That path announces records only, as text, to
+targets a plugin names. This one sends every kind of moment, as a typed envelope, to targets in its
+own table. What it borrows is the pattern: listen on the edge, hand one job per destination to the
+broker, and drop an event once it would be false rather than late.
+
+## What a delivery is
+
+**One envelope for every type** (`EventEnvelope` in `events.types.ck`): `id`, `type`, `occurredAt`,
+`station`, `data`. A receiver reads `type` and then knows what `data` holds; `GET /events/types`
+gives an example of each. JSON-safe because it is sent: times are ISO-8601 strings in UTC and every
+duration inside `data` is integer milliseconds. `id` is minted once and kept across retries, so a
+receiver can tell a redelivery from a second event.
+
+**Signed with the scheme a ServerKit receiver verifies.** `WebhookSender` signs with servercore's
+`signRequestBody`: the HMAC-SHA256 of `"<unix seconds>.<body>"`, prefixed `v1=`, in
+`Deadair-Webhook-Signature`, with the seconds in `Deadair-Webhook-Timestamp` and the event id in
+`Deadair-Webhook-Id`. The timestamp is what gives a receiver a replay window. A ServerKit receiver
+verifies through `requireSignature` with the same `prefix` and a `timestamp` option, which is why the
+signer lives upstream beside `DefaultSignaturePolicy` rather than here: the two halves cannot drift.
+The headers name the transport, which is a webhook, and carry no vendor's prefix. The body is
+serialized once and those exact bytes are signed and sent; re-serializing after signing is the
+classic way to send a signature for a body nobody received.
+
+**A home automation hub cannot check an HMAC**, and its webhook trigger is protected by the secret in
+its URL instead. That is fine, and it is also why every route here is on `platform.manage`, reads
+included: the address is often the whole of the receiver's protection.
+
+**The secret is sealed, not hashed**, because every delivery signs with it. It is minted by the
+station (`deadair_dest_` and 32 random bytes), shown in the clear on creation and on rotation and
+never again, and stored encrypted with the root key on the party pass's rule. The two routes that
+return one are kept out of MCP.
+
+## One attempt, and what the answer means
+
+**`WebhookSender.send` makes one attempt and never throws.** Retrying belongs to whoever calls it,
+because only the caller knows how long the event stays true. 2xx is delivered. 408, 429, every 5xx,
+a refused connection and a missed deadline are worth asking again. Any other 4xx is not. The deadline
+is five seconds to the status line, short because the receiver is on the LAN and answers in
+milliseconds or is down, and the body is cancelled unread.
+
+**The reason is the station's own sentence, never the receiver's body.** It is shown in the console
+and kept in the delivery log, and a response body is somebody else's text: the line the activity
+feed draws, applied outward.
+
+## Egress: the LAN is allowed, a redirect is not
+
+**A destination may be a private address**, and `privateAddressBehind` is deliberately not applied.
+The address is an instruction from somebody holding `platform.manage`, the same standing a plugin's
+`fromConfig` host and `PluginOperatorHosts` already have, and the receiver this exists for lives on
+the operator's own network. Refusing private addresses would refuse the feature. Do not "fix" this.
+
+**What a refusal WOULD have protected against is answered by never following a redirect.** A public
+address is the risk: whatever answers there could redirect the station onto a machine beside it. So
+`redirect: 'manual'`, and a 3xx is a permanent failure whose reason tells the operator to save the
+address it moved to. Without a redirect there is nothing to re-check per hop, which is also why the
+rebinding gap the plugin guard documents does not open here.
+
+**`webhookUrlProblem` is the one rule for an address**, checked when it is saved and again before
+each send: http or https, and no username or password in the URL, since an address is written into
+the console and every log line that names it. A receiver that wants a token takes it in the path or
+the query.
+
+## The delivery log
+
+**A short log per destination, not a queue.** `event_deliveries` holds every attempt, test
+deliveries included, and nothing reads it to decide whether to send: retries are the job broker's.
+It is kept to the newest fifty per destination, trimmed by the same call that writes a row, because
+the moment a row arrives is the one moment the destination is known to have one too many, and a busy
+station would otherwise write one row per record per destination forever.
+`apps/api/scripts/events.smoke.ts` covers the trim, which is the part that is SQL.
+
+**A test is sent whether the destination is on or not**, because checking a receiver before turning
+it on is the obvious thing to want, and it lands in the same log as real traffic so the console shows
+both in one place.

@@ -6,6 +6,7 @@ import { AuthenticationClient } from './authentication/authentication.client.js'
 import { CatalogClient } from './catalog/catalog.client.js';
 import { ChartsClient } from './charts/charts.client.js';
 import { DirectorClient } from './director/director.client.js';
+import { EventsClient } from './events/events.client.js';
 import { HistoryClient } from './history/history.client.js';
 import { LanguagesClient } from './languages/languages.client.js';
 import { MessagingClient } from './messaging/messaging.client.js';
@@ -38,6 +39,7 @@ export class DeadairSdk {
     readonly catalog: CatalogClient;
     readonly charts: ChartsClient;
     readonly director: DirectorClient;
+    readonly events: EventsClient;
     readonly history: HistoryClient;
     readonly languages: LanguagesClient;
     readonly messaging: MessagingClient;
@@ -71,6 +73,7 @@ export class DeadairSdk {
         this.catalog = new CatalogClient(sdkFetch);
         this.charts = new ChartsClient(sdkFetch);
         this.director = new DirectorClient(sdkFetch);
+        this.events = new EventsClient(sdkFetch);
         this.history = new HistoryClient(sdkFetch);
         this.languages = new LanguagesClient(sdkFetch);
         this.messaging = new MessagingClient(sdkFetch);

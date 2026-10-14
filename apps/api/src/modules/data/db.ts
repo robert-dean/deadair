@@ -294,6 +294,31 @@ export interface DeadairConsoleLanguages {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairEventDeliveries {
+  attempt: Generated<number>;
+  createdAt: Generated<DateTime>;
+  destinationId: string;
+  durationMs: Generated<number>;
+  error: string | null;
+  eventId: string;
+  eventType: string;
+  httpStatus: number | null;
+  id: Generated<string>;
+  outcome: "delivered" | "failed" | "dropped";
+}
+
+export interface DeadairEventDestinations {
+  createdAt: Generated<DateTime>;
+  createdBy: string | null;
+  enabled: Generated<boolean>;
+  id: Generated<string>;
+  name: string;
+  secretSealed: string;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+  url: string;
+}
+
 export interface DeadairFactExtractions {
   albumId: string | null;
   artistId: string | null;
@@ -1260,6 +1285,8 @@ export interface DB {
   "deadair.clockBands": DeadairClockBands;
   "deadair.consoleLanguageChoices": DeadairConsoleLanguageChoices;
   "deadair.consoleLanguages": DeadairConsoleLanguages;
+  "deadair.eventDeliveries": DeadairEventDeliveries;
+  "deadair.eventDestinations": DeadairEventDestinations;
   "deadair.factExtractions": DeadairFactExtractions;
   "deadair.facts": DeadairFacts;
   "deadair.genreSteers": DeadairGenreSteers;

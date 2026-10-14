@@ -45,6 +45,7 @@ import { withBoundedShutdown } from './shared/shutdown.guard.js';
 import { OAuthModule } from './oauth/oauth.module.js';
 import { McpModule } from './mcp/mcp.module.js';
 import { MessagingModule } from './messaging/messaging.module.js';
+import { EventsModule } from './events/events.module.js';
 import { OutputsModule } from './outputs/outputs.module.js';
 import { RequestsModule } from './requests/requests.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -295,6 +296,10 @@ const ordered: ServerKitModule[] = [
     // After the plugins it polls and everything a chat command reaches (now playing, the director),
     // so its poller lets go of every platform before any of those tear down. Nothing resolves it.
     MessagingModule,
+    // After everything whose moments it sends on to an operator's servers (the transport, the
+    // director, the requests desk), so it can listen to each of them without any of them knowing it
+    // exists, and so it tears down before they do. Nothing resolves it.
+    EventsModule,
     // After the plugins it calls and the now playing it reads, so its supervisor stops before either
     // tears down. Nothing resolves it.
     OutputsModule,

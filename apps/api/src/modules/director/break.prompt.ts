@@ -2059,13 +2059,54 @@ const hasFacts = (previous: BreakTrack | undefined, next: BreakTrack | undefined
  * So a record counts as named when the script carries its title, its title with any parenthetical
  * taken off, or the artist's name. Compared as bare words for {@link echoedSample}'s reason: a curly
  * apostrophe, a capital and a comma are not the difference between naming a record and not.
+ *
+ * Or the artist the way a presenter actually SAYS it, which is {@link shortArtistNames}: "that
+ * Stones track", "White Stripes is up next", "that Petty track" were all refused as naming neither
+ * record while naming one plainly.
  */
 export function namedRecordIn(script: string, records: readonly (BreakTrack | undefined)[], language?: string): BreakTrack | undefined {
     const spoken = ` ${bareWords(script)} `;
+    const capitalised = ` ${bareWords(capitalisedOnly(script))} `;
     const says = language === undefined ? saysName : saysNameInflected;
 
-    return records.find(record => record !== undefined && identifiersOf(record).some(candidate => says(spoken, candidate)));
+    return records.find(
+        record =>
+            record !== undefined &&
+            (identifiersOf(record).some(candidate => says(spoken, candidate)) ||
+                shortArtistNames(record.artist).some(candidate => says(capitalised, candidate))),
+    );
 }
+
+/**
+ * The shorter names an artist goes by on air: without a leading "The", and by the last word alone.
+ *
+ * "The Rolling Stones" is "the Stones", "The White Stripes" is "White Stripes" and "Tom Petty" is
+ * "Petty", and a check that wanted the whole name refused all three. Both are kept to what can
+ * stand as a name: a short form that is a grammar word or under four letters is dropped, which is
+ * what keeps "The Who" from being named by every question a presenter asks.
+ *
+ * Matched only against the CAPITALISED words of a script (see {@link capitalisedOnly}), because a
+ * short form is very often an ordinary word as well: "Doors" names The Doors and "both doors open at
+ * eight" names nothing. A capital is how the written script says which one it means.
+ */
+const shortArtistNames = (artist: string): string[] => {
+    const full = bareWords(artist);
+    const unprefixed = full.replace(/^the /, '');
+    const words = unprefixed.split(' ');
+    const forms = [unprefixed, words.length > 1 ? (words.at(-1) ?? '') : ''];
+
+    return [...new Set(forms)].filter(form => form !== full && form.length >= MIN_SHORT_NAME_LENGTH && !NOT_A_HABIT.has(form));
+};
+
+/** How short a shortened artist name may be and still count as naming them. See {@link shortArtistNames}. */
+const MIN_SHORT_NAME_LENGTH = 4;
+
+/**
+ * A script with every word that does not open on a capital replaced by a `0`, which {@link bareWords}
+ * keeps as a word, so two capitalised words that were not side by side never become a name. See
+ * {@link shortArtistNames}.
+ */
+const capitalisedOnly = (script: string): string => script.replace(/[\p{L}\p{N}][\p{L}\p{N}‘’ʼ′']*/gu, word => (/^\p{Lu}/u.test(word) ? word : '0'));
 
 /**
  * Whether some bare words name a record, counting the possessive as the name.

@@ -921,6 +921,7 @@ export interface DeadairScheduleSlotHosts {
 }
 
 export interface DeadairScheduleSlots {
+  avoidMoods: string[] | null;
   breaks: boolean | null;
   brief: Generated<string>;
   callins: boolean | null;
@@ -1074,6 +1075,7 @@ export interface DeadairStationEvents {
 }
 
 export interface DeadairStationLineup {
+  avoidMoods: string[] | null;
   brief: Generated<string>;
   broadcastId: Generated<string>;
   coHostPersonaIds: string[] | null;

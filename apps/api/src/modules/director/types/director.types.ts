@@ -350,6 +350,13 @@ export const PutOnAirInput = z.strictObject({
         .describe(
             'The moods this broadcast leans into, as stages in order across the schedule slot it fills. Off the schedule, only the first is used. Records a model has judged to be in the mood are a little more likely to be picked; nothing is ever kept off the air for it. Absent or empty is no lean',
         ),
+    avoidMoods: z
+        .array(z.enum(['love', 'happiness', 'comfort', 'sadness', 'loneliness', 'anger', 'fear']))
+        .max(6)
+        .optional()
+        .describe(
+            'The moods this broadcast steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it. Absent or empty avoids nothing',
+        ),
     breaks: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()

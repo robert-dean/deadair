@@ -1,5 +1,5 @@
 import { Injectable } from 'injectkit';
-import { moodsField } from '#modules/lyrics/lyric.moods.js';
+import { avoidMoodsField, moodsField } from '#modules/lyrics/lyric.moods.js';
 import { stationCover } from '#modules/art/art.source.token.js';
 import type { ChartEntry } from '@deadair/plugin-sdk';
 import { AppConfig } from '@maroonedsoftware/appconfig';
@@ -489,6 +489,8 @@ export class DirectorConsoleService {
             ...(input.eraTo === undefined ? {} : { eraTo: input.eraTo }),
             // The mood the broadcast leans into, beside the period. A lean on the draw, never a filter.
             ...moodsField(input.moods),
+            // And the moods it steers away from: the same lean the other way up, never a refusal.
+            ...avoidMoodsField(input.avoidMoods),
             // Not validated against the persona table here, and deliberately: the resolver behind
             // it already falls back to the station's own host for an id that names nothing, which
             // is the same answer a persona deleted mid-broadcast gets. Refusing to go on air over a

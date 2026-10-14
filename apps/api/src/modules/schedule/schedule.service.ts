@@ -1,5 +1,5 @@
 import { Injectable } from 'injectkit';
-import { moodsField } from '#modules/lyrics/lyric.moods.js';
+import { avoidMoodsField, moodsField } from '#modules/lyrics/lyric.moods.js';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
@@ -538,6 +538,7 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
             ? {}
             : { era: { ...(body.eraFrom === undefined ? {} : { from: body.eraFrom }), ...(body.eraTo === undefined ? {} : { to: body.eraTo }) } }),
         ...moodsField(body.moods),
+        ...avoidMoodsField(body.avoidMoods),
         // `=== undefined` rather than a falsy test: `false` is a real answer meaning this slot takes
         // no calls, which is not the same as never having been asked.
         ...(body.callins === undefined ? {} : { callins: body.callins }),
@@ -664,6 +665,7 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
         ...(slot.era?.from === undefined ? {} : { eraFrom: slot.era.from }),
         ...(slot.era?.to === undefined ? {} : { eraTo: slot.era.to }),
         ...(slot.moods === undefined ? {} : { moods: slot.moods }),
+        ...(slot.avoidMoods === undefined ? {} : { avoidMoods: slot.avoidMoods }),
         ...(slot.callins === undefined ? {} : { callins: slot.callins }),
         ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
         ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),

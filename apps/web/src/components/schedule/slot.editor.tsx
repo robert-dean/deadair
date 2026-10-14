@@ -19,6 +19,7 @@ import {
     REQUEST_FOLLOW_ON_DEFAULT,
     RequestShowFields,
     requestShowInput,
+    AvoidMoodsField,
     MoodStagesField,
     type Mood,
     ShapeFields,
@@ -128,6 +129,7 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             ...(typeof values.eraFrom === 'number' ? { eraFrom: values.eraFrom } : {}),
             ...(typeof values.eraTo === 'number' ? { eraTo: values.eraTo } : {}),
             ...(values.moods.length === 0 ? {} : { moods: values.moods }),
+            ...(values.avoidMoods.length === 0 ? {} : { avoidMoods: values.avoidMoods }),
             // Sent only when it is ON. Absent is no calls, as it is for `putOnAir`.
             ...(values.callins ? { callins: true } : {}),
             // The same three-way, and only beside a playlist, the station's own or a provider's:
@@ -291,6 +293,12 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
 
                     <MoodStagesField value={form.values.moods} onChange={moods => form.setFieldValue('moods', moods)} />
 
+                    <AvoidMoodsField
+                        value={form.values.avoidMoods}
+                        leaning={form.values.moods}
+                        onChange={moods => form.setFieldValue('avoidMoods', moods)}
+                    />
+
                     <ShapeFields mode={form.getInputProps('mode')} onEnd={form.getInputProps('onEnd')} />
 
                     <ShapeNote what="block" />
@@ -410,6 +418,8 @@ interface FormValues {
     eraTo: number | string;
     /** Empty string is the Select cleared, which is no lean. */
     moods: Mood[];
+    /** Empty is nothing avoided, and sends nothing. */
+    avoidMoods: Mood[];
     /** Ticked sends `true`; unticked sends nothing, which is no calls. See `CallinsField`. */
     callins: boolean;
     /** Ticked sends `true`; unticked sends nothing, which leaves `rotation.mixInSimilar` standing. Drawn only for a playlist. */
@@ -460,6 +470,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         eraFrom: slot?.eraFrom ?? '',
         eraTo: slot?.eraTo ?? '',
         moods: slot?.moods ?? [],
+        avoidMoods: slot?.avoidMoods ?? [],
         callins: slot?.callins ?? false,
         mixInSimilar: slot?.mixInSimilar ?? false,
         dates: [slot?.startsOn ?? null, slot?.endsOn ?? null],

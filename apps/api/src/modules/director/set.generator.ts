@@ -89,6 +89,12 @@ export interface SetInputs {
      * and never a filter. See `director/mood.lean.ts`.
      */
     mood?: LyricMood;
+    /**
+     * The moods this broadcast steers away from, when it names any: a record judged to be in one is
+     * drawn half as often and never refused. The other half of {@link mood}, read by the same
+     * generator for the same reason. See `director/mood.lean.ts`.
+     */
+    avoidMoods?: readonly LyricMood[];
     /** Songs not to choose, beyond whatever history says: what the lineup already holds. */
     avoidSongKeys?: ReadonlySet<string>;
     /** Artists not to choose, for the same reason. */

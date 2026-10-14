@@ -161,6 +161,11 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<ScheduleSlotMoods>? Moods { get; init; }
 
+    /// <summary>The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing</summary>
+    [JsonPropertyName("avoidMoods")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ScheduleSlotAvoidMoods>? AvoidMoods { get; init; }
+
     /// <summary>Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says</summary>
     [JsonPropertyName("breaks")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -291,6 +296,11 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("moods")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<ScheduleSlotMoods>? Moods { get; init; }
+
+    /// <summary>The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing</summary>
+    [JsonPropertyName("avoidMoods")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ScheduleSlotAvoidMoods>? AvoidMoods { get; init; }
 
     /// <summary>Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says</summary>
     [JsonPropertyName("breaks")]
@@ -562,6 +572,87 @@ public sealed class ScheduleSlotMoodsConverter : JsonConverter<ScheduleSlotMoods
         ScheduleSlotMoods.Anger => "anger",
         ScheduleSlotMoods.Fear => "fear",
         _ => throw new JsonException($"ScheduleSlotMoods.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(ScheduleSlotAvoidMoodsConverter))]
+public enum ScheduleSlotAvoidMoods
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("love")]
+    Love,
+
+    [JsonStringEnumMemberName("happiness")]
+    Happiness,
+
+    [JsonStringEnumMemberName("comfort")]
+    Comfort,
+
+    [JsonStringEnumMemberName("sadness")]
+    Sadness,
+
+    [JsonStringEnumMemberName("loneliness")]
+    Loneliness,
+
+    [JsonStringEnumMemberName("anger")]
+    Anger,
+
+    [JsonStringEnumMemberName("fear")]
+    Fear,
+}
+
+/// <summary>
+/// Reads and writes <see cref="ScheduleSlotAvoidMoods"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ScheduleSlotAvoidMoods.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ScheduleSlotAvoidMoodsConverter : JsonConverter<ScheduleSlotAvoidMoods>
+{
+    public override ScheduleSlotAvoidMoods Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ScheduleSlotAvoidMoods, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ScheduleSlotAvoidMoods value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ScheduleSlotAvoidMoods ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ScheduleSlotAvoidMoods value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ScheduleSlotAvoidMoods FromWire(string? text) => text switch
+    {
+        "love" => ScheduleSlotAvoidMoods.Love,
+        "happiness" => ScheduleSlotAvoidMoods.Happiness,
+        "comfort" => ScheduleSlotAvoidMoods.Comfort,
+        "sadness" => ScheduleSlotAvoidMoods.Sadness,
+        "loneliness" => ScheduleSlotAvoidMoods.Loneliness,
+        "anger" => ScheduleSlotAvoidMoods.Anger,
+        "fear" => ScheduleSlotAvoidMoods.Fear,
+        _ => ScheduleSlotAvoidMoods.Unknown,
+    };
+
+    private static string ToWire(ScheduleSlotAvoidMoods value) => value switch
+    {
+        ScheduleSlotAvoidMoods.Love => "love",
+        ScheduleSlotAvoidMoods.Happiness => "happiness",
+        ScheduleSlotAvoidMoods.Comfort => "comfort",
+        ScheduleSlotAvoidMoods.Sadness => "sadness",
+        ScheduleSlotAvoidMoods.Loneliness => "loneliness",
+        ScheduleSlotAvoidMoods.Anger => "anger",
+        ScheduleSlotAvoidMoods.Fear => "fear",
+        _ => throw new JsonException($"ScheduleSlotAvoidMoods.{value} has no wire spelling, so it cannot be sent."),
     };
 }
 

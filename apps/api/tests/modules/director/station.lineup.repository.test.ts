@@ -135,6 +135,7 @@ const lineup = () =>
             eraFrom: 1970,
             eraTo: 1989,
             moods: ['comfort', 'loneliness'],
+            avoidMoods: ['anger'],
             personaId: 'persona-1',
             slotId: 'slot-1',
             // Who put it on, which the slot stamp above cannot answer: a broadcast sustaining a gap

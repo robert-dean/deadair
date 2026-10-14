@@ -151,6 +151,13 @@ export const ScheduleSlot = z.strictObject({
         .describe(
             "The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean",
         ),
+    avoidMoods: z
+        .array(z.enum(['love', 'happiness', 'comfort', 'sadness', 'loneliness', 'anger', 'fear']))
+        .max(6)
+        .optional()
+        .describe(
+            'The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing',
+        ),
     breaks: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
@@ -283,6 +290,13 @@ export const ScheduleSlotInput = z.strictObject({
         .optional()
         .describe(
             "The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean",
+        ),
+    avoidMoods: z
+        .array(z.enum(['love', 'happiness', 'comfort', 'sadness', 'loneliness', 'anger', 'fear']))
+        .max(6)
+        .optional()
+        .describe(
+            'The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing',
         ),
     breaks: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())

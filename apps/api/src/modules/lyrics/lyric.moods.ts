@@ -48,6 +48,22 @@ export function moodsField(values: readonly unknown[] | null | undefined): { moo
     return moods === undefined ? {} : { moods };
 }
 
+/** How many moods a slot or a broadcast may steer away from: all but one, since avoiding all seven says nothing. */
+export const MAX_AVOIDED_MOODS = LYRIC_MOODS.length - 1;
+
+/**
+ * A stored or sent list of moods to steer away from as the code reads it: the known moods only, each
+ * once, at most {@link MAX_AVOIDED_MOODS}, and nothing at all rather than an empty list. A set rather
+ * than stages, so the order is the operator's and means nothing. See `director/mood.lean.ts`.
+ */
+export function avoidMoodsField(values: readonly unknown[] | null | undefined): { avoidMoods?: LyricMood[] } {
+    const avoided = [...new Set((values ?? []).filter((value): value is LyricMood => (LYRIC_MOODS as readonly unknown[]).includes(value)))].slice(
+        0,
+        MAX_AVOIDED_MOODS,
+    );
+    return avoided.length === 0 ? {} : { avoidMoods: avoided };
+}
+
 /** What each mood means, as the model is told it. The wording is part of {@link MOODS_VERSION}. */
 const MOOD_MEANING: Record<LyricMood, string> = {
     love: 'affection, romance, desire, or loving memory',

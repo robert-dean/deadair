@@ -85,6 +85,8 @@ export interface ScheduleSlot {
     eraTo?: number;
     /** The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean */
     moods?: ('love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear')[];
+    /** The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing */
+    avoidMoods?: ('love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear')[];
     /** Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says */
     breaks?: boolean;
     /** Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says */
@@ -139,6 +141,8 @@ export interface ScheduleSlotInput {
     eraTo?: number;
     /** The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean */
     moods?: ('love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear')[];
+    /** The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing */
+    avoidMoods?: ('love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear')[];
     /** Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says */
     breaks?: boolean;
     /** Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says */

@@ -61,6 +61,12 @@ export const programme = {
             fear: 'Fear',
         },
     },
+    avoidMoods: {
+        label: 'Steers away from',
+        description:
+            'Records a model has judged to be in these moods are half as likely to be picked, all through the slot. Nothing is ever kept off the air for it, and it does nothing until moods are switched on under Words. To refuse a genre outright, add a never-play rule.',
+        none: 'Nothing avoided',
+    },
     shape: {
         modeLabel: 'Mode',
         mode: {

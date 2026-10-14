@@ -1,5 +1,5 @@
 import { Injectable } from 'injectkit';
-import { moodsField } from '#modules/lyrics/lyric.moods.js';
+import { avoidMoodsField, moodsField } from '#modules/lyrics/lyric.moods.js';
 import { sql } from 'kysely';
 import { DataRepository } from '#modules/data/data.repository.js';
 import { toJsonb } from '#modules/data/jsonb.js';
@@ -52,6 +52,7 @@ export class StationLineupRepository extends DataRepository {
                 'eraFrom',
                 'eraTo',
                 'moods',
+                'avoidMoods',
                 'personaId',
                 'slotId',
                 'placedBy',
@@ -87,6 +88,7 @@ export class StationLineupRepository extends DataRepository {
                 ...(row.eraFrom == null ? {} : { eraFrom: row.eraFrom }),
                 ...(row.eraTo == null ? {} : { eraTo: row.eraTo }),
                 ...moodsField(row.moods),
+                ...avoidMoodsField(row.avoidMoods),
                 // Null means the station's own active persona, so an absent host and a station that
                 // was never told who is presenting are the same thing everywhere above.
                 ...(row.personaId == null ? {} : { personaId: row.personaId }),
@@ -138,6 +140,7 @@ export class StationLineupRepository extends DataRepository {
             eraFrom: snapshot.eraFrom ?? null,
             eraTo: snapshot.eraTo ?? null,
             moods: snapshot.moods === undefined || snapshot.moods.length === 0 ? null : [...snapshot.moods],
+            avoidMoods: snapshot.avoidMoods === undefined || snapshot.avoidMoods.length === 0 ? null : [...snapshot.avoidMoods],
             personaId: snapshot.personaId ?? null,
             slotId: snapshot.slotId ?? null,
             placedBy: snapshot.placedBy ?? 'operator',

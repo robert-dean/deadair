@@ -155,6 +155,7 @@ public class SlotDraftTests
             EndsOn = "2026-10-31",
             Yearly = true,
             Moods = [ScheduleSlotMoods.Comfort, ScheduleSlotMoods.Fear],
+            AvoidMoods = [ScheduleSlotAvoidMoods.Sadness],
             GuestHosts = [new SlotGuestHost { PersonaId = "rockzo", EveryN = 7 }],
             CoHosts = [new SlotCoHost { PersonaId = "lemmy", EveryN = 25, CooldownDays = 14 }],
         };
@@ -165,6 +166,7 @@ public class SlotDraftTests
         Assert.Equal("2026-10-31", input.EndsOn);
         Assert.True(input.Yearly);
         Assert.Equal([ScheduleSlotMoods.Comfort, ScheduleSlotMoods.Fear], input.Moods);
+        Assert.Equal([ScheduleSlotAvoidMoods.Sadness], input.AvoidMoods);
         Assert.Equal("rockzo", Assert.Single(input.GuestHosts!).PersonaId);
         Assert.Equal("lemmy", Assert.Single(input.CoHosts!).PersonaId);
     }

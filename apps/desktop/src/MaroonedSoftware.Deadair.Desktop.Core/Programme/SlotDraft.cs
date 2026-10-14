@@ -96,6 +96,7 @@ public sealed record SlotDraft
             Kept = new SlotPassthrough
             {
                 Moods = slot.Moods,
+                AvoidMoods = slot.AvoidMoods,
                 StartsOn = slot.StartsOn,
                 EndsOn = slot.EndsOn,
                 Yearly = slot.Yearly,
@@ -200,6 +201,7 @@ public sealed record SlotDraft
             Callins = Callins ? true : null,
             MixInSimilar = MixInSimilar && ProgrammeSource.MixesInto(Source) ? true : null,
             Moods = Kept.Moods,
+            AvoidMoods = Kept.AvoidMoods,
             StartsOn = Kept.StartsOn,
             EndsOn = Kept.EndsOn,
             Yearly = Kept.Yearly,
@@ -281,6 +283,9 @@ public sealed record SlotPassthrough
 {
     /// <summary>The slot's mood stages, in order; null for no lean.</summary>
     public List<ScheduleSlotMoods>? Moods { get; init; }
+
+    /// <summary>The moods the slot steers away from; null for none.</summary>
+    public List<ScheduleSlotAvoidMoods>? AvoidMoods { get; init; }
 
     /// <summary>A special's first date, <c>YYYY-MM-DD</c>; null on a weekly slot.</summary>
     public string? StartsOn { get; init; }

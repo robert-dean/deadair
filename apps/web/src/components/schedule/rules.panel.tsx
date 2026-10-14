@@ -110,12 +110,16 @@ function SteerCard() {
     );
 }
 
+/** What a never-play rule reads: a genre, an exact tag, or a version of a record (live recordings). */
+type RuleField = BlockRule['field'];
+
 function NeverPlayCard() {
     const { t } = useTranslation('schedule');
     const rules = useNeverPlayRules();
     const add = useAddNeverPlayRule();
     const remove = useRemoveNeverPlayRule();
-    const [field, setField] = useState<'genre' | 'tag'>('genre');
+    // `version` is the live-recordings rule: its value is the version, so there is nothing to type.
+    const [field, setField] = useState<RuleField>('genre');
     const [value, setValue] = useState('');
     const [seasonFrom, setSeasonFrom] = useState('');
     const [seasonTo, setSeasonTo] = useState('');
@@ -138,7 +142,7 @@ function NeverPlayCard() {
         add.mutate(
             {
                 field,
-                value: value.trim(),
+                value: field === 'version' ? 'live' : value.trim(),
                 ...(seasonFrom.trim() === '' || seasonTo.trim() === '' ? {} : { seasonFrom: seasonFrom.trim(), seasonTo: seasonTo.trim() }),
                 ...(typeof fromHour === 'number' && typeof untilHour === 'number' ? { fromHour, untilHour } : {}),
                 // Sent only when something was chosen: an empty list means "every one" to the API as
@@ -176,10 +180,10 @@ function NeverPlayCard() {
                         <Stack gap={2}>
                             <Group gap="xs">
                                 <Badge size="sm" variant="light" color="gray">
-                                    {rule.field === 'genre' ? t('rules.never.field.genre') : t('rules.never.field.tag')}
+                                    {t(`rules.never.field.${rule.field}`)}
                                 </Badge>
                                 <Text size="sm" fw={500}>
-                                    {rule.value}
+                                    {rule.field === 'version' ? t('rules.never.versionLive') : rule.value}
                                 </Text>
                                 <Badge size="sm" variant="light" color={rule.inForce ? 'red' : 'gray'}>
                                     {rule.inForce ? t('rules.never.inForce') : t('rules.never.notNow')}
@@ -199,21 +203,24 @@ function NeverPlayCard() {
                     <Group align="flex-end" gap="sm" wrap="wrap">
                         <SegmentedControl
                             value={field}
-                            onChange={next => setField(next === 'tag' ? 'tag' : 'genre')}
+                            onChange={next => setField(next === 'tag' || next === 'version' ? next : 'genre')}
                             data={[
                                 { value: 'genre', label: t('rules.never.field.genre') },
                                 { value: 'tag', label: t('rules.never.field.tag') },
+                                { value: 'version', label: t('rules.never.versionLive') },
                             ]}
                         />
-                        <TextInput
-                            label={field === 'genre' ? t('rules.never.valueGenre') : t('rules.never.valueTag')}
-                            value={value}
-                            onChange={event => setValue(event.currentTarget.value)}
-                            style={{ flex: 1, minWidth: 200 }}
-                        />
+                        {field === 'version' ? undefined : (
+                            <TextInput
+                                label={field === 'genre' ? t('rules.never.valueGenre') : t('rules.never.valueTag')}
+                                value={value}
+                                onChange={event => setValue(event.currentTarget.value)}
+                                style={{ flex: 1, minWidth: 200 }}
+                            />
+                        )}
                     </Group>
                     <Text size="xs" c="dimmed">
-                        {field === 'genre' ? t('rules.never.genreHint') : t('rules.never.tagHint')}
+                        {field === 'genre' ? t('rules.never.genreHint') : field === 'tag' ? t('rules.never.tagHint') : t('rules.never.liveHint')}
                     </Text>
                     <Group align="flex-end" gap="sm" wrap="wrap">
                         <TextInput
@@ -270,7 +277,7 @@ function NeverPlayCard() {
                             clearable
                             style={{ flex: 1, minWidth: 200 }}
                         />
-                        <Button disabled={value.trim() === ''} loading={add.isPending} onClick={submit}>
+                        <Button disabled={field !== 'version' && value.trim() === ''} loading={add.isPending} onClick={submit}>
                             {t('rules.never.add')}
                         </Button>
                     </Group>

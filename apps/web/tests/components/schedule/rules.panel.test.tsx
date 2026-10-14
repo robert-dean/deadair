@@ -83,6 +83,21 @@ describe('RulesPanel', () => {
         await waitFor(() => expect(addANeverPlayRule).toHaveBeenCalledWith({ field: 'genre', value: 'Country' }));
     });
 
+    it('adds a rule refusing live recordings with nothing to type, and names it in the list', async () => {
+        listNeverPlayRules.mockResolvedValue({ rules: [{ id: 'r1', field: 'version', value: 'live', inForce: true }] });
+        readTheGenreSteer.mockResolvedValue({});
+        addANeverPlayRule.mockResolvedValue({ rules: [] });
+        const user = setupUser();
+        render(<RulesPanel />);
+
+        expect(await screen.findByText('Version')).toBeInTheDocument();
+        await user.click(screen.getByRole('radio', { name: 'Live recordings' }));
+        expect(screen.queryByRole('textbox', { name: 'Genre' })).not.toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Add rule' }));
+
+        await waitFor(() => expect(addANeverPlayRule).toHaveBeenCalledWith({ field: 'version', value: 'live' }));
+    });
+
     it('names the modes and schedule blocks a rule is limited to, and the id of a block that is gone', async () => {
         listNeverPlayRules.mockResolvedValue({
             rules: [{ id: 'r1', field: 'genre', value: 'Metal', modes: ['rotation', 'feature'], slotIds: ['s1', 'gone'], inForce: false }],

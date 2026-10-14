@@ -59,6 +59,21 @@ describe('ArtistsRepository.namedIn', () => {
         expect(queries[0]!.sql).toMatch(/"merged_into_id" is null/);
     });
 
+    it('drops a library act whose name is only part of a longer one in the brief', async () => {
+        const rows = [
+            { name: 'Dirty Honey', artist_key: 'dirty honey' },
+            { name: 'Honey', artist_key: 'honey' },
+            { name: 'The Darkness', artist_key: 'the darkness' },
+            { name: 'Darkness', artist_key: 'darkness' },
+        ];
+        const repository = new ArtistsRepository(fakeDb(rows, []));
+
+        expect(await repository.namedIn('Rival Sons, The Struts, Dirty Honey, The Darkness.')).toEqual([
+            { name: 'Dirty Honey', artistKey: 'dirty honey' },
+            { name: 'The Darkness', artistKey: 'the darkness' },
+        ]);
+    });
+
     it('is case-sensitive, so a lower-case word in the brief is not an act', async () => {
         const repository = new ArtistsRepository(fakeDb([{ name: 'loud', artist_key: 'loud' }], []));
 

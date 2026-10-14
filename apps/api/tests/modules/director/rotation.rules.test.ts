@@ -5,6 +5,7 @@
 // against the cases that produce those silences, not just the happy path.
 
 import { settingsConfig } from '../../utils/settings.config.js';
+import { MOOD_AVOID } from '../../../src/modules/director/mood.lean.js';
 import { describe, expect, it } from 'vitest';
 
 import { albumKey, artistKey, creditKey, songKey, spacingKeys } from '../../../src/modules/director/rotation.keys.js';
@@ -463,6 +464,12 @@ describe('weightOf under smart shuffle', () => {
         // A liked record that just aired is still twice as likely as an unliked one that just aired.
         expect(weightOf(fresh(0, 1))).toBe(2 * FRESH_FLOOR);
         expect(weightOf(fresh(1, 1))).toBe(2);
+    });
+
+    it('halves a record in an avoided mood, and cancels against the mood leant into', () => {
+        expect(weightOf({ ...candidate('A', ['One']), moodAvoid: true })).toBe(MOOD_AVOID);
+        expect(MOOD_AVOID).toBeGreaterThan(0);
+        expect(weightOf({ ...candidate('A', ['One']), moodFit: true, moodAvoid: true })).toBe(1);
     });
 
     it('reads a freshness outside the ramp as its nearest end', () => {

@@ -1,4 +1,4 @@
-import { MOOD_BOOST } from './mood.lean.js';
+import { MOOD_AVOID, MOOD_BOOST } from './mood.lean.js';
 import { skipWeight } from './skip.lean.js';
 import { DEEP_CUT_LEAN, RETURN_LEAN } from './rediscover.js';
 import { isArtistHeld, sameAct } from './rotation.keys.js';
@@ -473,6 +473,12 @@ export interface RotationCandidate {
      */
     moodFit?: true;
     /**
+     * Whether a model judged this record to be in a mood the broadcast steers away from. Only ever
+     * `true` or absent, and a lean like {@link moodFit} the other way up: it halves the chance and
+     * never zeroes it. A record both in the mood and in an avoided one carries both, and they cancel.
+     */
+    moodAvoid?: true;
+    /**
      * How strongly the station is leaning toward this record right now, as a multiplier on its weight.
      * Absent weighs like `1`. Set only by a draw that read a genre steer (`genre.steer.ts`), and only
      * ever a lean: it changes how often a record is drawn and never whether it may be. It multiplies
@@ -553,6 +559,7 @@ export const weightOf = (candidate: RotationCandidate): number =>
     (candidate.rating === 1 ? 2 : 1) *
     freshWeight(candidate.freshness) *
     (candidate.moodFit === true ? MOOD_BOOST : 1) *
+    (candidate.moodAvoid === true ? MOOD_AVOID : 1) *
     (candidate.lean ?? 1) *
     (candidate.returning === true ? RETURN_LEAN : 1) *
     (candidate.deepCut === true ? DEEP_CUT_LEAN : 1) *
